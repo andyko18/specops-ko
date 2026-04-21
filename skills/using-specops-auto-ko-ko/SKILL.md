@@ -23,6 +23,8 @@ used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 - "/start <기능>" 슬래시
 - 명확한 신규 산출물 요청
 
+> **경계**: `/start <인자>` 슬래시의 동작 정의는 `commands/start.md` 가 Source of Truth. 본 메타 skill 은 **자연어 입력** 의 신호 감지만 책임한다. `/start` 에 붙은 인자 내용이 "기능 설명으로 보이지 않는다"는 이유로 specifying-ko 호출을 보류하는 2차 판단은 `commands/start.md` 안티패턴 "인자 내용 2차 판단" 에 의해 금지 — 슬래시 진입은 무조건 specifying-ko 로 직행.
+
 이는 협상 사항이 아니다. 합리화로 우회 금지.
 </EXTREMELY-IMPORTANT>
 

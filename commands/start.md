@@ -50,6 +50,7 @@ chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. �
 ## 안티패턴
 
 - **인자 없이 진입** — `/start`만 치면 어떤 기능을 만들지 사용자에게 되물음 (modally). `/start <기능 설명>` 권장
+- **인자 내용 2차 판단** — `/start <아무 인자>` 는 인자가 "기능 설명 신호처럼 보이지 않는다"는 이유로 `specops-auto-ko:specifying-ko` 호출을 **보류하지 않는다**. 슬래시 진입 자체가 사용자 의도 확정 신호 (명시적 진입). 인자 적합성은 specifying-ko 가 HARD GATE 로 처리. 메타 skill 의 자연어 신호 감지 로직을 command 레이어에 복제 금지
 - **구현 직진 요구** — `/start "그냥 바로 만들어"` 같은 명시 우회도 specifying-ko가 HARD GATE로 **거절**. 5원칙 4 주권 + 안티패턴 "너무 간단해서 설계 불필요" 적용
 - **specifying-ko 생략** — /start 이후 planning-ko·implementing-ko를 직접 호출해도 chain 무결성 **깨짐**. 반드시 specifying-ko부터
 
