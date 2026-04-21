@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# specops-ko v0.2 · 플러그인 구조 무결성 정적 검증 (Gate)
+# specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-# 참조: docs/case-studies/2026-04-21-session-5-design.md §3.1
+# baseline: Phase 1 (commands=1 /start, agents 없음 · conductor 없이 chain, knowledge 없음)
+# 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
 JSON_MODE=0
@@ -16,41 +17,38 @@ FAILS=0
 RESULTS=()
 emit() { RESULTS+=("$1|$2|${3:-}"); [ "$2" = "FAIL" ] && FAILS=$((FAILS+1)); }
 
-# 1) 디렉토리 존재
+# 1) 디렉토리 존재 (v0.0 baseline: agents·knowledge/* 제외)
 miss_d=()
-for d in commands agents skills/harness skills/engine templates \
-         knowledge/constitution knowledge/checklists knowledge/anti-patterns knowledge/patterns \
-         docs hooks scripts; do
+for d in commands skills/harness skills/engine templates docs hooks scripts; do
   [ -d "$d" ] || miss_d+=("$d")
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수
+# 2) 파일 개수 (v0.0 baseline: commands=1 /start, agents 0, harness=6, engine>=4, templates=6)
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"      = 8 ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 8")
-[ "$(count_of 'agents/*.md')"        = 8 ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 8")
-[ "$(count_of 'skills/harness/*.md')" = 5 ] || fc+=("harness: got $(count_of 'skills/harness/*.md'), expect 5")
+[ "$(count_of 'commands/*.md')"       = 1 ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
+[ "$(count_of 'skills/harness/*.md')" = 6 ] || fc+=("harness: got $(count_of 'skills/harness/*.md'), expect 6")
 n_eng=$(count_of 'skills/engine/*.md'); [ "$n_eng" -ge 4 ] || fc+=("engine: got $n_eng, expect >=4")
-[ "$(count_of 'templates/*.md')"     = 6 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
+[ "$(count_of 'templates/*.md')"      = 6 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 
-# 3) frontmatter YAML 유효
+# 3) frontmatter YAML 유효 (v0.0: agents·knowledge 디렉토리 없음)
 if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
   bad=()
   while IFS= read -r -d '' f; do
     head -1 "$f" | grep -q '^---$' || continue
     awk 'NR==1 && /^---$/ {inside=1; next} inside && /^---$/ {exit} inside' "$f" \
       | python3 -c "import sys,yaml; yaml.safe_load(sys.stdin)" 2>/dev/null || bad+=("$f")
-  done < <(find commands agents skills templates knowledge -name '*.md' -type f -print0)
+  done < <(find commands skills templates -name '*.md' -type f -print0)
   if [ ${#bad[@]} -eq 0 ]; then emit frontmatter OK; else emit frontmatter FAIL "${bad[*]}"; fi
 else
   emit frontmatter SKIP "python3+pyyaml 미설치 — 한계 고백"
 fi
 
-# 4) commands/·agents/ 에 superpowers 런타임 참조 0건
+# 4) commands/ 에 superpowers 런타임 참조 0건 (v0.0: agents/ 없음)
 # 허용: #/<!-- 주석, YAML 리스트(- superpowers), reference_upstream:, superpowers:/... 경로
-sp=$(grep -rE '^[^#<-]*superpowers:' commands/ agents/ 2>/dev/null \
+sp=$(grep -rE '^[^#<-]*superpowers:' commands/ 2>/dev/null \
      | grep -vE '^[^:]*:[[:space:]]*(#|reference_upstream)' || true)
 if [ -z "$sp" ]; then emit no_superpowers OK; else emit no_superpowers FAIL "$(echo "$sp" | head -3 | tr '\n' ';')"; fi
 
@@ -67,10 +65,10 @@ else
   emit manifest SKIP "python3 미설치"
 fi
 
-# 6) reference_upstream 포맷 정보성
-total=$(grep -rh '^reference_upstream:' commands/ agents/ skills/ knowledge/ docs/ 2>/dev/null | wc -l | tr -d ' ')
+# 6) reference_upstream 포맷 정보성 (v0.0: agents·knowledge 없음)
+total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
 struct=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
-         commands/ agents/ skills/ knowledge/ docs/ 2>/dev/null | wc -l | tr -d ' ')
+         commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
 emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
 # 출력
