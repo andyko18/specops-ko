@@ -1,0 +1,171 @@
+---
+name: engine/decomposing-ko
+description: planning-ko 완료 후 호출 — plan.md를 2~5분 단위 TDD 5스텝 태스크로 분해. 모든 must AC가 최소 1 태스크에 매핑되도록 보장
+layer: 2
+reference_upstream:
+  - github/spec-kit commands/tasks.md (specops-ko 경유)
+  - specops-ko commands/tasks.md
+  - specops-ko templates/tasks.md
+  - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
+specops_version: 0.0.0
+used_by: engine/planning-ko (chain 진입), engine/implementing-ko (chain 출구)
+---
+
+# Engine 스킬 — 태스크 분해 (decomposing)
+
+`plan.md`의 카테고리·순서를 **2~5분 단위 TDD 바이트사이즈 태스크**로 분해한다. 모든 `must` AC가 **최소 1 태스크**에 매핑되도록 보장.
+
+<HARD-GATE>
+**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `engine/implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
+</HARD-GATE>
+
+## 체크리스트
+
+1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**
+2. **AC 커버리지 매핑** — 각 `must` AC → 최소 1 태스크 할당. 커버리지 표 작성
+3. **파일 구조 확정** — plan.md §파일 구조의 Create/Modify/Delete 목록 고정
+4. **TDD 5스텝 작성** — `engine/tdd-ko` 준수:
+   - Step 1 RED: 실패 테스트 (실제 코드)
+   - Step 2 검증: FAIL 확인
+   - Step 3 GREEN: 최소 구현 (실제 코드)
+   - Step 4 검증: PASS 확인
+   - Step 5 COMMIT: `git add` + 한국어 커밋 메시지
+5. **문지기 체크 (원칙 2)** — 파괴적 작업 태스크는 **별도 분리** + `⚠️ 사용자 승인 필요` 표기 + 확인 스텝 삽입
+6. **플레이스홀더 스캔** — TBD·TODO·"similar to N" 발견 시 **구체 코드로 대체**
+7. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
+8. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
+9. **session-progress append** — `engine/implementing-ko` 다음 단계 안내
+10. **전환** — `engine/implementing-ko` 호출
+
+## 태스크 크기 규약
+
+**각 태스크 = 2~5분 작업 단위**
+
+- 5 스텝 (RED 작성·FAIL 검증·GREEN 구현·PASS 검증·COMMIT)
+- 각 스텝에 **실제 코드·명령·예상 출력** 포함
+- 단일 파일 또는 밀접한 2~3 파일로 한정
+- 스텝 간 의존 없음 (스텝 N+1이 스텝 N 산출 없이도 읽고 이해 가능)
+
+**태스크가 5분을 초과한다면**: 더 작은 태스크로 분할
+
+## AC 커버리지 표
+
+```markdown
+## AC → Task 매핑
+
+| AC | must/should | Task(s) |
+|---|---|---|
+| AC-1 | must | Task 1, Task 3 |
+| AC-2 | must | Task 2 |
+| AC-3 | must | Task 4 |
+| AC-4 | should | Task 5 |
+| AC-5 | must | Task 6 |
+
+**must AC 커버리지**: 5/5 (100%)
+```
+
+**미매핑 must AC가 1건이라도 있으면 → chain 중단, planning-ko 재호출**
+
+## 태스크 포맷
+
+`templates/tasks.md` 그대로 사용. 각 태스크는:
+
+````markdown
+### Task N: <컴포넌트명>
+
+**AC 매핑**: AC-1, AC-3
+**파일**:
+- Create: `exact/path/to/file.py`
+- Modify: `exact/path/to/existing.py:123-145`
+- Test: `tests/exact/path/to/test.py`
+
+- [ ] **Step 1: RED — 실패 테스트 작성**
+
+```python
+def test_specific_behavior():
+    result = function(input)
+    assert result == expected
+```
+
+- [ ] **Step 2: FAIL 검증**
+
+실행: `pytest tests/path/test.py::test_name -v`
+예상: `FAIL — function not defined`
+
+- [ ] **Step 3: GREEN — 최소 구현**
+
+```python
+def function(input):
+    return expected
+```
+
+- [ ] **Step 4: PASS 검증**
+
+실행: `pytest tests/path/test.py::test_name -v`
+예상: `PASS`
+
+- [ ] **Step 5: COMMIT**
+
+```bash
+git add tests/path/test.py src/path/file.py
+git commit -m "feat: <기능명> 추가"
+```
+````
+
+## 파괴적 작업 격리
+
+데이터 삭제·프로덕션 설정 변경·마이그레이션 등 **되돌릴 수 없는 작업**은:
+
+1. **별도 태스크**로 분리 (다른 태스크와 합치지 말 것)
+2. 태스크 헤더에 `⚠️ 사용자 승인 필요` 표기
+3. **Step 0 삽입**: "사용자에게 파괴적 변경 승인 요청. 승인 없으면 태스크 중단"
+
+```markdown
+### Task 7 ⚠️ 사용자 승인 필요: `.cache/` 디렉토리 정리
+
+- [ ] **Step 0: 승인 요청**
+
+사용자에게 다음 메시지 전달:
+> "Task 7은 `.cache/` 디렉토리 전체를 삭제합니다. 진행하시겠습니까? [y/n]"
+
+`y`가 아니면 **중단**.
+
+- [ ] **Step 1: RED** ...
+```
+
+## 5원칙 주입 (specops-auto-ko 고유)
+
+| 원칙 | 본 스킬 적용 |
+|---|---|
+| 1 **투명성** | 각 태스크에 AC 매핑 명시. "이 태스크가 어느 요구사항을 충족하는가" |
+| 2 **문지기** | 파괴적 태스크는 별도 격리 + 승인 스텝. 합치지 말 것 |
+| 3 **깊이** | 플레이스홀더 남기지 말 것. "similar to N"도 구체화 |
+| 4 **주권 존중** | 파괴적 작업 승인은 사용자에게 직접 질문. 대신 결정 금지 |
+| 5 **한계 고백** | 불확실한 태스크에 "추정 — 구현 중 확인 필요" 태그 |
+
+## 안티패턴
+
+- **태스크 크기 초과** — 1 태스크 = 2~5분. 더 크면 분할
+- **TDD 5스텝 생략** — 특히 RED 검증 스텝 누락
+- **플레이스홀더 포함** — TBD·TODO·구현 생략 금지
+- **미매핑 must AC 방치** — 커버리지 100% 전 chain 진행 금지
+- **파괴적 작업을 일반 태스크에 섞음** — 반드시 격리
+- **Task N 참조만으로 코드 생략** — 엔지니어가 순서와 무관하게 읽을 수 있으니 코드 반복
+
+## 참조
+
+- `skills/engine/planning-ko.md` — 선행 스킬
+- `skills/engine/tdd-ko.md` — TDD 5스텝 규약
+- `templates/tasks.md` — 출력 포맷
+- upstream 근거: Spec-Kit `commands/tasks.md` (specops-ko 경유) + `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`의 bite-sized 태스크 단위 규약
+- specops-ko 선례: `commands/tasks.md`, `templates/tasks.md`
+
+## 다음 skill
+
+tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 후 즉시 호출:
+
+```
+Skill: engine/implementing-ko
+```
+
+implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **implementing-ko 이외의 다음 스킬을 호출하지 않는다**.

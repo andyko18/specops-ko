@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# specops-ko v0.2 · 플러그인 구조 무결성 정적 검증 (Gate)
+# 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
+# 사용: scripts/validate-structure.sh [--json]
+# 참조: docs/case-studies/2026-04-21-session-5-design.md §3.1
+set -u
+
+JSON_MODE=0
+[ "${1:-}" = "--json" ] && JSON_MODE=1
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+plugin_root=$(dirname "$script_dir")
+cd "$plugin_root"
+
+FAILS=0
+RESULTS=()
+emit() { RESULTS+=("$1|$2|${3:-}"); [ "$2" = "FAIL" ] && FAILS=$((FAILS+1)); }
+
+# 1) 디렉토리 존재
+miss_d=()
+for d in commands agents skills/harness skills/engine templates \
+         knowledge/constitution knowledge/checklists knowledge/anti-patterns knowledge/patterns \
+         docs hooks scripts; do
+  [ -d "$d" ] || miss_d+=("$d")
+done
+if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
+
+# 2) 파일 개수
+fc=()
+count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
+[ "$(count_of 'commands/*.md')"      = 8 ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 8")
+[ "$(count_of 'agents/*.md')"        = 8 ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 8")
+[ "$(count_of 'skills/harness/*.md')" = 5 ] || fc+=("harness: got $(count_of 'skills/harness/*.md'), expect 5")
+n_eng=$(count_of 'skills/engine/*.md'); [ "$n_eng" -ge 4 ] || fc+=("engine: got $n_eng, expect >=4")
+[ "$(count_of 'templates/*.md')"     = 6 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
+if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
+
+# 3) frontmatter YAML 유효
+if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  bad=()
+  while IFS= read -r -d '' f; do
+    head -1 "$f" | grep -q '^---$' || continue
+    awk 'NR==1 && /^---$/ {inside=1; next} inside && /^---$/ {exit} inside' "$f" \
+      | python3 -c "import sys,yaml; yaml.safe_load(sys.stdin)" 2>/dev/null || bad+=("$f")
+  done < <(find commands agents skills templates knowledge -name '*.md' -type f -print0)
+  if [ ${#bad[@]} -eq 0 ]; then emit frontmatter OK; else emit frontmatter FAIL "${bad[*]}"; fi
+else
+  emit frontmatter SKIP "python3+pyyaml 미설치 — 한계 고백"
+fi
+
+# 4) commands/·agents/ 에 superpowers 런타임 참조 0건
+# 허용: #/<!-- 주석, YAML 리스트(- superpowers), reference_upstream:, superpowers:/... 경로
+sp=$(grep -rE '^[^#<-]*superpowers:' commands/ agents/ 2>/dev/null \
+     | grep -vE '^[^:]*:[[:space:]]*(#|reference_upstream)' || true)
+if [ -z "$sp" ]; then emit no_superpowers OK; else emit no_superpowers FAIL "$(echo "$sp" | head -3 | tr '\n' ';')"; fi
+
+# 5) 매니페스트 version 일관성
+if command -v python3 >/dev/null 2>&1; then
+  pv=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo ERR)
+  mv=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])" 2>/dev/null || echo ERR)
+  if [ "$pv" = "$mv" ] && [ "$pv" != ERR ]; then
+    emit manifest OK "both=$pv"
+  else
+    emit manifest FAIL "plugin.json=$pv vs marketplace.json=$mv"
+  fi
+else
+  emit manifest SKIP "python3 미설치"
+fi
+
+# 6) reference_upstream 포맷 정보성
+total=$(grep -rh '^reference_upstream:' commands/ agents/ skills/ knowledge/ docs/ 2>/dev/null | wc -l | tr -d ' ')
+struct=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
+         commands/ agents/ skills/ knowledge/ docs/ 2>/dev/null | wc -l | tr -d ' ')
+emit ref_upstream_fmt INFO "struct=${struct}/${total}"
+
+# 출력
+if [ "$JSON_MODE" -eq 1 ]; then
+  printf '{"fails":%d,"checks":[' "$FAILS"
+  i=0
+  for r in "${RESULTS[@]}"; do
+    name=${r%%|*}; rest=${r#*|}; status=${rest%%|*}; detail=${rest#*|}
+    [ $i -gt 0 ] && printf ','
+    esc=$(printf '%s' "$detail" | python3 -c "import sys,json; sys.stdout.write(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '""')
+    printf '{"name":"%s","status":"%s","detail":%s}' "$name" "$status" "$esc"
+    i=$((i+1))
+  done
+  printf ']}\n'
+else
+  for r in "${RESULTS[@]}"; do
+    name=${r%%|*}; rest=${r#*|}; status=${rest%%|*}; detail=${rest#*|}
+    case "$status" in
+      OK)   echo "✅ $name: OK${detail:+ ($detail)}" ;;
+      FAIL) echo "❌ $name: FAIL — $detail" ;;
+      SKIP) echo "⚠️  $name: SKIP — $detail" ;;
+      INFO) echo "ℹ️  $name: $detail" ;;
+    esac
+  done
+fi
+
+[ "$FAILS" -eq 0 ] && exit 0 || exit 1
