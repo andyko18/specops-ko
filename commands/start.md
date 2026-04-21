@@ -1,6 +1,6 @@
 ---
 name: start
-description: specops-auto-ko 한국어 자율 Lifecycle 단일 진입 슬래시 — engine/specifying-ko 호출
+description: specops-auto-ko 한국어 자율 Lifecycle 단일 진입 슬래시 — specops-auto-ko:specifying-ko 호출
 triggers:
   - "/start"
 mode: ask
@@ -19,8 +19,8 @@ specops-auto-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자�
 
 ## Process
 
-1. **메타 skill 활성 확인** — `skills/harness/using-specops-auto-ko-ko.md`가 세션 시작 시 이미 활성돼 있어야 함. 아니면 수동으로 `Skill` 도구 호출
-2. **즉시 `engine/specifying-ko` 스킬 호출** — 전달된 `<기능 설명>`을 초기 맥락으로 제공
+1. **메타 skill 활성 확인** — `skills/using-specops-auto-ko-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함. 아니면 수동으로 `Skill` 도구 호출
+2. **즉시 `specops-auto-ko:specifying-ko` 스킬 호출** — 전달된 `<기능 설명>`을 초기 맥락으로 제공
 3. **이후 자동 chain** — `specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko`
 
 chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. 본 command는 **진입만** 책임.
@@ -31,10 +31,10 @@ chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. �
 /start CSV 줄 수 세기 CLI 만들어줘
 
 → 메타 skill 활성 확인
-→ engine/specifying-ko 호출
+→ specops-auto-ko:specifying-ko 호출
 → specifying-ko가 프로젝트 맥락 탐색 + 명확화 질문 시작
 → HARD GATE (설계 승인)
-→ 사용자 y → engine/clarifying-ko 자동 호출
+→ 사용자 y → specops-auto-ko:clarifying-ko 자동 호출
 → ... (Lifecycle 자동 진행)
 ```
 
@@ -42,8 +42,8 @@ chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. �
 
 | 진입 방식 | 동작 | 비고 |
 |---|---|---|
-| `/start CSV 줄 수 세기 CLI` | 본 command 실행 + `engine/specifying-ko` 호출 | 명시적 진입 |
-| `"CSV 줄 수 세기 CLI 만들어줘"` (자연어) | 메타 skill이 신호 감지 → `engine/specifying-ko` 자동 호출 | 암묵적 진입 (PoC v0.0 검증 대상) |
+| `/start CSV 줄 수 세기 CLI` | 본 command 실행 + `specops-auto-ko:specifying-ko` 호출 | 명시적 진입 |
+| `"CSV 줄 수 세기 CLI 만들어줘"` (자연어) | 메타 skill이 신호 감지 → `specops-auto-ko:specifying-ko` 자동 호출 | 암묵적 진입 (PoC v0.0 검증 대상) |
 
 두 방식은 **기능적으로 동등**. PoC v0.0에서 자연어 진입이 실패하면 `/start` 슬래시가 **유일한 진입점**으로 격상 (§15.10 fallback).
 
@@ -55,9 +55,9 @@ chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. �
 
 ## 참조
 
-- `skills/harness/using-specops-auto-ko-ko.md` — 메타 skill (자동 활성)
-- `skills/engine/specifying-ko.md` — 첫 Lifecycle 단계
-- `skills/harness/structured-artifacts-ko.md` — `.specops/<FID>/` 경로 규약
+- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill (자동 활성)
+- `skills/specifying-ko/SKILL.md` — 첫 Lifecycle 단계
+- `skills/structured-artifacts-ko/SKILL.md` — `.specops/<FID>/` 경로 규약
 - 설계 근거: `~/Project/0.Claude/specops-ko/docs/case-studies/2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
 
 ---

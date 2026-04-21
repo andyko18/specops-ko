@@ -1,5 +1,5 @@
 ---
-name: harness/context-resets
+name: context-resets-ko
 description: 각 Lifecycle 커맨드 종료 시 세션 컨텍스트를 리셋하고 session-progress.md에서만 맥락을 재주입한다
 layer: 1
 reference_upstream: revfactory/harness + Anthropic harness-design-long-running-apps (2025)
@@ -52,6 +52,6 @@ specops_version: 0.1.0
 - 전역 로그에 **모든 대화 내용**을 담으려 함 — 의도는 "재시작에 필요한 최소 단서"뿐
 - 이전 커맨드의 피드백을 구두로 전달받아 구현 — 반드시 Evaluator가 쓴 `analysis.md` 또는 `review.md` 파일을 읽어라
 
-## v0.2 확장 예고
+## v0.0 자동 주입
 
-`hooks/context-reset.sh`가 새 세션 진입을 감지해 자동으로 `session-progress.md` 마지막 블록을 주입. v0.1은 수동 재독.
+`hooks/session-start.sh`가 새 세션 진입을 감지해 자동으로 메타 skill 본문과 함께 `session-progress.md` 마지막 블록을 `additionalContext`로 주입 (`<session-progress-rehydrate>` 래퍼).

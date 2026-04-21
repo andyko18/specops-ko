@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # specops-ko v0.2 묶음 1 · 서브에이전트 호출 감사 로그
-# 파일 경로 기반 파라미터 전달 규약(skills/harness/file-based-communication.md) 준수 점검
+# 파일 경로 기반 파라미터 전달 규약(skills/file-based-communication-ko/SKILL.md) 준수 점검
 # 각 서브에이전트 호출 시 .specops/logs/subagent.jsonl에 한 줄 JSON 추가
 # 사용 예: hooks/log-subagent-calls.sh <agent-name> <summary>
 # Exit  : 0 정상 / 2 사용법 오류 (로깅 실패는 stderr 경고 + exit 0)

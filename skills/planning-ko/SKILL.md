@@ -1,12 +1,12 @@
 ---
-name: engine/planning-ko
+name: planning-ko
 description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건드리기 전에 사용 — 구현 플랜을 bite-sized task 단위로 작성
 layer: 2
 reference_upstream:
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
 specops_version: 0.0.0
-used_by: engine/clarifying-ko (chain 진입), engine/decomposing-ko (chain 출구)
+used_by: specops-auto-ko:clarifying-ko (chain 진입), specops-auto-ko:decomposing-ko (chain 출구)
 ---
 
 # Engine 스킬 — 구현 플랜 작성 (planning)
@@ -55,7 +55,7 @@ used_by: engine/clarifying-ko (chain 진입), engine/decomposing-ko (chain 출�
 ```markdown
 # [기능명] 구현 플랜
 
-> **에이전트 워커용**: 필수 하위 스킬 — `engine/implementing-ko` (권장) 또는 `engine/decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
+> **에이전트 워커용**: 필수 하위 스킬 — `specops-auto-ko:implementing-ko` (권장) 또는 `specops-auto-ko:decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
 
 **목표**: [한 문장 — 무엇을 만드는가]
 
@@ -162,11 +162,11 @@ git commit -m "feat: 특정 기능 추가"
 > 어느 쪽으로 할까요?"
 
 **서브에이전트 주도 선택 시**:
-- 필수 하위 스킬: `engine/implementing-ko` (Superpowers subagent-driven-development 이식)
+- 필수 하위 스킬: `specops-auto-ko:implementing-ko` (Superpowers subagent-driven-development 이식)
 - 태스크별 fresh 서브에이전트 + 2단계 리뷰
 
 **인라인 실행 선택 시**:
-- 하위 스킬: `engine/decomposing-ko`로 태스크 분할 후 인라인 순차 실행
+- 하위 스킬: `specops-auto-ko:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
 - 체크포인트마다 리뷰
 
 ## 참조
@@ -180,7 +180,7 @@ git commit -m "feat: 특정 기능 추가"
 플랜 저장 + 실행 방식 결정 후 즉시 호출:
 
 ```
-Skill: engine/decomposing-ko
+Skill: specops-auto-ko:decomposing-ko
 ```
 
-decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `engine/implementing-ko`로 전환.
+decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `specops-auto-ko:implementing-ko`로 전환.

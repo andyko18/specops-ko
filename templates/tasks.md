@@ -99,9 +99,9 @@ git commit -m "feat(<scope>): <무엇을>
 
 ## 참조
 
-- `skills/engine/tdd-ko.md` — TDD 5 스텝
-- `skills/engine/writing-plans-ko.md` — 바이트-사이즈 규칙
-- `skills/harness/sprint-contracts.md` — AC 매핑
+- `skills/tdd-ko/SKILL.md` — TDD 5 스텝
+- `skills/writing-plans-ko/SKILL.md` — 바이트-사이즈 규칙
+- `skills/sprint-contracts/SKILL.md` — AC 매핑
 
 ---
 

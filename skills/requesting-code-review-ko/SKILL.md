@@ -1,12 +1,12 @@
 ---
-name: engine/requesting-code-review-ko
+name: requesting-code-review-ko
 description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결과물이 요구를 충족하는지 외부 리뷰어에게 검증 요청
 layer: 2
 reference_upstream:
   - obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
   - specops-ko skills/engine/requesting-code-review-ko.md
 specops_version: 0.0.0
-used_by: engine/verifying-evidence-ko (chain 진입), engine/receiving-code-review-ko (chain 출구)
+used_by: specops-auto-ko:verifying-evidence-ko (chain 진입), specops-auto-ko:receiving-code-review-ko (chain 출구)
 ---
 
 # Engine 스킬 — 코드 리뷰 요청 (requesting-code-review)
@@ -131,7 +131,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 리뷰 피드백 수령 직후 즉시 호출:
 
 ```
-Skill: engine/receiving-code-review-ko
+Skill: specops-auto-ko:receiving-code-review-ko
 ```
 
 receiving-code-review-ko가 피드백을 어떻게 수용·검증·구현할지 강제한다. 본 requesting-code-review-ko는 **receiving-code-review-ko 이외의 다음 스킬을 호출하지 않는다**.

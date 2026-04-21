@@ -1,12 +1,12 @@
 ---
-name: engine/systematic-debugging-ko
+name: systematic-debugging-ko
 description: 버그·테스트 실패·예상치 못한 동작 발생 시, 픽스 제안 전에 반드시 사용 — 근본 원인 조사 없이 픽스 제안 금지
 layer: 2
 reference_upstream:
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - specops-ko skills/engine/systematic-debugging-ko.md
 specops_version: 0.0.0
-used_by: engine/implementing-ko·tdd-ko·verifying-evidence-ko (BLOCKED·실패 분기 진입)
+used_by: specops-auto-ko:implementing-ko·tdd-ko·verifying-evidence-ko (BLOCKED·실패 분기 진입)
 ---
 
 # Engine 스킬 — 체계적 디버깅 (systematic-debugging)
@@ -182,7 +182,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - 가능하면 자동 테스트
 - 프레임워크 없으면 일회성 스크립트
 - **픽스 전에 반드시**
-- `engine/tdd-ko`로 실패 테스트 작성
+- `specops-auto-ko:tdd-ko`로 실패 테스트 작성
 
 **2. 단일 픽스 구현**
 - 식별된 근본 원인 처리
@@ -299,8 +299,8 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - `condition-based-waiting-ko.md` — 임의 타임아웃을 조건 폴링으로 교체
 
 **관련 스킬**:
-- `engine/tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
-- `engine/verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
+- `specops-auto-ko:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
+- `specops-auto-ko:verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
 
 ## 실제 영향
 
@@ -320,7 +320,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 근본 원인 식별 + 단일 픽스 완료 후:
 
 - **Phase 4.1~4.3 완료 (테스트·픽스·검증)** → 상위 호출자 복귀
-  - `engine/implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
-  - `engine/tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
-  - `engine/verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
+  - `specops-auto-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
+  - `specops-auto-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
+  - `specops-auto-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
 - **Phase 4.5 트리거 (3+ 픽스 실패)** → 사용자 파트너 에스컬레이션. chain 정지. 새 스펙 결정 필요

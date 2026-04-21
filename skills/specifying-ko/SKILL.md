@@ -1,5 +1,5 @@
 ---
-name: engine/specifying-ko
+name: specifying-ko
 description: 모든 창작 작업 전에 반드시 사용 — 기능 신설·컴포넌트 구축·동작 수정 전 사용자 의도·요구사항·설계를 탐색. 설계 승인 전 어떤 구현 스킬도 호출하지 않는다.
 layer: 2
 reference_upstream:
@@ -33,7 +33,7 @@ used_by: using-specops-auto-ko-ko, /start
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
-9. **구현으로 전환** — `engine/clarifying-ko` 스킬 호출
+9. **구현으로 전환** — `specops-auto-ko:clarifying-ko` 스킬 호출
 
 ## 프로세스 흐름
 
@@ -58,10 +58,10 @@ used_by: using-specops-auto-ko-ko, /start
                                    │              ↑
                                    │ 승인         │
                                    ↓              │
-                              engine/clarifying-ko 호출
+                              specops-auto-ko:clarifying-ko 호출
 ```
 
-**종착점은 `engine/clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
+**종착점은 `specops-auto-ko:clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
 
 ## 프로세스 세부
 
@@ -125,7 +125,7 @@ used_by: using-specops-auto-ko-ko, /start
 
 자체 검토 후 사용자에게:
 
-> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `engine/clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
+> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `specops-auto-ko:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
 
 **응답 대기**. 변경 요청 시 수정하고 자체 검토 루프 재실행. 승인 후에만 진행.
 
@@ -171,7 +171,7 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 
 ## 참조
 
-- `skills/harness/structured-artifacts-ko.md` — 스펙 파일 경로 규약
+- `skills/structured-artifacts-ko/SKILL.md` — 스펙 파일 경로 규약
 - `templates/spec.md` · `templates/acceptance-criteria.md` — 작성 포맷
 - upstream 원본: `obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md`
 
@@ -180,7 +180,7 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 설계 승인 + 사용자 스펙 검토 통과 후 즉시 호출:
 
 ```
-Skill: engine/clarifying-ko
+Skill: specops-auto-ko:clarifying-ko
 ```
 
 본 specifying-ko는 **clarifying-ko 이외의 어떤 스킬도 호출하지 않는다**. 다른 경로는 금지.

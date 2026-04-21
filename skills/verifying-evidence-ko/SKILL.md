@@ -1,5 +1,5 @@
 ---
-name: engine/verifying-evidence-ko
+name: verifying-evidence-ko
 description: 작업이 완료·수정·통과됐다고 주장하기 직전, 커밋·PR 생성 전 반드시 사용 — 검증 명령을 실행하고 출력을 확인한 뒤에만 성공 주장 허용
 layer: 2
 reference_upstream:
@@ -7,7 +7,7 @@ reference_upstream:
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
 specops_version: 0.0.0
-used_by: engine/implementing-ko (chain 진입), engine/requesting-code-review-ko (chain 출구)
+used_by: specops-auto-ko:implementing-ko (chain 진입), specops-auto-ko:requesting-code-review-ko (chain 출구)
 ---
 
 # Engine 스킬 — 증거 기반 검증 (verifying-evidence)
@@ -179,9 +179,9 @@ Superpowers 원본 24개 실패 기록에서:
 모든 검증 항목 증거 확보 후 즉시 호출:
 
 ```
-Skill: engine/requesting-code-review-ko
+Skill: specops-auto-ko:requesting-code-review-ko
 ```
 
 requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다**.
 
-검증 실패 시에는 `engine/systematic-debugging-ko` 호출로 우회 (chain 복귀 조건).
+검증 실패 시에는 `specops-auto-ko:systematic-debugging-ko` 호출로 우회 (chain 복귀 조건).

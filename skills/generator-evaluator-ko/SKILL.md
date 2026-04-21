@@ -1,5 +1,5 @@
 ---
-name: harness/generator-evaluator
+name: generator-evaluator-ko
 description: 생성 에이전트와 평가 에이전트를 엄격히 분리하여 자기평가 편향을 차단한다 (OMC 흡수)
 layer: 1
 reference_upstream: obra/omc + revfactory/harness + Anthropic harness-design-long-running-apps (2025)

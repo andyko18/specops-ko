@@ -62,7 +62,7 @@
 
 ## 참조
 
-- `skills/harness/sprint-contracts.md` — 계약서 운용 규약
+- `skills/sprint-contracts-ko/SKILL.md` — 계약서 운용 규약
 - `templates/analysis.md`, `templates/session-progress.md` — 판정 기록 포맷
 
 ---

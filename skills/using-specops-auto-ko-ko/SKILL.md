@@ -1,6 +1,6 @@
 ---
-name: harness/using-specops-auto-ko-ko
-description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 engine/specifying-ko 자동 호출 강제 (Superpowers using-superpowers 한국어 재창작 + 5원칙 주입)
+name: using-specops-auto-ko-ko
+description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제 (Superpowers using-superpowers 한국어 재창작 + 5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 0.0.0
@@ -16,7 +16,7 @@ used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 <EXTREMELY-IMPORTANT>
 1% 가능성이라도 specops-auto-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
 
-특히 사용자 입력이 다음 신호를 포함하면 즉시 `engine/specifying-ko` 호출:
+특히 사용자 입력이 다음 신호를 포함하면 즉시 `specops-auto-ko:specifying-ko` 호출:
 - "X 기능을 만들고 싶어"
 - "Y CLI / API / 모듈 신규"
 - "Z를 구현해줘"
@@ -45,13 +45,13 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
     ↓
 신호 감지?
     ↓ YES                              ↓ NO
-engine/specifying-ko 호출            일반 응답
+specops-auto-ko:specifying-ko 호출            일반 응답
     ↓
 spec.md + acceptance-criteria.md 작성
     ↓
 HARD GATE: "spec 검토. 다음 skill(clarifying-ko) 진행? [y/n]"
     ↓ y
-engine/clarifying-ko (skill 본문이 다음 chain 명시)
+specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
 ... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → receiving-code-review-ko
     ↓
@@ -64,7 +64,7 @@ engine/clarifying-ko (skill 본문이 다음 chain 명시)
 
 Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제시됨 — 그대로 따른다. skill 파일을 `Read` 도구로 직접 읽지 말 것.
 
-호출 형식: skill 이름은 `engine/specifying-ko` 같은 namespace 포함.
+호출 형식: skill 이름은 `specops-auto-ko:specifying-ko` 같은 namespace 포함.
 
 ## 적색 플래그 — 중단
 
@@ -95,7 +95,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 - [ ] 신규 빈 프로젝트에 specops-auto-ko plugin install
 - [ ] 새 Claude Code 세션 시작
 - [ ] 사용자 입력: "안녕" — 기대: 본 skill 활성, 신호 감지 NO → 일반 응답
-- [ ] 사용자 입력: "CSV 줄 수 세기 CLI 만들어줘" — 기대: 본 skill 활성, 신호 감지 YES → engine/specifying-ko 호출 안내
+- [ ] 사용자 입력: "CSV 줄 수 세기 CLI 만들어줘" — 기대: 본 skill 활성, 신호 감지 YES → specops-auto-ko:specifying-ko 호출 안내
 - [ ] PoC 통과 → 현재 구조 유지. Phase 2 (dogfood) 진입
 - [ ] PoC 실패 → 아래 **Fallback 가이드** 적용
 
@@ -108,8 +108,8 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 **1. 본 파일 frontmatter `description`**:
 
 ```diff
--description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 engine/specifying-ko 자동 호출 강제
-+description: /start 슬래시 진입 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. engine/specifying-ko 호출 경로 안내
+-description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제
++description: /start 슬래시 진입 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. specops-auto-ko:specifying-ko 호출 경로 안내
 ```
 
 **2. 본 파일 `<EXTREMELY-IMPORTANT>` 블록 완화**:
@@ -117,7 +117,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 ```diff
 -<EXTREMELY-IMPORTANT>
 -1% 가능성이라도 specops-auto-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
--특히 사용자 입력이 다음 신호를 포함하면 즉시 engine/specifying-ko 호출:
+-특히 사용자 입력이 다음 신호를 포함하면 즉시 specops-auto-ko:specifying-ko 호출:
 -- "X 기능을 만들고 싶어"
 -- "Y CLI / API / 모듈 신규"
 -- "Z를 구현해줘"
@@ -125,7 +125,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 -- 명확한 신규 산출물 요청
 -</EXTREMELY-IMPORTANT>
 +<IMPORTANT>
-+`/start <기능>` 슬래시가 호출되면 즉시 engine/specifying-ko로 전환한다.
++`/start <기능>` 슬래시가 호출되면 즉시 specops-auto-ko:specifying-ko로 전환한다.
 +자연어 진입은 **명시 요청이 있을 때만** — "specops-auto-ko로 시작하고 싶다" 등 사용자가 직접 플러그인 이름을 언급한 경우.
 +</IMPORTANT>
 ```

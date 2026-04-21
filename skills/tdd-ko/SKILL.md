@@ -1,5 +1,5 @@
 ---
-name: engine/tdd-ko
+name: tdd-ko
 description: 기능·버그픽스·리팩터링 구현 시 구현 코드 작성 전 반드시 사용 — Red-Green-Refactor 사이클 강제, 프로덕션 코드는 실패 테스트 없이 작성 금지
 layer: 2
 reference_upstream:
@@ -7,7 +7,7 @@ reference_upstream:
   - affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow
   - specops-ko skills/engine/tdd-ko.md
 specops_version: 0.0.0
-used_by: engine/implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
+used_by: specops-auto-ko:implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
 ---
 
 # Engine 스킬 — 테스트 주도 개발 (TDD)
@@ -356,6 +356,6 @@ PASS
 
 ## 다음 skill
 
-본 스킬은 **서브루틴 스킬**. `engine/implementing-ko`가 각 태스크마다 서브에이전트에게 본 스킬을 따르도록 지시한다.
+본 스킬은 **서브루틴 스킬**. `specops-auto-ko:implementing-ko`가 각 태스크마다 서브에이전트에게 본 스킬을 따르도록 지시한다.
 
 단독 호출 후에는 상위 호출자(`implementing-ko` 또는 사용자)가 다음 단계 결정. TDD 사이클 완료 후 명시적 다음 스킬은 없음.

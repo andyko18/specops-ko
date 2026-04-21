@@ -80,7 +80,7 @@ prepend.
 scripts/diff-upstream.sh               # 캐시 우선, miss 시 fetch
 scripts/diff-upstream.sh --cached      # 네트워크 금지, 캐시만
 scripts/diff-upstream.sh --no-fetch    # 캐시 miss 시 skip (offline 테스트)
-scripts/diff-upstream.sh --file skills/engine/tdd-ko.md   # 단일 파일
+scripts/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파일
 ```
 
 **분류**:
@@ -102,7 +102,7 @@ scripts/diff-upstream.sh --file skills/engine/tdd-ko.md   # 단일 파일
 
 ```bash
 bash scripts/is-hook-enabled.sh ensure-session-progress; echo $?  # 0 = ON, 1 = OFF
-SPECOPS_CONFIG=/path/to/alt.yaml bash scripts/is-hook-enabled.sh context-reset
+SPECOPS_CONFIG=/path/to/alt.yaml bash scripts/is-hook-enabled.sh session-start
 ```
 
 **스키마·profile 우선순위**: `hooks/README.md` "config" 섹션 참조.

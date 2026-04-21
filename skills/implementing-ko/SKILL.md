@@ -1,5 +1,5 @@
 ---
-name: engine/implementing-ko
+name: implementing-ko
 description: 본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 서브에이전트 dispatch, 각 태스크마다 2단계 리뷰(스펙 준수 → 코드 품질)
 layer: 2
 reference_upstream:
@@ -9,7 +9,7 @@ reference_upstream:
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
 specops_version: 0.0.0
-used_by: engine/planning-ko (chain 진입), engine/verifying-evidence-ko (chain 출구)
+used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-evidence-ko (chain 출구)
 ---
 
 # Engine 스킬 — 서브에이전트 주도 구현 (implementing)
@@ -66,7 +66,7 @@ used_by: engine/planning-ko (chain 진입), engine/verifying-evidence-ko (chain 
     ↓ 전부 완료
 최종 코드 리뷰어 서브에이전트 (전체 구현)
     ↓
-engine/verifying-evidence-ko 호출
+specops-auto-ko:verifying-evidence-ko 호출
 ```
 
 ## 모델 선택
@@ -188,15 +188,15 @@ engine/verifying-evidence-ko 호출
 ## 통합
 
 **필수 워크플로 스킬**:
-- `engine/planning-ko` — 본 스킬이 실행할 플랜 작성
-- `engine/verifying-evidence-ko` — 전체 구현 후 검증
-- `engine/requesting-code-review-ko` — 리뷰어 서브에이전트용 리뷰 템플릿
+- `specops-auto-ko:planning-ko` — 본 스킬이 실행할 플랜 작성
+- `specops-auto-ko:verifying-evidence-ko` — 전체 구현 후 검증
+- `specops-auto-ko:requesting-code-review-ko` — 리뷰어 서브에이전트용 리뷰 템플릿
 
 **서브에이전트가 사용해야 하는 스킬**:
-- `engine/tdd-ko` — 서브에이전트는 각 태스크를 TDD로
+- `specops-auto-ko:tdd-ko` — 서브에이전트는 각 태스크를 TDD로
 
 **실패 시**:
-- `engine/systematic-debugging-ko` — BLOCKED 블로커가 버그성이면 호출
+- `specops-auto-ko:systematic-debugging-ko` — BLOCKED 블로커가 버그성이면 호출
 
 ## 참조
 
@@ -208,7 +208,7 @@ engine/verifying-evidence-ko 호출
 모든 태스크 완료 + 최종 코드 리뷰 통과 후 즉시 호출:
 
 ```
-Skill: engine/verifying-evidence-ko
+Skill: specops-auto-ko:verifying-evidence-ko
 ```
 
 verifying-evidence-ko가 "증거 기반 완료 선언"을 강제한다. 본 implementing-ko는 **verifying-evidence-ko 이외의 다음 스킬을 호출하지 않는다**.

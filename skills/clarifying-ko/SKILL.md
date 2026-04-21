@@ -1,5 +1,5 @@
 ---
-name: engine/clarifying-ko
+name: clarifying-ko
 description: specifying-ko 완료 후 호출 — spec.md의 모호성·열린 질문을 사용자와 대화로 해소하고 clarifications.md 생성. BLOCKING 해소 전 planning-ko 진행 금지
 layer: 2
 reference_upstream:
@@ -7,7 +7,7 @@ reference_upstream:
   - github/spec-kit commands/clarify.md (specops-ko 경유)
   - specops-ko commands/clarify.md
 specops_version: 0.0.0
-used_by: engine/specifying-ko (chain 진입), engine/planning-ko (chain 출구)
+used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-ko (chain 출구)
 ---
 
 # Engine 스킬 — 명확화 (clarifying)
@@ -15,7 +15,7 @@ used_by: engine/specifying-ko (chain 진입), engine/planning-ko (chain 출구)
 `spec.md`의 모호성·열린 질문을 **사용자와 대화로 해소**하고 `clarifications.md`에 기록한다. 필요 시 `acceptance-criteria.md`를 append-only로 보강.
 
 <HARD-GATE>
-**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `engine/planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
+**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-auto-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 </HARD-GATE>
 
 ## 체크리스트
@@ -30,8 +30,8 @@ used_by: engine/specifying-ko (chain 진입), engine/planning-ko (chain 출구)
 6. **clarifications.md 작성** — 판정 JSON + 질문별 답변
 7. **acceptance-criteria.md append** — 신규 AC만 추가, 기존 AC 수정 금지
 8. **timestamp 주입** — `hooks/inject-evaluator-timestamp.sh` (Phase 1 이식 후)
-9. **session-progress append** — `engine/planning-ko` 다음 단계 안내
-10. **전환** — `engine/planning-ko` 호출
+9. **session-progress append** — `specops-auto-ko:planning-ko` 다음 단계 안내
+10. **전환** — `specops-auto-ko:planning-ko` 호출
 
 ## 모호성 탐지 기준
 
@@ -114,8 +114,8 @@ used_by: engine/specifying-ko (chain 진입), engine/planning-ko (chain 출구)
 
 ## 참조
 
-- `skills/engine/specifying-ko.md` — 선행 스킬
-- `skills/harness/structured-artifacts-ko.md` — 아티팩트 경로 규약
+- `skills/specifying-ko/SKILL.md` — 선행 스킬
+- `skills/structured-artifacts-ko/SKILL.md` — 아티팩트 경로 규약
 - `templates/acceptance-criteria.md` — AC 포맷
 - upstream 근거: `obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md` 후반 "Spec Self-Review" + "User Review Gate"
 - specops-ko 선례: `commands/clarify.md`
@@ -125,7 +125,7 @@ used_by: engine/specifying-ko (chain 진입), engine/planning-ko (chain 출구)
 모든 BLOCKING RESOLVED + clarifications.md 저장 + AC append 완료 후 즉시 호출:
 
 ```
-Skill: engine/planning-ko
+Skill: specops-auto-ko:planning-ko
 ```
 
 BLOCKED 상태로 남으면 chain 정지. 사용자 개입 필요.

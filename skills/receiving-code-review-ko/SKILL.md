@@ -1,12 +1,12 @@
 ---
-name: engine/receiving-code-review-ko
+name: receiving-code-review-ko
 description: 코드 리뷰 피드백을 수령한 직후, 제안 구현 전 사용 — 기술적 엄밀성과 검증을 요구하며 수행적 동의·맹목적 구현을 금지
 layer: 2
 reference_upstream:
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
 specops_version: 0.0.0
-used_by: engine/requesting-code-review-ko (chain 진입), Lifecycle 종결 (또는 engine/implementing-ko 수정 루프)
+used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), Lifecycle 종결 (또는 specops-auto-ko:implementing-ko 수정 루프)
 ---
 
 # Engine 스킬 — 코드 리뷰 수용 (receiving-code-review)
@@ -211,7 +211,7 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 피드백 구현 완료 후:
 
 - **리뷰 이슈가 모두 해결되고 Lifecycle 종료 가능 상태** → chain 종료. 사용자에게 "PR 생성? [y/n]" 질문
-- **Important 이슈 수정 필요** → `engine/implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
-- **재검증 필요** → `engine/verifying-evidence-ko` 재호출
+- **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
+- **재검증 필요** → `specops-auto-ko:verifying-evidence-ko` 재호출
 
 specops-auto-ko Lifecycle의 **최종 단계**. receiving-code-review-ko 통과 = PR 생성 게이트 도달.

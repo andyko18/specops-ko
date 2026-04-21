@@ -57,8 +57,8 @@
 
 ## 참조
 
-- `skills/harness/context-resets.md` — 본 파일의 운용 규약
-- `skills/harness/structured-artifacts.md` — FID 규약
+- `skills/context-resets-ko/SKILL.md` — 본 파일의 운용 규약
+- `skills/structured-artifacts-ko/SKILL.md` — FID 규약
 
 ---
 

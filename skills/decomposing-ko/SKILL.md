@@ -1,5 +1,5 @@
 ---
-name: engine/decomposing-ko
+name: decomposing-ko
 description: planning-ko 완료 후 호출 — plan.md를 2~5분 단위 TDD 5스텝 태스크로 분해. 모든 must AC가 최소 1 태스크에 매핑되도록 보장
 layer: 2
 reference_upstream:
@@ -8,7 +8,7 @@ reference_upstream:
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
 specops_version: 0.0.0
-used_by: engine/planning-ko (chain 진입), engine/implementing-ko (chain 출구)
+used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구)
 ---
 
 # Engine 스킬 — 태스크 분해 (decomposing)
@@ -16,7 +16,7 @@ used_by: engine/planning-ko (chain 진입), engine/implementing-ko (chain 출구
 `plan.md`의 카테고리·순서를 **2~5분 단위 TDD 바이트사이즈 태스크**로 분해한다. 모든 `must` AC가 **최소 1 태스크**에 매핑되도록 보장.
 
 <HARD-GATE>
-**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `engine/implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
+**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `specops-auto-ko:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
 </HARD-GATE>
 
 ## 체크리스트
@@ -24,7 +24,7 @@ used_by: engine/planning-ko (chain 진입), engine/implementing-ko (chain 출구
 1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**
 2. **AC 커버리지 매핑** — 각 `must` AC → 최소 1 태스크 할당. 커버리지 표 작성
 3. **파일 구조 확정** — plan.md §파일 구조의 Create/Modify/Delete 목록 고정
-4. **TDD 5스텝 작성** — `engine/tdd-ko` 준수:
+4. **TDD 5스텝 작성** — `specops-auto-ko:tdd-ko` 준수:
    - Step 1 RED: 실패 테스트 (실제 코드)
    - Step 2 검증: FAIL 확인
    - Step 3 GREEN: 최소 구현 (실제 코드)
@@ -34,8 +34,8 @@ used_by: engine/planning-ko (chain 진입), engine/implementing-ko (chain 출구
 6. **플레이스홀더 스캔** — TBD·TODO·"similar to N" 발견 시 **구체 코드로 대체**
 7. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
 8. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
-9. **session-progress append** — `engine/implementing-ko` 다음 단계 안내
-10. **전환** — `engine/implementing-ko` 호출
+9. **session-progress append** — `specops-auto-ko:implementing-ko` 다음 단계 안내
+10. **전환** — `specops-auto-ko:implementing-ko` 호출
 
 ## 태스크 크기 규약
 
@@ -154,8 +154,8 @@ git commit -m "feat: <기능명> 추가"
 
 ## 참조
 
-- `skills/engine/planning-ko.md` — 선행 스킬
-- `skills/engine/tdd-ko.md` — TDD 5스텝 규약
+- `skills/planning-ko/SKILL.md` — 선행 스킬
+- `skills/tdd-ko/SKILL.md` — TDD 5스텝 규약
 - `templates/tasks.md` — 출력 포맷
 - upstream 근거: Spec-Kit `commands/tasks.md` (specops-ko 경유) + `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`의 bite-sized 태스크 단위 규약
 - specops-ko 선례: `commands/tasks.md`, `templates/tasks.md`
@@ -165,7 +165,7 @@ git commit -m "feat: <기능명> 추가"
 tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 후 즉시 호출:
 
 ```
-Skill: engine/implementing-ko
+Skill: specops-auto-ko:implementing-ko
 ```
 
 implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **implementing-ko 이외의 다음 스킬을 호출하지 않는다**.

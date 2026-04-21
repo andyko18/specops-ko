@@ -2,7 +2,8 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-# baseline: Phase 1 (commands=1 /start, agents 없음 · conductor 없이 chain, knowledge 없음)
+# baseline: P1 flat skill 구조 — skills/<name>/SKILL.md × 16
+#           (commands=1 /start, agents 없음 · conductor 없이 chain, knowledge 없음)
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
@@ -17,23 +18,31 @@ FAILS=0
 RESULTS=()
 emit() { RESULTS+=("$1|$2|${3:-}"); [ "$2" = "FAIL" ] && FAILS=$((FAILS+1)); }
 
-# 1) 디렉토리 존재 (v0.0 baseline: agents·knowledge/* 제외)
+# 1) 디렉토리 존재 (P1: flat skills/*/ 구조)
 miss_d=()
-for d in commands skills/harness skills/engine templates docs hooks scripts; do
+for d in commands skills templates docs hooks scripts; do
   [ -d "$d" ] || miss_d+=("$d")
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (v0.0 baseline: commands=1 /start, agents 0, harness=6, engine>=4, templates=6)
+# 2) 파일 개수 (P1: commands=1 /start, skills/<name>/SKILL.md=16, templates=6)
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"       = 1 ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
-[ "$(count_of 'skills/harness/*.md')" = 6 ] || fc+=("harness: got $(count_of 'skills/harness/*.md'), expect 6")
-n_eng=$(count_of 'skills/engine/*.md'); [ "$n_eng" -ge 4 ] || fc+=("engine: got $n_eng, expect >=4")
-[ "$(count_of 'templates/*.md')"      = 6 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
+count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
+[ "$(count_of 'commands/*.md')"  = 1  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
+[ "$(count_skills)"              = 16 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 16")
+[ "$(count_of 'templates/*.md')" = 6  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 
-# 3) frontmatter YAML 유효 (v0.0: agents·knowledge 디렉토리 없음)
+# 2b) 메타 skill SessionStart 주입 경로 필수 (P1 핵심 가설)
+meta="skills/using-specops-auto-ko-ko/SKILL.md"
+hook="hooks/session-start.sh"
+miss_m=()
+[ -f "$meta" ] || miss_m+=("$meta")
+[ -x "$hook" ] || miss_m+=("$hook (exec-bit)")
+if [ ${#miss_m[@]} -eq 0 ]; then emit meta_injection OK; else emit meta_injection FAIL "누락: ${miss_m[*]}"; fi
+
+# 3) frontmatter YAML 유효 (skills/*/SKILL.md + commands + templates)
 if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
   bad=()
   while IFS= read -r -d '' f; do
