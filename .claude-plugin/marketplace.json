@@ -1,7 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "specops-auto-ko-local",
-  "description": "specops-auto-ko 로컬 마켓플레이스 (v0.0 PoC — Superpowers 메타 skill 자동 활성 검증 단계)",
+  "metadata": {
+    "description": "specops-auto-ko 로컬 마켓플레이스 (v0.0 PoC — Superpowers 메타 skill 자동 활성 검증)"
+  },
   "owner": {
     "name": "andyko18",
     "email": "222357127+andyko18@users.noreply.github.com"
