@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**한국어 자율 Lifecycle Claude Code 플러그인** (v0.0 PoC **Gold PASS** · Phase 2 dogfood 완료).
+**한국어 자율 Lifecycle Claude Code 플러그인** (v0.1.0 · v0.0 PoC **Gold PASS** · dogfood FRICTION-LOG F-11~F-15 흡수).
 
 ## 목적
 
@@ -8,7 +8,7 @@ Superpowers 메인 + ECC/Spec-Kit/Harness 보조. 슬래시 1회(`/start`) 또�
 
 자세한 설계: `~/Project/0.Claude/specops-ko/docs/case-studies/2026-04-21-specops-auto-ko-design.md §15` (채택본).
 
-## 현재 상태 — v0.0 PoC Gold PASS
+## 현재 상태 — v0.1.0 release (v0.0 PoC Gold PASS 계승)
 
 dogfood (`~/Project/0.Claude/dogfood-demo` FID `20260422-csv-lines`) 에서 자연어 `CSV 줄 수 세기 CLI 만들어줘` 진입으로 **9 단계 엔드투엔드 완주**. Lifecycle skill 전부 Skill 도구로 자동 chain 호출 (Conductor 에이전트 없이), `implementing-ko` 는 Task 도구로 서브에이전트 dispatch. 최종 외부 리뷰 `READY_TO_MERGE` 판정. 상세 증거: `docs/case-studies/2026-04-22-specops-auto-ko-v0.0-poc-pass.md`.
 
@@ -34,6 +34,10 @@ dogfood (`~/Project/0.Claude/dogfood-demo` FID `20260422-csv-lines`) 에서 자�
 - `433a624` **P1 구조 표준화** + SessionStart 자동 주입 (16 skill 을 `skills/<name>/SKILL.md` 로 평탄화, Superpowers 동일 경로 이식)
 - `b664592` **B-1** — `/start` 인자 내용 2차 판단 금지 (command Source of Truth 단일화)
 - `1146fc1` PoC PASS case study
+- `fb8c2b1` **v0.1** F-11 clarify 기본 필수 고정
+- `4602fb2` **v0.1** F-12 implementing-ko TDD 체인 집약 dispatch ESCAPE HATCH
+- `f9138ff` **v0.1** F-13·F-15 specifying-ko NFR 실측 가이드 + 질문 상한
+- `ed87089` **v0.1** F-14 pair-artifact cross-review pattern 문서화
 
 ### 자동 활성 메커니즘
 
