@@ -18,6 +18,12 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 **BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-auto-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 </HARD-GATE>
 
+## 필수 전제
+
+본 skill 은 `specifying-ko` 완료 후 **반드시 한 번 호출**된다. spec §열린질문 카운트가 0 이더라도 호출해 BLOCKING 탐지·DESIRABLE 발굴을 수행한다. 생략 금지 — negotiable 아님.
+
+**근거**: dogfood FID `20260422-csv-lines` 실측 — specifying 이 Q1~Q4 수집 후에도 clarifying 가 추가 DESIRABLE 3 건 (exit code · 에러 포맷 · 빈 파일 동작) 을 발굴해 AC-6/AC-7 신규 append. specifying 단독으로는 AC 계약 완결 불가 (FRICTION-LOG F-11).
+
 ## 체크리스트
 
 다음 각 항목을 순서대로 태스크로 만들어 완료한다:
