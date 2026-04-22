@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**한국어 자율 Lifecycle Claude Code 플러그인** (v0.0 PoC · P1 구조 표준화 완료).
+**한국어 자율 Lifecycle Claude Code 플러그인** (v0.0 PoC **Gold PASS** · Phase 2 dogfood 완료).
 
 ## 목적
 
@@ -8,11 +8,32 @@ Superpowers 메인 + ECC/Spec-Kit/Harness 보조. 슬래시 1회(`/start`) 또�
 
 자세한 설계: `~/Project/0.Claude/specops-ko/docs/case-studies/2026-04-21-specops-auto-ko-design.md §15` (채택본).
 
-## 현재 상태 — v0.0 PoC · P1 구조 표준화 완료
+## 현재 상태 — v0.0 PoC Gold PASS
 
-검증 대상: **Superpowers 메타 skill 패턴이 Claude Code 플러그인 컨텍스트에서 자동 활성되는지**.
+dogfood (`~/Project/0.Claude/dogfood-demo` FID `20260422-csv-lines`) 에서 자연어 `CSV 줄 수 세기 CLI 만들어줘` 진입으로 **9 단계 엔드투엔드 완주**. Lifecycle skill 전부 Skill 도구로 자동 chain 호출 (Conductor 에이전트 없이), `implementing-ko` 는 Task 도구로 서브에이전트 dispatch. 최종 외부 리뷰 `READY_TO_MERGE` 판정. 상세 증거: `docs/case-studies/2026-04-22-specops-auto-ko-v0.0-poc-pass.md`.
 
-**P1 진입 동기**: 초기 Phase 1 flat `.md` skill 배치는 Claude Code 2.1 의 skill discovery 규약(`skills/<name>/SKILL.md`)과 어긋나 메타 skill 이 available skills 목록에 노출되지 않았다. P1에서 전체 skill 을 표준 디렉토리 구조로 승격하고 `hooks/session-start.sh` 를 추가해 **Superpowers 와 동일 경로**로 자동 주입한다.
+| 구성요소 | 증거 |
+|---|---|
+| 메타 skill 자동 주입 | SessionStart `<EXTREMELY_IMPORTANT>` 블록 + 5원칙 인용 |
+| skill chain (7 회) | clarifying · planning · decomposing · implementing · verifying-evidence · requesting-code-review · receiving-code-review |
+| subagent dispatch (5 회) | backend-dev × 1 + code-reviewer Phase B/C + external = 5 Task 박스 |
+| TDD 5스텝 | 5 feat 커밋 + 테스트 9/9 PASS |
+| 2단계 리뷰 | 스펙 COMPLIANT · 코드 APPROVED |
+| 외부 리뷰 | READY_TO_MERGE (Critical/Important 0) |
+| commit trailer | 12 커밋 전부 Constraint · Rejected · Directive 포함 |
+
+**도출된 Phase 3 v0.1 백로그** (FRICTION-LOG F-11~F-14 근거):
+- **P0** clarify 기본 필수 고정 · implementing-ko "TDD 체인 집약 dispatch" ESCAPE HATCH 명시
+- **P1** specifying-ko NFR 실측 우선 가이드
+- **P2** 짝 아티팩트 교차 리뷰 패턴 문서화
+
+### 진화 경로 (커밋 히스토리)
+
+- `de3cdd7` Phase 1 — Lifecycle skill 골격 (flat `.md` 배치)
+- `e8816e4` validator v0.0 baseline 정렬
+- `433a624` **P1 구조 표준화** + SessionStart 자동 주입 (16 skill 을 `skills/<name>/SKILL.md` 로 평탄화, Superpowers 동일 경로 이식)
+- `b664592` **B-1** — `/start` 인자 내용 2차 판단 금지 (command Source of Truth 단일화)
+- `1146fc1` PoC PASS case study
 
 ### 자동 활성 메커니즘
 
@@ -109,45 +130,40 @@ specops-auto-ko:receiving-code-review-ko
 
 각 skill frontmatter `reference_upstream:` 에 위 경로가 **1차 upstream + 2차 specops-ko 선례** 순으로 병기돼 있다.
 
-### PoC 검증 절차
+### PoC 검증 절차 (아카이브 — 2026-04-22 PASS)
 
 ```bash
 # 1. 마켓플레이스 등록 (1회)
 claude plugin marketplace add ~/Project/0.Claude/specops-auto-ko
 
 # 2. 플러그인 설치 / 갱신
-claude plugin marketplace update specops-auto-ko-local  # 또는 install specops-auto-ko@specops-auto-ko-local
+claude plugin marketplace update specops-auto-ko-local
 
-# 3. Claude Code 재시작 (구조 변경을 discovery 에 반영하려면 필수)
+# 3. Claude Code 재시작
 
-# 4. 신규 빈 프로젝트에서 검증 (2 시나리오 모두 PASS 필요):
+# 4. 신규 빈 프로젝트에서 검증:
 cd "$(mktemp -d)" && claude
+#    자연어 "CSV 줄 수 세기 CLI 만들어줘" → Lifecycle 자동 진입
 
-#    (a) 자연어 "안녕" → 메타 skill 자동 활성 + 신호 감지 NO → 일반 응답
-#    (b) 자연어 "CSV 줄 수 세기 CLI 만들어줘" → 메타 skill 활성 + 신호 YES → specops-auto-ko:specifying-ko 호출
-
-# 5. 슬래시 진입 smoke (자연어 PoC 결과와 무관):
-/start CSV 줄 수 세기 CLI
-
-# 기대:
-#   · session start 시 <EXTREMELY_IMPORTANT>specops-auto-ko 자율 Lifecycle 플러그인이 활성화돼 있다 ... </EXTREMELY_IMPORTANT> 블록 주입 확인
-#   · specops-auto-ko:specifying-ko 호출 → spec.md 템플릿 진입 → HARD GATE 대기
+# 5. 또는 슬래시 진입:
+/start <기능 설명>
 ```
 
-### PoC 결과 → 다음 단계
-
-- **2/2 PASS**: 구조 유지. Phase 2 (dogfood) 진입
-- **1/2 또는 0/2 PASS**: `skills/using-specops-auto-ko-ko/SKILL.md` 의 **PoC 실패 시 Fallback** 섹션 diff 적용 후 재commit
+PoC 판정 기준 및 실측 결과는 `docs/case-studies/2026-04-22-specops-auto-ko-v0.0-poc-pass.md` 참조.
 
 ## 다음 단계
 
-**Phase 2 (dogfood)**: 실제 기능 하나(예: `cowsay-ko` CLI)를 specops-auto-ko Lifecycle 로 빌드해 chain 무결성·GATE 동작·서브에이전트 dispatch 검증.
+**Phase 2 (dogfood) — 완료** (`20260422-csv-lines`). csv-lines CLI 로 Lifecycle 전 9 단계 실사용 검증 통과.
 
-**Phase 3 (v0.1)**:
-- ECC `autonomous-loops` 흡수 (Sequential Pipeline · De-Sloppify)
-- `pre:governance-capture` hook — 5원칙 위반 자동 기록
-- Superpowers `writing-skills`·`executing-plans`·`finishing-a-development-branch` 선별 흡수
-- `github/spec-kit` 직접 clone (§15.7 미확정 항목 해소 후)
+**Phase 3 (v0.1) — 백로그 (실측 근거 우선)**:
+- **P0** F-11 clarify 기본 필수 고정 — `skills/clarifying-ko/SKILL.md` + `skills/using-specops-auto-ko-ko/SKILL.md`
+- **P0** F-12 implementing-ko "TDD 체인 집약 dispatch" ESCAPE HATCH 조항 — `skills/implementing-ko/SKILL.md`
+- **P1** F-13 specifying-ko NFR 실측 우선 가이드 — `skills/specifying-ko/SKILL.md`
+- **P2** F-14 짝 아티팩트 교차 리뷰 패턴 문서화 — `docs/patterns/`
+- (기존 예정) ECC `autonomous-loops` 흡수 (Sequential Pipeline · De-Sloppify)
+- (기존 예정) `pre:governance-capture` hook — 5원칙 위반 자동 기록
+- (기존 예정) Superpowers `writing-skills` · `executing-plans` · `finishing-a-development-branch` 선별 흡수
+- (기존 예정) `github/spec-kit` 직접 clone (§15.7 미확정 항목 해소 후)
 
 ## 참조
 
@@ -161,4 +177,4 @@ cd "$(mktemp -d)" && claude
 
 ---
 
-*초기화: 2026-04-21 · P1 구조 표준화: 2026-04-22 · v0.0 PoC · 사용자 검증 대기*
+*초기화: 2026-04-21 · P1 구조 표준화: 2026-04-22 · **v0.0 PoC Gold PASS: 2026-04-22** · Phase 2 dogfood 완료 · Phase 3 v0.1 백로그 확정*
