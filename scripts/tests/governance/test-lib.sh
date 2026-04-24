@@ -38,6 +38,29 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T2.a (rc=$rc count=$count skill=$last_has_skill)"
 fi
 
+# T3.a log_friction: FID 제공 → .specops/<FID>/friction-log.jsonl
+tmp=$(mktemp -d); cd "$tmp"
+source "$PLUGIN/hooks/governance-lib.sh"
+log_friction "20260424-x" "R-1" 5 "git commit" 7
+log_path=".specops/20260424-x/friction-log.jsonl"
+if [ -f "$log_path" ] && jq -e '.rule_id == "R-1" and .principle == 5 and .fid == "20260424-x"' "$log_path" >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T3.a log_friction FID 스코프"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.a"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T3.b log_friction: FID 빈 문자열 → .specops/friction-log.jsonl, fid=null
+tmp=$(mktemp -d); cd "$tmp"
+source "$PLUGIN/hooks/governance-lib.sh"
+log_friction "" "R-2" 5 "gh pr create" 3
+if [ -f ".specops/friction-log.jsonl" ] && jq -e '.fid == null and .rule_id == "R-2"' ".specops/friction-log.jsonl" >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T3.b log_friction 전역 fallback"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.b"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
