@@ -155,6 +155,17 @@ cd "$(mktemp -d)" && claude
 
 PoC 판정 기준 및 실측 결과는 `docs/case-studies/2026-04-22-specops-auto-ko-v0.0-poc-pass.md` 참조.
 
+## 완료한 기능
+
+### pre:governance-capture hook — `20260424-governance-capture`
+
+- PostToolUse + Stop hook 2 종, 외부 `hooks/rules.jsonl` 기반 5 시드 룰 (R-1~R-5)
+- 원칙 1 (투명성) · 원칙 5 (한계 고백) 위반 자동 감지 → `.specops/<FID>/friction-log.jsonl` append (FID 미감지 시 `.specops/friction-log.jsonl` 전역 fallback)
+- Soft Warn (`additionalContext`) 만 사용, Hard Block 미사용
+- 성능 실측 p95 69ms / median 67ms (macOS bash 3.2.57 · jq 1.7, AC-8 < 200ms 충족)
+- bats 미사용 · 기존 bash `PASS=0; FAIL=0` 테스트 컨벤션 준수
+- 세부 설계: `.specops/20260424-governance-capture/` (spec / clarifications / plan / tasks / dispatch-log)
+
 ## 다음 단계
 
 **Phase 2 (dogfood) — 완료** (`20260422-csv-lines`). csv-lines CLI 로 Lifecycle 전 9 단계 실사용 검증 통과.
@@ -165,7 +176,6 @@ PoC 판정 기준 및 실측 결과는 `docs/case-studies/2026-04-22-specops-aut
 - **P1** F-13 specifying-ko NFR 실측 우선 가이드 — `skills/specifying-ko/SKILL.md`
 - **P2** F-14 짝 아티팩트 교차 리뷰 패턴 문서화 — `docs/patterns/`
 - (기존 예정) ECC `autonomous-loops` 흡수 (Sequential Pipeline · De-Sloppify)
-- (기존 예정) `pre:governance-capture` hook — 5원칙 위반 자동 기록
 - (기존 예정) Superpowers `writing-skills` · `executing-plans` · `finishing-a-development-branch` 선별 흡수
 - (기존 예정) `github/spec-kit` 직접 clone (§15.7 미확정 항목 해소 후)
 
