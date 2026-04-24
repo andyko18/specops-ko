@@ -35,6 +35,42 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c (posttool=$posttool_count stop=$stop_count)"
 fi
 
+# T6.a R-1 verify 부재 → 매칭
+source "$PLUGIN/hooks/governance-lib.sh"
+FIXTURES="$PLUGIN/scripts/tests/governance/fixtures"
+rule_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git commit -m "feat: x"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.a R-1 verify 부재 → 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.a (out=$out)"
+fi
+
+# T6.b R-1 verify 있음 → 미매칭
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" "Bash" 'git commit -m "feat: x"')
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.b R-1 verify 있음 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.b (out=$out)"
+fi
+
+# T6.c R-1 trigger 명령 불일치 (Bash ls) → 미매칭
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'ls -la')
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.c trigger 불일치 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.c (out=$out)"
+fi
+
+# T6.d R-2 gh pr create + verify 부재 → 매칭 (R-2 는 R-1 과 동일 로직 검증)
+rule_r2=$(jq -c 'select(.id == "R-2")' "$PLUGIN/hooks/rules.jsonl")
+out=$(apply_lookback_rule "$rule_r2" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'gh pr create --title "x"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-2"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.d R-2 gh pr create 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

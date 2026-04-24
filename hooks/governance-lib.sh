@@ -75,3 +75,28 @@ load_rules() {
   [ -f "$rules_path" ] || return 0
   jq -c --arg m "$matcher" 'select(.enabled == true and .matcher == $m)' "$rules_path"
 }
+
+# lookback 룰 매처. trigger 일치 + negative_skill_pattern 이 직전 N 이벤트에 없으면 매칭.
+# usage: apply_lookback_rule <rule_json> <transcript> <tool_name> <tool_command>
+# 출력: 매칭 시 JSON { rule_id, evidence_snippet, offset }, 미매칭 시 빈 문자열
+apply_lookback_rule() {
+  local rule="$1" transcript="$2" tool_name="$3" tool_cmd="$4"
+  local rule_id trigger_tool trigger_pattern lookback neg_pattern
+  rule_id=$(echo "$rule" | jq -r '.id')
+  trigger_tool=$(echo "$rule" | jq -r '.trigger_tool')
+  [ "$tool_name" = "$trigger_tool" ] || return 0
+  trigger_pattern=$(echo "$rule" | jq -r '.trigger_pattern')
+  printf '%s' "$tool_cmd" | grep -Eq "$trigger_pattern" || return 0
+  lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
+  neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
+  local found
+  found=$(read_recent_tool_events "$transcript" "$lookback" \
+    | jq -c --arg p "$neg_pattern" 'select(.tool_name == "Skill" and (.input.skill // "" | test($p)))' \
+    | head -1)
+  if [ -z "$found" ]; then
+    local offset
+    offset=$(grep -c '^' "$transcript")
+    jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
+      '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+  fi
+}
