@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # specops-auto-ko governance-capture 공용 함수 라이브러리
 # source 로 로드하여 사용. 실행 파일 아님.
+#
+# Sourced library — strict mode 는 caller 에 위임 (set -u/-e 생략).
+# Requires: jq 1.6+, bash 3.2+, coreutils (date, grep, sed, cut, mkdir).
 
 detect_fid() {
   local progress_file=".specops/session-progress.md"
@@ -12,6 +15,9 @@ detect_fid() {
 
 # transcript JSONL 에서 최근 N 개 tool_use 이벤트를 추출
 # 출력: JSONL, 각 줄 { "index": <0-based>, "tool_name": "...", "input": {...} }
+#   index = 필터된 tool_use 이벤트 배열의 0-based 위치 (raw JSONL line 아님)
+# NOTE: --slurp 로 JSONL 전체 메모리 로드. v0.1 transcript 크기 (≤1MB 가정) 에서 허용.
+# 대형 세션은 `jq -cs '.[-N:]'` → head-cut 선처리 고려 (후속 과제).
 # usage: read_recent_tool_events <transcript_path> <max_count>
 read_recent_tool_events() {
   local transcript="$1"
@@ -29,6 +35,10 @@ read_recent_tool_events() {
 # usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset>
 log_friction() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5"
+  if [ -n "$fid" ] && ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
+    echo "log_friction: invalid fid format" >&2
+    return 1
+  fi
   local target
   if [ -n "$fid" ]; then
     mkdir -p ".specops/$fid"

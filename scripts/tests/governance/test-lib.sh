@@ -71,6 +71,39 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T4.a (rc=$rc count=$count has_ra=$has_ra)"
 fi
 
+# T-M1 log_friction: 잘못된 FID → rc=1, 파일 생성 없음
+tmp=$(mktemp -d); cd "$tmp"
+source "$PLUGIN/hooks/governance-lib.sh"
+log_friction "../evil" "R-X" 5 "x" 0 2>/dev/null; rc=$?
+if [ "$rc" -eq 1 ] && [ ! -e "../evil" ] && [ ! -d ".specops/../evil" ]; then
+  PASS=$((PASS+1)); echo "PASS T-M1 FID 경로 탈출 가드"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-M1 (rc=$rc)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T-M2 log_friction: 공백·특수문자 FID → rc=1
+tmp=$(mktemp -d); cd "$tmp"
+source "$PLUGIN/hooks/governance-lib.sh"
+log_friction "bad fid" "R-X" 5 "x" 0 2>/dev/null; rc=$?
+if [ "$rc" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T-M2 공백 FID 거부"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-M2 (rc=$rc)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T-M3 log_friction: 유효 FID (20260424-x) → rc=0 + 파일 생성 (회귀 방지)
+tmp=$(mktemp -d); cd "$tmp"
+source "$PLUGIN/hooks/governance-lib.sh"
+log_friction "20260424-valid" "R-X" 5 "x" 0; rc=$?
+if [ "$rc" -eq 0 ] && [ -f ".specops/20260424-valid/friction-log.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T-M3 유효 FID 수용"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-M3 (rc=$rc)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
