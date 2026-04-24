@@ -1,6 +1,6 @@
 ---
 name: decomposing-ko
-description: planning-ko 완료 후 호출 — plan.md를 2~5분 단위 TDD 5스텝 태스크로 분해. 모든 must AC가 최소 1 태스크에 매핑되도록 보장
+description: planning-ko 완료 후 호출 — plan.md를 2~5분 단위 TDD 5스텝 태스크로 분해. 모든 must AC가 최소 1 태스크에 매핑되도록 보장. bash 테스트 컨벤션 (templates/test-conventions-bash.md) 준수 점검 포함
 layer: 2
 reference_upstream:
   - github/spec-kit commands/tasks.md (specops-ko 경유)
@@ -17,6 +17,8 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 
 <HARD-GATE>
 **플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `specops-auto-ko:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
+
+**bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-auto-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
 </HARD-GATE>
 
 ## 체크리스트
@@ -32,10 +34,11 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
    - Step 5 COMMIT: `git add` + 한국어 커밋 메시지
 5. **문지기 체크 (원칙 2)** — 파괴적 작업 태스크는 **별도 분리** + `⚠️ 사용자 승인 필요` 표기 + 확인 스텝 삽입
 6. **플레이스홀더 스캔** — TBD·TODO·"similar to N" 발견 시 **구체 코드로 대체**
-7. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
-8. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
-9. **session-progress append** — `specops-auto-ko:implementing-ko` 다음 단계 안내
-10. **전환** — `specops-auto-ko:implementing-ko` 호출
+7. **테스트 컨벤션 점검 (bash)** — bash 테스트 생성 태스크가 있으면 `templates/test-conventions-bash.md` 4 항목 규약 준수 확인. exec-bit·shebang 누락 시 `<HARD-GATE>` 발동
+8. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
+9. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
+10. **session-progress append** — `specops-auto-ko:implementing-ko` 다음 단계 안내
+11. **전환** — `specops-auto-ko:implementing-ko` 호출
 
 ## 태스크 크기 규약
 
@@ -47,6 +50,25 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 - 스텝 간 의존 없음 (스텝 N+1이 스텝 N 산출 없이도 읽고 이해 가능)
 
 **태스크가 5분을 초과한다면**: 더 작은 태스크로 분할
+
+## 테스트 컨벤션 (bash)
+
+plan.md 가 bash 테스트 파일 생성 태스크를 포함하는 경우, 다음 4 항목 규약을 준수하도록 태스크를 설계한다. 상세는 `templates/test-conventions-bash.md` 참조.
+
+| 항목 | 규칙 요약 | 강도 |
+|---|---|---|
+| 위치 | `scripts/tests/[feature]/test-*.sh` · 전역은 `scripts/tests/test-*.sh` | 내부 예시 |
+| 명명 | `test-<subject>.sh` — subject 는 대응 프로덕션 파일 basename (확장자 제거) | 내부 예시 |
+| 실행권한 | `chmod +x` (755) | Universal 강제 |
+| 헤더 L1 | `#!/usr/bin/env bash` shebang | Universal 강제 |
+| 헤더 L2~ | `set -u`, `PASS=0; FAIL=0`, `PLUGIN=$(cd ... && pwd)`, `T<N>.<letter>` TEST ID | 내부 예시 |
+
+**강도 해석**:
+- **Universal 강제** — 위반 시 `<HARD-GATE>` 발동. `specops-auto-ko:implementing-ko` 호출 차단
+- **내부 예시** — specops-auto-ko 패턴. downstream 프로젝트 기존 패턴이 있으면 그것 우선
+- **단일 예외** — 실행권한 강제는 파일 L2 에 `# library-only` 마커 선언 시 skip (library-only 파일). shebang 은 예외 없음
+
+상세 규약·예시 코드블록·회귀 금지 체크리스트: `templates/test-conventions-bash.md`.
 
 ## AC 커버리지 표
 
