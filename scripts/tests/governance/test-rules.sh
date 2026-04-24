@@ -107,13 +107,13 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7.b (out=$out)"
 fi
 
-# T7.c~f 한국어 변형 4 종
-for variant in 사용 호출 진입 이동; do
+# T7.c~g 한국어 변형 5 종 (AC-9 한국어 변형 regex 에 '넘어감' 포함)
+for variant in 사용 호출 진입 이동 넘어감; do
   out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-korean-${variant}.jsonl" "specops-auto-ko:planning-ko")
   if [ -z "$out" ]; then
-    PASS=$((PASS+1)); echo "PASS T7.c-f 한국어 '${variant}' 미매칭"
+    PASS=$((PASS+1)); echo "PASS T7.c-g 한국어 '${variant}' 미매칭"
   else
-    FAIL=$((FAIL+1)); echo "FAIL T7.c-f ${variant} (out=$out)"
+    FAIL=$((FAIL+1)); echo "FAIL T7.c-g ${variant} (out=$out)"
   fi
 done
 
@@ -191,6 +191,17 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
   PASS=$((PASS+1)); echo "PASS T10.d 섹션 부재 → 매칭"
 else
   FAIL=$((FAIL+1)); echo "FAIL T10.d (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.e R-5 MultiEdit 으로 수정 + 빈 섹션 → 매칭 (MAJOR 2: Write/Edit 외 MultiEdit 도 감지)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-empty-section.md" "$tmp/spec.md"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"MultiEdit","input":{"file_path":"%s","edits":[]}}]}}\n' "$tmp/spec.md" > "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.e MultiEdit + 빈 섹션 → 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.e (out=$out)"
 fi
 rm -rf "$tmp"
 
