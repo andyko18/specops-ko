@@ -105,6 +105,23 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7.g (out=$out)"
 fi
 
+# T9.a R-4 성공 주장 + test runner 부재 → 매칭
+rule_r4=$(jq -c 'select(.id == "R-4")' "$PLUGIN/hooks/rules.jsonl")
+out=$(apply_assertion_without_test_rule "$rule_r4" "$FIXTURES/transcripts/r4-claim-without-runner.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-4"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T9.a R-4 claim without runner 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.a (out=$out)"
+fi
+
+# T9.b R-4 성공 주장 + bats 실행 있음 → 미매칭
+out=$(apply_assertion_without_test_rule "$rule_r4" "$FIXTURES/transcripts/r4-claim-with-runner.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T9.b R-4 claim with runner 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.b (out=$out)"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

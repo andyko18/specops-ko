@@ -140,3 +140,29 @@ apply_skill_declaration_rule() {
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
 }
+
+# R-4 매처 — transcript 에 assertion_pattern 존재 + test_runner_pattern 부재 → 매칭
+# usage: apply_assertion_without_test_rule <rule_json> <transcript>
+# 출력: 매칭 시 JSON { rule_id, evidence_snippet, offset }, 미매칭 시 빈 문자열
+apply_assertion_without_test_rule() {
+  local rule="$1" transcript="$2"
+  [ -f "$transcript" ] || return 0
+  local assertion_re test_runner_re
+  assertion_re=$(echo "$rule" | jq -r '.assertion_pattern')
+  test_runner_re=$(echo "$rule" | jq -r '.test_runner_pattern')
+  # assertion 있는가? (assistant text 전수 조사)
+  local has_assertion
+  has_assertion=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$transcript" 2>/dev/null \
+    | grep -Eo "$assertion_re" | head -1)
+  [ -n "$has_assertion" ] || return 0
+  # test runner 실행 있는가? (Bash tool_use input.command 전수 조사)
+  local has_runner
+  has_runner=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Bash") | .input.command // empty' "$transcript" 2>/dev/null \
+    | grep -Eo "$test_runner_re" | head -1)
+  if [ -z "$has_runner" ]; then
+    local offset
+    offset=$(grep -c '^' "$transcript")
+    jq -nc --arg id "R-4" --arg snippet "성공 주장 '$has_assertion' + test runner 실행 부재" --argjson offset "$offset" \
+      '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+  fi
+}
