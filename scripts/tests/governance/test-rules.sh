@@ -71,6 +71,40 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
 fi
 
+# T7.a R-3 선언 부재 → 매칭
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-auto-ko:planning-ko")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-3"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T7.a R-3 선언 부재 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.a (out=$out)"
+fi
+
+# T7.b R-3 영문 Using 선언 → 미매칭
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-english-declaration.jsonl" "specops-auto-ko:planning-ko")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.b Using 영문 선언 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.b (out=$out)"
+fi
+
+# T7.c~f 한국어 변형 4 종
+for variant in 사용 호출 진입 이동; do
+  out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-korean-${variant}.jsonl" "specops-auto-ko:planning-ko")
+  if [ -z "$out" ]; then
+    PASS=$((PASS+1)); echo "PASS T7.c-f 한국어 '${variant}' 미매칭"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T7.c-f ${variant} (out=$out)"
+  fi
+done
+
+# T7.g R-3 직전 1 메시지 아닌 더 앞의 선언 → 매칭 (느슨 규약: Q-C "직전 1 assistant 메시지" 만 검사)
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-earlier-declaration.jsonl" "specops-auto-ko:planning-ko")
+if [ -n "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.g 직전 1 외 선언 → 매칭 (Q-C 느슨 규약)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.g (out=$out)"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

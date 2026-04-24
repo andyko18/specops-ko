@@ -100,3 +100,43 @@ apply_lookback_rule() {
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
 }
+
+# R-3 매처 — Skill 호출 직전 1 assistant 메시지에 선언 부재 확인 (AC-9)
+# usage: apply_skill_declaration_rule <transcript> <skill_full_name>
+# 선언 = 영문 "Using <short>" 또는 한국어 "<short> (을|를|로|으로)? (사용|호출|진입|이동|넘어감)"
+# short = skill_full_name 에서 "specops-auto-ko:" 접두 제거
+apply_skill_declaration_rule() {
+  local transcript="$1" skill_full="$2"
+  [ -f "$transcript" ] || return 0
+  local short="${skill_full#specops-auto-ko:}"
+  # 포괄 regex: Using|한국어 변형 (대소문자 무시는 grep -i 로 처리)
+  local decl_re="([Uu]sing[[:space:]]+${short}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감))"
+  # 전체 transcript 를 순회하면서 "Skill 호출 tool_use" 이벤트 직전의 assistant text 를 유지
+  # 여러 Skill 호출이 있을 수 있으나 본 룰은 첫 번째 매칭된 Skill 호출만 검사 (단순화)
+  local prev_text=""
+  local matched=0
+  local offset=0
+  while IFS= read -r line; do
+    offset=$((offset + 1))
+    local ev_type
+    ev_type=$(echo "$line" | jq -r '.type' 2>/dev/null)
+    [ "$ev_type" = "assistant" ] || continue
+    local has_target_skill
+    has_target_skill=$(echo "$line" | jq -r --arg s "$skill_full" '.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s) | .input.skill' 2>/dev/null)
+    if [ -n "$has_target_skill" ]; then
+      if [ -z "$prev_text" ] || ! printf '%s' "$prev_text" | grep -Eq "$decl_re"; then
+        matched=1
+      fi
+      break
+    fi
+    local cur_text
+    cur_text=$(echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null)
+    if [ -n "$cur_text" ]; then
+      prev_text="$cur_text"
+    fi
+  done < "$transcript"
+  if [ "$matched" -eq 1 ]; then
+    jq -nc --arg id "R-3" --arg snippet "Skill($skill_full) 호출 전 선언 부재" --argjson offset "$offset" \
+      '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+  fi
+}
