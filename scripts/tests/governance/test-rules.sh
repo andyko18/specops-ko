@@ -122,6 +122,58 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T9.b (out=$out)"
 fi
 
+# R-5 용 transcript fixture 치환 헬퍼
+make_r5_transcript() {
+  local spec_path="$1"
+  local out="$2"
+  printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"x"}}]}}\n' "$spec_path" > "$out"
+}
+
+# T10.a R-5 data row 1+ → 미매칭
+rule_r5=$(jq -c 'select(.id == "R-5")' "$PLUGIN/hooks/rules.jsonl")
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.a data row 존재 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.a (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.b R-5 "해당 없음" 문자열 → 미매칭
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-haedang-eopseum.md" "$tmp/spec.md"
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.b '해당 없음' → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.b (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.c R-5 빈 섹션 → 매칭
+tmp=$(mktemp -d); cp "$FIXTURES/r5-empty-section.md" "$tmp/spec.md"
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.c 빈 섹션 → 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.c (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.d R-5 섹션 자체 부재 → 매칭
+tmp=$(mktemp -d); cp "$FIXTURES/r5-no-section.md" "$tmp/spec.md"
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.d 섹션 부재 → 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.d (out=$out)"
+fi
+rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

@@ -166,3 +166,52 @@ apply_assertion_without_test_rule() {
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
 }
+
+# R-5 매처 — 세션 중 수정된 spec/plan/analysis md 의 Advisor 협의 기록 섹션 검사
+# usage: apply_advisor_section_rule <rule_json> <transcript>
+# PASS 조건: 섹션 내 data row 1+ 또는 "해당 없음" 문자열 존재 (Q-D 관대)
+# 매칭 조건: target_files 중 하나라도 위 PASS 조건 미충족
+apply_advisor_section_rule() {
+  local rule="$1" transcript="$2"
+  [ -f "$transcript" ] || return 0
+  local target_files section_re
+  target_files=$(echo "$rule" | jq -r '.target_files[]')
+  section_re=$(echo "$rule" | jq -r '.advisor_section_pattern')
+  # 세션 중 Write/Edit 된 파일 경로 추출
+  local modified_files
+  modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
+  local match_result=""
+  local fp bn is_target section_body data_rows has_hae
+  for fp in $modified_files; do
+    bn=$(basename "$fp")
+    is_target=0
+    for t in $target_files; do
+      [ "$bn" = "$t" ] && is_target=1
+    done
+    [ "$is_target" -eq 1 ] || continue
+    [ -f "$fp" ] || continue
+    # Advisor 섹션 본문 추출: section_re 이후 ~ 다음 ## 직전
+    section_body=$(awk -v re="$section_re" '
+      $0 ~ re { inside=1; next }
+      inside && /^## / { exit }
+      inside { print }
+    ' "$fp")
+    if [ -z "$section_body" ]; then
+      match_result="섹션 부재: $fp"
+      break
+    fi
+    # data row: | 로 시작, 헤더(`| 일시`)·구분선(`|---` 또는 `| --- |`) 제외
+    data_rows=$(printf '%s\n' "$section_body" | grep -E '^\|' | grep -Ev '^\|[[:space:]]*-+' | grep -Ev '^\|[[:space:]]*일시[[:space:]]*\|' | wc -l | tr -d ' ')
+    has_hae=$(printf '%s\n' "$section_body" | grep -c '해당 없음' | tr -d ' ')
+    if [ "$data_rows" -eq 0 ] && [ "$has_hae" -eq 0 ]; then
+      match_result="섹션 미충족: $fp"
+      break
+    fi
+  done
+  if [ -n "$match_result" ]; then
+    local offset
+    offset=$(grep -c '^' "$transcript")
+    jq -nc --arg id "R-5" --arg snippet "$match_result" --argjson offset "$offset" \
+      '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+  fi
+}
