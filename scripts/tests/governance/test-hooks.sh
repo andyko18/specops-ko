@@ -61,6 +61,47 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+STOP_HOOK="$PLUGIN/hooks/stop-governance.sh"
+
+# T11.a stop_hook_active=true → 즉시 exit 0, append 없음
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+touch transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"Stop", stop_hook_active:true }')
+out=$(echo "$stdin_json" | bash "$STOP_HOOK" 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && echo "$out" | jq -e '.continue == true' >/dev/null && [ ! -f ".specops/friction-log.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T11.a stop_hook_active 멱등"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.a"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T11.b R-4 트리거 → friction-log append + continue:true
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+cp "$FIXTURES/transcripts/r4-claim-without-runner.jsonl" transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"Stop", stop_hook_active:false }')
+out=$(echo "$stdin_json" | bash "$STOP_HOOK" 2>/dev/null); rc=$?
+log_path=".specops/20260424-newest-feature/friction-log.jsonl"
+if [ "$rc" -eq 0 ] && echo "$out" | jq -e '.continue == true' >/dev/null && [ -f "$log_path" ] && jq -e '.rule_id == "R-4"' "$log_path" >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T11.b R-4 append"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.b (rc=$rc log=$(ls $log_path 2>/dev/null))"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T11.c 매칭 없음 (빈 transcript) → append 없음, continue:true
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+touch transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"Stop", stop_hook_active:false }')
+out=$(echo "$stdin_json" | bash "$STOP_HOOK" 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && echo "$out" | jq -e '.continue == true and (has("additionalContext") | not)' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T11.c 매칭 없음 continue only"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.c"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
