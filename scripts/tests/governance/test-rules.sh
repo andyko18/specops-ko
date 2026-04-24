@@ -71,6 +71,26 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
 fi
 
+# T6.e R-1 offset 회귀 방지: 2 매칭 transcript 에서 triggering(마지막) 라인 번호 반환
+# fixture r1-two-commits-without-verify.jsonl: line 0 = first commit, line 1 = ls, line 2 = second commit
+# PostToolUse 는 현재 이벤트 직후 발화 → 마지막 매칭(라인 2)이 triggering
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-two-commits-without-verify.jsonl" "Bash" 'git commit -m "feat: second"')
+offset=$(echo "$out" | jq -r '.offset' 2>/dev/null)
+if [ "$offset" = "2" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.e offset=2 (마지막 매칭 라인, 상수 버그 해소 증명)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.e (offset=$offset, expect 2, out=$out)"
+fi
+
+# T6.f R-1 1 매칭 transcript 는 offset=1 (r1-commit-without-verify.jsonl 의 git commit 은 2번째 라인)
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git commit -m "feat: x"')
+offset=$(echo "$out" | jq -r '.offset' 2>/dev/null)
+if [ "$offset" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.f offset=1 (단일 매칭 라인 번호)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.f (offset=$offset, expect 1, out=$out)"
+fi
+
 # T7.a R-3 선언 부재 → 매칭
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-auto-ko:planning-ko")
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-3"' >/dev/null; then

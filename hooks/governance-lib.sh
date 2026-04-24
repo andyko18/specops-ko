@@ -94,8 +94,18 @@ apply_lookback_rule() {
     | jq -c --arg p "$neg_pattern" 'select(.tool_name == "Skill" and (.input.skill // "" | test($p)))' \
     | head -1)
   if [ -z "$found" ]; then
-    local offset
-    offset=$(grep -c '^' "$transcript")
+    # triggering Bash tool_use 이벤트의 transcript 라인 번호 (0-based)
+    # PostToolUse 는 현재 triggering 이벤트 직후 발화 → 마지막 매칭이 현재 이벤트
+    local offset=-1 line_no=0
+    while IFS= read -r line; do
+      if echo "$line" | jq -e --arg t "$trigger_tool" --arg pat "$trigger_pattern" \
+           '(.type == "assistant") and (any(.message.content[]?; .type == "tool_use" and .name == $t and ((.input.command // "") | test($pat))))' \
+           >/dev/null 2>&1; then
+        offset=$line_no
+      fi
+      line_no=$((line_no + 1))
+    done < "$transcript"
+    [ "$offset" -lt 0 ] && offset=$line_no
     jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -160,8 +170,18 @@ apply_assertion_without_test_rule() {
   has_runner=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Bash") | .input.command // empty' "$transcript" 2>/dev/null \
     | grep -Eo "$test_runner_re" | head -1)
   if [ -z "$has_runner" ]; then
-    local offset
-    offset=$(grep -c '^' "$transcript")
+    # assertion 매칭된 가장 마지막 assistant text 이벤트의 라인 번호 (0-based)
+    # Stop hook 이므로 최근 주장이 증거로 더 적합
+    local offset=-1 line_no=0
+    while IFS= read -r line; do
+      local txt
+      txt=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null)
+      if [ -n "$txt" ] && printf '%s' "$txt" | grep -Eq "$assertion_re"; then
+        offset=$line_no
+      fi
+      line_no=$((line_no + 1))
+    done < "$transcript"
+    [ "$offset" -lt 0 ] && offset=$line_no
     jq -nc --arg id "R-4" --arg snippet "성공 주장 '$has_assertion' + test runner 실행 부재" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -177,9 +197,9 @@ apply_advisor_section_rule() {
   local target_files section_re
   target_files=$(echo "$rule" | jq -r '.target_files[]')
   section_re=$(echo "$rule" | jq -r '.advisor_section_pattern')
-  # 세션 중 Write/Edit 된 파일 경로 추출
+  # 세션 중 Write/Edit/MultiEdit 된 파일 경로 추출
   local modified_files
-  modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
+  modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit" or .name == "MultiEdit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
   local match_result=""
   local fp bn is_target section_body data_rows has_hae
   for fp in $modified_files; do
@@ -209,8 +229,25 @@ apply_advisor_section_rule() {
     fi
   done
   if [ -n "$match_result" ]; then
-    local offset
-    offset=$(grep -c '^' "$transcript")
+    # match_result 에 해당하는 파일 경로 추출 ("섹션 부재: <fp>" 또는 "섹션 미충족: <fp>")
+    local matched_file=""
+    if [[ "$match_result" == *": "* ]]; then
+      matched_file="${match_result##*: }"
+    fi
+    # 첫 Write/Edit/MultiEdit 이벤트 (target file 대상) 의 transcript 라인 번호 (0-based)
+    local offset=-1 line_no=0
+    if [ -n "$matched_file" ]; then
+      while IFS= read -r line; do
+        local fp_hit
+        fp_hit=$(echo "$line" | jq -r --arg p "$matched_file" 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit" or .name == "MultiEdit") and .input.file_path == $p) | .input.file_path' 2>/dev/null)
+        if [ -n "$fp_hit" ]; then
+          offset=$line_no
+          break
+        fi
+        line_no=$((line_no + 1))
+      done < "$transcript"
+    fi
+    [ "$offset" -lt 0 ] && offset=$line_no
     jq -nc --arg id "R-5" --arg snippet "$match_result" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
