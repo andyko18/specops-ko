@@ -57,3 +57,11 @@ log_friction() {
     '{ ts: $ts, fid: $fid, rule_id: $rule_id, principle: $principle, severity: "warn", evidence_snippet: $snippet, transcript_offset: $offset }' \
     >> "$target"
 }
+
+# rules.jsonl 에서 matcher + enabled:true 룰만 반환
+# usage: load_rules <rules_path> <matcher>
+load_rules() {
+  local rules_path="$1" matcher="$2"
+  [ -f "$rules_path" ] || return 0
+  jq -c --arg m "$matcher" 'select(.enabled == true and .matcher == $m)' "$rules_path"
+}

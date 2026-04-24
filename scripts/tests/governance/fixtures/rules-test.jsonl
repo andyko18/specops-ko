@@ -1,0 +1,3 @@
+{"id":"R-A","matcher":"posttool","enabled":true,"principle":1}
+{"id":"R-B","matcher":"stop","enabled":true,"principle":5}
+{"id":"R-C","matcher":"posttool","enabled":false,"principle":1}

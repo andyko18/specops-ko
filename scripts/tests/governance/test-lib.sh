@@ -61,6 +61,16 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T4.a load_rules: matcher + enabled 필터
+out=$(load_rules "$FIXTURES/rules-test.jsonl" "posttool"); rc=$?
+count=$(echo "$out" | grep -c '^{')
+has_ra=$(echo "$out" | jq -e 'select(.id == "R-A")' >/dev/null 2>&1 && echo 1 || echo 0)
+if [ "$rc" -eq 0 ] && [ "$count" -eq 1 ] && [ "$has_ra" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T4.a load_rules 필터"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.a (rc=$rc count=$count has_ra=$has_ra)"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
