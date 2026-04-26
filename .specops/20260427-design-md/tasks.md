@@ -35,7 +35,7 @@
 
 **관련 AC**: AC-2
 
-- [ ] **스텝 1: RED — 검증 명령 정의**
+- [x] **스텝 1: RED — 검증 명령 정의**
 
 ```bash
 # 아래 명령이 PASS를 반환해야 한다 (스텝 4 기준)
@@ -44,14 +44,14 @@ grep -c "^## " templates/DESIGN.md  # 기대: 6 이상
 grep "AI Usage" templates/DESIGN.md # 기대: 1줄 이상
 ```
 
-- [ ] **스텝 2: FAIL 검증**
+- [x] **스텝 2: FAIL 검증**
 
 ```bash
 ls templates/DESIGN.md
 ```
 예상: `ls: cannot access 'templates/DESIGN.md': No such file or directory` (exit 1)
 
-- [ ] **스텝 3: GREEN — 파일 생성**
+- [x] **스텝 3: GREEN — 파일 생성**
 
 `templates/DESIGN.md` 전문:
 
@@ -158,7 +158,7 @@ Padding:    [N]px
 - [프레임워크별 지침 — 예: "Tailwind 사용 시 CSS 변수 우선"]
 ```
 
-- [ ] **스텝 4: PASS 검증**
+- [x] **스텝 4: PASS 검증**
 
 ```bash
 ls templates/DESIGN.md
@@ -171,7 +171,7 @@ grep "AI Usage" templates/DESIGN.md
 ```
 예상: `## 6. AI Usage Guidelines` 줄 출력
 
-- [ ] **스텝 5: COMMIT**
+- [x] **스텝 5: COMMIT**
 
 ```bash
 git add templates/DESIGN.md
@@ -322,7 +322,7 @@ git commit -m "feat(design-md): /start-design 커맨드 추가 (브랜드 선택
 
 **관련 AC**: AC-3, AC-4
 
-- [ ] **스텝 1: RED — 검증 명령 정의**
+- [x] **스텝 1: RED — 검증 명령 정의**
 
 ```bash
 grep -c "DESIGN.md" skills/specifying-ko/SKILL.md
@@ -334,14 +334,14 @@ grep "spec.md.*참조\|디자인 시스템 준수" skills/specifying-ko/SKILL.md
 ```
 예상: 1줄 이상 출력
 
-- [ ] **스텝 2: FAIL 검증**
+- [x] **스텝 2: FAIL 검증**
 
 ```bash
 grep -c "DESIGN.md" skills/specifying-ko/SKILL.md
 ```
 예상: `0` (현재 DESIGN.md 언급 없음)
 
-- [ ] **스텝 3: GREEN — SKILL.md 수정**
+- [x] **스텝 3: GREEN — SKILL.md 수정**
 
 `skills/specifying-ko/SKILL.md` 에서 다음 줄을 찾아:
 
@@ -358,7 +358,7 @@ grep -c "DESIGN.md" skills/specifying-ko/SKILL.md
      → **없으면**: UI 컴포넌트 포함 기능이면 `/start-design` 실행 안내
 ```
 
-- [ ] **스텝 4: PASS 검증**
+- [x] **스텝 4: PASS 검증**
 
 ```bash
 grep -c "DESIGN.md" skills/specifying-ko/SKILL.md
@@ -370,7 +370,7 @@ grep "디자인 시스템 준수" skills/specifying-ko/SKILL.md
 ```
 예상: 1줄 출력
 
-- [ ] **스텝 5: COMMIT**
+- [x] **스텝 5: COMMIT**
 
 ```bash
 git add skills/specifying-ko/SKILL.md
