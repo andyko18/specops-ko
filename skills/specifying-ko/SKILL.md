@@ -30,15 +30,23 @@ used_by: using-specops-auto-ko-ko, /start
      → **있으면**: 생성하는 `spec.md` §참조에 "`DESIGN.md` 디자인 시스템 준수" 포함
      → **없으면**: UI 컴포넌트 포함 기능이면 (HTML/CSS/React/Vue 등 시각 렌더링 포함) `/start-design` 실행 안내 (`DESIGN.md` 생성 후 재진입)
    - 프로젝트 루트 `screens/` 존재 확인 (`ls screens/ 2>/dev/null`)
-     → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..."
-       관련 화면을 `spec.md` §참조에 포함 + HTML artifact 생성 제안
+     → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (Step 5.5에서 신규 화면 설계 예정)
      → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
-     → **없으면 + UI 기능**: `screens/` 생성 및 `/design-screen` 활용 안내
+     → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (Step 5.5 인라인 화면 설계에서 처리)
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
 3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해
 4. **2~3 접근 제안** — 트레이드오프와 권고 제시
 5. **설계 제시** — 섹션을 복잡도에 맞춰 스케일, 각 섹션 후 사용자 승인 확인
+5.5. **[UI 기능인 경우] 인라인 화면 설계** — 설계 승인 직후 실행:
+   - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
+     > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
+   - 각 화면을 순서대로 설계:
+     1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성 (별도 질문 없이)
+     2. 사용자에게 보여주고 수정 요청 수렴 → 수정 요청 시 재생성 루프
+     3. 승인 → `screens/{name}.md` + `screens/{name}.html` 저장 (`mkdir -p screens` 선행)
+   - 모든 화면 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
+   - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
 9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
@@ -53,9 +61,9 @@ DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 
     │                              ↓
     └── no (UI 기능이면 /start-design 안내)
     ↓
-screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 + UI 기능이면 HTML artifact 안내
+screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
     │
-    └── no (UI 기능이면 screens/ 생성 안내)
+    └── no
     ↓
 시각 질문 예상? ── yes ──▶ Visual Companion 제안 (단독 메시지)
     │                              ↓
@@ -67,7 +75,20 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 + UI 기능이
                   ↑                │
                   └── no, 수정     │ yes
                                    ↓
-                              설계 문서 작성
+                         UI 기능? ── yes ──▶ 필요 화면 목록 자동 판단
+                              │                      ↓
+                              │              HTML artifact 생성 ── 수정 요청?
+                              │                      ↑                  │ no
+                              │                      └──────────────────┘
+                              │                           승인
+                              │                      ↓
+                              │              screens/{name}.md + .html 저장
+                              │                      ↓
+                              │              화면 더 있음? ── yes ──▶ 다음 화면
+                              │                      │ no
+                              └── no ────────────────┘
+                                   ↓
+                              설계 문서 작성 (spec.md — §참조에 screens/ 포함)
                                    ↓
                               스펙 자체 검토 (인라인 수정)
                                    ↓
