@@ -45,6 +45,8 @@
 
 ## 4. Components
 
+> DESIGN.md 생성 시: 아래 코드 블록의 `[placeholder]` 값을 §1·§2·§3 실제 값으로 치환한다.
+
 ### Button
 
 ```

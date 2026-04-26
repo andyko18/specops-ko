@@ -57,6 +57,8 @@ ls DESIGN.md
 | Linear | `#5E6AD2` | Inter | 다크, 선명한 인디고 |
 | Claude | `#7C3AED` | Inter | 다크 퍼스트, AI-native |
 
+**(5) 직접 입력 시**: 사용자에게 Primary 색상(`#RRGGBB`), 폰트명, 전반적 무드(라이트/다크/중립)를 추가 확인 후 템플릿 채움.
+
 ### Step 4: git commit
 
 ```bash
@@ -66,6 +68,7 @@ git commit -m "feat(design): DESIGN.md 초기 생성 ([브랜드] 스타일)"
 
 ## 사용 예
 
+**기본 흐름**:
 ```
 /start-design
 → "어떤 디자인 시스템을 참고할까요?"
@@ -73,6 +76,15 @@ git commit -m "feat(design): DESIGN.md 초기 생성 ([브랜드] 스타일)"
 → Stripe 스타일 DESIGN.md 생성
 → git commit
 → 완료
+```
+
+**UI 기능 specifying 중 DESIGN.md 없음 → 재진입**:
+```
+/start 대시보드 UI 만들어줘
+→ specifying-ko: "DESIGN.md 없음 — UI 컴포넌트 포함 기능이므로 /start-design 먼저 실행하세요."
+/start-design
+→ DESIGN.md 생성 완료 (git commit)
+/start 대시보드 UI 만들어줘  ← specifying-ko 재진입, DESIGN.md 자동 감지
 ```
 
 ## 참조

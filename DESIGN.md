@@ -104,6 +104,7 @@ Error:     bg=#EF4444/20, text=#F87171
 **컬러 사용**:
 - Primary(`#7C3AED`)는 interactive 요소(버튼, 링크, 포커스 링)에만. 배경 전체 금지.
 - 배경은 항상 `#0F0F10` 또는 `#1A1A1F`. 순백(#FFFFFF) 배경 금지.
+- Accent(`#E0C9FF`)는 강조 텍스트·선택된 항목 하이라이트에만. 버튼·배경 사용 금지.
 - 에러/성공 색상은 아이콘+텍스트 조합으로. 배경색만 사용 금지.
 
 **타이포그래피**:
@@ -112,5 +113,5 @@ Error:     bg=#EF4444/20, text=#F87171
 
 **컴포넌트 생성 시**:
 - §4 Components 스펙 먼저 확인. 커스텀 스타일 추가 전 기존 variant 재사용.
-- Tailwind CSS 사용 시: `violet-700`(Primary), `gray-900`(Background), `gray-800`(Surface).
+- Tailwind CSS 사용 시: `violet-700`(Primary), `violet-400`(Secondary), `gray-900`(Background), `gray-800`(Surface), `red-500`(Error), `emerald-500`(Success).
 - React 컴포넌트는 다크 모드 className 포함 (`dark:` prefix).
