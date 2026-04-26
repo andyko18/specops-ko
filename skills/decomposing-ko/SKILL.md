@@ -20,6 +20,8 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 
 **bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-auto-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
 
+**Python 테스트 파일 규약**: 생성되는 `test_*.py` 에 exec-bit 및 shebang 불필요. pytest가 직접 실행. 파일명은 `test_<subject>.py` (underscore, hyphen 아님). 상세: `templates/test-conventions-python.md`.
+
 **v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
 </HARD-GATE>
 
@@ -41,7 +43,9 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
    - Step 5 COMMIT: `git add` + 한국어 커밋 메시지
 5. **문지기 체크 (원칙 2)** — 파괴적 작업 태스크는 **별도 분리** + `⚠️ 사용자 승인 필요` 표기 + 확인 스텝 삽입
 6. **플레이스홀더 스캔** — TBD·TODO·"similar to N" 발견 시 **구체 코드로 대체**
-7. **테스트 컨벤션 점검 (bash)** — bash 테스트 생성 태스크가 있으면 `templates/test-conventions-bash.md` 4 항목 규약 준수 확인. exec-bit·shebang 누락 시 `<HARD-GATE>` 발동
+7. **테스트 컨벤션 점검** — 테스트 생성 태스크가 있으면 언어별 컨벤션 준수 확인:
+   - bash (`test-*.sh`): `templates/test-conventions-bash.md` 준수. exec-bit·shebang 누락 시 `<HARD-GATE>` 발동
+   - Python (`test_*.py`): `templates/test-conventions-python.md` 준수. exec-bit·shebang 불필요. `test_<subject>.py` 명명 위반 시 `<HARD-GATE>` 발동
 8. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
 9. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
 10. **DAG 의존 그래프 작성 (v0.4a 신규, 의무)** — `tasks.md` 끝에 `## 의존 그래프` 섹션 추가:
@@ -70,7 +74,7 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 
 **태스크가 5분을 초과한다면**: 더 작은 태스크로 분할
 
-## 테스트 컨벤션 (bash)
+## 테스트 컨벤션
 
 plan.md 가 bash 테스트 파일 생성 태스크를 포함하는 경우, 다음 4 항목 규약을 준수하도록 태스크를 설계한다. 상세는 `templates/test-conventions-bash.md` 참조.
 
@@ -88,6 +92,24 @@ plan.md 가 bash 테스트 파일 생성 태스크를 포함하는 경우, 다�
 - **단일 예외** — 실행권한 강제는 파일 L2 에 `# library-only` 마커 선언 시 skip (library-only 파일). shebang 은 예외 없음
 
 상세 규약·예시 코드블록·회귀 금지 체크리스트: `templates/test-conventions-bash.md`.
+
+### Python 테스트 파일 (`test_*.py`)
+
+plan.md 가 Python 테스트 파일 생성 태스크를 포함하는 경우, 다음 규약을 준수하도록 태스크를 설계한다. 상세는 `templates/test-conventions-python.md` 참조.
+
+| 항목 | 규칙 | 강도 |
+|---|---|---|
+| 위치 | `examples/tests/` 또는 downstream 프로젝트 패턴 | 내부 예시 |
+| 명명 | `test_<subject>.py` — underscore | Universal 강제 |
+| exec-bit | 불필요 | Universal 규약 |
+| 헤더 | shebang 불필요 | Universal 규약 |
+
+**강도 해석**:
+- **Universal 강제** — `test_*.py` 명명 위반 시 `<HARD-GATE>` 발동
+- **Universal 규약** — exec-bit·shebang은 불필요 (bash와 다름)
+- **내부 예시** — downstream 프로젝트 기존 패턴이 있으면 그것 우선
+
+상세: `templates/test-conventions-python.md`.
 
 ## AC 커버리지 표
 
