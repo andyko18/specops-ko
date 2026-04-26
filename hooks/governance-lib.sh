@@ -126,6 +126,7 @@ apply_lookback_rule() {
 # 2. lookback N=1 → N=3 assistant 메시지
 # 3. user turn 첫 진입 예외 (직전 user 메시지에 /start 또는 트리거 키워드 있으면 면제)
 # v0.4b W1 변경: full name (specops-auto-ko:<short>) 패턴 추가 (cvt+b64 7건 회귀 원인)
+# v0.5 W1 변경: lifecycle chain auto-call exempt — 직전 tool_use가 Skill(specops-auto-ko:*)이면 면제
 apply_skill_declaration_rule() {
   local transcript="$1" skill_full="$2"
   [ -f "$transcript" ] || return 0
@@ -138,6 +139,8 @@ apply_skill_declaration_rule() {
   # 직전 N=3 assistant text 메시지를 ring buffer로 유지
   local prev_text_1="" prev_text_2="" prev_text_3=""
   local last_user_text=""
+  # v0.5: lifecycle chain 추적 — 직전 Skill(specops-auto-ko:*) 호출 저장
+  local prev_lifecycle_skill=""
   local matched=0
   local offset=0
   while IFS= read -r line; do
@@ -153,9 +156,11 @@ apply_skill_declaration_rule() {
     local has_target_skill
     has_target_skill=$(echo "$line" | jq -r --arg s "$skill_full" '.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s) | .input.skill' 2>/dev/null)
     if [ -n "$has_target_skill" ]; then
-      # 직전 3개 assistant text 또는 user trigger 검사
+      # 직전 3개 assistant text 또는 user trigger 또는 lifecycle chain 검사
       local combined="${prev_text_1}\n${prev_text_2}\n${prev_text_3}"
-      if printf '%s' "$combined" | grep -Eq "$decl_re"; then
+      if [ -n "$prev_lifecycle_skill" ]; then
+        matched=0  # lifecycle chain 자동 호출 → 면제 (v0.5 W1)
+      elif printf '%s' "$combined" | grep -Eq "$decl_re"; then
         matched=0  # 선언 발견 → 미매칭
       elif [ -n "$last_user_text" ] && printf '%s' "$last_user_text" | grep -Eq "$trigger_re"; then
         matched=0  # user turn trigger 직후 첫 Skill 호출 → 면제
@@ -164,6 +169,11 @@ apply_skill_declaration_rule() {
       fi
       break
     fi
+    # v0.5: lifecycle chain 추적 — 현재 라인의 Skill(specops-auto-ko:*) 호출 저장
+    local cur_lifecycle_skill
+    cur_lifecycle_skill=$(echo "$line" | jq -r '.message.content[]? | select(.type == "tool_use" and .name == "Skill") | .input.skill // empty' 2>/dev/null \
+      | grep -E '^specops-auto-ko:' | head -1)
+    [ -n "$cur_lifecycle_skill" ] && prev_lifecycle_skill="$cur_lifecycle_skill"
     local cur_text
     cur_text=$(echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null)
     if [ -n "$cur_text" ]; then

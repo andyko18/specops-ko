@@ -256,6 +256,15 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7.m (out=$out)"
 fi
 
+# T7.n R-3 lifecycle chain 자동 호출 → 미매칭 (v0.5 W1)
+# fixture: requesting-code-review-ko 직후 receiving-code-review-ko 자동 chain
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" "specops-auto-ko:receiving-code-review-ko")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.n R-3 lifecycle chain 자동 호출 → 미매칭 (v0.5 W1)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.n (out=$out)"
+fi
+
 # T11.a log_friction dedup — 같은 rule_id + snippet 두 번 호출 시 1건만 기록
 tmp=$(mktemp -d)
 (cd "$tmp" &&
