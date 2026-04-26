@@ -2,7 +2,7 @@
 name: tdd-ko
 description: 기능·버그픽스·리팩터링 구현 시 구현 코드 작성 전 반드시 사용 — Red-Green-Refactor 사이클 강제, 프로덕션 코드는 실패 테스트 없이 작성 금지
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
   - obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow
   - specops-ko skills/engine/tdd-ko.md

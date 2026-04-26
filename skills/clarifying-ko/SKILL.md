@@ -2,7 +2,7 @@
 name: clarifying-ko
 description: specifying-ko 완료 후 호출 — spec.md의 모호성·열린 질문을 사용자와 대화로 해소하고 clarifications.md 생성. BLOCKING 해소 전 planning-ko 진행 금지
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (후반 "Spec Self-Review" + "User Review Gate" 분리)
   - github/spec-kit commands/clarify.md (specops-ko 경유)
   - specops-ko commands/clarify.md

@@ -2,7 +2,7 @@
 name: file-based-communication-ko
 description: 서브에이전트 호출 시 프롬프트에 파일 경로만 전달하고 본문 페이로드는 금지한다
 layer: 1
-reference_upstream: revfactory/harness + Anthropic harness-design-long-running-apps (2025)
+reference_upstream: revfactory/harness@v1.0 skills/file-based-communication/SKILL.md
 specops_version: 0.1.0
 ---
 

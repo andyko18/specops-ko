@@ -2,7 +2,7 @@
 name: planning-ko
 description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건드리기 전에 사용 — 구현 플랜을 bite-sized task 단위로 작성
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
 specops_version: 0.0.0

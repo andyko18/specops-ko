@@ -2,7 +2,7 @@
 name: decomposing-ko
 description: planning-ko 완료 후 호출 — plan.md를 2~5분 단위 TDD 5스텝 태스크로 분해. 모든 must AC가 최소 1 태스크에 매핑되도록 보장. bash 테스트 컨벤션 (templates/test-conventions-bash.md) 준수 점검 포함
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - github/spec-kit commands/tasks.md (specops-ko 경유)
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md

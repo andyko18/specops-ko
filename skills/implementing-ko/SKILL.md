@@ -2,7 +2,7 @@
 name: implementing-ko
 description: 본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 서브에이전트 dispatch, 각 태스크마다 2단계 리뷰(스펙 준수 → 코드 품질)
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/implementer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md

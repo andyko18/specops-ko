@@ -2,7 +2,7 @@
 name: verifying-evidence-ko
 description: 작업이 완료·수정·통과됐다고 주장하기 직전, 커밋·PR 생성 전 반드시 사용 — 검증 명령을 실행하고 출력을 확인한 뒤에만 성공 주장 허용
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md

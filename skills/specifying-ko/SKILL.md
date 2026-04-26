@@ -2,7 +2,7 @@
 name: specifying-ko
 description: 모든 창작 작업 전에 반드시 사용 — 기능 신설·컴포넌트 구축·동작 수정 전 사용자 의도·요구사항·설계를 탐색. 설계 승인 전 어떤 구현 스킬도 호출하지 않는다.
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
 specops_version: 0.0.0

@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 0.0.0
 specops_layer: Lifecycle
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 commands/brainstorm.md
   - obra/superpowers@v5.0.7 commands/brainstorm.md (deprecated하지만 진입 패턴 참고)
   - affaan-m/everything-claude-code@1.2.0 commands/orchestrate.md
 ---

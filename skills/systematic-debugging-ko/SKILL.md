@@ -2,7 +2,7 @@
 name: systematic-debugging-ko
 description: 버그·테스트 실패·예상치 못한 동작 발생 시, 픽스 제안 전에 반드시 사용 — 근본 원인 조사 없이 픽스 제안 금지
 layer: 2
-reference_upstream:
+reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - specops-ko skills/engine/systematic-debugging-ko.md
 specops_version: 0.0.0
