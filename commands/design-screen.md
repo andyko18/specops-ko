@@ -62,7 +62,7 @@ ls screens/{name}.md 2>/dev/null
    ```
 
 2. `screens/{name}.md` 생성 (`templates/screen.md` 기반으로 채움):
-   - frontmatter: `screen`, `title`, `created`, `updated`
+   - frontmatter: `screen: {name}`, `title: {화면 제목}`, `created: {오늘 날짜}`, `updated: {오늘 날짜}`
    - 섹션: 목적, Layout, Components, States, Interactions
 
 3. `screens/{name}.html` 저장 (Step 3에서 승인한 HTML)
