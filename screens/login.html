@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 — specops-auto-ko</title>
+  <style>
+    :root {
+      --color-primary: #7C3AED;
+      --color-secondary: #A78BFA;
+      --color-bg: #0F0F10;
+      --color-surface: #1A1A1F;
+      --color-text: #F9FAFB;
+      --color-text-secondary: #9CA3AF;
+      --color-error: #EF4444;
+      --color-success: #10B981;
+      --color-border: #374151;
+      --color-accent: #E0C9FF;
+      --font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --radius-pill: 9999px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .logo {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 32px;
+      letter-spacing: -0.02em;
+    }
+    .card {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 24px; }
+    .form { display: flex; flex-direction: column; gap: 16px; }
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 0.875rem; color: var(--color-text-secondary); }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      color: var(--color-text);
+      font-size: 1rem;
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input::placeholder { color: #6B7280; }
+    input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.2); }
+    input.error-input { border-color: var(--color-error); }
+    .error-msg { color: var(--color-error); font-size: 0.875rem; display: none; margin-top: -8px; }
+    .error-msg.visible { display: block; }
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      background-color: var(--color-primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 500;
+      font-family: var(--font-body);
+      cursor: pointer;
+      transition: background-color 0.15s;
+      margin-top: 8px;
+    }
+    .btn:hover:not(:disabled) { background-color: #6D28D9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.875rem;
+      color: var(--color-secondary);
+      text-decoration: none;
+    }
+    .forgot-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="logo">specops-auto-ko</div>
+  <div class="card">
+    <h1>로그인</h1>
+    <form class="form" onsubmit="handleLogin(event)">
+      <div class="input-group">
+        <label for="email">이메일</label>
+        <input id="email" type="email" placeholder="name@example.com" autocomplete="email" required />
+      </div>
+      <div class="input-group">
+        <label for="password">비밀번호</label>
+        <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        <span id="error-msg" class="error-msg">이메일 또는 비밀번호가 올바르지 않습니다</span>
+      </div>
+      <button id="login-btn" type="submit" class="btn">로그인</button>
+    </form>
+    <a href="#" class="forgot-link">비밀번호를 잊으셨나요?</a>
+  </div>
+  <script>
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const errorMsg = document.getElementById('error-msg');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      btn.disabled = true;
+      btn.textContent = '로그인 중...';
+      errorMsg.classList.remove('visible');
+      emailInput.classList.remove('error-input');
+      passwordInput.classList.remove('error-input');
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = '로그인';
+        errorMsg.classList.add('visible');
+        emailInput.classList.add('error-input');
+        passwordInput.classList.add('error-input');
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

@@ -29,6 +29,11 @@ used_by: using-specops-auto-ko-ko, /start
    - 프로젝트 루트 `DESIGN.md` 존재 확인 (`ls DESIGN.md`)
      → **있으면**: 생성하는 `spec.md` §참조에 "`DESIGN.md` 디자인 시스템 준수" 포함
      → **없으면**: UI 컴포넌트 포함 기능이면 (HTML/CSS/React/Vue 등 시각 렌더링 포함) `/start-design` 실행 안내 (`DESIGN.md` 생성 후 재진입)
+   - 프로젝트 루트 `screens/` 존재 확인 (`ls screens/ 2>/dev/null`)
+     → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..."
+       관련 화면을 `spec.md` §참조에 포함 + HTML artifact 생성 제안
+     → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
+     → **없으면 + UI 기능**: `screens/` 생성 및 `/design-screen` 활용 안내
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
 3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해
 4. **2~3 접근 제안** — 트레이드오프와 권고 제시
@@ -47,6 +52,10 @@ used_by: using-specops-auto-ko-ko, /start
 DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 시스템 준수" 포함
     │                              ↓
     └── no (UI 기능이면 /start-design 안내)
+    ↓
+screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 + UI 기능이면 HTML artifact 안내
+    │
+    └── no (UI 기능이면 screens/ 생성 안내)
     ↓
 시각 질문 예상? ── yes ──▶ Visual Companion 제안 (단독 메시지)
     │                              ↓
