@@ -19,11 +19,18 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 **플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `specops-auto-ko:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
 
 **bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-auto-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
+
+**v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
 </HARD-GATE>
 
 ## 체크리스트
 
 1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**
+1a. **DAG 힌트 추출 (v0.4b 신규)** — spec.md §2 포함 섹션에서 의존 구조 사전 파악:
+   - `(독립 — 병렬 구현 가능)` 표기 항목 2개 이상 → DAG leaf 후보 목록 초기화
+   - `(의존: X)` 표기 항목 → 해당 태스크의 `depends_on` 초기값으로 설정
+   - 표기 없으면 → 기능 설명에서 독립성 추론 (공유 파일·상태 없으면 독립으로 간주)
+   - 결과를 step 10 DAG 의존 그래프에 반영
 2. **AC 커버리지 매핑** — 각 `must` AC → 최소 1 태스크 할당. 커버리지 표 작성
 3. **파일 구조 확정** — plan.md §파일 구조의 Create/Modify/Delete 목록 고정
 4. **TDD 5스텝 작성** — `specops-auto-ko:tdd-ko` 준수:
@@ -37,8 +44,20 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 7. **테스트 컨벤션 점검 (bash)** — bash 테스트 생성 태스크가 있으면 `templates/test-conventions-bash.md` 4 항목 규약 준수 확인. exec-bit·shebang 누락 시 `<HARD-GATE>` 발동
 8. **타입 일관성 점검** — 후속 태스크의 시그니처가 이전 태스크와 일치
 9. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
-10. **session-progress append** — `specops-auto-ko:implementing-ko` 다음 단계 안내
-11. **전환** — `specops-auto-ko:implementing-ko` 호출
+10. **DAG 의존 그래프 작성 (v0.4a 신규, 의무)** — `tasks.md` 끝에 `## 의존 그래프` 섹션 추가:
+    - **Mermaid block** (사람용 시각화): `graph TD` + 노드·edge
+    - **YAML fenced block** (기계용 단일 소스 진실): `tasks:` 배열 — 각 task에 `id`·`depends_on`·`inputs`·`outputs`·`ac` 필드
+    - 형식 표준: `templates/tasks.md` 끝 placeholder + `scripts/tests/dag/fixtures/tasks-md/05-diamond.md` 예시 참조
+    - **자체 검증**: 작성 직후 다음 명령으로 YAML 정합 + leaf 식별 확인
+      ```bash
+      source scripts/dag/parse-dag.sh
+      yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
+      dag::list_leaves "$yaml"            # 빈 출력 시 YAML 결함 → 재작성
+      dag::find_independent_batch "$yaml" # 병렬 후보 출력 (참고용)
+      ```
+    - YAML 파싱 실패 또는 빈 leaf 시 → 본 스킬 재작성 의무 (HARD-GATE 차단)
+11. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
+12. **전환** — `specops-auto-ko:implementing-ko` 호출
 
 ## 태스크 크기 규약
 

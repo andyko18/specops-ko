@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko v0.0 PoC · SessionStart hook
+# specops-auto-ko · SessionStart hook (Claude Code 전용)
 # 역할 (merged):
 #   1) skills/using-specops-auto-ko-ko/SKILL.md 전체를 JSON additionalContext 로 주입
 #      → Claude Code 세션 진입 시 `<EXTREMELY_IMPORTANT>` 블록으로 자동 활성
@@ -62,13 +62,6 @@ if [ -n "$progress_block" ]; then
   session_context="${session_context}\n\n<session-progress-rehydrate>\n${progress_escaped}\n</session-progress-rehydrate>"
 fi
 
-# Claude Code / Cursor / Copilot 각 JSON 규약 분기 (superpowers 동일)
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
-elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
-else
-  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
-fi
+printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
 
 exit 0

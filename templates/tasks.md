@@ -97,11 +97,56 @@ git commit -m "feat(<scope>): <무엇을>
 완료: 0 / <N>
 차단: 0
 
+## 의존 그래프 (v0.4a 의무)
+
+> `decomposing-ko` 가 작성. `implementing-ko` 가 본 섹션을 파싱해 leaf 자동 라우팅.
+> Mermaid (사람용) + YAML (기계용 단일 소스 진실) 병기. 충돌 시 YAML 우선.
+> 검증: `bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 없으면 PASS.
+
+```mermaid
+graph TD
+  T1[T1: <컴포넌트명>]
+  T2[T2: <컴포넌트명>]
+  T3[T3: <컴포넌트명>]
+  T1 --> T3
+  T2 --> T3
+```
+
+```yaml
+tasks:
+  - id: T1
+    depends_on: []
+    inputs: []
+    outputs: [src/<file1>.sh, scripts/tests/test-<file1>.sh]
+    ac: [AC-1]
+  - id: T2
+    depends_on: []
+    inputs: []
+    outputs: [src/<file2>.sh, scripts/tests/test-<file2>.sh]
+    ac: [AC-2]
+  - id: T3
+    depends_on: [T1, T2]
+    inputs: [src/<file1>.sh, src/<file2>.sh]
+    outputs: [src/<file3>.sh, scripts/tests/test-<file3>.sh]
+    ac: [AC-3]
+```
+
+**필드 의미**:
+- `id`: 태스크 식별자 (T1, T2, ...) — `## 태스크 N` 헤더와 일치
+- `depends_on`: 본 태스크 시작 전 완료 필요한 태스크 id 배열 ([] 면 절대 leaf)
+- `inputs`: 본 태스크가 **읽기**만 하는 파일 (다른 태스크 outputs 가능)
+- `outputs`: 본 태스크가 생성·수정하는 파일 — 다른 leaf 와 disjoint 시 병렬 후보
+- `ac`: 본 태스크가 충족하는 AC ID 배열 (acceptance-criteria.md 참조)
+
+**예시 fixture**: `scripts/tests/dag/fixtures/tasks-md/01-two-leaves-disjoint.md` (T1·T2 절대 leaf disjoint → 병렬 가능).
+
 ## 참조
 
 - `skills/tdd-ko/SKILL.md` — TDD 5 스텝
 - `skills/writing-plans-ko/SKILL.md` — 바이트-사이즈 규칙
-- `skills/sprint-contracts/SKILL.md` — AC 매핑
+- `skills/sprint-contracts-ko/SKILL.md` — AC 매핑
+- `skills/decomposing-ko/SKILL.md` — 본 템플릿 작성 책임 (HARD-GATE 의무)
+- `scripts/dag/parse-dag.sh` — DAG 파서 (v0.4a W1)
 
 ---
 

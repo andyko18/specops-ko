@@ -174,9 +174,21 @@ Superpowers 원본 24개 실패 기록에서:
 - ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/verification-loop/`
 - specops-ko 한국어 선례: `skills/engine/verifying-evidence-ko.md`
 
+## session-progress append (v0.4-pre P1 신설)
+
+evidence.md 작성 + 모든 검증 PASS 직후, requesting-code-review-ko 호출 직전에:
+```
+bash scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N"
+```
+
+검증 실패 시 (BLOCK):
+```
+bash scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X 미충족), systematic-debugging-ko 호출"
+```
+
 ## 다음 skill
 
-모든 검증 항목 증거 확보 후 즉시 호출:
+모든 검증 항목 증거 확보 + session-progress append 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:requesting-code-review-ko

@@ -117,13 +117,32 @@ for variant in 사용 호출 진입 이동 넘어감; do
   fi
 done
 
-# T7.g R-3 직전 1 메시지 아닌 더 앞의 선언 → 매칭 (느슨 규약: Q-C "직전 1 assistant 메시지" 만 검사)
+# T7.g (v0.4-pre W1 정정) R-3 lookback N=3 이내 선언 → 미매칭 (옛 N=1 규약에서는 매칭이었음)
+# 의도 변경: 옛 "직전 1 외" 매칭 → 새 "직전 3 이내" 미매칭 (false positive 해소)
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-earlier-declaration.jsonl" "specops-auto-ko:planning-ko")
-if [ -n "$out" ]; then
-  PASS=$((PASS+1)); echo "PASS T7.g 직전 1 외 선언 → 매칭 (Q-C 느슨 규약)"
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.g 직전 N=3 이내 선언 → 미매칭 (v0.4-pre W1 lookback 확장)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T7.g (out=$out)"
 fi
+
+# T7.h~T7.l (v0.4-pre W1) R-3 declaration regex 확장 — 한국어 시작/진행 + 영문 invoking/switching + user turn 첫 진입 예외
+declare -a r3_extra=(
+  "r3-skill-with-korean-시작.jsonl|specops-auto-ko:planning-ko|h|한국어 시작"
+  "r3-skill-with-korean-진행.jsonl|specops-auto-ko:clarifying-ko|i|한국어 진행"
+  "r3-skill-with-english-invoking.jsonl|specops-auto-ko:decomposing-ko|j|영문 Invoking"
+  "r3-skill-with-english-switching.jsonl|specops-auto-ko:verifying-evidence-ko|k|영문 Switching to"
+  "r3-skill-after-user-turn.jsonl|specops-auto-ko:specifying-ko|l|user turn /start 첫 진입 예외"
+)
+for entry in "${r3_extra[@]}"; do
+  IFS='|' read -r fix skill letter desc <<< "$entry"
+  out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/$fix" "$skill")
+  if [ -z "$out" ]; then
+    PASS=$((PASS+1)); echo "PASS T7.${letter} R-3 ${desc} → 미매칭 (v0.4-pre W1)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T7.${letter} ${desc} (out=$out)"
+  fi
+done
 
 # T9.a R-4 성공 주장 + test runner 부재 → 매칭
 rule_r4=$(jq -c 'select(.id == "R-4")' "$PLUGIN/hooks/rules.jsonl")
@@ -140,6 +159,30 @@ if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T9.b R-4 claim with runner 미매칭"
 else
   FAIL=$((FAIL+1)); echo "FAIL T9.b (out=$out)"
+fi
+
+# T9.c (v0.4-pre W2) R-4 검증 완료 + bash test 실행 → 미매칭
+out=$(apply_assertion_without_test_rule "$rule_r4" "$FIXTURES/transcripts/r4-claim-with-bash-runner.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T9.c R-4 검증 완료 + bash test 미매칭 (v0.4-pre runner 확장)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.c (out=$out)"
+fi
+
+# T9.d (v0.4-pre W2) R-4 단계 완료만 → 미매칭 (lifecycle 단계 종료 false positive 해소)
+out=$(apply_assertion_without_test_rule "$rule_r4" "$FIXTURES/transcripts/r4-claim-stage-only.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T9.d R-4 단계 완료만 미매칭 (v0.4-pre 단독 '완료' 제거)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.d (out=$out)"
+fi
+
+# T9.e (v0.4-pre W2) R-4 검증 완료 + runner 부재 → 매칭 (true positive 보존)
+out=$(apply_assertion_without_test_rule "$rule_r4" "$FIXTURES/transcripts/r4-claim-verify-without-runner.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-4"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T9.e R-4 검증 완료 + runner 부재 매칭 (true positive)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.e (out=$out)"
 fi
 
 # R-5 용 transcript fixture 치환 헬퍼
@@ -202,6 +245,28 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
   PASS=$((PASS+1)); echo "PASS T10.e MultiEdit + 빈 섹션 → 매칭"
 else
   FAIL=$((FAIL+1)); echo "FAIL T10.e (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T7.m R-3 full name 선언 (specops-auto-ko:<short>) → 미매칭 (v0.4b W1)
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl" "specops-auto-ko:planning-ko")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.m R-3 full name 선언 → 미매칭 (v0.4b W1)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.m (out=$out)"
+fi
+
+# T11.a log_friction dedup — 같은 rule_id + snippet 두 번 호출 시 1건만 기록
+tmp=$(mktemp -d)
+(cd "$tmp" &&
+  source "$PLUGIN/hooks/governance-lib.sh" &&
+  log_friction "20260426-test-fid" "R-5" 1 "섹션 부재: plan.md" 10 &&
+  log_friction "20260426-test-fid" "R-5" 1 "섹션 부재: plan.md" 10)
+count=$(wc -l < "$tmp/.specops/20260426-test-fid/friction-log.jsonl" 2>/dev/null | tr -d ' ')
+if [ "$count" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T11.a log_friction dedup — 중복 skip (v0.4b W1)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.a (count=$count expect=1)"
 fi
 rm -rf "$tmp"
 

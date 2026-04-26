@@ -36,40 +36,76 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-e
 
 태스크가 밀접하게 결합돼 있으면 → decomposing-ko 복귀해 재분해.
 
-## 프로세스
+## 프로세스 (v0.4a — DAG-aware 자동 라우팅)
 
 ```
-플랜 1회 읽고 전 태스크 + 컨텍스트 추출 → TodoWrite 생성
+플랜 + tasks.md 1회 읽기 → TodoWrite 생성
     ↓
-각 태스크마다:
-  ┌─ 구현자 서브에이전트 dispatch (implementer-prompt)
-  │     ↓
-  │  질문 있음? → yes → 답변·컨텍스트 제공 → 재dispatch
-  │     ↓ no
-  │  구현자: 구현·테스트·커밋·자체검토
-  │     ↓
-  │  스펙 리뷰어 서브에이전트 dispatch
-  │     ↓
-  │  스펙 준수?
-  │     │ no → 구현자가 수정 → 스펙 리뷰어 재리뷰
-  │     │ yes
-  │     ↓
-  │  코드 품질 리뷰어 서브에이전트 dispatch
-  │     ↓
-  │  품질 승인?
-  │     │ no → 구현자가 수정 → 품질 리뷰어 재리뷰
-  │     │ yes
-  │     ↓
-  └─ TodoWrite 태스크 완료 표시
+DAG 분석 (v0.4a W1 — bash scripts/dag/parse-dag.sh)
+    yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
+    batch=$(dag::find_independent_batch "$yaml")
     ↓
-다음 태스크? → loop
+batch ≥ 2 leaf?
+    ├─ yes (병렬 분기) → DAG-AWARE PARALLEL ─────────────┐
+    └─ no (단일 leaf 또는 chain) → SEQUENTIAL          │
+                                                          │
+SEQUENTIAL 분기:                                          │
+  각 태스크마다:                                          │
+    ┌─ 구현자 dispatch (implementer-ko)                   │
+    │     ↓                                                │
+    │  Phase B: spec-reviewer-ko dispatch                 │
+    │     ↓                                                │
+    │  Phase C: code-reviewer-ko dispatch                 │
+    │     ↓                                                │
+    └─ TodoWrite 태스크 완료                              │
+    ↓                                                      │
+다음 태스크 → loop                                         │
+                                                          │
+DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←──────────────────┘
+  각 leaf에 대해:
+    - .specops/<FID>/dispatch/<task-id>-context.md 작성 (5 컨텍스트)
+    - bash scripts/dag/validate-context.sh <path> — exit 0 확인
+    - using-git-worktrees-ko 호출 — leaf별 worktree (.worktrees/<FID>-<task-id>/)
+    ↓
+  dispatching-parallel-agents-ko 호출 (DAG-aware 모드):
+    - leaf id 배열 + context md path 배열 전달
+    - 각 leaf Task 도구 병렬 호출 (단일 메시지 다중 tool_use)
+    - 각 leaf: implementer-ko in worktree
+    ↓
+  결과 수집:
+    - leaf NEEDS_CONTEXT 반환 시 → 컨텍스트 보강 후 재dispatch (R8)
+    - leaf DONE 시 → proposed_commit_message 수집
+    ↓
+  Phase B (병렬): 각 leaf별 spec-reviewer-ko dispatch (병렬)
+    ↓
+  Phase C (병렬): 각 leaf별 code-reviewer-ko dispatch (Phase B PASS 후)
+    ↓
+  부모 머지 (R11 git race 차단):
+    - git diff 충돌 확인
+    - 머지 순서: output count 적은 leaf 먼저
+    - main worktree 로 fast-forward (또는 sequential fallback)
+    - 부모가 commit (leaf 권한 박탈, R8)
+    ↓
+다음 batch 또는 SEQUENTIAL 잔여 → loop
     ↓ 전부 완료
-최종 코드 리뷰어 서브에이전트 (전체 구현)
+최종 코드 리뷰어 (전체 구현)
     ↓
 specops-auto-ko:verifying-evidence-ko 호출
 ```
 
-## 예외 허용 · 동일 파일 쌍 TDD 체인
+**DAG 파싱 실패 fallback (advisor 협의 13:00)**: `dag::find_independent_batch` 가 빈 출력 + stderr WARN 반환 → SEQUENTIAL 분기로 자동 fallback. 강제 차단 안 함 (v0.4a; v0.4b strict mode 옵션 검토).
+
+## F-12 ESCAPE HATCH 재정의 (v0.4a — 동일 파일 쌍 집약 vs DAG 병렬)
+
+v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (advisor 협의 13:00):
+
+| 시나리오 | 처리 방식 | 근거 |
+|---|---|---|
+| **동일 파일 쌍 TDD 체인** (예: T1·T2 모두 `src/X.sh` + `tests/test-X.sh` 수정) | 구현자 1 dispatch 집약 (Phase A) + 별도 Phase B/C — **순차** | 동일 파일 = outputs overlap → DAG 가 자동으로 batch 형성 안 함 |
+| **독립 leaf 2+** (출력 disjoint) | DAG-AWARE PARALLEL 분기 (v0.4a 신규) — **병렬** | dag::find_independent_batch 가 자동 식별 |
+| **1 leaf + chain** | 기본 SEQUENTIAL 분기 — **순차** | 일반 케이스 |
+
+**F-12 집약 조건** (동일 파일 쌍 시):
 
 태스크 2 개 이상이 **동일 파일 쌍** (예: `src/X.sh` + `tests/test-X.sh`) 을 **순차 수정하는 TDD 체인** 이면 구현자 dispatch 를 **1 회로 집약**할 수 있다. 조건:
 
@@ -106,6 +142,16 @@ specops-auto-ko:verifying-evidence-ko 호출
 
 **NEEDS_CONTEXT**: 구현자가 제공받지 못한 정보 필요. 누락된 컨텍스트 제공 후 재dispatch.
 
+v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 즉시 NEEDS_CONTEXT 반환 (추측 금지):
+1. 5 컨텍스트(담당 AC / spec.md 섹션 / test 명령 / 수정 허용 파일 whitelist / worktree 경로) 중 1개 이상 누락
+2. 담당 AC ID 가 acceptance-criteria.md 에서 발견 안 됨
+3. spec.md 섹션 경로가 존재하지 않거나 빈 라인 범위
+4. 테스트 명령 실행 자체가 실패 (test 파일 없음)
+5. whitelist 외 파일을 수정해야 task 완수 가능 — 부모에 컨텍스트 보강 요청
+6. worktree 경로 존재 안 함 또는 git worktree 가 아님
+
+부모 검증: dispatch 직전 `bash scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
+
 **BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가:
 1. 컨텍스트 문제 → 컨텍스트 더 주고 **같은 모델**로 재dispatch
 2. 더 강력한 추론 필요 → **더 강한 모델**로 재dispatch
@@ -130,7 +176,7 @@ specops-auto-ko:verifying-evidence-ko 호출
 - main/master 브랜치에서 **명시 동의 없이** 구현 시작
 - 리뷰 생략 (스펙 준수 OR 코드 품질)
 - **미해결 이슈를 두고 진행**
-- 구현 서브에이전트를 **병렬로** 여러 개 dispatch (충돌)
+- 구현 서브에이전트를 **상태 공유 시 병렬로** dispatch (충돌, R11). v0.4a 정정: outputs disjoint 한 독립 leaf 2+ 는 `dispatching-parallel-agents-ko` DAG-aware 모드로 자동 병렬 권장 — `dag::find_independent_batch` 가 자동 식별. **상태 공유 (같은 파일 수정) 시에만 병렬 금지**
 - 서브에이전트에게 **플랜 파일을 읽게 함** (전체 텍스트를 당신이 제공)
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
 - 서브에이전트 질문 무시 (진행 전에 답하기)
@@ -215,9 +261,16 @@ specops-auto-ko:verifying-evidence-ko 호출
 - upstream 원본: `obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md` + 3 프롬프트
 - specops-ko 한국어 선례: `skills/engine/subagent-driven-development-ko.md`
 
+## session-progress append (v0.4-pre P1 신설)
+
+모든 태스크 완료 직후, verifying-evidence-ko 호출 직전에:
+```
+bash scripts/session-progress-append.sh <FID> /implement DONE "Task 1~N 완료, PASS=N FAIL=0, 커밋 <SHA>..<SHA>"
+```
+
 ## 다음 skill
 
-모든 태스크 완료 + 최종 코드 리뷰 통과 후 즉시 호출:
+모든 태스크 완료 + 최종 코드 리뷰 통과 + session-progress append 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:verifying-evidence-ko

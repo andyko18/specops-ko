@@ -33,7 +33,8 @@ used_by: using-specops-auto-ko-ko, /start
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
-9. **구현으로 전환** — `specops-auto-ko:clarifying-ko` 스킬 호출
+9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
+10. **구현으로 전환** — `specops-auto-ko:clarifying-ko` 스킬 호출
 
 ## 프로세스 흐름
 
@@ -96,6 +97,33 @@ used_by: using-specops-auto-ko-ko, /start
 - 각 단위는 답할 수 있어야 함: 무엇을 하는가, 어떻게 쓰는가, 무엇에 의존하는가
 - 내부를 읽지 않고 단위의 역할을 이해할 수 있는가? 내부 변경이 소비자를 깨지 않는가? 아니면 경계 재설계
 - 작고 잘 구획된 단위는 당신(Claude)에게도 유리 — 한 번에 컨텍스트에 담을 수 있는 코드일수록 추론이 정확하고 편집이 안정적. 파일이 커지는 건 **너무 많은 일**을 하고 있다는 신호
+
+### DAG 의도 추출 (v0.4b 신규)
+
+설계 제시 단계에서 **반드시** 컴포넌트 간 의존 구조를 판단하고 spec.md §2 포함 항목에 명시:
+
+**PARALLEL 신호** — 독립 컴포넌트 2개 이상:
+- "A, B, C 각각 독립된 도구/파일/모듈"
+- "서로 의존성 없음", "각각 독립", "3개 독립"
+- 여러 도구가 공유 상태 없이 동등한 위치
+- → spec.md §2 포함에 `(독립 — 병렬 구현 가능)` 표기
+
+**CHAIN 신호** — 단계적 의존:
+- "양방향", "파이프라인", "A → B → C 순서"
+- 후속 단계가 전 단계 산출물을 입력으로 사용
+- → spec.md §2 포함에 `(의존: <선행 컴포넌트>)` 표기
+
+**표기 예시**:
+```markdown
+## 2. 범위
+### 포함
+- b64enc: Base64 인코더 (독립 — 병렬 구현 가능)
+- b64dec: Base64 디코더 (독립 — 병렬 구현 가능)
+- b64val: Base64 검증기 (독립 — 병렬 구현 가능)
+- 통합 검증 (의존: b64enc, b64dec, b64val)
+```
+
+이 표기는 decomposing-ko가 DAG leaf를 자동 인식하는 데 사용된다. **모호하면 PARALLEL보다 CHAIN을 택하고 clarifying-ko에서 확인.**
 
 ### 기존 코드베이스 작업
 

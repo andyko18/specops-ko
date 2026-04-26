@@ -89,67 +89,6 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 주권 | HARD GATE는 engine skill이 본문에서 강제. 메타 skill은 진입만 책임 |
 | 5 한계 고백 | skill이 적합하지 않다고 판단되면 후행 단계에서 사용자에게 "이 skill로 충분한가?" 질문 가능 |
 
-## PoC v0.0 검증 체크리스트
-
-본 skill의 자동 활성 가능성을 검증:
-
-- [x] **Phase 1 구축 완료** — engine 10건 (upstream 직접 fork 8건 + 신규 clarifying·decomposing) + harness 5건 fork + `commands/start.md` + `hooks/hooks.json` + `templates/` + `scripts/`
-- [ ] 신규 빈 프로젝트에 specops-auto-ko plugin install
-- [ ] 새 Claude Code 세션 시작
-- [ ] 사용자 입력: "안녕" — 기대: 본 skill 활성, 신호 감지 NO → 일반 응답
-- [ ] 사용자 입력: "CSV 줄 수 세기 CLI 만들어줘" — 기대: 본 skill 활성, 신호 감지 YES → specops-auto-ko:specifying-ko 호출 안내
-- [ ] PoC 통과 → 현재 구조 유지. Phase 2 (dogfood) 진입
-- [ ] PoC 실패 → 아래 **Fallback 가이드** 적용
-
-## PoC 실패 시 Fallback (§15.10)
-
-자연어 진입이 동작하지 않으면 `/start` 슬래시 진입만 유지하고 메타 skill의 자동 활성 강도를 완화한다.
-
-### 적용 diff (본 skill + 관련 자산)
-
-**1. 본 파일 frontmatter `description`**:
-
-```diff
--description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제
-+description: /start 슬래시 진입 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. specops-auto-ko:specifying-ko 호출 경로 안내
-```
-
-**2. 본 파일 `<EXTREMELY-IMPORTANT>` 블록 완화**:
-
-```diff
--<EXTREMELY-IMPORTANT>
--1% 가능성이라도 specops-auto-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
--특히 사용자 입력이 다음 신호를 포함하면 즉시 specops-auto-ko:specifying-ko 호출:
--- "X 기능을 만들고 싶어"
--- "Y CLI / API / 모듈 신규"
--- "Z를 구현해줘"
--- "/start <기능>" 슬래시
--- 명확한 신규 산출물 요청
--</EXTREMELY-IMPORTANT>
-+<IMPORTANT>
-+`/start <기능>` 슬래시가 호출되면 즉시 specops-auto-ko:specifying-ko로 전환한다.
-+자연어 진입은 **명시 요청이 있을 때만** — "specops-auto-ko로 시작하고 싶다" 등 사용자가 직접 플러그인 이름을 언급한 경우.
-+</IMPORTANT>
-```
-
-**3. `commands/start.md` 수정**:
-
-```diff
--두 방식은 **기능적으로 동등**. PoC v0.0에서 자연어 진입이 실패하면 `/start` 슬래시가 **유일한 진입점**으로 격상 (§15.10 fallback).
-+자연어 진입은 **지원 중단**. `/start <기능>`이 유일한 진입점.
-```
-
-### Fallback 커밋 메시지 규약
-
-```
-fix(v0.0): PoC 자연어 진입 실패 → /start 슬래시 진입 fallback 적용 (§15.10)
-
-Constraint: Claude Code 메타 skill이 빈 프로젝트에서 자동 활성되지 않음
-Rejected: 메타 skill description 키워드 강화 | 자동 활성 메커니즘 근본 미지원
-Confidence: high (PoC 2 시나리오 모두 실패 보고)
-Scope-risk: narrow
-Directive: v0.1+에서 자연어 진입 재시도 시 설치 후 manual Skill 도구 우선 사용
-```
 
 ## 참조
 

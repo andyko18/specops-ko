@@ -169,15 +169,31 @@ git commit -m "feat: 특정 기능 추가"
 - 하위 스킬: `specops-auto-ko:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
 - 체크포인트마다 리뷰
 
+## plan.md 필수 섹션
+
+plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히 아래 두 섹션은 **반드시** 포함:
+
+1. **`## 7. 자체 검토 (5원칙 체크리스트)`** — 체크리스트 4항목 모두 기재
+2. **`## 8. Advisor 협의 기록`** — advisor() 호출 내역 또는 "해당 없음 — 본 plan 작성 중 불확실 지점 없음"
+
+`## 8. Advisor 협의 기록` 부재 시 R-5 거버넌스 규칙이 트리거된다. 반드시 작성할 것.
+
 ## 참조
 
-- `templates/plan.md` — 작성 포맷
+- `templates/plan.md` — 작성 포맷 (**정확히 따를 것**, 특히 §8 Advisor 협의 기록 섹션)
 - `templates/tasks.md` — 태스크 분해 포맷
 - upstream 원본: `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`
 
+## session-progress append (v0.4-pre P1 신설)
+
+플랜 저장 직후, decomposing-ko 호출 직전에:
+```
+bash scripts/session-progress-append.sh <FID> /plan 완료 "plan.md"
+```
+
 ## 다음 skill
 
-플랜 저장 + 실행 방식 결정 후 즉시 호출:
+플랜 저장 + session-progress append + 실행 방식 결정 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:decomposing-ko

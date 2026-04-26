@@ -57,6 +57,11 @@ log_friction() {
   fi
   local safe_snippet
   safe_snippet=$(printf '%s' "$snippet" | cut -c1-200)
+  # dedup: 같은 rule_id + evidence_snippet 조합이 이미 존재하면 skip (stop hook 중복 실행 방지)
+  if [ -f "$target" ] && jq -e --arg r "$rule_id" --arg s "$safe_snippet" \
+       'select(.rule_id == $r and .evidence_snippet == $s)' "$target" >/dev/null 2>&1; then
+    return 0
+  fi
   jq -nc \
     --arg ts "$ts" \
     --argjson fid "$fid_json" \
@@ -111,38 +116,61 @@ apply_lookback_rule() {
   fi
 }
 
-# R-3 매처 — Skill 호출 직전 1 assistant 메시지에 선언 부재 확인 (AC-9)
+# R-3 매처 — Skill 호출 직전 N assistant 메시지에 선언 부재 확인 (AC-9, v0.4-pre W1 확장)
 # usage: apply_skill_declaration_rule <transcript> <skill_full_name>
-# 선언 = 영문 "Using <short>" 또는 한국어 "<short> (을|를|로|으로)? (사용|호출|진입|이동|넘어감)"
+# 선언 = 영문 "[Using|Invoking|Calling|Switching to] <short|full>" 또는
+#        한국어 "<short> (을|를|로|으로)? (사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시)"
 # short = skill_full_name 에서 "specops-auto-ko:" 접두 제거
+# v0.4-pre W1 변경 (마스터 plan §6 v0.4-pre):
+# 1. 동사군 확장 (한국어 6 → 12, 영문 1 → 4)
+# 2. lookback N=1 → N=3 assistant 메시지
+# 3. user turn 첫 진입 예외 (직전 user 메시지에 /start 또는 트리거 키워드 있으면 면제)
+# v0.4b W1 변경: full name (specops-auto-ko:<short>) 패턴 추가 (cvt+b64 7건 회귀 원인)
 apply_skill_declaration_rule() {
   local transcript="$1" skill_full="$2"
   [ -f "$transcript" ] || return 0
   local short="${skill_full#specops-auto-ko:}"
-  # 포괄 regex: Using|한국어 변형 (대소문자 무시는 grep -i 로 처리)
-  local decl_re="([Uu]sing[[:space:]]+${short}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감))"
-  # 전체 transcript 를 순회하면서 "Skill 호출 tool_use" 이벤트 직전의 assistant text 를 유지
-  # 여러 Skill 호출이 있을 수 있으나 본 룰은 첫 번째 매칭된 Skill 호출만 검사 (단순화)
-  local prev_text=""
+  # full name = specops-auto-ko:<short>, short name = <short> — 둘 다 허용
+  local name_re="(specops-auto-ko:)?${short}"
+  local decl_re="([Uu]sing[[:space:]]+${name_re}|[Ii]nvoking[[:space:]]+${name_re}|[Cc]alling[[:space:]]+${name_re}|[Ss]witching[[:space:]]+to[[:space:]]+${name_re}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
+  # user turn 첫 진입 예외 트리거 (사용자 입력에 이 패턴이 있으면 첫 Skill 호출은 면제)
+  local trigger_re='(/start|/quick|/free|만들[고어]|구현|추가|수정|fix|feature)'
+  # 직전 N=3 assistant text 메시지를 ring buffer로 유지
+  local prev_text_1="" prev_text_2="" prev_text_3=""
+  local last_user_text=""
   local matched=0
   local offset=0
   while IFS= read -r line; do
     offset=$((offset + 1))
     local ev_type
     ev_type=$(echo "$line" | jq -r '.type' 2>/dev/null)
+    if [ "$ev_type" = "user" ]; then
+      # user turn 직후 — 마지막 user text 갱신, assistant ring buffer 초기화 안 함 (lookback 보존)
+      last_user_text=$(echo "$line" | jq -r '.message.content // empty | if type == "string" then . else (.[]? | select(.type == "text") | .text) // "" end' 2>/dev/null | head -1)
+      continue
+    fi
     [ "$ev_type" = "assistant" ] || continue
     local has_target_skill
     has_target_skill=$(echo "$line" | jq -r --arg s "$skill_full" '.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s) | .input.skill' 2>/dev/null)
     if [ -n "$has_target_skill" ]; then
-      if [ -z "$prev_text" ] || ! printf '%s' "$prev_text" | grep -Eq "$decl_re"; then
-        matched=1
+      # 직전 3개 assistant text 또는 user trigger 검사
+      local combined="${prev_text_1}\n${prev_text_2}\n${prev_text_3}"
+      if printf '%s' "$combined" | grep -Eq "$decl_re"; then
+        matched=0  # 선언 발견 → 미매칭
+      elif [ -n "$last_user_text" ] && printf '%s' "$last_user_text" | grep -Eq "$trigger_re"; then
+        matched=0  # user turn trigger 직후 첫 Skill 호출 → 면제
+      else
+        matched=1  # 선언도 없고 trigger 면제도 없음 → 매칭
       fi
       break
     fi
     local cur_text
     cur_text=$(echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null)
     if [ -n "$cur_text" ]; then
-      prev_text="$cur_text"
+      # ring buffer shift (가장 오래된 것 폐기, 새로운 것 push)
+      prev_text_3="$prev_text_2"
+      prev_text_2="$prev_text_1"
+      prev_text_1="$cur_text"
     fi
   done < "$transcript"
   if [ "$matched" -eq 1 ]; then

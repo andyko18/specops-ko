@@ -206,9 +206,21 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 - upstream 원본: `obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
 
+## session-progress append (v0.4-pre P1 신설)
+
+리뷰 피드백 수용·구현 완료 직후:
+```
+bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N건 / Important N건 / fix 라운드 N회"
+```
+
+Lifecycle 종료 시 (PR 생성 또는 종결):
+```
+bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 또는 종결"
+```
+
 ## 다음 skill
 
-피드백 구현 완료 후:
+피드백 구현 완료 + session-progress append 후:
 
 - **리뷰 이슈가 모두 해결되고 Lifecycle 종료 가능 상태** → chain 종료. 사용자에게 "PR 생성? [y/n]" 질문
 - **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)

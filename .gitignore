@@ -1,9 +1,9 @@
 # OMC 런타임 state (개별 개발 환경용)
 .omc/
 
-# specops-auto-ko Lifecycle 런타임 산출물 (사용자 프로젝트용 .specops/와 구분 불필요 — 본 플러그인 repo에는 .specops/ 없음)
-# 플러그인 repo 자체에는 생성되지 않지만 개발 중 로컬 테스트 산출물이 생길 수 있음
+# dogfood 세션 FID 아티팩트 — 플러그인 배포 불포함
 .specops/
+.worktrees/
 
 # macOS
 .DS_Store

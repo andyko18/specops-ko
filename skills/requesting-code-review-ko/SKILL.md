@@ -126,9 +126,16 @@ HEAD_SHA=$(git rev-parse HEAD)
 - 템플릿: `obra/superpowers@v5.0.7 skills/requesting-code-review/code-reviewer.md` (v0.1+ 본 디렉토리에 포팅)
 - specops-ko 한국어 선례: `skills/engine/requesting-code-review-ko.md`
 
+## session-progress append (v0.4-pre P1 신설)
+
+review-request 작성 + 외부 리뷰어 dispatch 후, receiving-code-review-ko 호출 직전에:
+```
+bash scripts/session-progress-append.sh <FID> /request-review 완료 "review-request.md, 외부 reviewer dispatch"
+```
+
 ## 다음 skill
 
-리뷰 피드백 수령 직후 즉시 호출:
+리뷰 피드백 수령 + session-progress append 직후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:receiving-code-review-ko

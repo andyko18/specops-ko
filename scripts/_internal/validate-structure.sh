@@ -11,27 +11,29 @@ JSON_MODE=0
 [ "${1:-}" = "--json" ] && JSON_MODE=1
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-plugin_root=$(dirname "$script_dir")
+plugin_root=$(dirname "$(dirname "$script_dir")")
 cd "$plugin_root"
 
 FAILS=0
 RESULTS=()
 emit() { RESULTS+=("$1|$2|${3:-}"); [ "$2" = "FAIL" ] && FAILS=$((FAILS+1)); }
 
-# 1) 디렉토리 존재 (P1: flat skills/*/ 구조)
+# 1) 디렉토리 존재 (v0.4a: agents/ 추가; docs/ 제거됨)
 miss_d=()
-for d in commands skills templates docs hooks scripts; do
+for d in commands skills templates hooks scripts agents; do
   [ -d "$d" ] || miss_d+=("$d")
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (P1: commands=1 /start, skills/<name>/SKILL.md=16, templates=6)
+# 2) 파일 개수 (commands=1, skills=18, templates=7, agents=3)
+# templates=7: spec, acceptance-criteria, plan, tasks, session-progress, dispatch-context, test-conventions-bash
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
 count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
 [ "$(count_of 'commands/*.md')"  = 1  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
-[ "$(count_skills)"              = 16 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 16")
-[ "$(count_of 'templates/*.md')" = 6  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 6")
+[ "$(count_skills)"              = 18 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 18")
+[ "$(count_of 'templates/*.md')" = 7  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 7")
+[ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 
 # 2b) 메타 skill SessionStart 주입 경로 필수 (P1 핵심 가설)
