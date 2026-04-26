@@ -235,9 +235,9 @@ apply_advisor_section_rule() {
   local target_files section_re
   target_files=$(echo "$rule" | jq -r '.target_files[]')
   section_re=$(echo "$rule" | jq -r '.advisor_section_pattern')
-  # 세션 중 Write/Edit/MultiEdit 된 파일 경로 추출
+  # 세션 중 Edit/MultiEdit 된 파일 경로 추출 (Write는 신규 생성 — Advisor 섹션 불필요)
   local modified_files
-  modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit" or .name == "MultiEdit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
+  modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Edit" or .name == "MultiEdit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
   local match_result=""
   local fp bn is_target section_body data_rows has_hae
   for fp in $modified_files; do
@@ -272,12 +272,12 @@ apply_advisor_section_rule() {
     if [[ "$match_result" == *": "* ]]; then
       matched_file="${match_result##*: }"
     fi
-    # 첫 Write/Edit/MultiEdit 이벤트 (target file 대상) 의 transcript 라인 번호 (0-based)
+    # 첫 Edit/MultiEdit 이벤트 (target file 대상) 의 transcript 라인 번호 (0-based)
     local offset=-1 line_no=0
     if [ -n "$matched_file" ]; then
       while IFS= read -r line; do
         local fp_hit
-        fp_hit=$(echo "$line" | jq -r --arg p "$matched_file" 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit" or .name == "MultiEdit") and .input.file_path == $p) | .input.file_path' 2>/dev/null)
+        fp_hit=$(echo "$line" | jq -r --arg p "$matched_file" 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Edit" or .name == "MultiEdit") and .input.file_path == $p) | .input.file_path' 2>/dev/null)
         if [ -n "$fp_hit" ]; then
           offset=$line_no
           break

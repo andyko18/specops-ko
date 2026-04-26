@@ -185,11 +185,11 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T9.e (out=$out)"
 fi
 
-# R-5 용 transcript fixture 치환 헬퍼
+# R-5 용 transcript fixture 치환 헬퍼 (Edit — 기존 파일 수정)
 make_r5_transcript() {
   local spec_path="$1"
   local out="$2"
-  printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"x"}}]}}\n' "$spec_path" > "$out"
+  printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"%s","old_string":"x","new_string":"y"}}]}}\n' "$spec_path" > "$out"
 }
 
 # T10.a R-5 data row 1+ → 미매칭
@@ -264,6 +264,17 @@ if [ -z "$out" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T7.n (out=$out)"
 fi
+
+# T10.f R-5 Write(신규 생성) + 섹션 부재 → 미매칭 (v0.5 W2 — fresh Write는 advisor 불필요)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-no-section.md" "$tmp/plan.md"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"x"}}]}}\n' "$tmp/plan.md" > "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.f Write(신규 생성) + 섹션 부재 → 미매칭 (v0.5 W2)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.f (out=$out)"
+fi
+rm -rf "$tmp"
 
 # T11.a log_friction dedup — 같은 rule_id + snippet 두 번 호출 시 1건만 기록
 tmp=$(mktemp -d)
