@@ -52,6 +52,7 @@ specops_version: 0.1.0
 - [ ] 미충족 AC를 명시적으로 나열했는가? (번호·이유)
 - [ ] 계약에 없는 기능을 평가하지 않았는가? (scope creep 방지)
 - [ ] 판정 결과를 `analysis.md`/`review.md`/`verify.md`에 JSON 블록으로 기록했는가?
+- [ ] 유지보수 FID (`spec.md §유형 = 유지보수`) 인 경우 회귀 방지 must AC (`AC-R-*`) ≥ 1 포함 확인 — 미포함 시 `verdict = BLOCK`. 단 `§유형 = trivial` (변경 라인 ≤ 5 자동) 인 경우 면제
 
 ## 판정 JSON 블록 포맷
 
@@ -75,6 +76,7 @@ specops_version: 0.1.0
 - `/specify` 이후 계약 변경 — 추가 요구사항은 `/clarify`에서만 반영
 - Evaluator가 계약에 없는 품질 기준으로 BLOCK (개인 취향) → 계약 재협상이 필요
 - `must`와 `should`를 구분하지 않음 — 우선순위 없이 모두 BLOCK 사유가 됨
+- **회귀 AC 없는 유지보수 FID** — `§유형 = 유지보수` 인데 `AC-R-*` 0 개로 작성. **회귀 검증 근거 없음** → BLOCK. clarifying-ko 단계에서 `AC-R-*` append 가능. `§유형 = trivial` (변경 라인 ≤ 5 자동) 시에만 면제
 
 ## 예시: BLOCK 판정
 
