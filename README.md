@@ -39,6 +39,9 @@ specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart · 신호 분�
     │                                    ↓
     │                       args = "<!-- entry: maintain -->\n<원본>"
     │                                    ↓
+    │                       specops-auto-ko:analyzing-ko  ★ HARD GATE
+    │                       (current-state.md + impact-analysis.md)
+    │                                    ↓
     └─→ specops-auto-ko:specifying-ko ←──┘     — spec.md (§유형 자동 라벨) + acceptance-criteria.md (회귀 AC 강제)
     ↓ HARD GATE (사용자 승인)
 specops-auto-ko:clarifying-ko     — clarifications.md

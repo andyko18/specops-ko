@@ -37,18 +37,21 @@ used_by: using-specops-auto-ko-ko, /start
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
 
-   **[유지보수 분기]** (Phase A 신설, Phase C 적용 후 본문 축약 예정):
-     - Phase A 단독 시점: 본 skill 이 5 항목 mini-checklist 직접 실행
+   **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
+     - `analyzing-ko` 가 이미 호출되어 `.specops/<FID>/current-state.md` + `.specops/<FID>/impact-analysis.md` 가 산출되어 있어야 함
+     - 본 skill 은 두 산출물을 **참조만** — 재분석 안 함
+     - spec.md `§참조` 에 `current-state.md` + `impact-analysis.md` 경로 자동 포함
+     - Step 3 명확화 질문으로 진행
+
+     **Phase A 단독 시점 fallback** (analyzing-ko 부재 시 — Phase A 만 적용된 환경):
+     - 본 skill 이 5 항목 mini-checklist 직접 실행:
        1. 변경 대상 파일·진입점 식별 (`grep -rn`, `Read`)
        2. 호출자/의존 매핑
        3. 기존 테스트 커버리지 확인
        4. 관찰 가능 동작 1~3 건 캡처
        5. 회귀 위험 1 줄 메모
-     - Phase C 적용 후: `analyzing-ko` 가 본 5 항목 + 영향 분석 산출 → 본 skill 은 **참조만** (재분석 안 함)
      - 산출물: `.specops/<FID>/current-state.md` (templates/current-state.md 기반)
      - ★ HARD GATE: "분석 결과 검토. 진행? [y/n]"
-     - spec.md `§참조` 에 `current-state.md` 자동 포함 (Phase C 후에는 `impact-analysis.md` 도)
-     - Step 3 명확화 질문으로 진행
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
 3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해
 4. **2~3 접근 제안** — 트레이드오프와 권고 제시

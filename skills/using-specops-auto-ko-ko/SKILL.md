@@ -74,16 +74,20 @@ specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 
 ## maintenance flag 분류 로직 (Phase D — 신규 추가)
 
-신호 감지 후 신규/유지보수 1 회 분류 → specifying-ko 호출 시 args 합성:
+신호 감지 후 신규/유지보수 1 회 분류 → chain 진입 args 합성:
 
-| flag | 호출 args | 적용 |
+| flag | chain 진입 | args 합성 |
 |---|---|---|
-| `false` (신규) | 원본 args 그대로 | specifying-ko Step 1 [신규 분기] |
-| `true` (유지보수) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args | specifying-ko Step 1 [유지보수 분기] |
+| `false` (신규) | specifying-ko 직행 | 원본 args 그대로 |
+| `true` (유지보수) | **analyzing-ko 먼저** → specifying-ko (Phase C 적용 후) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args |
+
+**Phase C chain 재배선** (analyzing-ko 신설 후):
+- maintenance flag = `true` → **analyzing-ko 호출** (★ HARD GATE) → analyzing-ko 가 specifying-ko 로 chain (args 그대로 전달, 첫 줄 약속어 유지)
+- analyzing-ko 가 두 산출물 (current-state.md + impact-analysis.md) 산출 후 사용자 검토 통과 시 specifying-ko Step 1 [유지보수 분기] 가 두 산출물 참조
 
 **announce 메시지** (5 원칙 1 투명성):
 - `false` → "Using specifying-ko to <purpose>"
-- `true` → "Using specifying-ko (maintenance) to <purpose>"
+- `true` → "Using analyzing-ko (maintenance) to <purpose>" (Phase C 후) 또는 "Using specifying-ko (maintenance) to <purpose>" (Phase A 단독)
 
 **분류 모호** (양쪽 신호 혼재) 시 사용자에게 1 문항 확인 — "신규 / 유지보수 어느 쪽?".
 
