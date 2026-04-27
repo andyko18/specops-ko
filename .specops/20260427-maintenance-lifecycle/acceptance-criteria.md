@@ -175,6 +175,45 @@
 
 ---
 
+### AC-13: entry signal prefix 형식 (clarify Q-A append)
+
+**Given** 메타 skill 또는 `/maintain` 슬래시 진입에서 specifying-ko 호출 시 args 합성 단계에서
+**When** maintenance flag 가 args 첫 줄에 prepend 되면
+**Then** prepend 되는 약속어는 정확히 `<!-- entry: maintain -->` HTML 주석 형식이며, specifying-ko Step 1 의 args 파싱이 본 약속어를 검사하여 [유지보수 분기] 진입을 결정한다
+
+**검증 방법**: dogfood transcript 에서 specifying-ko 가 받은 args 첫 줄 grep `<!-- entry: maintain -->` + 분기 결과 확인. 다른 prefix (`__entry:`, `[entry:]`) 검사 시 [신규 분기] 또는 분류 모호 1 문항 발동
+**관련 FR**: FR-5, FR-12
+**우선순위**: must
+
+---
+
+### AC-14: trivial 라벨 자동 판정 시점 (clarify Q-B append)
+
+**Given** maintenance FID 진입 후 analyzing-ko 가 current-state.md §1 "변경 대상 식별" 의 파일·라인 범위 메타를 산출한 상태에서
+**When** specifying-ko 가 §유형 라벨 부여 시
+**Then** analyzing-ko §1 메타의 라인 범위 합산이 ≤ 5 면 `§유형: trivial` 자동 부여 (사용자 자기선언과 결합 — 사용자가 명시 거부 시 trivial 미부여)
+
+**검증 방법**: dogfood FID `20260427-test-trivial-typo` 에서 analyzing-ko current-state.md §1 라인 범위 ≤ 5 확인 후 specifying-ko 가 spec.md §1 개요 에 `§유형: trivial` 자동 기재 grep
+**관련 FR**: FR-13
+**우선순위**: should
+
+---
+
+### AC-15: analyzing-ko gh CLI 미가용 fallback (clarify Q-C append)
+
+**Given** analyzing-ko 가 호출된 환경에서 `gh --version` 명령이 실패 (gh CLI 미설치 또는 미인증) 한 상태에서
+**When** impact-analysis.md §관련 PR/이슈 항목 산출 시
+**Then**:
+1. `git log` 기반으로 PR 머지 commit 히스토리 요약 (`git log --merges --grep='Merge pull'` 또는 동등 명령)
+2. impact-analysis.md 본문에 "데이터 출처: git log (gh CLI 미가용 — 한계 고백)" 메타 명시
+3. HARD GATE 차단 안 됨 (analyzing-ko chain 정상 진행)
+
+**검증 방법**: dogfood 환경에서 `gh` 를 PATH 에서 일시 제거 후 analyzing-ko 호출 → impact-analysis.md grep `git log (gh CLI 미가용` + chain 진행 확인
+**관련 FR**: FR-9, NFR-5
+**우선순위**: should
+
+---
+
 ## 우선순위 규약
 
 - **must**: 이 항목이 충족되지 않으면 `/verify` PASS 불가
