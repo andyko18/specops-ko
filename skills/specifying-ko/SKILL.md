@@ -33,6 +33,22 @@ used_by: using-specops-auto-ko-ko, /start
      → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (Step 5.5에서 신규 화면 설계 예정)
      → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
      → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (Step 5.5 인라인 화면 설계에서 처리)
+   - **유지보수 분기 진입 신호 검사** (Phase A — 신규 추가):
+     - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
+     - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
+
+   **[유지보수 분기]** (Phase A 신설, Phase C 적용 후 본문 축약 예정):
+     - Phase A 단독 시점: 본 skill 이 5 항목 mini-checklist 직접 실행
+       1. 변경 대상 파일·진입점 식별 (`grep -rn`, `Read`)
+       2. 호출자/의존 매핑
+       3. 기존 테스트 커버리지 확인
+       4. 관찰 가능 동작 1~3 건 캡처
+       5. 회귀 위험 1 줄 메모
+     - Phase C 적용 후: `analyzing-ko` 가 본 5 항목 + 영향 분석 산출 → 본 skill 은 **참조만** (재분석 안 함)
+     - 산출물: `.specops/<FID>/current-state.md` (templates/current-state.md 기반)
+     - ★ HARD GATE: "분석 결과 검토. 진행? [y/n]"
+     - spec.md `§참조` 에 `current-state.md` 자동 포함 (Phase C 후에는 `impact-analysis.md` 도)
+     - Step 3 명확화 질문으로 진행
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
 3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해
 4. **2~3 접근 제안** — 트레이드오프와 권고 제시
@@ -47,6 +63,17 @@ used_by: using-specops-auto-ko-ko, /start
    - 모든 화면 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
+   - **§유형 라벨 자동 기재** (Phase A — 신규 추가): spec.md §1 개요 의 `**§유형**` 라벨을 다음 규칙으로 자동 부여 — 진입 신호 + current-state.md §1 라인 범위 메타 합산 기반:
+
+     | 진입 신호 | current-state.md §1 라인 범위 합산 | 라벨 |
+     |---|---|---|
+     | 신규 분기 | N/A | `**§유형**: 신규` |
+     | 유지보수 분기 | ≤ 5 | `**§유형**: trivial` (사용자가 자기선언으로 거부 가능) |
+     | 유지보수 분기 | > 5 또는 미산출 | `**§유형**: 유지보수` |
+
+     **근거**: clarify Q-B 결정 — trivial 자동 판정 시점은 analyzing-ko current-state.md §1 메타 사전 추정. Phase A 단독 시점에는 specifying-ko Step 1 mini-checklist §1 라인 범위 메타로 대체. 라벨은 clarifying-ko 단계에서 갱신 가능.
+
+     라벨이 `유지보수` 면 acceptance-criteria.md 의 "## 회귀 방지 AC (유지보수 FID 필수)" 섹션이 자동 활성 — sprint-contracts-ko evaluator 가 `AC-R-*` ≥ 1 강제.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
 9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
@@ -56,6 +83,10 @@ used_by: using-specops-auto-ko-ko, /start
 
 ```
 프로젝트 맥락 탐색
+    ↓
+args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 분기] 5 항목 mini-checklist + current-state.md ★ HARD GATE → spec.md §유형 자동 라벨 (유지보수 / trivial — 라인 ≤ 5) → Step 3
+    │
+    └── no ──▶ [신규 분기] (현재 동작) ↓
     ↓
 DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 시스템 준수" 포함
     │                              ↓
