@@ -14,7 +14,9 @@
 1. **새 Claude Code 세션 시작** — 본 세션이 아닌 **별도 사용자 세션** 에서만 실행
 2. 작업 디렉토리: `/Users/andyko/Project/0.Claude/specops-auto-ko`
 3. 머지 SHA 확인:
-   - `bd8c6b7` (verify behavioral protocol — 본 commit 후 SHA)
+   - `<TBD — 본 verbatim 교체 commit>` (verify protocol verbatim 실재 파일 교체 — 2026-04-27 B-V1 1차 검증 결과 반영)
+   - `62f12f3` (verify behavioral protocol — Path A 채택)
+   - `bd8c6b7` (verify evidence.md AC-10/11)
    - `9c36a87` (Phase C analyzing-ko 신설)
    - `bfc3f26` (Phase D 메타 skill 신호 + /maintain)
    - `a13228a` (Phase A specifying-ko Step 1 분기)
@@ -25,8 +27,10 @@
 
 ### Verbatim 입력
 ```
-auth.js 의 토큰 만료 처리 버그를 고쳐줘
+commands/maintain.md 의 인자 2 차 판단 안티패턴 항목 본문 표현이 모호한 버그를 고쳐줘
 ```
+
+> **verbatim 교체 이력 (2026-04-27)**: 초기 입력 (`auth.js 토큰 만료 처리 버그`) 은 specops-auto-ko 환경에 미존재 파일을 가정해 fresh 세션 (B-V1 1차 검증) 에서 analyzing-ko 가 baseline 캡처 거부 + 사전 차단으로 응답 — 5 원칙 5 한계 고백 정상 동작 검증됐으나 HARD GATE / 산출물 5+3 항목 검증은 도달 못 함. **본 입력은 specops-auto-ko 실재 파일 (`commands/maintain.md`) 을 가리켜 baseline 캡처 가능**.
 
 ### 예상 관찰
 1. 세션 시작 시 system-reminder 로 메타 skill (`specops-auto-ko:using-specops-auto-ko-ko`) 활성 표기
@@ -54,8 +58,10 @@ auth.js 의 토큰 만료 처리 버그를 고쳐줘
 
 ### Verbatim 입력
 ```
-/maintain payment 모듈 결제 실패 처리 개선
+/maintain skills/sprint-contracts-ko/SKILL.md 회귀 AC 체크리스트 항목 본문 개선
 ```
+
+> **verbatim 교체 이력 (2026-04-27)**: 초기 입력 (`payment 모듈 결제 실패 처리 개선`) 은 specops-auto-ko 환경에 미존재 모듈을 가정 → 동일한 사전 차단 예상. 본 입력은 specops-auto-ko 실재 파일 기반.
 
 ### 예상 관찰
 1. `commands/maintain.md` 가 Source of Truth 로 발화
@@ -167,8 +173,10 @@ which gh  # → command not found 확인
 
 #### 입력
 ```
-/maintain auth.js 토큰 갱신 로직 리팩터링
+/maintain skills/analyzing-ko/SKILL.md 의 gh CLI fallback 로직 리팩터링
 ```
+
+> **verbatim 교체 이력 (2026-04-27)**: 초기 입력 (`auth.js 토큰 갱신 로직 리팩터링`) 은 specops-auto-ko 환경에 미존재 파일을 가정 → 사전 차단 예상. 본 입력은 specops-auto-ko 실재 파일 (`skills/analyzing-ko/SKILL.md` — Phase C 신설) 기반.
 
 ### 예상 관찰
 1. analyzing-ko `## 체크리스트` 4 발화 — `gh --version` 시도
@@ -205,7 +213,13 @@ which gh  # → command not found 확인
    - 5 항목 `behavioral` 강도로 승격
    - 총합 표기 정정: "must 12/12 behavioral PASS · should 3/3 behavioral PASS"
 3. evidence.md §6 deferred 항목 명세를 `§6 (RESOLVED)` 로 변경
-4. commit: `verify(20260427-maintenance-lifecycle): behavioral protocol B-V1~V5 PASS`
+4. **검증 부산물 정리** — fresh 세션이 만든 검증용 `.specops/<신규 FID>/` 디렉토리 점검:
+   ```bash
+   git status                                   # 새 디렉토리 확인
+   git clean -fd .specops/<검증용 FID>/         # tracked 안 된 부산물 제거
+   ```
+   (실재 변경이 있어 본 commit 에 포함하고 싶다면 별도 commit 으로 분리)
+5. commit: `verify(20260427-maintenance-lifecycle): behavioral protocol B-V1~V5 PASS`
 
 ---
 
