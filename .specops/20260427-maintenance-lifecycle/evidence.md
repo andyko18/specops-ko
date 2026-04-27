@@ -97,6 +97,20 @@
 4. **sprint-contracts-ko evaluator 실호출**: `20260427-test-bugfix-fixture` 의 AC-R-* 카운트 토글 시 실제 BLOCK / PASS 판정 JSON 산출 (현재는 룰 텍스트 매칭만 — rule-traced)
 5. **gh CLI 비활성화 환경 fallback**: PATH 에서 gh 제거 → analyzing-ko 가 git log fallback 자동 적용 (현재는 SKILL.md 룰 텍스트 + impact-analysis.md 수동 작성)
 
+### 6.1 검증 protocol 정형화 — `behavioral-verification-protocol.md`
+
+위 5 항목의 verbatim 입력 + 예상 관찰 + pass/fail 판정 기준은 별도 문서로 정형화:
+
+- **위치**: `.specops/20260427-maintenance-lifecycle/behavioral-verification-protocol.md`
+- **용도**: 다음 fresh user-level Claude Code 세션 검증자용 핸드오프
+- **블로커 사유 명시**: `skills/using-specops-auto-ko-ko/SKILL.md:13` `<SUBAGENT-STOP>` 조항으로 메타 skill 은 user-level 세션에서만 발화 → 본 세션 (작성자 세션) 에서 검증 시 circular 재현 (advisor 외부 검증 결과)
+- **검증 후 후속**: protocol §6 절차 따라 본 evidence.md §0 / §6 갱신 + commit
+
+**본 세션 추가 한계 고백 (5 원칙 5)**:
+- 본 세션에서 deferred 5 항목의 **강도 상향 시도 차단** — advisor 권고 Path A 채택 결과
+- behavioral 라벨 부착은 fresh 세션 검증 후에만 가능
+- 본 세션은 protocol 작성 + handoff 까지만 책임
+
 ## 7. advisor 외부 검증
 
 > 메모리 룰 "분석·설계 단계 advisor 의무 협의" 적용 — implementing 종료 시점 1 회 호출 완료.
@@ -119,6 +133,20 @@
 
 **advisor 협의 결과 채택 비율**: 2 블로커 100% 채택 + 권고 100% 적용.
 
+### 7.1 advisor 추가 호출 — behavioral 검증 시도 차단 (2026-04-27 추가)
+
+**호출 시점**: 본 evidence.md 작성 후 사용자 "behavioral 검증 fresh execution 진행" 요청 직후.
+
+**advisor 지적** (1 블로커):
+- **B3. 작성자 세션에서 behavioral 검증 시도 = circular 재현** — 메타 skill `<SUBAGENT-STOP>` 조항 (`skills/using-specops-auto-ko-ko/SKILL.md:13`) 으로 user-level 세션에서만 발화. Agent 도구 시뮬 / 본 세션 직접 슬래시 호출 모두 검증 자격 없음. evidence.md §0 한계 고백 패턴 재현 위험.
+
+**반영 결과** (Path A 채택):
+- `behavioral-verification-protocol.md` 신설 — 다음 fresh 세션 검증자용 verbatim 핸드오프
+- evidence.md §6.1 추가 — protocol 참조 + 본 세션 한계 재명시
+- behavioral 라벨 부착 시도 차단 — 본 세션에서는 strength 1 단계 상향 시도조차 안 함
+
+**advisor 권고 Path A 채택**: 가장 정직 + 가장 빠름.
+
 ---
 
-*작성: verifying-evidence-ko · 2026-04-27 · FID: 20260427-maintenance-lifecycle · advisor 외부 검증 완료*
+*작성: verifying-evidence-ko · 2026-04-27 · FID: 20260427-maintenance-lifecycle · advisor 외부 검증 2 회 완료 (제 1 회 / 제 2 회)*
