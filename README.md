@@ -31,11 +31,15 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 ## Lifecycle Chain
 
 ```
-/start <기능>
+/start <기능>  또는  /maintain <대상>  또는  자연어
     ↓
-specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart 자동 주입)
+specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart · 신호 분류 → maintenance flag)
     ↓
-specops-auto-ko:specifying-ko     — spec.md + acceptance-criteria.md
+   [신규]  ─── args 그대로 ───────────  [유지보수]
+    │                                    ↓
+    │                       args = "<!-- entry: maintain -->\n<원본>"
+    │                                    ↓
+    └─→ specops-auto-ko:specifying-ko ←──┘     — spec.md (§유형 자동 라벨) + acceptance-criteria.md (회귀 AC 강제)
     ↓ HARD GATE (사용자 승인)
 specops-auto-ko:clarifying-ko     — clarifications.md
     ↓ HARD GATE
@@ -67,7 +71,9 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/
+├── commands/                                 ← 슬래시 진입로
+│   ├── start.md                              ← 신규 진입 슬래시 /start
+│   └── maintain.md                           ← 유지보수 진입 슬래시 /maintain (NEW)
 │   └── start.md                          ← 단일 진입 슬래시 /start
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트

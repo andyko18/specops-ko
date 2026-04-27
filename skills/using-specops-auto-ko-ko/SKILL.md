@@ -17,11 +17,19 @@ used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 1% 가능성이라도 specops-auto-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
 
 특히 사용자 입력이 다음 신호를 포함하면 즉시 `specops-auto-ko:specifying-ko` 호출:
+
+**[신규 신호]** — `maintenance flag = false`:
 - "X 기능을 만들고 싶어"
 - "Y CLI / API / 모듈 신규"
 - "Z를 구현해줘"
 - "/start <기능>" 슬래시
 - 명확한 신규 산출물 요청
+
+**[유지보수 신호]** (Phase D — 신규 추가) — `maintenance flag = true`:
+- "X 버그 고쳐줘 / 수정해줘"
+- "Y 리팩터링 해줘"
+- "Z 개선 / 변경"
+- "/maintain <대상>" 슬래시
 
 > **경계**: `/start <인자>` 슬래시의 동작 정의는 `commands/start.md` 가 Source of Truth. 본 메타 skill 은 **자연어 입력** 의 신호 감지만 책임한다. `/start` 에 붙은 인자 내용이 "기능 설명으로 보이지 않는다"는 이유로 specifying-ko 호출을 보류하는 2차 판단은 `commands/start.md` 안티패턴 "인자 내용 2차 판단" 에 의해 금지 — 슬래시 진입은 무조건 specifying-ko 로 직행.
 
@@ -47,7 +55,9 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
     ↓
 신호 감지?
     ↓ YES                              ↓ NO
-specops-auto-ko:specifying-ko 호출            일반 응답
+maintenance flag 분류 (Phase D 추가)        일반 응답
+    ├─ false (신규)  → specifying-ko 직행 (args 그대로)
+    └─ true (유지보수) → specifying-ko 호출 (args 첫 줄 "<!-- entry: maintain -->" prepend)
     ↓
 spec.md + acceptance-criteria.md 작성
     ↓
@@ -61,6 +71,21 @@ specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 ```
 
 **핵심**: Conductor 에이전트 없음. 본 메타 skill + 각 engine skill 본문이 chain 형성.
+
+## maintenance flag 분류 로직 (Phase D — 신규 추가)
+
+신호 감지 후 신규/유지보수 1 회 분류 → specifying-ko 호출 시 args 합성:
+
+| flag | 호출 args | 적용 |
+|---|---|---|
+| `false` (신규) | 원본 args 그대로 | specifying-ko Step 1 [신규 분기] |
+| `true` (유지보수) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args | specifying-ko Step 1 [유지보수 분기] |
+
+**announce 메시지** (5 원칙 1 투명성):
+- `false` → "Using specifying-ko to <purpose>"
+- `true` → "Using specifying-ko (maintenance) to <purpose>"
+
+**분류 모호** (양쪽 신호 혼재) 시 사용자에게 1 문항 확인 — "신규 / 유지보수 어느 쪽?".
 
 ## skill 호출 방법
 
