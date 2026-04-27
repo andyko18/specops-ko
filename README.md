@@ -2,22 +2,28 @@
 
 **Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.0.0)
 
-## Quick Start
+## 사용방법
+
+### 1. 플러그인 설치 (1회)
 
 ```bash
-# 1. 플러그인 설치 (1회)
 claude plugin marketplace add ~/path/to/specops-auto-ko
-
-# 2. 새 프로젝트에서 시작
-/start <기능 설명>
-# 예: /start "CSV 파일 줄 수 세기 CLI"
 ```
 
-`/start` 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
+### 2. 작업 진입 (슬래시 1회 또는 자연어 1회)
+
+| 의도 | 슬래시 진입 | 자연어 진입 |
+|---|---|---|
+| **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
+| **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
+
+진입 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
+
+> 자연어 진입은 SessionStart 시 자동 주입되는 메타 스킬 (`using-specops-auto-ko-ko`) 이 신호를 감지해 `specifying-ko` (신규) 또는 `analyzing-ko` (유지보수) 로 라우팅합니다.
 
 ---
 
-## 목적
+## 개요
 
 슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.
 
@@ -137,22 +143,6 @@ specops-auto-ko/
 | R-5 | 1 (투명성) | plan.md 수정 시 Advisor 협의 기록 섹션 누락 |
 
 위반 시 `.specops/<FID>/friction-log.jsonl`에 자동 기록 (Soft Warn).
-
----
-
-## upstream 출처
-
-| 스킬 | upstream |
-|---|---|
-| specifying-ko | `obra/superpowers@v5.0.7 skills/brainstorming/` |
-| planning-ko | `obra/superpowers@v5.0.7 skills/writing-plans/` |
-| implementing-ko | `obra/superpowers@v5.0.7 skills/subagent-driven-development/` |
-| tdd-ko | `obra/superpowers@v5.0.7` + `affaan-m/ECC skills/tdd-workflow/` |
-| verifying-evidence-ko | `obra/superpowers@v5.0.7` + `affaan-m/ECC skills/verification-loop/` |
-| requesting/receiving-code-review-ko | `obra/superpowers@v5.0.7` |
-| systematic-debugging-ko | `obra/superpowers@v5.0.7 skills/systematic-debugging/` |
-| clarifying-ko · decomposing-ko | 신규 (Spec-Kit 양식) |
-| harness 5종 | revfactory/harness + Anthropic 2025 harness 설계 |
 
 ---
 
