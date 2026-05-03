@@ -3,7 +3,7 @@ name: structured-artifacts-ko
 description: 모든 Lifecycle 커맨드의 Process 첫 스텝 — `.specops/<FID>/` 디렉토리 규약으로 단계 간 파일-기반 통신을 강제한다
 layer: 1
 reference_upstream: revfactory/harness@v1.0 skills/structured-artifacts/SKILL.md
-specops_version: 0.1.0
+specops_version: 1.0.0
 ---
 
 # Harness 기법 1 — Structured Artifacts

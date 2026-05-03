@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - specops-ko skills/engine/systematic-debugging-ko.md
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: specops-auto-ko:implementing-ko·tdd-ko·verifying-evidence-ko (BLOCKED·실패 분기 진입)
 ---
 

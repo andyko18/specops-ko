@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구)
 ---
 

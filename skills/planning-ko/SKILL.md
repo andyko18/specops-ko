@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: specops-auto-ko:clarifying-ko (chain 진입), specops-auto-ko:decomposing-ko (chain 출구)
 ---
 

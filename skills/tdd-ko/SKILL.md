@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL
   - obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow
   - specops-ko skills/engine/tdd-ko.md
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: specops-auto-ko:implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
 ---
 

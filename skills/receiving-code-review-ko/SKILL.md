@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), Lifecycle 종결 (또는 specops-auto-ko:implementing-ko 수정 루프)
 ---
 

@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 0.0.0
+specops_version: 1.0.0
 used_by: using-specops-auto-ko-ko, /start
 ---
 
