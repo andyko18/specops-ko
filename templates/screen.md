@@ -1,8 +1,8 @@
 ---
-screen: {{name}}
-title: {{화면 제목}}
-created: {{created}}
-updated: {{updated}}
+screen: "{{name}}"
+title: "{{화면 제목}}"
+created: "{{created}}"
+updated: "{{updated}}"
 ---
 
 <!-- reference: specops-auto-ko templates/screen.md -->

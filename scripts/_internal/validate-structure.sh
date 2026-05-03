@@ -2,8 +2,8 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-# baseline: P1 flat skill 구조 — skills/<name>/SKILL.md × 16
-#           (commands=1 /start, agents 없음 · conductor 없이 chain, knowledge 없음)
+# baseline: skills/<name>/SKILL.md × 20
+#           (commands=4 · agents=3 · conductor 없이 chain)
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
@@ -25,14 +25,13 @@ for d in commands skills templates hooks scripts agents; do
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (commands=1, skills=18, templates=7, agents=3)
-# templates=7: spec, acceptance-criteria, plan, tasks, session-progress, dispatch-context, test-conventions-bash
+# 2) 파일 개수 (commands=4, skills=20, templates=12, agents=3)
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
 count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"  = 1  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
-[ "$(count_skills)"              = 18 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 18")
-[ "$(count_of 'templates/*.md')" = 7  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 7")
+[ "$(count_of 'commands/*.md')"  = 4  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 4")
+[ "$(count_skills)"              = 20 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 20")
+[ "$(count_of 'templates/*.md')" = 12 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 12")
 [ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 
@@ -76,10 +75,13 @@ else
   emit manifest SKIP "python3 미설치"
 fi
 
-# 6) reference_upstream 포맷 정보성 (v0.0: agents·knowledge 없음)
+# 6) reference_upstream 포맷 정보성
+# 유효 포맷: (a) owner/repo@version path  (b) specops-auto-ko 독자 추가 (upstream 미존재 명시)
 total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
-struct=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
+struct_std=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
          commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
+struct_local=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | grep -c '독자 추가' || true)
+struct=$((struct_std + struct_local))
 emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
 # 출력

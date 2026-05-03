@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 0.0.0
 specops_layer: Lifecycle-Tool
-reference_upstream: VoltAgent/awesome-design-md
+reference_upstream: VoltAgent/awesome-design-md@main DESIGN.md
 ---
 
 # /start-design
