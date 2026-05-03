@@ -221,6 +221,8 @@ bash scripts/session-progress-append.sh "$FID" "/specify" "완료" "spec.md, AC.
 
 ## [S2] CLARIFY — clarifications.md 생성 + AC-3 append
 
+`<FID>` 플레이스홀더는 실제 FID 값으로 치환한다.
+
 **clarifications.md 내용:**
 
 ```markdown
@@ -282,6 +284,8 @@ bash scripts/session-progress-append.sh "$FID" "/clarify" "완료" "clarificatio
 
 ## [S3] PLAN — plan.md 생성
 
+`<FID>` 플레이스홀더는 실제 FID 값으로 치환한다.
+
 **plan.md 내용:**
 
 ```markdown
@@ -337,6 +341,8 @@ bash scripts/session-progress-append.sh "$FID" "/plan" "완료" "plan.md" "greet
 ---
 
 ## [S4] DECOMPOSE — tasks.md 생성 + DAG 파싱 확인
+
+`<FID>` 플레이스홀더는 실제 FID 값으로 치환한다.
 
 **tasks.md 내용:**
 
@@ -636,7 +642,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S6] V1~V9 검증
     ↓
-PASS=9 FAIL=0 목표
+PASS=9 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥8 허용)
 ```
 
 ## 실패 시 디버깅
@@ -655,7 +661,7 @@ PASS=9 FAIL=0 목표
 | 원칙 | 적용 |
 |---|---|
 | 1 투명성 | 각 단계 시작 시 `[S1] SPECIFY ...` 진행 상황 출력 |
-| 2 문지기 | S5 테스트 결과가 FAIL이면 S6 전에 중단 및 보고 |
+| 2 문지기 | S5 테스트 FAIL=0 확인 후 S6 진입. FAIL 있으면 REPORT에서 E2E_FAIL 집계로 판정 (HARD GATE 없음) |
 | 3 깊이 | fixture 요구사항·경계값(빈 문자열·인자 없음)·실패 시나리오 모두 문서화 |
 | 4 주권 | HARD GATE 없음 — 완전 자동 (fixture로 사전 결정) |
 | 5 한계 고백 | V8 SKIP 가능성 (python3+pyyaml 미설치) 명시 |
