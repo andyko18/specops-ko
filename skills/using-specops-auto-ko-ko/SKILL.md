@@ -118,6 +118,17 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 주권 | HARD GATE는 engine skill이 본문에서 강제. 메타 skill은 진입만 책임 |
 | 5 한계 고백 | skill이 적합하지 않다고 판단되면 후행 단계에서 사용자에게 "이 skill로 충분한가?" 질문 가능 |
 
+## Karpathy 행동 원칙 (cross-cutting)
+
+구현 단계 진입 시 아래 4원칙이 자동 활성된다. 세부 내용: `specops-auto-ko:karpathy-ko`.
+
+| Karpathy 원칙 | 핵심 규칙 | specops 연결 |
+|---|---|---|
+| 1 코드 작성 전 사고 | 가정 명시, 불확실 시 질문, 다중 해석 제시 | 원칙 1 투명성 + 원칙 5 한계 고백 |
+| 2 단순성 우선 | 요청된 것만, 추측 기능·추상화 금지 | YAGNI + 원칙 4 주권 |
+| 3 외과적 변경 | 요청과 직접 연결된 것만 변경, 기존 스타일 유지 | sprint-contracts-ko AC 범위 |
+| 4 목표 기반 실행 | 모호한 지시 → 검증 가능한 체크포인트 변환 | acceptance-criteria.md + tdd-ko |
+
 
 ## 참조
 
