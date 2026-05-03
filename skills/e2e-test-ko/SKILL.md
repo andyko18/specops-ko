@@ -463,8 +463,9 @@ chmod +x ".specops/$FID/greet-cli.sh"
 ```bash
 cat > ".specops/$FID/test-greet-cli.sh" << TESTEOF
 #!/usr/bin/env bash
+set -u
 PASS=0; FAIL=0
-SCRIPT=".specops/$FID/greet-cli.sh"
+SCRIPT="\$(cd "\$(dirname "\$0")" && pwd)/greet-cli.sh"
 
 # T1.a AC-1: 정상 인사 출력
 out=\$(bash "\$SCRIPT" "철수" 2>/dev/null)
@@ -655,6 +656,7 @@ PASS=9 FAIL=0 목표
 |---|---|
 | 1 투명성 | 각 단계 시작 시 `[S1] SPECIFY ...` 진행 상황 출력 |
 | 2 문지기 | S5 테스트 결과가 FAIL이면 S6 전에 중단 및 보고 |
+| 3 깊이 | fixture 요구사항·경계값(빈 문자열·인자 없음)·실패 시나리오 모두 문서화 |
 | 4 주권 | HARD GATE 없음 — 완전 자동 (fixture로 사전 결정) |
 | 5 한계 고백 | V8 SKIP 가능성 (python3+pyyaml 미설치) 명시 |
 
