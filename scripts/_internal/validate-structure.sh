@@ -2,7 +2,7 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-# baseline: skills/<name>/SKILL.md × 21
+# baseline: skills/<name>/SKILL.md × 22
 #           (commands=5 · agents=3 · conductor 없이 chain)
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
@@ -25,12 +25,12 @@ for d in commands skills templates hooks scripts agents; do
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (commands=4, skills=20, templates=12, agents=3)
+# 2) 파일 개수 (commands=5, skills=22, templates=12, agents=3)
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
 count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
 [ "$(count_of 'commands/*.md')"  = 5  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 5")
-[ "$(count_skills)"              = 21 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 21")
+[ "$(count_skills)"              = 22 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 22")
 [ "$(count_of 'templates/*.md')" = 12 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 12")
 [ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi

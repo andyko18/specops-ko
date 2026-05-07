@@ -130,6 +130,20 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 목표 기반 실행 | 모호한 지시 → 검증 가능한 체크포인트 변환 | acceptance-criteria.md + tdd-ko |
 
 
+## Advisor 활용 (cross-cutting)
+
+기획·분석·설계·개발 중 **애매한 부분/모르는 부분 발생 시 advisor 호출 의무**. 단정·합리화·circular 검증 차단. 세부 내용: `specops-auto-ko:advisor-ko`.
+
+| 단계 | skill | advisor 호출 시점 |
+|---|---|---|
+| 기획 | specifying-ko | spec.md §유형 분류 모호 / NFR 미확신 |
+| 분석 | analyzing-ko | impact 5 항목 작성 중 외부 영향 범위 모호 |
+| 설계 | planning-ko | 이미 §8 Advisor 협의 기록 섹션 강제 |
+| 개발 | implementing-ko | 서브에이전트 dispatch 전 task 의도 모호 |
+
+자명한 작업 (typo / 1 줄 rename) 은 호출 회피. 긴 작업은 substantive work 직전 + 종결 직전 1 회 이상 권장.
+
+
 ## 참조
 
 - `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md` — 원본

@@ -91,7 +91,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 20
+├── skills/                               ← flat: skills/<name>/SKILL.md × 22
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -108,6 +108,7 @@ specops-auto-ko/
 │   ├── dispatching-parallel-agents-ko/   ← DAG-aware 병렬 dispatch
 │   ├── using-git-worktrees-ko/           ← 병렬 격리 (git worktree)
 │   ├── karpathy-ko/                      ← Karpathy 4원칙 (Think·Simplicity·Surgical·Goal)
+│   ├── advisor-ko/                       ← advisor 활용 (애매성 발생 시 외부 자문 의무)
 │   │
 │   │  Harness Skills (아키텍처 원칙)
 │   ├── sprint-contracts-ko/              ← AC를 계약으로
