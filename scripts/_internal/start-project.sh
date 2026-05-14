@@ -85,6 +85,9 @@ _replace_token() {
 }
 
 # 라인 교체: prefix 가 일치하는 줄을 content 로 바꿈 (awk dynamic regex backslash 회피)
+# M4 주의: 같은 prefix 가 본문에 2회 이상 등장하면 **모두** 치환. 호출 사이트는
+# prefix 의 유일성을 보장해야 한다 (현재 모든 호출처는 1회만 등장하는 prefix 사용).
+# 다중 매칭이 필요한 케이스가 등장하면 fence 패턴 (_rebuild_screens_table 참조) 으로 전환.
 _replace_line_prefix() {
   local file="$1" prefix="$2" content="$3"
   awk -v p="$prefix" -v c="$content" '
