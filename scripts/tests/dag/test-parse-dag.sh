@@ -144,29 +144,38 @@ yaml='tasks:
     ac: [AC-2]
 '
 
-# T5.a — T1 test_command 추출 (기재된 경우)
-out=$(dag::get_task_test_command "$yaml" "T1")
-if [ "$out" = "bash scripts/tests/test-foo.sh" ]; then
-  PASS=$((PASS+1)); echo "PASS T5.a get_task_test_command T1 → bash scripts/tests/test-foo.sh"
+# T5.a — T1 test_command 추출 (기재된 경우) + stderr 0줄
+dag::get_task_test_command "$yaml" "T1" >/tmp/b1_stdout 2>/tmp/b1_stderr
+out=$(cat /tmp/b1_stdout)
+err_lines=$(grep -c . /tmp/b1_stderr || true)
+if [ "$out" = "bash scripts/tests/test-foo.sh" ] && [ "$err_lines" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.a get_task_test_command T1 → stdout 정상 + stderr 0줄"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T5.a (out='$out')"
+  FAIL=$((FAIL+1)); echo "FAIL T5.a (out='$out' err_lines=$err_lines)"
 fi
 
-# T5.b — test_command 미기재 task → 빈 출력 + exit 0
-out=$(dag::get_task_test_command "$yaml" "T2")
-if [ -z "$out" ]; then
-  PASS=$((PASS+1)); echo "PASS T5.b get_task_test_command T2 → 빈 (미기재)"
+# T5.b — test_command 미기재 task → stdout 빈 + stderr warn 1줄 + exit 0
+out=$(dag::get_task_test_command "$yaml" "T2" 2>/tmp/b1_stderr)
+exit_code=$?
+err_lines=$(grep -c . /tmp/b1_stderr || true)
+if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.b get_task_test_command T2 → stdout 빈 + stderr 1줄 + exit 0"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T5.b (out='$out')"
+  FAIL=$((FAIL+1)); echo "FAIL T5.b (out='$out' err_lines=$err_lines exit=$exit_code)"
 fi
 
-# T5.c — 존재하지 않는 task → 빈 출력 + exit 0 (graceful)
-out=$(dag::get_task_test_command "$yaml" "Tnoexist")
-if [ -z "$out" ]; then
-  PASS=$((PASS+1)); echo "PASS T5.c get_task_test_command Tnoexist → 빈"
+# T5.c — 존재하지 않는 task → stdout 빈 + stderr warn 1줄 + exit 0 (graceful)
+out=$(dag::get_task_test_command "$yaml" "Tnoexist" 2>/tmp/b1_stderr)
+exit_code=$?
+err_lines=$(grep -c . /tmp/b1_stderr || true)
+if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.c get_task_test_command Tnoexist → stdout 빈 + stderr 1줄 + exit 0"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T5.c (out='$out')"
+  FAIL=$((FAIL+1)); echo "FAIL T5.c (out='$out' err_lines=$err_lines exit=$exit_code)"
 fi
+
+# cleanup
+rm -f /tmp/b1_stdout /tmp/b1_stderr
 
 echo ""
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="

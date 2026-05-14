@@ -133,7 +133,8 @@ if len(batch) >= 2:
 }
 
 # dag::get_task_test_command <yaml-string> <task-id>
-# task 의 test_command 필드 stdout (Wave 2 U2 — FID 20260514). 미기재·미존재 task 는 빈 + exit 0.
+# task 의 test_command 필드 stdout (Wave 2 U2 — FID 20260514).
+# 미기재·미존재·파싱실패 3 분기 모두 stderr 에 정확히 1줄 warn 출력 후 graceful exit 0 (AC-2 (b)).
 dag::get_task_test_command() {
   local yaml="$1"
   local task_id="$2"
@@ -146,10 +147,16 @@ try:
     for task in (data.get("tasks", []) if data else []):
         if task.get("id") == task_id:
             tc = task.get("test_command", "")
-            print(tc)
+            if tc:
+                print(tc)
+            else:
+                print(f"warn: task {task_id} test_command 미기재 — fallback", file=sys.stderr)
             sys.exit(0)
+    # 미존재 task → 1 회 warn
+    print(f"warn: task {task_id} 미존재 — fallback", file=sys.stderr)
     sys.exit(0)
-except Exception:
+except Exception as e:
+    print(f"warn: dag::get_task_test_command 파싱 실패 ({e}) — fallback", file=sys.stderr)
     sys.exit(0)
 PYEOF
 }
