@@ -8,11 +8,16 @@
 set -u
 
 JSON_MODE=0
-[ "${1:-}" = "--json" ] && JSON_MODE=1
+UPDATE_BASELINE=0
+case "${1:-}" in
+  --json) JSON_MODE=1 ;;
+  --update-baseline) UPDATE_BASELINE=1 ;;
+esac
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$(dirname "$script_dir")")
 cd "$plugin_root"
+BASELINE="$script_dir/.structure-baseline"
 
 FAILS=0
 RESULTS=()
@@ -25,16 +30,52 @@ for d in commands skills templates hooks scripts agents; do
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (commands=6, skills=22, templates=24, agents=3)
-#    — /start-project 추가 (commands +1, templates +12 = T1~T12 13종 산출물 템플릿)
-fc=()
-count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
-count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"  = 6  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 6")
-[ "$(count_skills)"              = 22 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 22")
-[ "$(count_of 'templates/*.md')" = 24 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 24")
-[ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
-if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
+# 2) 파일 개수 — .structure-baseline (jsonl) 동적 검증 (U4)
+#    각 줄: {"category":"<라벨>","glob":"<패턴>","count":<정수>}
+#    --update-baseline: 현 실측으로 baseline 갱신 후 종료
+count_glob() {
+  local glob="$1"
+  if [[ "$glob" == */SKILL.md ]]; then
+    # glob 형식 가정: <root>/*/SKILL.md (root 만 fixed). dirname 은 wildcard 포함이라 부적합.
+    local root="${glob%%/*}"
+    find "$root" -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '
+  else
+    ls $glob 2>/dev/null | wc -l | tr -d ' '
+  fi
+}
+
+if [ "$UPDATE_BASELINE" = "1" ]; then
+  if [ ! -f "$BASELINE" ]; then
+    echo "❌ .structure-baseline 부재 — 초기 생성은 수동 권장 (스크립트가 카테고리 추측 X)" >&2
+    exit 1
+  fi
+  tmp=$(mktemp)
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    cat=$(echo "$line" | jq -r '.category')
+    glob=$(echo "$line" | jq -r '.glob')
+    actual=$(count_glob "$glob")
+    printf '{"category":"%s","glob":"%s","count":%s}\n' "$cat" "$glob" "$actual" >> "$tmp"
+  done < "$BASELINE"
+  mv "$tmp" "$BASELINE"
+  echo "✅ .structure-baseline 갱신 완료. git diff 로 의도 확인 후 commit 하세요."
+  exit 0
+fi
+
+if [ ! -f "$BASELINE" ]; then
+  emit file_counts FAIL ".structure-baseline 부재. --update-baseline 로 생성하세요"
+else
+  fc=()
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    cat=$(echo "$line" | jq -r '.category')
+    glob=$(echo "$line" | jq -r '.glob')
+    expected=$(echo "$line" | jq -r '.count')
+    actual=$(count_glob "$glob")
+    [ "$actual" = "$expected" ] || fc+=("${cat}: got ${actual}, expect ${expected}")
+  done < "$BASELINE"
+  if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
+fi
 
 # 2b) 메타 skill SessionStart 주입 경로 필수 (P1 핵심 가설)
 meta="skills/using-specops-auto-ko-ko/SKILL.md"
