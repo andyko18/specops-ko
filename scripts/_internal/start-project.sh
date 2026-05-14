@@ -170,15 +170,19 @@ phase_3_constitution() {
 # PRD 6 필드 수집: numbered list 1차 시도 → < 4 추출 시 단답 fallback
 _phase_4_collect() {
   echo ""
-  echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (Ctrl+D 로 종료):"
+  echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (빈 줄로 종료):"
   echo "  1. 한 줄 설명: <텍스트>"
   echo "  2. 페르소나: <텍스트>"
   echo "  3. 가치제안: <콤마 구분 3개>"
   echo "  4. M1: <텍스트>"
   echo "  5. M2: <텍스트>"
   echo "  6. M3: <텍스트>"
-  local raw=""
-  raw=$(cat 2>/dev/null || true)
+  local raw="" line
+  while IFS= read -r line; do
+    [ -z "$line" ] && break
+    raw="${raw}${line}
+"
+  done
   PRD_F1=$(_parse_numbered "$raw" 1)
   PRD_F2=$(_parse_numbered "$raw" 2)
   PRD_F3=$(_parse_numbered "$raw" 3)
@@ -231,11 +235,96 @@ phase_4_prd() {
   _phase_4_collect
   _phase_4_render
 }
-phase_5_claude() { :; }
-phase_6_design() { :; }
+phase_5_claude() {
+  local target="CLAUDE.md"
+  if _should_skip "$target"; then
+    echo "→ ${target} 보존 (skip 정책)"
+    return
+  fi
+  cp "$PLUGIN/templates/CLAUDE.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  # PRD §1 한 줄 인용
+  _replace_line_prefix "$target" "<PRD §1 한 줄 설명" "${PRD_ONELINE:-<TODO>}"
+  _replace_line_prefix "$target" "<constitution.md §원칙 5개" "constitution.md 의 핵심 5 원칙:"
+  # 원칙 5개 인덱스 (constitution.md ### 원칙 N: NAME 에서 NAME 추출)
+  local i name
+  for i in 1 2 3 4 5; do
+    name=$(grep -m1 "^### 원칙 ${i}:" .specops/memory/constitution.md 2>/dev/null \
+      | sed "s/^### 원칙 ${i}: *//" || echo "원칙${i}")
+    [ -z "$name" ] && name="원칙${i}"
+    _replace_line_prefix "$target" "- 원칙 ${i}:" "- 원칙 ${i}: ${name}"
+  done
+  echo "→ ${target} 작성 완료"
+}
+
+# brand-pick: 1=Stripe 2=Notion 3=Linear 4=Claude 5=직접
+_design_brand_color() {
+  case "$1" in
+    1) echo "#635BFF" ;;
+    2) echo "#000000" ;;
+    3) echo "#5E6AD2" ;;
+    4) echo "#7C3AED" ;;
+    *) echo "#______" ;;
+  esac
+}
+
+_design_brand_name() {
+  case "$1" in
+    1) echo "Stripe" ;;
+    2) echo "Notion" ;;
+    3) echo "Linear" ;;
+    4) echo "Claude" ;;
+    *) echo "Custom" ;;
+  esac
+}
+
+phase_6_design() {
+  if [ "$PROJECT_KIND" != "1" ] && [ "$PROJECT_KIND" != "4" ] && [ "$PROJECT_KIND" != "5" ]; then
+    echo "[Phase 6] DESIGN.md skip (PROJECT_KIND=${PROJECT_KIND}, UI/풀스택/모바일만 활성)"
+    return
+  fi
+  local target="DESIGN.md"
+  if _should_skip "$target"; then
+    echo "→ ${target} 보존 (skip 정책)"
+    return
+  fi
+  echo ""
+  echo "[Phase 6] DESIGN.md — 디자인 시스템 브랜드 선택:"
+  echo "  (1) Stripe   — 보라 그라디언트, 개발자 친화 ← 추천"
+  echo "  (2) Notion   — 미니멀, 화이트 베이스"
+  echo "  (3) Linear   — 기술적, 다크 인디고"
+  echo "  (4) Claude   — AI 친화, 다크 퍼스트"
+  echo "  (5) 직접 입력"
+  printf "선택 [1]: "
+  local b=""
+  read -r b || true
+  case "$b" in 1|2|3|4|5) ;; *) b="1" ;; esac
+  local color name
+  color=$(_design_brand_color "$b")
+  name=$(_design_brand_name "$b")
+  cp "$PLUGIN/templates/DESIGN.md" "$target"
+  _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME} (${name} 스타일)"
+  # §1 Color System Primary 행만 brand 색상으로
+  awk -v c="$color" '
+    /^\| Primary \| `#______`/ { sub(/`#______`/, "`" c "`"); print; next }
+    { print }
+  ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+  echo "→ ${target} 작성 완료 (브랜드: ${name}, Primary=${color})"
+}
 phase_7_screens() { :; }
 phase_8_artifacts() { :; }
-phase_9_readme() { :; }
+phase_9_readme() {
+  local target="README.md"
+  if _should_skip "$target"; then
+    echo "→ ${target} 보존 (skip 정책)"
+    return
+  fi
+  cp "$PLUGIN/templates/README.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  _replace_line_prefix "$target" "<PRD §1 한 줄 설명" "${PRD_ONELINE:-<TODO>}"
+  _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
+  echo "→ ${target} 작성 완료"
+}
 phase_10_commit() { :; }
 
 main() {
