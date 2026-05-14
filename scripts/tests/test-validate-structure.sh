@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# specops-auto-ko v0.0 PoC · scripts/validate-structure.sh 검증
-# baseline: P1 flat — commands=1, skills/<name>/SKILL.md=16, templates=6
+# specops-auto-ko v0.0 PoC · scripts/_internal/validate-structure.sh 검증
+# baseline: P1 flat — commands=1, skills/<name>/SKILL.md=16, templates=6 (sandbox 격리)
+# U4 후: sandbox 가 .structure-baseline 자체 생성. agents/ 빈 디렉토리 OK.
 # (meta skill 필수: skills/using-specops-auto-ko-ko/SKILL.md + hooks/session-start.sh exec-bit)
 set -u
 PASS=0; FAIL=0
-PLUGIN=$(pwd)
-SCRIPT="$PLUGIN/scripts/validate-structure.sh"
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+SCRIPT="$PLUGIN/scripts/_internal/validate-structure.sh"
 
 # T1 현재 플러그인 실행 — 모든 항목 OK 또는 INFO/SKIP, FAILS=0
 out=$(bash "$SCRIPT" 2>&1); rc=$?
@@ -36,7 +37,7 @@ SKILL_NAMES=(
 )
 make_sandbox() {
   local sb=$1
-  mkdir -p "$sb"/{commands,skills,templates,docs,hooks,scripts,.claude-plugin}
+  mkdir -p "$sb"/{commands,skills,templates,docs,hooks,scripts/_internal,agents,.claude-plugin}
   printf -- '---\nname: start\n---\n' > "$sb/commands/start.md"
   for name in "${SKILL_NAMES[@]}"; do
     mkdir -p "$sb/skills/$name"
@@ -48,13 +49,19 @@ make_sandbox() {
   chmod +x "$sb/hooks/session-start.sh"
   echo '{"version":"0.1.0"}' > "$sb/.claude-plugin/plugin.json"
   echo '{"plugins":[{"version":"0.1.0"}]}' > "$sb/.claude-plugin/marketplace.json"
-  cp "$SCRIPT" "$sb/scripts/validate-structure.sh"
-  chmod +x "$sb/scripts/validate-structure.sh"
+  cp "$SCRIPT" "$sb/scripts/_internal/validate-structure.sh"
+  chmod +x "$sb/scripts/_internal/validate-structure.sh"
+  # U4: sandbox 자체 .structure-baseline (agents 카테고리 생략 — sandbox 가 다루지 않음)
+  cat > "$sb/scripts/_internal/.structure-baseline" <<'EOF'
+{"category":"commands","glob":"commands/*.md","count":1}
+{"category":"skills","glob":"skills/*/SKILL.md","count":16}
+{"category":"templates","glob":"templates/*.md","count":6}
+EOF
 }
 
 # T3a 정상 baseline sandbox — OK
 sb=$(mktemp -d); make_sandbox "$sb"
-out=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ file_counts: OK' && echo "$out" | grep -q '✅ meta_injection: OK'; then
   PASS=$((PASS+1)); echo "PASS T3a baseline sandbox passes"
 else
@@ -65,7 +72,7 @@ rm -rf "$sb"
 
 # T3b skills 15개(baseline 16에서 -1) — FAIL
 sb=$(mktemp -d); make_sandbox "$sb"; rm -rf "$sb/skills/context-resets-ko"
-err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'file_counts: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T3b skills 15개 FAIL"
 else
@@ -75,7 +82,7 @@ rm -rf "$sb"
 
 # T3c 메타 skill 누락 — FAIL (P1 핵심 가설 위반)
 sb=$(mktemp -d); make_sandbox "$sb"; rm -rf "$sb/skills/using-specops-auto-ko-ko"
-err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'meta_injection: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T3c 메타 skill 누락 FAIL"
 else
@@ -85,7 +92,7 @@ rm -rf "$sb"
 
 # T3d session-start.sh exec-bit 없음 — FAIL
 sb=$(mktemp -d); make_sandbox "$sb"; chmod -x "$sb/hooks/session-start.sh"
-err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'meta_injection: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T3d session-start exec-bit 없음 FAIL"
 else
@@ -96,7 +103,7 @@ rm -rf "$sb"
 # T4 commands/start.md 에 superpowers 런타임 참조 삽입 — FAIL
 sb=$(mktemp -d); make_sandbox "$sb"
 printf -- '---\nname: bad\n---\nsuperpowers: call-this-at-runtime\n' > "$sb/commands/start.md"
-err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'no_superpowers: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T4 superpowers runtime ref FAIL"
 else
@@ -107,7 +114,7 @@ rm -rf "$sb"
 # T5 manifest version 불일치 — FAIL
 sb=$(mktemp -d); make_sandbox "$sb"
 echo '{"version":"0.2.0"}' > "$sb/.claude-plugin/plugin.json"
-err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'manifest: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T5 version mismatch FAIL"
 else
@@ -119,7 +126,7 @@ rm -rf "$sb"
 if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
   sb=$(mktemp -d); make_sandbox "$sb"
   printf -- '---\nname: { unclosed\n  - bad\n---\n' > "$sb/commands/start.md"
-  err=$(bash "$sb/scripts/validate-structure.sh" 2>&1); rc=$?
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
   if [ $rc -eq 1 ] && echo "$err" | grep -q 'frontmatter: FAIL'; then
     PASS=$((PASS+1)); echo "PASS T6 broken frontmatter FAIL"
   else
@@ -136,6 +143,53 @@ if [ -x "$SCRIPT" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T7 exec-bit"
 fi
+
+# ── U4 회귀: .structure-baseline 동적화 ─────────
+
+# T8.a baseline 부재 → file_counts FAIL + 명시 메시지
+sb=$(mktemp -d); make_sandbox "$sb"
+rm -f "$sb/scripts/_internal/.structure-baseline"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q '.structure-baseline 부재'; then
+  PASS=$((PASS+1)); echo "PASS T8.a (U4) baseline 부재 → FAIL + 명시 메시지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.a (rc=$rc, out=$(echo "$err" | head -3 | tr '\n' ';'))"
+fi
+rm -rf "$sb"
+
+# T8.b baseline 카운트가 실측과 다름 → FAIL + "got X, expect Y"
+sb=$(mktemp -d); make_sandbox "$sb"
+# templates 카운트를 6 → 99 로 의도적으로 mismatch
+sed -i.bak 's/"glob":"templates\/\*.md","count":6/"glob":"templates\/*.md","count":99/' "$sb/scripts/_internal/.structure-baseline"
+rm -f "$sb/scripts/_internal/.structure-baseline.bak"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'templates: got 6, expect 99'; then
+  PASS=$((PASS+1)); echo "PASS T8.b (U4) 카운트 mismatch → FAIL + got/expect 메시지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.b (rc=$rc, out=$(echo "$err" | grep file_counts))"
+fi
+rm -rf "$sb"
+
+# T8.c --update-baseline → 갱신 후 재검증 PASS
+sb=$(mktemp -d); make_sandbox "$sb"
+# templates 카운트를 6 → 99 mismatch
+sed -i.bak 's/"glob":"templates\/\*.md","count":6/"glob":"templates\/*.md","count":99/' "$sb/scripts/_internal/.structure-baseline"
+rm -f "$sb/scripts/_internal/.structure-baseline.bak"
+# --update-baseline 호출 → 실측 6 으로 갱신
+update_out=$(bash "$sb/scripts/_internal/validate-structure.sh" --update-baseline 2>&1)
+update_rc=$?
+# 재검증 → PASS 기대
+revalidate_out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+revalidate_rc=$?
+if [ $update_rc -eq 0 ] && [ $revalidate_rc -eq 0 ] \
+   && echo "$update_out" | grep -q '갱신 완료' \
+   && echo "$revalidate_out" | grep -q '✅ file_counts: OK' \
+   && grep -q '"count":6' "$sb/scripts/_internal/.structure-baseline"; then
+  PASS=$((PASS+1)); echo "PASS T8.c (U4) --update-baseline → 갱신 후 재검증 PASS"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.c (update_rc=$update_rc revalidate_rc=$revalidate_rc)"
+fi
+rm -rf "$sb"
 
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL
