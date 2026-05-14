@@ -311,8 +311,143 @@ phase_6_design() {
   ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
   echo "→ ${target} 작성 완료 (브랜드: ${name}, Primary=${color})"
 }
-phase_7_screens() { :; }
-phase_8_artifacts() { :; }
+# screens-overview.md §1 표의 home/login/dashboard 예시 행을 사용자 입력으로 교체
+_rebuild_screens_table() {
+  local file="$1"
+  shift
+  local names=("$@") n rows=""
+  for n in "$@"; do
+    rows="${rows}| ${n} | ${n} | TODO | [screens/${n}.md](../../screens/${n}.md) | [screens/${n}.html](../../screens/${n}.html) |
+"
+  done
+  ROWS="$rows" awk '
+    /^\| home \|/, /^\| dashboard \|/ {
+      if (!printed) { printf "%s", ENVIRON["ROWS"]; printed = 1 }
+      next
+    }
+    { print }
+  ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+phase_7_screens() {
+  case "$PROJECT_KIND" in 1|4|5) ;; *) echo "[Phase 7] screens skip (KIND=${PROJECT_KIND})"; return ;; esac
+  echo ""
+  echo "[Phase 7] 초기 화면 목록 (콤마/공백 구분, 비우면 skip):"
+  printf "예) home, login, dashboard: "
+  local input=""
+  read -r input || true
+  mkdir -p .specops/memory
+  cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
+  _replace_token .specops/memory/screens-overview.md "<PROJECT_NAME>" "$PROJECT_NAME"
+  if [ -z "${input// }" ]; then
+    echo "→ 화면 입력 비움. screens-overview.md placeholder 유지."
+    return
+  fi
+  local IFS=', ' n today
+  local -a names=($input)
+  unset IFS
+  today=$(date +%Y-%m-%d)
+  mkdir -p screens
+  for n in "${names[@]}"; do
+    [ -z "$n" ] && continue
+    cp "$PLUGIN/templates/screen.md" "screens/${n}.md"
+    cp "$PLUGIN/templates/screen.html" "screens/${n}.html"
+    _replace_token "screens/${n}.md" "{{name}}" "$n"
+    _replace_token "screens/${n}.md" "{{화면 제목}}" "$n"
+    _replace_token "screens/${n}.md" "{{created}}" "$today"
+    _replace_token "screens/${n}.md" "{{updated}}" "$today"
+    _replace_token "screens/${n}.html" "{{title}}" "$n"
+  done
+  _rebuild_screens_table .specops/memory/screens-overview.md "${names[@]}"
+  echo "→ screens/ ${#names[@]}개 + .specops/memory/screens-overview.md 작성"
+}
+
+# 8a~8h 헬퍼 — 활성 매트릭스 (plan §4.4)
+_phase_8a_requirements() {
+  local target=".specops/memory/requirements.md"
+  _should_skip "$target" && { echo "→ ${target} skip"; return; }
+  cp "$PLUGIN/templates/requirements.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8a 모든 종류)"
+}
+
+_phase_8b_architecture() {
+  if [ "$PROJECT_KIND" = "3" ]; then
+    echo "→ architecture.md skip (8b CLI 디폴트)"
+    return
+  fi
+  local target=".specops/memory/architecture.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/architecture.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8b)"
+}
+
+_phase_8c_frontend() {
+  case "$PROJECT_KIND" in 1|4|5) ;; *) return ;; esac
+  local target=".specops/memory/frontend-architecture.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/frontend-architecture.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8c UI/Full/Mobile)"
+}
+
+_phase_8d_backend() {
+  case "$PROJECT_KIND" in 2|4) ;; *) return ;; esac
+  local target=".specops/memory/backend-architecture.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/backend-architecture.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8d BE/Full)"
+}
+
+_phase_8e_data_model() {
+  printf "[Phase 8e] DB (Postgres/MySQL/MongoDB 등) 사용? [y/N/skip]: "
+  local ans=""
+  read -r ans || true
+  case "$ans" in y|Y) ;; *) echo "→ data-model.md skip (8e ${ans:-N})"; return ;; esac
+  local target=".specops/memory/data-model.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/data-model.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8e DB=y)"
+}
+
+_phase_8f_api_spec() {
+  case "$PROJECT_KIND" in 2|4) ;; *) return ;; esac
+  echo "[Phase 8f] API 정의 방식? (1)Markdown (2)OpenAPI (3)GraphQL (4)RPC (5)skip"
+  printf "선택 [1]: "
+  local m=""
+  read -r m || true
+  case "$m" in 5) echo "→ api-spec.md skip"; return ;; esac
+  case "$m" in 1|2|3|4) ;; *) m="1" ;; esac
+  local target=".specops/memory/api-spec.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/api-spec.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8f 방식=${m})"
+}
+
+_phase_8h_test_strategy() {
+  local target=".specops/memory/test-strategy.md"
+  _should_skip "$target" && return
+  cp "$PLUGIN/templates/test-strategy.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8h 모든 종류)"
+}
+
+phase_8_artifacts() {
+  echo ""
+  echo "[Phase 8] 종류별 산출물 매트릭스 (KIND=${PROJECT_KIND}):"
+  mkdir -p .specops/memory
+  _phase_8a_requirements
+  _phase_8b_architecture
+  _phase_8c_frontend
+  _phase_8d_backend
+  _phase_8e_data_model
+  _phase_8f_api_spec
+  _phase_8h_test_strategy
+}
 phase_9_readme() {
   local target="README.md"
   if _should_skip "$target"; then
