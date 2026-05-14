@@ -68,8 +68,9 @@ _resolve_conflict_policy() {
     printf "기존 파일 처리 정책? (skip/overwrite/merge) [skip]: "
     read -r p || true
     case "$p" in
-      overwrite|merge) CONFLICT_POLICY="$p" ;;
-      *) CONFLICT_POLICY="skip" ;;
+      overwrite) CONFLICT_POLICY="overwrite" ;;
+      merge)     CONFLICT_POLICY="skip"; echo "→ merge 미구현, skip 으로 fallback (기존 파일 보존)" ;;
+      *)         CONFLICT_POLICY="skip" ;;
     esac
   fi
 }
@@ -92,9 +93,10 @@ _replace_line_prefix() {
   ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 }
 
-# 충돌 시 skip 정책: 대상 파일 존재 + skip 정책이면 1 반환 (caller 가 return)
+# 충돌 시 보존 정책: 대상 파일 존재 + overwrite 가 아니면 true (보존)
+# 방어 깊이: 새 정책 추가 시에도 안전 디폴트 (overwrite 만 명시 통과)
 _should_skip() {
-  [ -e "$1" ] && [ "$CONFLICT_POLICY" = "skip" ]
+  [ -e "$1" ] && [ "$CONFLICT_POLICY" != "overwrite" ]
 }
 
 # numbered list 의 N 번 항목 추출 (": " 뒤 텍스트)
@@ -194,6 +196,11 @@ _phase_4_collect() {
     [ -n "$v" ] && got=$((got + 1))
   done
   if [ "$got" -lt 4 ]; then
+    if [ ! -e /dev/tty ]; then
+      echo "양식 파싱 실패 (${got}/6) + 비대화 환경 (tty 부재) — abort." >&2
+      echo "PRD.md 가 <TODO> 로 채워지는 silent failure 차단." >&2
+      exit 2
+    fi
     echo "양식 파싱 실패 (${got}/6). 개별 입력 모드로 전환합니다."
     [ -z "$PRD_F1" ] && { printf "1. 한 줄 설명: "; read -r PRD_F1 </dev/tty || true; }
     [ -z "$PRD_F2" ] && { printf "2. 페르소나: "; read -r PRD_F2 </dev/tty || true; }
@@ -343,13 +350,26 @@ phase_7_screens() {
     echo "→ 화면 입력 비움. screens-overview.md placeholder 유지."
     return
   fi
-  local IFS=', ' n today
-  local -a names=($input)
-  unset IFS
+  local IFS=', ' today
+  local -a raw_names=($input) names=()
+  IFS=$' \t\n'
   today=$(date +%Y-%m-%d)
+  # path traversal 방어: 영숫자/-/_ 1~64 만 허용
+  local n
+  for n in "${raw_names[@]}"; do
+    [ -z "$n" ] && continue
+    if [[ ! "$n" =~ ^[A-Za-z0-9_-]{1,64}$ ]]; then
+      echo "→ 화면명 '$n' 무시 (영숫자/-/_ 1~64 만 허용)" >&2
+      continue
+    fi
+    names+=("$n")
+  done
+  if [ ${#names[@]} -eq 0 ]; then
+    echo "→ 유효한 화면명 0개. screens-overview.md placeholder 유지."
+    return
+  fi
   mkdir -p screens
   for n in "${names[@]}"; do
-    [ -z "$n" ] && continue
     cp "$PLUGIN/templates/screen.md" "screens/${n}.md"
     cp "$PLUGIN/templates/screen.html" "screens/${n}.html"
     _replace_token "screens/${n}.md" "{{name}}" "$n"
@@ -487,7 +507,8 @@ phase_10_commit() {
   # .gitignore: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
   cat > .specops/.gitignore <<'EOF'
 # specops-auto-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
-[0-9]*-*/
+# FID 컨벤션: YYYYMMDD-slug (8자리 날짜 + dash). 일반 디렉토리 false positive 차단.
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/
 EOF
   # session-progress.md 골격
   if [ ! -f .specops/session-progress.md ]; then

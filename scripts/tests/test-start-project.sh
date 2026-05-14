@@ -255,6 +255,86 @@ else
   nope "T14.a 8e DB" "y_present=${y_present} n_absent=${n_absent}"
 fi
 
+# ── 코드 리뷰 fix 회귀 테스트 (C1, C2, I1) ────
+
+# ── T15.a (C1) overwrite 정책 → 기존 PRD.md 덮어쓰기 ──
+setup_fixture
+echo "# OLD MARKER" > PRD.md
+# stdin 순서: phase_1 충돌 정책 → phase_2 KIND → phase_3 헌법 skip → phase_4 빈 sentinel → phase_8e DB
+{
+  printf "overwrite\n"  # 충돌 정책
+  printf "3\n"          # KIND=CLI
+  printf "skip\n"       # 헌법 skip
+  printf "\n"           # phase_4 sentinel
+  printf "n\n"          # 8e DB
+} | bash "$SCRIPT" >/dev/null 2>&1
+if grep -q "OLD MARKER" PRD.md; then
+  nope "T15.a overwrite" "기존 OLD MARKER 가 보존됨 — overwrite 미작동"
+else
+  ok "T15.a (C1) overwrite 정책 → 기존 PRD.md 덮어쓰기 (마커 제거)"
+fi
+teardown_fixture
+
+# ── T16.a (C1) merge → skip fallback 안내 + 보존 ─
+setup_fixture
+echo "# MERGE PRESERVED" > PRD.md
+out=$({
+  printf "merge\n"      # 충돌 정책 = merge → skip fallback
+  printf "3\n"
+  printf "skip\n"
+  printf "\n"
+  printf "n\n"
+} | bash "$SCRIPT" 2>&1)
+if grep -q "MERGE PRESERVED" PRD.md && echo "$out" | grep -q "merge 미구현"; then
+  ok "T16.a (C1) merge → skip fallback 안내 + 기존 파일 보존 (데이터 손실 차단)"
+else
+  nope "T16.a merge" "PRD 보존 또는 fallback 안내 부재 (out=$(echo \"$out\" | grep -i merge | head -1))"
+fi
+teardown_fixture
+
+# ── T17.a (C2) screens path traversal 차단 ─────
+setup_fixture
+echo "# ROOT README" > README.md
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. x\n2. y\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\n"
+  printf "../README\n"  # path traversal 시도
+  printf "n\n"
+} | bash "$SCRIPT" 2>/dev/null >/dev/null
+# README.md 가 보존돼야 함 (사용자 입력으로 덮어써지지 않음)
+# 단, phase_9_readme 가 README.md 를 덮어쓸 수 있음 → 그 검증 분리
+if [ ! -f screens/../README.md ] || grep -q "ROOT README" screens/../README.md 2>/dev/null; then
+  # 다른 검증: screens/ 안에 traversal 흔적 0
+  traversal_files=$(find screens -name "*README*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$traversal_files" = "0" ]; then
+    ok "T17.a (C2) screens 입력 '../README' → 거부 + traversal 흔적 0"
+  else
+    nope "T17.a path traversal" "screens/ 안에 README 흔적 ${traversal_files}개"
+  fi
+else
+  nope "T17.a path traversal" "README.md 손상"
+fi
+teardown_fixture
+
+# ── T18.a (C2) 모든 invalid 화면명 → placeholder 유지 ──
+setup_fixture
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. x\n2. y\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\n"
+  printf "../foo, /etc/bar\n"  # 모두 invalid
+  printf "n\n"
+} | bash "$SCRIPT" 2>/dev/null >/dev/null
+# screens/ 안에 0 file (또는 디렉토리 자체 부재)
+n_files=$(find screens -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ "$n_files" = "0" ]; then
+  ok "T18.a (C2) 모두 invalid 화면명 → screens/ 파일 0개 (placeholder 유지)"
+else
+  nope "T18.a invalid screens" "screens/ 안 ${n_files}개 (기대 0)"
+fi
+teardown_fixture
+
 # ── 결과 ──────────────────────────────────────
 echo ""
 echo "--- SUMMARY ---"
