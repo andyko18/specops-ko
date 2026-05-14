@@ -142,13 +142,15 @@ Superpowers 원본 24개 실패 기록에서:
 
 태스크 종료 전 다음 명령을 **실제 실행**하고 출력 첨부:
 
-- [ ] `npm test` / `pytest` / 해당 프로젝트의 테스트 명령 — exit 0
-- [ ] 린터 / 포매터 — exit 0
-- [ ] 빌드 — exit 0
+- [ ] **U3 자동화** (1순위): `bash scripts/_internal/run-verification.sh <FID>` — tasks.md 의 `bash scripts/...` 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append. PASS 시 stdout `VERIFY: PASS` + exit 0. 1건이라도 FAIL 시 stderr `VERIFY: FAIL <cmd> (exit=N)` + exit 1. tasks.md 가 `bash scripts/...` 외 명령 (npm/pytest 등) 을 사용하면 아래 수동 fallback.
+- [ ] **수동 fallback** (`run-verification.sh` 미적용 시):
+  - `npm test` / `pytest` / 해당 프로젝트의 테스트 명령 — exit 0
+  - 린터 / 포매터 — exit 0
+  - 빌드 — exit 0
 - [ ] 스펙 요구사항 체크리스트 — 각 항목 증거 있음
 - [ ] 회귀 테스트 Red-Green 사이클 검증 (버그 픽스 태스크인 경우)
 - [ ] 서브에이전트 위임 태스크면 `git diff` 확인 (변경이 실제로 일어남)
-- [ ] `.specops/<FID>/evidence.md`에 출력 캡처
+- [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-auto-ko 고유)
 
