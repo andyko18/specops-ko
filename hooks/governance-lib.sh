@@ -6,8 +6,20 @@
 # Requires: jq 1.6+, bash 3.2+, coreutils (date, grep, sed, cut, mkdir).
 
 detect_fid() {
+  # U8: 다중 FID 환경에서 first-only 버그 회피
+  #   1순위: <!-- active-fid: <FID> --> 마커 (사용자/도구가 명시적으로 active 표시)
+  #   2순위: 첫 '## <FID>' 헤더 (기존 동작, 단일 FID 환경 fallback)
   local progress_file=".specops/session-progress.md"
   [ -f "$progress_file" ] || { echo ""; return 0; }
+  # 1순위: active-fid 마커 (any line)
+  local marker_fid
+  marker_fid=$(grep -m1 -E '<!--[[:space:]]*active-fid:[[:space:]]*[0-9]{8}-[a-z0-9-]+[[:space:]]*-->' "$progress_file" \
+    | sed -E 's/.*active-fid:[[:space:]]*([0-9]{8}-[a-z0-9-]+).*/\1/')
+  if [ -n "$marker_fid" ]; then
+    echo "$marker_fid"
+    return 0
+  fi
+  # 2순위: 첫 ## 헤더 (single-FID fallback)
   grep -E '^## [0-9]{8}-[a-z0-9-]+' "$progress_file" \
     | head -1 \
     | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/'

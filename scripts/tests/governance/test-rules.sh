@@ -338,6 +338,54 @@ else
 fi
 rm -rf "$tmp"
 
+# ── U8 회귀: detect_fid first-only 버그 ─────────
+
+# T12.a (U8) active-fid 마커 우선 — 다중 ## 헤더 환경에서도 마커 FID 반환
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops" && cat > "$tmp/.specops/session-progress.md" <<'EOF'
+# Session Progress
+<!-- active-fid: 20260601-newer-fid -->
+
+## 20260401-older-fid
+old entry
+
+## 20260601-newer-fid
+new entry
+EOF
+result=$(cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh"; detect_fid)
+if [ "$result" = "20260601-newer-fid" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.a (U8) active-fid 마커 우선 (다중 ## 헤더 환경)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.a (got='$result')"
+fi
+rm -rf "$tmp"
+
+# T12.b (U8) 마커 부재 → 첫 ## 헤더 fallback (기존 동작 보존)
+tmp=$(mktemp -d)
+result=$(cd "$tmp" && mkdir -p .specops && cat > .specops/session-progress.md <<'EOF'
+# Session Progress
+
+## 20260401-first-fid
+entry
+EOF
+  source "$PLUGIN/hooks/governance-lib.sh"; detect_fid)
+if [ "$result" = "20260401-first-fid" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.b (U8) 마커 부재 → 첫 ## 헤더 fallback"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.b (got='$result')"
+fi
+rm -rf "$tmp"
+
+# T12.c (U8) session-progress.md 자체 부재 → 빈 결과
+tmp=$(mktemp -d)
+result=$(cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh"; detect_fid)
+if [ -z "$result" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.c (U8) session-progress.md 부재 → 빈 결과"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.c (got='$result')"
+fi
+rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
