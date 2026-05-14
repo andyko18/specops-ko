@@ -33,6 +33,24 @@ used_by: using-specops-auto-ko-ko, /start
      → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (Step 5.5에서 신규 화면 설계 예정)
      → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
      → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (Step 5.5 인라인 화면 설계에서 처리)
+   - **`.specops/memory/*` 부트스트랩 산출물 자동 감지** (v2.0 신규 — `/start-project` 산출):
+     - `.specops/memory/` 부재 → **graceful skip** (기존 dogfood 회귀 보호 — 부트스트랩되지 않은 프로젝트도 specifying-ko 정상 동작)
+     - 존재 시: `ls .specops/memory/*.md 2>/dev/null` 결과를 spec.md `§참조` 에 자동 인용 (Step 6 작성 시):
+
+       | 감지 파일 | spec.md §참조 인용 (bullet) |
+       |---|---|
+       | `constitution.md` | 헌법 준수 — `.specops/memory/constitution.md` |
+       | `requirements.md` | FR/NFR 마스터 — `.specops/memory/requirements.md` |
+       | `architecture.md` | 시스템 컴포넌트 — `.specops/memory/architecture.md` |
+       | `frontend-architecture.md` | 프론트 아키텍처 — `.specops/memory/frontend-architecture.md` |
+       | `backend-architecture.md` | 백엔드 아키텍처 — `.specops/memory/backend-architecture.md` |
+       | `api-spec.md` | IF 설계서 — `.specops/memory/api-spec.md` |
+       | `data-model.md` | 테이블 설계서 — `.specops/memory/data-model.md` |
+       | `screens-overview.md` | 화면 목록 마스터 — `.specops/memory/screens-overview.md` |
+       | `test-strategy.md` | 테스트 전략 — `.specops/memory/test-strategy.md` |
+
+     - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`.specops/memory/<name>.md` 경로로 인용).
+     - **회귀 보호 계약**: 본 분기는 spec.md §참조에 **인용만 추가**한다. 다른 섹션·내용을 변경하지 않는다 (T24 회귀 검증 대상).
    - **유지보수 분기 진입 신호 검사** (Phase A — 신규 추가):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
