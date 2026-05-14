@@ -91,6 +91,23 @@ specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 
 **분류 모호** (양쪽 신호 혼재) 시 사용자에게 1 문항 확인 — "신규 / 유지보수 어느 쪽?".
 
+## 프로젝트 최초 진입 감지 (v2.0 신규)
+
+신호 감지 후 maintenance 분류 **전에**, 프로젝트 부트스트랩 상태를 1 회 점검한다 (clarifications.md Q5 결정 — AND 조건 + 부분 부트 감지).
+
+| `.specops/` | `CLAUDE.md` | 안내 | 메시지 |
+|---|---|---|---|
+| 부재 | 부재 | **전체 안내** | "프로젝트가 초기화되지 않았습니다. `/start-project` 권장 [y/N]" |
+| 존재 | 부재 | 부분 안내 | "`CLAUDE.md` 가 없습니다. `/start-project --resume` 권장 [y/N]" |
+| 부재 | 존재 | 부분 안내 | "`.specops/` 가 없습니다. `/start-project --resume` 권장 [y/N]" |
+| 존재 | 존재 | 안내 X | (정상 specifying-ko 진입) |
+
+**원칙**:
+- **강제 X — 1 회 1 줄 안내**. 5원칙 4 (사용자 주권) 준수.
+- `y` 응답 시: `/start-project` 호출 → 부트스트랩 완료 → 사용자에게 "이제 `/start \"<기능>\"` 재실행" 안내.
+- `N` 또는 무응답 시: 그대로 specifying-ko 진입 (사용자가 부트스트랩 없이 진행 의지).
+- `--resume` 플래그는 후속 릴리즈 (현재 안내 메시지로만 제시. 사용자가 입력하면 `/start-project` 가 Phase 1 의 충돌 정책으로 처리).
+
 ## skill 호출 방법
 
 Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제시됨 — 그대로 따른다. skill 파일을 `Read` 도구로 직접 읽지 말 것.
