@@ -5,8 +5,98 @@ set -u
 
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 
-phase_1_precheck() { :; }
-phase_2_classify() { :; }
+# 13종 산출물 (root 4개 + .specops/memory 9개)
+ARTIFACTS_ROOT=("PRD.md" "CLAUDE.md" "README.md" "DESIGN.md")
+ARTIFACTS_MEMORY=(
+  ".specops/memory/constitution.md"
+  ".specops/memory/requirements.md"
+  ".specops/memory/test-strategy.md"
+  ".specops/memory/architecture.md"
+  ".specops/memory/frontend-architecture.md"
+  ".specops/memory/backend-architecture.md"
+  ".specops/memory/api-spec.md"
+  ".specops/memory/data-model.md"
+  ".specops/memory/screens-overview.md"
+)
+PROJECT_KIND=""           # 1=UI 2=BE 3=CLI 4=Full 5=Mobile 6=Other
+CONFLICT_POLICY="skip"    # skip|overwrite|merge
+
+# ── 헬퍼 ─────────────────────────────────────
+_check_git() {
+  if [ ! -d .git ]; then
+    echo "git 저장소가 아닙니다. git init 을 먼저 실행하세요." >&2
+    exit 1
+  fi
+}
+
+_check_memory() {
+  if [ -d .specops/memory ]; then
+    echo ".specops/memory/ 가 이미 존재합니다 (이미 부트스트랩됨)."
+    printf "재부트스트랩 진행? [y/N]: "
+    local ans=""
+    read -r ans || true
+    if [ "${ans}" != "y" ] && [ "${ans}" != "Y" ]; then
+      echo "취소됨."
+      exit 0
+    fi
+  fi
+}
+
+_print_artifacts_table() {
+  echo ""
+  echo "산출물 현황 (13종):"
+  local f
+  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
+    if [ -e "$f" ]; then
+      echo "  [✓] $f"
+    else
+      echo "  [✗] $f"
+    fi
+  done
+  echo ""
+}
+
+_resolve_conflict_policy() {
+  local conflicts=0 f p=""
+  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
+    [ -e "$f" ] && conflicts=$((conflicts + 1))
+  done
+  if [ "$conflicts" -gt 0 ]; then
+    echo "충돌 파일 ${conflicts}개 감지."
+    printf "기존 파일 처리 정책? (skip/overwrite/merge) [skip]: "
+    read -r p || true
+    case "$p" in
+      overwrite|merge) CONFLICT_POLICY="$p" ;;
+      *) CONFLICT_POLICY="skip" ;;
+    esac
+  fi
+}
+
+# ── Phase 함수 ───────────────────────────────
+phase_1_precheck() {
+  _check_git
+  _check_memory
+  _print_artifacts_table
+  _resolve_conflict_policy
+}
+
+phase_2_classify() {
+  echo "프로젝트 종류는?"
+  echo "  (1) Web/UI"
+  echo "  (2) 백엔드/API"
+  echo "  (3) CLI/라이브러리"
+  echo "  (4) 풀스택"
+  echo "  (5) 모바일"
+  echo "  (6) 기타"
+  printf "선택 [4]: "
+  local k=""
+  read -r k || true
+  case "$k" in
+    1|2|3|4|5|6) PROJECT_KIND="$k" ;;
+    *) PROJECT_KIND="4" ;;
+  esac
+  echo "→ PROJECT_KIND=${PROJECT_KIND}"
+}
 phase_3_constitution() { :; }
 phase_4_prd() { :; }
 phase_5_claude() { :; }
