@@ -248,6 +248,18 @@ apply_advisor_section_rule() {
     done
     [ "$is_target" -eq 1 ] || continue
     [ -f "$fp" ] || continue
+    # U1 R-5 trivial-skip: 동일 FID 의 spec.md §유형 라벨이 trivial 이면 본 파일 skip
+    # specifying-ko 가 §1 개요에 자동 부여한 라벨 사용 (신규/유지보수/trivial).
+    # spec.md 부재 시 보수적으로 기존 로직 진입 (false positive < silent pass).
+    local _dir _spec _type_label
+    _dir=$(dirname "$fp")
+    _spec="$_dir/spec.md"
+    if [ -f "$_spec" ]; then
+      _type_label=$(grep -m1 '^\*\*§유형\*\*:' "$_spec" 2>/dev/null | sed 's/.*:[[:space:]]*//' | tr -d '[:space:]')
+      if [ "$_type_label" = "trivial" ]; then
+        continue
+      fi
+    fi
     # Advisor 섹션 본문 추출: section_re 이후 ~ 다음 ## 직전
     section_body=$(awk -v re="$section_re" '
       $0 ~ re { inside=1; next }

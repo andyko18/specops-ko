@@ -248,6 +248,54 @@ else
 fi
 rm -rf "$tmp"
 
+# T10.g (U1) R-5 §유형: trivial + 빈 섹션 → 미매칭 (trivial skip)
+tmp=$(mktemp -d)
+cat > "$tmp/spec.md" <<'EOF'
+# Spec
+
+## 1. 개요
+**§유형**: trivial
+
+## 9. Advisor 협의 기록
+
+| 일시 | 질의 요지 | advisor 권고 | 채택 여부 | 반영 위치 |
+|---|---|---|---|---|
+
+## 10. 참조
+EOF
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.g (U1) §유형: trivial + 빈 섹션 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.g (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.h (U1) R-5 §유형: 유지보수 + 빈 섹션 → 매칭 (회귀 보호 — trivial 만 skip)
+tmp=$(mktemp -d)
+cat > "$tmp/spec.md" <<'EOF'
+# Spec
+
+## 1. 개요
+**§유형**: 유지보수
+
+## 9. Advisor 협의 기록
+
+| 일시 | 질의 요지 | advisor 권고 | 채택 여부 | 반영 위치 |
+|---|---|---|---|---|
+
+## 10. 참조
+EOF
+make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.h (U1) §유형: 유지보수 + 빈 섹션 → 매칭 (회귀 보호)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.h (out=$out)"
+fi
+rm -rf "$tmp"
+
 # T7.m R-3 full name 선언 (specops-auto-ko:<short>) → 미매칭 (v0.4b W1)
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl" "specops-auto-ko:planning-ko")
 if [ -z "$out" ]; then
