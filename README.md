@@ -14,8 +14,11 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 | 의도 | 슬래시 진입 | 자연어 진입 |
 |---|---|---|
+| **프로젝트 초기화** (1회) | `/start-project [<프로젝트명>]` | (메타 skill 자동 안내) |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
+
+> `/start-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. **`/start-design` 은 본 슬래시로 통합** — deprecated, 1~2 릴리즈 후 제거.
 
 진입 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
 
@@ -80,10 +83,13 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로
+├── commands/                                 ← 슬래시 진입로 (6건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
-│   └── maintain.md                           ← 유지보수 진입 슬래시 /maintain (NEW)
-│   └── start.md                          ← 단일 진입 슬래시 /start
+│   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
+│   ├── start-project.md                      ← 프로젝트 초기화 /start-project (NEW v2.0)
+│   ├── start-design.md                       ← deprecated (start-project 로 통합)
+│   ├── design-screen.md                      ← 화면 설계 /design-screen
+│   └── e2e-test.md                           ← E2E lifecycle 자동 테스트
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
@@ -116,14 +122,25 @@ specops-auto-ko/
 │   ├── generator-evaluator-ko/           ← Phase B/C 분리 원칙
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   └── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
-├── templates/                            ← 12건 (spec, AC, plan, tasks, session-progress,
-│                                            dispatch-context, test-conventions, screen 등)
+├── templates/                            ← 24건
+│   │  Lifecycle 템플릿 (12건): spec, acceptance-criteria, plan, tasks, session-progress,
+│   │      dispatch-context, current-state, impact-analysis, test-conventions-{bash,python},
+│   │      screen.{md,html}, DESIGN.md
+│   │  /start-project 산출 템플릿 (12건 NEW v2.0): constitution, PRD, requirements,
+│   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
+│   │      api-spec, data-model, screens-overview, test-strategy
 ├── agents/                               ← 3건 (implementer, spec-reviewer, code-reviewer)
 ├── scripts/
 │   ├── session-progress-append.sh
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증
 │   ├── tests/                            ← governance + dag 단위 테스트
-│   └── _internal/                        ← 유지보수 도구 (validate-structure 등)
+│   └── _internal/                        ← 유지보수 도구
+│       ├── validate-structure.sh        ← 구조 무결성 검증
+│       ├── count-artifacts.sh
+│       ├── diff-upstream.sh
+│       ├── is-hook-enabled.sh
+│       ├── validate-task-dependencies.sh
+│       └── start-project.sh             ← /start-project 오케스트레이터 (10 phase, NEW v2.0)
 ├── examples/                             ← dogfood CLI 예시 (epoch/hex/b64/cvt/slug)
 └── README.md
 ```
