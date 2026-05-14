@@ -169,16 +169,8 @@ phase_3_constitution() {
   echo "→ ${target} 작성 완료"
 }
 
-# PRD 6 필드 수집: numbered list 1차 시도 → < 4 추출 시 단답 fallback
-_phase_4_collect() {
-  echo ""
-  echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (빈 줄로 종료):"
-  echo "  1. 한 줄 설명: <텍스트>"
-  echo "  2. 페르소나: <텍스트>"
-  echo "  3. 가치제안: <콤마 구분 3개>"
-  echo "  4. M1: <텍스트>"
-  echo "  5. M2: <텍스트>"
-  echo "  6. M3: <텍스트>"
+# stdin 의 numbered list → PRD_F1~F6 전역 (빈 줄 sentinel 종료)
+_phase_4_parse_numbered_list() {
   local raw="" line
   while IFS= read -r line; do
     [ -z "$line" ] && break
@@ -191,24 +183,47 @@ _phase_4_collect() {
   PRD_F4=$(_parse_numbered "$raw" 4)
   PRD_F5=$(_parse_numbered "$raw" 5)
   PRD_F6=$(_parse_numbered "$raw" 6)
+}
+
+# PRD_F1~F6 중 비어있지 않은 개수 출력
+_phase_4_count_filled() {
   local got=0 v
   for v in "$PRD_F1" "$PRD_F2" "$PRD_F3" "$PRD_F4" "$PRD_F5" "$PRD_F6"; do
     [ -n "$v" ] && got=$((got + 1))
   done
-  if [ "$got" -lt 4 ]; then
-    if [ ! -e /dev/tty ]; then
-      echo "양식 파싱 실패 (${got}/6) + 비대화 환경 (tty 부재) — abort." >&2
-      echo "PRD.md 가 <TODO> 로 채워지는 silent failure 차단." >&2
-      exit 2
-    fi
-    echo "양식 파싱 실패 (${got}/6). 개별 입력 모드로 전환합니다."
-    [ -z "$PRD_F1" ] && { printf "1. 한 줄 설명: "; read -r PRD_F1 </dev/tty || true; }
-    [ -z "$PRD_F2" ] && { printf "2. 페르소나: "; read -r PRD_F2 </dev/tty || true; }
-    [ -z "$PRD_F3" ] && { printf "3. 가치제안 (콤마 구분 3개): "; read -r PRD_F3 </dev/tty || true; }
-    [ -z "$PRD_F4" ] && { printf "4. M1: "; read -r PRD_F4 </dev/tty || true; }
-    [ -z "$PRD_F5" ] && { printf "5. M2: "; read -r PRD_F5 </dev/tty || true; }
-    [ -z "$PRD_F6" ] && { printf "6. M3: "; read -r PRD_F6 </dev/tty || true; }
+  echo "$got"
+}
+
+# parse 실패 (< 4) 시 단답 fallback. 비대화 환경 시 abort (silent failure 차단)
+_phase_4_fallback_singleshot() {
+  local got
+  got=$(_phase_4_count_filled)
+  if [ ! -e /dev/tty ]; then
+    echo "양식 파싱 실패 (${got}/6) + 비대화 환경 (tty 부재) — abort." >&2
+    echo "PRD.md 가 <TODO> 로 채워지는 silent failure 차단." >&2
+    exit 2
   fi
+  echo "양식 파싱 실패 (${got}/6). 개별 입력 모드로 전환합니다."
+  [ -z "$PRD_F1" ] && { printf "1. 한 줄 설명: "; read -r PRD_F1 </dev/tty || true; }
+  [ -z "$PRD_F2" ] && { printf "2. 페르소나: "; read -r PRD_F2 </dev/tty || true; }
+  [ -z "$PRD_F3" ] && { printf "3. 가치제안 (콤마 구분 3개): "; read -r PRD_F3 </dev/tty || true; }
+  [ -z "$PRD_F4" ] && { printf "4. M1: "; read -r PRD_F4 </dev/tty || true; }
+  [ -z "$PRD_F5" ] && { printf "5. M2: "; read -r PRD_F5 </dev/tty || true; }
+  [ -z "$PRD_F6" ] && { printf "6. M3: "; read -r PRD_F6 </dev/tty || true; }
+}
+
+# PRD 6 필드 수집: numbered list 1차 → < 4 시 단답 fallback (M1: 3 함수 분리)
+_phase_4_collect() {
+  echo ""
+  echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (빈 줄로 종료):"
+  echo "  1. 한 줄 설명: <텍스트>"
+  echo "  2. 페르소나: <텍스트>"
+  echo "  3. 가치제안: <콤마 구분 3개>"
+  echo "  4. M1: <텍스트>"
+  echo "  5. M2: <텍스트>"
+  echo "  6. M3: <텍스트>"
+  _phase_4_parse_numbered_list
+  [ "$(_phase_4_count_filled)" -lt 4 ] && _phase_4_fallback_singleshot
 }
 
 # PRD 6 필드 → templates/PRD.md 치환 → PRD.md 작성
