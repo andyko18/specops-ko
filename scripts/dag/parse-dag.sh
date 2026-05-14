@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # specops-auto-ko v0.4a W1 — DAG 파서 (Sourced library)
 #
-# 4 함수 namespace:
+# 5 함수 namespace:
 #   dag::extract_yaml      <tasks.md>                   — `## 의존 그래프` 섹션의 YAML fenced block stdout
 #   dag::list_leaves       <yaml-string>                — depends_on=[] 인 task id (newline 구분)
 #   dag::outputs_disjoint  <yaml-string> <id1> <id2>    — id1·id2 outputs 교집합 0이면 exit 0
 #   dag::find_independent_batch <yaml-string>           — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
+#   dag::get_task_test_command  <yaml-string> <task-id> — task 의 test_command 필드 (없으면 빈 + exit 0)  [Wave 2 U2]
 #
 # 의존성: python3 + pyyaml (기존 is-hook-enabled.sh, is-rule-enabled.sh와 동일 인프라)
 # 참조: 마스터 plan §6 v0.4a W1 + advisor 협의 2026-04-26 13:00 (정정 채택)
@@ -129,4 +130,26 @@ if len(batch) >= 2:
     for tid in batch:
         print(tid)
 '
+}
+
+# dag::get_task_test_command <yaml-string> <task-id>
+# task 의 test_command 필드 stdout (Wave 2 U2 — FID 20260514). 미기재·미존재 task 는 빈 + exit 0.
+dag::get_task_test_command() {
+  local yaml="$1"
+  local task_id="$2"
+  __dag_check_python || return 1
+  YAML_IN="$yaml" python3 - "$task_id" << 'PYEOF'
+import os, sys, yaml
+task_id = sys.argv[1]
+try:
+    data = yaml.safe_load(os.environ.get("YAML_IN", ""))
+    for task in (data.get("tasks", []) if data else []):
+        if task.get("id") == task_id:
+            tc = task.get("test_command", "")
+            print(tc)
+            sys.exit(0)
+    sys.exit(0)
+except Exception:
+    sys.exit(0)
+PYEOF
 }

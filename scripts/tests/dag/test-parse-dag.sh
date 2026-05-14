@@ -128,6 +128,46 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T4.f (out=$out)"
 fi
 
+# --- T5: get_task_test_command (Wave 2 U2 — FID 20260514) ---
+# 인라인 yaml string (dag::extract_yaml 호출 없이 직접 dag::get_task_test_command 검증)
+yaml='tasks:
+  - id: T1
+    test_command: "bash scripts/tests/test-foo.sh"
+    depends_on: []
+    inputs: []
+    outputs: [src/foo.sh]
+    ac: [AC-1]
+  - id: T2
+    depends_on: []
+    inputs: []
+    outputs: [src/bar.sh]
+    ac: [AC-2]
+'
+
+# T5.a — T1 test_command 추출 (기재된 경우)
+out=$(dag::get_task_test_command "$yaml" "T1")
+if [ "$out" = "bash scripts/tests/test-foo.sh" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.a get_task_test_command T1 → bash scripts/tests/test-foo.sh"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a (out='$out')"
+fi
+
+# T5.b — test_command 미기재 task → 빈 출력 + exit 0
+out=$(dag::get_task_test_command "$yaml" "T2")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.b get_task_test_command T2 → 빈 (미기재)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b (out='$out')"
+fi
+
+# T5.c — 존재하지 않는 task → 빈 출력 + exit 0 (graceful)
+out=$(dag::get_task_test_command "$yaml" "Tnoexist")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.c get_task_test_command Tnoexist → 빈"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.c (out='$out')"
+fi
+
 echo ""
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

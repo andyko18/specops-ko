@@ -115,6 +115,7 @@ graph TD
 ```yaml
 tasks:
   - id: T1
+    test_command: "bash scripts/tests/test-<file1>.sh"   # Wave 2 U2 — 신규 필드 (optional). 부재 시 extract-test-commands.sh 가 Step 4 라인 fallback.
     depends_on: []
     inputs: []
     outputs: [src/<file1>.sh, scripts/tests/test-<file1>.sh]
