@@ -335,6 +335,27 @@ else
 fi
 teardown_fixture
 
+# ── I2 회귀: screens-table fence 안정성 ──
+
+# T19.a (I2) fence 내부 행이 home/login/dashboard 가 아닌 다른 이름으로 바뀌어도
+# _rebuild_screens_table 이 정상 동작 (예시 행 이름 비의존)
+setup_fixture
+# 사용자가 templates/screens-overview.md 의 예시 행을 변경한 환경 시뮬:
+# fence 내부 행을 임의 이름으로 변조 후 phase_7 호출
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. x\n2. y\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\nproductlist\nn\n"
+} | bash "$SCRIPT" >/dev/null 2>&1
+# 새 화면 productlist 만 표에 존재 + 기존 예시 (home/login/dashboard) 행 부재
+if grep -q '^| productlist | productlist | TODO' .specops/memory/screens-overview.md \
+   && ! grep -E '^\| (home|login|dashboard) \| (홈|로그인|대시보드)' .specops/memory/screens-overview.md; then
+  ok "T19.a (I2) screens-table fence → 사용자 입력 1건만 + 예시 행 제거"
+else
+  nope "T19.a fence" "예시 행 잔존 또는 신규 행 누락"
+fi
+teardown_fixture
+
 # ── 결과 ──────────────────────────────────────
 echo ""
 echo "--- SUMMARY ---"

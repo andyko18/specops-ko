@@ -12,9 +12,11 @@
 
 | name | 제목 | 목적 | 상세 스펙 | 미리보기 |
 |---|---|---|---|---|
+<!-- screens-table:start -->
 | home | 홈 | 진입점 — 주요 액션 | [screens/home.md](../../screens/home.md) | [screens/home.html](../../screens/home.html) |
 | login | 로그인 | 사용자 인증 | [screens/login.md](../../screens/login.md) | [screens/login.html](../../screens/login.html) |
 | dashboard | 대시보드 | 인증 후 메인 — 사용자 데이터 요약 | [screens/dashboard.md](../../screens/dashboard.md) | [screens/dashboard.html](../../screens/dashboard.html) |
+<!-- screens-table:end -->
 
 > Phase 7 입력 비웠다면 본 표 placeholder. 추후 `/design-screen <name>` 또는 `/start "<UI 기능>"` 진입 시 specifying-ko Step 5.5 가 신규 화면 추가.
 

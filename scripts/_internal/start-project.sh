@@ -318,20 +318,30 @@ phase_6_design() {
   ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
   echo "→ ${target} 작성 완료 (브랜드: ${name}, Primary=${color})"
 }
-# screens-overview.md §1 표의 home/login/dashboard 예시 행을 사용자 입력으로 교체
+# screens-overview.md §1 표를 <!-- screens-table:start/end --> fence 내부에 교체.
+# fence 패턴은 템플릿 예시 행 이름 (home/login/dashboard) 에 비의존 — 향후 템플릿 변경에 안정.
+# 회귀: fence 가 존재하지 않으면 silent no-op (caller 검증 책임).
 _rebuild_screens_table() {
   local file="$1"
   shift
-  local names=("$@") n rows=""
+  local n rows=""
   for n in "$@"; do
     rows="${rows}| ${n} | ${n} | TODO | [screens/${n}.md](../../screens/${n}.md) | [screens/${n}.html](../../screens/${n}.html) |
 "
   done
   ROWS="$rows" awk '
-    /^\| home \|/, /^\| dashboard \|/ {
-      if (!printed) { printf "%s", ENVIRON["ROWS"]; printed = 1 }
+    /^<!-- screens-table:start -->/ {
+      print
+      printf "%s", ENVIRON["ROWS"]
+      inside = 1
       next
     }
+    /^<!-- screens-table:end -->/ {
+      inside = 0
+      print
+      next
+    }
+    inside { next }
     { print }
   ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 }
