@@ -460,7 +460,61 @@ phase_9_readme() {
   _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
   echo "→ ${target} 작성 완료"
 }
-phase_10_commit() { :; }
+_kind_label() {
+  case "$1" in
+    1) echo "Web/UI" ;;
+    2) echo "백엔드/API" ;;
+    3) echo "CLI/라이브러리" ;;
+    4) echo "풀스택" ;;
+    5) echo "모바일" ;;
+    *) echo "기타" ;;
+  esac
+}
+
+# 13종 중 실제 생성된 파일 카운트
+_count_active() {
+  local n=0 f
+  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
+    [ -f "$f" ] && n=$((n + 1))
+  done
+  echo "$n"
+}
+
+phase_10_commit() {
+  echo ""
+  echo "[Phase 10] commit + .specops/.gitignore"
+  mkdir -p .specops
+  # .gitignore: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+  cat > .specops/.gitignore <<'EOF'
+# specops-auto-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+[0-9]*-*/
+EOF
+  # session-progress.md 골격
+  if [ ! -f .specops/session-progress.md ]; then
+    cp "$PLUGIN/templates/session-progress.md" .specops/session-progress.md
+    sed -i.bak "s|<project-name>|${PROJECT_NAME}|g" .specops/session-progress.md \
+      && rm -f .specops/session-progress.md.bak
+  fi
+  local active label
+  active=$(_count_active)
+  label=$(_kind_label "$PROJECT_KIND")
+  # git add — 활성 산출물 + screens + .specops/.gitignore + session-progress.md
+  local f
+  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
+    [ -f "$f" ] && git add "$f"
+  done
+  [ -d screens ] && git add screens
+  git add .specops/.gitignore .specops/session-progress.md
+  if git diff --cached --quiet; then
+    echo "→ commit 대상 없음 (skip 정책으로 모두 보존된 듯)"
+    return
+  fi
+  git commit -q -m "chore(init): /start-project 부트스트랩 (${label} · 13종 중 ${active}종)"
+  echo "→ git commit 완료 (${label} · ${active}/13)"
+  echo ""
+  echo "초기화 완료. 활성 산출물 ${active}종."
+  echo "이제 /start \"<첫 기능>\" 으로 lifecycle 진입하세요."
+}
 
 main() {
   local project_name="${1:-}"
