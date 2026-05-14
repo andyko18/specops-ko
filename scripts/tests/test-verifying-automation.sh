@@ -38,13 +38,13 @@ else
 fi
 rm -rf "$TMPDIR"
 
-# ── T1.c extract: 빈 tasks.md → 빈 결과 (exit 0) ──
+# ── T1.c extract: 빈 tasks.md → exit 1 (Wave 2 U2 — AC-4 "둘 다 부재") ──
 TMPDIR=$(mktemp -d)
 echo "" > "$TMPDIR/tasks.md"
-out=$(bash "$EXTRACT" "$TMPDIR/tasks.md")
+out=$(bash "$EXTRACT" "$TMPDIR/tasks.md" 2>/dev/null)
 ec=$?
-if [ -z "$out" ] && [ "$ec" -eq 0 ]; then
-  ok "T1.c extract → 빈 tasks.md 빈 결과 exit 0"
+if [ -z "$out" ] && [ "$ec" -eq 1 ]; then
+  ok "T1.c extract → 빈 tasks.md exit 1 (Wave 2 U2 — 명령 0건)"
 else
   nope "T1.c" "ec=$ec out='$out'"
 fi
@@ -121,6 +121,35 @@ else
   nope "T2.c" "$(cat "$TMPDIR/result")"
 fi
 rm -rf "$TMPDIR"
+
+# --- T5: 혼합 SSOT (Wave 2 U2 — FID 20260514) ---
+FIXT="$PLUGIN/scripts/tests/extract-test-commands/fixtures"
+
+# T5.a: YAML test_command 우선 — yaml-primary.md (test_command 기재)
+out=$(bash "$PLUGIN/scripts/_internal/extract-test-commands.sh" "$FIXT/yaml-primary.md" 2>/dev/null)
+if [[ "$out" == *"test-fromyaml.sh"* && "$out" != *"test-fromstep4.sh"* ]]; then
+  PASS=$((PASS+1)); echo "PASS T5.a YAML test_command 우선"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a (out='$out')"
+fi
+
+# T5.b: 구 FID fallback — fallback-step4.md (test_command 미기재, Step 4 라인 보유) → fallback + stderr WARN
+err=$(mktemp)
+out=$(bash "$PLUGIN/scripts/_internal/extract-test-commands.sh" "$FIXT/fallback-step4.md" 2>"$err")
+if [[ "$out" == *"test-fromstep4.sh"* ]] && grep -q "WARN" "$err" && grep -q "falling back" "$err"; then
+  PASS=$((PASS+1)); echo "PASS T5.b fallback + stderr WARN"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b (out='$out' err=$(cat "$err"))"
+fi
+rm -f "$err"
+
+# T5.c: 둘 다 부재 — empty.md → exit 1
+out=$(bash "$PLUGIN/scripts/_internal/extract-test-commands.sh" "$FIXT/empty.md" 2>/dev/null; echo "exit=$?")
+if echo "$out" | grep -q "exit=1"; then
+  PASS=$((PASS+1)); echo "PASS T5.c 둘 다 부재 → exit 1"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.c"
+fi
 
 echo ""
 echo "--- SUMMARY ---"
