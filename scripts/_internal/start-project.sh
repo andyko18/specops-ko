@@ -20,6 +20,8 @@ ARTIFACTS_MEMORY=(
 )
 PROJECT_KIND=""           # 1=UI 2=BE 3=CLI 4=Full 5=Mobile 6=Other
 CONFLICT_POLICY="skip"    # skip|overwrite|merge
+PROJECT_NAME=""           # phase_1 에서 인자/basename 으로 설정
+PRD_ONELINE=""            # PRD §1 한 줄 — phase_5 에서 CLAUDE/README 인용
 
 # ── 헬퍼 ─────────────────────────────────────
 _check_git() {
@@ -72,8 +74,44 @@ _resolve_conflict_policy() {
   fi
 }
 
+# 토큰 치환: <TOKEN> → value (sed | 구분자, value 의 |·& escape)
+_replace_token() {
+  local file="$1" token="$2" value="$3"
+  local esc
+  esc=$(printf '%s' "$value" | sed 's/[|&\\]/\\&/g')
+  sed -i.bak "s|${token}|${esc}|g" "$file" && rm -f "${file}.bak"
+}
+
+# 라인 교체: prefix 가 일치하는 줄을 content 로 바꿈 (awk dynamic regex backslash 회피)
+_replace_line_prefix() {
+  local file="$1" prefix="$2" content="$3"
+  awk -v p="$prefix" -v c="$content" '
+    BEGIN { plen = length(p) }
+    substr($0, 1, plen) == p { print c; next }
+    { print }
+  ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+# 충돌 시 skip 정책: 대상 파일 존재 + skip 정책이면 1 반환 (caller 가 return)
+_should_skip() {
+  [ -e "$1" ] && [ "$CONFLICT_POLICY" = "skip" ]
+}
+
+# numbered list 의 N 번 항목 추출 (": " 뒤 텍스트)
+_parse_numbered() {
+  local raw="$1" num="$2"
+  printf '%s\n' "$raw" | awk -v n="$num" '
+    BEGIN { pat = "^[[:space:]]*" n "\\." }
+    $0 ~ pat {
+      sub(/^[[:space:]]*[0-9]+\.[[:space:]]*[^:]*:[[:space:]]*/, "")
+      print
+      exit
+    }'
+}
+
 # ── Phase 함수 ───────────────────────────────
 phase_1_precheck() {
+  PROJECT_NAME="${1:-$(basename "$PWD")}"
   _check_git
   _check_memory
   _print_artifacts_table
@@ -97,8 +135,102 @@ phase_2_classify() {
   esac
   echo "→ PROJECT_KIND=${PROJECT_KIND}"
 }
-phase_3_constitution() { :; }
-phase_4_prd() { :; }
+phase_3_constitution() {
+  local target=".specops/memory/constitution.md"
+  if _should_skip "$target"; then
+    echo "→ ${target} 보존 (skip 정책)"
+    return
+  fi
+  echo ""
+  echo "[Phase 3] 헌법 — 핵심 원칙 5개 입력 ('skip' 시 placeholder 유지)"
+  local p1="" p2="" p3="" p4="" p5=""
+  printf "원칙 1 이름: "; read -r p1 || true
+  if [ "${p1}" = "skip" ]; then
+    mkdir -p .specops/memory
+    cp "$PLUGIN/templates/constitution.md" "$target"
+    echo "→ ${target} (placeholder 유지)"
+    return
+  fi
+  printf "원칙 2 이름: "; read -r p2 || true
+  printf "원칙 3 이름: "; read -r p3 || true
+  printf "원칙 4 이름: "; read -r p4 || true
+  printf "원칙 5 이름: "; read -r p5 || true
+  mkdir -p .specops/memory
+  cp "$PLUGIN/templates/constitution.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  _replace_token "$target" "<PRINCIPLE_1_NAME>" "${p1:-원칙1}"
+  _replace_token "$target" "<PRINCIPLE_2_NAME>" "${p2:-원칙2}"
+  _replace_token "$target" "<PRINCIPLE_3_NAME>" "${p3:-원칙3}"
+  _replace_token "$target" "<PRINCIPLE_4_NAME>" "${p4:-원칙4}"
+  _replace_token "$target" "<PRINCIPLE_5_NAME>" "${p5:-원칙5}"
+  _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
+  echo "→ ${target} 작성 완료"
+}
+
+# PRD 6 필드 수집: numbered list 1차 시도 → < 4 추출 시 단답 fallback
+_phase_4_collect() {
+  echo ""
+  echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (Ctrl+D 로 종료):"
+  echo "  1. 한 줄 설명: <텍스트>"
+  echo "  2. 페르소나: <텍스트>"
+  echo "  3. 가치제안: <콤마 구분 3개>"
+  echo "  4. M1: <텍스트>"
+  echo "  5. M2: <텍스트>"
+  echo "  6. M3: <텍스트>"
+  local raw=""
+  raw=$(cat 2>/dev/null || true)
+  PRD_F1=$(_parse_numbered "$raw" 1)
+  PRD_F2=$(_parse_numbered "$raw" 2)
+  PRD_F3=$(_parse_numbered "$raw" 3)
+  PRD_F4=$(_parse_numbered "$raw" 4)
+  PRD_F5=$(_parse_numbered "$raw" 5)
+  PRD_F6=$(_parse_numbered "$raw" 6)
+  local got=0 v
+  for v in "$PRD_F1" "$PRD_F2" "$PRD_F3" "$PRD_F4" "$PRD_F5" "$PRD_F6"; do
+    [ -n "$v" ] && got=$((got + 1))
+  done
+  if [ "$got" -lt 4 ]; then
+    echo "양식 파싱 실패 (${got}/6). 개별 입력 모드로 전환합니다."
+    [ -z "$PRD_F1" ] && { printf "1. 한 줄 설명: "; read -r PRD_F1 </dev/tty || true; }
+    [ -z "$PRD_F2" ] && { printf "2. 페르소나: "; read -r PRD_F2 </dev/tty || true; }
+    [ -z "$PRD_F3" ] && { printf "3. 가치제안 (콤마 구분 3개): "; read -r PRD_F3 </dev/tty || true; }
+    [ -z "$PRD_F4" ] && { printf "4. M1: "; read -r PRD_F4 </dev/tty || true; }
+    [ -z "$PRD_F5" ] && { printf "5. M2: "; read -r PRD_F5 </dev/tty || true; }
+    [ -z "$PRD_F6" ] && { printf "6. M3: "; read -r PRD_F6 </dev/tty || true; }
+  fi
+}
+
+# PRD 6 필드 → templates/PRD.md 치환 → PRD.md 작성
+_phase_4_render() {
+  local target="PRD.md"
+  cp "$PLUGIN/templates/PRD.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  _replace_line_prefix "$target" '**한 줄 설명**:' "**한 줄 설명**: ${PRD_F1:-<TODO>}"
+  _replace_line_prefix "$target" '**주요 페르소나**:' "**주요 페르소나**: ${PRD_F2:-<TODO>}"
+  local v1="" v2="" v3=""
+  IFS=',' read -r v1 v2 v3 _ <<< "${PRD_F3:-}"
+  v1="${v1# }"; v2="${v2# }"; v3="${v3# }"
+  _replace_line_prefix "$target" '- <가치 1>' "- ${v1:-<TODO>}"
+  _replace_line_prefix "$target" '- <가치 2>' "- ${v2:-<TODO>}"
+  _replace_line_prefix "$target" '- <가치 3>' "- ${v3:-<TODO>}"
+  _replace_line_prefix "$target" '- **M1**:' "- **M1**: ${PRD_F4:-<TODO>}"
+  _replace_line_prefix "$target" '- **M2**:' "- **M2**: ${PRD_F5:-<TODO>}"
+  _replace_line_prefix "$target" '- **M3**:' "- **M3**: ${PRD_F6:-<TODO>}"
+  _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
+  PRD_ONELINE="${PRD_F1:-<TODO>}"
+  echo "→ ${target} 작성 완료"
+}
+
+phase_4_prd() {
+  if _should_skip "PRD.md"; then
+    echo "→ PRD.md 보존 (skip 정책)"
+    PRD_ONELINE=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 줄 설명\*\*: *//' || echo "")
+    return
+  fi
+  PRD_F1=""; PRD_F2=""; PRD_F3=""; PRD_F4=""; PRD_F5=""; PRD_F6=""
+  _phase_4_collect
+  _phase_4_render
+}
 phase_5_claude() { :; }
 phase_6_design() { :; }
 phase_7_screens() { :; }
