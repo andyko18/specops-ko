@@ -33,12 +33,13 @@ _check_git() {
 
 _check_memory() {
   if [ -d .specops/memory ]; then
-    echo ".specops/memory/ 가 이미 존재합니다 (이미 부트스트랩됨)."
-    printf "재부트스트랩 진행? [y/N]: "
+    # M2: 경고/안내·prompt·취소 결과 모두 stderr (자동화 일관성 — _check_git 와 동등)
+    echo ".specops/memory/ 가 이미 존재합니다 (이미 부트스트랩됨)." >&2
+    printf "재부트스트랩 진행? [y/N]: " >&2
     local ans=""
     read -r ans || true
     if [ "${ans}" != "y" ] && [ "${ans}" != "Y" ]; then
-      echo "취소됨."
+      echo "취소됨." >&2
       exit 0
     fi
   fi
