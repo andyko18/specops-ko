@@ -25,13 +25,14 @@ for d in commands skills templates hooks scripts agents; do
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-# 2) 파일 개수 (commands=5, skills=22, templates=12, agents=3)
+# 2) 파일 개수 (commands=6, skills=22, templates=24, agents=3)
+#    — /start-project 추가 (commands +1, templates +12 = T1~T12 13종 산출물 템플릿)
 fc=()
 count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
 count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"  = 5  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 5")
+[ "$(count_of 'commands/*.md')"  = 6  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 6")
 [ "$(count_skills)"              = 22 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 22")
-[ "$(count_of 'templates/*.md')" = 12 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 12")
+[ "$(count_of 'templates/*.md')" = 24 ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 24")
 [ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
 if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 
