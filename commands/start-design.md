@@ -11,6 +11,8 @@ reference_upstream: VoltAgent/awesome-design-md@main DESIGN.md
 
 # /start-design
 
+> ⚠️ **[deprecated]** `/start-design` 은 `/start-project` 로 통합됐습니다. 1~2 릴리즈 후 제거 예정. 신규 프로젝트는 `/start-project` 사용 권장 (DESIGN.md + PRD/CLAUDE/README/architecture 등 13종 산출물 일괄 부트스트랩).
+
 ## 목적
 
 프로젝트 루트에 `DESIGN.md`를 생성한다. awesome-design-md 포맷 기반. **프로젝트당 1회**. 이후 specifying-ko가 DESIGN.md를 자동 감지해 spec.md §참조에 포함한다.
