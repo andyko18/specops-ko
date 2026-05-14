@@ -135,7 +135,8 @@ specops-auto-ko/
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증
 │   ├── tests/                            ← governance + dag 단위 테스트
 │   └── _internal/                        ← 유지보수 도구
-│       ├── validate-structure.sh        ← 구조 무결성 검증
+│       ├── validate-structure.sh        ← 구조 무결성 검증 (`--update-baseline` 플래그)
+│       ├── .structure-baseline          ← jsonl baseline (commands/skills/templates/agents 카운트)
 │       ├── count-artifacts.sh
 │       ├── diff-upstream.sh
 │       ├── is-hook-enabled.sh
