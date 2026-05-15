@@ -1,9 +1,10 @@
 ---
 name: analyzing-ko
 description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 대상의 baseline (current-state.md) 과 외부 영향 (impact-analysis.md) 을 산출하고 사용자 검토 ★ HARD GATE 발동
-layer: 1
+layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 1.0.0
+used_by: specops-auto-ko:using-specops-auto-ko-ko (maintenance flag = true 시), specops-auto-ko:maintain (Phase C 적용 후)
 ---
 
 # Engine 스킬 — 분석 (analyzing)
@@ -18,44 +19,235 @@ specops_version: 1.0.0
 
 ## 체크리스트
 
-1. **structured-artifacts-ko 디렉토리 보장** — `.specops/<FID>/`
-2. **current-state.md 작성** — `templates/current-state.md` 5 항목:
-   - 변경 대상 식별 (파일·라인 범위 — §1 라인 합산이 trivial 자동 판정 source)
-   - 호출자/의존 매핑
-   - 기존 테스트 커버리지
-   - 관찰 가능 동작 (Baseline)
-   - 회귀 위험 메모
-3. **impact-analysis.md 작성** — `templates/impact-analysis.md` 3 항목:
-   - 외부 영향 (API / DB / 공유 모듈)
-   - 마이그레이션·롤백 경로
-   - 관련 PR·이슈 히스토리 요약 (gh CLI 또는 git log fallback)
-4. **gh CLI 가용성 점검** (clarify Q-C 결정):
-   - `gh --version` 성공 → `gh pr list`, `gh issue list` 사용
-   - 실패 → `git log --merges --grep='Merge pull'` fallback + impact-analysis.md §3 에 "데이터 출처: git log (gh CLI 미가용 — 한계 고백)" 메타 명시 (5 원칙 5)
-5. **변경 규모 평가** — current-state.md §1 라인 범위 합산:
-   - ≤ 5 → spec.md §유형 = `trivial` 자동 (impact-analysis.md §1·§2 생략 가능, §3 만 작성)
-   - > 5 → 3 항목 모두 작성
-6. **★ HARD GATE** — "분석 결과 검토. 진행? [y/n]"
-7. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"`
-8. **다음 skill** — `specops-auto-ko:specifying-ko` 호출 (args 그대로 전달 — `<!-- entry: maintain -->` 첫 줄 유지)
+### Step 0: FID 생성 + 디렉토리 보장 (AC-1)
 
-## 5 원칙 주입
+args에서 `<!-- entry: maintain -->` 첫 줄을 제거한 나머지 텍스트에서 대상명을 추출해 FID를 생성한다.
+
+**FID 생성 절차:**
+```bash
+# 날짜 부분
+date +%Y%m%d  # 예: 20260515
+
+# 슬러그 규칙:
+# - 파일명·심볼명·핵심 명사 우선
+# - 공백/특수문자 → `-`, 연속 `-` → `-`, 대소문자 → 소문자
+# - 최대 40자 kebab-slug
+# 예시:
+#   "auth.js 토큰 만료 버그" → "auth-token-expiry"
+#   "skills/analyzing-ko/SKILL.md 본체 구현" → "analyzing-ko-impl"
+#   "validate-task-dependencies.sh 오탐 수정" → "validate-task-dep-fix"
+```
+
+**FID 생성 후 즉시 디렉토리 보장:**
+```bash
+mkdir -p .specops/<FID>
+```
+
+**사용자에게 FID 명시**: `"FID: <FID> — 유지보수 분석을 시작합니다."`
+
+---
+
+### Step 1: current-state.md §1 — 변경 대상 식별 (AC-2)
+
+`templates/current-state.md` §1 포맷으로 작성. 실제 grep 결과로 채움.
+
+**탐색 명령:**
+```bash
+# 파일 직접 지정된 경우
+ls -la <target-file>
+wc -l <target-file>                           # 전체 라인 수
+grep -n "<symbol>" <target-file> | head -10  # 진입점 라인 번호
+
+# 심볼명으로 탐색 (언어 무관)
+grep -rn "<symbol>" . \
+  --include="*.md" --include="*.sh" \
+  --include="*.py" --include="*.ts" \
+  2>/dev/null | head -20
+
+# 섹션·함수 경계 탐색
+grep -n "^## \|^### \|^def \|^function \|^class \|^export " \
+  <target-file> | head -20
+```
+
+**trivial 판정 (AC-3, AC-4 분기점):**
+- §1에 나열한 파일들의 라인 범위를 합산
+- **합산 ≤ 5 → trivial**: Step 6에서 impact-analysis.md §1·§2 생략
+- **합산 > 5 → 유지보수**: Step 6에서 §1~3 전체 작성
+- §1 마지막 줄에 반드시 명시: `**라인 범위 합산: N줄 → trivial|유지보수**`
+
+---
+
+### Step 2: current-state.md §2 — 호출자/의존 매핑 (AC-11)
+
+```bash
+# 호출자 탐색 (파일명·심볼명으로)
+grep -rn "source .*<target-basename>\|import.*<symbol>\|<symbol>" \
+  commands/ skills/ hooks/ scripts/ \
+  --include="*.md" --include="*.sh" \
+  --include="*.py" --include="*.ts" \
+  2>/dev/null | grep -v "^Binary" | head -20
+
+# 의존 탐색 (target 파일 내 외부 참조)
+grep -E "^source |^\. |^import |^require " <target-file> 2>/dev/null | head -10
+```
+
+동적 호출자(runtime 결정)는 정적 분석으로 미식별 — 이 경우 `> 한계: 동적 호출자 — 정적 분석 불가` 명시 (AC-14).
+
+---
+
+### Step 3: current-state.md §3 — 기존 테스트 커버리지 (AC-11)
+
+```bash
+# 대상 파일명·심볼명으로 테스트 파일 탐색
+find scripts/tests -name "*.sh" 2>/dev/null \
+  | xargs grep -l "<target-basename>" 2>/dev/null
+
+find . -name "test_*.py" -o -name "*.test.ts" 2>/dev/null \
+  | xargs grep -l "<symbol>" 2>/dev/null
+
+# 커버되지 않는 경로: 탐색 결과 없으면
+echo "> 관련 테스트 파일 없음 — 회귀 AC 추가 권고"
+```
+
+---
+
+### Step 4: current-state.md §4 — 관찰 가능 동작 (Baseline) (AC-11, AC-15)
+
+**실행 가능한 경우 (스크립트·CLI):**
+```bash
+# 현재 동작 2~3건 직접 실행·캡처
+bash <target-script> 2>&1 | head -5        # 사용법·오류 케이스
+bash <target-script> <normal-input> 2>&1   # 정상 케이스
+bash <target-script> <edge-input> 2>&1     # 경계 케이스
+```
+결과를 §4 표에 그대로 인용.
+
+**실행 불가한 경우 (SKILL.md·설정 파일·문서 등 — AC-15):**
+```bash
+# 관련 테스트 실행 결과 인용
+bash <related-test-script> 2>&1 | tail -5
+```
+§4 첫 줄: `> ⚠️ 직접 실행 불가 — <이유>. 아래는 관련 테스트/문서 기반 baseline.`
+관련 테스트도 없으면: `> ⚠️ 직접 실행 불가 + 관련 테스트 없음 — spec.md 기대 동작 기준으로 baseline 기술.`
+
+---
+
+### Step 5: current-state.md §5 — 회귀 위험 메모 (AC-11)
+
+1줄 요약. 형식: `- <변경이 X 흐름에 영향 → Y 케이스 검증 필요>`
+
+예시:
+```
+- analyzing-ko SKILL.md 변경 → /maintain 진입 chain 전체 영향
+  (using-specops-auto-ko-ko → analyzing-ko → specifying-ko [유지보수 분기])
+```
+
+---
+
+### Step 6: impact-analysis.md 작성 (AC-4~AC-6)
+
+**gh CLI 가용성 감지 (AC-5, AC-6):**
+```bash
+gh --version 2>/dev/null && echo "gh available" || echo "gh unavailable"
+```
+
+**trivial 시 (§1 라인 합산 ≤ 5 — AC-3):**
+- §1(외부 영향)·§2(마이그레이션·롤백) 생략
+- §3(히스토리)만 작성
+
+**비trivial 시 (> 5 — AC-4):**
+
+§1 — 외부 영향:
+```bash
+# 공유 모듈 사용처 탐색
+grep -rn "<target-module>" . \
+  --include="*.md" --include="*.sh" 2>/dev/null | head -10
+# API/DB 변경 여부: "해당 없음" 또는 구체 설명
+```
+
+§2 — 마이그레이션·롤백:
+```bash
+# 롤백 가능성 확인
+git log --oneline -3  # 마지막 커밋 SHA
+# → git revert <SHA> 로 원복 가능 여부 판단
+```
+
+§3 — 관련 PR·이슈 히스토리:
+
+**gh 가용 시 (AC-5):**
+```bash
+gh pr list --search "<target-basename>" --state merged --limit 5
+gh issue list --search "<target-basename>" --limit 5
+```
+
+**gh 미가용 시 (AC-6):**
+```bash
+git log --oneline --grep="<target-basename>" --limit 10
+git log --oneline --grep="<symbol>" --limit 5
+```
+§3 첫 줄: `> 데이터 출처: git log (gh CLI 미가용 — 이슈 추적 미수행)` (AC-6, AC-14)
+
+---
+
+### Step 7: ★ HARD GATE (AC-7, AC-8)
+
+두 산출물 경로를 명시하고 사용자 응답 대기:
+
+**trivial 시 (§1 합산 ≤ 5):**
+```
+분析 산출물 작성 완료 (trivial 자동 판정 — §1 라인 합산 N줄 ≤ 5):
+  - .specops/<FID>/current-state.md
+  - .specops/<FID>/impact-analysis.md (§1·§2 생략, §3만 작성)
+
+분析 결과 검토. 진행? [y/n]
+```
+
+**비trivial 시 (§1 합산 > 5):**
+```
+분析 산출물 작성 완료:
+  - .specops/<FID>/current-state.md  (§1 라인 합산: N줄 → 유지보수)
+  - .specops/<FID>/impact-analysis.md
+
+분析 결과 검토. 진행? [y/n]
+```
+
+**[y]** → Step 8으로 진행
+**[n]** → "재분석이 필요하거나 수정할 항목을 알려주세요." 출력 후 **chain 중단** (AC-8)
+
+---
+
+### Step 8: session-progress append + chain (AC-9, AC-10)
+
+```bash
+bash scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
+```
+
+이어서 즉시 `specops-auto-ko:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 첫 줄 유지 (AC-10).
+
+---
+
+## 5원칙 주입
 
 | 원칙 | 본 skill 적용 |
 |---|---|
-| 1 투명성 | 분석 근거 (grep 결과·gh 출력) 산출물에 인용 |
-| 2 문지기 | gh 미가용 시 HARD GATE 차단 안 함 (clarify Q-C: git log fallback) |
-| 4 주권 | 두 산출물 사용자 검토 후만 진행 |
-| 5 한계 고백 | gh 미가용 / 동적 호출자 미식별 등 한계 명시 |
+| 1 **투명성** | grep·gh 출력 결과를 산출물에 직접 인용 (요약만 금지) (AC-13) |
+| 2 **문지기** | HARD GATE 전 specifying-ko 호출 절대 금지 |
+| 3 **깊이** | 정적 grep 한계 시 "동적 호출자 미식별" 명시 — 추측 금지. trivial 임계값(≤5줄) 적용 시 경계 판단 신중히 |
+| 4 **주권** | HARD GATE [n] 시 chain 즉시 중단, 사용자 재지시 대기 (AC-8) |
+| 5 **한계 고백** | 동적 호출자 미식별·gh 미가용·실행 불가 대상 → 명시 문구 포함 (AC-14) |
 
 ## 안티패턴
 
-- **변경 규모 평가 생략** — trivial 자동 판정 source 가 본 단계 §1 라인 범위 메타. 생략하면 specifying-ko §유형 라벨 부정확
-- **gh 강제** — clarify Q-C 결정으로 git log fallback. HARD GATE 차단 금지
-- **specifying-ko 본문 중복** — 본 skill 은 분석만. 5 항목 mini-checklist 는 specifying-ko 가 흡수하지 않고 본 skill 책임 (Phase C 적용 후 specifying-ko 본문 축약)
+- **변경 규모 평가 생략** — §1 라인 합산 명시 없으면 specifying-ko §유형 라벨 부정확
+- **gh 강제 사용** — gh 미가용 환경에서 HARD GATE 차단 금지. git log fallback 항상 준비 (AC-6)
+- **§4 플레이스홀더** — 실행 불가 시에도 관련 테스트·문서 기반 baseline 채움. 빈 표 금지 (AC-15)
+- **specifying-ko 본문 중복** — 본 skill은 분석만. specifying-ko [유지보수 분기]가 산출물을 참조 (재분석 안 함)
+- **FID 미확인 진행** — Step 0에서 FID 사용자에게 명시 후 진행
 
 ## 다음 skill
 
 ```
 Skill: specops-auto-ko:specifying-ko
 ```
+
+args 그대로 전달 (`<!-- entry: maintain -->` 첫 줄 유지). specifying-ko Step 1 [유지보수 분기]가 current-state.md + impact-analysis.md를 참조한다.
