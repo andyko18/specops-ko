@@ -21,7 +21,7 @@ used_by: specops-auto-ko:using-specops-auto-ko-ko (maintenance flag = true 시),
 
 ### Step 0: FID 생성 + 디렉토리 보장 (AC-1)
 
-args에서 `<!-- entry: maintain -->` 첫 줄을 제거한 나머지 텍스트에서 대상명을 추출해 FID를 생성한다.
+args에서 `<!-- entry: maintain -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
 
 **FID 생성 절차:**
 ```bash
@@ -102,8 +102,8 @@ grep -E "^source |^\. |^import |^require " <target-file> 2>/dev/null | head -10
 find scripts/tests -name "*.sh" 2>/dev/null \
   | xargs grep -l "<target-basename>" 2>/dev/null
 
-find . -name "test_*.py" -o -name "*.test.ts" 2>/dev/null \
-  | xargs grep -l "<symbol>" 2>/dev/null
+find . \( -name "test_*.py" -o -name "*.test.ts" \) -print0 2>/dev/null \
+  | xargs -0 grep -l "<symbol>" 2>/dev/null
 
 # 커버되지 않는 경로: 탐색 결과 없으면
 echo "> 관련 테스트 파일 없음 — 회귀 AC 추가 권고"
@@ -182,8 +182,9 @@ gh issue list --search "<target-basename>" --limit 5
 
 **gh 미가용 시 (AC-6):**
 ```bash
-git log --oneline --grep="<target-basename>" --limit 10
-git log --oneline --grep="<symbol>" --limit 5
+# git log 는 --limit 미지원 — -n N 사용 (gh CLI 의 --limit 와 혼동 주의)
+git log --oneline --grep="<target-basename>" -n 10
+git log --oneline --grep="<symbol>" -n 5
 ```
 §3 첫 줄: `> 데이터 출처: git log (gh CLI 미가용 — 이슈 추적 미수행)` (AC-6, AC-14)
 
