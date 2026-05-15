@@ -229,7 +229,14 @@ EOF
 )"
 ```
 
-**전제**: `feat/<FID>` 브랜치에 모든 커밋이 있어야 한다. `git log main..HEAD` 로 커밋 존재 확인 후 실행.
+**전제**: `feat/<FID>` 브랜치에 커밋이 있어야 한다. PR 실행 직전 반드시 확인:
+
+```bash
+if [ -z "$(git log main..HEAD --oneline)" ]; then
+  echo "ERROR: feat/$FID 에 커밋 없음 — main과 동일. PR 생성 불가." >&2
+  exit 1
+fi
+```
 
 ## session-progress append (v0.4-pre P1 신설)
 

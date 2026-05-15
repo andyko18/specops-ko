@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# set -u only (no -e): rc=$? 캡처를 위해 -e 의도적으로 생략
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
@@ -24,14 +25,15 @@ else
 fi
 git checkout "$ORIG_BRANCH" 2>/dev/null
 
-# T2: idempotent — 이미 존재할 때 exit 0
+# T2: idempotent — 이미 존재할 때 exit 0 + 브랜치 checkout 확인 (AC-2)
 git checkout -b "feat/test-fid-abc" 2>/dev/null || true
 git checkout "$ORIG_BRANCH" 2>/dev/null
 out=$(bash "$SCRIPT" test-fid-abc 2>&1); rc=$?
-if [ $rc -eq 0 ] && echo "$out" | grep -q "branch: feat/test-fid-abc"; then
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [ $rc -eq 0 ] && [ "$branch" = "feat/test-fid-abc" ] && echo "$out" | grep -q "branch: feat/test-fid-abc"; then
   PASS=$((PASS+1)); echo "PASS T2 idempotent"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T2 (rc=$rc out=$out)"
+  FAIL=$((FAIL+1)); echo "FAIL T2 (rc=$rc branch=$branch out=$out)"
 fi
 git checkout "$ORIG_BRANCH" 2>/dev/null
 
