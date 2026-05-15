@@ -16,7 +16,7 @@ if [ ! -f "$tasks_file" ]; then
   exit 0
 fi
 
-refs=$(grep -oE '[a-zA-Z0-9_./:-]+\.sh' "$tasks_file" | sort -u || true)
+refs=$(grep -oE '[a-zA-Z0-9_./:-]+\.sh' "$tasks_file" | grep -v '://' | sort -u || true)
 if [ -z "$refs" ]; then
   echo "no shell task dependencies"
   exit 0

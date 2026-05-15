@@ -11,12 +11,18 @@ FILE_FILTER=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --cached|--no-fetch) shift ;;
-    --file) FILE_FILTER="$2"; shift 2 ;;
+    --file)
+      if [ $# -lt 2 ]; then
+        echo "usage: diff-upstream.sh [--cached] [--no-fetch] [--file <path>]" >&2
+        exit 1
+      fi
+      FILE_FILTER="$2"; shift 2 ;;
     --) shift; break ;;
     -*)
       echo "usage: diff-upstream.sh [--cached] [--no-fetch] [--file <path>]" >&2
       exit 1
       ;;
+    *) shift ;;
   esac
 done
 
@@ -40,8 +46,14 @@ scan_file() {
   # frontmatter에서 reference_upstream 추출
   local ref
   ref=$(grep -m1 '^reference_upstream:' "$f" 2>/dev/null \
-        | sed 's/^reference_upstream:[[:space:]]*//' || true)
+        | sed 's/^reference_upstream:[[:space:]]*//' \
+        | sed "s/^['\"]//; s/['\"]$//" || true)
   [ -z "$ref" ] && return
+
+  # 자체 추가 마커 → skip (upstream 없음, CACHE_MISS 오탐 방지)
+  case "$ref" in
+    "specops-auto-ko"*) return ;;
+  esac
 
   # 다중 upstream 참조 ('+' 포함) → manual
   if echo "$ref" | grep -q '+'; then
@@ -72,8 +84,8 @@ scan_file() {
 
   # 섹션(## 헤더) 비교 (AC-7)
   local upstream_count local_count common upstream_only local_only
-  upstream_count=$(grep -c '^## ' "$cache_path" 2>/dev/null || echo 0)
-  local_count=$(grep -c '^## ' "$f" 2>/dev/null || echo 0)
+  upstream_count=$(grep -c '^## ' "$cache_path" 2>/dev/null || true)
+  local_count=$(grep -c '^## ' "$f" 2>/dev/null || true)
   common=$(comm -12 \
     <(grep '^## ' "$cache_path" 2>/dev/null | sort || true) \
     <(grep '^## ' "$f" 2>/dev/null | sort || true) \

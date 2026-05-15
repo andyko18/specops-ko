@@ -21,8 +21,12 @@ SPECOPS_CONFIG="$CONFIG" SPECOPS_HOOK_NAME="$HOOK_NAME" python3 - <<'PYEOF'
 import yaml, sys, os
 config_path = os.environ['SPECOPS_CONFIG']
 hook = os.environ['SPECOPS_HOOK_NAME']
-with open(config_path) as f:
-    cfg = yaml.safe_load(f) or {}
+try:
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f) or {}
+except Exception as e:
+    print("specops config parse error, defaulting to enabled:", e, file=sys.stderr)
+    sys.exit(0)
 profile_name = cfg.get('profile', '')
 profiles = cfg.get('profiles', {})
 profile = profiles.get(profile_name, {})
