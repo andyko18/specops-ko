@@ -75,6 +75,8 @@ DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←───────────�
   결과 수집:
     - leaf NEEDS_CONTEXT 반환 시 → 컨텍스트 보강 후 재dispatch (R8)
     - leaf DONE 시 → proposed_commit_message 수집
+
+  **Wave 2 (FID 20260514) — emit-context 자동 산출**: decomposing-ko Step 10b 가 `bash scripts/dag/emit-context.sh <FID>` 로 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션을 자동 산출하므로, 본 skill 의 컨텍스트 작성 단계는 §5 worktree 라인 sed 갱신만으로 축약된다. 컨텍스트 파일 부재 시 → decomposing-ko 재진입 요청 (HARD GATE).
     ↓
   Phase B (병렬): 각 leaf별 spec-reviewer-ko dispatch (병렬)
     ↓
@@ -116,6 +118,31 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 **근거**: dogfood FID `20260422-csv-lines` 실측 — 5 태스크 전부 `csv-lines` + `tests/test-csv-lines.sh` 만 수정 · 총 40 LOC. 규약대로 15 dispatch 대신 3 dispatch (구현자 1 + 리뷰어 2) 로 집약해 27.1k 토큰 절감, Phase B/C 리뷰는 유지. `dispatch-log.md` Phase A/B/C 기록이 5 원칙 4 (주권) · 1 (투명성) 충족 증거 (FRICTION-LOG F-12).
 
 **위 조건 불충족 시** 기본값 ("태스크별 fresh 서브에이전트 dispatch") 그대로 유지.
+
+## Phase B/C 자동 재dispatch 정책 (Wave 2 U5)
+
+| Phase | FAIL 시 동작 | 재dispatch subagent_type | cap | cap 초과 시 |
+|---|---|---|---|---|
+| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-auto-ko:implementer-ko` | task 당 1회 (B=1/2) | HARD GATE: `HARD-GATE: <task-id> Phase B cap 초과 — 사용자 결정 필요` |
+| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-auto-ko:implementer-ko` | task 당 1회 (C=1/2) | HARD GATE: `HARD-GATE: <task-id> Phase C cap 초과 — 사용자 결정 필요` |
+
+**cap=2 총합** (Phase B 1회 + Phase C 1회). cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권).
+
+**reviewer feedback 파일 경로 규약** (file-based-communication-ko 준수):
+- `.specops/<FID>/reviews/<task-id>-B-feedback.md` — spec-reviewer-ko 산출
+- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 산출
+
+implementer-ko 재dispatch 시 본 파일의 **경로만** 추가 컨텍스트로 전달 (본문 페이로드 금지).
+
+## dispatch-log.md 자동 append (Wave 2 U5)
+
+task 시작 시 `.specops/<FID>/dispatch-log.md` 부재면 `templates/dispatch-log.md` 복사로 생성. 매 시도(Phase A/B/C)마다 해당 task-id 블록에 1행 append:
+
+```
+| # | <ISO-8601> | <Phase> | <agent> | PASS|FAIL | <feedback path 또는 -> |
+```
+
+footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱신. cap 초과 시 자동 진행 금지, 사용자 결정 대기.
 
 ## 모델 선택
 
