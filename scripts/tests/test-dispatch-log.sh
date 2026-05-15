@@ -56,5 +56,60 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.f cap=2 부재"
 fi
 
+# --- T2: append 시퀀스 정합 (D3 — Wave 2 U5) ---
+# 시뮬레이션: empty template 복사 → task 블록 추가 → attempt 행 N 회 append → footer 갱신
+tmp=$(mktemp -d)
+cp "$PLUGIN/templates/dispatch-log.md" "$tmp/log.md"
+
+# task-99 블록 + 5 attempt + footer 추가 (시뮬레이션)
+cat >> "$tmp/log.md" << 'BLOCK'
+
+## task-99: simulated
+
+| # | 시각 | Phase | agent | 결과 | feedback 경로 |
+|---|---|---|---|---|---|
+| 1 | 2026-05-14T11:00 | A | implementer-ko | PASS | - |
+| 2 | 2026-05-14T11:01 | B | spec-reviewer-ko | FAIL | reviews/task-99-B-feedback.md |
+| 3 | 2026-05-14T11:02 | A (재) | implementer-ko | PASS | - |
+| 4 | 2026-05-14T11:03 | B (재) | spec-reviewer-ko | PASS | - |
+| 5 | 2026-05-14T11:04 | C | code-reviewer-ko | PASS | - |
+
+**재시도 누적: B=1/2 C=0/2 (cap=2)**
+
+---
+BLOCK
+
+# T2.a: task-99 블록 존재
+if grep -q "task-99" "$tmp/log.md"; then
+  PASS=$((PASS+1)); echo "PASS T2.a task-99 블록 append"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a"
+fi
+
+# T2.b: attempt 행 5개 (실제 데이터)
+n=$(awk '/^## task-99/ {found=1; next} /^## task-/ && found {exit} found && /^\| [0-9]+ \|/ {c++} END{print c}' "$tmp/log.md")
+if [ "$n" = "5" ]; then
+  PASS=$((PASS+1)); echo "PASS T2.b attempt 행 5개"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.b (n=$n)"
+fi
+
+# T2.c: footer 가 attempt 시퀀스와 일관 (B FAIL 1회 → B=1/2)
+fc=$(awk '/^## task-99/ {found=1; next} found && /재시도 누적/ {print; exit}' "$tmp/log.md")
+if [[ "$fc" == *"B=1/2"* && "$fc" == *"C=0/2"* ]]; then
+  PASS=$((PASS+1)); echo "PASS T2.c footer 카운트 정합"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.c (fc='$fc')"
+fi
+
+# T2.d: append-only — 원본 templates/dispatch-log.md frontmatter 보존
+if grep -q "FID: <YYYYMMDD" "$tmp/log.md"; then
+  PASS=$((PASS+1)); echo "PASS T2.d frontmatter append-only 보존"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.d"
+fi
+
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
