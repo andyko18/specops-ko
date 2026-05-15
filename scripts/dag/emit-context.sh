@@ -10,9 +10,10 @@
 #   1건이라도 실패 → stderr 출력 + exit 1 + 디스크 작성 0
 #   2단계 실제 작성: 모두 통과 시 dispatch/<task-id>-context.md × N 일괄 작성
 #   출력: stdout "EMIT: N files" + exit 0
-set -u
+set -euo pipefail
 
 FID="${1:?usage: $0 <FID>}"
+[[ "$FID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "emit-context: invalid FID — $FID" >&2; exit 1; }
 TASKS=".specops/$FID/tasks.md"
 AC=".specops/$FID/acceptance-criteria.md"
 SPEC=".specops/$FID/spec.md"
