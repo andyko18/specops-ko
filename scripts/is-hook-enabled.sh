@@ -2,7 +2,7 @@
 # specops config YAML hook 활성 여부 판단
 # Usage: is-hook-enabled.sh <hook-name>
 # Env:   SPECOPS_CONFIG=<path> (기본: ~/.specops/config.yaml)
-set -u
+set -euo pipefail
 
 HOOK_NAME="${1:?usage: is-hook-enabled.sh <hook-name>}"
 CONFIG="${SPECOPS_CONFIG:-$HOME/.specops/config.yaml}"

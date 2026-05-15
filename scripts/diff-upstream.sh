@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # specops-auto-ko — upstream drift 감지 (로컬 캐시 전용, 네트워크 접근 없음)
 # Usage: diff-upstream.sh [--cached] [--no-fetch] [--file <path>]
-set -u
+set -euo pipefail
 
 CACHE_DIR=".specops-cache/upstream"
 LOG_FILE="docs/upstream-drift-log.md"
@@ -93,14 +93,12 @@ scan_file() {
   } >> "$LOG_FILE"
 }
 
-SCAN_DIRS="commands agents skills knowledge docs scripts"
-
 if [ -n "$FILE_FILTER" ]; then
   # 단일 파일 모드 (--file)
   [ -f "$FILE_FILTER" ] && scan_file "$FILE_FILTER"
 else
   # 전체 스캔
-  for d in $SCAN_DIRS; do
+  for d in commands agents skills knowledge docs scripts; do
     [ -d "$d" ] || continue
     while IFS= read -r f; do
       scan_file "$f"
