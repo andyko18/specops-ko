@@ -60,6 +60,15 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
       dag::find_independent_batch "$yaml" # 병렬 후보 출력 (참고용)
       ```
     - YAML 파싱 실패 또는 빈 leaf 시 → 본 스킬 재작성 의무 (HARD-GATE 차단)
+    - **Step 10b. emit-context.sh 자동 산출 (Wave 2 U2 — 의무)** — Step 10 의 DAG 자체 검증 통과 후:
+      ```bash
+      bash scripts/dag/emit-context.sh <FID>
+      ```
+      - tasks.md YAML 의 모든 task 에 대해 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션 자동 산출
+      - fail-fast atomic — 1건이라도 검증 실패 (test_command 미기재 / ac 배열 빈 값 / AC.md 매칭 AC-id 부재 / inputs·outputs 키 부재) 시 exit 1 + stderr 출력 + 부분 잔류 0
+      - 성공 시 stdout `EMIT: N files`
+      - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
+      - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
 11. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-auto-ko:implementing-ko` 호출
 
