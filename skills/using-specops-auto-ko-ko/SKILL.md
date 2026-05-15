@@ -49,6 +49,8 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
 ## 자율 Lifecycle 진입 흐름
 
 ```
+[선택] /brainstorming → brainstorming-ko (아이디어 탐색·수요 검증)
+    ↓ (선택적 연결 — 강제 아님)
 사용자 입력
     ↓
 본 메타 skill 자동 활성 (대화 시작 시)
@@ -168,6 +170,8 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 - `skills/engine/*-ko.md` (10건) — Phase 1 구축 완료
 - `skills/harness/*-ko.md` (5건 + 본 skill) — 내부 규약
 - `commands/start.md` — 슬래시 진입점
+- `commands/brainstorming.md` — 선택적 pre-start-project 탐색 진입점
+- `skills/brainstorming-ko/SKILL.md` — 아이디어 탐색 skill
 - `hooks/hooks.json` — SessionStart·Stop hook 매니페스트
 
 ---

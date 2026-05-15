@@ -22,6 +22,7 @@ PROJECT_KIND=""           # 1=UI 2=BE 3=CLI 4=Full 5=Mobile 6=Other
 CONFLICT_POLICY="skip"    # skip|overwrite|merge
 PROJECT_NAME=""           # phase_1 에서 인자/basename 으로 설정
 PRD_ONELINE=""            # PRD §1 한 줄 — phase_5 에서 CLAUDE/README 인용
+BM_REF="n"               # brainstorming 메모 참조 여부 (y|n)
 
 # ── 헬퍼 ─────────────────────────────────────
 _check_git() {
@@ -116,12 +117,30 @@ _parse_numbered() {
 }
 
 # ── Phase 함수 ───────────────────────────────
+_check_brainstorming() {
+  local bm_files
+  bm_files=$(find .specops/memory -maxdepth 1 -name "brainstorming-*.md" 2>/dev/null | sort -r | head -3)
+  if [ -n "$bm_files" ]; then
+    echo ""
+    echo "브레인스토밍 메모 발견:"
+    echo "$bm_files" | sed 's/^/  /'
+    printf "PRD 작성 시 참조할까요? [Y/n]: "
+    local ans=""
+    read -r ans || true
+    case "${ans:-Y}" in
+      [Nn]*) BM_REF="n" ;;
+      *) BM_REF="y" ;;
+    esac
+  fi
+}
+
 phase_1_precheck() {
   PROJECT_NAME="${1:-$(basename "$PWD")}"
   _check_git
   _check_memory
   _print_artifacts_table
   _resolve_conflict_policy
+  _check_brainstorming
 }
 
 phase_2_classify() {
@@ -256,6 +275,18 @@ phase_4_prd() {
     echo "→ PRD.md 보존 (skip 정책)"
     PRD_ONELINE=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 줄 설명\*\*: *//' || echo "")
     return
+  fi
+  if [ "$BM_REF" = "y" ]; then
+    echo ""
+    echo "── 브레인스토밍 메모 요약 ──"
+    local bm_file
+    bm_file=$(find .specops/memory -maxdepth 1 -name "brainstorming-*.md" 2>/dev/null | sort -r | head -1)
+    if [ -n "$bm_file" ]; then
+      grep -E "^## |^###|^\*\*" "$bm_file" 2>/dev/null | head -20 | sed 's/^/  /'
+      echo "  (전체: $bm_file)"
+    fi
+    echo "────────────────────────────"
+    echo ""
   fi
   PRD_F1=""; PRD_F2=""; PRD_F3=""; PRD_F4=""; PRD_F5=""; PRD_F6=""
   _phase_4_collect
