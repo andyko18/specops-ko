@@ -41,6 +41,7 @@ date +%Y%m%d  # 예: 20260515
 **FID 생성 후 즉시 디렉토리 보장:**
 ```bash
 mkdir -p .specops/<FID>
+bash scripts/git-branch-create.sh <FID>
 ```
 
 **사용자에게 FID 명시**: `"FID: <FID> — 유지보수 분석을 시작합니다."`

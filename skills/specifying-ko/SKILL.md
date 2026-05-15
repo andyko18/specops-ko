@@ -25,6 +25,18 @@ used_by: using-specops-auto-ko-ko, /start
 
 다음 각 항목을 순서대로 태스크로 만들어 완료한다:
 
+0. **[신규 분기] FID 생성 + 브랜치 생성** — args에서 슬러그를 추출해 FID를 결정하고, 디렉토리와 feat 브랜치를 함께 생성한다.
+
+   ```bash
+   # FID 결정 (날짜 + 기능 설명 슬러그)
+   FID="YYYYMMDD-<slug>"
+   mkdir -p .specops/$FID
+   bash scripts/git-branch-create.sh $FID
+   ```
+
+   기존 `.specops/<FID>/` 디렉토리가 있으면 (유지보수 분기 재진입) 스킵.
+   [유지보수 분기]는 analyzing-ko Step 0이 브랜치 생성을 담당하므로 본 스텝 적용 제외.
+
 1. **프로젝트 맥락 탐색** — 파일·문서·최근 커밋 확인
    - 프로젝트 루트 `DESIGN.md` 존재 확인 (`ls DESIGN.md`)
      → **있으면**: 생성하는 `spec.md` §참조에 "`DESIGN.md` 디자인 시스템 준수" 포함

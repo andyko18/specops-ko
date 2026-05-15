@@ -206,6 +206,38 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 - upstream 원본: `obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
 
+## PR 생성 (Lifecycle 종료)
+
+모든 리뷰 이슈 해결 후 사용자가 PR 생성에 동의하면:
+
+```bash
+FID="<현재 FID>"
+gh pr create \
+  --base main \
+  --head "feat/$FID" \
+  --title "feat: <기능명> (#$FID)" \
+  --body "$(cat <<'EOF'
+## Summary
+- <주요 변경 1~3 bullet>
+
+## Test plan
+- [ ] `bash scripts/tests/test-*.sh` 전 항목 PASS
+- [ ] `bash scripts/_internal/validate-structure.sh` 전 항목 ✅
+
+🤖 Generated with specops-auto-ko Lifecycle (FID: $FID)
+EOF
+)"
+```
+
+**전제**: `feat/<FID>` 브랜치에 커밋이 있어야 한다. PR 실행 직전 반드시 확인:
+
+```bash
+if [ -z "$(git log main..HEAD --oneline)" ]; then
+  echo "ERROR: feat/$FID 에 커밋 없음 — main과 동일. PR 생성 불가." >&2
+  exit 1
+fi
+```
+
 ## session-progress append (v0.4-pre P1 신설)
 
 리뷰 피드백 수용·구현 완료 직후:
