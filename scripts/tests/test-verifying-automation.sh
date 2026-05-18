@@ -151,6 +151,66 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c"
 fi
 
+# ── T2.d run: whitelist 거부 명령 → WARN stderr + skip + exit 0 ──
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test"
+printf '%s\n' \
+  '## 의존 그래프' \
+  '' \
+  '```yaml' \
+  'tasks:' \
+  '  - id: T1' \
+  '    test_command: "rm -rf /"' \
+  '    depends_on: []' \
+  '    inputs: []' \
+  '    outputs: []' \
+  '    ac: [AC-1]' \
+  '```' \
+  > "$TMPDIR/.specops/fid-test/tasks.md"
+(cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2d-out-$$ 2>/tmp/t2d-err-$$; ec=$?
+ if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2d-err-$$ && ! grep -q "VERIFY: PASS" /tmp/t2d-out-$$; then
+   echo "OK"
+ else
+   echo "FAIL ec=$ec err='$(cat /tmp/t2d-err-$$)' out='$(cat /tmp/t2d-out-$$)'"
+ fi) > "$TMPDIR/result"
+rm -f /tmp/t2d-out-$$ /tmp/t2d-err-$$
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.d run → whitelist 거부 명령 WARN + skip (exit 0)"
+else
+  nope "T2.d" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.e run: .. path traversal 차단 → WARN stderr + skip ──
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test"
+printf '%s\n' \
+  '## 의존 그래프' \
+  '' \
+  '```yaml' \
+  'tasks:' \
+  '  - id: T1' \
+  '    test_command: "bash scripts/../../etc/passwd.sh"' \
+  '    depends_on: []' \
+  '    inputs: []' \
+  '    outputs: []' \
+  '    ac: [AC-1]' \
+  '```' \
+  > "$TMPDIR/.specops/fid-test/tasks.md"
+(cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2e-out-$$ 2>/tmp/t2e-err-$$; ec=$?
+ if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2e-err-$$; then
+   echo "OK"
+ else
+   echo "FAIL ec=$ec err='$(cat /tmp/t2e-err-$$)'"
+ fi) > "$TMPDIR/result"
+rm -f /tmp/t2e-out-$$ /tmp/t2e-err-$$
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.e run → .. path traversal 명령 WARN + skip"
+else
+  nope "T2.e" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
