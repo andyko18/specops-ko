@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle-PreBootstrap
-reference_upstream: garrytan/gstack office-hours/SKILL.md
+reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 ---
 
 # /brainstorming [<주제>]

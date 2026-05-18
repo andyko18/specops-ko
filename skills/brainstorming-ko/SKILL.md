@@ -2,7 +2,7 @@
 name: brainstorming-ko
 description: 구현 전 아이디어 탐색·수요 검증 — Startup(YC 6 forcing questions) + Builder(창의 탐색) 모드 선택. pre-design HARD GATE. gstack office-hours 한국어 재창작.
 layer: 2
-reference_upstream: garrytan/gstack office-hours/SKILL.md
+reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 specops_version: 1.0.0
 used_by: commands/brainstorming.md, 선택적 pre-start-project 진입
 ---
