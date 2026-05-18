@@ -38,6 +38,7 @@ mkdir -p "$(dirname "$EVIDENCE")"
 } >> "$EVIDENCE"
 
 all_pass=1
+executed=0
 _WHITELIST_PAT='^bash[[:space:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:space:]][A-Za-z0-9_/.=-]*)*$'
 
 while IFS= read -r cmd; do
@@ -55,6 +56,7 @@ while IFS= read -r cmd; do
     echo "### \`$cmd\`"
     echo '```'
   } >> "$EVIDENCE"
+  executed=$((executed + 1))
   # shellcheck disable=SC2086
   out=$(bash ${cmd#bash } 2>&1)
   ec=$?
@@ -70,6 +72,10 @@ while IFS= read -r cmd; do
   fi
 done <<< "$commands"
 
+if [ "$executed" -eq 0 ]; then
+  echo "VERIFY: WARN — 실행된 명령 0건 (모두 whitelist 거부)" >&2
+  exit 0
+fi
 if [ "$all_pass" = "1" ]; then
   echo "VERIFY: PASS"
   exit 0

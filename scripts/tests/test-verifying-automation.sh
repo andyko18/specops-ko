@@ -168,10 +168,10 @@ printf '%s\n' \
   '```' \
   > "$TMPDIR/.specops/fid-test/tasks.md"
 (cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2d-out-$$ 2>/tmp/t2d-err-$$; ec=$?
- if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2d-err-$$; then
+ if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2d-err-$$ && ! grep -q "VERIFY: PASS" /tmp/t2d-out-$$; then
    echo "OK"
  else
-   echo "FAIL ec=$ec err='$(cat /tmp/t2d-err-$$)'"
+   echo "FAIL ec=$ec err='$(cat /tmp/t2d-err-$$)' out='$(cat /tmp/t2d-out-$$)'"
  fi) > "$TMPDIR/result"
 rm -f /tmp/t2d-out-$$ /tmp/t2d-err-$$
 if grep -q "^OK$" "$TMPDIR/result"; then
