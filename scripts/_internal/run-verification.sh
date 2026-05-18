@@ -39,7 +39,7 @@ mkdir -p "$(dirname "$EVIDENCE")"
 
 all_pass=1
 executed=0
-_WHITELIST_PAT='^bash[[:space:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:space:]][A-Za-z0-9_/.=-]*)*$'
+_WHITELIST_PAT='^bash[[:blank:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*$'
 
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
@@ -57,8 +57,8 @@ while IFS= read -r cmd; do
     echo '```'
   } >> "$EVIDENCE"
   executed=$((executed + 1))
-  # shellcheck disable=SC2086
-  out=$(bash ${cmd#bash } 2>&1)
+  read -r -a _parts <<< "$cmd"
+  out=$(bash "${_parts[@]:1}" 2>&1)
   ec=$?
   {
     echo "$out"
