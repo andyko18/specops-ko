@@ -38,13 +38,25 @@ mkdir -p "$(dirname "$EVIDENCE")"
 } >> "$EVIDENCE"
 
 all_pass=1
+_WHITELIST_PAT='^bash[[:space:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:space:]][A-Za-z0-9_/.=-]*)*$'
+
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
+  if [[ ! "$cmd" =~ $_WHITELIST_PAT ]] || [[ "$cmd" == *..* ]]; then
+    echo "WARN: SKIP '$cmd' — whitelist 미통과 (bash scripts/*.sh 만 허용)" >&2
+    {
+      echo "### \`$cmd\`"
+      echo '> WARN: SKIP — whitelist 미통과'
+      echo ""
+    } >> "$EVIDENCE"
+    continue
+  fi
   {
     echo "### \`$cmd\`"
     echo '```'
   } >> "$EVIDENCE"
-  out=$(bash -c "$cmd" 2>&1)
+  # shellcheck disable=SC2086
+  out=$(bash ${cmd#bash } 2>&1)
   ec=$?
   {
     echo "$out"
