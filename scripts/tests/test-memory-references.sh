@@ -57,6 +57,24 @@ else
   nope "T4.a 부분 매칭" "got='$got' expected='$expected_str'"
 fi
 
+# ── T5.a 정적: SKILL.md 가 CONTEXT.md 감지 + graceful skip + §참조 명시 ──
+if grep -q "CONTEXT\.md" "$SKILL" \
+   && grep -A2 "CONTEXT\.md.*자동 감지" "$SKILL" | grep -q "graceful skip" \
+   && grep -A3 "CONTEXT\.md.*자동 감지" "$SKILL" | grep -q "§참조"; then
+  ok "T5.a SKILL.md — CONTEXT.md 자동 감지 + graceful skip + §참조 명시"
+else
+  nope "T5.a CONTEXT.md 감지" "CONTEXT.md 또는 graceful skip 또는 §참조 패턴 부재"
+fi
+
+# ── T6.a 정적: SKILL.md 가 docs/adr/ 감지 + graceful skip + §참조 명시 ──
+if grep -q "docs/adr" "$SKILL" \
+   && grep -A2 "docs/adr" "$SKILL" | grep -q "graceful skip\|wc -l" \
+   && grep -A3 "docs/adr" "$SKILL" | grep -q "§참조"; then
+  ok "T6.a SKILL.md — docs/adr/ 자동 감지 + graceful skip + §참조 명시"
+else
+  nope "T6.a ADR 감지" "docs/adr 또는 graceful skip 또는 §참조 패턴 부재"
+fi
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
