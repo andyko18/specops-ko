@@ -61,8 +61,18 @@ used_by: using-specops-auto-ko-ko, /start
        | `screens-overview.md` | 화면 목록 마스터 — `.specops/memory/screens-overview.md` |
        | `test-strategy.md` | 테스트 전략 — `.specops/memory/test-strategy.md` |
 
-     - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`.specops/memory/<name>.md` 경로로 인용).
-     - **회귀 보호 계약**: 본 분기는 spec.md §참조에 **인용만 추가**한다. 다른 섹션·내용을 변경하지 않는다 (T24 회귀 검증 대상).
+     - **`.specops/memory/brainstorming-*.md` PRD-first 합성** (v2.2 신규):
+       - `ls .specops/memory/brainstorming-*.md 2>/dev/null` — 부재 시 graceful skip (AC-1)
+       - 존재 시: 최신 파일(파일명 정렬 마지막) 읽기 → 핵심 인사이트(문제·대상·방향) 추출 → spec.md **§1 개요** 하단에 아래 블록 주입 (AC-2):
+         ```markdown
+         > **브레인스토밍 컨텍스트** (`<실제 파일명>`):
+         > - 문제: <## 핵심 인사이트 섹션 요약>
+         > - 대상: <## 핵심 인사이트 또는 ### 채택 방향에서 대상 사용자 추론 — 명시 섹션 없으면 "미명시">
+         > - 방향: <### 채택 방향(## 탐색된 방향 하위 H3) 또는 ## 다음 단계 섹션 요약>
+         ```
+       - §참조에도 동일 파일 citation bullet 추가 (기존 패턴 유지, AC-3)
+     - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`brainstorming-*.md` 제외 — 위 PRD-first 합성 처리). (AC-5)
+     - **회귀 보호 계약**: 본 분기는 spec.md §참조에 **인용만 추가**한다. 다른 섹션·내용을 변경하지 않는다 (T24 회귀 검증 대상). 단, `brainstorming-*.md` 감지 시 §1 개요 합성은 예외 (PRD-first 패턴, AC-4).
    - **`CONTEXT.md` 프로젝트 컨텍스트 자동 감지** (v2.1 신규):
      - `ls CONTEXT.md 2>/dev/null` — 부재 시 graceful skip
      - 존재 시: spec.md `§참조`에 `"프로젝트 컨텍스트 — \`CONTEXT.md\`"` 인용
@@ -313,7 +323,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 personality란?"은 개념 질문 — 터미널. "어떤 위저드 레이아웃이 나은가?"는 시각 질문 — 브라우저.
 
-(Phase 1 현재 — visual-companion 상세 가이드는 v0.1+에서 포팅)
+사용법: `bash skills/brainstorming-ko/scripts/start-server.sh` → 브라우저 오픈 → `helper.js`의 `sendToVisualCompanion(html)` 호출.
 
 ## 참조
 

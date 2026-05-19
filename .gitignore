@@ -5,6 +5,9 @@
 .specops/
 .worktrees/
 
+# Node.js
+skills/brainstorming-ko/scripts/node_modules/
+
 # macOS
 .DS_Store
 

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Visual Companion</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+    #status { padding: 8px 16px; background: #555; color: #fff; font-size: 12px; }
+    #status.connected { background: #2d7d2a; }
+    #status.disconnected { background: #b03a2e; }
+    #content { padding: 24px; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="status" class="disconnected">서버에 연결 중...</div>
+  <div id="content"></div>
+  <script>
+    const statusEl = document.getElementById('status')
+    const content = document.getElementById('content')
+
+    function connect() {
+      const ws = new WebSocket('ws://localhost:4242')
+      ws.onopen = () => {
+        statusEl.textContent = 'Visual Companion 연결됨'
+        statusEl.className = 'connected'
+      }
+      ws.onmessage = (event) => {
+        content.innerHTML = event.data
+      }
+      ws.onclose = () => {
+        statusEl.textContent = '연결 끊김 — 재연결 중...'
+        statusEl.className = 'disconnected'
+        setTimeout(connect, 2000)
+      }
+      ws.onerror = () => {
+        statusEl.textContent = '연결 오류 — start-server.sh 실행 확인'
+        statusEl.className = 'disconnected'
+      }
+    }
+
+    connect()
+  </script>
+</body>
+</html>
