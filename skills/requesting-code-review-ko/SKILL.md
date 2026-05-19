@@ -123,7 +123,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 ## 참조
 
 - upstream 원본: `obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md`
-- 템플릿: `obra/superpowers@v5.0.7 skills/requesting-code-review/code-reviewer.md` (v0.1+ 본 디렉토리에 포팅)
+- 리뷰어 에이전트: `agents/code-reviewer-ko.md` (Phase C — `subagent_type: "specops-auto-ko:code-reviewer-ko"`)
 - specops-ko 한국어 선례: `skills/engine/requesting-code-review-ko.md`
 
 ## session-progress append (v0.4-pre P1 신설)

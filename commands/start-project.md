@@ -13,11 +13,12 @@ reference_upstream: github/spec-kit + specops-auto-ko 독자 추가
 
 ## 목적
 
-프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다 (1~2 릴리즈 후 제거).
+프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다.
 
 ## Process
 
-1. `bash scripts/_internal/start-project.sh "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
+1. `bash scripts/_internal/start-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
+   - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
    - Phase 1: 사전검사 (git/.specops/memory 검사 + 13종 파일별 표 + 충돌 정책)
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)
@@ -56,6 +57,5 @@ reference_upstream: github/spec-kit + specops-auto-ko 독자 추가
 
 - `scripts/_internal/start-project.sh` — 본 슬래시의 오케스트레이터
 - `templates/{constitution,PRD,CLAUDE,README,DESIGN,...}.md` — 13종 템플릿
-- `commands/start-design.md` — deprecated, 본 슬래시로 통합
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)

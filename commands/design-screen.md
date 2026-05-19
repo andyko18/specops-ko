@@ -94,7 +94,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 - `templates/screen.md` — 화면 스펙 마크다운 템플릿
 - `templates/screen.html` — HTML 미리보기 템플릿
 - `DESIGN.md` — 디자인 시스템 (색상·폰트·컴포넌트)
-- `commands/start-design.md` — 패턴 참조
+- `commands/start-project.md` — DESIGN.md 부트스트랩 (start-design 통합됨)
 
 ---
 

@@ -83,7 +83,7 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 
 **태스크가 5분을 초과한다면**: 더 작은 태스크로 분할
 
-## 테스트 컨벤션
+## 테스트 컨벤션 (bash)
 
 plan.md 가 bash 테스트 파일 생성 태스크를 포함하는 경우, 다음 4 항목 규약을 준수하도록 태스크를 설계한다. 상세는 `templates/test-conventions-bash.md` 참조.
 

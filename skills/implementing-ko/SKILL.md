@@ -31,7 +31,7 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-e
     ↓ yes
 → implementing-ko (본 스킬)
 
-↓ no (다른 세션 병렬) → 별도 실행 흐름 (v0.1+에 포팅)
+↓ no (다른 세션 병렬) → 별도 실행 흐름 (현재 미지원 — 본 세션 내 직렬 처리)
 ```
 
 태스크가 밀접하게 결합돼 있으면 → decomposing-ko 복귀해 재분해.
@@ -187,15 +187,15 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 **절대 금지**: 에스컬레이션 무시, 변경 없이 같은 모델로 재시도. 구현자가 막혔다고 말하면 **무언가 바뀌어야 한다**.
 
-## 프롬프트 템플릿
+## 에이전트 정의 파일
 
-동봉된 3개 프롬프트 파일을 그대로 사용 (v0.1+ 본 디렉토리에 포팅):
+3개 에이전트가 `agents/` 디렉토리에 정의돼 있다:
 
-- `implementer-prompt-ko.md` — 구현자 서브에이전트 dispatch
-- `spec-reviewer-prompt-ko.md` — 스펙 준수 리뷰어 dispatch
-- `code-quality-reviewer-prompt-ko.md` — 코드 품질 리뷰어 dispatch
+- `agents/implementer-ko.md` — 구현자 서브에이전트 (Phase A)
+- `agents/spec-reviewer-ko.md` — 스펙 준수 리뷰어 (Phase B)
+- `agents/code-reviewer-ko.md` — 코드 품질 리뷰어 (Phase C)
 
-현재 Phase 1에서는 upstream 원본(`obra/superpowers@v5.0.7 skills/subagent-driven-development/*-prompt.md`)을 직접 참조해 즉석에서 한국어로 번역 사용.
+각 에이전트는 `subagent_type: "specops-auto-ko:implementer-ko"` 형식으로 dispatch되며, `templates/dispatch-context.md` 포맷의 컨텍스트 파일을 입력으로 받는다.
 
 ## 레드 플래그 — 금지
 

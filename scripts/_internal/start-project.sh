@@ -23,6 +23,7 @@ CONFLICT_POLICY="skip"    # skip|overwrite|merge
 PROJECT_NAME=""           # phase_1 에서 인자/basename 으로 설정
 PRD_ONELINE=""            # PRD §1 한 줄 — phase_5 에서 CLAUDE/README 인용
 BM_REF="n"               # brainstorming 메모 참조 여부 (y|n)
+RESUME_MODE=${RESUME_MODE:-0}  # 1=resume 모드 (기존 파일 보존·누락만 생성)
 
 # ── 헬퍼 ─────────────────────────────────────
 _check_git() {
@@ -34,6 +35,9 @@ _check_git() {
 
 _check_memory() {
   if [ -d .specops/memory ]; then
+    if [ "${RESUME_MODE}" = "1" ]; then
+      return 0
+    fi
     # M2: 경고/안내·prompt·취소 결과 모두 stderr (자동화 일관성 — _check_git 와 동등)
     echo ".specops/memory/ 가 이미 존재합니다 (이미 부트스트랩됨)." >&2
     printf "재부트스트랩 진행? [y/N]: " >&2
@@ -66,6 +70,10 @@ _resolve_conflict_policy() {
     [ -e "$f" ] && conflicts=$((conflicts + 1))
   done
   if [ "$conflicts" -gt 0 ]; then
+    if [ "${RESUME_MODE}" = "1" ]; then
+      CONFLICT_POLICY="skip"
+      return 0
+    fi
     echo "충돌 파일 ${conflicts}개 감지."
     printf "기존 파일 처리 정책? (skip/overwrite/merge) [skip]: "
     read -r p || true
@@ -599,10 +607,18 @@ EOF
 
 main() {
   local project_name="${1:-}"
+  if [ "${project_name}" = "--resume" ]; then
+    RESUME_MODE=1
+    project_name=""
+    echo "[resume 모드] 기존 파일 보존, 누락 파일만 생성합니다." >&2
+  fi
   if [ "${project_name}" = "--help" ]; then
-    echo "Usage: $0 [<project-name>]"
+    echo "Usage: $0 [--resume | <project-name>]"
     echo ""
     echo "specops-auto-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 13종 산출물 자동 생성"
+    echo ""
+    echo "Options:"
+    echo "  --resume    기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개; project-name 과 함께 사용 불가)"
     echo ""
     echo "Phase:"
     echo "  1  사전검사 (git/memory/ + 13종 파일별 표)"

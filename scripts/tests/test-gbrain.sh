@@ -51,6 +51,29 @@ run "T2.c insight 큰따옴표 포함 JSONL 유효" bash -c '
   rm -f "$tmp"
 '
 
+# T2.d: 큰따옴표 포함 insight python3 json 파싱 round-trip
+T2_d() {
+  command -v python3 >/dev/null 2>&1 || return 0  # python3 없으면 SKIP (pass)
+  local tmp line ts insight result
+  tmp=$(mktemp)
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" 'he said "hello world"' 2>/dev/null
+  line=$(tail -1 "$tmp")
+  # python3로 파싱
+  result=$(python3 - "$line" <<'PYEOF'
+import sys, json
+obj = json.loads(sys.argv[1])
+print(obj.get("insight", ""))
+PYEOF
+)
+  rm -f "$tmp"
+  [ "$result" = 'he said "hello world"' ]
+}
+run "T2.d 큰따옴표 포함 insight python3 round-trip" T2_d
+
+# T2.e: SKILL.md parse_line 코드 블록에 python3 분기 존재
+run "T2.e SKILL.md python3 파싱 분기 존재" \
+  grep -q 'python3' "$PLUGIN/skills/gbrain-ko/SKILL.md"
+
 # T3.a: 파일 미존재 시 자동 생성
 T3_a() {
   local tmpdir tmp

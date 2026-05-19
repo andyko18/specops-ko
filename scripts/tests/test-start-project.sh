@@ -151,12 +151,11 @@ else
 fi
 teardown_fixture
 
-# ── T8.a start-design.md deprecate 경고 grep ──
-if grep -qE "deprecated.*start-project|/start-project" "$PLUGIN/commands/start-design.md" \
-   && grep -q "deprecated" "$PLUGIN/commands/start-design.md"; then
-  ok "T8.a commands/start-design.md 에 deprecate + /start-project 안내"
+# ── T8.a start-design.md 삭제 확인 (/start-project 통합 완료) ──
+if [ ! -f "$PLUGIN/commands/start-design.md" ]; then
+  ok "T8.a commands/start-design.md 삭제됨 (/start-project 통합 완료)"
 else
-  nope "T8.a deprecate" "start-design.md 에 경고 부재"
+  nope "T8.a start-design 잔존" "start-design.md 가 아직 존재함 — 삭제 필요"
 fi
 
 # ── T9.a constitution 5원칙 → CLAUDE.md §컨벤션 인용 ──
@@ -355,6 +354,61 @@ else
   nope "T19.a fence" "예시 행 잔존 또는 신규 행 누락"
 fi
 teardown_fixture
+
+# ── T20.a --help 에 --resume 설명 포함 ──
+out=$(bash "$SCRIPT" --help 2>&1)
+if echo "$out" | grep -q "\-\-resume"; then
+  ok "T20.a --help 에 --resume 설명 포함"
+else
+  nope "T20.a --help resume" "--resume 설명 없음"
+fi
+
+# ── T21.a resume 모드: .specops/memory/ 존재 + RESUME_MODE=1 → 재확인 프롬프트 없이 통과 ──
+setup_fixture
+mkdir -p .specops/memory
+echo "[sentinel]" > .specops/memory/constitution.md
+# RESUME_MODE=1 + 프로젝트명 없음 → _check_memory 에서 prompt 없이 통과하고 Phase 2로 진행
+# Phase 2 진입 전에 Ctrl-C 격인 early-exit stdin 을 보내도 Phase 1 (memory 검사) 은 통과 확인
+out_r=$(echo "" | RESUME_MODE=1 bash "$SCRIPT" 2>&1 || true)
+# "재부트스트랩 진행?" 가 출력되지 않으면 PASS
+if ! echo "$out_r" | grep -q "재부트스트랩"; then
+  ok "T21.a resume + memory 존재 → 재확인 프롬프트 없이 통과"
+else
+  nope "T21.a resume memory" "재부트스트랩 프롬프트 출력됨"
+fi
+teardown_fixture
+
+# ── T21.b resume 모드: 충돌 파일 존재 + RESUME_MODE=1 → CONFLICT_POLICY=skip 자동 설정 ──
+setup_fixture
+echo "existing" > PRD.md
+out_b=$(echo "" | RESUME_MODE=1 bash "$SCRIPT" 2>&1 || true)
+# 충돌 정책 프롬프트가 출력되지 않으면 PASS
+if ! echo "$out_b" | grep -q "충돌 파일.*개 감지\|기존 파일 처리 정책"; then
+  ok "T21.b resume + 충돌 파일 존재 → 충돌 정책 프롬프트 없이 skip 자동 설정"
+else
+  nope "T21.b resume conflict" "충돌 정책 프롬프트 출력됨"
+fi
+teardown_fixture
+
+# ── T21.c --resume 인자(플래그 직접) → RESUME_MODE 활성 + 재확인 프롬프트 없음 ──
+setup_fixture
+mkdir -p .specops/memory
+echo "[sentinel]" > .specops/memory/constitution.md
+out_c=$(echo "" | bash "$SCRIPT" --resume 2>&1 || true)
+# [resume 모드] 안내 출력 + 재부트스트랩 프롬프트 없음
+if echo "$out_c" | grep -q "\[resume 모드\]" && ! echo "$out_c" | grep -q "재부트스트랩"; then
+  ok "T21.c --resume 인자(플래그) → resume 모드 진입 + 재확인 프롬프트 없음"
+else
+  nope "T21.c --resume flag" "[resume 모드] 미출력 또는 재부트스트랩 프롬프트 출력됨"
+fi
+teardown_fixture
+
+# ── T22.a commands/start-project.md 에 --resume 문서화 ──
+if grep -q "\-\-resume" "$PLUGIN/commands/start-project.md"; then
+  ok "T22.a commands/start-project.md 에 --resume 문서화"
+else
+  nope "T22.a resume docs" "--resume 언급 없음"
+fi
 
 # ── 결과 ──────────────────────────────────────
 echo ""

@@ -293,10 +293,10 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 ## 지원 기법
 
-본 디렉토리 하위 파일 (v0.1+에 포팅):
-- `root-cause-tracing-ko.md` — 콜 스택 역추적
-- `defense-in-depth-ko.md` — 근본 원인 발견 후 다층 검증
-- `condition-based-waiting-ko.md` — 임의 타임아웃을 조건 폴링으로 교체
+지원 기법 (필요 시 SKILL.md 본문 내에서 인라인 적용):
+- **root-cause-tracing** — 콜 스택 역추적 (Phase 1~2 활용)
+- **defense-in-depth** — 근본 원인 발견 후 다층 검증 (Phase 3 활용)
+- **condition-based-waiting** — 임의 타임아웃을 조건 폴링으로 교체 (Phase 4 활용)
 
 **관련 스킬**:
 - `specops-auto-ko:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)

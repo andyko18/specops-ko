@@ -38,11 +38,32 @@ total=$(wc -l < "$GBRAIN_FILE" | tr -d ' ')
 echo "## gbrain 인사이트 요약 (전체 ${total}건)"
 echo ""
 echo "### 최신 10건"
+
+parse_line() {
+  local line="$1"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$line" <<'PYEOF'
+import sys, json
+try:
+    obj = json.loads(sys.argv[1])
+    ts = obj.get("ts", "")
+    fid = obj.get("fid", "")
+    insight = obj.get("insight", "")
+    fid_part = f" (FID: {fid})" if fid else ""
+    print(f"- [{ts}]{fid_part} {insight}")
+except Exception:
+    print(f"- [parse error] {sys.argv[1][:80]}")
+PYEOF
+  else
+    ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
+    insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
+    fid=$(echo "$line" | grep -o '"fid":"[^"]*"' | cut -d'"' -f4)
+    echo "- [$ts]${fid:+ (FID: $fid)} $insight"
+  fi
+}
+
 tail -10 "$GBRAIN_FILE" | while IFS= read -r line; do
-  ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
-  insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
-  fid=$(echo "$line" | grep -o '"fid":"[^"]*"' | cut -d'"' -f4)
-  echo "- [$ts]${fid:+ (FID: $fid)} $insight"
+  parse_line "$line"
 done
 ```
 
@@ -54,9 +75,7 @@ if [ -n "$FID_FILTER" ]; then
   echo ""
   echo "### FID 필터: $FID_FILTER"
   grep -F "\"fid\":\"$FID_FILTER\"" "$GBRAIN_FILE" | while IFS= read -r line; do
-    ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
-    insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
-    echo "- [$ts] $insight"
+    parse_line "$line"
   done
 fi
 ```
@@ -75,9 +94,9 @@ bash scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
 |---|---|
 | 1 **투명성** | 전체 개수 + 최신 10건 동시 출력 |
 | 2 **문지기** | 파일 미존재 시 조용히 안내 후 종료 |
-| 3 **깊이** | bash grep 기반 JSON 파싱 — 큰따옴표 포함 insight 미지원 명시 |
+| 3 **깊이** | python3 json 파싱 (기본) — 큰따옴표·이스케이프 포함 insight 완전 지원 |
 | 4 **주권 존중** | 조회·요약만. 삭제·수정 기능 없음 |
-| 5 **한계 고백** | insight 내 큰따옴표 미이스케이프 — 단순 구현 한계 |
+| 5 **한계 고백** | python3 미설치 시 grep fallback — 큰따옴표 포함 insight 깨질 수 있음 |
 
 ## 참조
 

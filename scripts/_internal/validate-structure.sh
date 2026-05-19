@@ -2,8 +2,8 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-# baseline: skills/<name>/SKILL.md × 25  (gbrain-ko 추가)
-#           (commands=9 · agents=3 · conductor 없이 chain)  (gbrain.md 추가)
+# baseline: skills/<name>/SKILL.md × 27  (SKILL.md 템플릿 + skill_conventions 검증 추가)
+#           (commands=8 · agents=3 · conductor 없이 chain)  (templates=26)
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
@@ -127,7 +127,9 @@ struct=$((struct_std + struct_local))
 emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
 # 7) skill_conventions — SKILL.md frontmatter + 섹션 규약 검증
-if bash scripts/tests/test-skill-conventions.sh >/dev/null 2>&1; then
+if [ ! -f "scripts/tests/test-skill-conventions.sh" ]; then
+  emit skill_conventions SKIP "test-skill-conventions.sh 미존재"
+elif bash scripts/tests/test-skill-conventions.sh >/dev/null 2>&1; then
   emit skill_conventions OK
 else
   detail=$(bash scripts/tests/test-skill-conventions.sh 2>&1 | grep '^FAIL' | head -3 | tr '\n' '; ')
