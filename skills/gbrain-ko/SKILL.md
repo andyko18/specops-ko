@@ -1,0 +1,91 @@
+---
+name: gbrain-ko
+description: 개발 세션 인사이트를 learnings.jsonl에서 조회·요약 — 최신 10건 + 전체 개수 출력, --fid 필터링 가능
+layer: 2
+reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
+specops_version: 1.0.0
+used_by: commands/gbrain.md
+---
+
+# gbrain — 세션 인사이트 조회·요약
+
+## 개요
+
+`scripts/gbrain-append.sh`로 누적된 `.specops/memory/learnings.jsonl` 레코드를 읽어 최신 10건을 요약 출력한다.
+
+## 사용법
+
+```
+/gbrain [--fid FID]
+```
+
+## 프로세스
+
+### Step 1: learnings.jsonl 존재 확인
+
+```bash
+GBRAIN_FILE="${GBRAIN_FILE:-.specops/memory/learnings.jsonl}"
+if [ ! -f "$GBRAIN_FILE" ]; then
+  echo "learnings.jsonl 없음 — 아직 인사이트 없음"
+  exit 0
+fi
+```
+
+### Step 2: 전체 개수 + 최신 10건 출력
+
+```bash
+total=$(wc -l < "$GBRAIN_FILE" | tr -d ' ')
+echo "## gbrain 인사이트 요약 (전체 ${total}건)"
+echo ""
+echo "### 최신 10건"
+tail -10 "$GBRAIN_FILE" | while IFS= read -r line; do
+  ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
+  insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
+  fid=$(echo "$line" | grep -o '"fid":"[^"]*"' | cut -d'"' -f4)
+  echo "- [$ts]${fid:+ (FID: $fid)} $insight"
+done
+```
+
+### Step 3: --fid 필터링 (인자 지정 시)
+
+```bash
+FID_FILTER="${1:-}"
+if [ -n "$FID_FILTER" ]; then
+  echo ""
+  echo "### FID 필터: $FID_FILTER"
+  grep -F "\"fid\":\"$FID_FILTER\"" "$GBRAIN_FILE" | while IFS= read -r line; do
+    ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
+    insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
+    echo "- [$ts] $insight"
+  done
+fi
+```
+
+## 인사이트 추가
+
+세션 중 발견한 패턴·주의사항을 추가:
+
+```bash
+bash scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
+```
+
+## 5원칙 주입 (specops-auto-ko 고유)
+
+| 원칙 | 본 skill 적용 |
+|---|---|
+| 1 **투명성** | 전체 개수 + 최신 10건 동시 출력 |
+| 2 **문지기** | 파일 미존재 시 조용히 안내 후 종료 |
+| 3 **깊이** | bash grep 기반 JSON 파싱 — 큰따옴표 포함 insight 미지원 명시 |
+| 4 **주권 존중** | 조회·요약만. 삭제·수정 기능 없음 |
+| 5 **한계 고백** | insight 내 큰따옴표 미이스케이프 — 단순 구현 한계 |
+
+## 참조
+
+- `scripts/gbrain-append.sh` — 인사이트 추가 스크립트
+- `commands/gbrain.md` — 슬래시 진입점
+- `.specops/memory/learnings.jsonl` — 저장소
+- upstream 패턴: garrytan/gstack office-hours gbrain 누적 패턴
+
+## 다음 skill
+
+chain 종료. 본 skill은 조회·요약만. 인사이트 추가는 `scripts/gbrain-append.sh` 직접 호출.
