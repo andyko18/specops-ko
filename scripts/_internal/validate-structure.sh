@@ -126,6 +126,14 @@ struct_local=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/nu
 struct=$((struct_std + struct_local))
 emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
+# 7) skill_conventions — SKILL.md frontmatter + 섹션 규약 검증
+if bash scripts/tests/test-skill-conventions.sh >/dev/null 2>&1; then
+  emit skill_conventions OK
+else
+  detail=$(bash scripts/tests/test-skill-conventions.sh 2>&1 | grep '^FAIL' | head -3 | tr '\n' '; ')
+  emit skill_conventions FAIL "$detail"
+fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"

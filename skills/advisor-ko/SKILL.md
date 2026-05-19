@@ -88,6 +88,16 @@ advisor()
 
 ---
 
+## 5원칙 주입 (specops-auto-ko 고유)
+
+| 원칙 | 본 skill 적용 |
+|---|---|
+| 1 **투명성** | advisor 호출 결과를 plan.md §8 또는 spec.md §협의 기록에 명시 |
+| 2 **문지기** | substantive work 전 advisor 미호출 = 원칙 2 위반 |
+| 3 **깊이** | advisor 의견과 자체 근거 충돌 시 reconcile call 의무 |
+| 4 **주권** | advisor 판단이 사용자 결정과 충돌 시 사용자 개입 요청 |
+| 5 **한계 고백** | "advisor 미호출 = 자체검토만" 상태 명시 |
+
 ## 참조
 
 - `skills/karpathy-ko/SKILL.md` — 동일한 cross-cutting skill 패턴

@@ -4,6 +4,7 @@ description: 각 Lifecycle 커맨드 종료 시 세션 컨텍스트를 리셋하
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/context-resets/SKILL.md
 specops_version: 1.0.0
+used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 ---
 
 # Harness 기법 2 — Context Resets

@@ -240,6 +240,16 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${SLUG}.md"
 
 ---
 
+## 5원칙 주입 (specops-auto-ko 고유)
+
+| 원칙 | 본 skill 적용 |
+|---|---|
+| 1 **투명성** | 모드 선택 + 질문 결과를 brainstorming-*.md 에 전문 저장 |
+| 2 **문지기** | HARD GATE — 코드 작성·파일 생성·commit 금지 (탐색만) |
+| 3 **깊이** | 구체성이 없는 답변은 계속 밀어붙임 (관심 ≠ 수요) |
+| 4 **주권** | 강제 chain 없음 — 탐색 결과로 방향 사용자 결정 |
+| 5 **한계 고백** | 정적 질문 목록 — 도메인별 맞춤 질문 미지원 |
+
 ## 참조
 
 - `commands/brainstorming.md` — 슬래시 진입점
