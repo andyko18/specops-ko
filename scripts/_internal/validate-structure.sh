@@ -2,8 +2,13 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
+<<<<<<< HEAD
 # baseline: skills/<name>/SKILL.md × 27  (SKILL.md 템플릿 + skill_conventions 검증 추가)
 #           (commands=8 · agents=3 · conductor 없이 chain)  (templates=26)
+=======
+# baseline: skills/<name>/SKILL.md × 25  (gbrain-ko 추가)
+#           (commands=9 · agents=3 · conductor 없이 chain)  (gbrain.md 추가)
+>>>>>>> origin/feat/20260519-gbrain-skill
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
