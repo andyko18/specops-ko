@@ -5,10 +5,14 @@ layer: 3
 reference_upstream: obra/omc@v1.0 skills/generator-evaluator/SKILL.md
 specops_version: 1.0.0
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: specops-auto-ko:implementing-ko (2단계 리뷰 패턴), specops-auto-ko:requesting-code-review-ko
 =======
 used_by: implementing-ko
 >>>>>>> origin/feat/20260518-skill-conventions
+=======
+used_by: implementing-ko
+>>>>>>> origin/feat/20260518-to-prd
 ---
 
 # Harness 기법 3 — Generator / Evaluator 분리

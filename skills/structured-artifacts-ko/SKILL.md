@@ -5,10 +5,14 @@ layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/structured-artifacts/SKILL.md
 specops_version: 1.0.0
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 =======
 used_by: 모든 Lifecycle Engine skill
 >>>>>>> origin/feat/20260518-skill-conventions
+=======
+used_by: 모든 Lifecycle Engine skill
+>>>>>>> origin/feat/20260518-to-prd
 ---
 
 # Harness 기법 1 — Structured Artifacts

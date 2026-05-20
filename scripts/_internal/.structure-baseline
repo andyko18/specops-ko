@@ -4,6 +4,9 @@
 =======
 {"category":"commands","glob":"commands/*.md","count":7}
 {"category":"skills","glob":"skills/*/SKILL.md","count":23}
+<<<<<<< HEAD
 >>>>>>> origin/feat/20260518-skill-conventions
+=======
+>>>>>>> origin/feat/20260518-to-prd
 {"category":"templates","glob":"templates/*.md","count":26}
 {"category":"agents","glob":"agents/*.md","count":3}
