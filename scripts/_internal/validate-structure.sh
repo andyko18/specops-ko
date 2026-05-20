@@ -133,6 +133,7 @@ emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # 7) skill_conventions — SKILL.md frontmatter + 섹션 규약 검증
 if [ ! -f "scripts/tests/test-skill-conventions.sh" ]; then
   emit skill_conventions SKIP "test-skill-conventions.sh 미존재"
@@ -144,15 +145,20 @@ else
 =======
 =======
 >>>>>>> origin/feat/20260518-to-prd
+=======
+>>>>>>> origin/feat/20260519-plan-eng-review
 # 7) skill_conventions
 if bash "$script_dir/../tests/test-skill-conventions.sh" >/dev/null 2>&1; then
   emit skill_conventions OK
 else
   emit skill_conventions FAIL "test-skill-conventions.sh 실패 — bash scripts/tests/test-skill-conventions.sh 로 상세 확인"
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> origin/feat/20260518-skill-conventions
 =======
 >>>>>>> origin/feat/20260518-to-prd
+=======
+>>>>>>> origin/feat/20260519-plan-eng-review
 fi
 
 # 출력

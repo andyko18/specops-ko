@@ -6,6 +6,7 @@ reference_upstream: revfactory/harness@v1.0 skills/file-based-communication/SKIL
 specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: specops-auto-ko:implementing-ko (서브에이전트 dispatch 시 파일 경로 전달)
 =======
 used_by: implementing-ko, dispatching-parallel-agents-ko
@@ -13,6 +14,9 @@ used_by: implementing-ko, dispatching-parallel-agents-ko
 =======
 used_by: implementing-ko, dispatching-parallel-agents-ko
 >>>>>>> origin/feat/20260518-to-prd
+=======
+used_by: implementing-ko, dispatching-parallel-agents-ko
+>>>>>>> origin/feat/20260519-plan-eng-review
 ---
 
 # Harness 기법 5 — File-Based Communication

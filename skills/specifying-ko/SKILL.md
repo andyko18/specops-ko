@@ -63,8 +63,11 @@ used_by: using-specops-auto-ko-ko, /start
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> origin/feat/20260518-to-prd
+=======
+>>>>>>> origin/feat/20260519-plan-eng-review
      - **`.specops/memory/brainstorming-*.md` PRD-first 합성** (v2.2 신규):
        - `ls .specops/memory/brainstorming-*.md 2>/dev/null` — 부재 시 graceful skip (AC-1)
        - 존재 시: 최신 파일(파일명 정렬 마지막) 읽기 → 핵심 인사이트(문제·대상·방향) 추출 → spec.md **§1 개요** 하단에 아래 블록 주입 (AC-2):
@@ -78,12 +81,15 @@ used_by: using-specops-auto-ko-ko, /start
      - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`brainstorming-*.md` 제외 — 위 PRD-first 합성 처리). (AC-5)
      - **회귀 보호 계약**: 본 분기는 spec.md §참조에 **인용만 추가**한다. 다른 섹션·내용을 변경하지 않는다 (T24 회귀 검증 대상). 단, `brainstorming-*.md` 감지 시 §1 개요 합성은 예외 (PRD-first 패턴, AC-4).
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
      - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`.specops/memory/<name>.md` 경로로 인용).
      - **회귀 보호 계약**: 본 분기는 spec.md §참조에 **인용만 추가**한다. 다른 섹션·내용을 변경하지 않는다 (T24 회귀 검증 대상).
 >>>>>>> origin/feat/20260518-skill-conventions
 =======
 >>>>>>> origin/feat/20260518-to-prd
+=======
+>>>>>>> origin/feat/20260519-plan-eng-review
    - **`CONTEXT.md` 프로젝트 컨텍스트 자동 감지** (v2.1 신규):
      - `ls CONTEXT.md 2>/dev/null` — 부재 시 graceful skip
      - 존재 시: spec.md `§참조`에 `"프로젝트 컨텍스트 — \`CONTEXT.md\`"` 인용

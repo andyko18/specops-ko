@@ -6,6 +6,7 @@ reference_upstream: revfactory/harness@v1.0 skills/sprint-contracts/SKILL.md
 specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: specops-auto-ko:spec-reviewer-ko (AC 계약 검증), specops-auto-ko:clarifying-ko (AC append)
 =======
 used_by: specifying-ko, clarifying-ko, decomposing-ko
@@ -13,6 +14,9 @@ used_by: specifying-ko, clarifying-ko, decomposing-ko
 =======
 used_by: specifying-ko, clarifying-ko, decomposing-ko
 >>>>>>> origin/feat/20260518-to-prd
+=======
+used_by: specifying-ko, clarifying-ko, decomposing-ko
+>>>>>>> origin/feat/20260519-plan-eng-review
 ---
 
 # Harness 기법 4 — Sprint Contracts
