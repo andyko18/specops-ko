@@ -129,7 +129,7 @@ git commit -m "feat: 특정 기능 추가"
 
 ## 자체 검토
 
-완전한 플랜 작성 후, 새 눈으로 스펙과 대조. **이것은 자체 체크리스트**이지 서브에이전트 디스패치가 아님.
+완전한 플랜 작성 후, 새 눈으로 스펙과 대조.
 
 **1. 스펙 커버리지**: 스펙의 각 섹션/요구를 훑어보고, 그 요구를 구현하는 태스크를 짚을 수 있는가? 누락 나열.
 
@@ -137,7 +137,14 @@ git commit -m "feat: 특정 기능 추가"
 
 **3. 타입 일관성**: 후반 태스크에서 쓴 타입·메서드 시그니처·속성명이 전반 태스크에서 정의한 것과 일치하는가? Task 3에서 `clearLayers()`였는데 Task 7에서 `clearFullLayers()`라면 버그.
 
-이슈 발견 시 인라인 수정. 재검토 불필요 — 수정하고 진행. 스펙 요구에 태스크가 없으면 **태스크 추가**.
+이슈 발견 시 인라인 수정. 자체 체크리스트는 재실행 불필요 — 수정 후 아래 독립 검증으로 진행. 스펙 요구에 태스크가 없으면 **태스크 추가**.
+
+### Plan Document Reviewer (독립 서브에이전트 검증)
+
+자체 체크리스트 완료 후, `Agent` 도구로 **general-purpose 서브에이전트를 dispatch**한다. 프롬프트에 `skills/planning-ko/plan-document-reviewer-prompt.md` 전문을 포함하고, `.specops/<FID>/spec.md`와 `.specops/<FID>/plan.md` 경로를 명시하면 신선한 컨텍스트로 대조 검증한다.
+
+- **APPROVED**: decomposing-ko 진입 허용
+- **ISSUES FOUND: \<상세\>**: plan.md에 이슈를 반영한 후 session-progress append로 진행. 심각한 갭(스펙 커버리지 누락·전면 재설계 필요)이면 사용자에게 알리고 확인 후 진행.
 
 ## Eng 리뷰 (plan-reviewer 서브에이전트)
 
