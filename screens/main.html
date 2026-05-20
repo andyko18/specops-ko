@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>main — 화면 미리보기</title>
+  <style>
+    /* CSS 변수 — DESIGN.md §1 Color System 1:1 대응 */
+    :root {
+      --color-primary: #7C3AED;
+      --color-secondary: #A78BFA;
+      --color-bg: #0F0F10;
+      --color-surface: #1A1A1F;
+      --color-text: #F9FAFB;
+      --color-text-secondary: #9CA3AF;
+      --color-error: #EF4444;
+      --color-success: #10B981;
+      --color-border: #374151;
+      --color-accent: #E0C9FF;
+      --font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --radius-pill: 9999px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    /* Button — DESIGN.md §4 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.15s, opacity 0.15s;
+    }
+    .btn-primary { background-color: var(--color-primary); color: white; }
+    .btn-primary:hover { background-color: #6D28D9; }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--color-primary);
+      color: var(--color-primary);
+    }
+    .btn-secondary:hover { background-color: rgba(124,58,237,0.1); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-full { width: 100%; }
+
+    /* Input — DESIGN.md §4 */
+    .input {
+      width: 100%;
+      padding: 10px 12px;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      color: var(--color-text);
+      font-size: 1rem;
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input::placeholder { color: #6B7280; }
+    .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.2); }
+    .input.error { border-color: var(--color-error); }
+    .input-label { display: block; font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 6px; }
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+
+    /* Card — DESIGN.md §4 */
+    .card {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+      padding: 24px;
+    }
+
+    .error-msg { color: var(--color-error); font-size: 0.875rem; margin-top: 4px; }
+
+    a { color: var(--color-secondary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { font-size: 2rem; font-weight: 700; }
+    h2 { font-size: 1.5rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <!-- 화면 콘텐츠를 여기에 작성 (screen: {{name}}) -->
+  <main class="container center" style="flex: 1; padding-top: 64px; padding-bottom: 64px;">
+    <div class="card" style="width: 100%; max-width: 400px;">
+      <h1 style="font-size: 1.5rem; margin-bottom: 24px;">main</h1>
+      <p style="color: var(--color-text-secondary);">화면 내용을 여기에 작성합니다.</p>
+    </div>
+  </main>
+</body>
+</html>
