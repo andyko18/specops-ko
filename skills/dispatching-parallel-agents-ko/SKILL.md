@@ -3,7 +3,11 @@ name: dispatching-parallel-agents-ko
 description: 독립 태스크 2개 이상이 공유 상태·순차 의존 없이 진행 가능할 때 사용 — 병렬 서브에이전트 dispatch로 동시에 처리
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md
+<<<<<<< HEAD
 specops_version: 1.0.0
+=======
+specops_version: 0.2.0
+>>>>>>> origin/feat/20260425-slug-cli
 used_by: specops-auto-ko:implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기), specops-auto-ko:systematic-debugging-ko (독립 도메인 다중 실패 시)
 integrates_with: specops-auto-ko:file-based-communication-ko, specops-auto-ko:context-resets-ko
 ---
@@ -150,7 +154,11 @@ src/agents/agent-tool-abort.test.ts의 실패 테스트 3개 수정:
 
 ## v0.4a — DAG-aware 자동 분기 모드
 
+<<<<<<< HEAD
 본 스킬은 두 모드로 동작한다:
+=======
+본 스킬은 두 모드로 동작한다 (advisor 협의 2026-04-26 13:00):
+>>>>>>> origin/feat/20260425-slug-cli
 
 ### 모드 1: 단순 wrapper (사용자 직접 호출)
 사용자가 task 목록을 손으로 넘기는 경우 (마스터 plan 외 ad-hoc 사용).

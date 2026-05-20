@@ -206,6 +206,7 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 - upstream 원본: `obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
 
+<<<<<<< HEAD
 ## PR 생성 (Lifecycle 종료)
 
 모든 리뷰 이슈 해결 후 사용자가 PR 생성에 동의하면:
@@ -238,6 +239,8 @@ if [ -z "$(git log main..HEAD --oneline)" ]; then
 fi
 ```
 
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 ## session-progress append (v0.4-pre P1 신설)
 
 리뷰 피드백 수용·구현 완료 직후:

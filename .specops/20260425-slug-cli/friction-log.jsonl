@@ -1,0 +1,16 @@
+{"ts":"2026-04-25T13:23:09Z","fid":"20260425-slug-cli","rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":369}
+{"ts":"2026-04-25T13:23:31Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:verifying-evidence-ko) 호출 전 선언 부재","transcript_offset":380}
+{"ts":"2026-04-25T13:24:48Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:requesting-code-review-ko) 호출 전 선언 부재","transcript_offset":435}
+{"ts":"2026-04-26T02:20:36Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:receiving-code-review-ko) 호출 전 선언 부재","transcript_offset":468}
+{"ts":"2026-04-26T02:21:41Z","fid":"20260425-slug-cli","rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":476}
+{"ts":"2026-04-26T02:25:14Z","fid":"20260425-slug-cli","rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":562}
+{"ts":"2026-04-26T02:26:48Z","fid":"20260425-slug-cli","rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":636}
+{"ts":"2026-04-26T03:07:38Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:clarifying-ko) 호출 전 선언 부재","transcript_offset":161}
+{"ts":"2026-04-26T03:08:55Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:planning-ko) 호출 전 선언 부재","transcript_offset":191}
+{"ts":"2026-04-26T03:11:03Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:decomposing-ko) 호출 전 선언 부재","transcript_offset":233}
+{"ts":"2026-04-26T03:12:49Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:implementing-ko) 호출 전 선언 부재","transcript_offset":263}
+{"ts":"2026-04-26T03:24:20Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:verifying-evidence-ko) 호출 전 선언 부재","transcript_offset":335}
+{"ts":"2026-04-26T03:25:10Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:requesting-code-review-ko) 호출 전 선언 부재","transcript_offset":376}
+{"ts":"2026-04-26T03:29:40Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:receiving-code-review-ko) 호출 전 선언 부재","transcript_offset":396}
+{"ts":"2026-04-26T03:30:44Z","fid":"20260425-slug-cli","rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 'PASS=8 FAIL=0' + test runner 실행 부재","transcript_offset":423}
+{"ts":"2026-04-26T04:27:21Z","fid":"20260425-slug-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:specifying-ko) 호출 전 선언 부재","transcript_offset":14}

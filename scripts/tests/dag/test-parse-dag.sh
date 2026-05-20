@@ -128,6 +128,7 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T4.f (out=$out)"
 fi
 
+<<<<<<< HEAD
 # --- T5: get_task_test_command (Wave 2 U2 — FID 20260514) ---
 # 인라인 yaml string (dag::extract_yaml 호출 없이 직접 dag::get_task_test_command 검증)
 yaml='tasks:
@@ -177,6 +178,8 @@ fi
 # cleanup
 rm -f /tmp/b1_stdout /tmp/b1_stderr
 
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 echo ""
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # specops-auto-ko v0.4a W1 — DAG 파서 (Sourced library)
 #
+<<<<<<< HEAD
 # 5 함수 namespace:
+=======
+# 4 함수 namespace:
+>>>>>>> origin/feat/20260425-slug-cli
 #   dag::extract_yaml      <tasks.md>                   — `## 의존 그래프` 섹션의 YAML fenced block stdout
 #   dag::list_leaves       <yaml-string>                — depends_on=[] 인 task id (newline 구분)
 #   dag::outputs_disjoint  <yaml-string> <id1> <id2>    — id1·id2 outputs 교집합 0이면 exit 0
 #   dag::find_independent_batch <yaml-string>           — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
+<<<<<<< HEAD
 #   dag::get_task_test_command  <yaml-string> <task-id> — task 의 test_command 필드 (없으면 빈 + exit 0)  [Wave 2 U2]
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 #
 # 의존성: python3 + pyyaml (기존 is-hook-enabled.sh, is-rule-enabled.sh와 동일 인프라)
 # 참조: 마스터 plan §6 v0.4a W1 + advisor 협의 2026-04-26 13:00 (정정 채택)
@@ -131,6 +138,7 @@ if len(batch) >= 2:
         print(tid)
 '
 }
+<<<<<<< HEAD
 
 # dag::get_task_test_command <yaml-string> <task-id>
 # task 의 test_command 필드 stdout (Wave 2 U2 — FID 20260514).
@@ -160,3 +168,5 @@ except Exception as e:
     sys.exit(0)
 PYEOF
 }
+=======
+>>>>>>> origin/feat/20260425-slug-cli

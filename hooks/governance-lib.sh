@@ -130,29 +130,43 @@ apply_lookback_rule() {
 
 # R-3 매처 — Skill 호출 직전 N assistant 메시지에 선언 부재 확인 (AC-9, v0.4-pre W1 확장)
 # usage: apply_skill_declaration_rule <transcript> <skill_full_name>
+<<<<<<< HEAD
 # 선언 = 영문 "[Using|Invoking|Calling|Switching to] <short|full>" 또는
+=======
+# 선언 = 영문 "[Using|Invoking|Calling|Switching to] <short>" 또는
+>>>>>>> origin/feat/20260425-slug-cli
 #        한국어 "<short> (을|를|로|으로)? (사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시)"
 # short = skill_full_name 에서 "specops-auto-ko:" 접두 제거
 # v0.4-pre W1 변경 (마스터 plan §6 v0.4-pre):
 # 1. 동사군 확장 (한국어 6 → 12, 영문 1 → 4)
 # 2. lookback N=1 → N=3 assistant 메시지
 # 3. user turn 첫 진입 예외 (직전 user 메시지에 /start 또는 트리거 키워드 있으면 면제)
+<<<<<<< HEAD
 # v0.4b W1 변경: full name (specops-auto-ko:<short>) 패턴 추가 (cvt+b64 7건 회귀 원인)
 # v0.5 W1 변경: lifecycle chain auto-call exempt — 직전 tool_use가 Skill(specops-auto-ko:*)이면 면제
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 apply_skill_declaration_rule() {
   local transcript="$1" skill_full="$2"
   [ -f "$transcript" ] || return 0
   local short="${skill_full#specops-auto-ko:}"
+<<<<<<< HEAD
   # full name = specops-auto-ko:<short>, short name = <short> — 둘 다 허용
   local name_re="(specops-auto-ko:)?${short}"
   local decl_re="([Uu]sing[[:space:]]+${name_re}|[Ii]nvoking[[:space:]]+${name_re}|[Cc]alling[[:space:]]+${name_re}|[Ss]witching[[:space:]]+to[[:space:]]+${name_re}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
+=======
+  local decl_re="([Uu]sing[[:space:]]+${short}|[Ii]nvoking[[:space:]]+${short}|[Cc]alling[[:space:]]+${short}|[Ss]witching[[:space:]]+to[[:space:]]+${short}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
+>>>>>>> origin/feat/20260425-slug-cli
   # user turn 첫 진입 예외 트리거 (사용자 입력에 이 패턴이 있으면 첫 Skill 호출은 면제)
   local trigger_re='(/start|/quick|/free|만들[고어]|구현|추가|수정|fix|feature)'
   # 직전 N=3 assistant text 메시지를 ring buffer로 유지
   local prev_text_1="" prev_text_2="" prev_text_3=""
   local last_user_text=""
+<<<<<<< HEAD
   # v0.5: lifecycle chain 추적 — 직전 Skill(specops-auto-ko:*) 호출 저장
   local prev_lifecycle_skill=""
+=======
+>>>>>>> origin/feat/20260425-slug-cli
   local matched=0
   local offset=0
   while IFS= read -r line; do
@@ -168,11 +182,17 @@ apply_skill_declaration_rule() {
     local has_target_skill
     has_target_skill=$(echo "$line" | jq -r --arg s "$skill_full" '.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s) | .input.skill' 2>/dev/null)
     if [ -n "$has_target_skill" ]; then
+<<<<<<< HEAD
       # 직전 3개 assistant text 또는 user trigger 또는 lifecycle chain 검사
       local combined="${prev_text_1}\n${prev_text_2}\n${prev_text_3}"
       if [ -n "$prev_lifecycle_skill" ]; then
         matched=0  # lifecycle chain 자동 호출 → 면제 (v0.5 W1)
       elif printf '%s' "$combined" | grep -Eq "$decl_re"; then
+=======
+      # 직전 3개 assistant text 또는 user trigger 검사
+      local combined="${prev_text_1}\n${prev_text_2}\n${prev_text_3}"
+      if printf '%s' "$combined" | grep -Eq "$decl_re"; then
+>>>>>>> origin/feat/20260425-slug-cli
         matched=0  # 선언 발견 → 미매칭
       elif [ -n "$last_user_text" ] && printf '%s' "$last_user_text" | grep -Eq "$trigger_re"; then
         matched=0  # user turn trigger 직후 첫 Skill 호출 → 면제

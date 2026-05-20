@@ -35,7 +35,11 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 5. **기존 clarifications.md 회전** — 있으면 `bash hooks/rotate-evaluator-artifact.sh .specops/<FID>/clarifications.md` 실행
 6. **clarifications.md 작성** — 판정 JSON + 질문별 답변
 7. **acceptance-criteria.md append** — 신규 AC만 추가, 기존 AC 수정 금지
+<<<<<<< HEAD
 8. **timestamp 주입** — `bash hooks/inject-evaluator-timestamp.sh .specops/<FID>/clarifications.md`
+=======
+8. **timestamp 주입** — `hooks/inject-evaluator-timestamp.sh` (Phase 1 이식 후)
+>>>>>>> origin/feat/20260425-slug-cli
 9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-auto-ko:planning-ko` 다음 단계 안내
 10. **전환** — `specops-auto-ko:planning-ko` 호출
 

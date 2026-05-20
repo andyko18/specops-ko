@@ -1,6 +1,7 @@
 # OMC 런타임 state (개별 개발 환경용)
 .omc/
 
+<<<<<<< HEAD
 # dogfood 세션 FID 아티팩트 — 플러그인 배포 불포함
 .specops/
 .worktrees/
@@ -8,6 +9,8 @@
 # Node.js
 skills/brainstorming-ko/scripts/node_modules/
 
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 # macOS
 .DS_Store
 

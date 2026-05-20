@@ -1,0 +1,22 @@
+{"ts":"2026-04-25T11:38:35Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:specifying-ko) 호출 전 선언 부재","transcript_offset":27}
+{"ts":"2026-04-25T12:16:55Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":746}
+{"ts":"2026-04-25T12:41:05Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1174}
+{"ts":"2026-04-25T12:43:17Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1200}
+{"ts":"2026-04-25T12:44:57Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1248}
+{"ts":"2026-04-25T12:45:58Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1261}
+{"ts":"2026-04-25T12:50:54Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1335}
+{"ts":"2026-04-25T12:54:20Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":1335}
+{"ts":"2026-04-25T12:54:25Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:specifying-ko) 호출 전 선언 부재","transcript_offset":18}
+{"ts":"2026-04-25T12:55:38Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":61}
+{"ts":"2026-04-25T12:56:00Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":61}
+{"ts":"2026-04-25T12:56:15Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":61}
+{"ts":"2026-04-25T12:57:38Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":95}
+{"ts":"2026-04-25T13:00:20Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":95}
+{"ts":"2026-04-25T13:00:55Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":170}
+{"ts":"2026-04-25T13:01:22Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:clarifying-ko) 호출 전 선언 부재","transcript_offset":181}
+{"ts":"2026-04-25T13:02:19Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":196}
+{"ts":"2026-04-25T13:03:05Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":205}
+{"ts":"2026-04-25T13:04:29Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:planning-ko) 호출 전 선언 부재","transcript_offset":234}
+{"ts":"2026-04-25T13:09:50Z","fid":null,"rule_id":"R-4","principle":5,"severity":"warn","evidence_snippet":"성공 주장 '완료' + test runner 실행 부재","transcript_offset":232}
+{"ts":"2026-04-25T13:10:31Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:decomposing-ko) 호출 전 선언 부재","transcript_offset":284}
+{"ts":"2026-04-25T13:13:31Z","fid":null,"rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:implementing-ko) 호출 전 선언 부재","transcript_offset":313}

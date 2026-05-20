@@ -185,7 +185,11 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T9.e (out=$out)"
 fi
 
+<<<<<<< HEAD
 # R-5 용 transcript fixture 치환 헬퍼 (Edit — 기존 파일 수정)
+=======
+# R-5 용 transcript fixture 치환 헬퍼
+>>>>>>> origin/feat/20260425-slug-cli
 make_r5_transcript() {
   local spec_path="$1"
   local out="$2"

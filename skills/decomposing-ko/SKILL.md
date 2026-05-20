@@ -20,8 +20,11 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 
 **bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-auto-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
 
+<<<<<<< HEAD
 **Python 테스트 파일 규약**: 생성되는 `test_*.py` 에 exec-bit 및 shebang 불필요. pytest가 직접 실행. 파일명은 `test_<subject>.py` (underscore, hyphen 아님). 상세: `templates/test-conventions-python.md`.
 
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 **v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
 </HARD-GATE>
 
@@ -60,6 +63,7 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
       dag::find_independent_batch "$yaml" # 병렬 후보 출력 (참고용)
       ```
     - YAML 파싱 실패 또는 빈 leaf 시 → 본 스킬 재작성 의무 (HARD-GATE 차단)
+<<<<<<< HEAD
     - **Step 10b. emit-context.sh 자동 산출 (Wave 2 U2 — 의무)** — Step 10 의 DAG 자체 검증 통과 후:
       ```bash
       bash scripts/dag/emit-context.sh <FID>
@@ -69,6 +73,8 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
       - 성공 시 stdout `EMIT: N files`
       - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
       - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
+=======
+>>>>>>> origin/feat/20260425-slug-cli
 11. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-auto-ko:implementing-ko` 호출
 

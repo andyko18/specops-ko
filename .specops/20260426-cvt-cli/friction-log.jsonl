@@ -1,0 +1,10 @@
+{"ts":"2026-04-26T04:33:52Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:clarifying-ko) 호출 전 선언 부재","transcript_offset":192}
+{"ts":"2026-04-26T04:36:02Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:planning-ko) 호출 전 선언 부재","transcript_offset":248}
+{"ts":"2026-04-26T04:40:39Z","fid":"20260426-cvt-cli","rule_id":"R-5","principle":1,"severity":"warn","evidence_snippet":"섹션 부재: /Users/mac/code/specops-auto-ko/.specops/20260426-cvt-cli/plan.md","transcript_offset":281}
+{"ts":"2026-04-26T04:41:10Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:decomposing-ko) 호출 전 선언 부재","transcript_offset":339}
+{"ts":"2026-04-26T04:44:20Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:implementing-ko) 호출 전 선언 부재","transcript_offset":377}
+{"ts":"2026-04-26T04:54:27Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:verifying-evidence-ko) 호출 전 선언 부재","transcript_offset":478}
+{"ts":"2026-04-26T04:55:34Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:requesting-code-review-ko) 호출 전 선언 부재","transcript_offset":527}
+{"ts":"2026-04-26T04:58:30Z","fid":"20260426-cvt-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:receiving-code-review-ko) 호출 전 선언 부재","transcript_offset":564}
+{"ts":"2026-04-26T05:02:22Z","fid":"20260426-cvt-cli","rule_id":"R-5","principle":1,"severity":"warn","evidence_snippet":"섹션 부재: /Users/mac/code/specops-auto-ko/.specops/20260426-cvt-cli/plan.md","transcript_offset":281}
+{"ts":"2026-04-26T05:06:39Z","fid":"20260426-cvt-cli","rule_id":"R-5","principle":1,"severity":"warn","evidence_snippet":"섹션 부재: /Users/mac/code/specops-auto-ko/.specops/20260426-cvt-cli/plan.md","transcript_offset":281}

@@ -75,8 +75,11 @@ DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←───────────�
   결과 수집:
     - leaf NEEDS_CONTEXT 반환 시 → 컨텍스트 보강 후 재dispatch (R8)
     - leaf DONE 시 → proposed_commit_message 수집
+<<<<<<< HEAD
 
   **Wave 2 (FID 20260514) — emit-context 자동 산출**: decomposing-ko Step 10b 가 `bash scripts/dag/emit-context.sh <FID>` 로 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션을 자동 산출하므로, 본 skill 의 컨텍스트 작성 단계는 §5 worktree 라인 sed 갱신만으로 축약된다. 컨텍스트 파일 부재 시 → decomposing-ko 재진입 요청 (HARD GATE).
+=======
+>>>>>>> origin/feat/20260425-slug-cli
     ↓
   Phase B (병렬): 각 leaf별 spec-reviewer-ko dispatch (병렬)
     ↓
