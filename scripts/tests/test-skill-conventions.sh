@@ -2,6 +2,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # specops-auto-ko · SKILL.md frontmatter + 섹션 규약 정적 검증
 set -u
 PASS=0; FAIL=0
@@ -119,6 +120,8 @@ echo "PASS=$PASS FAIL=$FAIL"
 >>>>>>> origin/feat/20260518-to-prd
 =======
 >>>>>>> origin/feat/20260519-plan-eng-review
+=======
+>>>>>>> origin/feat/20260519-finishing-dev-branch-ko
 # SKILL.md 작성 규약 정적 검증 (FID 20260518-skill-conventions)
 # T1.a: SKILL.md 개수 ≥ 23
 # T2.a: frontmatter 6 필드 전부 존재
@@ -205,8 +208,11 @@ echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> origin/feat/20260518-skill-conventions
 =======
 >>>>>>> origin/feat/20260518-to-prd
 =======
 >>>>>>> origin/feat/20260519-plan-eng-review
+=======
+>>>>>>> origin/feat/20260519-finishing-dev-branch-ko

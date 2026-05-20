@@ -7,6 +7,7 @@ specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 =======
 used_by: implementing-ko, verifying-evidence-ko
@@ -17,6 +18,9 @@ used_by: implementing-ko, verifying-evidence-ko
 =======
 used_by: implementing-ko, verifying-evidence-ko
 >>>>>>> origin/feat/20260519-plan-eng-review
+=======
+used_by: implementing-ko, verifying-evidence-ko
+>>>>>>> origin/feat/20260519-finishing-dev-branch-ko
 ---
 
 # Harness 기법 2 — Context Resets

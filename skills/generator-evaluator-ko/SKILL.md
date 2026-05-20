@@ -7,6 +7,7 @@ specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: specops-auto-ko:implementing-ko (2단계 리뷰 패턴), specops-auto-ko:requesting-code-review-ko
 =======
 used_by: implementing-ko
@@ -17,6 +18,9 @@ used_by: implementing-ko
 =======
 used_by: implementing-ko
 >>>>>>> origin/feat/20260519-plan-eng-review
+=======
+used_by: implementing-ko
+>>>>>>> origin/feat/20260519-finishing-dev-branch-ko
 ---
 
 # Harness 기법 3 — Generator / Evaluator 분리

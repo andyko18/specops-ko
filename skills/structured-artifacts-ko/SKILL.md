@@ -7,6 +7,7 @@ specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 =======
 used_by: 모든 Lifecycle Engine skill
@@ -17,6 +18,9 @@ used_by: 모든 Lifecycle Engine skill
 =======
 used_by: 모든 Lifecycle Engine skill
 >>>>>>> origin/feat/20260519-plan-eng-review
+=======
+used_by: 모든 Lifecycle Engine skill
+>>>>>>> origin/feat/20260519-finishing-dev-branch-ko
 ---
 
 # Harness 기법 1 — Structured Artifacts
