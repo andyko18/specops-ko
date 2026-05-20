@@ -4,27 +4,7 @@ description: 모든 Lifecycle 커맨드의 Process 첫 스텝 — `.specops/<FID
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/structured-artifacts/SKILL.md
 specops_version: 1.0.0
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 used_by: 모든 engine skills (아티팩트 경로 규약 참조)
-=======
-used_by: 모든 Lifecycle Engine skill
->>>>>>> origin/feat/20260518-skill-conventions
-=======
-used_by: 모든 Lifecycle Engine skill
->>>>>>> origin/feat/20260518-to-prd
-=======
-used_by: 모든 Lifecycle Engine skill
->>>>>>> origin/feat/20260519-plan-eng-review
-=======
-used_by: 모든 Lifecycle Engine skill
->>>>>>> origin/feat/20260519-finishing-dev-branch-ko
-=======
-used_by: 모든 Lifecycle Engine skill
->>>>>>> origin/feat/20260519-visual-companion-server
 ---
 
 # Harness 기법 1 — Structured Artifacts

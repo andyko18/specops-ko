@@ -1,11 +1,7 @@
 {
   "name": "specops-auto-ko-local",
   "metadata": {
-<<<<<<< HEAD
     "description": "specops-auto-ko 로컬 마켓플레이스 (v1.2.0 — Claude Code 전용)"
-=======
-    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.0.0 — Claude Code 전용)"
->>>>>>> origin/feat/v0.4b
   },
   "owner": {
     "name": "andyko18",
@@ -15,11 +11,7 @@
     {
       "name": "specops-auto-ko",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반 (로컬 PoC)",
-<<<<<<< HEAD
       "version": "1.2.0",
-=======
-      "version": "1.0.0",
->>>>>>> origin/feat/v0.4b
       "source": "./",
       "author": {
         "name": "andyko18",

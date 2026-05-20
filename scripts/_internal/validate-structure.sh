@@ -2,64 +2,34 @@
 # specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
-<<<<<<< HEAD
-<<<<<<< HEAD
 # baseline: skills/<name>/SKILL.md × 27  (SKILL.md 템플릿 + skill_conventions 검증 추가)
 #           (commands=8 · agents=3 · conductor 없이 chain)  (templates=26)
-=======
-# baseline: skills/<name>/SKILL.md × 25  (gbrain-ko 추가)
-#           (commands=9 · agents=3 · conductor 없이 chain)  (gbrain.md 추가)
->>>>>>> origin/feat/20260519-gbrain-skill
-=======
-# baseline: P1 flat skill 구조 — skills/<name>/SKILL.md × 16
-#           (commands=1 /start, agents 없음 · conductor 없이 chain, knowledge 없음)
->>>>>>> origin/feat/v0.4b
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 
 JSON_MODE=0
-<<<<<<< HEAD
 UPDATE_BASELINE=0
 case "${1:-}" in
   --json) JSON_MODE=1 ;;
   --update-baseline) UPDATE_BASELINE=1 ;;
 esac
-=======
-[ "${1:-}" = "--json" ] && JSON_MODE=1
->>>>>>> origin/feat/v0.4b
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$(dirname "$script_dir")")
 cd "$plugin_root"
-<<<<<<< HEAD
 BASELINE="$script_dir/.structure-baseline"
-=======
->>>>>>> origin/feat/v0.4b
 
 FAILS=0
 RESULTS=()
 emit() { RESULTS+=("$1|$2|${3:-}"); [ "$2" = "FAIL" ] && FAILS=$((FAILS+1)); }
 
-<<<<<<< HEAD
 # 1) 디렉토리 존재 (v0.4a: agents/ 추가; docs/ 제거됨)
 miss_d=()
 for d in commands skills templates hooks scripts agents; do
-=======
-<<<<<<<< HEAD:scripts/validate-structure.sh
-# 1) 디렉토리 존재 (v0.4a: agents/ 추가)
-miss_d=()
-for d in commands skills templates docs hooks scripts agents; do
-========
-# 1) 디렉토리 존재 (v0.4a: agents/ 추가; docs/ 제거됨)
-miss_d=()
-for d in commands skills templates hooks scripts agents; do
->>>>>>>> origin/feat/v0.4b:scripts/_internal/validate-structure.sh
->>>>>>> origin/feat/v0.4b
   [ -d "$d" ] || miss_d+=("$d")
 done
 if [ ${#miss_d[@]} -eq 0 ]; then emit directories OK; else emit directories FAIL "누락: ${miss_d[*]}"; fi
 
-<<<<<<< HEAD
 # 2) 파일 개수 — .structure-baseline (jsonl) 동적 검증 (U4)
 #    각 줄: {"category":"<라벨>","glob":"<패턴>","count":<정수>}
 #    --update-baseline: 현 실측으로 baseline 갱신 후 종료
@@ -106,27 +76,6 @@ else
   done < "$BASELINE"
   if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
 fi
-=======
-<<<<<<<< HEAD:scripts/validate-structure.sh
-# 2) 파일 개수 (P1: commands=1 /start, skills/<name>/SKILL.md=16, templates=7)
-# templates=7: spec, acceptance-criteria, plan, tasks, session-progress, analysis, test-conventions-bash (f54fac0 추가)
-========
-# 2) 파일 개수 (commands=1, skills=18, templates=7, agents=3)
-# templates=7: spec, acceptance-criteria, plan, tasks, session-progress, dispatch-context, test-conventions-bash
->>>>>>>> origin/feat/v0.4b:scripts/_internal/validate-structure.sh
-fc=()
-count_of() { ls $1 2>/dev/null | wc -l | tr -d ' '; }
-count_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' '; }
-[ "$(count_of 'commands/*.md')"  = 1  ] || fc+=("commands: got $(count_of 'commands/*.md'), expect 1")
-[ "$(count_skills)"              = 18 ] || fc+=("skills: got $(count_skills) SKILL.md, expect 18")
-<<<<<<<< HEAD:scripts/validate-structure.sh
-[ "$(count_of 'templates/*.md')" = 8  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 8")
-========
-[ "$(count_of 'templates/*.md')" = 7  ] || fc+=("templates: got $(count_of 'templates/*.md'), expect 7")
->>>>>>>> origin/feat/v0.4b:scripts/_internal/validate-structure.sh
-[ "$(count_of 'agents/*.md')"    = 3  ] || fc+=("agents: got $(count_of 'agents/*.md'), expect 3")
-if [ ${#fc[@]} -eq 0 ]; then emit file_counts OK; else emit file_counts FAIL "${fc[*]}"; fi
->>>>>>> origin/feat/v0.4b
 
 # 2b) 메타 skill SessionStart 주입 경로 필수 (P1 핵심 가설)
 meta="skills/using-specops-auto-ko-ko/SKILL.md"
@@ -168,7 +117,6 @@ else
   emit manifest SKIP "python3 미설치"
 fi
 
-<<<<<<< HEAD
 # 6) reference_upstream 포맷 정보성
 # 유효 포맷: (a) owner/repo@version path  (b) specops-auto-ko 독자 추가 (upstream 미존재 명시)
 total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
@@ -178,11 +126,6 @@ struct_local=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/nu
 struct=$((struct_std + struct_local))
 emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 # 7) skill_conventions — SKILL.md frontmatter + 섹션 규약 검증
 if [ ! -f "scripts/tests/test-skill-conventions.sh" ]; then
   emit skill_conventions SKIP "test-skill-conventions.sh 미존재"
@@ -191,43 +134,8 @@ elif bash scripts/tests/test-skill-conventions.sh >/dev/null 2>&1; then
 else
   detail=$(bash scripts/tests/test-skill-conventions.sh 2>&1 | grep '^FAIL' | head -3 | tr '\n' '; ')
   emit skill_conventions FAIL "$detail"
-=======
-=======
->>>>>>> origin/feat/20260518-to-prd
-=======
->>>>>>> origin/feat/20260519-plan-eng-review
-=======
->>>>>>> origin/feat/20260519-finishing-dev-branch-ko
-=======
->>>>>>> origin/feat/20260519-visual-companion-server
-# 7) skill_conventions
-if bash "$script_dir/../tests/test-skill-conventions.sh" >/dev/null 2>&1; then
-  emit skill_conventions OK
-else
-  emit skill_conventions FAIL "test-skill-conventions.sh 실패 — bash scripts/tests/test-skill-conventions.sh 로 상세 확인"
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> origin/feat/20260518-skill-conventions
-=======
->>>>>>> origin/feat/20260518-to-prd
-=======
->>>>>>> origin/feat/20260519-plan-eng-review
-=======
->>>>>>> origin/feat/20260519-finishing-dev-branch-ko
-=======
->>>>>>> origin/feat/20260519-visual-companion-server
 fi
 
-=======
-# 6) reference_upstream 포맷 정보성 (v0.0: agents·knowledge 없음)
-total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
-struct=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
-         commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
-emit ref_upstream_fmt INFO "struct=${struct}/${total}"
-
->>>>>>> origin/feat/v0.4b
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"

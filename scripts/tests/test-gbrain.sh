@@ -51,7 +51,6 @@ run "T2.c insight 큰따옴표 포함 JSONL 유효" bash -c '
   rm -f "$tmp"
 '
 
-<<<<<<< HEAD
 # T2.d: 큰따옴표 포함 insight python3 json 파싱 round-trip
 T2_d() {
   command -v python3 >/dev/null 2>&1 || return 0  # python3 없으면 SKIP (pass)
@@ -75,8 +74,6 @@ run "T2.d 큰따옴표 포함 insight python3 round-trip" T2_d
 run "T2.e SKILL.md python3 파싱 분기 존재" \
   grep -q 'python3' "$PLUGIN/skills/gbrain-ko/SKILL.md"
 
-=======
->>>>>>> origin/feat/20260519-gbrain-skill
 # T3.a: 파일 미존재 시 자동 생성
 T3_a() {
   local tmpdir tmp

@@ -185,14 +185,7 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T9.e (out=$out)"
 fi
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 # R-5 용 transcript fixture 치환 헬퍼 (Edit — 기존 파일 수정)
-=======
-=======
->>>>>>> origin/feat/v0.4b
-# R-5 용 transcript fixture 치환 헬퍼
->>>>>>> origin/feat/20260425-slug-cli
 make_r5_transcript() {
   local spec_path="$1"
   local out="$2"
@@ -255,7 +248,6 @@ else
 fi
 rm -rf "$tmp"
 
-<<<<<<< HEAD
 # T10.g (U1) R-5 §유형: trivial + 빈 섹션 → 미매칭 (trivial skip)
 tmp=$(mktemp -d)
 cat > "$tmp/spec.md" <<'EOF'
@@ -304,8 +296,6 @@ else
 fi
 rm -rf "$tmp"
 
-=======
->>>>>>> origin/feat/v0.4b
 # T7.m R-3 full name 선언 (specops-auto-ko:<short>) → 미매칭 (v0.4b W1)
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl" "specops-auto-ko:planning-ko")
 if [ -z "$out" ]; then
@@ -314,7 +304,6 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7.m (out=$out)"
 fi
 
-<<<<<<< HEAD
 # T7.n R-3 lifecycle chain 자동 호출 → 미매칭 (v0.5 W1)
 # fixture: requesting-code-review-ko 직후 receiving-code-review-ko 자동 chain
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" "specops-auto-ko:receiving-code-review-ko")
@@ -335,8 +324,6 @@ else
 fi
 rm -rf "$tmp"
 
-=======
->>>>>>> origin/feat/v0.4b
 # T11.a log_friction dedup — 같은 rule_id + snippet 두 번 호출 시 1건만 기록
 tmp=$(mktemp -d)
 (cd "$tmp" &&
@@ -351,7 +338,6 @@ else
 fi
 rm -rf "$tmp"
 
-<<<<<<< HEAD
 # ── U8 회귀: detect_fid first-only 버그 ─────────
 
 # T12.a (U8) active-fid 마커 우선 — 다중 ## 헤더 환경에서도 마커 FID 반환
@@ -400,8 +386,6 @@ else
 fi
 rm -rf "$tmp"
 
-=======
->>>>>>> origin/feat/v0.4b
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

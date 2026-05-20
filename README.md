@@ -1,28 +1,9 @@
 # specops-auto-ko
 
 **Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.0.0)
-<<<<<<< HEAD
-=======
-
-## Quick Start
-
-```bash
-# 1. 플러그인 설치 (1회)
-claude plugin marketplace add ~/path/to/specops-auto-ko
-
-# 2. 새 프로젝트에서 시작
-/start <기능 설명>
-# 예: /start "CSV 파일 줄 수 세기 CLI"
-```
-
-`/start` 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
-
----
->>>>>>> origin/feat/v0.4b
 
 ## 사용방법
 
-<<<<<<< HEAD
 ### 1. 플러그인 설치 (1회)
 
 ```bash
@@ -49,10 +30,6 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.
 
-=======
-슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.
-
->>>>>>> origin/feat/v0.4b
 - **자율 체인**: Conductor 에이전트 없이 각 스킬 본문 `## 다음 skill`이 다음 단계를 강제
 - **거버넌스**: R-1~R-5 규칙 엔진이 매 도구 호출 후 원칙 위반을 자동 감지
 - **AC 계약**: `acceptance-criteria.md`를 스프린트 계약서로 취급 — 평가자는 이것만 기준으로 판정
@@ -63,7 +40,6 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 ## Lifecycle Chain
 
 ```
-<<<<<<< HEAD
 /start <기능>  또는  /maintain <대상>  또는  자연어
     ↓
 specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart · 신호 분류 → maintenance flag)
@@ -76,13 +52,6 @@ specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart · 신호 분�
     │                       (current-state.md + impact-analysis.md)
     │                                    ↓
     └─→ specops-auto-ko:specifying-ko ←──┘     — spec.md (§유형 자동 라벨) + acceptance-criteria.md (회귀 AC 강제)
-=======
-/start <기능>
-    ↓
-specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart 자동 주입)
-    ↓
-specops-auto-ko:specifying-ko     — spec.md + acceptance-criteria.md
->>>>>>> origin/feat/v0.4b
     ↓ HARD GATE (사용자 승인)
 specops-auto-ko:clarifying-ko     — clarifications.md
     ↓ HARD GATE
@@ -114,7 +83,6 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-<<<<<<< HEAD
 ├── commands/                                 ← 슬래시 진입로 (6건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -122,10 +90,6 @@ specops-auto-ko/
 │   ├── start-design.md                       ← deprecated (start-project 로 통합)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
 │   └── e2e-test.md                           ← E2E lifecycle 자동 테스트
-=======
-├── commands/
-│   └── start.md                          ← 단일 진입 슬래시 /start
->>>>>>> origin/feat/v0.4b
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
@@ -133,11 +97,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-<<<<<<< HEAD
 ├── skills/                               ← flat: skills/<name>/SKILL.md × 22
-=======
-├── skills/                               ← flat: skills/<name>/SKILL.md × 18
->>>>>>> origin/feat/v0.4b
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -153,11 +113,8 @@ specops-auto-ko/
 │   ├── systematic-debugging-ko/          ← BLOCKED 상태 복구
 │   ├── dispatching-parallel-agents-ko/   ← DAG-aware 병렬 dispatch
 │   ├── using-git-worktrees-ko/           ← 병렬 격리 (git worktree)
-<<<<<<< HEAD
 │   ├── karpathy-ko/                      ← Karpathy 4원칙 (Think·Simplicity·Surgical·Goal)
 │   ├── advisor-ko/                       ← advisor 활용 (애매성 발생 시 외부 자문 의무)
-=======
->>>>>>> origin/feat/v0.4b
 │   │
 │   │  Harness Skills (아키텍처 원칙)
 │   ├── sprint-contracts-ko/              ← AC를 계약으로
@@ -165,7 +122,6 @@ specops-auto-ko/
 │   ├── generator-evaluator-ko/           ← Phase B/C 분리 원칙
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   └── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
-<<<<<<< HEAD
 ├── templates/                            ← 24건
 │   │  Lifecycle 템플릿 (12건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, current-state, impact-analysis, test-conventions-{bash,python},
@@ -173,16 +129,11 @@ specops-auto-ko/
 │   │  /start-project 산출 템플릿 (12건 NEW v2.0): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy
-=======
-├── templates/                            ← 7건 (spec, AC, plan, tasks, session-progress,
-│                                            dispatch-context, test-conventions-bash)
->>>>>>> origin/feat/v0.4b
 ├── agents/                               ← 3건 (implementer, spec-reviewer, code-reviewer)
 ├── scripts/
 │   ├── session-progress-append.sh
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증
 │   ├── tests/                            ← governance + dag 단위 테스트
-<<<<<<< HEAD
 │   └── _internal/                        ← 유지보수 도구
 │       ├── validate-structure.sh        ← 구조 무결성 검증 (`--update-baseline` 플래그)
 │       ├── .structure-baseline          ← jsonl baseline (commands/skills/templates/agents 카운트)
@@ -191,9 +142,6 @@ specops-auto-ko/
 │       ├── is-hook-enabled.sh
 │       ├── validate-task-dependencies.sh
 │       └── start-project.sh             ← /start-project 오케스트레이터 (10 phase, NEW v2.0)
-=======
-│   └── _internal/                        ← 유지보수 도구 (validate-structure 등)
->>>>>>> origin/feat/v0.4b
 ├── examples/                             ← dogfood CLI 예시 (epoch/hex/b64/cvt/slug)
 └── README.md
 ```
@@ -218,25 +166,6 @@ specops-auto-ko/
 
 ---
 
-<<<<<<< HEAD
-=======
-## upstream 출처
-
-| 스킬 | upstream |
-|---|---|
-| specifying-ko | `obra/superpowers@v5.0.7 skills/brainstorming/` |
-| planning-ko | `obra/superpowers@v5.0.7 skills/writing-plans/` |
-| implementing-ko | `obra/superpowers@v5.0.7 skills/subagent-driven-development/` |
-| tdd-ko | `obra/superpowers@v5.0.7` + `affaan-m/ECC skills/tdd-workflow/` |
-| verifying-evidence-ko | `obra/superpowers@v5.0.7` + `affaan-m/ECC skills/verification-loop/` |
-| requesting/receiving-code-review-ko | `obra/superpowers@v5.0.7` |
-| systematic-debugging-ko | `obra/superpowers@v5.0.7 skills/systematic-debugging/` |
-| clarifying-ko · decomposing-ko | 신규 (Spec-Kit 양식) |
-| harness 5종 | revfactory/harness + Anthropic 2025 harness 설계 |
-
----
-
->>>>>>> origin/feat/v0.4b
 ## 검증 현황
 
 - **Lifecycle dogfood**: 5회 완주 (csv-lines · slug-cli · cvt-cli · b64-cli · hex-cli)
