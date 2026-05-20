@@ -212,6 +212,28 @@ Skill: specops-auto-ko:plan-reviewer-ko
 
 | <N> | <ISO-8601> | plan-reviewer | plan-reviewer-ko | PASS\|FAIL | - |
 
+## Eng 리뷰 (plan-reviewer 서브에이전트)
+
+자체 검토 통과 후 `specops-auto-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다.
+
+**dispatch:**
+Skill: specops-auto-ko:plan-reviewer-ko
+입력: `.specops/<FID>/plan.md` 경로
+
+**판정 처리 (cap=2):**
+
+`PLAN-REVIEW-RESULT: FAIL` — Critical/Important 이슈 발견 시 **HARD GATE 발동**: decomposing-ko 진입 차단 + plan.md 수정 요청.
+
+| 결과 | 처리 |
+|---|---|
+| `PLAN-REVIEW-RESULT: PASS` | `## 실행 전환` 진행 (decomposing-ko 허용) |
+| `PLAN-REVIEW-RESULT: FAIL` (초기 시도) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
+| `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | `HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요` 출력 후 중단 |
+
+**dispatch-log.md 기록** (`.specops/<FID>/dispatch-log.md` — 부재 시 `templates/dispatch-log.md` 복사):
+
+| <N> | <ISO-8601> | plan-reviewer | plan-reviewer-ko | PASS\|FAIL | - |
+
 ## 5원칙 주입 (specops-auto-ko 고유)
 
 | 원칙 | 본 스킬 적용 |

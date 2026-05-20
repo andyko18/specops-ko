@@ -8,6 +8,7 @@ specops_version: 1.0.0
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 used_by: specops-auto-ko:spec-reviewer-ko (AC 계약 검증), specops-auto-ko:clarifying-ko (AC append)
 =======
 used_by: specifying-ko, clarifying-ko, decomposing-ko
@@ -21,6 +22,9 @@ used_by: specifying-ko, clarifying-ko, decomposing-ko
 =======
 used_by: specifying-ko, clarifying-ko, decomposing-ko
 >>>>>>> origin/feat/20260519-finishing-dev-branch-ko
+=======
+used_by: specifying-ko, clarifying-ko, decomposing-ko
+>>>>>>> origin/feat/20260519-visual-companion-server
 ---
 
 # Harness 기법 4 — Sprint Contracts

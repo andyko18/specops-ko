@@ -6,6 +6,7 @@
 {"category":"commands","glob":"commands/*.md","count":7}
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 {"category":"skills","glob":"skills/*/SKILL.md","count":23}
 <<<<<<< HEAD
 >>>>>>> origin/feat/20260518-skill-conventions
@@ -25,4 +26,8 @@
 {"category":"skills","glob":"skills/*/SKILL.md","count":25}
 {"category":"templates","glob":"templates/*.md","count":26}
 >>>>>>> origin/feat/20260519-finishing-dev-branch-ko
+=======
+{"category":"skills","glob":"skills/*/SKILL.md","count":25}
+{"category":"templates","glob":"templates/*.md","count":26}
+>>>>>>> origin/feat/20260519-visual-companion-server
 {"category":"agents","glob":"agents/*.md","count":3}
