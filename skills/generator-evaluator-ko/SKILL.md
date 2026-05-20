@@ -4,7 +4,11 @@ description: 생성 에이전트와 평가 에이전트를 엄격히 분리하�
 layer: 3
 reference_upstream: obra/omc@v1.0 skills/generator-evaluator/SKILL.md
 specops_version: 1.0.0
+<<<<<<< HEAD
 used_by: specops-auto-ko:implementing-ko (2단계 리뷰 패턴), specops-auto-ko:requesting-code-review-ko
+=======
+used_by: implementing-ko
+>>>>>>> origin/feat/20260518-skill-conventions
 ---
 
 # Harness 기법 3 — Generator / Evaluator 분리

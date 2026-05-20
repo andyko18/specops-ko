@@ -4,7 +4,11 @@ description: 서브에이전트 호출 시 프롬프트에 파일 경로만 전�
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/file-based-communication/SKILL.md
 specops_version: 1.0.0
+<<<<<<< HEAD
 used_by: specops-auto-ko:implementing-ko (서브에이전트 dispatch 시 파일 경로 전달)
+=======
+used_by: implementing-ko, dispatching-parallel-agents-ko
+>>>>>>> origin/feat/20260518-skill-conventions
 ---
 
 # Harness 기법 5 — File-Based Communication
