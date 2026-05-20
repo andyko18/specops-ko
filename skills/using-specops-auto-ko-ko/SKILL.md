@@ -137,6 +137,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 주권 | HARD GATE는 engine skill이 본문에서 강제. 메타 skill은 진입만 책임 |
 | 5 한계 고백 | skill이 적합하지 않다고 판단되면 후행 단계에서 사용자에게 "이 skill로 충분한가?" 질문 가능 |
 
+<<<<<<< HEAD
 ## Karpathy 행동 원칙 (cross-cutting)
 
 구현 단계 진입 시 아래 4원칙이 자동 활성된다. 세부 내용: `specops-auto-ko:karpathy-ko`.
@@ -162,6 +163,8 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 
 자명한 작업 (typo / 1 줄 rename) 은 호출 회피. 긴 작업은 substantive work 직전 + 종결 직전 1 회 이상 권장.
 
+=======
+>>>>>>> origin/feat/v0.4b
 
 ## 참조
 

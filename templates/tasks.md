@@ -116,9 +116,12 @@ graph TD
 tasks:
   - id: T1
 <<<<<<< HEAD
+<<<<<<< HEAD
     test_command: "bash scripts/tests/test-<file1>.sh"   # Wave 2 U2 — 신규 필드 (optional). 부재 시 extract-test-commands.sh 가 Step 4 라인 fallback.
 =======
 >>>>>>> origin/feat/20260425-slug-cli
+=======
+>>>>>>> origin/feat/v0.4b
     depends_on: []
     inputs: []
     outputs: [src/<file1>.sh, scripts/tests/test-<file1>.sh]

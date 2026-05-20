@@ -39,7 +39,10 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 8. **timestamp 주입** — `bash hooks/inject-evaluator-timestamp.sh .specops/<FID>/clarifications.md`
 =======
 8. **timestamp 주입** — `hooks/inject-evaluator-timestamp.sh` (Phase 1 이식 후)
+<<<<<<< HEAD
 >>>>>>> origin/feat/20260425-slug-cli
+=======
+>>>>>>> origin/feat/v0.4b
 9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-auto-ko:planning-ko` 다음 단계 안내
 10. **전환** — `specops-auto-ko:planning-ko` 호출
 

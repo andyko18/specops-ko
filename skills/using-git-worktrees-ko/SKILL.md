@@ -4,10 +4,14 @@ description: 현재 워크스페이스에서 격리가 필요한 기능 작업�
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/using-git-worktrees/SKILL.md
 <<<<<<< HEAD
+<<<<<<< HEAD
 specops_version: 1.0.0
 =======
 specops_version: 0.2.0
 >>>>>>> origin/feat/20260425-slug-cli
+=======
+specops_version: 0.2.0
+>>>>>>> origin/feat/v0.4b
 used_by: specops-auto-ko:specifying-ko (Phase 4 — 설계 승인 후 구현 직전), specops-auto-ko:implementing-ko (모든 태스크 실행 전), specops-auto-ko:planning-ko (참조)
 integrates_with: specops-auto-ko:finishing-a-development-branch-ko
 ---

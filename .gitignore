@@ -2,6 +2,9 @@
 .omc/
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> origin/feat/v0.4b
 # dogfood 세션 FID 아티팩트 — 플러그인 배포 불포함
 .specops/
 .worktrees/
