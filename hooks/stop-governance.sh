@@ -8,7 +8,7 @@ set -u
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$script_dir")
 
-bash "$plugin_root/scripts/is-hook-enabled.sh" stop-governance >/dev/null 2>&1 || { echo '{"continue":true}'; exit 0; }
+bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" stop-governance >/dev/null 2>&1 || { echo '{"continue":true}'; exit 0; }
 
 safe_exit() {
   echo "[governance-capture] ERROR: stop hook: $1" >&2

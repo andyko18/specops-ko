@@ -9,7 +9,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$script_dir")
 
 # config guard — disabled 시 조용히 continue
-bash "$plugin_root/scripts/is-hook-enabled.sh" posttool-governance >/dev/null 2>&1 || { echo '{"continue":true}'; exit 0; }
+bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" posttool-governance >/dev/null 2>&1 || { echo '{"continue":true}'; exit 0; }
 
 # 실패 시 stderr + 투과
 safe_exit() {
