@@ -4,7 +4,7 @@ description: specops-auto-ko 한국어 자율 Lifecycle 유지보수 진입 슬�
 triggers:
   - "/maintain"
 mode: ask
-specops_version: 0.0.0
+specops_version: 1.0.0
 specops_layer: Lifecycle
 reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
   - commands/start.md (자매 진입로 패턴 답습)
@@ -14,14 +14,14 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ## 목적
 
-`/start` 와 동등한 진입 슬래시지만 maintenance flag 자동 세팅. specifying-ko Step 1 [유지보수 분기] 로 직행 (Phase D 시점). Phase C 적용 후에는 analyzing-ko 선행.
+`/start` 와 동등한 진입 슬래시지만 maintenance flag 자동 세팅. analyzing-ko 선행 후 specifying-ko 유지보수 분기로 직행.
 
-## Process (Phase C 적용 후)
+## Process
 
 1. **메타 skill 활성 확인** — `skills/using-specops-auto-ko-ko/SKILL.md` 가 세션 시작 시 활성
 2. **analyzing-ko 호출** — args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend 후 원본 인자. analyzing-ko 가 current-state.md + impact-analysis.md 산출 + ★ HARD GATE
 3. **사용자 검토 통과 후 specifying-ko 호출** — analyzing-ko 가 동일 args 로 chain (args 첫 줄 약속어 유지). specifying-ko Step 1 [유지보수 분기] 가 두 산출물 참조
-4. **이후 자동 chain** — clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → review
+4. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` 섹션이 자동 강제: clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → review. 본 command는 **진입만** 책임
 
 ## 사용 예
 
@@ -56,4 +56,4 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ---
 
-*PoC v0.0 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*
+*specops-auto-ko v1.0.0 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*

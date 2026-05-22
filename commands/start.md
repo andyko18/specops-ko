@@ -4,7 +4,7 @@ description: specops-auto-ko 한국어 자율 Lifecycle 단일 진입 슬래시 
 triggers:
   - "/start"
 mode: ask
-specops_version: 0.0.0
+specops_version: 1.0.0
 specops_layer: Lifecycle
 reference_upstream: obra/superpowers@v5.0.7 commands/brainstorm.md
   - obra/superpowers@v5.0.7 commands/brainstorm.md (deprecated하지만 진입 패턴 참고)
@@ -21,9 +21,7 @@ specops-auto-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자�
 
 1. **메타 skill 활성 확인** — `skills/using-specops-auto-ko-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함. 아니면 수동으로 `Skill` 도구 호출
 2. **즉시 `specops-auto-ko:specifying-ko` 스킬 호출** — 전달된 `<기능 설명>`을 초기 맥락으로 제공
-3. **이후 자동 chain** — `specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko`
-
-chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. 본 command는 **진입만** 책임.
+3. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` 섹션이 자동 강제 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko). 본 command는 **specifying-ko 진입만** 책임.
 
 ## 사용 예
 
@@ -63,4 +61,4 @@ chain은 각 engine skill 본문의 `## 다음 skill` 섹션이 강제한다. �
 
 ---
 
-*PoC v0.0 · 2026-04-21 · 단일 진입 슬래시 (자연어 진입과 동등)*
+*specops-auto-ko v1.0.0 · 2026-04-21 · 단일 진입 슬래시 (자연어 진입과 동등)*
