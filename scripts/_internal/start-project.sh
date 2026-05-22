@@ -521,6 +521,7 @@ _phase_8f_api_spec() {
   _should_skip "$target" && return
   cp "$PLUGIN/templates/api-spec.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  # TODO(G1): 포맷별 템플릿 분리 — m=2→OpenAPI전용, m=3→GraphQL전용 등
   echo "→ ${target} (8f 방식=${m})"
 }
 
