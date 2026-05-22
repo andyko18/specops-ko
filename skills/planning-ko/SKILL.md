@@ -278,6 +278,8 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 - `templates/plan.md` — 작성 포맷 (**정확히 따를 것**, 특히 §8 Advisor 협의 기록 섹션)
 - `templates/tasks.md` — 태스크 분해 포맷
 - upstream 원본: `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`
+- `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
+- `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## session-progress append (v0.4-pre P1 신설)
 

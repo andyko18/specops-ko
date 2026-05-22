@@ -17,6 +17,25 @@
 
 ---
 
+## 20260522-harness-ref-skills · harness-ref-skills
+- 2026-05-22 15:58 /tasks 완료 (tasks.md (5 태스크))
+- 2026-05-22 15:50 /plan 완료 (plan.md)
+- 2026-05-22 15:49 /clarify 완료 (clarifications.md (BLOCKING 0건 — 전 항목 사전 결정))
+- 2026-05-22 15:33 /specify 완료 (spec.md, AC.md)
+
+- 2026-05-22 15:30 /analyze 완료 (current-state.md, impact-analysis.md)
+
+
+## 20260522-greet-cli-e2e · greet-cli E2E
+- 2026-05-22 09:47 /verify PASS (V=9 FAIL=0)
+- 2026-05-22 09:47 /implement 완료 (greet-cli.sh + test PASS=3)
+- 2026-05-22 09:47 /tasks 완료 (tasks.md (2 태스크))
+- 2026-05-22 09:47 /plan 완료 (plan.md)
+- 2026-05-22 09:46 /clarify 완료 (clarifications.md (2 쟁점 해소))
+
+- 2026-05-22 09:46 /specify 완료 (spec.md, AC.md)
+
+
 ## 20260426-b64-cli
 - 2026-04-26 18:27 /lifecycle DONE (PR 생성)
 - 2026-04-26 18:27 /receive-review 완료 (Critical 0건 / Important 1건(I-1 fix) / Suggestion 3건(YAGNI skip) / fix 라운드 1회)
