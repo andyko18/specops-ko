@@ -151,7 +151,7 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c"
 fi
 
-# ── T2.d run: whitelist 거부 명령 → WARN stderr + skip + exit 0 ──
+# ── T2.d run: whitelist 거부 명령 → WARN stderr + skip + VERIFY:PARTIAL exit 1 ──
 TMPDIR=$(mktemp -d)
 mkdir -p "$TMPDIR/.specops/fid-test"
 printf '%s\n' \
@@ -168,20 +168,20 @@ printf '%s\n' \
   '```' \
   > "$TMPDIR/.specops/fid-test/tasks.md"
 (cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2d-out-$$ 2>/tmp/t2d-err-$$; ec=$?
- if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2d-err-$$ && ! grep -q "VERIFY: PASS" /tmp/t2d-out-$$; then
+ if [ "$ec" -eq 1 ] && grep -q "WARN: SKIP" /tmp/t2d-err-$$ && grep -q "VERIFY: PARTIAL" /tmp/t2d-out-$$; then
    echo "OK"
  else
    echo "FAIL ec=$ec err='$(cat /tmp/t2d-err-$$)' out='$(cat /tmp/t2d-out-$$)'"
  fi) > "$TMPDIR/result"
 rm -f /tmp/t2d-out-$$ /tmp/t2d-err-$$
 if grep -q "^OK$" "$TMPDIR/result"; then
-  ok "T2.d run → whitelist 거부 명령 WARN + skip (exit 0)"
+  ok "T2.d run → whitelist 거부 명령 WARN + VERIFY:PARTIAL exit 1"
 else
   nope "T2.d" "$(cat "$TMPDIR/result")"
 fi
 rm -rf "$TMPDIR"
 
-# ── T2.e run: .. path traversal 차단 → WARN stderr + skip ──
+# ── T2.e run: .. path traversal 차단 → WARN stderr + VERIFY:PARTIAL exit 1 ──
 TMPDIR=$(mktemp -d)
 mkdir -p "$TMPDIR/.specops/fid-test"
 printf '%s\n' \
@@ -198,16 +198,55 @@ printf '%s\n' \
   '```' \
   > "$TMPDIR/.specops/fid-test/tasks.md"
 (cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2e-out-$$ 2>/tmp/t2e-err-$$; ec=$?
- if [ "$ec" -eq 0 ] && grep -q "WARN: SKIP" /tmp/t2e-err-$$; then
+ if [ "$ec" -eq 1 ] && grep -q "WARN: SKIP" /tmp/t2e-err-$$ && grep -q "VERIFY: PARTIAL" /tmp/t2e-out-$$; then
    echo "OK"
  else
-   echo "FAIL ec=$ec err='$(cat /tmp/t2e-err-$$)'"
+   echo "FAIL ec=$ec err='$(cat /tmp/t2e-err-$$)' out='$(cat /tmp/t2e-out-$$)'"
  fi) > "$TMPDIR/result"
 rm -f /tmp/t2e-out-$$ /tmp/t2e-err-$$
 if grep -q "^OK$" "$TMPDIR/result"; then
-  ok "T2.e run → .. path traversal 명령 WARN + skip"
+  ok "T2.e run → path traversal WARN + VERIFY:PARTIAL exit 1"
 else
   nope "T2.e" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.f run: 혼합(bash PASS + npm skip) → VERIFY:PARTIAL exit 1 (P0 거짓양성 방지) ──
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test" "$TMPDIR/scripts/tests"
+echo '#!/usr/bin/env bash
+exit 0' > "$TMPDIR/scripts/tests/dummy-pass.sh"
+chmod +x "$TMPDIR/scripts/tests/dummy-pass.sh"
+printf '%s\n' \
+  '## 의존 그래프' \
+  '' \
+  '```yaml' \
+  'tasks:' \
+  '  - id: T1' \
+  '    test_command: "bash scripts/tests/dummy-pass.sh"' \
+  '    depends_on: []' \
+  '    inputs: []' \
+  '    outputs: []' \
+  '    ac: [AC-1]' \
+  '  - id: T2' \
+  '    test_command: "npm test"' \
+  '    depends_on: []' \
+  '    inputs: []' \
+  '    outputs: []' \
+  '    ac: [AC-2]' \
+  '```' \
+  > "$TMPDIR/.specops/fid-test/tasks.md"
+(cd "$TMPDIR" && bash "$RUN" fid-test >/tmp/t2f-out-$$ 2>/tmp/t2f-err-$$; ec=$?
+ if [ "$ec" -eq 1 ] && grep -q "VERIFY: PARTIAL" /tmp/t2f-out-$$ && grep -q "WARN: SKIP" /tmp/t2f-err-$$; then
+   echo "OK"
+ else
+   echo "FAIL ec=$ec out='$(cat /tmp/t2f-out-$$)' err='$(cat /tmp/t2f-err-$$)'"
+ fi) > "$TMPDIR/result"
+rm -f /tmp/t2f-out-$$ /tmp/t2f-err-$$
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.f run → 혼합(bash PASS+npm skip) VERIFY:PARTIAL exit 1 (P0 거짓양성 방지)"
+else
+  nope "T2.f" "$(cat "$TMPDIR/result")"
 fi
 rm -rf "$TMPDIR"
 

@@ -284,7 +284,7 @@ out=$({
   printf "\n"
   printf "n\n"
 } | bash "$SCRIPT" 2>&1)
-if grep -q "MERGE PRESERVED" PRD.md && echo "$out" | grep -q "merge 미구현"; then
+if grep -q "MERGE PRESERVED" PRD.md && echo "$out" | grep -q "merge 정책 미구현\|merge 미구현"; then
   ok "T16.a (C1) merge → skip fallback 안내 + 기존 파일 보존 (데이터 손실 차단)"
 else
   nope "T16.a merge" "PRD 보존 또는 fallback 안내 부재 (out=$(echo \"$out\" | grep -i merge | head -1))"
@@ -409,6 +409,31 @@ if grep -q "\-\-resume" "$PLUGIN/commands/start-project.md"; then
 else
   nope "T22.a resume docs" "--resume 언급 없음"
 fi
+
+# ── T23.a --resume MyProject → PROJECT_NAME=MyProject (CLAUDE.md 등에 치환됨) ──
+setup_fixture
+{
+  printf "3\np1\np2\np3\np4\np5\n"
+  printf "1. cli tool\n2. dev\n3. bash\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n"
+} | bash "$SCRIPT" --resume MyProject >/dev/null 2>&1 || true
+if [ -f README.md ] && grep -q "MyProject" README.md; then
+  ok "T23.a --resume <project-name> → PROJECT_NAME=MyProject README.md 치환됨"
+else
+  nope "T23.a resume+name" "README.md 미생성 또는 MyProject 치환 안됨"
+fi
+teardown_fixture
+
+# ── T24.a merge 정책 선택 → stderr ⚠️ 경고 + skip fallback ──
+setup_fixture
+echo "existing" > PRD.md
+out_24=$(printf 'merge\n' | bash "$SCRIPT" 2>&1 || true)
+if echo "$out_24" | grep -q "merge 정책 미구현\|merge.*fallback\|fallback.*merge"; then
+  ok "T24.a merge 정책 → ⚠️ 경고 + skip fallback"
+else
+  nope "T24.a merge warning" "merge fallback 경고 미출력 (out='$(echo "$out_24" | head -5)')"
+fi
+teardown_fixture
 
 # ── 결과 ──────────────────────────────────────
 echo ""

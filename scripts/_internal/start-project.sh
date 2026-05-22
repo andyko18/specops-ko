@@ -79,7 +79,7 @@ _resolve_conflict_policy() {
     read -r p || true
     case "$p" in
       overwrite) CONFLICT_POLICY="overwrite" ;;
-      merge)     CONFLICT_POLICY="skip"; echo "→ merge 미구현, skip 으로 fallback (기존 파일 보존)" ;;
+      merge)     CONFLICT_POLICY="skip"; echo "⚠️  merge 정책 미구현 — skip 으로 fallback. 기존 파일은 보존됩니다." >&2 ;;
       *)         CONFLICT_POLICY="skip" ;;
     esac
   fi
@@ -127,7 +127,7 @@ _parse_numbered() {
 # ── Phase 함수 ───────────────────────────────
 _check_brainstorming() {
   local bm_files
-  bm_files=$(find .specops/memory -maxdepth 1 -name "brainstorming-*.md" 2>/dev/null | sort -r | head -3)
+  bm_files=$(ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -3)
   if [ -n "$bm_files" ]; then
     echo ""
     echo "브레인스토밍 메모 발견:"
@@ -275,6 +275,14 @@ _phase_4_render() {
   _replace_line_prefix "$target" '- **M3**:' "- **M3**: ${PRD_F6:-<TODO>}"
   _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
   PRD_ONELINE="${PRD_F1:-<TODO>}"
+  # brainstorming 참조 기록 (BM_REF="y" 이고 파일 존재 시)
+  if [ "${BM_REF:-n}" = "y" ]; then
+    local bm_file
+    bm_file=$(ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1)
+    if [ -n "$bm_file" ]; then
+      printf '\n---\n\n## 브레인스토밍 컨텍스트\n\n> 참조: `%s`\n' "$bm_file" >> "$target"
+    fi
+  fi
   echo "→ ${target} 작성 완료"
 }
 
@@ -609,16 +617,16 @@ main() {
   local project_name="${1:-}"
   if [ "${project_name}" = "--resume" ]; then
     RESUME_MODE=1
-    project_name=""
+    project_name="${2:-}"
     echo "[resume 모드] 기존 파일 보존, 누락 파일만 생성합니다." >&2
   fi
   if [ "${project_name}" = "--help" ]; then
-    echo "Usage: $0 [--resume | <project-name>]"
+    echo "Usage: $0 [--resume [<project-name>] | <project-name>]"
     echo ""
     echo "specops-auto-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 13종 산출물 자동 생성"
     echo ""
     echo "Options:"
-    echo "  --resume    기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개; project-name 과 함께 사용 불가)"
+    echo "  --resume [<project-name>]    기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개; project-name 선택적)"
     echo ""
     echo "Phase:"
     echo "  1  사전검사 (git/memory/ + 13종 파일별 표)"

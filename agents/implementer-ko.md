@@ -64,7 +64,7 @@ model: inherit
 9. **tasks.md 상태 마킹**: 현재 태스크의 `- [ ]` → `- [x]`.
 10. **session-progress append**: `<timestamp> implementer-ko 태스크 N 완료 (AC-N)`.
 11. **부모에 반환** — 다음 4개 상태 중 하나:
-    - **DONE**: 태스크 완료 + git diff 요약 + 커밋 SHA
+    - **DONE**: 태스크 완료 + git diff 요약 + proposed_commit_message
     - **BLOCKED**: 진행 불가 + 이유 (예: 기존 테스트 실패)
     - **NEEDS_CONTEXT**: 부모로부터 추가 정보 필요
     - **NEEDS_APPROVAL**: 파괴적 작업, 사용자 승인 필요

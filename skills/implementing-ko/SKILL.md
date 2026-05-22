@@ -30,6 +30,8 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-e
 본 세션에서 진행?
     ↓ yes
 → implementing-ko (본 스킬)
+   단일 세션 내 독립 leaf 2+ → DAG-AWARE PARALLEL 분기 (v0.4a부터 지원)
+   단일 leaf 또는 chain → SEQUENTIAL 분기
 
 ↓ no (다른 세션 병렬) → 별도 실행 흐름 (현재 미지원 — 본 세션 내 직렬 처리)
 ```
@@ -49,17 +51,18 @@ batch ≥ 2 leaf?
     ├─ yes (병렬 분기) → DAG-AWARE PARALLEL ─────────────┐
     └─ no (단일 leaf 또는 chain) → SEQUENTIAL          │
                                                           │
-SEQUENTIAL 분기:                                          │
-  각 태스크마다:                                          │
+SEQUENTIAL 분기 (DAG 위상 정렬 순 — 1 태스크씩):        │
+  dag::list_leaves "$yaml" 로 초기 ready 태스크 식별 →  │
+  ready 태스크 중 1개씩:                                  │
     ┌─ 구현자 dispatch (implementer-ko)                   │
     │     ↓                                                │
     │  Phase B: spec-reviewer-ko dispatch                 │
     │     ↓                                                │
     │  Phase C: code-reviewer-ko dispatch                 │
     │     ↓                                                │
-    └─ TodoWrite 태스크 완료                              │
+    └─ TodoWrite 완료 + depends_on 해소된 다음 태스크 탐색│
     ↓                                                      │
-다음 태스크 → loop                                         │
+다음 ready 태스크 → loop (depends_on 전부 완료 기준)     │
                                                           │
 DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←──────────────────┘
   각 leaf에 대해:
@@ -83,10 +86,10 @@ DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←───────────�
   Phase C (병렬): 각 leaf별 code-reviewer-ko dispatch (Phase B PASS 후)
     ↓
   부모 머지 (R11 git race 차단):
-    - git diff 충돌 확인
     - 머지 순서: output count 적은 leaf 먼저
-    - main worktree 로 fast-forward (또는 sequential fallback)
-    - 부모가 commit (leaf 권한 박탈, R8)
+    - leaf staged diff 추출: `git -C .worktrees/<FID>-<task-id>/ diff --cached > /tmp/<task-id>.patch`
+    - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
+    - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
     ↓
 다음 batch 또는 SEQUENTIAL 잔여 → loop
     ↓ 전부 완료
@@ -129,10 +132,10 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 **cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권).
 
 **reviewer feedback 파일 경로 규약** (file-based-communication-ko 준수):
-- `.specops/<FID>/reviews/<task-id>-B-feedback.md` — spec-reviewer-ko 산출
-- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 산출
+- `.specops/<FID>/reviews/<task-id>-B-feedback.md` — **implementing-ko(부모)가 spec-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
+- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — **implementing-ko(부모)가 code-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
 
-implementer-ko 재dispatch 시 본 파일의 **경로만** 추가 컨텍스트로 전달 (본문 페이로드 금지).
+Phase B/C FAIL 직후 부모가 reviewer 출력 전문을 위 경로에 저장한 뒤 implementer-ko 재dispatch. 재dispatch 시 파일의 **경로만** 추가 컨텍스트로 전달 (본문 페이로드 금지).
 
 ## dispatch-log.md 자동 append (Wave 2 U5)
 

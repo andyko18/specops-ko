@@ -39,6 +39,7 @@ mkdir -p "$(dirname "$EVIDENCE")"
 
 all_pass=1
 executed=0
+skipped=0
 _WHITELIST_PAT='^bash[[:blank:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*$'
 
 while IFS= read -r cmd; do
@@ -50,6 +51,7 @@ while IFS= read -r cmd; do
       echo '> WARN: SKIP — whitelist 미통과'
       echo ""
     } >> "$EVIDENCE"
+    skipped=$((skipped + 1))
     continue
   fi
   {
@@ -72,8 +74,12 @@ while IFS= read -r cmd; do
   fi
 done <<< "$commands"
 
+if [ "$skipped" -gt 0 ]; then
+  echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"
+  exit 1
+fi
 if [ "$executed" -eq 0 ]; then
-  echo "VERIFY: WARN — 실행된 명령 0건 (모두 whitelist 거부)" >&2
+  echo "VERIFY: WARN — 실행된 명령 0건" >&2
   exit 0
 fi
 if [ "$all_pass" = "1" ]; then

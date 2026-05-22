@@ -63,12 +63,12 @@ used_by: using-specops-auto-ko-ko, /start
 
      - **`.specops/memory/brainstorming-*.md` PRD-first 합성** (v2.2 신규):
        - `ls .specops/memory/brainstorming-*.md 2>/dev/null` — 부재 시 graceful skip (AC-1)
-       - 존재 시: 최신 파일(파일명 정렬 마지막) 읽기 → 핵심 인사이트(문제·대상·방향) 추출 → spec.md **§1 개요** 하단에 아래 블록 주입 (AC-2):
+       - 존재 시: 최신 파일(`ls -t | head -1` 수정 시간 기준) 읽기 → 핵심 인사이트(문제·대상·방향) 추출 → spec.md **§1 개요** 하단에 아래 블록 주입 (AC-2):
          ```markdown
          > **브레인스토밍 컨텍스트** (`<실제 파일명>`):
-         > - 문제: <## 핵심 인사이트 섹션 요약>
-         > - 대상: <## 핵심 인사이트 또는 ### 채택 방향에서 대상 사용자 추론 — 명시 섹션 없으면 "미명시">
-         > - 방향: <### 채택 방향(## 탐색된 방향 하위 H3) 또는 ## 다음 단계 섹션 요약>
+         > - 문제: <Startup: ## 현재 상태 요약 / Builder: ## 핵심 감탄 포인트 요약>
+         > - 대상: <Startup: ## 고객 증거 §Q3 인물 / Builder: ## 핵심 감탄 포인트에서 추론 — 없으면 "미명시">
+         > - 방향: <Startup: ## 최소 버전 Spec / Builder: ### 선택된 방향>
          ```
        - §참조에도 동일 파일 citation bullet 추가 (기존 패턴 유지, AC-3)
      - 위 표에 없는 `.specops/memory/*.md` 추가 산출물도 동일 패턴 (`brainstorming-*.md` 제외 — 위 PRD-first 합성 처리). (AC-5)
