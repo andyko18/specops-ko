@@ -668,4 +668,4 @@ PASS=9 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥8 허용)
 
 ---
 
-*PoC v0.0 · 2026-05-03 · E2E 자동 테스트 harness skill · specops-auto-ko 독자 추가*
+*specops-auto-ko v1.0.0 · 2026-05-03 · E2E 자동 테스트 harness skill · specops-auto-ko 독자 추가*

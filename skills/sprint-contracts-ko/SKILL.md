@@ -4,7 +4,7 @@ description: acceptance-criteria.md를 스프린트 계약서로 취급하고, E
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/sprint-contracts/SKILL.md
 specops_version: 1.0.0
-used_by: specops-auto-ko:spec-reviewer-ko (AC 계약 검증), specops-auto-ko:clarifying-ko (AC append)
+used_by: specops-auto-ko:implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC 계약 검증), specops-auto-ko:clarifying-ko (AC append)
 ---
 
 # Harness 기법 4 — Sprint Contracts

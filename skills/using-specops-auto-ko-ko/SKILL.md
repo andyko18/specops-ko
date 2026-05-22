@@ -176,4 +176,4 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 
 ---
 
-*PoC v0.0 · 2026-04-21 · Phase 1 구축 완료 · Superpowers using-superpowers 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
+*specops-auto-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · Superpowers using-superpowers 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
