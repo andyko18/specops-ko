@@ -96,3 +96,4 @@ echo "→ screens/${NAME}.md"
 echo "→ screens/${NAME}.html"
 echo "→ Primary 색상: ${primary}"
 [ -f "$overview" ] && echo "→ screens-overview.md 갱신됨"
+exit 0

@@ -83,6 +83,23 @@ bash "$SCRIPT" login --force >/dev/null 2>&1; code=$?
   && ok  "T6.b --force → 덮어쓰기 성공" \
   || nope "T6.b --force 덮어쓰기" "exit code=$code"
 
+# T7: screens-overview.md 없을 때 exit 0 + 파일 생성 성공
+bash "$SCRIPT" about >/dev/null 2>&1; code=$?
+[ "$code" -eq 0 ] && [ -f "screens/about.md" ] \
+  && ok  "T7.a screens-overview.md 없을 때 exit 0 + 파일 생성 성공" \
+  || nope "T7.a overview 부재 graceful" "exit=$code"
+
+# T8: 동일 이름 중복 추가 → overview 표에 1행만
+mkdir -p .specops/memory
+cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
+sed -i.bak 's/<PROJECT_NAME>/TestProj/' .specops/memory/screens-overview.md
+bash "$SCRIPT" dup >/dev/null 2>&1
+bash "$SCRIPT" dup --force >/dev/null 2>&1  # 동일 이름 재실행
+count=$(grep -c '| dup |' .specops/memory/screens-overview.md 2>/dev/null || echo 0)
+[ "$count" -eq 1 ] \
+  && ok  "T8.a 동일 이름 중복 → overview 1행만 (중복 없음)" \
+  || nope "T8.a 중복 방어" "dup 행 수=$count (기대 1)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
