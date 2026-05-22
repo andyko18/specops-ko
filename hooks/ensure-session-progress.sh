@@ -8,7 +8,7 @@ set -u
 # v0.2 묶음 3: config guard — disabled 시 조용히 exit 0
 script_dir_guard=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root_guard=$(dirname "$script_dir_guard")
-bash "$plugin_root_guard/scripts/is-hook-enabled.sh" ensure-session-progress || exit 0
+bash "$plugin_root_guard/scripts/_internal/is-hook-enabled.sh" ensure-session-progress || exit 0
 
 target=".specops/session-progress.md"
 if [ -f "$target" ]; then

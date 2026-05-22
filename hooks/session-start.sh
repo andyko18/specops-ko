@@ -13,8 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # v0.0: config guard — disabled 시 조용히 exit 0 (빈 JSON)
-if [ -x "$PLUGIN_ROOT/scripts/is-hook-enabled.sh" ]; then
-  bash "$PLUGIN_ROOT/scripts/is-hook-enabled.sh" session-start || { printf '{}\n'; exit 0; }
+if [ -x "$PLUGIN_ROOT/scripts/_internal/is-hook-enabled.sh" ]; then
+  bash "$PLUGIN_ROOT/scripts/_internal/is-hook-enabled.sh" session-start || { printf '{}\n'; exit 0; }
 fi
 
 # 1) 메타 skill 본문 로드
