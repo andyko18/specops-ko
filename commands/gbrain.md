@@ -5,6 +5,7 @@ triggers:
   - "/gbrain"
 mode: ask
 specops_version: 1.0.0
+specops_layer: Lifecycle-Tool
 reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
 ---
 

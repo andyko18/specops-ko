@@ -4,7 +4,7 @@ description: specops-auto-ko E2E 자동 테스트 — lifecycle 6단계를 greet
 triggers:
   - "/e2e-test"
 mode: auto
-specops_version: 0.0.0
+specops_version: 1.0.0
 specops_layer: E2E-Test
 reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 ---
