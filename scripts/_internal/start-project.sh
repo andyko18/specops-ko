@@ -521,8 +521,16 @@ _phase_8f_api_spec() {
   _should_skip "$target" && return
   cp "$PLUGIN/templates/api-spec.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
-  # TODO(G1): 포맷별 템플릿 분리 — m=2→OpenAPI전용, m=3→GraphQL전용 등
-  echo "→ ${target} (8f 방식=${m})"
+  local fmt_label fmt_sec
+  case "$m" in
+    1) fmt_label="Markdown 엔드포인트 표"; fmt_sec="§1" ;;
+    2) fmt_label="OpenAPI 3.1 YAML";       fmt_sec="§2" ;;
+    3) fmt_label="GraphQL SDL";             fmt_sec="§3" ;;
+    4) fmt_label="RPC / TS 시그니처";       fmt_sec="§4" ;;
+  esac
+  sed -i.bak "s/\[ \] ${fmt_sec} /[x] ${fmt_sec} /" "$target" && rm -f "${target}.bak"
+  _replace_token "$target" "<\`/start-project\` 입력값>" "${fmt_label} (${fmt_sec})"
+  echo "→ ${target} (8f 방식=${m} ${fmt_label})"
 }
 
 _phase_8h_test_strategy() {

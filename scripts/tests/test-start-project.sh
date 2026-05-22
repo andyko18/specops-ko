@@ -197,6 +197,23 @@ else
 fi
 teardown_fixture
 
+# ── T11.b api-spec.md (KIND=2, m=2) → §2 체크박스 활성 + 라벨 ──
+setup_fixture
+{
+  printf "2\np1\np2\np3\np4\np5\n"
+  printf "1. BE\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n2\n"  # DB=n, API=OpenAPI(2)
+} | bash "$SCRIPT" >/dev/null 2>&1
+if grep -q '\[x\] §2 ' .specops/memory/api-spec.md 2>/dev/null \
+   && grep -q 'OpenAPI 3.1 YAML (§2)' .specops/memory/api-spec.md 2>/dev/null \
+   && grep -q '\[ \] §1 ' .specops/memory/api-spec.md 2>/dev/null; then
+  ok "T11.b api-spec.md §2 체크박스 활성 + 라벨 주입, §1 미선택"
+else
+  cb=$(grep '§2' .specops/memory/api-spec.md 2>/dev/null | head -1)
+  nope "T11.b api-spec 체크박스/라벨" "got: $cb"
+fi
+teardown_fixture
+
 # ── T12.a 화면 목록 → screens/<name>.{md,html} + flow ──
 setup_fixture
 {
