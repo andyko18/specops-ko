@@ -530,6 +530,21 @@ _phase_8f_api_spec() {
   esac
   sed -i.bak "s/\[ \] ${fmt_sec} /[x] ${fmt_sec} /" "$target" && rm -f "${target}.bak"
   _replace_token "$target" "<\`/start-project\` 입력값>" "${fmt_label} (${fmt_sec})"
+  python3 - "$target" "$m" <<'PYEOF'
+import sys, re
+path, keep = sys.argv[1], sys.argv[2]
+lines = open(path).readlines()
+out, skip = [], False
+for line in lines:
+    m = re.match(r'^## §([1-4])\.', line)
+    if m:
+        skip = (m.group(1) != keep)
+    elif re.match(r'^## §[5-9]\.', line):
+        skip = False
+    if not skip:
+        out.append(line)
+open(path, 'w').writelines(out)
+PYEOF
   echo "→ ${target} (8f 방식=${m} ${fmt_label})"
 }
 

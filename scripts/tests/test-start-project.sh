@@ -182,7 +182,7 @@ else
 fi
 teardown_fixture
 
-# ── T11.a api-spec.md (KIND=2) → OpenAPI 골격 ──
+# ── T11.a api-spec.md (KIND=2, m=2) → OpenAPI 섹션만 포함, GraphQL 제거 ──
 setup_fixture
 {
   printf "2\np1\np2\np3\np4\np5\n"
@@ -190,10 +190,11 @@ setup_fixture
   printf "n\n2\n"  # DB=n, API=OpenAPI
 } | bash "$SCRIPT" >/dev/null 2>&1
 if grep -q 'openapi: 3.1' .specops/memory/api-spec.md 2>/dev/null \
-   && grep -q 'GraphQL' .specops/memory/api-spec.md 2>/dev/null; then
-  ok "T11.a api-spec.md OpenAPI YAML + GraphQL 골격 포함"
+   && ! grep -q 'type Query {' .specops/memory/api-spec.md 2>/dev/null \
+   && ! grep -q 'type Mutation {' .specops/memory/api-spec.md 2>/dev/null; then
+  ok "T11.a api-spec.md OpenAPI 섹션만 포함 (GraphQL·RPC 제거됨)"
 else
-  nope "T11.a api-spec" "openapi/GraphQL 골격 부재"
+  nope "T11.a api-spec 섹션 스트리핑" "OpenAPI 전용 섹션 분리 실패"
 fi
 teardown_fixture
 
@@ -211,6 +212,22 @@ if grep -q '\[x\] §2 ' .specops/memory/api-spec.md 2>/dev/null \
 else
   cb=$(grep '§2' .specops/memory/api-spec.md 2>/dev/null | head -1)
   nope "T11.b api-spec 체크박스/라벨" "got: $cb"
+fi
+teardown_fixture
+
+# ── T11.c api-spec.md (KIND=2, m=3) → GraphQL 섹션만 포함, §5·§6·§7 유지 ──
+setup_fixture
+{
+  printf "2\np1\np2\np3\np4\np5\n"
+  printf "1. BE\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n3\n"  # DB=n, API=GraphQL
+} | bash "$SCRIPT" >/dev/null 2>&1
+if grep -q 'GraphQL' .specops/memory/api-spec.md 2>/dev/null \
+   && ! grep -q 'openapi: 3.1' .specops/memory/api-spec.md 2>/dev/null \
+   && grep -q '§5\. 인증' .specops/memory/api-spec.md 2>/dev/null; then
+  ok "T11.c api-spec.md GraphQL 섹션만 포함 + §5 유지"
+else
+  nope "T11.c api-spec GraphQL 스트리핑" "GraphQL 전용 섹션 분리 실패"
 fi
 teardown_fixture
 
