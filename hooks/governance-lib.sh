@@ -354,8 +354,12 @@ apply_gbrain_absence_rule() {
     local bash_cmd
     bash_cmd=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Bash") | .input.command // empty' 2>/dev/null)
     if [ -n "$bash_cmd" ] && [[ "$bash_cmd" =~ bash[[:space:]]+(.*/)?run-verification\.sh[[:space:]]+([^[:space:]]+) ]]; then
-      last_evi_line=$line_no
-      last_evi_path=".specops/${BASH_REMATCH[2]}/evidence.md"
+      local synth_path=".specops/${BASH_REMATCH[2]}/evidence.md"
+      # defense-in-depth: 합성 path 가 rules.jsonl 의 evidence_path_pattern 통과 시에만 수용
+      if printf '%s' "$synth_path" | grep -Eq "$evidence_path_re"; then
+        last_evi_line=$line_no
+        last_evi_path="$synth_path"
+      fi
     fi
     line_no=$((line_no + 1))
   done < "$transcript"
