@@ -473,6 +473,26 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.7b case 라우팅 부재"
 fi
 
+# T-R6.8 trivial-skip — §유형 trivial spec.md 옆 evidence.md 일 때 skip
+tmpfid_dir=$(mktemp -d)
+mkdir -p "$tmpfid_dir/.specops/trivial-test-fid"
+cat > "$tmpfid_dir/.specops/trivial-test-fid/spec.md" <<'EOF'
+# trivial spec
+**§유형**: trivial
+EOF
+tmp_fixture="$tmpfid_dir/r6-trivial.jsonl"
+# evidence.md path 절대경로 사용 — sed 의 [^/]+ 패턴 매칭은 디렉토리 마지막 segment 사용
+ev_path="$tmpfid_dir/.specops/trivial-test-fid/evidence.md"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"# evidence"}}]}}\n' "$ev_path" >> "$tmp_fixture"
+out=$(apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.8 trivial-skip — §유형 trivial 시 skip"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.8 trivial 인데 매칭됨: $out"
+fi
+rm -rf "$tmpfid_dir"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
