@@ -17,6 +17,26 @@
 
 ---
 
+## 20260526-e2e-test-ko-split
+- 2026-05-26 09:31 /specify DROPPED (advisor 검증 후 분해 가치 미흡 판단 — Explore misdiagnosis 패턴 4번째 가능성, coupling 증가, 671<800 임계 미달, 단일 caller, 정상 동작. 분석 산출물 보존)
+
+- 2026-05-26 09:31 /analyze 완료 (current-state.md, impact-analysis.md (671줄, 책임 분리 A/B 식별, 분해 시안 A/B))
+
+
+## 20260526-hooks-regression-tests
+- 2026-05-26 09:13 /lifecycle DONE (PR #34 생성 (feat/20260526-hooks-regression-tests → main))
+- 2026-05-26 09:02 /receive-review 완료 (Critical 0 / Important 1 (T1.b pyyaml prereq 가드 적용) / Minor 2 (YAGNI skip — 기존 패턴 일관) / fix 라운드 1회)
+- 2026-05-26 08:59 /request-review 완료 (review-request.md, 외부 reviewer dispatch (Important 1 + Minor 2 — T1.b pyyaml prereq 가드 권고))
+- 2026-05-26 08:50 /verify PASS (evidence.md, AC 10/10 (must 8 + 회귀 R-1/R-2), 회귀 0)
+- 2026-05-26 08:49 /implement DONE (T1~T6 집약(F-12), 커밋 5건 22f2a3a..a9cae67, PASS=5 FAIL=0, Phase B/C PASS, 회귀 0)
+- 2026-05-26 08:37 /tasks 완료 (tasks.md (6 태스크, must AC 10/10, DAG T1→T2→T3→T4→T5→T6 선형, dispatch context 6건 자동 산출))
+- 2026-05-26 08:33 /plan 완료 (plan.md (6 태스크, must AC 8/8 + 회귀 AC-R-1/R-2 커버, DAG T1→T2~T5 병렬→T6))
+- 2026-05-26 08:29 /clarify 완료 (clarifications.md (BLOCKING 0 / DESIRABLE 2 자동 해소 — Q1 SPECOPS_CONFIG mock · Q2 임시 PLUGIN_ROOT))
+- 2026-05-26 08:27 /specify 완료 (spec.md, AC.md (8건+회귀 2건) — ensure-session-progress 5건 보강)
+
+- 2026-05-26 08:23 /analyze 완료 (current-state.md, impact-analysis.md (scope 축소: rotate-evaluator 이미 완전 커버, ensure-session-progress 5건 추가))
+
+
 ## 20260522-brainstorming-p1
 
 - 2026-05-22 20:56 /analyze 완료 (current-state.md, impact-analysis.md — 3개 태스크 기구현, Lifecycle 불필요)
