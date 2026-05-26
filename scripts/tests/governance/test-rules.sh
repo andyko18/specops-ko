@@ -523,6 +523,28 @@ else
 fi
 rm -f "$tmpfx2"
 
+# T-R6.11 Bash invocation 단독 evidence 매칭 (외부 review #3 fix — dogfood 경로)
+# bash scripts/_internal/run-verification.sh <FID> invocation 만으로 evidence 의도 인정.
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation-only.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-bash-redirect-evidence" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.11 Bash invocation 단독 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.11 fid=$fid (20260526-bash-redirect-evidence 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.11 Bash invocation 단독 미매칭 (gbrain 부재인데 매칭 안 됨)"
+fi
+
+# T-R6.12 Bash invocation + gbrain runner → PASS (silence)
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation-with-gbrain.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.12 Bash invocation + gbrain runner → silence"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.12 gbrain 호출됐는데 매칭됨: $out"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
