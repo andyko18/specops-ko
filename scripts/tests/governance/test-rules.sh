@@ -565,6 +565,22 @@ else
 fi
 rm -rf "$tmpfid_dir2"
 
+# T-R6.14 mixed Write+Bash invocation line max 선택 (AC-3 직접 검증, Phase C M1 fix)
+# r6-verify-bash-invocation.jsonl 가 Write(line 2) + Bash invocation(line 3) 동시 보유 — while-loop 가 line_no 더 큰 Bash 분기 결과 채택해야 함
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  offset=$(echo "$out" | jq -r '.offset')
+  # AC-3 핵심: Bash line (offset=2, 0-based) 채택 — Write line(1) 보다 큼
+  if [ "$fid" = "20260526-bash-redirect-evidence" ] && [ "$offset" = "2" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.14 mixed Write+Bash line max 선택 (offset=2 Bash 채택)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.14 fid=$fid offset=$offset (fid=20260526-bash-redirect-evidence offset=2 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.14 mixed fixture 미매칭"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
