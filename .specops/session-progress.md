@@ -17,6 +17,36 @@
 
 ---
 
+## 20260526-bash-redirect-evidence
+- 2026-05-26 16:52 /lifecycle DONE (PR #36 생성: https://github.com/kohaedong/specops-auto-ko/pull/36)
+- 2026-05-26 16:48 /receive-review 완료 (Critical 0 / Important 0 / Minor 3 (1+3 fix commit 5827ba4 · 2 후속 backlog), 회귀 0 (66/16/✅))
+- 2026-05-26 16:46 /request-review 완료 (review-request.md, 외부 reviewer APPROVED (Critical 0 / Important 0 / Minor 3 — defense-in-depth grep 가드 + AC-R-2 negative fixture + NFR-1 표현 정확화))
+- 2026-05-26 16:40 /verify PASS (evidence.md (AC 8/8 must 7+should 1, run-verification PASS, governance 66/0 dag 16/0 validate ✅))
+- 2026-05-26 16:39 /implement DONE (Task 1~5 + M1 fix 완료, PASS=66 FAIL=0 (baseline 62→66 +4), 커밋 5건 2e39a58·6c71897·c47f347·67e500b·2669e55, Phase B/C PASS, Minor 1 (M2 jq 분리 — YAGNI skip))
+- 2026-05-26 16:05 /implement DONE (T1~T4 4 커밋 (2e39a58·6c71897·c47f347·67e500b), PASS=65 FAIL=0, AC-R-2 negative PASS, F-12 집약 단일 dispatch)
+- 2026-05-26 15:54 /tasks 완료 (tasks.md (5 태스크 선형 DAG T1→T5, must AC 7/7 + should 1/1, dispatch context 5건))
+- 2026-05-26 15:51 /plan 완료 (plan.md (plan-reviewer PASS, T3+T4 직렬 권고))
+- 2026-05-26 15:47 /clarify 완료 (clarifications.md (Q-B BLOCKING resolved + 4 DESIRABLE planning 위임 + spec/AC 일괄 수정))
+- 2026-05-26 15:40 /specify 완료 (spec.md, acceptance-criteria.md)
+
+- 2026-05-26 15:25 /analyze 완료 (current-state.md, impact-analysis.md)
+
+
+## 20260526-r6-gbrain-soft-warn
+- 2026-05-26 14:45 /lifecycle DONE (PR #35 생성: https://github.com/kohaedong/specops-auto-ko/pull/35)
+- 2026-05-26 14:40 /receive-review 완료 (Important 2건 fix (2 커밋 80b89ef·cce18a5), 62/0 PASS, T-R6.9/T-R6.10 신규)
+- 2026-05-26 14:35 /request-review 완료 (review-request.md, 외부 reviewer NEEDS_WORK — Important 2건 (dogfood Bash redirect 미감지 + gbrain-ko false PASS))
+- 2026-05-26 14:28 /verify PASS (evidence.md, AC 15/15, run-verification PASS, 60/0)
+- 2026-05-26 14:27 /implement DONE (T1~T8 8 커밋 (c255e67..b160ad8), PASS=60 FAIL=0, Phase B PASS / Phase C PASS / Minor 3 (후속))
+- 2026-05-26 14:30 /implement 완료 (T1~T8 8 커밋 + verify 회귀 commit; PASS=60 FAIL=0 (baseline 45→60 +15); AC-R-2/R-3 변경 line 0; HEAD=b160ad8)
+- 2026-05-26 13:57 /tasks 완료 (tasks.md (8 태스크, DAG leaf 4건, AC-11/AC-12 retro append))
+- 2026-05-26 13:36 /plan 완료 (plan.md (plan-reviewer PASS, Task 3 분해 권장))
+- 2026-05-26 13:31 /clarify 완료 (clarifications.md (1 DESIRABLE 해소 + 2 plan 위임))
+- 2026-05-26 13:26 /specify 완료 (spec.md, acceptance-criteria.md)
+
+- 2026-05-26 13:06 /analyze 완료 (current-state.md, impact-analysis.md)
+
+
 ## 20260526-e2e-test-ko-split
 - 2026-05-26 09:31 /specify DROPPED (advisor 검증 후 분해 가치 미흡 판단 — Explore misdiagnosis 패턴 4번째 가능성, coupling 증가, 671<800 임계 미달, 단일 caller, 정상 동작. 분석 산출물 보존)
 
@@ -146,3 +176,9 @@
 ---
 
 *최초 생성: /implement 또는 첫 커맨드 · 갱신: 모든 Lifecycle 커맨드*
+
+## 20260427-analyzing-gh-fallback-refactor
+- 2026-05-26 14:50 /lifecycle DROPPED (회고 정리 — analyzing-ko 의 gh CLI fallback 패턴(`gh --version` + git log)이 이미 코드에 정착·동작 확인. 본 wave 자체 dogfooding 에서 git log fallback 검증됨. 추가 리팩터링 가치 미흡. 분석 산출물 보존: current-state.md (8.5KB) + impact-analysis.md (6KB))
+
+## 20260427-maintain-antipattern-clarify
+- 2026-05-26 14:50 /lifecycle DROPPED (회고 정리 — commands/maintain.md:47 안티패턴 본문이 이미 강화된 표현 적용 완료 ("슬래시 진입 자체가 사용자 의도 확정 신호..."). 본 fix 의 implicit 충족. 분석 산출물 보존: current-state.md (3.6KB) + impact-analysis.md (1.7KB))
