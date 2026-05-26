@@ -314,3 +314,75 @@ apply_advisor_section_rule() {
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
 }
+
+# R-6 매처 — transcript 에 verify skill + evidence.md Write 있고 gbrain-append 부재 시 매칭
+# usage: apply_gbrain_absence_rule <rule_json> <transcript>
+# 출력: 매칭 시 JSON { rule_id, evidence_snippet, offset, fid }, 미매칭 시 빈 문자열
+# 매칭 알고리즘:
+#   1. verify skill 호출 흔적 (전수 조사) 없으면 skip
+#   2. 가장 최근 evidence.md Write 의 line 위치 추출 (last_evi_line). 없으면 skip
+#   3. last_evi_line 이후 gbrain runner 호출 있는가? 있으면 PASS (skip)
+#      — FR-6: multi-verify 환경에서도 가장 최근 evidence 이후만 본다
+#   4. trivial-skip: evidence path 의 .specops/<FID>/spec.md 의 §유형 = trivial 이면 skip
+#   5. FID 추출 + evidence_snippet 빌드 + JSON 반환
+apply_gbrain_absence_rule() {
+  local rule="$1" transcript="$2"
+  [ -f "$transcript" ] || return 0
+  local verify_skill_re evidence_path_re gbrain_runner_re
+  verify_skill_re=$(echo "$rule" | jq -r '.verify_skill_pattern')
+  evidence_path_re=$(echo "$rule" | jq -r '.evidence_path_pattern')
+  gbrain_runner_re=$(echo "$rule" | jq -r '.gbrain_runner_pattern')
+
+  # 1. verify skill 호출 흔적
+  local has_verify
+  has_verify=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Skill") | .input.skill // empty' "$transcript" 2>/dev/null \
+    | grep -E "$verify_skill_re" | head -1)
+  [ -n "$has_verify" ] || return 0
+
+  # 2. 가장 최근 evidence.md Write 의 라인 위치·경로
+  local last_evi_line=-1 last_evi_path="" line_no=0
+  while IFS= read -r line; do
+    local fp
+    fp=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Write") | .input.file_path // empty' 2>/dev/null \
+      | grep -E "$evidence_path_re" | head -1)
+    if [ -n "$fp" ]; then
+      last_evi_line=$line_no
+      last_evi_path="$fp"
+    fi
+    line_no=$((line_no + 1))
+  done < "$transcript"
+  [ "$last_evi_line" -lt 0 ] && return 0
+
+  # 3. last_evi_line 이후 gbrain runner 호출
+  local has_gbrain_after="" cur=0
+  while IFS= read -r line; do
+    if [ "$cur" -gt "$last_evi_line" ]; then
+      local g
+      g=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Bash" or .name == "Skill")) | (.input.command // .input.skill // empty)' 2>/dev/null \
+        | grep -E "$gbrain_runner_re" | head -1)
+      if [ -n "$g" ]; then
+        has_gbrain_after="$g"
+        break
+      fi
+    fi
+    cur=$((cur + 1))
+  done < "$transcript"
+  [ -n "$has_gbrain_after" ] && return 0  # PASS — gbrain 호출 있음
+
+  # 4. trivial-skip — evidence path 의 spec.md §유형 = trivial 이면 skip
+  local fid_dir spec_path type_label
+  fid_dir=$(dirname "$last_evi_path")
+  spec_path="$fid_dir/spec.md"
+  if [ -f "$spec_path" ]; then
+    type_label=$(grep -m1 '^\*\*§유형\*\*:' "$spec_path" 2>/dev/null | sed 's/.*:[[:space:]]*//' | tr -d '[:space:]')
+    [ "$type_label" = "trivial" ] && return 0
+  fi
+
+  # 5. FID 추출 (.specops/<FID>/evidence.md 패턴)
+  local fid
+  fid=$(echo "$last_evi_path" | sed -E 's|.*\.specops/([^/]+)/evidence\.md$|\1|')
+
+  local snippet="lifecycle 완주 후 gbrain-append 호출 부재 — 1줄 인사이트 작성 권장: bash scripts/gbrain-append.sh '<insight>' --fid $fid"
+  jq -nc --arg id "R-6" --arg snippet "$snippet" --argjson offset "$last_evi_line" --arg fid "$fid" \
+    '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset, fid: $fid }'
+}

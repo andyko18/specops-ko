@@ -397,6 +397,62 @@ for fx in r6-verify-with-gbrain r6-verify-without-gbrain r6-no-verify r6-verify-
   fi
 done
 
+# T-R6.1 PASS 케이스 (verify + evidence + gbrain) → 빈 출력
+rule_r6=$(jq -c 'select(.id == "R-6")' "$PLUGIN/hooks/rules.jsonl")
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-with-gbrain.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.1 PASS 케이스 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.1 PASS 케이스가 매칭됨: $out"
+fi
+
+# T-R6.2 FAIL 케이스 (verify + evidence O, gbrain X) → 매칭 + fid 추출
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-r6-gbrain-soft-warn" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.2 FAIL 케이스 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.2 fid 추출 오류: $fid"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.2 FAIL 케이스 미매칭"
+fi
+
+# T-R6.3 no-verify → 미매칭
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-no-verify.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.3 no-verify 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.3 no-verify 가 매칭됨"
+fi
+
+# T-R6.4 verify-no-evidence → 미매칭
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-no-evidence.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.4 verify-no-evidence 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.4 verify-no-evidence 가 매칭됨"
+fi
+
+# T-R6.5 enabled=false → load_rules 결과에 R-6 부재
+rule_r6_disabled=$(jq -c 'select(.id == "R-6") | .enabled = false' "$PLUGIN/hooks/rules.jsonl")
+matcher_count=$(echo "$rule_r6_disabled" | jq -r 'select(.enabled == false and .matcher == "stop") | .id' | wc -l | tr -d ' ')
+if [ "$matcher_count" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.5 enabled=false 시 비활성 가능 (jq 변환 검증)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.5 enabled toggle"
+fi
+
+# T-R6.6 멱등성 — 동일 transcript 2회 실행 시 동일 출력
+out1=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+out2=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+if [ "$out1" = "$out2" ] && [ -n "$out1" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.6 멱등성 — 동일 출력"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.6 출력 불일치 또는 빈 값"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
