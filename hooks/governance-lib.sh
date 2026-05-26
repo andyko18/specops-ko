@@ -341,6 +341,7 @@ apply_gbrain_absence_rule() {
 
   # 2. 가장 최근 evidence.md Write 또는 Edit 의 라인 위치·경로
   # Edit 도 포함 — Claude 가 run-verification.sh append 후 헤더/AC 매핑 추가할 때 Edit 사용 (외부 review 후속 fix)
+  # Bash 분기 추가 — dogfood 경로 (bash scripts/_internal/run-verification.sh <FID>) invocation 도 evidence 의도 인정
   local last_evi_line=-1 last_evi_path="" line_no=0
   while IFS= read -r line; do
     local fp
@@ -349,6 +350,16 @@ apply_gbrain_absence_rule() {
     if [ -n "$fp" ]; then
       last_evi_line=$line_no
       last_evi_path="$fp"
+    fi
+    local bash_cmd
+    bash_cmd=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Bash") | .input.command // empty' 2>/dev/null)
+    if [ -n "$bash_cmd" ] && [[ "$bash_cmd" =~ bash[[:space:]]+(.*/)?run-verification\.sh[[:space:]]+([^[:space:]]+) ]]; then
+      local synth_path=".specops/${BASH_REMATCH[2]}/evidence.md"
+      # defense-in-depth: 합성 path 가 rules.jsonl 의 evidence_path_pattern 통과 시에만 수용
+      if printf '%s' "$synth_path" | grep -Eq "$evidence_path_re"; then
+        last_evi_line=$line_no
+        last_evi_path="$synth_path"
+      fi
     fi
     line_no=$((line_no + 1))
   done < "$transcript"

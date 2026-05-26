@@ -523,6 +523,64 @@ else
 fi
 rm -f "$tmpfx2"
 
+# T-R6.11 Bash invocation 단독 evidence 매칭 (외부 review #3 fix — dogfood 경로)
+# bash scripts/_internal/run-verification.sh <FID> invocation 만으로 evidence 의도 인정.
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation-only.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-bash-redirect-evidence" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.11 Bash invocation 단독 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.11 fid=$fid (20260526-bash-redirect-evidence 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.11 Bash invocation 단독 미매칭 (gbrain 부재인데 매칭 안 됨)"
+fi
+
+# T-R6.12 Bash invocation + gbrain runner → PASS (silence)
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation-with-gbrain.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.12 Bash invocation + gbrain runner → silence"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.12 gbrain 호출됐는데 매칭됨: $out"
+fi
+
+# T-R6.13 trivial-skip with Bash invocation (AC-5 — invocation 분기 trivial 보존)
+# T-R6.8 mktemp 동적 fixture 패턴 응용 — invocation 분기에서도 trivial-skip 발동 검증
+tmpfid_dir2=$(mktemp -d)
+mkdir -p "$tmpfid_dir2/.specops/trivial-invocation-fid"
+cat > "$tmpfid_dir2/.specops/trivial-invocation-fid/spec.md" <<'EOF'
+# trivial spec
+**§유형**: trivial
+EOF
+tmp_fixture2="$tmpfid_dir2/r6-trivial-invocation.jsonl"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture2"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh trivial-invocation-fid"}}]}}\n' >> "$tmp_fixture2"
+# trivial-skip 은 last_evi_path 의 dirname 기준 spec.md 조회 — CWD 기반 상대경로라 tmpfid_dir2 진입 필요
+out=$(cd "$tmpfid_dir2" && apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture2")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.13 trivial-skip with Bash invocation"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.13 trivial 인데 invocation 으로 매칭됨: $out"
+fi
+rm -rf "$tmpfid_dir2"
+
+# T-R6.14 mixed Write+Bash invocation line max 선택 (AC-3 직접 검증, Phase C M1 fix)
+# r6-verify-bash-invocation.jsonl 가 Write(line 2) + Bash invocation(line 3) 동시 보유 — while-loop 가 line_no 더 큰 Bash 분기 결과 채택해야 함
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-invocation.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  offset=$(echo "$out" | jq -r '.offset')
+  # AC-3 핵심: Bash line (offset=2, 0-based) 채택 — Write line(1) 보다 큼
+  if [ "$fid" = "20260526-bash-redirect-evidence" ] && [ "$offset" = "2" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.14 mixed Write+Bash line max 선택 (offset=2 Bash 채택)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.14 fid=$fid offset=$offset (fid=20260526-bash-redirect-evidence offset=2 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.14 mixed fixture 미매칭"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
