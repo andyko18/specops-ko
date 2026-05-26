@@ -386,6 +386,17 @@ else
 fi
 rm -rf "$tmp"
 
+# ── R-6 (T-R6) 테스트 섹션 ─────────
+
+# T-R6.0 fixture 존재 검증
+for fx in r6-verify-with-gbrain r6-verify-without-gbrain; do
+  if [ -f "$FIXTURES/transcripts/$fx.jsonl" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.0 fixture $fx 존재"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.0 fixture $fx 부재"
+  fi
+done
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
