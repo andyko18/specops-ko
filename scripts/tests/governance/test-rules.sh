@@ -545,6 +545,26 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.12 gbrain 호출됐는데 매칭됨: $out"
 fi
 
+# T-R6.13 trivial-skip with Bash invocation (AC-5 — invocation 분기 trivial 보존)
+# T-R6.8 mktemp 동적 fixture 패턴 응용 — invocation 분기에서도 trivial-skip 발동 검증
+tmpfid_dir2=$(mktemp -d)
+mkdir -p "$tmpfid_dir2/.specops/trivial-invocation-fid"
+cat > "$tmpfid_dir2/.specops/trivial-invocation-fid/spec.md" <<'EOF'
+# trivial spec
+**§유형**: trivial
+EOF
+tmp_fixture2="$tmpfid_dir2/r6-trivial-invocation.jsonl"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture2"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh trivial-invocation-fid"}}]}}\n' >> "$tmp_fixture2"
+# trivial-skip 은 last_evi_path 의 dirname 기준 spec.md 조회 — CWD 기반 상대경로라 tmpfid_dir2 진입 필요
+out=$(cd "$tmpfid_dir2" && apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture2")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.13 trivial-skip with Bash invocation"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.13 trivial 인데 invocation 으로 매칭됨: $out"
+fi
+rm -rf "$tmpfid_dir2"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
