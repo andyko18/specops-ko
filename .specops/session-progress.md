@@ -126,9 +126,3 @@
 ---
 
 *최초 생성: /implement 또는 첫 커맨드 · 갱신: 모든 Lifecycle 커맨드*
-
-## 20260426-cvt-cli · JSON ↔ YAML 양방향 변환 CLI
-
-- 2026-04-26 /specify DONE (spec.md, acceptance-criteria.md · FR-1~7 · AC-1~8)
-
----

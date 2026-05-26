@@ -3,7 +3,7 @@
 # stdin: Claude Code PostToolUse JSON
 # stdout: { "continue": true, "additionalContext"?: "..." }
 # 실패 내성: 내부 오류 시 exit 0 + stderr 로그. tool 흐름 무중단.
-set -u
+set -uo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$script_dir")

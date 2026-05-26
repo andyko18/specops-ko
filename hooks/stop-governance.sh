@@ -3,7 +3,7 @@
 # stdin: Claude Code Stop JSON (stop_hook_active 필드 포함)
 # stdout: { "continue": true }  (Stop 은 additionalContext 미사용 — append only)
 # 실패 내성: 내부 오류 시 exit 0 + stderr. 멱등: stop_hook_active==true 즉시 투과.
-set -u
+set -uo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$script_dir")
