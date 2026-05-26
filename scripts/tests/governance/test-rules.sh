@@ -453,6 +453,26 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.6 출력 불일치 또는 빈 값"
 fi
 
+# T-R6.7 multi-verify — 가장 최근 verify+evidence (FID-new) 만 매칭, fid=FID-new
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-multi-verify.jsonl")
+if [ -n "$out" ]; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "FID-new" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.7 multi-verify — 가장 최근 (FID-new) 매칭"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.7 fid=$fid (FID-new 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.7 multi-verify 미매칭"
+fi
+
+# T-R6.7b stop-governance.sh case 문에 R-6 라우팅 존재 검증
+if grep -q 'R-6) result=$(apply_gbrain_absence_rule' "$PLUGIN/hooks/stop-governance.sh"; then
+  PASS=$((PASS+1)); echo "PASS T-R6.7b case 라우팅 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.7b case 라우팅 부재"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
