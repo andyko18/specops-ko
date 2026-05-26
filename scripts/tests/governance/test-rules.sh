@@ -389,7 +389,7 @@ rm -rf "$tmp"
 # ── R-6 (T-R6) 테스트 섹션 ─────────
 
 # T-R6.0 fixture 존재 검증
-for fx in r6-verify-with-gbrain r6-verify-without-gbrain r6-no-verify r6-verify-no-evidence; do
+for fx in r6-verify-with-gbrain r6-verify-without-gbrain r6-no-verify r6-verify-no-evidence r6-multi-verify; do
   if [ -f "$FIXTURES/transcripts/$fx.jsonl" ]; then
     PASS=$((PASS+1)); echo "PASS T-R6.0 fixture $fx 존재"
   else
