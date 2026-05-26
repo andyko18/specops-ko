@@ -46,6 +46,7 @@ while IFS= read -r rule; do
   case "$rule_id" in
     R-4) result=$(apply_assertion_without_test_rule "$rule" "$transcript" 2>/dev/null || true) ;;
     R-5) result=$(apply_advisor_section_rule "$rule" "$transcript" 2>/dev/null || true) ;;
+    R-6) result=$(apply_gbrain_absence_rule "$rule" "$transcript" 2>/dev/null || true) ;;
   esac
   if [ -n "$result" ]; then
     snippet=$(echo "$result" | jq -r '.evidence_snippet')

@@ -4,20 +4,20 @@ PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 RULES="$PLUGIN/hooks/rules.jsonl"
 
-# T5.a rules.jsonl 존재 + 5 룰
+# T5.a rules.jsonl 존재 + 6 룰
 if [ -f "$RULES" ]; then
   count=$(jq -s 'length' "$RULES" 2>/dev/null)
-  if [ "$count" = "5" ]; then
-    PASS=$((PASS+1)); echo "PASS T5.a rules.jsonl 5 룰"
+  if [ "$count" = "6" ]; then
+    PASS=$((PASS+1)); echo "PASS T5.a rules.jsonl 6 룰"
   else
-    FAIL=$((FAIL+1)); echo "FAIL T5.a (count=$count expect=5)"
+    FAIL=$((FAIL+1)); echo "FAIL T5.a (count=$count expect=6)"
   fi
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.a (rules.jsonl 부재)"
 fi
 
-# T5.b R-1 ~ R-5 각 룰 필수 필드 완비
-for id in R-1 R-2 R-3 R-4 R-5; do
+# T5.b R-1 ~ R-6 각 룰 필수 필드 완비
+for id in R-1 R-2 R-3 R-4 R-5 R-6; do
   hit=$(jq -e --arg id "$id" 'select(.id == $id and .enabled == true and (.principle == 1 or .principle == 5) and (.matcher == "posttool" or .matcher == "stop") and (.severity == "warn"))' "$RULES" 2>/dev/null)
   if [ -n "$hit" ]; then
     PASS=$((PASS+1)); echo "PASS T5.b $id 완비"
@@ -26,11 +26,11 @@ for id in R-1 R-2 R-3 R-4 R-5; do
   fi
 done
 
-# T5.c matcher 분류: posttool 3개 (R-1/R-2/R-3), stop 2개 (R-4/R-5)
+# T5.c matcher 분류: posttool 3개 (R-1/R-2/R-3), stop 3개 (R-4/R-5/R-6)
 posttool_count=$(jq -s '[.[] | select(.matcher == "posttool")] | length' "$RULES" 2>/dev/null)
 stop_count=$(jq -s '[.[] | select(.matcher == "stop")] | length' "$RULES" 2>/dev/null)
-if [ "$posttool_count" = "3" ] && [ "$stop_count" = "2" ]; then
-  PASS=$((PASS+1)); echo "PASS T5.c matcher 분류 posttool=3 stop=2"
+if [ "$posttool_count" = "3" ] && [ "$stop_count" = "3" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.c matcher 분류 posttool=3 stop=3"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.c (posttool=$posttool_count stop=$stop_count)"
 fi
@@ -385,6 +385,143 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T12.c (got='$result')"
 fi
 rm -rf "$tmp"
+
+# ── R-6 (T-R6) 테스트 섹션 ─────────
+
+# T-R6.0 fixture 존재 검증
+for fx in r6-verify-with-gbrain r6-verify-without-gbrain r6-no-verify r6-verify-no-evidence r6-multi-verify; do
+  if [ -f "$FIXTURES/transcripts/$fx.jsonl" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.0 fixture $fx 존재"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.0 fixture $fx 부재"
+  fi
+done
+
+# T-R6.1 PASS 케이스 (verify + evidence + gbrain) → 빈 출력
+rule_r6=$(jq -c 'select(.id == "R-6")' "$PLUGIN/hooks/rules.jsonl")
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-with-gbrain.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.1 PASS 케이스 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.1 PASS 케이스가 매칭됨: $out"
+fi
+
+# T-R6.2 FAIL 케이스 (verify + evidence O, gbrain X) → 매칭 + fid 추출
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-r6-gbrain-soft-warn" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.2 FAIL 케이스 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.2 fid 추출 오류: $fid"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.2 FAIL 케이스 미매칭"
+fi
+
+# T-R6.3 no-verify → 미매칭
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-no-verify.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.3 no-verify 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.3 no-verify 가 매칭됨"
+fi
+
+# T-R6.4 verify-no-evidence → 미매칭
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-no-evidence.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.4 verify-no-evidence 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.4 verify-no-evidence 가 매칭됨"
+fi
+
+# T-R6.5 enabled=false → load_rules 결과에 R-6 부재
+rule_r6_disabled=$(jq -c 'select(.id == "R-6") | .enabled = false' "$PLUGIN/hooks/rules.jsonl")
+matcher_count=$(echo "$rule_r6_disabled" | jq -r 'select(.enabled == false and .matcher == "stop") | .id' | wc -l | tr -d ' ')
+if [ "$matcher_count" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.5 enabled=false 시 비활성 가능 (jq 변환 검증)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.5 enabled toggle"
+fi
+
+# T-R6.6 멱등성 — 동일 transcript 2회 실행 시 동일 출력
+out1=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+out2=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-without-gbrain.jsonl")
+if [ "$out1" = "$out2" ] && [ -n "$out1" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.6 멱등성 — 동일 출력"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.6 출력 불일치 또는 빈 값"
+fi
+
+# T-R6.7 multi-verify — 가장 최근 verify+evidence (FID-new) 만 매칭, fid=FID-new
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-multi-verify.jsonl")
+if [ -n "$out" ]; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "FID-new" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.7 multi-verify — 가장 최근 (FID-new) 매칭"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.7 fid=$fid (FID-new 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.7 multi-verify 미매칭"
+fi
+
+# T-R6.7b stop-governance.sh case 문에 R-6 라우팅 존재 검증
+if grep -q 'R-6) result=$(apply_gbrain_absence_rule' "$PLUGIN/hooks/stop-governance.sh"; then
+  PASS=$((PASS+1)); echo "PASS T-R6.7b case 라우팅 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.7b case 라우팅 부재"
+fi
+
+# T-R6.8 trivial-skip — §유형 trivial spec.md 옆 evidence.md 일 때 skip
+tmpfid_dir=$(mktemp -d)
+mkdir -p "$tmpfid_dir/.specops/trivial-test-fid"
+cat > "$tmpfid_dir/.specops/trivial-test-fid/spec.md" <<'EOF'
+# trivial spec
+**§유형**: trivial
+EOF
+tmp_fixture="$tmpfid_dir/r6-trivial.jsonl"
+# evidence.md path 절대경로 사용 — sed 의 [^/]+ 패턴 매칭은 디렉토리 마지막 segment 사용
+ev_path="$tmpfid_dir/.specops/trivial-test-fid/evidence.md"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"# evidence"}}]}}\n' "$ev_path" >> "$tmp_fixture"
+out=$(apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.8 trivial-skip — §유형 trivial 시 skip"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.8 trivial 인데 매칭됨: $out"
+fi
+rm -rf "$tmpfid_dir"
+
+# T-R6.9 Edit tool 로 evidence.md 작성 (외부 review 후속 fix)
+# Edit 도 Write 와 동일하게 evidence.md 산출로 인정. gbrain 부재 시 매칭, fid 추출 정상.
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-edit-evidence.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-r6-fix-followup" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.9 Edit tool evidence 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.9 fid=$fid (20260526-r6-fix-followup 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.9 Edit tool evidence 미매칭 (gbrain 부재인데 매칭 안 됨)"
+fi
+
+# T-R6.10 gbrain_runner_pattern false-PASS 회귀 (외부 review #2 fix)
+# specops-auto-ko:gbrain 조회만으로 R-6 silence 되지 않음 검증.
+tmpfx2=$(mktemp)
+cat > "$tmpfx2" <<'EOF'
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/20260526-r6-fix-followup/evidence.md","content":"# evidence"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:gbrain"}}]}}
+EOF
+out=$(apply_gbrain_absence_rule "$rule_r6" "$tmpfx2")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T-R6.10 gbrain (조회 skill) 호출만으로 silence 안 됨 — 매칭 발화"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.10 gbrain 조회만으로 R-6 silence 됨 (false PASS)"
+fi
+rm -f "$tmpfx2"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
