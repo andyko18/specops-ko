@@ -339,11 +339,12 @@ apply_gbrain_absence_rule() {
     | grep -E "$verify_skill_re" | head -1)
   [ -n "$has_verify" ] || return 0
 
-  # 2. 가장 최근 evidence.md Write 의 라인 위치·경로
+  # 2. 가장 최근 evidence.md Write 또는 Edit 의 라인 위치·경로
+  # Edit 도 포함 — Claude 가 run-verification.sh append 후 헤더/AC 매핑 추가할 때 Edit 사용 (외부 review 후속 fix)
   local last_evi_line=-1 last_evi_path="" line_no=0
   while IFS= read -r line; do
     local fp
-    fp=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Write") | .input.file_path // empty' 2>/dev/null \
+    fp=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | .input.file_path // empty' 2>/dev/null \
       | grep -E "$evidence_path_re" | head -1)
     if [ -n "$fp" ]; then
       last_evi_line=$line_no

@@ -493,6 +493,36 @@ else
 fi
 rm -rf "$tmpfid_dir"
 
+# T-R6.9 Edit tool 로 evidence.md 작성 (외부 review 후속 fix)
+# Edit 도 Write 와 동일하게 evidence.md 산출로 인정. gbrain 부재 시 매칭, fid 추출 정상.
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-edit-evidence.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  fid=$(echo "$out" | jq -r '.fid')
+  if [ "$fid" = "20260526-r6-fix-followup" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.9 Edit tool evidence 매칭 + fid 추출"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.9 fid=$fid (20260526-r6-fix-followup 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.9 Edit tool evidence 미매칭 (gbrain 부재인데 매칭 안 됨)"
+fi
+
+# T-R6.10 gbrain_runner_pattern false-PASS 회귀 (외부 review #2 fix)
+# specops-auto-ko:gbrain 조회만으로 R-6 silence 되지 않음 검증.
+tmpfx2=$(mktemp)
+cat > "$tmpfx2" <<'EOF'
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/20260526-r6-fix-followup/evidence.md","content":"# evidence"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:gbrain"}}]}}
+EOF
+out=$(apply_gbrain_absence_rule "$rule_r6" "$tmpfx2")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T-R6.10 gbrain (조회 skill) 호출만으로 silence 안 됨 — 매칭 발화"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.10 gbrain 조회만으로 R-6 silence 됨 (false PASS)"
+fi
+rm -f "$tmpfx2"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
