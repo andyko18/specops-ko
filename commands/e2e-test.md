@@ -1,6 +1,6 @@
 ---
 name: e2e-test
-description: specops-auto-ko E2E 자동 테스트 — lifecycle 6단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
+description: specops-auto-ko E2E 자동 테스트 — (start-project 부트스트랩)→specify→…→verify→(finishing 정리) 8단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
 triggers:
   - "/e2e-test"
 mode: auto
@@ -14,8 +14,8 @@ reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 ## 목적
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없이 내장 `greet-cli` fixture를 사용해
-`specifying → clarifying → planning → decomposing → implementing → verifying-evidence` 6단계를 완주하고
-9개 검증 항목을 점검한다.
+`(start-project 부트스트랩) → specifying → clarifying → planning → decomposing → implementing → verifying-evidence → (finishing 정리)`
+8단계를 완주하고 17개 검증 항목(V1~V17)을 점검한다.
 
 ## Process
 
@@ -28,15 +28,18 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없�
 ```
 /e2e-test
 
-→ greet-cli fixture 기반 lifecycle 자동 실행 (6단계)
-→ 9개 검증 항목 점검 (V1~V9)
-→ PASS=9 FAIL=0 또는 실패 항목 리포트
+→ greet-cli fixture 기반 lifecycle 자동 실행 (8단계)
+→ 17개 검증 항목 점검 (V1~V17)
+→ PASS=17 FAIL=0 또는 실패 항목 리포트 (python3+pyyaml 미설치 시 V8 SKIP — PASS≥16 허용)
 ```
 
 ## 주의
 
 - 이 커맨드는 실제 파일을 생성한다 (`.specops/<FID>/`, `greet-cli.sh`, `test-greet-cli.sh`)
 - 완료 후 산출물은 증거로 보존됨 (명시 요청 시 `rm -rf .specops/<FID>`)
+- **S0(부트스트랩)·S7(정리)는 repo ROOT 를 변경하므로 격리 throwaway repo(`mktemp -d`+`git init`)에서 실행하고 `rm -rf` 로 제거**한다 — 플러그인 repo 본체는 건드리지 않음
+- S7 의 `gh pr view` 실제 PR `MERGED` 경로는 fixture 로 검증 불가 (HARD GATE 로직만 단위검증 — 한계)
+- 모든 bash 블록은 **단일 연속 셸**로 실행해야 `e2e_check`·카운터가 누적됨 (블록 분리 시 카운터 리셋)
 - `validate-structure.sh` 기대값이 21/5/12/3인 환경에서만 V9 PASS
 
 ## 참조

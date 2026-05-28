@@ -255,6 +255,7 @@ bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 또는 
 피드백 구현 완료 + session-progress append 후:
 
 - **리뷰 이슈가 모두 해결되고 Lifecycle 종료 가능 상태** → chain 종료. 사용자에게 "PR 생성? [y/n]" 질문
+  - PR 생성·머지 **후** worktree/branch 정리가 필요하면 `specops-auto-ko:finishing-a-development-branch-ko` 스킬로 마무리한다 (PR `state==MERGED` HARD GATE 이므로 **자동 chain 하지 않음** — 머지 확인 후 수동 진입). ※ `/finishing` 슬래시는 미존재 → 반드시 skill 이름으로 호출.
 - **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
 - **재검증 필요** → `specops-auto-ko:verifying-evidence-ko` 재호출
 
