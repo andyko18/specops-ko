@@ -325,6 +325,10 @@ apply_advisor_section_rule() {
 #      — FR-6: multi-verify 환경에서도 가장 최근 evidence 이후만 본다
 #   4. trivial-skip: evidence path 의 .specops/<FID>/spec.md 의 §유형 = trivial 이면 skip
 #   5. FID 추출 + evidence_snippet 빌드 + JSON 반환
+# 한계: trivial-skip(step 4) 의 spec.md lookup 은 transcript 에서 파생된 evidence path
+#   (대개 상대경로 .specops/<FID>/evidence.md) 의 dirname 기준이라 **CWD 의존**이다.
+#   훅이 plugin repo root 가 아닌 CWD 에서 실행되면 spec.md 를 못 찾아 trivial 판정이
+#   누락(= 매칭 유지)될 수 있다. Stop 훅은 항상 repo root 에서 기동되므로 실사용엔 무해.
 apply_gbrain_absence_rule() {
   local rule="$1" transcript="$2"
   [ -f "$transcript" ] || return 0
@@ -344,6 +348,10 @@ apply_gbrain_absence_rule() {
   # Bash 분기 추가 — dogfood 경로 (bash scripts/_internal/run-verification.sh <FID>) invocation 도 evidence 의도 인정
   local last_evi_line=-1 last_evi_path="" line_no=0
   while IFS= read -r line; do
+    # Minor1 (hot-path tightening): tool_use 없는 라인(user 메시지 등)은 jq fork 2회를
+    # 건너뛴다. union 강제(단일 jq) 는 same-turn Write+Bash 의 Bash-우선 순서(T-R6.17)를
+    # 배열 순서에 의존시켜 fragile — 동작 보존하며 fork 만 줄이는 선검사로 대체.
+    case "$line" in *'"tool_use"'*) ;; *) line_no=$((line_no + 1)); continue ;; esac
     local fp
     fp=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | .input.file_path // empty' 2>/dev/null \
       | grep -E "$evidence_path_re" | head -1)
