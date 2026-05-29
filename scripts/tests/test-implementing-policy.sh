@@ -46,5 +46,49 @@ grep -qE "(자동 재dispatch|1회 자동)" "$F" \
   && { PASS=$((PASS+1)); echo "PASS T1.h 자동 재dispatch 정책"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T1.h 자동 재dispatch 정책 부재"; }
 
+# ── T2 머지-race 단위검증 (implementing-ko L88-92 DAG-AWARE PARALLEL 부모 머지) ──
+# 경계 (한계 고백): git apply --index 머지 합성/충돌 abort 로직만 검증한다.
+#   LLM 이 단일 메시지에 멀티 Task tool_use 를 emit 하는 **실제 병렬 dispatch 자체는
+#   bash 로 검증 불가** (S7 gh-pr-MERGED 와 동일 범주) — dogfood run 으로만 증명 가능.
+mr_tmp=$(mktemp -d)
+(
+  cd "$mr_tmp" && git init -q m && cd m
+  git config user.email t@example.com && git config user.name t
+  echo base > base.txt && git add base.txt && git commit -qm base
+  git worktree add -q ../w1 -b l1 && ( cd ../w1 && echo a > fileA.txt && git add fileA.txt )
+  git worktree add -q ../w2 -b l2 && ( cd ../w2 && echo b > fileB.txt && git add fileB.txt )
+  git -C ../w1 diff --cached > ../l1.patch
+  git -C ../w2 diff --cached > ../l2.patch
+) >/dev/null 2>&1
+mrm="$mr_tmp/m"
+
+# T2.a (M1): 2 disjoint leaf staged diff → git apply --index 순차 합성 (양쪽 산출물 반영)
+( cd "$mrm" && git apply --index "$mr_tmp/l1.patch" && git apply --index "$mr_tmp/l2.patch" ) >/dev/null 2>&1
+if [ -f "$mrm/fileA.txt" ] && [ -f "$mrm/fileB.txt" ]; then
+  PASS=$((PASS+1)); echo "PASS T2.a (M1) disjoint 2패치 git apply --index 순차 합성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a (M1) disjoint 합성 실패"
+fi
+
+# T2.b (M3): overlap (같은 파일 다른 내용) → git apply --index --check 거부 (충돌 abort)
+( cd "$mrm" && git reset -q --hard ) >/dev/null 2>&1
+(
+  cd "$mrm" && git worktree add -q ../c1 -b cc1 && ( cd ../c1 && echo X > shared.txt && git add shared.txt )
+  git worktree add -q ../c2 -b cc2 && ( cd ../c2 && echo Y > shared.txt && git add shared.txt )
+  git -C ../c1 diff --cached > ../c1.patch && git -C ../c2 diff --cached > ../c2.patch
+) >/dev/null 2>&1
+( cd "$mrm" && git apply --index "$mr_tmp/c1.patch" ) >/dev/null 2>&1
+if ( cd "$mrm" && git apply --index --check "$mr_tmp/c2.patch" ) >/dev/null 2>&1; then
+  FAIL=$((FAIL+1)); echo "FAIL T2.b (M3) overlap 충돌 미감지 (부분 적용 위험)"
+else
+  PASS=$((PASS+1)); echo "PASS T2.b (M3) overlap → git apply --check 거부 (abort 가능)"
+fi
+rm -rf "$mr_tmp"
+
+# T2.c (M2): 부모 머지 순서 정책 (output count 적은 leaf 먼저) SKILL 명시
+grep -qE "output count 적은|머지 순서" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T2.c (M2) 부모 머지 순서 정책 명시"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T2.c (M2) 머지 순서 정책 부재"; }
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
