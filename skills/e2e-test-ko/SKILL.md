@@ -1,6 +1,6 @@
 ---
 name: e2e-test-ko
-description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 specify→clarify→plan→decompose→implement→verify 6단계 완주
+description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (start-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(finishing 정리) 8단계 완주
 layer: 3
 reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 specops_version: 1.0.0
@@ -10,21 +10,31 @@ used_by: /e2e-test
 # Harness 스킬 — E2E 자동 테스트 (e2e-test-ko)
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
-specify → clarify → plan → decompose → implement → verify 6단계를 HARD GATE 없이 완주하고
-9개 검증 항목(V1~V9)을 점검한다.
+(start-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (finishing 정리)
+8단계를 HARD GATE 없이 완주하고 17개 검증 항목(V1~V17)을 점검한다.
+
+> **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
+> **repo ROOT 를 변경**하므로 (start-project 가 PRD/CLAUDE/README 작성 + `git commit`,
+> finishing 이 `git checkout main`/`branch -d`/`worktree remove`) 플러그인 repo 에서
+> 직접 실행하면 자기 파일을 파괴한다. 따라서 두 단계는 **각각 `mktemp -d` + `git init`
+> throwaway repo 안에서** 실행하고 끝에 `rm -rf` 로 제거한다. 검증 판정은 temp repo
+> 안에서 로컬 변수에 담고 `cd "$PLUGIN"` 복귀 후 `e2e_check` 로 보고한다 (cwd·카운터 안전).
+> 중간 6단계(S1~S6)는 `.specops/<FID>/` 만 기록하므로 격리 불요.
 
 ## 체크리스트
 
 다음 각 항목을 순서대로 완료한다:
 
-1. **[PRE] FID + 디렉토리 생성**
-2. **[S1] SPECIFY** — spec.md + acceptance-criteria.md 생성
-3. **[S2] CLARIFY** — clarifications.md 생성 + AC append
-4. **[S3] PLAN** — plan.md 생성
-5. **[S4] DECOMPOSE** — tasks.md 생성 + DAG 파싱 확인
-6. **[S5] IMPLEMENT** — greet-cli.sh 생성 + 테스트 실행
-7. **[S6] VERIFY** — 9개 검증 항목 실행
-8. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
+1. **[PRE] FID + 디렉토리 생성** (+ `e2e_check` 헬퍼·카운터 정의)
+2. **[S0] BOOTSTRAP** — start-project 부트스트랩 (격리 repo, 진입부) → V10~V13
+3. **[S1] SPECIFY** — spec.md + acceptance-criteria.md 생성
+4. **[S2] CLARIFY** — clarifications.md 생성 + AC append
+5. **[S3] PLAN** — plan.md 생성
+6. **[S4] DECOMPOSE** — tasks.md 생성 + DAG 파싱 확인
+7. **[S5] IMPLEMENT** — greet-cli.sh 생성 + 테스트 실행
+8. **[S6] VERIFY** — 9개 검증 항목(V1~V9) 실행
+9. **[S7] FINISH** — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부) → V14~V17
+10. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
 
 ---
 
@@ -55,15 +65,97 @@ FID 패턴: <YYYYMMDD>-greet-cli-e2e  (예: 20260503-greet-cli-e2e)
 
 ---
 
-## [PRE] FID 생성 + 디렉토리 준비
+## [PRE] FID 생성 + 디렉토리 준비 + 헬퍼 정의
 
 ```bash
+PLUGIN="$(pwd)"                       # 플러그인 root 절대경로 (S0/S7 cd 복귀용)
 FID="$(date +%Y%m%d)-greet-cli-e2e"
 mkdir -p ".specops/$FID"
 echo "FID: $FID"
+
+# 검증 헬퍼 + 카운터 (S0~S7 전 단계 공유)
+E2E_PASS=0; E2E_FAIL=0
+e2e_check() {
+  local id="$1" desc="$2" result="$3"
+  if [ "$result" = "0" ]; then
+    printf "%-4s %-40s PASS\n" "$id" "$desc"; E2E_PASS=$((E2E_PASS+1))
+  else
+    printf "%-4s %-40s FAIL\n" "$id" "$desc"; E2E_FAIL=$((E2E_FAIL+1))
+  fi
+}
 ```
 
-이후 모든 단계에서 `$FID` 변수를 유지한다.
+이후 모든 단계에서 `$FID`·`$PLUGIN`·`e2e_check`·`E2E_PASS/E2E_FAIL` 를 유지한다.
+
+> **⚠️ 단일 연속 셸 실행 필수**: Bash 도구는 셸 함수·비-export 변수를 호출 간 보존하지
+> 않는다(cwd 만 보존). `[PRE]`~`[REPORT]` 의 모든 bash 블록을 **하나의 연속 셸(단일
+> Bash 호출 또는 이어붙여)로 실행**해야 `e2e_check`·카운터가 유지돼 REPORT 합계가 맞다.
+> 개별 호출로 쪼개면 `command not found` + 카운터 리셋.
+
+---
+
+## [S0] BOOTSTRAP — start-project 부트스트랩 (격리 repo, 진입부)
+
+lifecycle **진입부** 검증 — `/start-project` 의 비대화 산출물 생성을 격리 repo 에서 확인.
+**비대화 우회**: phase_4 fallback 이 `/dev/tty` 를 직접 read 하므로 `echo n |` 으로는 막힌다.
+대신 **유효 numbered list 를 stdin 공급해 parse 성공(≥4/6) 경로를 강제**(fallback 미진입).
+`PROJECT_KIND=3`(CLI) 은 greet 의미 일치 + phase 6/7/8b/8c/8d/8f skip(python3 의존 제거).
+**stdin 소비 순서**: `3`(KIND) → `skip`(헌법 placeholder) → numbered 6줄 + 빈 줄(sentinel) → `N`(8e DB 미사용).
+
+```bash
+TMP="$(mktemp -d)"
+(
+  cd "$TMP" && git init -q \
+    && git config user.email e2e@test.local && git config user.name e2e
+  printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/start-project.sh" greet-fixture >/dev/null 2>&1
+) >/dev/null 2>&1
+
+# V10: root 산출물 3종
+{ [ -f "$TMP/PRD.md" ] && [ -f "$TMP/CLAUDE.md" ] && [ -f "$TMP/README.md" ]; } && r10=0 || r10=1
+# V11: memory 산출물 3종 (CLI 활성: constitution·requirements·test-strategy)
+{ [ -f "$TMP/.specops/memory/constitution.md" ] \
+  && [ -f "$TMP/.specops/memory/requirements.md" ] \
+  && [ -f "$TMP/.specops/memory/test-strategy.md" ]; } && r11=0 || r11=1
+# V12: session-progress 골격 + init 커밋 1건
+{ [ -f "$TMP/.specops/session-progress.md" ] \
+  && [ "$(git -C "$TMP" log --oneline 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ]; } && r12=0 || r12=1
+
+e2e_check V10 "start-project root 산출물 3종" "$r10"
+e2e_check V11 "start-project memory 산출물 3종" "$r11"
+e2e_check V12 "session-progress 골격 + init 커밋" "$r12"
+
+rm -rf "$TMP"
+```
+
+**V13 — brainstorming → start-project 참조 흐름** (별도 격리 repo):
+메모를 `.specops/memory/` 에 선생성하면 `_check_memory`(`[y/N]`)·`_check_brainstorming`(`[Y/n]`)
+prompt 가 발동하므로 스트림 선두에 `y`(재부트) + `Y`(참조) prepend. PRD.md 에
+`## 브레인스토밍 컨텍스트` 주입되면 PASS.
+
+```bash
+TMP="$(mktemp -d)"
+(
+  cd "$TMP" && git init -q \
+    && git config user.email e2e@test.local && git config user.name e2e
+  mkdir -p .specops/memory
+  printf '# 브레인스토밍 메모\n## 문제\n사용자 인사 자동화\n' \
+    > .specops/memory/brainstorming-$(date +%Y%m%d)-greet.md
+  printf 'y\nY\n3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/start-project.sh" greet-fixture >/dev/null 2>&1
+) >/dev/null 2>&1
+
+grep -q '## 브레인스토밍 컨텍스트' "$TMP/PRD.md" 2>/dev/null && r13=0 || r13=1
+e2e_check V13 "brainstorming 메모 PRD 참조 주입" "$r13"
+
+rm -rf "$TMP"
+```
+
+생성 후:
+
+```bash
+bash scripts/session-progress-append.sh "$FID" "/start-project" "완료" "부트스트랩 V10~V13 (격리 repo)" "greet-cli E2E"
+```
 
 ---
 
@@ -514,21 +606,11 @@ bash scripts/session-progress-append.sh "$FID" "/implement" "완료" "greet-cli.
 
 ---
 
-## [S6] VERIFY — 9개 검증 항목
+## [S6] VERIFY — 9개 검증 항목 (V1~V9)
 
 아래 검증을 순서대로 실행하고 PASS/FAIL을 집계한다.
-
-```bash
-E2E_PASS=0; E2E_FAIL=0
-e2e_check() {
-  local id="$1" desc="$2" result="$3"
-  if [ "$result" = "0" ]; then
-    printf "%-4s %-40s PASS\n" "$id" "$desc"; E2E_PASS=$((E2E_PASS+1))
-  else
-    printf "%-4s %-40s FAIL\n" "$id" "$desc"; E2E_FAIL=$((E2E_FAIL+1))
-  fi
-}
-```
+`e2e_check`·카운터는 [PRE] 에서 정의됐으므로 **재정의·재초기화하지 않는다**
+(S0 의 V10~V13 집계를 보존).
 
 **V1 — .specops/\<FID\>/ 존재:**
 
@@ -613,6 +695,78 @@ e2e_check V9 "validate-structure PASS" "$r"
 
 ---
 
+## [S7] FINISH — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부)
+
+lifecycle **꼬리부** 검증. `finishing-a-development-branch-ko` 는 `gh pr view`/`git worktree`/
+`git branch -d` 실제 명령에 의존하며 fixture 에서 실제 PR 머지는 불가하다. 따라서 finishing 의
+**HARD GATE bash 스니펫을 격리 repo 에 재현해 exit code/출력만 단위 검증**한다 (finishing skill
+을 chain 호출하지 않음 — HARD GATE 없는 harness 성격 유지).
+
+> **검증 경계 (한계 고백)**: dirty-tree gate·unpushed gate·worktree-absent skip·
+> `branch -d` merged/unmerged 분기는 시뮬 **가능**. 그러나 `gh pr view` 가 보고하는
+> 실제 PR `state==MERGED` 경로(finishing Step2)는 **fixture 로 검증 불가** — no-gh
+> fallback(`git log origin/main..branch`)만 행사하며, squash-merge 오탐 가능성도
+> 구조적 한계로 남긴다.
+
+```bash
+TMP="$(mktemp -d)"
+(
+  cd "$TMP"
+  git init -q --bare origin.git
+  git clone -q origin.git work 2>/dev/null
+  cd work
+  git config user.email e2e@test.local && git config user.name e2e
+  git checkout -q -b main 2>/dev/null || git checkout -q main
+  echo base > base.txt && git add base.txt && git commit -q -m base
+  git push -q -u origin main
+) >/dev/null 2>&1
+WORK="$TMP/work"
+
+# V14: dirty tree → HARD GATE1 발동 (git status --short 비어있지 않음)
+( cd "$WORK" && echo dirty > dirty.txt )
+[ -n "$(git -C "$WORK" status --short)" ] && r14=0 || r14=1
+( cd "$WORK" && rm -f dirty.txt )
+e2e_check V14 "finishing dirty-tree GATE 감지" "$r14"
+
+# V15: unpushed commit → HARD GATE2 발동 (git log origin/main..HEAD 비어있지 않음)
+( cd "$WORK" && echo more >> base.txt && git commit -q -am unpushed ) >/dev/null 2>&1
+unp=$(git -C "$WORK" log origin/main..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
+[ "$unp" -gt 0 ] && r15=0 || r15=1
+( cd "$WORK" && git push -q origin main ) >/dev/null 2>&1
+e2e_check V15 "finishing unpushed-commit GATE 감지" "$r15"
+
+# V16: worktree 없음 → "worktree 없음 — 스킵" 경로
+wt=$(git -C "$WORK" worktree list | grep -F ".worktrees/" || true)
+[ -z "$wt" ] && r16=0 || r16=1
+e2e_check V16 "finishing worktree-absent 스킵 경로" "$r16"
+
+# V17: branch -d merged 성공 vs unmerged 거부 (finishing L94-104 분기)
+(
+  cd "$WORK"
+  git checkout -q -b feat/merged && echo m > m.txt && git add m.txt && git commit -q -m merged
+  git checkout -q main && git merge -q feat/merged
+) >/dev/null 2>&1
+git -C "$WORK" branch -d feat/merged >/dev/null 2>&1 && r17a=0 || r17a=1
+(
+  cd "$WORK"
+  git checkout -q -b feat/unmerged && echo u > u.txt && git add u.txt && git commit -q -m unmerged
+  git checkout -q main
+) >/dev/null 2>&1
+git -C "$WORK" branch -d feat/unmerged >/dev/null 2>&1 && r17b=1 || r17b=0  # 거부돼야 PASS
+{ [ "$r17a" = 0 ] && [ "$r17b" = 0 ]; } && r17=0 || r17=1
+e2e_check V17 "finishing branch -d merged성공/unmerged거부" "$r17"
+
+rm -rf "$TMP"
+```
+
+생성 후:
+
+```bash
+bash scripts/session-progress-append.sh "$FID" "/finishing" "완료" "정리 GATE V14~V17 (격리 repo, gh PR 경로 제외)" "greet-cli E2E"
+```
+
+---
+
 ## [REPORT] 결과 출력 + session-progress append
 
 ```bash
@@ -628,7 +782,9 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
 ```
 /e2e-test 호출
     ↓
-[PRE] FID 생성 + mkdir
+[PRE] FID 생성 + mkdir + e2e_check/카운터 정의
+    ↓
+[S0] start-project 부트스트랩 (격리 repo) → V10~V13   ← 진입부 (신규)
     ↓
 [S1] spec.md + acceptance-criteria.md (AC-1, AC-2)
     ↓
@@ -642,7 +798,9 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S6] V1~V9 검증
     ↓
-PASS=9 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥8 허용)
+[S7] finishing HARD GATE 로직 단위검증 (격리 repo) → V14~V17   ← 꼬리부 (신규)
+    ↓
+PASS=17 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥16 허용)
 ```
 
 ## 실패 시 디버깅
@@ -655,6 +813,9 @@ PASS=9 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥8 허용)
 | V7 (session-progress) | scripts/session-progress-append.sh 실패 | ensure-session-progress.sh 실행 후 재시도 |
 | V8 (DAG 파싱) | parse-dag.sh 로드 실패 | `bash scripts/dag/parse-dag.sh` 직접 실행해 오류 확인 |
 | V9 (validate-structure) | 파일 개수 불일치 | validate-structure.sh 실행해 구체적 FAIL 항목 확인 |
+| V10~V12 (부트스트랩) | start-project.sh phase_4 fallback 진입 (parse <4/6) | stdin numbered list 라인이 `숫자. 라벨: 값` 형식인지·빈 줄 sentinel 누락 확인. `[Phase 4] ... 개별 입력 모드로 전환` 출력 시 fallback 진입 (parse 실패) |
+| V13 (brainstorming 참조) | `_check_memory`/`_check_brainstorming` prompt 미소비 | stdin 선두 `y`(재부트) + `Y`(참조) prepend 확인. 메모가 `.specops/memory/brainstorming-*.md` 경로인지 확인 |
+| V14~V17 (finishing GATE) | git fixture 셋업 실패 | `git init --bare`/clone/push 단계 오류 확인. `gh pr` 실제 MERGED 경로는 검증 범위 외 (한계 고백 참조) |
 
 ## 5원칙 적용
 
@@ -662,9 +823,9 @@ PASS=9 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥8 허용)
 |---|---|
 | 1 투명성 | 각 단계 시작 시 `[S1] SPECIFY ...` 진행 상황 출력 |
 | 2 문지기 | S5 테스트 FAIL=0 확인 후 S6 진입. FAIL 있으면 REPORT에서 E2E_FAIL 집계로 판정 (HARD GATE 없음) |
-| 3 깊이 | fixture 요구사항·경계값(빈 문자열·인자 없음)·실패 시나리오 모두 문서화 |
+| 3 깊이 | fixture 요구사항·경계값(빈 문자열·인자 없음)·실패 시나리오 + 양 끝(S0 진입부·S7 꼬리부)까지 문서화 |
 | 4 주권 | HARD GATE 없음 — 완전 자동 (fixture로 사전 결정) |
-| 5 한계 고백 | V8 SKIP 가능성 (python3+pyyaml 미설치) 명시 |
+| 5 한계 고백 | ① V8 SKIP 가능성 (python3+pyyaml 미설치) ② S7 의 `gh pr view` 실제 PR `MERGED` 경로는 fixture 로 검증 불가 (no-gh fallback 만 행사, squash-merge 오탐 가능) ③ S0/S7 은 격리 repo 단위검증이며 실제 lifecycle 연속 실행이 아님 |
 
 ---
 
