@@ -581,6 +581,65 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.14 mixed fixture 미매칭"
 fi
 
+# T-R6.15 stop-governance.sh end-to-end 통합 (AC-7 — entrypoint 실제 실행, T-R6.7b grep 보완)
+# sandbox: mktemp + .specops/session-progress.md(FID) + R-6 FAIL transcript
+#   → stdin JSON 으로 stop-governance.sh 실행 → friction-log.jsonl 기록 + {continue:true}
+# 격리: 모든 쓰기를 temp .specops/ 로 (실 repo 오염 차단 — S0/S7 격리 규율과 동일)
+e2e_tmp=$(mktemp -d)
+e2e_fid="20260529-r6-e2e-stop"
+mkdir -p "$e2e_tmp/.specops"
+printf '## %s\n' "$e2e_fid" > "$e2e_tmp/.specops/session-progress.md"
+e2e_tx="$e2e_tmp/transcript.jsonl"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$e2e_tx"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/%s/evidence.md","content":"# evidence"}}]}}\n' "$e2e_fid" >> "$e2e_tx"
+e2e_out=$(cd "$e2e_tmp" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$e2e_tx" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
+e2e_cont=$(echo "$e2e_out" | jq -r '.continue' 2>/dev/null)
+e2e_log="$e2e_tmp/.specops/$e2e_fid/friction-log.jsonl"
+if [ "$e2e_cont" = "true" ] && [ -f "$e2e_log" ] && grep -q '"rule_id":"R-6"' "$e2e_log"; then
+  PASS=$((PASS+1)); echo "PASS T-R6.15 stop-governance.sh E2E — friction-log 기록 + continue:true"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.15 E2E cont=$e2e_cont log=$([ -f "$e2e_log" ] && cat "$e2e_log" || echo MISSING)"
+fi
+rm -rf "$e2e_tmp"
+
+# T-R6.16 stop-governance.sh 멱등 가드 (NFR-4 — stop_hook_active=true 시 friction 미기록)
+e2e_tmp2=$(mktemp -d)
+mkdir -p "$e2e_tmp2/.specops"
+printf '## %s\n' "$e2e_fid" > "$e2e_tmp2/.specops/session-progress.md"
+e2e_tx2="$e2e_tmp2/transcript.jsonl"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-auto-ko:verifying-evidence-ko"}}]}}\n' > "$e2e_tx2"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/%s/evidence.md","content":"# evidence"}}]}}\n' "$e2e_fid" >> "$e2e_tx2"
+out2=$(cd "$e2e_tmp2" && printf '{"transcript_path":"%s","stop_hook_active":true}' "$e2e_tx2" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
+if [ "$(echo "$out2" | jq -r '.continue' 2>/dev/null)" = "true" ] && [ ! -f "$e2e_tmp2/.specops/$e2e_fid/friction-log.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.16 stop-governance.sh 멱등 — active=true 시 friction 미기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.16 멱등 가드 깨짐 (active=true 인데 friction 기록됨)"
+fi
+rm -rf "$e2e_tmp2"
+
+# T-R6.17 한 turn(단일 JSON 라인)에 Write+Bash 공존 (characterization — Minor1 리팩터 가드)
+# 현 동작: 같은 line_no 에서 Write fp 갱신 후 Bash invocation 분기가 synth_path 로 덮음 → Bash 우선.
+# 이 동작을 lock 하여 jq 호출 구조 변경(2-fork) 시 회귀 차단. T-R6.14 는 별개 라인(line2/3), 본 케이스는 동일 라인.
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-write-bash-same-turn.jsonl")
+if [ -n "$out" ]; then
+  fid=$(echo "$out" | jq -r '.fid'); offset=$(echo "$out" | jq -r '.offset')
+  if [ "$fid" = "20260529-fid-bash" ] && [ "$offset" = "1" ]; then
+    PASS=$((PASS+1)); echo "PASS T-R6.17 same-turn Write+Bash — Bash 분기 우선 (fid=bash offset=1)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-R6.17 fid=$fid offset=$offset (20260529-fid-bash/1 기대)"
+  fi
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.17 same-turn 미매칭"
+fi
+
+# T-R6.18 negative — evidence Write 없음 + Bash 무관 명령(ls) → 미매칭 (AC-R-2 보완)
+out=$(apply_gbrain_absence_rule "$rule_r6" "$FIXTURES/transcripts/r6-verify-bash-irrelevant.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T-R6.18 negative — evidence 없음 + Bash 무관 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.18 negative 매칭됨: $out"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
