@@ -31,7 +31,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.
 
 - **자율 체인**: Conductor 에이전트 없이 각 스킬 본문 `## 다음 skill`이 다음 단계를 강제
-- **거버넌스**: R-1~R-5 규칙 엔진이 매 도구 호출 후 원칙 위반을 자동 감지
+- **거버넌스**: R-1~R-6 규칙 엔진이 매 도구 호출 후 원칙 위반을 자동 감지
 - **AC 계약**: `acceptance-criteria.md`를 스프린트 계약서로 취급 — 평가자는 이것만 기준으로 판정
 - **Generator/Evaluator 분리**: Phase B(스펙 준수)와 Phase C(코드 품질)를 별도 서브에이전트가 담당
 
@@ -93,7 +93,7 @@ specops-auto-ko/
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
-│   ├── posttool-governance.sh            ← 도구 호출 후 R-1~R-5 검사
+│   ├── posttool-governance.sh            ← 도구 호출 후 R-1~R-3 검사 (R-4~R-6 은 Stop 훅)
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
@@ -152,7 +152,7 @@ specops-auto-ko/
 
 ## 거버넌스 엔진
 
-`hooks/rules.jsonl`에 정의된 5 규칙이 PostToolUse + Stop 훅으로 자동 검사됩니다.
+`hooks/rules.jsonl`에 정의된 6 규칙이 PostToolUse + Stop 훅으로 자동 검사됩니다.
 
 | Rule | 원칙 | 감지 조건 |
 |---|---|---|
@@ -161,6 +161,7 @@ specops-auto-ko/
 | R-3 | 1 (투명성) | specops-auto-ko 스킬 호출 전 "Using ..." 선언 부재 |
 | R-4 | 5 (검증) | 성공 주장 있으나 테스트 러너 미실행 |
 | R-5 | 1 (투명성) | plan.md 수정 시 Advisor 협의 기록 섹션 누락 |
+| R-6 | 1 (투명성) | `/verify` + evidence.md 후 gbrain-append 호출 부재 (lifecycle 완주 인사이트 누적 권고) |
 
 위반 시 `.specops/<FID>/friction-log.jsonl`에 자동 기록 (Soft Warn).
 
@@ -169,8 +170,8 @@ specops-auto-ko/
 ## 검증 현황
 
 - **Lifecycle dogfood**: 5회 완주 (csv-lines · slug-cli · cvt-cli · b64-cli · hex-cli)
-- **거버넌스 테스트**: `bash scripts/tests/governance/test-rules.sh` → PASS=38 FAIL=0
-- **DAG 파서 테스트**: `bash scripts/tests/dag/test-parse-dag.sh` → PASS=13 FAIL=0
+- **거버넌스 테스트**: `bash scripts/tests/governance/test-rules.sh` → 전 항목 PASS (R-1~R-6)
+- **DAG 파서 테스트**: `bash scripts/tests/dag/test-parse-dag.sh` → 전 항목 PASS
 - **거버넌스 성능**: p95 69ms / median 67ms (AC-8 < 200ms 충족)
 
 ---
