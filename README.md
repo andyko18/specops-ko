@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.0.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.4.0)
 
 ## 사용방법
 
@@ -18,7 +18,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
 
-> `/start-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. **`/start-design` 은 본 슬래시로 통합** — deprecated, 1~2 릴리즈 후 제거.
+> `/start-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. (구 `/start-design` 은 본 슬래시로 통합·제거됨.)
 
 진입 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
 
@@ -83,13 +83,15 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (6건)
+├── commands/                                 ← 슬래시 진입로 (8건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
-│   ├── start-project.md                      ← 프로젝트 초기화 /start-project (NEW v2.0)
-│   ├── start-design.md                       ← deprecated (start-project 로 통합)
+│   ├── start-project.md                      ← 프로젝트 초기화 /start-project
+│   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
-│   └── e2e-test.md                           ← E2E lifecycle 자동 테스트
+│   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (8단계)
+│   ├── gbrain.md                             ← 세션 인사이트 조회 /gbrain
+│   └── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
@@ -97,22 +99,28 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 22
+├── skills/                               ← flat: skills/<name>/SKILL.md × 27
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
+│   ├── brainstorming-ko/                 ← 아이디어 탐색·수요 검증 (pre-design)
+│   ├── analyzing-ko/                     ← 유지보수 baseline + impact 분석 (★ HARD GATE)
 │   ├── specifying-ko/                    ← spec.md + AC 작성
 │   ├── clarifying-ko/                    ← 모호성 해소
 │   ├── planning-ko/                      ← 구현 플랜
+│   ├── plan-reviewer-ko/                 ← plan.md Eng 리뷰 서브에이전트
 │   ├── decomposing-ko/                   ← TDD 태스크 분해 + DAG
 │   ├── implementing-ko/                  ← 서브에이전트 dispatch
 │   ├── tdd-ko/                           ← TDD 5스텝 (서브에이전트용)
 │   ├── verifying-evidence-ko/            ← 증거 기반 검증
 │   ├── requesting-code-review-ko/        ← 코드 리뷰 요청
 │   ├── receiving-code-review-ko/         ← 리뷰 피드백 수용
+│   ├── finishing-a-development-branch-ko/ ← worktree 정리·branch 삭제·main 동기화
 │   ├── systematic-debugging-ko/          ← BLOCKED 상태 복구
 │   ├── dispatching-parallel-agents-ko/   ← DAG-aware 병렬 dispatch
 │   ├── using-git-worktrees-ko/           ← 병렬 격리 (git worktree)
+│   ├── gbrain-ko/                        ← 세션 인사이트 조회 (learnings.jsonl)
+│   ├── improve-codebase-architecture-ko/ ← deep module 정적 분석 (split/merge 권고)
 │   ├── karpathy-ko/                      ← Karpathy 4원칙 (Think·Simplicity·Surgical·Goal)
 │   ├── advisor-ko/                       ← advisor 활용 (애매성 발생 시 외부 자문 의무)
 │   │
@@ -121,12 +129,13 @@ specops-auto-ko/
 │   ├── structured-artifacts-ko/          ← .specops/<FID>/ 규약
 │   ├── generator-evaluator-ko/           ← Phase B/C 분리 원칙
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
-│   └── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
-├── templates/                            ← 24건
-│   │  Lifecycle 템플릿 (12건): spec, acceptance-criteria, plan, tasks, session-progress,
-│   │      dispatch-context, current-state, impact-analysis, test-conventions-{bash,python},
-│   │      screen.{md,html}, DESIGN.md
-│   │  /start-project 산출 템플릿 (12건 NEW v2.0): constitution, PRD, requirements,
+│   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
+│   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (8단계)
+├── templates/                            ← 26건
+│   │  Lifecycle/공통 템플릿 (14건): spec, acceptance-criteria, plan, tasks, session-progress,
+│   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
+│   │      screen.{md,html}, DESIGN, SKILL
+│   │  /start-project 산출 템플릿 (12건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy
 ├── agents/                               ← 3건 (implementer, spec-reviewer, code-reviewer)
@@ -141,7 +150,7 @@ specops-auto-ko/
 │       ├── diff-upstream.sh
 │       ├── is-hook-enabled.sh
 │       ├── validate-task-dependencies.sh
-│       └── start-project.sh             ← /start-project 오케스트레이터 (10 phase, NEW v2.0)
+│       └── start-project.sh             ← /start-project 오케스트레이터 (10 phase)
 ├── examples/                             ← dogfood CLI 예시 (epoch/hex/b64/cvt/slug)
 └── README.md
 ```
@@ -176,4 +185,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · **v1.0.0 릴리즈: 2026-04-26** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.4.0 (2026-06-01)** · Claude Code 전용*
