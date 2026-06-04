@@ -40,6 +40,18 @@ bash scripts/_internal/design-screen.sh {name}
 > 2. 주요 **컴포넌트**는 무엇인가요? (예: 로그인 버튼, 이메일 입력)
 > 3. 이 화면에서 다음으로 이동하는 **화면**이 있나요?"
 
+### Step 2.5: [ui-ux-pro-max 있으면] design system 자문 (선택)
+
+**탐지**: 현재 세션 available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있는가?
+- **없으면**: 이 단계 전체 skip → Step 3 직행
+- **있으면**: 아래 절차 실행 (자체 메시지 — 다른 질문·맥락과 섞지 말 것)
+
+> "ui-ux-pro-max 디자인 인텔리전스로 이 화면의 스타일·색·타이포·UX 가이드라인을 추천받을 수 있습니다. 써보시겠어요? [y/N]"
+
+사용자 응답 대기:
+- **y** → `ui-ux-pro-max:ui-ux-pro-max` Skill 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: ui-ux-pro-max 결과 우선 채택 — DESIGN.md 토큰은 후순위 fallback.
+- **N / 무응답** → 기존 자체 생성 흐름(Step 3) 그대로 진행.
+
 ### Step 3: HTML artifact 생성
 
 스크립트가 이미 기본 HTML 구조를 생성했으므로, 사용자 답변 기반으로 **레이아웃·컴포넌트 내용만** 채운 HTML artifact를 생성:
@@ -95,6 +107,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 - `templates/screen.html` — HTML 미리보기 템플릿 (CSS 변수 기반)
 - `DESIGN.md` — 디자인 시스템 (색상·폰트·컴포넌트)
 - `.specops/memory/screens-overview.md` — 화면 목록 마스터
+- `ui-ux-pro-max:ui-ux-pro-max` — design system 자문 (Step 2.5, available-skills 에 있으면 선택 호출)
 
 ---
 

@@ -105,6 +105,7 @@ used_by: using-specops-auto-ko-ko, /start
 5.5. **[UI 기능인 경우] 인라인 화면 설계** — 설계 승인 직후 실행:
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
+   - **[ui-ux-pro-max 있으면] design system 자문 (선택)**: 화면 설계 시작 전 1회만. available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있으면 제안(Visual Companion idiom — 자체 메시지, 동의 후에만 Skill 호출, 거절·미설치 시 graceful skip). 동의 시 → `ui-ux-pro-max:ui-ux-pro-max` Skill 호출 → design system 산출 → HTML artifact 스타일에 반영. **우선순위**: ui-ux-pro-max 결과 우선, DESIGN.md 는 후순위 fallback.
    - 각 화면을 순서대로 설계:
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성 (별도 질문 없이)
      2. 사용자에게 보여주고 수정 요청 수렴 → 수정 요청 시 재생성 루프
