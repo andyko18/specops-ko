@@ -46,6 +46,7 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 - 아키텍처 선택지가 미확정 (저장소·프레임워크·프로토콜)
 - AC Given/When/Then 중 필수 분기가 비어 있음
 - 스펙이 두 가지로 해석되어 **근본적으로 다른 구현**을 초래
+- **§유형=`foundation`** 이고 `frontend-architecture.md` 또는 `backend-architecture.md` 에 `<...>` 형태의 미해소 placeholder 가 있으면 **기술 프레임워크 확정을 BLOCKING 질문으로 강제** — RESOLVED 전 planning-ko 진입 차단
 
 **DESIRABLE** (가정으로 진행 가능):
 - UI 세부 (색상·버튼 텍스트)
