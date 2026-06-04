@@ -34,7 +34,7 @@
 
 **관련 AC**: AC-1, AC-2, AC-3, AC-4
 
-- [ ] **스텝 1: RED — 실패하는 테스트 작성**
+- [x] **스텝 1: RED — 실패하는 테스트 작성**
 
 `scripts/tests/test-login-screen.sh` 파일이 아직 없으므로 실행 시 "No such file" 오류 → FAIL 상태
 
@@ -70,7 +70,7 @@ echo "결과: PASS=${PASS}, FAIL=${FAIL}"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
 ```
 
-- [ ] **스텝 2: FAIL 검증**
+- [x] **스텝 2: FAIL 검증**
 
 ```bash
 bash scripts/tests/test-login-screen.sh
@@ -78,7 +78,7 @@ bash scripts/tests/test-login-screen.sh
 
 예상: `bash: scripts/tests/test-login-screen.sh: No such file or directory` (파일 미존재)
 
-- [ ] **스텝 3: GREEN — 스크립트 파일 저장 + 실행 권한**
+- [x] **스텝 3: GREEN — 스크립트 파일 저장 + 실행 권한**
 
 위 스텝 1 내용을 `scripts/tests/test-login-screen.sh`에 저장 후:
 
@@ -87,7 +87,7 @@ chmod +x scripts/tests/test-login-screen.sh
 bash scripts/tests/test-login-screen.sh
 ```
 
-- [ ] **스텝 4: PASS 검증**
+- [x] **스텝 4: PASS 검증**
 
 예상 출력:
 ```
@@ -107,7 +107,7 @@ FAIL: AC-5 토글 aria-label
 
 AC-1~AC-4 체크는 9개 PASS. AC-5 2개만 FAIL — 기대 동작 (T2에서 구현 예정)
 
-- [ ] **스텝 5: COMMIT**
+- [x] **스텝 5: COMMIT**
 
 ```bash
 git add scripts/tests/test-login-screen.sh
@@ -244,7 +244,7 @@ git commit -m "feat(login-screen): AC-5 비밀번호 표시/숨김 토글 추가
 ## 진행 상태
 
 총 태스크 수: 2
-완료: 0 / 2
+완료: 1 / 2
 차단: 0
 
 ## 의존 그래프 (v0.4a 의무)

@@ -30,6 +30,6 @@ bash scripts/tests/test-login-screen.sh
 
 ## 5. 작업 디렉터리
 
-- `<repo-root>/.worktrees/20260604-login-screen-T1/`
+- `/Users/andyko/Project/0.Claude/specops-auto-ko`
 
 > implementing-ko 가 worktree 생성 후 본 라인 sed 갱신.
