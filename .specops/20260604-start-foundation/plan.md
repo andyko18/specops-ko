@@ -201,34 +201,36 @@ git commit -m "feat(template): foundation-manifest.md 신규 — 공통부 모�
 **AC 매핑**: AC-6
 **파일**: Modify `scripts/_internal/.structure-baseline`
 
+> **포맷 주의**: `.structure-baseline` 은 JSONL (1줄 1객체). `json.load()` 사용 금지.
+
 **Step 1: RED — 실패 확인**
 ```bash
-python3 -c "
-import json
-d = json.load(open('scripts/_internal/.structure-baseline'))
-exit(0 if d['commands']==9 and d['templates']==27 else 1)
-"; echo "exit: $?"
+grep -qF '"count":9' scripts/_internal/.structure-baseline; echo "exit: $?"
 ```
-예상: `exit: 1` (현재 commands=8, templates=26)
+예상: `exit: 1` (현재 commands count=8)
 
-**Step 3: GREEN — baseline 갱신**
+**Step 3: GREEN — sed 인라인 편집 (JSONL 포맷 보존)**
 
-`scripts/_internal/.structure-baseline` 전체 내용 (JSON):
-```json
-{"commands":9,"skills":27,"templates":27,"agents":3}
+```bash
+sed -i '' 's/"category":"commands","glob":"commands\/\*.md","count":8/"category":"commands","glob":"commands\/*.md","count":9/' scripts/_internal/.structure-baseline
+sed -i '' 's/"category":"templates","glob":"templates\/\*.md","count":26/"category":"templates","glob":"templates\/*.md","count":27/' scripts/_internal/.structure-baseline
+```
+
+결과 파일 예상:
+```
+{"category":"commands","glob":"commands/*.md","count":9}
+{"category":"skills","glob":"skills/*/SKILL.md","count":27}
+{"category":"templates","glob":"templates/*.md","count":27}
+{"category":"agents","glob":"agents/*.md","count":3}
 ```
 
 **Step 4: PASS 검증**
 ```bash
-python3 -c "
-import json
-d = json.load(open('scripts/_internal/.structure-baseline'))
-print('commands:', d['commands'], 'templates:', d['templates'])
-exit(0 if d['commands']==9 and d['templates']==27 else 1)
-" && echo "PASS: baseline 갱신" || echo "FAIL"
-bash scripts/_internal/validate-structure.sh 2>&1 | grep -E '✅|FAIL'
+grep -qF '"category":"commands","glob":"commands/*.md","count":9' scripts/_internal/.structure-baseline && echo "PASS: commands=9" || echo "FAIL"
+grep -qF '"category":"templates","glob":"templates/*.md","count":27' scripts/_internal/.structure-baseline && echo "PASS: templates=27" || echo "FAIL"
+bash scripts/_internal/validate-structure.sh 2>&1 | grep -c '✅'
 ```
-예상: `commands: 9 templates: 27`, `PASS: baseline 갱신`, 전 항목 ✅
+예상: `PASS: commands=9`, `PASS: templates=27`, validate-structure ✅ 전 항목
 
 **Step 5: COMMIT**
 ```bash
@@ -446,6 +448,41 @@ git commit -m "feat(skill): decomposing-ko foundation-manifest 재사용 HARD GA
 
 ---
 
+## Task 8: 거버넌스·DAG 회귀 없음 검증
+
+**AC 매핑**: AC-7
+**파일**: (변경 없음 — 기존 테스트 실행만)
+
+**Step 1: RED — 기준선 확인**
+```bash
+bash scripts/tests/governance/test-rules.sh 2>&1 | tail -1
+bash scripts/tests/dag/test-parse-dag.sh 2>&1 | tail -1
+```
+예상: 현재 `PASS=70 FAIL=0`, `PASS=16 FAIL=0`
+
+**Step 3: GREEN — 모든 T1~T7 완료 후 실행**
+
+T1~T7 커밋 완료 상태에서 재실행:
+```bash
+bash scripts/tests/governance/test-rules.sh 2>&1 | tail -1
+bash scripts/tests/dag/test-parse-dag.sh 2>&1 | tail -1
+```
+
+**Step 4: PASS 검증**
+```bash
+bash scripts/tests/governance/test-rules.sh 2>&1 | grep -q 'FAIL=0' && echo "PASS: governance" || echo "FAIL"
+bash scripts/tests/dag/test-parse-dag.sh 2>&1 | grep -q 'FAIL=0' && echo "PASS: dag" || echo "FAIL"
+```
+예상: 두 줄 모두 PASS (회귀 없음)
+
+**Step 5: COMMIT**
+```bash
+# T1~T7 이 각자 커밋했으므로 본 태스크는 별도 커밋 없음
+echo "AC-7 검증 완료 — 거버넌스·DAG 회귀 없음"
+```
+
+---
+
 ## 5. 태스크 개요
 
 1. **T1** — `commands/start-foundation.md` 신규 (진입점, AC-1)
@@ -455,8 +492,9 @@ git commit -m "feat(skill): decomposing-ko foundation-manifest 재사용 HARD GA
 5. **T5** — clarifying-ko BLOCKING 기술스택 게이트 (AC-3)
 6. **T6** — planning-ko foundation-manifest 산출 지시 (AC-4)
 7. **T7** — decomposing-ko HARD GATE 재사용 선언 조건 (AC-5)
+8. **T8** — 거버넌스·DAG 회귀 없음 검증 (AC-7)
 
-모든 태스크 독립 — 병렬 구현 가능 (spec §2 표기 일치).
+T1~T7 독립 — 병렬 구현 가능. T8 은 T1~T7 완료 후 실행 (depends_on: all).
 
 ## 6. 위험과 완화
 
