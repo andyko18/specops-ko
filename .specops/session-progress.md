@@ -17,6 +17,14 @@
 
 ---
 
+## 20260604-start-foundation · /start-foundation 슬래시 커맨드 신설
+- 2026-06-04 17:16 /tasks 완료 (tasks.md (8 태스크))
+- 2026-06-04 17:10 /plan 완료 (plan.md (T1~T8, plan-reviewer PASS))
+- 2026-06-04 16:54 /clarify 완료 (clarifications.md (1 쟁점 해소 — Q1 DESIRABLE graceful skip 확인))
+
+- 2026-06-04 16:52 /specify 완료 (spec.md, AC.md)
+
+
 ## 20260604-login-screen · 로그인 화면
 - 2026-06-04 14:29 /lifecycle DONE (PR #46 생성 — feat/20260604-login-screen → main)
 - 2026-06-04 14:28 /receive-review 완료 (Important 3건 수용(접근성 NFR-2: role=alert·aria-invalid·aria-pressed), Minor 1건 수용(aria-pressed toggle), 수정 1라운드)

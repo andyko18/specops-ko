@@ -26,6 +26,6 @@ grep -qF 'entry: foundation' commands/start-foundation.md
 
 ## 5. 작업 디렉터리
 
-- `<repo-root>/.worktrees/20260604-start-foundation-T1/`
+- `/Users/andyko/Project/0.Claude/specops-auto-ko/.worktrees/20260604-start-foundation-T1/`
 
 > implementing-ko 가 worktree 생성 후 본 라인 sed 갱신.
