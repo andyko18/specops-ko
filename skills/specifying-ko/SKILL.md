@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
 specops_version: 1.0.0
-used_by: using-specops-auto-ko-ko, /start
+used_by: using-specops-auto-ko-ko, /start, /start-foundation
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -138,7 +138,9 @@ used_by: using-specops-auto-ko-ko, /start
     ↓
 args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 분기] 5 항목 mini-checklist + current-state.md ★ HARD GATE → spec.md §유형 자동 라벨 (유지보수 / trivial — 라인 ≤ 5) → Step 3
     │
-    └── no ──▶ [신규 분기] (현재 동작) ↓
+    └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip → 공통부 spec 작성 (§유형=foundation) → Step 3
+                    │
+                    └── no ──▶ [신규 분기] (현재 동작) ↓
     ↓
 DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 시스템 준수" 포함
     │                              ↓
