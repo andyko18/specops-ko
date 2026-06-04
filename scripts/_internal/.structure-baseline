@@ -1,4 +1,4 @@
-{"category":"commands","glob":"commands/*.md","count":8}
+{"category":"commands","glob":"commands/*.md","count":9}
 {"category":"skills","glob":"skills/*/SKILL.md","count":27}
-{"category":"templates","glob":"templates/*.md","count":26}
+{"category":"templates","glob":"templates/*.md","count":27}
 {"category":"agents","glob":"agents/*.md","count":3}
