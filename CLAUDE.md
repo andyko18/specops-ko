@@ -86,7 +86,10 @@ used_by: <호출 스킬 목록>
 
 ### maintenance flag
 
-유지보수 진입 시 args 첫 줄에 `<!-- entry: maintain -->` HTML 주석을 prepend하여 신규/유지보수 분기를 구분한다. `specifying-ko`의 `[유지보수 분기]`가 이 약속어를 감지한다.
+진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다:
+
+- `<!-- entry: maintain -->` — 유지보수 진입. `specifying-ko`의 `[유지보수 분기]`가 감지.
+- `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5(화면 루프) skip, §유형=`foundation` 자동 라벨.
 
 ## 구조 검증이 FAIL나면
 
