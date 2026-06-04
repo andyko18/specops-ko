@@ -17,6 +17,20 @@
 
 ---
 
+## 20260604-login-screen · 로그인 화면
+- 2026-06-04 14:29 /lifecycle DONE (PR #46 생성 — feat/20260604-login-screen → main)
+- 2026-06-04 14:28 /receive-review 완료 (Important 3건 수용(접근성 NFR-2: role=alert·aria-invalid·aria-pressed), Minor 1건 수용(aria-pressed toggle), 수정 1라운드)
+- 2026-06-04 14:25 /request-review 완료 (review-request.md, 외부 reviewer dispatch)
+- 2026-06-04 14:22 /verify PASS (evidence.md, AC 5/5)
+- 2026-06-04 14:21 /implement DONE (Task T1~T2 완료, PASS=11 FAIL=0, 커밋 3676683..020d9b5)
+- 2026-06-04 14:12 implementer-ko 태스크 T1 완료 (AC-1~AC-4, PASS=9 FAIL=2(AC-5 미구현), staged: scripts/tests/test-login-screen.sh)
+- 2026-06-04 14:10 /tasks 완료 (tasks.md (2 태스크))
+- 2026-06-04 14:08 /plan 완료 (plan.md)
+- 2026-06-04 14:04 /clarify 완료 (clarifications.md (1 쟁점 해소 — Q1 비밀번호 토글 추가))
+
+- 2026-06-04 13:52 /specify 완료 (spec.md, acceptance-criteria.md)
+
+
 ## 20260526-bash-redirect-evidence
 - 2026-05-26 16:52 /lifecycle DONE (PR #36 생성: https://github.com/kohaedong/specops-auto-ko/pull/36)
 - 2026-05-26 16:48 /receive-review 완료 (Critical 0 / Important 0 / Minor 3 (1+3 fix commit 5827ba4 · 2 후속 backlog), 회귀 0 (66/16/✅))

@@ -39,3 +39,24 @@ PASS: AC-5 토글 aria-label
 ```
 exit: 0
 
+
+## run-verification.sh (2026-06-04 14:28:02)
+
+### `bash scripts/tests/test-login-screen.sh`
+```
+PASS: AC-1 이메일 input(type=email)
+PASS: AC-1 비밀번호 input(type=password)
+PASS: AC-1 label[for=email]
+PASS: AC-1 label[for=password]
+PASS: AC-2/AC-3 error-msg 요소
+PASS: AC-2/AC-3 error-input 클래스
+PASS: AC-2 btn.disabled 처리
+PASS: AC-2 로그인 중 텍스트
+PASS: AC-4 viewport meta
+PASS: AC-5 비밀번호 토글 버튼
+PASS: AC-5 토글 aria-label
+
+결과: PASS=11, FAIL=0
+```
+exit: 0
+
