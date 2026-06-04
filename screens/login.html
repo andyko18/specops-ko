@@ -126,15 +126,15 @@
     <form class="form" onsubmit="handleLogin(event)">
       <div class="input-group">
         <label for="email">이메일</label>
-        <input id="email" type="email" placeholder="name@example.com" autocomplete="email" required />
+        <input id="email" type="email" placeholder="name@example.com" autocomplete="email" aria-describedby="error-msg" required />
       </div>
       <div class="input-group">
         <label for="password">비밀번호</label>
         <div class="input-wrapper">
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
-          <button type="button" class="toggle-password" id="toggle-password" aria-label="비밀번호 표시/숨김">보기</button>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" aria-describedby="error-msg" required />
+          <button type="button" class="toggle-password" id="toggle-password" aria-label="비밀번호 표시/숨김" aria-pressed="false">보기</button>
         </div>
-        <span id="error-msg" class="error-msg">이메일 또는 비밀번호가 올바르지 않습니다</span>
+        <span id="error-msg" class="error-msg" role="alert" aria-live="assertive">이메일 또는 비밀번호가 올바르지 않습니다</span>
       </div>
       <button id="login-btn" type="submit" class="btn">로그인</button>
     </form>
@@ -151,13 +151,17 @@
       btn.textContent = '로그인 중...';
       errorMsg.classList.remove('visible');
       emailInput.classList.remove('error-input');
+      emailInput.removeAttribute('aria-invalid');
       passwordInput.classList.remove('error-input');
+      passwordInput.removeAttribute('aria-invalid');
       setTimeout(() => {
         btn.disabled = false;
         btn.textContent = '로그인';
         errorMsg.classList.add('visible');
         emailInput.classList.add('error-input');
+        emailInput.setAttribute('aria-invalid', 'true');
         passwordInput.classList.add('error-input');
+        passwordInput.setAttribute('aria-invalid', 'true');
       }, 1000);
     }
     document.getElementById('toggle-password').addEventListener('click', function() {
@@ -165,9 +169,11 @@
       if (input.type === 'password') {
         input.type = 'text';
         this.textContent = '숨기기';
+        this.setAttribute('aria-pressed', 'true');
       } else {
         input.type = 'password';
         this.textContent = '보기';
+        this.setAttribute('aria-pressed', 'false');
       }
     });
   </script>

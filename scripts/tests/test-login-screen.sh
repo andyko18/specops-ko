@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-FILE="screens/login.html"
+FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/screens/login.html"
 PASS=0; FAIL=0
 
 check() {
   local label="$1" pattern="$2"
-  if grep -q "$pattern" "$FILE"; then
+  if grep -qF "$pattern" "$FILE"; then
     echo "PASS: $label"; PASS=$((PASS+1))
   else
     echo "FAIL: $label"; FAIL=$((FAIL+1))
@@ -26,4 +26,5 @@ check "AC-5 토글 aria-label" 'aria-label="비밀번호 표시/숨김"'
 
 echo ""
 echo "결과: PASS=${PASS}, FAIL=${FAIL}"
+# grep checks assert presence only — dynamic behavior (AC-2/AC-3/AC-5) requires manual browser verification
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
