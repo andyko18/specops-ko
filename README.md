@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.5.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.6.0)
 
 ## 사용방법
 
@@ -15,6 +15,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 | 의도 | 슬래시 진입 | 자연어 진입 |
 |---|---|---|
 | **프로젝트 초기화** (1회) | `/start-project [<프로젝트명>]` | (메타 skill 자동 안내) |
+| **공통부 개발** (초기 1회) | `/start-foundation "라우팅·인증·공통 레이아웃"` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
 
@@ -83,8 +84,9 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (8건)
+├── commands/                                 ← 슬래시 진입로 (9건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
+│   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
 │   ├── start-project.md                      ← 프로젝트 초기화 /start-project
 │   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
@@ -131,10 +133,10 @@ specops-auto-ko/
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
 │   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (8단계)
-├── templates/                            ← 26건
-│   │  Lifecycle/공통 템플릿 (14건): spec, acceptance-criteria, plan, tasks, session-progress,
+├── templates/                            ← 27건
+│   │  Lifecycle/공통 템플릿 (15건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
-│   │      screen.{md,html}, DESIGN, SKILL
+│   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest
 │   │  /start-project 산출 템플릿 (12건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy
@@ -185,4 +187,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.5.0 (2026-06-04)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.6.0 (2026-06-05)** · Claude Code 전용*
