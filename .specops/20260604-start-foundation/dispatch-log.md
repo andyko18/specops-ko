@@ -20,4 +20,14 @@
 
 ---
 
-*implementing-ko 가 task 별로 블록 추가*
+## T1~T8 구현 (DAG-AWARE PARALLEL + SEQUENTIAL)
+
+| # | 시각 | Phase | agent | 결과 | feedback 경로 |
+|---|---|---|---|---|---|
+| 4 | 2026-06-04T10:00:00Z | A (T1~T7 병렬) | implementer-ko ×6 (worktree) | DONE | - |
+| 5 | 2026-06-04T10:05:00Z | A (T3) | 부모 직접 (depends_on T1,T2) | DONE | - |
+| 6 | 2026-06-04T10:10:00Z | A (T8) | 부모 직접 (depends_on all) | PASS=70+16 FAIL=0 | - |
+| 7 | 2026-06-04T10:15:00Z | B (전체) | spec-reviewer-ko (직접 검증) | PASS AC-1~7 | - |
+| 8 | 2026-06-04T10:20:00Z | C (전체) | code-reviewer-ko | PASS (Critical 0, Important 2 수정) | - |
+
+**재시도 누적: B=1/2 C=1/2 (cap=2)**
