@@ -23,6 +23,10 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementin
 **Python 테스트 파일 규약**: 생성되는 `test_*.py` 에 exec-bit 및 shebang 불필요. pytest가 직접 실행. 파일명은 `test_<subject>.py` (underscore, hyphen 아님). 상세: `templates/test-conventions-python.md`.
 
 **v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
+
+**foundation 재사용 게이트**: spec.md §유형이 `foundation` 이 **아니고** `.specops/memory/foundation-manifest.md` 가 존재하면, 각 task 에 다음 중 하나가 **반드시** 기재되어야 한다 — 누락 시 `specops-auto-ko:implementing-ko` 호출 금지:
+- `**재사용 foundation**: <foundation-manifest.md 의 모듈명>` — foundation 모듈을 재사용하는 경우
+- `**미재사용 근거**: <이유>` — 재사용하지 않는 경우 (예: 해당 task 가 foundation 범위 외)
 </HARD-GATE>
 
 ## 체크리스트

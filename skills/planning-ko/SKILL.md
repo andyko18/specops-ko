@@ -215,6 +215,14 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 - `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
+## foundation 분기 — manifest 산출 지시
+
+spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마지막에 다음 태스크를 포함한다:
+
+> **[foundation 전용 마지막 태스크]** 공통부 구현 완료 후 `templates/foundation-manifest.md` 를 기반으로 실제 모듈 경로·역할을 채워 `.specops/memory/foundation-manifest.md` 에 저장한다.
+
+이 태스크가 없으면 후속 `/start <기능>` 시 decomposing-ko HARD GATE 가 `foundation-manifest.md` 를 발견하지 못해 재사용 게이트가 동작하지 않는다.
+
 ## session-progress append (v0.4-pre P1 신설)
 
 플랜 저장 직후, decomposing-ko 호출 직전에:

@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
 specops_version: 1.0.0
-used_by: using-specops-auto-ko-ko, /start
+used_by: using-specops-auto-ko-ko, /start, /start-foundation
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -79,8 +79,9 @@ used_by: using-specops-auto-ko-ko, /start
    - **`docs/adr/*.md` Architecture Decision Records 자동 감지** (v2.1 신규):
      - `ls docs/adr/*.md 2>/dev/null | wc -l` — 0이면 graceful skip
      - N > 0이면: spec.md `§참조`에 `"아키텍처 결정 기록 — \`docs/adr/\` (N건)"` 인용
-   - **유지보수 분기 진입 신호 검사** (Phase A — 신규 추가):
+   - **유지보수·foundation 분기 진입 신호 검사** (Phase A):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
+     - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
 
    **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
@@ -118,6 +119,7 @@ used_by: using-specops-auto-ko-ko, /start
      | 진입 신호 | current-state.md §1 라인 범위 합산 | 라벨 |
      |---|---|---|
      | 신규 분기 | N/A | `**§유형**: 신규` |
+     | foundation 분기 | N/A | `**§유형**: foundation` |
      | 유지보수 분기 | ≤ 5 | `**§유형**: trivial` (사용자가 자기선언으로 거부 가능) |
      | 유지보수 분기 | > 5 또는 미산출 | `**§유형**: 유지보수` |
 
@@ -136,7 +138,9 @@ used_by: using-specops-auto-ko-ko, /start
     ↓
 args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 분기] 5 항목 mini-checklist + current-state.md ★ HARD GATE → spec.md §유형 자동 라벨 (유지보수 / trivial — 라인 ≤ 5) → Step 3
     │
-    └── no ──▶ [신규 분기] (현재 동작) ↓
+    └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip → 공통부 spec 작성 (§유형=foundation) → Step 3
+                    │
+                    └── no ──▶ [신규 분기] (현재 동작) ↓
     ↓
 DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 시스템 준수" 포함
     │                              ↓
