@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
 specops_version: 1.0.0
-used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구)
+used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구), /start-batch (BATCH-PHASE1-DONE halt 분기)
 ---
 
 # Engine 스킬 — 태스크 분해 (decomposing)

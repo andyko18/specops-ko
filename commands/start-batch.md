@@ -56,16 +56,15 @@ reference_upstream: specops-auto-ko 독자 추가
 
 각 FR에 대해 **순서대로** 반복 (queue.md PENDING 항목):
 
-1. FID 결정: `<YYYYMMDD>-<fr-slug>` (예: `20260605-fr-1`)
-2. `specops-auto-ko:specifying-ko` 호출 — args 정확히 아래 형식:
+1. `specops-auto-ko:specifying-ko` 호출 — args 정확히 아래 형식:
    ```
    <!-- entry: batch -->
    <!-- batch-id: <BATCH_ID> -->
    <FR 원문 — FR-N 행의 설명 부분>
    ```
-3. specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 자동 진행
-4. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status를 `PLAN_DONE`으로 갱신
-5. 다음 PENDING FR 반복
+2. specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 자동 진행 (FID는 specifying-ko Step 0이 결정)
+3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status를 `PLAN_DONE`으로 갱신
+4. 다음 PENDING FR 반복
 
 > **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다.
 
@@ -106,7 +105,7 @@ gh pr create \
 - /start-batch로 requirements.md FR 전체 기능 일괄 구현
 
 ## FR 목록
-<!-- queue.md 내용 요약 -->
+queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 
 ## Test plan
 - [ ] 전 FR verifying-evidence-ko PASS 확인
@@ -121,7 +120,7 @@ EOF
 
 - **requirements.md FR 표 없이 실행** — `/start-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-batch` 진입
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
-- **per-FR PR 생성** — Phase 3에서 per-FR "PR 생성?" 에 반드시 **n으로 decline**. 최종 batch PR 1개만 생성
+- **per-FR PR 생성** — Phase 3에서 per-FR "PR 생성?" 에 반드시 **n으로 decline**. 최종 batch PR 1개만 생성. `receiving-code-review-ko`는 이 게이트를 사용자에게 직접 묻는다 — 오케스트레이터가 명시적으로 decline해야 하며, 사용자가 y로 답하면 per-FR PR이 생성되어 설계 의도와 어긋남
 - **Phase 2 건너뜀** — 일괄 리뷰 게이트는 필수. 사용자 확인 없이 Phase 3 진입 금지
 
 ## 참조
