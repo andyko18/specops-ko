@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.6.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.7.0)
 
 ## 사용방법
 
@@ -16,6 +16,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 |---|---|---|
 | **프로젝트 초기화** (1회) | `/start-project [<프로젝트명>]` | (메타 skill 자동 안내) |
 | **공통부 개발** (초기 1회) | `/start-foundation "라우팅·인증·공통 레이아웃"` | — |
+| **전체 기능 일괄 구현** | `/start-batch` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
 
@@ -84,7 +85,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (9건)
+├── commands/                                 ← 슬래시 진입로 (10건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -187,4 +188,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.6.0 (2026-06-05)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.7.0 (2026-06-05)** · Claude Code 전용*

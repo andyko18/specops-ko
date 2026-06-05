@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
 specops_version: 1.0.0
-used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구)
+used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구), /start-batch (BATCH-PHASE1-DONE halt 분기)
 ---
 
 # Engine 스킬 — 태스크 분해 (decomposing)
@@ -240,10 +240,21 @@ git commit -m "feat: <기능명> 추가"
 
 ## 다음 skill
 
-tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 후 즉시 호출:
+tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 후:
+
+**[batch 분기] §batch 라벨 확인**:
+
+`.specops/<FID>/spec.md` 에 `**§batch**` 라벨이 존재하는지 확인:
+
+```bash
+grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md
+```
+
+- **라벨 있음 (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-batch` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
+- **라벨 없음 (일반 분기)** → 기존 동작:
 
 ```
 Skill: specops-auto-ko:implementing-ko
 ```
 
-implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **implementing-ko 이외의 다음 스킬을 호출하지 않는다**.
+implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch 분기 halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.
