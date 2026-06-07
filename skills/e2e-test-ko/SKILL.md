@@ -11,7 +11,7 @@ used_by: /e2e-test
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (start-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (finishing 정리)
-8단계를 HARD GATE 없이 완주하고 17개 검증 항목(V1~V17)을 점검한다.
+9단계를 HARD GATE 없이 완주하고 19개 검증 항목(V1~V19)을 점검한다.
 
 > **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
 > **repo ROOT 를 변경**하므로 (start-project 가 PRD/CLAUDE/README 작성 + `git commit`,
@@ -33,8 +33,9 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-c
 6. **[S4] DECOMPOSE** — tasks.md 생성 + DAG 파싱 확인
 7. **[S5] IMPLEMENT** — greet-cli.sh 생성 + 테스트 실행
 8. **[S6] VERIFY** — 9개 검증 항목(V1~V9) 실행
-9. **[S7] FINISH** — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부) → V14~V17
-10. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
+9. **[S6.5] INTEGRATION/PERFORMANCE SKIP** — integration-test-ko·performance-test-ko SKIP 경로 검증 → V18~V19
+10. **[S7] FINISH** — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부) → V14~V17
+11. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
 
 ---
 
@@ -695,6 +696,57 @@ e2e_check V9 "validate-structure PASS" "$r"
 
 ---
 
+## [S6.5] INTEGRATION/PERFORMANCE SKIP — chain 신규 단계 SKIP 경로 검증
+
+greet-cli fixture는 CLI 단일 프로세스로 **통합 표면(API·DB)·성능 NFR 임계값이 없다**. 따라서 `integration-test-ko`·`performance-test-ko`는 graceful SKIP 경로를 타야 한다.
+
+본 단계는 두 skill의 SKIP 결과가 session-progress·evidence.md에 올바르게 기록됐는지 검증한다.
+
+> **주의**: 실제 integration-test-ko·performance-test-ko skill을 chain 호출하지 않는다 (HARD GATE 없는 harness 성격 유지). 대신 S5 IMPLEMENT 단계에서 생성된 evidence.md에 SKIP 항목을 인라인 주입한 뒤 존재 여부를 검증한다.
+
+```bash
+# S6.5 사전 조건: evidence.md에 SKIP 마커 주입 (greet-cli는 통합/성능 표면 없음)
+EVIDENCE=".specops/$FID/evidence.md"
+
+# integration-test SKIP 마커 주입 (spec §2 참조)
+cat >> "$EVIDENCE" <<'SKIP_EOF'
+
+## /integration-test — e2e-fixture
+
+**결과**: SKIP
+**근거**: greet-cli fixture — §범위: CLI 단일 프로세스, DB·API·외부 IF 없음
+SKIP_EOF
+
+bash scripts/session-progress-append.sh "$FID" "/integration-test" "SKIP" "greet-cli fixture — 통합 표면 없음" "greet-cli E2E" 2>/dev/null || true
+
+# performance-test SKIP 마커 주입 (spec §NFR 참조)
+cat >> "$EVIDENCE" <<'SKIP_EOF'
+
+## /performance-test — e2e-fixture
+
+**결과**: SKIP
+**근거**: greet-cli fixture — §NFR: 성능 임계값 없음, CLI 도구
+SKIP_EOF
+
+bash scripts/session-progress-append.sh "$FID" "/performance-test" "SKIP" "greet-cli fixture — 성능 임계값 없음" "greet-cli E2E" 2>/dev/null || true
+```
+
+**V18 — integration-test SKIP 기록 존재:**
+
+```bash
+grep -q 'INTEGRATION.*SKIP\|/integration-test' ".specops/$FID/evidence.md" 2>/dev/null && r=0 || r=1
+e2e_check V18 "integration-test SKIP 기록" "$r"
+```
+
+**V19 — performance-test SKIP 기록 존재:**
+
+```bash
+grep -q 'PERFORMANCE.*SKIP\|/performance-test' ".specops/$FID/evidence.md" 2>/dev/null && r=0 || r=1
+e2e_check V19 "performance-test SKIP 기록" "$r"
+```
+
+---
+
 ## [S7] FINISH — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부)
 
 lifecycle **꼬리부** 검증. `finishing-a-development-branch-ko` 는 `gh pr view`/`git worktree`/
@@ -798,9 +850,11 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S6] V1~V9 검증
     ↓
+[S6.5] integration-test-ko·performance-test-ko SKIP 경로 검증 → V18~V19
+    ↓
 [S7] finishing HARD GATE 로직 단위검증 (격리 repo) → V14~V17   ← 꼬리부 (신규)
     ↓
-PASS=17 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥16 허용)
+PASS=19 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥18 허용)
 ```
 
 ## 실패 시 디버깅

@@ -5,8 +5,8 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
-specops_version: 1.0.0
-used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), Lifecycle 종결 (또는 specops-auto-ko:implementing-ko 수정 루프)
+specops_version: 1.8.0
+used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), specops-auto-ko:integration-test-ko (chain 출구)
 ---
 
 # Engine 스킬 — 코드 리뷰 수용 (receiving-code-review)
@@ -206,38 +206,6 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 - upstream 원본: `obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
 
-## PR 생성 (Lifecycle 종료)
-
-모든 리뷰 이슈 해결 후 사용자가 PR 생성에 동의하면:
-
-```bash
-FID="<현재 FID>"
-gh pr create \
-  --base main \
-  --head "feat/$FID" \
-  --title "feat: <기능명> (#$FID)" \
-  --body "$(cat <<'EOF'
-## Summary
-- <주요 변경 1~3 bullet>
-
-## Test plan
-- [ ] `bash scripts/tests/test-*.sh` 전 항목 PASS
-- [ ] `bash scripts/_internal/validate-structure.sh` 전 항목 ✅
-
-🤖 Generated with specops-auto-ko Lifecycle (FID: $FID)
-EOF
-)"
-```
-
-**전제**: `feat/<FID>` 브랜치에 커밋이 있어야 한다. PR 실행 직전 반드시 확인:
-
-```bash
-if [ -z "$(git log main..HEAD --oneline)" ]; then
-  echo "ERROR: feat/$FID 에 커밋 없음 — main과 동일. PR 생성 불가." >&2
-  exit 1
-fi
-```
-
 ## session-progress append (v0.4-pre P1 신설)
 
 리뷰 피드백 수용·구현 완료 직후:
@@ -245,18 +213,19 @@ fi
 bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N건 / Important N건 / fix 라운드 N회"
 ```
 
-Lifecycle 종료 시 (PR 생성 또는 종결):
-```
-bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 또는 종결"
-```
-
 ## 다음 skill
 
 피드백 구현 완료 + session-progress append 후:
 
-- **리뷰 이슈가 모두 해결되고 Lifecycle 종료 가능 상태** → chain 종료. 사용자에게 "PR 생성? [y/n]" 질문
-  - PR 생성·머지 **후** worktree/branch 정리가 필요하면 `specops-auto-ko:finishing-a-development-branch-ko` 스킬로 마무리한다 (PR `state==MERGED` HARD GATE 이므로 **자동 chain 하지 않음** — 머지 확인 후 수동 진입). ※ `/finishing` 슬래시는 미존재 → 반드시 skill 이름으로 호출.
+- **리뷰 이슈가 모두 해결된 상태** → 즉시 호출:
+
+```
+Skill: specops-auto-ko:integration-test-ko
+```
+
+integration-test-ko가 통합 표면을 판정하고 → performance-test-ko → PR 생성 게이트로 chain한다.
+
 - **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
 - **재검증 필요** → `specops-auto-ko:verifying-evidence-ko` 재호출
 
-specops-auto-ko Lifecycle의 **최종 단계**. receiving-code-review-ko 통과 = PR 생성 게이트 도달.
+본 receiving-code-review-ko는 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 제외).

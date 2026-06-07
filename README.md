@@ -102,7 +102,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 27
+├── skills/                               ← flat: skills/<name>/SKILL.md × 29
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -118,6 +118,8 @@ specops-auto-ko/
 │   ├── verifying-evidence-ko/            ← 증거 기반 검증
 │   ├── requesting-code-review-ko/        ← 코드 리뷰 요청
 │   ├── receiving-code-review-ko/         ← 리뷰 피드백 수용
+│   ├── integration-test-ko/              ← 통합 테스트 (PR 직전, 표면 없으면 graceful skip)
+│   ├── performance-test-ko/              ← 성능 테스트 + PR 게이트 (임계값 없으면 graceful skip)
 │   ├── finishing-a-development-branch-ko/ ← worktree 정리·branch 삭제·main 동기화
 │   ├── systematic-debugging-ko/          ← BLOCKED 상태 복구
 │   ├── dispatching-parallel-agents-ko/   ← DAG-aware 병렬 dispatch
@@ -133,7 +135,7 @@ specops-auto-ko/
 │   ├── generator-evaluator-ko/           ← Phase B/C 분리 원칙
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
-│   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (8단계)
+│   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (9단계)
 ├── templates/                            ← 27건
 │   │  Lifecycle/공통 템플릿 (15건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
@@ -188,4 +190,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.7.0 (2026-06-05)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.8.0 (2026-06-05)** · Claude Code 전용*
