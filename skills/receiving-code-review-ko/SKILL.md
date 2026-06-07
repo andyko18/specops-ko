@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.m
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
 specops_version: 1.8.0
-used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), specops-auto-ko:integration-test-ko (chain 출구)
+used_by: specops-auto-ko:requesting-code-review-ko (chain 진입), specops-auto-ko:integration-test-ko (단일 모드 chain 출구), specops-auto-ko:start-batch (batch 모드 BATCH-REVIEW-DONE halt 진출)
 ---
 
 # Engine 스킬 — 코드 리뷰 수용 (receiving-code-review)
@@ -217,7 +217,15 @@ bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N
 
 피드백 구현 완료 + session-progress append 후:
 
-- **리뷰 이슈가 모두 해결된 상태** → 즉시 호출:
+**[batch 모드 분기]** 먼저 spec.md `**§batch**` 라벨 감지 확인:
+
+```bash
+grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
+```
+
+- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-REVIEW-DONE: <FID>` 출력 + **halt**. integration-test-ko 미호출. `/start-batch` 오케스트레이터가 다음 단계를 제어한다
+
+**[단일 모드]** (`**§batch**` 라벨 없는 경우) — **리뷰 이슈가 모두 해결된 상태** → 즉시 호출:
 
 ```
 Skill: specops-auto-ko:integration-test-ko
@@ -228,4 +236,4 @@ integration-test-ko가 통합 표면을 판정하고 → performance-test-ko →
 - **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
 - **재검증 필요** → `specops-auto-ko:verifying-evidence-ko` 재호출
 
-본 receiving-code-review-ko는 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 제외).
+본 receiving-code-review-ko는 단일 모드에서 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 및 batch halt 제외).

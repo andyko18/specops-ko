@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - specops-ko skills/engine/systematic-debugging-ko.md
 specops_version: 1.0.0
-used_by: specops-auto-ko:implementing-ko·tdd-ko·verifying-evidence-ko (BLOCKED·실패 분기 진입)
+used_by: specops-auto-ko:implementing-ko·tdd-ko·verifying-evidence-ko·integration-test-ko·performance-test-ko (BLOCKED·FAIL 분기 진입)
 ---
 
 # Engine 스킬 — 체계적 디버깅 (systematic-debugging)
@@ -323,4 +323,6 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
   - `specops-auto-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
   - `specops-auto-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
   - `specops-auto-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
+  - `specops-auto-ko:integration-test-ko`에서 FAIL 분기로 호출된 경우 → integration-test-ko 재실행 (수정 후 통합 테스트 재검증)
+  - `specops-auto-ko:performance-test-ko`에서 FAIL 분기로 호출된 경우 → performance-test-ko 재실행 (수정 후 성능 테스트 재검증)
 - **Phase 4.5 트리거 (3+ 픽스 실패)** → 사용자 파트너 에스컬레이션. chain 정지. 새 스펙 결정 필요

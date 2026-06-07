@@ -83,15 +83,32 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
 2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출
 3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출
 4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출
-5. receiving-code-review-ko의 "PR 생성? [y/n]" → **n (decline)** — per-FR PR 생성 금지
+5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR integration/performance/PR 차단. chain 자동 진행
 6. queue.md 해당 FR → `IMPL_DONE` 갱신
 7. 다음 PLAN_DONE FR 반복
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-auto-ko:systematic-debugging-ko`로 처리 후 재개.
 
-### Phase 3 완료 — batch PR 생성
+### Phase 3 완료 — batch 레벨 통합·성능 테스트 + batch PR 생성
 
 전 FID IMPL_DONE 확인 후:
+
+**Step A: batch 레벨 통합 테스트**
+
+1. `specops-auto-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
+   - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 통합 표면(API·DB·서비스 간 호출) 신호 부재 시 graceful skip
+   - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
+
+**Step B: batch 레벨 성능 테스트**
+
+2. `specops-auto-ko:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
+   - `.specops/memory/requirements.md` `## 3. 비기능 요구사항 (NFR)` + 각 FR spec.md `§NFR` 스캔
+   - 성능 임계값 신호 부재 시 graceful skip
+   - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
+   - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <BATCH_ID>` 출력 후 오케스트레이터로 제어 반환)
+
+**Step C: batch PR 생성**
+
 ```bash
 git push -u origin "feat/$BATCH_ID"
 ```
@@ -103,12 +120,15 @@ gh pr create \
   --body "$(cat <<'EOF'
 ## Summary
 - /start-batch로 requirements.md FR 전체 기능 일괄 구현
+- batch 레벨 통합·성능 테스트 완료 (또는 graceful skip)
 
 ## FR 목록
 queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 
 ## Test plan
 - [ ] 전 FR verifying-evidence-ko PASS 확인
+- [ ] batch 레벨 integration-test PASS 또는 SKIP 확인
+- [ ] batch 레벨 performance-test PASS 또는 SKIP 확인
 - [ ] validate-structure.sh 전 항목 ✅
 
 🤖 Generated with specops-auto-ko /start-batch
@@ -120,7 +140,7 @@ EOF
 
 - **requirements.md FR 표 없이 실행** — `/start-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-batch` 진입
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
-- **per-FR PR 생성** — Phase 3에서 per-FR "PR 생성?" 에 반드시 **n으로 decline**. 최종 batch PR 1개만 생성. `receiving-code-review-ko`는 이 게이트를 사용자에게 직접 묻는다 — 오케스트레이터가 명시적으로 decline해야 하며, 사용자가 y로 답하면 per-FR PR이 생성되어 설계 의도와 어긋남
+- **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step C)만 생성
 - **Phase 2 건너뜀** — 일괄 리뷰 게이트는 필수. 사용자 확인 없이 Phase 3 진입 금지
 
 ## 참조
@@ -133,4 +153,4 @@ EOF
 
 ---
 
-*specops-auto-ko v1.7.0 · 2026-06-05 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-auto-ko v1.9.0 · 2026-06-05 · 3-Phase 일괄 구현 오케스트레이터*

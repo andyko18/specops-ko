@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.7.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.8.0)
 
 ## 사용방법
 
@@ -22,7 +22,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 > `/start-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. (구 `/start-design` 은 본 슬래시로 통합·제거됨.)
 
-진입 1회로 **spec → clarify → plan → TDD implement → verify → review** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
+진입 1회로 **spec → clarify → plan → TDD implement → verify → review → integration-test → performance-test → PR** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
 
 > 자연어 진입은 SessionStart 시 자동 주입되는 메타 스킬 (`using-specops-auto-ko-ko`) 이 신호를 감지해 `specifying-ko` (신규) 또는 `analyzing-ko` (유지보수) 로 라우팅합니다.
 
@@ -72,6 +72,10 @@ specops-auto-ko:verifying-evidence-ko     — evidence.md
 specops-auto-ko:requesting-code-review-ko
     ↓
 specops-auto-ko:receiving-code-review-ko
+    ↓
+specops-auto-ko:integration-test-ko   (통합 표면 없으면 graceful skip)
+    ↓
+specops-auto-ko:performance-test-ko   (성능 NFR 없으면 graceful skip)
     ↓
 "PR 생성? [y/n]"
 ```
