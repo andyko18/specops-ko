@@ -53,7 +53,7 @@ git push && git push --tags
 | 파일 | 역할 |
 |---|---|
 | `scripts/release.sh` | 핵심 구현 (bash 3.2+) |
-| `scripts/tests/test-release.sh` | TDD 테스트 (T1~T9) |
+| `scripts/tests/test-release.sh` | TDD 테스트 (T1~T10) |
 | `commands/release.md` | `/release` 슬래시 커맨드 진입점 |
 
 ## 5원칙 주입 (specops-auto-ko 고유)
