@@ -17,6 +17,30 @@
 
 ---
 
+## 20260608-release-ko · release-ko skill 신설
+- 2026-06-08 17:23 implementer-ko T1 완료 (AC-1~AC-9 테스트 작성, RED PASS=0 FAIL=11 (release.sh 미존재), staged: scripts/tests/test-release.sh)
+- 2026-06-08 17:19 /tasks 완료 (tasks.md (7 태스크))
+- 2026-06-08 16:50 /plan 완료 (plan.md)
+- 2026-06-08 16:40 /clarify 완료 (clarifications.md (3 쟁점 해소 — Q1 BLOCKING RESOLVED, Q2·Q3 DESIRABLE))
+
+- 2026-06-08 16:37 /specify 완료 (spec.md, AC.md)
+
+
+## 20260608-show-fid-status · FID 상태 표시 CLI
+- 2026-06-08 15:14 /lifecycle DONE (PR #50 생성 완료)
+- 2026-06-08 15:12 /performance-test DONE (실측 0.008s < 기준 1s (NFR-3 충족))
+- 2026-06-08 15:10 /integration-test SKIP (spec.md §2 — CLI 단일 프로세스, 통합 표면 없음)
+- 2026-06-08 15:09 /receive-review 완료 (WARNING 2건 수정 / Important 0건 / fix 1라운드)
+- 2026-06-08 15:09 /request-review 완료 (review-request.md, prefix collision 수정)
+- 2026-06-08 14:58 /verify PASS (evidence.md, AC 5/5)
+- 2026-06-08 14:57 /implement DONE (T1~T3 완료, PASS=5 FAIL=0, 커밋 5459cbb..7e1a0ce)
+- 2026-06-08 14:48 /tasks 완료 (tasks.md (3 태스크))
+- 2026-06-08 14:46 /plan 완료 (plan.md (plan-reviewer PASS))
+- 2026-06-08 14:43 /clarify 완료 (clarifications.md (3 쟁점 해소 — DESIRABLE ASSUMED))
+
+- 2026-06-08 14:40 /specify 완료 (spec.md, AC.md)
+
+
 ## 20260604-start-foundation · /start-foundation 슬래시 커맨드 신설
 - 2026-06-04 17:16 /tasks 완료 (tasks.md (8 태스크))
 - 2026-06-04 17:10 /plan 완료 (plan.md (T1~T8, plan-reviewer PASS))
