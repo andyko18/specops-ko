@@ -37,8 +37,7 @@ _run_check() {
       exit 1
     fi
   else
-    local script_path="$PLUGIN_ROOT/scripts/_internal/$label"
-    if ! bash "$script_path" > /dev/null 2>&1; then
+    if ! bash "$PLUGIN_ROOT/$label" > /dev/null 2>&1; then
       echo "Error: pre-flight 검증 실패 ($label)" >&2
       exit 1
     fi
@@ -46,9 +45,9 @@ _run_check() {
 }
 
 echo "-> pre-flight 검증 시작..."
-_run_check "validate-structure.sh"
-_run_check "test-governance.sh"
-_run_check "test-dag.sh"
+_run_check "scripts/_internal/validate-structure.sh"
+_run_check "scripts/tests/governance/test-rules.sh"
+_run_check "scripts/tests/dag/test-parse-dag.sh"
 echo "-> pre-flight PASS"
 
 CHANGELOG="$PLUGIN_ROOT/CHANGELOG.md"
@@ -128,7 +127,7 @@ echo "-> 파일 변환 완료"
 
 # FR-8: post-flight
 echo "-> post-flight 검증 시작..."
-_run_check "validate-structure.sh"
+_run_check "scripts/_internal/validate-structure.sh"
 echo "-> post-flight PASS"
 
 # FR-9~FR-10: git commit + annotated tag
