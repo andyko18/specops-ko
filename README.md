@@ -89,7 +89,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (10건)
+├── commands/                                 ← 슬래시 진입로 (12건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -98,7 +98,10 @@ specops-auto-ko/
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
 │   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (8단계)
 │   ├── gbrain.md                             ← 세션 인사이트 조회 /gbrain
-│   └── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
+│   ├── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
+│   ├── release.md                            ← 릴리즈 자동화 /release
+│   ├── start-auto.md                         ← 완전자동 모드 /start-auto
+│   └── start-batch.md                        ← 배치 오케스트레이터 /start-batch
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
@@ -194,4 +197,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.9.0 (2026-06-08)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.10.0 (2026-06-09)** · Claude Code 전용*
