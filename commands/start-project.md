@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 2.0.0
 specops_layer: Lifecycle-Bootstrap
-reference_upstream: github/spec-kit + specops-auto-ko 독자 추가
+reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
 
 # /start-project [<프로젝트명>]

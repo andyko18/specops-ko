@@ -166,7 +166,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 ## 참조
 
 - `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md` — 원본
-- `~/Project/0.Claude/specops-ko/docs/case-studies/2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
+- specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
 - `skills/engine/*-ko.md` (10건) — Phase 1 구축 완료
 - `skills/harness/*-ko.md` (5건 + 본 skill) — 내부 규약
 - `commands/start.md` — 슬래시 진입점

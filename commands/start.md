@@ -57,7 +57,7 @@ specops-auto-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자�
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill (자동 활성)
 - `skills/specifying-ko/SKILL.md` — 첫 Lifecycle 단계
 - `skills/structured-artifacts-ko/SKILL.md` — `.specops/<FID>/` 경로 규약
-- 설계 근거: `~/Project/0.Claude/specops-ko/docs/case-studies/2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
+- 설계 근거: specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
 
 ---
 
