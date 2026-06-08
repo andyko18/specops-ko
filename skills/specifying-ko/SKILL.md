@@ -5,8 +5,8 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.0.0
-used_by: using-specops-auto-ko-ko, /start, /start-foundation, /start-batch
+specops_version: 1.10.0
+used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-batch
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -85,6 +85,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-foundation, /start-batch
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
      - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출)
+     - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
 
    **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
@@ -107,6 +108,15 @@ used_by: using-specops-auto-ko-ko, /start, /start-foundation, /start-batch
 4. **2~3 접근 제안** — 트레이드오프와 권고 제시
 5. **설계 제시** — 섹션을 복잡도에 맞춰 스케일, 각 섹션 후 사용자 승인 확인
 5.5. **[UI 기능인 경우] 인라인 화면 설계** — 설계 승인 직후 실행:
+
+   **[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+   - 화면 목록을 자동 판단하여 **즉시 생성·수락** (수정 루프 없음):
+     1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성
+     2. **자동 수락** — 사용자 응답 대기 없이 `screens/{name}.md` + `screens/{name}.html` 저장
+     3. spec.md §1에 "**자동 결정 화면**: {name1}, {name2}, ..." 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
+   - 모든 화면 저장 완료 후 Step 6 진행
+
+   **[§auto 이외 모드]** (기존 동작):
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
    - **[ui-ux-pro-max 있으면] design system 자문 (자동)**: 화면 설계 시작 전 1회만. available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있으면 자동 Skill 호출 → design system 산출 → HTML artifact 스타일에 반영. 없으면 skip. **우선순위**: ui-ux-pro-max 결과 우선, DESIGN.md 는 후순위 fallback.
@@ -290,6 +300,12 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 ### 사용자 검토 게이트
 
+**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+
+자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 clarifying-ko 직행. handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
+
+**[§auto 이외 모드]** (기존 동작):
+
 자체 검토 후 사용자에게:
 
 > "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `specops-auto-ko:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
@@ -342,9 +358,13 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 - `templates/spec.md` · `templates/acceptance-criteria.md` — 작성 포맷
 - upstream 원본: `obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md`
 
+## Handoff 기록 (다음 skill 진입 직전 필수)
+
+`clarifying-ko` 호출 직전 `.specops/<FID>/handoffs/specifying.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+
 ## 다음 skill
 
-설계 승인 + 사용자 스펙 검토 통과 후 즉시 호출:
+설계 승인 + 사용자 스펙 검토 통과 + handoff.md 기록 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:clarifying-ko

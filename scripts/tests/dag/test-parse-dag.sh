@@ -174,6 +174,77 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c (out='$out' err_lines=$err_lines exit=$exit_code)"
 fi
 
+# --- T6: find_ready (다단계 wave — find_ready 신설 함수) ---
+# 기반 fixture: 05-diamond (T1·T2 leaf, T3 depends T1, T4 depends T2)
+#              07-three-wave-chain (T1·T2 leaf, T3·T4 wave2, T5 wave3)
+
+# T6.a — done="" → wave 0 = 절대 leaf (diamond: T1·T2)
+yaml=$(dag::extract_yaml "$FIXTURES/05-diamond.md")
+out=$(dag::find_ready "$yaml" | sort | tr '\n' ',')
+if [ "$out" = "T1,T2," ]; then
+  PASS=$((PASS+1)); echo "PASS T6.a find_ready diamond done='' → T1,T2"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.a (out=$out)"
+fi
+
+# T6.b — done="T1 T2" → wave 2 (diamond: T3·T4 ready)
+out=$(dag::find_ready "$yaml" T1 T2 | sort | tr '\n' ',')
+if [ "$out" = "T3,T4," ]; then
+  PASS=$((PASS+1)); echo "PASS T6.b find_ready diamond done='T1 T2' → T3,T4"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.b (out=$out)"
+fi
+
+# T6.c — done="T1 T2 T3 T4" → wave 3 empty (diamond: 전부 완료)
+out=$(dag::find_ready "$yaml" T1 T2 T3 T4)
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.c find_ready diamond done='T1 T2 T3 T4' → empty"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.c (out=$out)"
+fi
+
+# T6.d — three-wave done="" → wave 1 = T1,T2
+yaml=$(dag::extract_yaml "$FIXTURES/07-three-wave-chain.md")
+out=$(dag::find_ready "$yaml" | sort | tr '\n' ',')
+if [ "$out" = "T1,T2," ]; then
+  PASS=$((PASS+1)); echo "PASS T6.d find_ready three-wave done='' → T1,T2"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
+fi
+
+# T6.e — three-wave done="T1 T2" → wave 2 = T3,T4
+out=$(dag::find_ready "$yaml" T1 T2 | sort | tr '\n' ',')
+if [ "$out" = "T3,T4," ]; then
+  PASS=$((PASS+1)); echo "PASS T6.e find_ready three-wave done='T1 T2' → T3,T4"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.e (out=$out)"
+fi
+
+# T6.f — three-wave done="T1 T2 T3 T4" → wave 3 = T5
+out=$(dag::find_ready "$yaml" T1 T2 T3 T4)
+if [ "$out" = "T5" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.f find_ready three-wave done='T1 T2 T3 T4' → T5"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.f (out=$out)"
+fi
+
+# T6.g — three-wave 전부 완료 → empty
+out=$(dag::find_ready "$yaml" T1 T2 T3 T4 T5)
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.g find_ready three-wave done='T1..T5' → empty (수렴)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.g (out=$out)"
+fi
+
+# T6.h — chain(04) done="T1" → T2 ready
+yaml=$(dag::extract_yaml "$FIXTURES/04-chain.md")
+out=$(dag::find_ready "$yaml" T1)
+if [ "$out" = "T2" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.h find_ready chain done='T1' → T2"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.h (out=$out)"
+fi
+
 # cleanup
 rm -f /tmp/b1_stdout /tmp/b1_stderr
 

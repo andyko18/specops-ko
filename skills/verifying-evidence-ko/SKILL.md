@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: specops-auto-ko:implementing-ko (chain 진입), specops-auto-ko:requesting-code-review-ko (chain 출구)
 ---
 
@@ -180,6 +180,75 @@ Superpowers 원본 24개 실패 기록에서:
 - ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/verification-loop/`
 - specops-ko 한국어 선례: `skills/engine/verifying-evidence-ko.md`
 
+## Bounded verify→fix 루프 (P2-2)
+
+검증 FAIL 시 즉시 HARD GATE 대신 **bounded 자율 수렴**. OMC `max_fix_loops=3` 패턴 차용.
+
+### 루프 상태 파일
+
+`.specops/<FID>/verify-loop.md` — 루프 카운터 + 마지막 FAIL 항목 기록:
+
+```markdown
+fix_count: 0
+last_fails: []
+```
+
+파일 부재 시 `fix_count=0`으로 간주 (graceful init).
+
+### 루프 흐름
+
+```
+[VERIFY LOOP — 상한 3회]
+    ↓
+검증 실행 (run-verification.sh or 수동)
+    ↓
+FAIL 항목 존재?
+    ├─ NO (전부 PASS) → verify-loop.md 삭제 → session-progress append → 다음 skill
+    └─ YES →
+        fix_count = verify-loop.md 의 fix_count + 1
+        ├─ fix_count > 3 → HARD GATE: 출력 후 중단
+        │   "VERIFY-HARD-GATE: <FID> fix_loop 상한 초과 (3/3)
+        │    FAIL: <AC 목록>
+        │    원인 분석 필요 — systematic-debugging-ko 또는 사용자 결정"
+        └─ fix_count ≤ 3 →
+            verify-loop.md 갱신 (fix_count, last_fails)
+            fix task 컨텍스트 작성:
+              - FAIL AC ID 목록
+              - evidence.md 에서 실패 출력 발췌
+              - 수정 허용 파일 범위 (관련 task outputs)
+            implementing-ko 호출 (targeted fix scope)
+                ↓
+            ← VERIFY LOOP 재진입
+
+### [§auto 모드] fix_loop cap 초과 처리
+
+fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
+
+```
+§auto 감지? (grep -q '**§auto**' .specops/<FID>/spec.md)
+  ├─ NO  → 기존 HARD GATE: "VERIFY-HARD-GATE: <FID> fix_loop 상한 초과 (3/3)..."
+  └─ YES → auto-state.md 읽기 (.specops/<FID>/auto-state.md — 없으면 auto_retry_count=0)
+           auto_retry_count < 1?
+           ├─ YES → auto_retry_count += 1 저장 + escalations 기록
+           │        → verify-loop.md 초기화 (fix_count=0)
+           │        → specops-auto-ko:systematic-debugging-ko 호출
+           │        → 복귀 후 VERIFY LOOP 재진입
+           └─ NO  → HARD GATE (무인 종료):
+                    "AUTO-HARD-GATE: <FID> verify fix_loop 전역 재시도 초과 (1/1)
+                     FAIL: <AC 목록>
+                     systematic-debugging 또는 사용자 개입 필요"
+```
+
+**auto_retry_count 공유**: implementing-ko Phase B/C cap 초과와 동일 카운터 사용 (per-FID 전역, `.specops/<FID>/auto-state.md`).
+```
+
+### 규칙
+
+- fix task는 **FAIL AC에 직접 연결된 파일만** 수정 범위로 제한 (scope creep 금지)
+- 각 루프 시도는 `evidence.md`에 `## Fix loop N` 섹션으로 append (투명성)
+- `fix_count=1/3`, `2/3`, `3/3` 형태로 사용자에게 진행 상황 고지
+- implementing-ko 내 Phase B/C cap은 루프당 독립 리셋 (verify-loop과 별개)
+
 ## session-progress append (v0.4-pre P1 신설)
 
 evidence.md 작성 + 모든 검증 PASS 직후, requesting-code-review-ko 호출 직전에:
@@ -187,14 +256,14 @@ evidence.md 작성 + 모든 검증 PASS 직후, requesting-code-review-ko 호출
 bash scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N"
 ```
 
-검증 실패 시 (BLOCK):
+검증 실패 + fix_loop 상한 초과 시 (BLOCK):
 ```
-bash scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X 미충족), systematic-debugging-ko 호출"
+bash scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X 미충족), fix_loop=3/3 초과 — HARD GATE"
 ```
 
 ## 다음 skill
 
-모든 검증 항목 증거 확보 + session-progress append 후 즉시 호출:
+모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:requesting-code-review-ko
@@ -202,4 +271,4 @@ Skill: specops-auto-ko:requesting-code-review-ko
 
 requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다**.
 
-검증 실패 시에는 `specops-auto-ko:systematic-debugging-ko` 호출로 우회 (chain 복귀 조건).
+fix_loop 상한(3회) 초과 시: `specops-auto-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

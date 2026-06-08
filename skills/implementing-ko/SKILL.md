@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-evidence-ko (chain 출구)
 ---
 
@@ -38,40 +38,46 @@ used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-e
 
 태스크가 밀접하게 결합돼 있으면 → decomposing-ko 복귀해 재분해.
 
-## 프로세스 (v0.4a — DAG-aware 자동 라우팅)
+## 프로세스 (다단계 wave — dag::find_ready 기반)
 
 ```
 플랜 + tasks.md 1회 읽기 → TodoWrite 생성
     ↓
-DAG 분석 (v0.4a W1 — bash scripts/dag/parse-dag.sh)
+DAG 초기화 (bash scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
-    batch=$(dag::find_independent_batch "$yaml")
+    done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
     ↓
-batch ≥ 2 leaf?
+[WAVE LOOP] ─────────────────────────────────────────────────
+ready=$(dag::find_ready "$yaml" $done)
+    ↓
+ready 비어 있음? → 전부 완료 → loop 종료
+    ↓
+ready 내 disjoint batch 선별 (dag::find_independent_batch 로직):
+    batch ≥ 2 leaf + outputs disjoint?
     ├─ yes (병렬 분기) → DAG-AWARE PARALLEL ─────────────┐
-    └─ no (단일 leaf 또는 chain) → SEQUENTIAL          │
+    └─ no (단일 ready 또는 chain) → SEQUENTIAL          │
                                                           │
-SEQUENTIAL 분기 (DAG 위상 정렬 순 — 1 태스크씩):        │
-  dag::list_leaves "$yaml" 로 초기 ready 태스크 식별 →  │
-  ready 태스크 중 1개씩:                                  │
+SEQUENTIAL 분기 (1 태스크씩):                            │
+  ready 중 1개 선택:                                      │
     ┌─ 구현자 dispatch (implementer-ko)                   │
     │     ↓                                                │
     │  Phase B: spec-reviewer-ko dispatch                 │
     │     ↓                                                │
     │  Phase C: code-reviewer-ko dispatch                 │
     │     ↓                                                │
-    └─ TodoWrite 완료 + depends_on 해소된 다음 태스크 탐색│
+    └─ TodoWrite 완료 → done에 task-id 추가              │
     ↓                                                      │
-다음 ready 태스크 → loop (depends_on 전부 완료 기준)     │
+→ WAVE LOOP 재진입 (find_ready(done) 로 다음 frontier)   │
                                                           │
-DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←──────────────────┘
-  각 leaf에 대해:
-    - .specops/<FID>/dispatch/<task-id>-context.md 작성 (5 컨텍스트)
+DAG-AWARE PARALLEL 분기: ←────────────────────────────────┘
+  각 batch leaf에 대해:
+    - .specops/<FID>/dispatch/<task-id>-context.md 존재 확인
+      (decomposing-ko Step 10b 에서 emit-context.sh 자동 산출)
     - bash scripts/dag/validate-context.sh <path> — exit 0 확인
     - using-git-worktrees-ko 호출 — leaf별 worktree (.worktrees/<FID>-<task-id>/)
     ↓
   dispatching-parallel-agents-ko 호출 (DAG-aware 모드):
-    - leaf id 배열 + context md path 배열 전달
+    - batch leaf id 배열 + context md path 배열 전달
     - 각 leaf Task 도구 병렬 호출 (단일 메시지 다중 tool_use)
     - 각 leaf: implementer-ko in worktree
     ↓
@@ -91,8 +97,11 @@ DAG-AWARE PARALLEL 분기 (v0.4a 신규): ←───────────�
     - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
     - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
     ↓
-다음 batch 또는 SEQUENTIAL 잔여 → loop
-    ↓ 전부 완료
+  부모 머지 완료 → done에 batch task-id 추가
+    ↓
+→ WAVE LOOP 재진입 (find_ready(done) 로 다음 wave frontier)
+    ─────────────────────────────────────────────────────────
+    ↓ ready 비어 있으면 (전부 완료)
 최종 코드 리뷰어 (전체 구현)
     ↓
 specops-auto-ko:verifying-evidence-ko 호출
@@ -131,6 +140,45 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 
 **cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권).
 
+**[§auto 모드] cap 초과 처리** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+
+cap 초과 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
+
+```
+auto-state.md 읽기 (.specops/<FID>/auto-state.md — 없으면 auto_retry_count=0 으로 간주)
+auto_retry_count < 1?
+  ├─ YES → auto_retry_count += 1 저장 + escalations 기록
+  │        → specops-auto-ko:systematic-debugging-ko 호출
+  │        → 복귀 후 task 재dispatch (loop 재진입)
+  └─ NO  → HARD GATE (무인 종료):
+           "AUTO-HARD-GATE: <task-id> Phase B/C 전역 재시도 초과 (1/1)
+            FAIL: <이슈 목록>
+            systematic-debugging 또는 사용자 개입 필요"
+```
+
+**auto-state.md 경로**: `.specops/<FID>/auto-state.md` (structured-artifacts-ko 규약).
+**카운터 공유**: implementing-ko와 verifying-evidence-ko가 동일 `auto_retry_count`를 공유 — per-FID 전역.
+
+## pre-dispatch irreversible 게이트 (§auto 전용)
+
+각 task dispatch **직전**, tasks.md YAML에서 `irreversible: true` 필드를 확인:
+
+```bash
+# 해당 task-id 의 irreversible 필드 확인
+grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
+```
+
+**3-way 분기**:
+- `§batch` 감지 → 진행 (오케스트레이터 책임)
+- `§auto` 감지 + `irreversible: true` → **mini HARD GATE (발생 위치에서 정지)**:
+  ```
+  AUTO-HARD-GATE: <task-id> 비가역 작업 — 최종 게이트로 큐잉 불가
+  내용: <task 헤더 요약>
+  진행하시겠습니까? [y/n]
+  ```
+  `n` 시 → Lifecycle 종료. `y` 시 → 진행.
+- 단일 모드 + `irreversible: true` → task 내부 Step 0 (기존 동작)
+
 **reviewer feedback 파일 경로 규약** (file-based-communication-ko 준수):
 - `.specops/<FID>/reviews/<task-id>-B-feedback.md` — **implementing-ko(부모)가 spec-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — **implementing-ko(부모)가 code-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
@@ -147,20 +195,30 @@ task 시작 시 `.specops/<FID>/dispatch-log.md` 부재면 `templates/dispatch-l
 
 footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱신. cap 초과 시 자동 진행 금지, 사용자 결정 대기.
 
-## 모델 선택
+## 모델 티어 라우팅
 
-역할마다 **감당 가능한 가장 가벼운 모델** 사용. 비용·속도.
+역할마다 **감당 가능한 가장 가벼운 모델** 사용. 비용·속도. (OMC `config/loader.ts` 티어 테이블 차용)
 
-**기계적 구현 태스크** (격리된 함수, 명확한 스펙, 1~2 파일) → 빠르고 저렴한 모델. 잘 설계된 플랜은 대부분의 구현이 기계적.
+| 티어 | 모델 | 적용 태스크 | 신호 |
+|---|---|---|---|
+| LOW | haiku | 조회·단순 구현 | 파일 1-2개, 완전한 스펙, 격리 함수, 명확 I/O |
+| MEDIUM | sonnet | 구현·디버그·검증 | 다중 파일 조율, 패턴 매칭, 통합 관심사 |
+| HIGH | opus | 아키텍처·설계·보안 리뷰 | 광범위 코드베이스 이해, 설계 판단, 보안 분석 |
 
-**통합·판단 태스크** (다중 파일 조율, 패턴 매칭, 디버깅) → 표준 모델.
+**tasks.md `tier:` 필드 (선택)**: decomposing-ko가 각 task에 `tier: low|medium|high` 부여 가능. 부재 시 위 신호로 자동 판단.
 
-**아키텍처·설계·리뷰 태스크** → 가장 강력한 모델.
+```yaml
+# tasks.md 예시
+tasks:
+  - id: T1
+    tier: low       # ← 선택 필드
+    depends_on: []
+    outputs: [src/foo.sh]
+```
 
-**태스크 복잡도 신호**:
-- 1~2 파일, 완전한 스펙 → 저렴 모델
-- 다중 파일, 통합 관심사 → 표준 모델
-- 설계 판단·광범위한 코드베이스 이해 요구 → 최강 모델
+**dispatch 시 tier 적용**: implementing-ko(부모)가 tier를 판단해 dispatch 컨텍스트에 명시. `agents/implementer-ko.md`는 `model: inherit` 유지 — 부모가 tier 결정.
+
+**재dispatch 시**: BLOCKED → 더 강한 모델 필요 판단 시 tier 상향 (low→medium, medium→high) 후 재dispatch.
 
 ## 구현자 상태 처리
 
@@ -293,6 +351,10 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - `skills/generator-evaluator-ko/SKILL.md` — 2단계 리뷰(스펙·품질) 분리 원칙
 - `skills/context-resets-ko/SKILL.md` — fresh 서브에이전트 세션 보장
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
+
+## Handoff 기록 (다음 skill 진입 직전 필수)
+
+`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
 
 ## session-progress append (v0.4-pre P1 신설)
 

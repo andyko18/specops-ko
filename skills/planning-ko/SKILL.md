@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: specops-auto-ko:clarifying-ko (chain 진입), specops-auto-ko:decomposing-ko (chain 출구)
 ---
 
@@ -164,6 +164,9 @@ Skill: specops-auto-ko:plan-reviewer-ko
 | `PLAN-REVIEW-RESULT: FAIL` (초기 시도) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
 | `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | `HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요` 출력 후 중단 |
 
+**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/review 단계가 검증). dispatch-log.md에 "plan-reviewer cap 초과 → §auto 자동통과" 기록.
+
 **dispatch-log.md 기록** (`.specops/<FID>/dispatch-log.md` — 부재 시 `templates/dispatch-log.md` 복사):
 
 | <N> | <ISO-8601> | plan-reviewer | plan-reviewer-ko | PASS\|FAIL | - |
@@ -230,9 +233,13 @@ spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마�
 bash scripts/session-progress-append.sh <FID> /plan 완료 "plan.md"
 ```
 
+## Handoff 기록 (다음 skill 진입 직전 필수)
+
+`decomposing-ko` 호출 직전 `.specops/<FID>/handoffs/planning.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+
 ## 다음 skill
 
-플랜 저장 + session-progress append + 실행 방식 결정 후 즉시 호출:
+플랜 저장 + session-progress append + 실행 방식 결정 + handoff.md 기록 후 즉시 호출:
 
 ```
 Skill: specops-auto-ko:decomposing-ko

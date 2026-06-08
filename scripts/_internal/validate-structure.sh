@@ -3,7 +3,7 @@
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
 # baseline: skills/<name>/SKILL.md × 29  (SKILL.md 템플릿 + skill_conventions 검증 추가)
-#           (commands=8 · agents=3 · conductor 없이 chain)  (templates=26)
+#           (commands=11 · agents=3 · conductor 없이 chain)  (templates=27)
 # 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
 set -u
 

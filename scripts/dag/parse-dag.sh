@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# specops-auto-ko v0.4a W1 — DAG 파서 (Sourced library)
+# specops-auto-ko — DAG 파서 (Sourced library)
 #
-# 5 함수 namespace:
-#   dag::extract_yaml      <tasks.md>                   — `## 의존 그래프` 섹션의 YAML fenced block stdout
-#   dag::list_leaves       <yaml-string>                — depends_on=[] 인 task id (newline 구분)
-#   dag::outputs_disjoint  <yaml-string> <id1> <id2>    — id1·id2 outputs 교집합 0이면 exit 0
-#   dag::find_independent_batch <yaml-string>           — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
-#   dag::get_task_test_command  <yaml-string> <task-id> — task 의 test_command 필드 (없으면 빈 + exit 0)  [Wave 2 U2]
+# 6 함수 namespace:
+#   dag::extract_yaml      <tasks.md>                        — `## 의존 그래프` 섹션의 YAML fenced block stdout
+#   dag::list_leaves       <yaml-string>                     — depends_on=[] 인 task id (newline 구분)
+#   dag::outputs_disjoint  <yaml-string> <id1> <id2>         — id1·id2 outputs 교집합 0이면 exit 0
+#   dag::find_independent_batch <yaml-string>                — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
+#   dag::get_task_test_command  <yaml-string> <task-id>      — task 의 test_command 필드 (없으면 빈 + exit 0)  [Wave 2 U2]
+#   dag::find_ready        <yaml-string> [done-id...]        — done 집합 기반 ready frontier (다단계 wave 지원)
 #
 # 의존성: python3 + pyyaml (기존 is-hook-enabled.sh, is-rule-enabled.sh와 동일 인프라)
 # 참조: 마스터 plan §6 v0.4a W1 + advisor 협의 2026-04-26 13:00 (정정 채택)
+#       dynamic-workflow 이식 플랜 2026-06-08 (dag::find_ready 신설)
 #
 # Sourced library — caller가 set -u/-e 제어. strict mode 위임.
 
@@ -128,6 +130,38 @@ for cand in candidates:
         batch.append(cand)
 if len(batch) >= 2:
     for tid in batch:
+        print(tid)
+'
+}
+
+# dag::find_ready <yaml-string> [done-id1 done-id2 ...]
+# done 집합에 포함되지 않은 task 중 depends_on ⊆ done 인 task id (newline 구분, 다단계 wave)
+# done-ids: 위치 인자로 전달 (0개 = wave 0 = 절대 leaf; dag::list_leaves 동치).
+# 용도: implementing-ko wave 루프에서 `dag::find_ready "$yaml" $done` 로 반복 호출.
+dag::find_ready() {
+  local yaml="$1"
+  shift
+  local done_raw="${*:-}"   # 나머지 인자 공백 구분 문자열 (없으면 빈)
+  __dag_check_python || return 1
+  SPECOPS_DAG_YAML="$yaml" SPECOPS_DAG_DONE="$done_raw" python3 -c '
+import os, sys, yaml
+data = os.environ["SPECOPS_DAG_YAML"]
+done_raw = os.environ.get("SPECOPS_DAG_DONE", "").strip()
+done = set(done_raw.split()) if done_raw else set()
+try:
+    doc = yaml.safe_load(data) or {}
+except Exception as e:
+    sys.stderr.write(f"⚠️  dag::find_ready: YAML 파싱 실패 ({e}) — fallback\n")
+    sys.exit(0)
+tasks = doc.get("tasks", []) or []
+for t in tasks:
+    if not isinstance(t, dict):
+        continue
+    tid = t.get("id")
+    if not tid or tid in done:
+        continue
+    deps = t.get("depends_on") or []
+    if isinstance(deps, list) and set(deps) <= done:
         print(tid)
 '
 }

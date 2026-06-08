@@ -3,7 +3,7 @@ name: structured-artifacts-ko
 description: 모든 Lifecycle 커맨드의 Process 첫 스텝 — `.specops/<FID>/` 디렉토리 규약으로 단계 간 파일-기반 통신을 강제한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/structured-artifacts/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 ---
 
@@ -35,13 +35,88 @@ used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 │   ├── data-model.md              # /plan 생성 (선택)
 │   ├── contracts/                 # /plan 생성 (선택)
 │   ├── tasks.md                   # /tasks 생성, /implement 상태 마킹
+│   ├── handoffs/                  # Stage handoff 문서 (OMC 패턴 차용)
+│   │   ├── specifying.md          # specifying-ko 완료 시 생성
+│   │   ├── planning.md            # planning-ko 완료 시 생성
+│   │   ├── decomposing.md         # decomposing-ko 완료 시 생성
+│   │   └── implementing.md        # implementing-ko 완료 시 생성
 │   ├── analysis.md                # /analyze 생성
 │   ├── review.md                  # /code-review 생성
-│   └── verify.md                  # /verify 생성
+│   ├── verify.md                  # /verify 생성
+│   ├── verify-loop.md             # bounded verify→fix 루프 카운터 (P2-2)
+│   └── auto-state.md              # §auto 모드 전역 재시도 카운터 (v1.10.0)
 └── session-progress.md            # 전역, 모든 커맨드 append
 ```
 
+## Stage Handoff 문서 규약 (OMC 차용)
+
+각 engine skill은 `## 다음 skill` 진입 **직전** `.specops/<FID>/handoffs/<stage>.md`를 기록한다. context reset/compact 이후에도 다음 skill이 결정 맥락을 복원할 수 있게 한다.
+
+**필수 4필드** (10-20줄):
+
+```markdown
+# Handoff — <stage> → <next-stage>
+
+## Decided
+- <이 단계에서 확정된 핵심 결정 1-3개>
+
+## Rejected
+- <검토했으나 기각한 대안 + 한 줄 사유>
+
+## Risks
+- <다음 단계가 주의해야 할 리스크·제약>
+
+## Remaining
+- <미해결 열린 질문 또는 다음 단계로 넘기는 사항>
+```
+
+**규칙**:
+- 항목 없는 섹션은 `- (없음)` 기재 (섹션 생략 금지)
+- 파일 부재 시 다음 skill이 해당 섹션 없이 진행 가능 (graceful skip). 단 handoff 존재 시 첫 단계에서 반드시 읽음.
+- `session-start.sh` rehydrate 시 최신 handoff 요약 주입 (구현 예정).
+
 `.specops/`는 프로젝트 루트의 `.gitignore`에 반드시 포함. 플러그인 레포가 아닌 **사용 프로젝트**의 `.gitignore`다.
+
+## 무인 모드 술어 (v1.10.0 신규)
+
+**공통 술어** — 모든 게이트 스킬이 참조하는 단일 출처:
+
+```bash
+# 무인 모드 감지 (§batch OR §auto)
+if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+  MODE="batch"
+elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+  MODE="auto"
+else
+  MODE="single"
+fi
+```
+
+| MODE | 동작 |
+|---|---|
+| `batch` | 기존 §batch halt 신호 (BATCH-PHASE1-DONE, BATCH-PERF-DONE) |
+| `auto` | 가역 게이트 자동 통과, PR 게이트에서 가정 다이제스트 + 단일 [y/n] |
+| `single` | 기존 단일 모드 동작 (모든 게이트에서 사용자 입력 대기) |
+
+**주의**: 모드별 halt 동작은 mode-specific이다. `§batch`의 halt 신호(`BATCH-PHASE1-DONE`)는 `§auto`에 적용되지 않는다. 모든 분기점에서 3-way 검사를 사용한다.
+
+## auto-state.md 규약 (§auto 전용, v1.10.0 신규)
+
+**경로**: `.specops/<FID>/auto-state.md`
+
+**형식**:
+
+```markdown
+auto_retry_count: 0
+escalations: []
+```
+
+**필드**:
+- `auto_retry_count`: per-FID 전역 재시도 카운터 (상한 1). implementing-ko와 verifying-evidence-ko가 공유.
+- `escalations`: 에스컬레이션 이력 목록. `[{stage: "...", reason: "...", ts: "..."}]` 형식. PR 게이트 가정 다이제스트에 포함.
+
+**파일 부재 시**: `auto_retry_count=0`으로 간주 (graceful init).
+**삭제 시점**: FID Lifecycle 완료 후 (PR 생성 또는 Lifecycle 종료 시).
 
 ## 체크리스트 (커맨드 Process 첫 스텝)
 

@@ -170,15 +170,65 @@ bash scripts/session-progress-append.sh <FID> /performance-test DONE|SKIP|FAIL "
 
 PASS 또는 SKIP + session-progress append 완료 후 PR 생성 게이트를 진행한다.
 
-**[batch 모드 분기]** 먼저 spec.md `**§batch**` 라벨 감지 확인:
+**3-way 분기 확인**:
 
 ```bash
-grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
+if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+  echo "BATCH"
+elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+  echo "AUTO"
+else
+  echo "SINGLE"
+fi
 ```
 
-- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-PERF-DONE: <FID>` 출력 + **PR 게이트 전체 skip**. `/start-batch` 오케스트레이터가 batch PR을 소유한다
+- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-PERF-DONE: <FID>` 출력 + **PR 게이트 전체 skip**. `/start-batch` 오케스트레이터가 batch PR을 소유한다.
 
-**[단일 모드]** (`**§batch**` 라벨 없는 경우) → 아래 게이트 진행:
+- **auto 모드** (`**§auto**` 라벨 감지) → **가정 다이제스트 제시 + 단일 [y/n] 확인** (아래 §auto 게이트 참조).
+
+- **단일 모드** (`**§batch**`, `**§auto**` 라벨 없는 경우) → 아래 단일 모드 게이트 진행:
+
+### §auto 게이트 (auto 모드 전용)
+
+**가정 다이제스트 수집**:
+
+```bash
+# 1. clarifications.md ASSUMED 항목
+grep -A5 "ASSUMED" .specops/<FID>/clarifications.md | grep -E "질문|가정 근거"
+
+# 2. handoffs/*.md Decided 필드
+grep -A10 "## Decided" .specops/<FID>/handoffs/*.md
+
+# 3. spec.md 자동 결정 화면
+grep "자동 결정 화면" .specops/<FID>/spec.md
+
+# 4. auto-state.md escalations (있으면)
+cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
+```
+
+수집 결과를 다음 형식으로 사용자에게 제시:
+
+```
+## §auto 가정 다이제스트 — <FID>
+
+### 자동 응답된 명확화 질문
+<clarifications.md ASSUMED Q-blocks>
+
+### 단계별 주요 결정
+<handoffs/*.md Decided 항목>
+
+### 자동 생성된 화면 (Step 5.5)
+<spec.md "자동 결정 화면" 목록>
+
+### 에스컬레이션 이력
+<auto-state.md escalations — 없으면 "(없음)">
+
+---
+위 가정 위에 구현됐습니다. PR을 생성하시겠습니까? [y/n]
+```
+
+- `y` → 아래 §1~§4 PR 생성 단계 진행
+- `n` → "PR 생성 보류. 나중에 직접 `gh pr create` 실행 가능." → Lifecycle 종료
 
 ### 1. 커밋 전제 확인
 

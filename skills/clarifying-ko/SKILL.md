@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (후반 "Spec Self-Review" + "User Review Gate" 분리)
   - github/spec-kit commands/clarify.md (specops-ko 경유)
   - specops-ko commands/clarify.md
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-ko (chain 출구)
 ---
 
@@ -16,6 +16,13 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 
 <HARD-GATE>
 **BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-auto-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
+
+**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
+- 합리적 기본값·컨텍스트 기반 추론으로 답변 선택
+- clarifications.md Q-block에 `status: ASSUMED` 기재 + `**가정 근거**: <한 줄 이유>` 필드 추가
+- 이 가정은 performance-test-ko PR 게이트의 **가정 다이제스트**로 집계된다
+- BLOCKING 자동 처리 후 planning-ko 직행 (사용자 응답 대기 없음)
 </HARD-GATE>
 
 ## 필수 전제
@@ -88,7 +95,7 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 ```markdown
 # Clarifications — <FID>
 
-**status**: RESOLVED | BLOCKED
+**status**: RESOLVED | BLOCKED | ASSUMED
 **timestamp**: <auto-injected ISO-8601>
 
 ## Q1 · <topic> · BLOCKING
@@ -99,7 +106,17 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 
 **영향**: AC-5 신규 추가
 
-## Q2 · ...
+## Q2 · <topic> · BLOCKING · ASSUMED   ← §auto 모드 자동 응답
+
+**질문**: <판단이 필요했던 질문>
+
+**답변 (자동)**: <best-guess 선택된 답변>
+
+**가정 근거**: <컨텍스트 기반 추론 한 줄>
+
+**영향**: AC-X 반영 예정
+
+## Q3 · ...
 ```
 
 ## 5원칙 주입 (specops-auto-ko 고유)

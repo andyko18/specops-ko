@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.0.0
+specops_version: 1.10.0
 used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구), /start-batch (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -195,6 +195,10 @@ git commit -m "feat: <기능명> 추가"
 1. **별도 태스크**로 분리 (다른 태스크와 합치지 말 것)
 2. 태스크 헤더에 `⚠️ 사용자 승인 필요` 표기
 3. **Step 0 삽입**: "사용자에게 파괴적 변경 승인 요청. 승인 없으면 태스크 중단"
+4. **DAG YAML 노드에 `irreversible: true` 필드 추가** — implementing-ko(부모)가 pre-dispatch에서 이 필드를 읽어 분기 처리:
+   - `§batch` → 진행 (오케스트레이터 책임)
+   - `§auto` → mini HARD GATE (발생 위치에서 정지): `"AUTO-HARD-GATE: <task-id> 비가역 작업 — 확인 필요 [y/n]"`
+   - 단일 모드 → 기존 Step 0 확인
 
 ```markdown
 ### Task 7 ⚠️ 사용자 승인 필요: `.cache/` 디렉토리 정리
@@ -206,7 +210,19 @@ git commit -m "feat: <기능명> 추가"
 
 `y`가 아니면 **중단**.
 
+> **참고 (§auto 모드)**: 서브에이전트는 사용자 채널이 없으므로 Step 0을 직접 실행할 수 없다. `irreversible: true` 필드가 있는 task는 implementing-ko 부모가 pre-dispatch 단계에서 mini HARD GATE를 발동한다. 이 Step 0은 단일 모드 전용이자 PR 게이트 가정 다이제스트의 참조 소스다.
+
 - [ ] **Step 1: RED** ...
+```
+
+**DAG YAML `irreversible` 필드 예시**:
+```yaml
+tasks:
+  - id: T7
+    irreversible: true   # ← 파괴적/덮어쓰기 작업 표기
+    depends_on: [T6]
+    outputs: [.cache/]
+    ac: [AC-8]
 ```
 
 ## 5원칙 주입 (specops-auto-ko 고유)
@@ -238,23 +254,32 @@ git commit -m "feat: <기능명> 추가"
 - `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
+## Handoff 기록 (다음 skill 진입 직전 필수)
+
+`implementing-ko` 호출 직전 `.specops/<FID>/handoffs/decomposing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+
 ## 다음 skill
 
-tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 후:
+tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 + handoff.md 기록 후:
 
-**[batch 분기] §batch 라벨 확인**:
-
-`.specops/<FID>/spec.md` 에 `**§batch**` 라벨이 존재하는지 확인:
+**3-way 분기 확인**:
 
 ```bash
-grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md
+if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+  echo "BATCH"
+elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+  echo "AUTO"
+else
+  echo "SINGLE"
+fi
 ```
 
-- **라벨 있음 (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-batch` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
-- **라벨 없음 (일반 분기)** → 기존 동작:
+- **§batch (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-batch` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
+- **§auto (auto 분기)** → implementing-ko 직행. §auto 라벨이 propagate되어 각 단계에서 가역 게이트 자동 통과가 계속됨.
+- **단일 분기** → 기존 동작:
 
 ```
 Skill: specops-auto-ko:implementing-ko
 ```
 
-implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch 분기 halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.
+implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.
