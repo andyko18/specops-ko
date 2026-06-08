@@ -16,8 +16,8 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.a (rules.jsonl 부재)"
 fi
 
-# T5.b R-1 ~ R-6 각 룰 필수 필드 완비
-for id in R-1 R-2 R-3 R-4 R-5 R-6; do
+# T5.b R-1 ~ R-5 각 룰 필수 필드 완비 (R-6 disabled — gbrain-ko manual-only 설계)
+for id in R-1 R-2 R-3 R-4 R-5; do
   hit=$(jq -e --arg id "$id" 'select(.id == $id and .enabled == true and (.principle == 1 or .principle == 5) and (.matcher == "posttool" or .matcher == "stop") and (.severity == "warn"))' "$RULES" 2>/dev/null)
   if [ -n "$hit" ]; then
     PASS=$((PASS+1)); echo "PASS T5.b $id 완비"
@@ -26,11 +26,11 @@ for id in R-1 R-2 R-3 R-4 R-5 R-6; do
   fi
 done
 
-# T5.c matcher 분류: posttool 3개 (R-1/R-2/R-3), stop 3개 (R-4/R-5/R-6)
-posttool_count=$(jq -s '[.[] | select(.matcher == "posttool")] | length' "$RULES" 2>/dev/null)
-stop_count=$(jq -s '[.[] | select(.matcher == "stop")] | length' "$RULES" 2>/dev/null)
-if [ "$posttool_count" = "3" ] && [ "$stop_count" = "3" ]; then
-  PASS=$((PASS+1)); echo "PASS T5.c matcher 분류 posttool=3 stop=3"
+# T5.c matcher 분류: posttool 3개 (R-1/R-2/R-3), stop 2개 (R-4/R-5 — R-6 disabled)
+posttool_count=$(jq -s '[.[] | select(.matcher == "posttool" and .enabled == true)] | length' "$RULES" 2>/dev/null)
+stop_count=$(jq -s '[.[] | select(.matcher == "stop" and .enabled == true)] | length' "$RULES" 2>/dev/null)
+if [ "$posttool_count" = "3" ] && [ "$stop_count" = "2" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.c matcher 분류 posttool=3 stop=2"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.c (posttool=$posttool_count stop=$stop_count)"
 fi
@@ -581,9 +581,9 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.14 mixed fixture 미매칭"
 fi
 
-# T-R6.15 stop-governance.sh end-to-end 통합 (AC-7 — entrypoint 실제 실행, T-R6.7b grep 보완)
+# T-R6.15 stop-governance.sh end-to-end 통합 (R-6 disabled 검증 — gbrain manual-only 설계)
+# R-6 disabled 상태에서 정상 완주 시 friction-log에 R-6 미기록 + continue:true 확인
 # sandbox: mktemp + .specops/session-progress.md(FID) + R-6 FAIL transcript
-#   → stdin JSON 으로 stop-governance.sh 실행 → friction-log.jsonl 기록 + {continue:true}
 # 격리: 모든 쓰기를 temp .specops/ 로 (실 repo 오염 차단 — S0/S7 격리 규율과 동일)
 e2e_tmp=$(mktemp -d)
 e2e_fid="20260529-r6-e2e-stop"
@@ -595,10 +595,11 @@ printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"to
 e2e_out=$(cd "$e2e_tmp" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$e2e_tx" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
 e2e_cont=$(echo "$e2e_out" | jq -r '.continue' 2>/dev/null)
 e2e_log="$e2e_tmp/.specops/$e2e_fid/friction-log.jsonl"
-if [ "$e2e_cont" = "true" ] && [ -f "$e2e_log" ] && grep -q '"rule_id":"R-6"' "$e2e_log"; then
-  PASS=$((PASS+1)); echo "PASS T-R6.15 stop-governance.sh E2E — friction-log 기록 + continue:true"
+# R-6 disabled → friction-log에 R-6 미기록이 정상 (false-warn 제거 검증)
+if [ "$e2e_cont" = "true" ] && ! grep -q '"rule_id":"R-6"' "$e2e_log" 2>/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T-R6.15 stop-governance.sh E2E — R-6 disabled, friction-log 미기록 + continue:true"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T-R6.15 E2E cont=$e2e_cont log=$([ -f "$e2e_log" ] && cat "$e2e_log" || echo MISSING)"
+  FAIL=$((FAIL+1)); echo "FAIL T-R6.15 E2E cont=$e2e_cont r6_in_log=$(grep -c '\"rule_id\":\"R-6\"' "$e2e_log" 2>/dev/null || echo 0)"
 fi
 rm -rf "$e2e_tmp"
 
