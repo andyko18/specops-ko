@@ -14,6 +14,20 @@ _make_git_fixture() {
   git -C "$dir" config user.email "t@t.com"
   git -C "$dir" config user.name "T"
   mkdir -p "$dir/commands"
+  mkdir -p "$dir/.claude-plugin"
+  cat > "$dir/.claude-plugin/plugin.json" <<'JSON'
+{
+  "name": "specops-auto-ko",
+  "version": "1.9.0",
+  "description": "test"
+}
+JSON
+  cat > "$dir/.claude-plugin/marketplace.json" <<'JSON'
+{
+  "name": "specops-auto-ko",
+  "version": "1.9.0"
+}
+JSON
   cat > "$dir/CHANGELOG.md" <<'CHANGELOG'
 # Changelog
 
@@ -117,6 +131,17 @@ out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.11
 AFTER=$(cat "$TD/CHANGELOG.md")
 [ "$rc" -eq 1 ] && echo "$out" | grep -q "pre-flight 검증 실패" && [ "$BEFORE" = "$AFTER" ] \
   && ok "T9.a pre-flight FAIL → exit 1 + 파일 미변경" || fail "T9.a (rc=$rc)"
+rm -rf "$TD"
+
+# T-manifest: AC-1/AC-2 plugin.json + marketplace.json 버전 bump
+TD=$(mktemp -d); _make_git_fixture "$TD"
+RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 > /dev/null 2>&1
+plugin_ver=$(grep '"version"' "$TD/.claude-plugin/plugin.json" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+market_ver=$(grep '"version"' "$TD/.claude-plugin/marketplace.json" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+[ "$plugin_ver" = "1.11.0" ] \
+  && ok "T-manifest.a plugin.json 버전 1.11.0 갱신" || fail "T-manifest.a (got: $plugin_ver)"
+[ "$market_ver" = "1.11.0" ] \
+  && ok "T-manifest.b marketplace.json 버전 1.11.0 갱신" || fail "T-manifest.b (got: $market_ver)"
 rm -rf "$TD"
 
 # T10: pre-flight 실제 경로 검증 (Important fix — PREFLIGHT_CMD 우회 없이)
