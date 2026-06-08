@@ -33,13 +33,13 @@ _run_check() {
   local label="$1"
   if [ -n "$PREFLIGHT_CMD" ]; then
     if ! eval "$PREFLIGHT_CMD" > /dev/null 2>&1; then
-      echo "Error: pre-flight FAIL ($label)" >&2
+      echo "Error: pre-flight 검증 실패 ($label)" >&2
       exit 1
     fi
   else
     local script_path="$PLUGIN_ROOT/scripts/_internal/$label"
     if ! bash "$script_path" > /dev/null 2>&1; then
-      echo "Error: pre-flight FAIL ($label)" >&2
+      echo "Error: pre-flight 검증 실패 ($label)" >&2
       exit 1
     fi
   fi

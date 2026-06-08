@@ -115,7 +115,7 @@ TD=$(mktemp -d); _make_git_fixture "$TD"
 BEFORE=$(cat "$TD/CHANGELOG.md")
 out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.11.0 2>&1); rc=$?
 AFTER=$(cat "$TD/CHANGELOG.md")
-[ "$rc" -eq 1 ] && echo "$out" | grep -q "pre-flight" && [ "$BEFORE" = "$AFTER" ] \
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "pre-flight 검증 실패" && [ "$BEFORE" = "$AFTER" ] \
   && ok "T9.a pre-flight FAIL → exit 1 + 파일 미변경" || fail "T9.a (rc=$rc)"
 rm -rf "$TD"
 
