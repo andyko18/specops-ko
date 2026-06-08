@@ -59,3 +59,7 @@ reference_upstream: github/spec-kit + specops-auto-ko 독자 추가
 - `templates/{constitution,PRD,CLAUDE,README,DESIGN,...}.md` — 13종 템플릿
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)
+
+---
+
+*specops-auto-ko v2.0.0 · 2026-05-14 · 한국 SI 13종 부트스트랩*

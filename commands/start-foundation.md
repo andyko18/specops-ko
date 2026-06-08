@@ -50,3 +50,7 @@ specops-auto-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** �
 - `skills/decomposing-ko/SKILL.md` — 재사용 HARD GATE 조건
 - `templates/foundation-manifest.md` — manifest 템플릿
 - `commands/start.md` — 기능 단위 구현 진입 슬래시 (미러링 패턴 참조)
+
+---
+
+*specops-auto-ko v1.0.0 · 2026-06-04 · foundation 분기 진입 슬래시*

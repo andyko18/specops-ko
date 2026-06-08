@@ -105,4 +105,4 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ---
 
-*specops-auto-ko · 2026-05-20 · FID: 20260520-design-screen-command*
+*specops-auto-ko v1.0.0 · 2026-05-20 · 화면별 목업 생성 슬래시*

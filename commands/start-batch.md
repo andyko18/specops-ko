@@ -153,4 +153,4 @@ EOF
 
 ---
 
-*specops-auto-ko v1.9.0 · 2026-06-05 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-auto-ko v1.0.0 · 2026-06-05 · 3-Phase 일괄 구현 오케스트레이터*

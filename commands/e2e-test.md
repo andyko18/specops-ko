@@ -50,4 +50,4 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없�
 
 ---
 
-*PoC v0.0 · 2026-05-03 · E2E 자동 테스트 진입점*
+*specops-auto-ko v1.0.0 · 2026-05-03 · E2E 자동 테스트 진입점*
