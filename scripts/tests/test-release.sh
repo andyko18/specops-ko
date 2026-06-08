@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -u  # set -e 의도적 미사용 — rc 수동 체크 패턴 (테스트별 개별 판정)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 RELEASE="$PLUGIN/scripts/release.sh"
@@ -118,6 +118,23 @@ AFTER=$(cat "$TD/CHANGELOG.md")
 [ "$rc" -eq 1 ] && echo "$out" | grep -q "pre-flight 검증 실패" && [ "$BEFORE" = "$AFTER" ] \
   && ok "T9.a pre-flight FAIL → exit 1 + 파일 미변경" || fail "T9.a (rc=$rc)"
 rm -rf "$TD"
+
+# T10: pre-flight 실제 경로 검증 (Important fix — PREFLIGHT_CMD 우회 없이)
+# T10.a: 스크립트 파일 존재 확인
+[ -f "$PLUGIN/scripts/_internal/validate-structure.sh" ] \
+  && [ -f "$PLUGIN/scripts/tests/governance/test-rules.sh" ] \
+  && [ -f "$PLUGIN/scripts/tests/dag/test-parse-dag.sh" ] \
+  && ok "T10.a pre-flight 스크립트 경로 실재" || fail "T10.a pre-flight 경로 미존재"
+
+# T10.b: 실제 repo dry-run — RELEASE_PREFLIGHT_CMD 미설정, repo clean 시에만 실행
+if [ -z "$(git -C "$PLUGIN" status --porcelain 2>/dev/null)" ] \
+    && ! git -C "$PLUGIN" tag -l "v9.99.0" 2>/dev/null | grep -q "v9.99.0"; then
+  out=$(bash "$RELEASE" 9.99.0 --dry-run 2>&1); rc=$?
+  [ "$rc" -eq 0 ] && echo "$out" | grep -q "pre-flight PASS" \
+    && ok "T10.b 실제 pre-flight 경로 dry-run PASS" || fail "T10.b (rc=$rc out='$out')"
+else
+  ok "T10.b (SKIP — repo unclean 또는 v9.99.0 태그 존재)"
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

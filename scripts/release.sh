@@ -32,6 +32,7 @@ fi
 _run_check() {
   local label="$1"
   if [ -n "$PREFLIGHT_CMD" ]; then
+    # 테스트 전용 override (RELEASE_PREFLIGHT_CMD=true/false) — 프로덕션 미설정
     if ! eval "$PREFLIGHT_CMD" > /dev/null 2>&1; then
       echo "Error: pre-flight 검증 실패 ($label)" >&2
       exit 1
@@ -82,6 +83,7 @@ if grep -q '^## \[Unreleased\]$' "$CHANGELOG"; then
   CHANGED_FILES+=("$CHANGELOG")
   PREV=$(grep '^\[Unreleased\]:' "$CHANGELOG" | sed 's|.*compare/\([^.]*\.[^.]*\.[^.]*\)\.\.\.HEAD|\1|')
   BASE_URL=$(grep '^\[Unreleased\]:' "$CHANGELOG" | sed 's|\[Unreleased\]: \(.*\)/compare/.*|\1|')
+  [ -z "$PREV" ] && echo "Warning: CHANGELOG.md에 [Unreleased]: compare 링크 없음 — 링크 갱신 skip" >&2
 
   # [Unreleased] 헤딩 아래 새 버전 헤딩 삽입
   awk -v ver="$VERSION" -v date="$DATE" '
@@ -132,7 +134,7 @@ echo "-> post-flight PASS"
 
 # FR-9~FR-10: git commit + annotated tag
 echo "-> git 커밋 및 태그 생성..."
-git -C "$PLUGIN_ROOT" add -A
+git -C "$PLUGIN_ROOT" add "${CHANGED_FILES[@]}"
 git -C "$PLUGIN_ROOT" commit -m "chore: release v${VERSION}"
 git -C "$PLUGIN_ROOT" tag -a "v${VERSION}" -m "Release v${VERSION}"
 
