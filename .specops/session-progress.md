@@ -17,6 +17,20 @@
 
 ---
 
+## 20260609-design-screens · design-screens 복수 커맨드 신설
+- 2026-06-09 16:05 /performance-test SKIP (§NFR L59-65 — 성능 임계값 없음, CLI 문서 산출물)
+- 2026-06-09 16:05 /integration-test SKIP (§범위 L18-32 — CLI 문서 파일, REST·DB·외부 IF 없음)
+- 2026-06-09 16:04 /receive-review 완료 (Critical 0건 / Important 2건 / fix 라운드 1회)
+- 2026-06-09 16:01 /request-review 완료 (review-request.md, 외부 reviewer dispatch)
+- 2026-06-09 15:58 /verify PASS (evidence.md, AC 9/9 must + 1 should)
+- 2026-06-09 15:56 /implement DONE (Task T1~T4 완료, PASS=4 FAIL=0(C재시도 1), 커밋 404f080..e382461)
+- 2026-06-09 15:40 /tasks 완료 (tasks.md (4 태스크))
+- 2026-06-09 15:37 /plan 완료 (plan.md)
+- 2026-06-09 15:29 /clarify 완료 (clarifications.md (2 쟁점 해소 — Q1 commit RESOLVED, Q2 fallback RESOLVED + AC-8 append))
+
+- 2026-06-09 15:25 /specify 완료 (spec.md, AC.md)
+
+
 ## 20260608-release-ko · release-ko skill 신설
 - 2026-06-08 17:23 implementer-ko T1 완료 (AC-1~AC-9 테스트 작성, RED PASS=0 FAIL=11 (release.sh 미존재), staged: scripts/tests/test-release.sh)
 - 2026-06-08 17:19 /tasks 완료 (tasks.md (7 태스크))

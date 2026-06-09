@@ -102,6 +102,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 - `DESIGN.md` — 디자인 시스템 (색상·폰트·컴포넌트)
 - `.specops/memory/screens-overview.md` — 화면 목록 마스터
 - `ui-ux-pro-max:ui-ux-pro-max` — design system 자문 (Step 2.5, available-skills 에 있으면 선택 호출)
+- `commands/design-screens.md` — 복수 커맨드 (여러 화면 일괄 설계 `/design-screens`)
 
 ---
 
