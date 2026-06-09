@@ -44,14 +44,16 @@ available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있으면 **첫 화면 �
 
 **Step 3-1: 스캐폴딩**
 
-```bash
-bash scripts/_internal/design-screen.sh {name}
-```
-
-`screens/{name}.html` 이 이미 존재하면 충돌 감지:
+`screens/{name}.html` 이 이미 존재하는지 먼저 확인한다:
 > "화면 `{name}`이 이미 존재합니다(`screens/{name}.html`). 덮어쓸까요? [y/n(건너뜀)]"
 > - `y` → `bash scripts/_internal/design-screen.sh {name} --force` 실행
 > - `n` → 해당 화면 건너뜀, 다음 화면 진행
+
+존재하지 않으면:
+
+```bash
+bash scripts/_internal/design-screen.sh {name}
+```
 
 **Step 3-2: 목적·컴포넌트·다음화면 질문**
 
@@ -62,7 +64,7 @@ bash scripts/_internal/design-screen.sh {name}
 
 **Step 3-3: HTML artifact 생성 + 수정 루프**
 
-Step 2의 공유 design system(또는 DESIGN.md)을 반영하여 `templates/screen.html`을 기반으로 HTML artifact를 즉시 생성한다. 수정 요청 수렴 → 재생성 루프. 단수 Step 3와 동일 흐름.
+Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므로, Step 2의 공유 design system(또는 DESIGN.md)을 반영하여 그 내용을 채워 완성한다. 수정 요청 수렴 → 재생성 루프. 단수 Step 3와 동일 흐름.
 
 **Step 3-4: 저장**
 
