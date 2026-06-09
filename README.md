@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.10.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.11.0)
 
 ## 사용방법
 

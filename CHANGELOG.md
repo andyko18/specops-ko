@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-06-09
+
 ## [1.10.0] — 2026-06-09
 
 ### Added
@@ -192,7 +194,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.7.0...v1.8.0

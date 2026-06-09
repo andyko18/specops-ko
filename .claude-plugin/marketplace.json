@@ -11,7 +11,7 @@
     {
       "name": "specops-auto-ko",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반 (로컬 PoC)",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "source": "./",
       "author": {
         "name": "andyko18",
