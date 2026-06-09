@@ -71,8 +71,9 @@ if $DRY_RUN; then
   echo "1. CHANGELOG: [Unreleased] -> [${VERSION}] — ${DATE} 변환"
   echo "2. README: 버전 배지 갱신"
   echo "3. commands/*.md: footer 스탬프 불일치 수정"
-  echo "4. git commit: chore: release v${VERSION}"
-  echo "5. git tag: v${VERSION}"
+  echo "4. .claude-plugin/plugin.json + marketplace.json: 버전 bump"
+  echo "5. git commit: chore: release v${VERSION}"
+  echo "6. git tag: v${VERSION}"
   echo "--- DRY-RUN 완료 (변경 없음) ---"
   trap - EXIT
   exit 0
@@ -123,6 +124,14 @@ for cmd_file in "$PLUGIN_ROOT/commands/"*.md; do
       _sed_i "s|^\(\*specops-auto-ko v\)[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|\1${fm_ver}|" "$cmd_file"
     fi
   fi
+done
+
+# FR-7b: plugin.json/marketplace.json 버전 bump
+for manifest in "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
+                "$PLUGIN_ROOT/.claude-plugin/marketplace.json"; do
+  [ -f "$manifest" ] || continue
+  _sed_i "s/\"version\": \"[0-9][^\"]*\"/\"version\": \"${VERSION}\"/" "$manifest"
+  CHANGED_FILES+=("$manifest")
 done
 
 echo "-> 파일 변환 완료"
