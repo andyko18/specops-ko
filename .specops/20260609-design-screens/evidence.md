@@ -132,3 +132,17 @@ dc68b97 chore: .structure-baseline commands count 12→13 + README 갱신 (T2·T
 **must AC 커버리지**: 9/9 (100%)
 **should AC**: 1/1 PASS
 
+---
+
+## /integration-test — 2026-06-09T17:00Z
+
+**결과**: SKIP
+**근거**: spec.md §범위 L18-32 — 커맨드 문서 파일 신설·README·.structure-baseline 갱신. REST·GraphQL·gRPC 엔드포인트·DB CRUD·외부 API·인증 흐름 없음. CLI 문서 산출물 전용.
+
+---
+
+## /performance-test — 2026-06-09T17:01Z
+
+**결과**: SKIP
+**근거**: spec.md §NFR L59-65 — 성능 임계값 없음. NFR-1(bash 3.2+ 호환), NFR-2(design-screen.sh CLI 계약 준수), NFR-3(validate-structure.sh ✅) — p95/RPS/TPS/동시성 임계값 미명시. CLI 문서 산출물 전용.
+
