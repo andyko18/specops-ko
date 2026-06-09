@@ -595,8 +595,13 @@ printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"to
 e2e_out=$(cd "$e2e_tmp" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$e2e_tx" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
 e2e_cont=$(echo "$e2e_out" | jq -r '.continue' 2>/dev/null)
 e2e_log="$e2e_tmp/.specops/$e2e_fid/friction-log.jsonl"
-# R-6 disabled → friction-log에 R-6 미기록이 정상 (false-warn 제거 검증)
-if [ "$e2e_cont" = "true" ] && ! grep -q '"rule_id":"R-6"' "$e2e_log" 2>/dev/null; then
+# R-6 disabled → friction-log 미생성(모든 룰 미발화) 또는 R-6 항목 없음 모두 PASS
+# log 미생성은 R-6 trigger 조건(verifying-evidence-ko + evidence.md Write, gbrain 부재)이
+# R-6 disabled 로 인해 friction-log 를 생성하지 않은 정상 결과임.
+# R-6 재활성화 시 동일 transcript 에서 R-6 발화 여부는 T-R6.1~T-R6.5 단위 테스트가 보장.
+r6_absent=true
+[ -f "$e2e_log" ] && grep -q '"rule_id":"R-6"' "$e2e_log" 2>/dev/null && r6_absent=false
+if [ "$e2e_cont" = "true" ] && [ "$r6_absent" = "true" ]; then
   PASS=$((PASS+1)); echo "PASS T-R6.15 stop-governance.sh E2E — R-6 disabled, friction-log 미기록 + continue:true"
 else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.15 E2E cont=$e2e_cont r6_in_log=$(grep -c '\"rule_id\":\"R-6\"' "$e2e_log" 2>/dev/null || echo 0)"
