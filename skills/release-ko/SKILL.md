@@ -4,7 +4,7 @@ description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer 
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
 specops_version: 1.10.0
-used_by: commands/release.md
+used_by: /release
 ---
 
 # release-ko — 릴리즈 자동화

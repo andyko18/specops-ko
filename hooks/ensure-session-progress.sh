@@ -29,5 +29,9 @@ mkdir -p .specops
 project=${1:-$(basename "$(pwd)")}
 
 # <project-name> 플레이스홀더 치환 후 복사
-sed "s/<project-name>/${project}/g" "$template" > "$target"
+# sed 메타문자 안전화 — 디렉토리명에 \ & / | 가 있어도 표현식 미파손 (fallback basename 경로 대비)
+esc_project=${project//\\/\\\\}
+esc_project=${esc_project//&/\\&}
+esc_project=${esc_project//|/\\|}
+sed "s|<project-name>|${esc_project}|g" "$template" > "$target"
 echo "created: $target (project=$project)"

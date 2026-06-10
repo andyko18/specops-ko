@@ -10,6 +10,8 @@
 #   dag::find_ready        <yaml-string> [done-id...]        — done 집합 기반 ready frontier (다단계 wave 지원)
 #
 # 의존성: python3 + pyyaml (기존 is-hook-enabled.sh, is-rule-enabled.sh와 동일 인프라)
+# 제약: extract_yaml 의 코드펜스 매칭은 행두 고정 (^```yaml / ^```) — 리스트 내 들여쓴 fence 미인식.
+#       미인식 시 빈 출력 → 호출측 sequential fallback (안전 degrade). tasks.md 작성 시 fence 를 행두에 둘 것.
 # 참조: 마스터 plan §6 v0.4a W1 + advisor 협의 2026-04-26 13:00 (정정 채택)
 #       dynamic-workflow 이식 플랜 2026-06-08 (dag::find_ready 신설)
 #
