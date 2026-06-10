@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # specops-auto-ko LLM eval runner — 메타 skill 신호 감지 + 체인 진입 smoke eval
 # 사용: bash scripts/tests/llm-eval/run-evals.sh [fixtures.jsonl]
-# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 2) · LLM_EVAL_TIMEOUT(기본 120초)
+# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 120초)
 # ⚠️ 실 claude 실행은 토큰 비용 발생 (~$0.5/fixture) — run-all/CI 비포함, 수동 전용
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FIXTURES="${1:-$HERE/fixtures.jsonl}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-MAX_TURNS="${LLM_EVAL_MAX_TURNS:-2}"
+# 기본 4: 모델이 Skill 호출 전 타 도구 사용 가능 — Skill 이벤트는 어느 턴에든 잡히면 됨
+MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-120}"
 
 # I-1: fixtures 부재 시 false green 차단
@@ -23,12 +24,27 @@ fi
 
 PASS=0; FAIL=0; BORDER=0; COST=0
 
+# sandbox 격리 — headless lifecycle 부작용 (브랜치 생성·체크아웃·.specops 오염) 을 temp repo 에 가둠
+# CLAUDE.md + .specops 존재 시 메타 skill 의 프로젝트 최초 진입(부트스트랩 안내) 분기 회피 — 정상 specifying 진입
+SANDBOX=$(mktemp -d)
+git -C "$SANDBOX" init -q
+mkdir -p "$SANDBOX/.specops"
+printf '# sandbox\n' > "$SANDBOX/CLAUDE.md"
+cleanup() {  # M-4: mktemp trap — sandbox + attempt 잔여 임시파일 정리
+  rm -rf "$SANDBOX"
+  [ -n "${R_MARK:-}" ] && rm -f "$R_MARK"
+  [ -n "${R_ERR:-}" ] && rm -f "$R_ERR"
+  return 0
+}
+trap cleanup EXIT
+
 run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (bash 3.2, GNU timeout 미의존)
   # I-2: stderr 는 R_ERR 에 보존, timeout kill 은 R_MARK 마커 기록 (호출자 attempt 가 경로 준비)
+  # < /dev/null: while 루프의 fixtures FD 0 상속 차단 / cd "$SANDBOX": 부작용 격리 (exec 으로 pid=claude 유지)
   local out_f pid watcher
   out_f=$(mktemp)
-  "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose \
-    --max-turns "$MAX_TURNS" --allowedTools Skill > "$out_f" 2>"$R_ERR" &
+  (cd "$SANDBOX" && exec "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose \
+    --max-turns "$MAX_TURNS" --allowedTools Skill) < /dev/null > "$out_f" 2>"$R_ERR" &
   pid=$!
   # 워치독 stdout/stderr 차단 필수 — 미차단 시 자식 sleep 이 명령치환 파이프를 물고 EOF 지연 (hang)
   # 마커는 kill 직전 기록 — 정상 종료 후엔 watcher 를 먼저 kill 해 false 마커 차단

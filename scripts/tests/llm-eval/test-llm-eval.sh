@@ -205,6 +205,52 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.b 문서 등재"
 fi
 
+# ── T6 headless 부작용 격리 (fix-loop 1/3) ──
+
+# T6.a stdin 격리 — 가짜 claude 가 stdin 을 덤프: 비어 있어야 함 (fixtures FD 누수 없음) + 2건 모두 판정
+TD=$(mktemp -d)
+export DUMP_F="$TD/stdin-dump"
+cat > "$TD/dump-claude.sh" <<'DUMP'
+#!/usr/bin/env bash
+cat >> "$DUMP_F"
+exit 0
+DUMP
+chmod +x "$TD/dump-claude.sh"
+mk_fx "$TD/fx.jsonl" \
+  '{"id":"none-1","prompt":"질문1","expect_skill":"none","expect_flag":"none"}' \
+  '{"id":"none-2","prompt":"질문2","expect_skill":"none","expect_flag":"none"}'
+out=$(CLAUDE_BIN="$TD/dump-claude.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && [ ! -s "$DUMP_F" ] \
+   && echo "$out" | grep -q '^PASS none-1' && echo "$out" | grep -q '^PASS none-2'; then
+  PASS=$((PASS+1)); echo "PASS T6.a stdin 격리 (덤프 빈 파일 + 2건 판정)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.a (rc=$rc dump_size=$(wc -c < "$DUMP_F" 2>/dev/null || echo 0) out=$out)"
+fi
+unset DUMP_F; rm -rf "$TD"
+
+# T6.b sandbox cwd — 가짜 claude 가 pwd 기록: repo 경로와 다름 + temp 계열 경로
+TD=$(mktemp -d)
+export PWD_F="$TD/pwd-log"
+cat > "$TD/pwd-claude.sh" <<'PWDC'
+#!/usr/bin/env bash
+pwd >> "$PWD_F"
+exit 0
+PWDC
+chmod +x "$TD/pwd-claude.sh"
+mk_fx "$TD/fx.jsonl" '{"id":"none-1","prompt":"질문","expect_skill":"none","expect_flag":"none"}'
+out=$(CLAUDE_BIN="$TD/pwd-claude.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+got_pwd=$(head -1 "$PWD_F" 2>/dev/null || true)
+case "$got_pwd" in
+  /tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) tmpok=1 ;;
+  *) tmpok=0 ;;
+esac
+if [ $rc -eq 0 ] && [ -n "$got_pwd" ] && [ "$got_pwd" != "$PLUGIN" ] && [ "$tmpok" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.b sandbox cwd 격리 (pwd=$got_pwd)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.b (rc=$rc pwd=${got_pwd:-없음})"
+fi
+unset PWD_F; rm -rf "$TD"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
