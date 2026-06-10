@@ -2,7 +2,7 @@
 # specops-ko v0.2 · scripts/diff-upstream.sh 검증 (offline fixture 중심)
 set -u
 PASS=0; FAIL=0
-SCRIPT="$(pwd)/scripts/diff-upstream.sh"
+SCRIPT="$(pwd)/scripts/_internal/diff-upstream.sh"
 
 make_sandbox() {
   local sb=$1
@@ -138,7 +138,7 @@ fi
 rm -rf "$sb"
 
 # T8 실행권한
-if [ -x scripts/diff-upstream.sh ]; then
+if [ -x scripts/_internal/diff-upstream.sh ]; then
   PASS=$((PASS+1)); echo "PASS T8 exec-bit"
 else
   FAIL=$((FAIL+1)); echo "FAIL T8 exec-bit"

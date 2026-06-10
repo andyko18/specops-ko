@@ -9,7 +9,7 @@
 지정 디렉토리 최상위의 `.md` 아티팩트 파일 수를 stdout에 출력. FID 디렉토리 아티팩트 카운트·smoke test에 사용.
 
 ```bash
-scripts/count-artifacts.sh .specops/20260420-rss-cache
+scripts/_internal/count-artifacts.sh .specops/20260420-rss-cache
 # → 7
 ```
 
@@ -20,9 +20,9 @@ scripts/count-artifacts.sh .specops/20260420-rss-cache
 `.specops/<FID>/tasks.md`에서 `scripts/·hooks/·tests/` 하위 `.sh` 파일 참조를 추출하여 **실제 파일 존재**와 **실행권한(exec-bit)** 을 검증. `/analyze` Process 스텝 9에서 자동 호출되며 실패 시 BLOCK 사유로 편입.
 
 ```bash
-scripts/validate-task-dependencies.sh 20260420-rss-cache
+scripts/_internal/validate-task-dependencies.sh 20260420-rss-cache
 # 정상:
-#   OK: scripts/count-artifacts.sh
+#   OK: scripts/_internal/count-artifacts.sh
 #   all ok: 1 refs validated
 # 실패:
 #   MISSING: scripts/ghost.sh   (exit 1)
@@ -77,10 +77,10 @@ exit code: `0` 전체 통과, `1` 하나 이상 FAIL.
 prepend.
 
 ```bash
-scripts/diff-upstream.sh               # 캐시 우선, miss 시 fetch
-scripts/diff-upstream.sh --cached      # 네트워크 금지, 캐시만
-scripts/diff-upstream.sh --no-fetch    # 캐시 miss 시 skip (offline 테스트)
-scripts/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파일
+scripts/_internal/diff-upstream.sh               # 캐시 우선, miss 시 fetch
+scripts/_internal/diff-upstream.sh --cached      # 네트워크 금지, 캐시만
+scripts/_internal/diff-upstream.sh --no-fetch    # 캐시 miss 시 skip (offline 테스트)
+scripts/_internal/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파일
 ```
 
 **분류**:
@@ -98,11 +98,11 @@ scripts/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파일
 
 ### `is-hook-enabled.sh`
 
-훅 guard 유틸리티 — 각 훅 첫 줄에서 `bash scripts/is-hook-enabled.sh <hook-name> || exit 0` 형태로 호출. `.specops/config.yaml`을 읽어 활성/비활성을 결정합니다. config 부재 시 default enabled (v0.1 동작 보존). pyyaml 부재 시 stderr 1회 경고 + default enabled.
+훅 guard 유틸리티 — 각 훅 첫 줄에서 `bash scripts/_internal/is-hook-enabled.sh <hook-name> || exit 0` 형태로 호출. `.specops/config.yaml`을 읽어 활성/비활성을 결정합니다. config 부재 시 default enabled (v0.1 동작 보존). pyyaml 부재 시 stderr 1회 경고 + default enabled.
 
 ```bash
-bash scripts/is-hook-enabled.sh ensure-session-progress; echo $?  # 0 = ON, 1 = OFF
-SPECOPS_CONFIG=/path/to/alt.yaml bash scripts/is-hook-enabled.sh session-start
+bash scripts/_internal/is-hook-enabled.sh ensure-session-progress; echo $?  # 0 = ON, 1 = OFF
+SPECOPS_CONFIG=/path/to/alt.yaml bash scripts/_internal/is-hook-enabled.sh session-start
 ```
 
 **스키마·profile 우선순위**: `hooks/README.md` "config" 섹션 참조.
