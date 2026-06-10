@@ -1,9 +1,0 @@
-{"ts":"2026-04-26T08:53:41Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:clarifying-ko) 호출 전 선언 부재","transcript_offset":140}
-{"ts":"2026-04-26T08:55:20Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:planning-ko) 호출 전 선언 부재","transcript_offset":179}
-{"ts":"2026-04-26T08:58:23Z","fid":"20260426-b64-cli","rule_id":"R-5","principle":1,"severity":"warn","evidence_snippet":"섹션 부재: /Users/mac/code/specops-auto-ko/.specops/20260426-b64-cli/plan.md","transcript_offset":206}
-{"ts":"2026-04-26T09:03:24Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:decomposing-ko) 호출 전 선언 부재","transcript_offset":229}
-{"ts":"2026-04-26T09:05:48Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:implementing-ko) 호출 전 선언 부재","transcript_offset":276}
-{"ts":"2026-04-26T09:19:39Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:verifying-evidence-ko) 호출 전 선언 부재","transcript_offset":478}
-{"ts":"2026-04-26T09:21:07Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:requesting-code-review-ko) 호출 전 선언 부재","transcript_offset":521}
-{"ts":"2026-04-26T09:24:19Z","fid":"20260426-b64-cli","rule_id":"R-3","principle":1,"severity":"warn","evidence_snippet":"Skill(specops-auto-ko:receiving-code-review-ko) 호출 전 선언 부재","transcript_offset":556}
-{"ts":"2026-04-26T09:27:09Z","fid":"20260426-b64-cli","rule_id":"R-5","principle":1,"severity":"warn","evidence_snippet":"섹션 부재: /Users/mac/code/specops-auto-ko/.specops/20260426-b64-cli/plan.md","transcript_offset":206}
