@@ -45,10 +45,8 @@ _run_check() {
   fi
 }
 
-echo "-> pre-flight 검증 시작..."
-_run_check "scripts/_internal/validate-structure.sh"
-_run_check "scripts/tests/governance/test-rules.sh"
-_run_check "scripts/tests/dag/test-parse-dag.sh"
+echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
+_run_check "scripts/tests/run-all.sh"
 echo "-> pre-flight PASS"
 
 CHANGELOG="$PLUGIN_ROOT/CHANGELOG.md"

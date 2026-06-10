@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # specops-ko v0.1 smoke test · FID 20260420-count-artifacts
-# scripts/count-artifacts.sh 의 AC-1~AC-6 검증
+# scripts/_internal/count-artifacts.sh 의 AC-1~AC-6 검증
 set -u
 PASS=0; FAIL=0
-SCRIPT="bash ./scripts/count-artifacts.sh"
+SCRIPT="bash ./scripts/_internal/count-artifacts.sh"
 
 # T1 usage (AC-4)
 err=$($SCRIPT 2>&1 >/dev/null) ; rc=$?
@@ -68,10 +68,10 @@ fi
 rm -rf "$tmp"
 
 # T4 실행권한 부여 (인프라)
-if [ -x scripts/count-artifacts.sh ]; then
+if [ -x scripts/_internal/count-artifacts.sh ]; then
   PASS=$((PASS+1)); echo "PASS T4 exec-bit"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T4 exec-bit (scripts/count-artifacts.sh not executable)"
+  FAIL=$((FAIL+1)); echo "FAIL T4 exec-bit (scripts/_internal/count-artifacts.sh not executable)"
 fi
 
 echo "passed=$PASS failed=$FAIL"

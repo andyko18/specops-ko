@@ -1,7 +1,7 @@
 {
   "name": "specops-auto-ko-local",
   "metadata": {
-    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.10.0 — Claude Code 전용)"
+    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.11.0 — Claude Code 전용)"
   },
   "owner": {
     "name": "andyko18",

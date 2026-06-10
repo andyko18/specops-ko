@@ -27,7 +27,7 @@ else
 fi
 
 # T12.d is-hook-enabled: posttool-governance / stop-governance 기본 enabled (exit 0)
-run_hook_enabled() { bash "$PLUGIN/scripts/is-hook-enabled.sh" "$1" >/dev/null 2>&1; }
+run_hook_enabled() { bash "$PLUGIN/scripts/_internal/is-hook-enabled.sh" "$1" >/dev/null 2>&1; }
 if run_hook_enabled posttool-governance; then
   PASS=$((PASS+1)); echo "PASS T12.d posttool-governance 기본 enabled"
 else

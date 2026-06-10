@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# specops-ko v0.2 묶음 3 · scripts/is-hook-enabled.sh 검증
+# specops-ko v0.2 묶음 3 · scripts/_internal/is-hook-enabled.sh 검증
 # T1 config 없음 / T2 enabled:true / T3 enabled:false / T4 strict.enforce_all_hooks override / T5 pyyaml 없음
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(pwd)
-SCRIPT="$PLUGIN/scripts/is-hook-enabled.sh"
+SCRIPT="$PLUGIN/scripts/_internal/is-hook-enabled.sh"
 
 # T1 config 파일 없음 → exit 0 (default enabled)
 tmp=$(mktemp -d)

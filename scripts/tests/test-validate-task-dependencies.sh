@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# specops-ko v0.2 · scripts/validate-task-dependencies.sh 검증
+# specops-ko v0.2 · scripts/_internal/validate-task-dependencies.sh 검증
 set -u
 PASS=0; FAIL=0
-SCRIPT="bash ./scripts/validate-task-dependencies.sh"
+SCRIPT="bash ./scripts/_internal/validate-task-dependencies.sh"
 
 # T1 usage
 err=$($SCRIPT 2>&1 >/dev/null) ; rc=$?
@@ -44,7 +44,7 @@ fi
 # T4 모두 존재 + exec-bit → exit 0 (실 프로젝트 내 기존 스크립트 사용)
 cat > "$FIDDIR/tasks.md" <<'EOF'
 # 태스크
-bash scripts/count-artifacts.sh 를 실행한다.
+bash scripts/_internal/count-artifacts.sh 를 실행한다.
 EOF
 out=$($SCRIPT "$FID") ; rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'all ok'; then
@@ -89,7 +89,7 @@ rm -f "$fixture"
 rmdir tests 2>/dev/null || true
 
 # T7 실행권한
-if [ -x scripts/validate-task-dependencies.sh ]; then
+if [ -x scripts/_internal/validate-task-dependencies.sh ]; then
   PASS=$((PASS+1)); echo "PASS T7 exec-bit"
 else
   FAIL=$((FAIL+1)); echo "FAIL T7 exec-bit"

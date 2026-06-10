@@ -1,0 +1,16 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  run-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pyyaml
+        run: python3 -m pip install --user pyyaml
+      - name: Run full test suite
+        run: bash scripts/tests/run-all.sh --quiet
