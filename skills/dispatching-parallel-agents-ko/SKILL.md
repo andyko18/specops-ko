@@ -197,4 +197,4 @@ implementing-ko 의 기본 순차 dispatch 경로 유지. 본 스킬 호출 안 
 
 ---
 
-*v0.2.0 · 2026-04-25 · Superpowers dispatching-parallel-agents 한국어 이식 + 5원칙 주입 + AC injection contract 통합*
+*2026-04-25 · Superpowers dispatching-parallel-agents 한국어 이식 + 5원칙 주입 + AC injection contract 통합*

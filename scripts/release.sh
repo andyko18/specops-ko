@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Requires: git 2.23+ (rollback 이 `git restore` 사용), jq, bash 3.2+
 set -euo pipefail
 
 PLUGIN_ROOT="${RELEASE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

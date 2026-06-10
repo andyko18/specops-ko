@@ -4,7 +4,7 @@ description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
-used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), start-batch.md (batch 모드 BATCH-PERF-DONE halt 진출)
+used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-batch (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
 # Engine 스킬 — 성능 테스트 (performance-test)

@@ -256,4 +256,4 @@ worktree 준비 완료 후:
 
 ---
 
-*v0.2.0 · 2026-04-25 · Superpowers using-git-worktrees 한국어 이식 + 5원칙 주입 + specops bash 프로젝트 셋업 추가*
+*2026-04-25 · Superpowers using-git-worktrees 한국어 이식 + 5원칙 주입 + specops bash 프로젝트 셋업 추가*

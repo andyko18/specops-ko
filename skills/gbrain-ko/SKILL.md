@@ -4,7 +4,7 @@ description: 개발 세션 인사이트를 learnings.jsonl에서 조회·요약 
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
 specops_version: 1.0.0
-used_by: commands/gbrain.md
+used_by: /gbrain
 ---
 
 # gbrain — 세션 인사이트 조회·요약

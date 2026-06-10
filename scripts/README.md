@@ -1,6 +1,9 @@
-# scripts/ — 구조 검증·drift 감지·config guard 유틸리티
+# scripts/ — 구조 검증·릴리즈·DAG·eval 유틸리티
 
-> v0.1 `count-artifacts.sh`, v0.2 세션 4 `validate-task-dependencies.sh`, 세션 5 `validate-structure.sh`, 세션 5.5 `diff-upstream.sh`(프로토타입), 세션 6 `is-hook-enabled.sh`까지 누적 5개. drift 감지는 v0.3 완성 예정.
+> 구성 (v1.12.0 기준): `_internal/` (validate-structure·start-project·run-verification 등 내부 유틸) ·
+> `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator + 42 suites + llm-eval) ·
+> 루트 (release.sh·gbrain-append.sh·session-progress-append.sh·git-branch-create.sh·show-fid-status.sh·slug.sh 등).
+> 아래 절들은 초기 (v0.1~v0.2) 스크립트의 상세 설명 — 경로는 현행 (`_internal/`) 기준으로 갱신됨.
 
 ## v0.1 — 기존
 
