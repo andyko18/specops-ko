@@ -147,6 +147,8 @@ bash <related-test-script> 2>&1 | tail -5
 
 ### Step 6: impact-analysis.md 작성 (AC-4~AC-6)
 
+> 산출 포맷의 단일 소스: `templates/impact-analysis.md` — 아래 §1~§3 인라인 정의와 충돌 시 템플릿 우선 (고아 템플릿 방지).
+
 **gh CLI 가용성 감지 (AC-5, AC-6):**
 ```bash
 gh --version 2>/dev/null && echo "gh available" || echo "gh unavailable"

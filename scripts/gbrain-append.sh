@@ -38,14 +38,12 @@ while [ $# -gt 0 ]; do
         exit 1
       fi
       raw="$2"
-      TAGS=$(printf '%s' "$raw" | awk -F',' '{
-        printf "["
-        for(i=1;i<=NF;i++){
-          printf "\"%s\"", $i
-          if(i<NF) printf ","
-        }
-        printf "]"
-      }')
+      # jq 로 안전 생성 — 태그에 " · \ 포함돼도 유효 JSON (awk 미이스케이프 결함 수정)
+      if [ -z "$raw" ]; then
+        TAGS="[]"
+      else
+        TAGS=$(jq -cn --arg r "$raw" '$r | split(",")')
+      fi
       shift 2
       ;;
     *)

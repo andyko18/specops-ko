@@ -245,12 +245,16 @@ apply_advisor_section_rule() {
   modified_files=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Edit" or .name == "MultiEdit")) | .input.file_path // empty' "$transcript" 2>/dev/null | sort -u)
   local match_result=""
   local fp bn is_target section_body data_rows has_hae
-  for fp in $modified_files; do
+  # while-read — 공백 포함 경로 안전 (unquoted word-split 제거)
+  while IFS= read -r fp; do
+    [ -z "$fp" ] && continue
     bn=$(basename "$fp")
     is_target=0
-    for t in $target_files; do
+    while IFS= read -r t; do
       [ "$bn" = "$t" ] && is_target=1
-    done
+    done <<EOF_T
+$target_files
+EOF_T
     [ "$is_target" -eq 1 ] || continue
     [ -f "$fp" ] || continue
     # U1 R-5 trivial-skip: 동일 FID 의 spec.md §유형 라벨이 trivial 이면 본 파일 skip
@@ -282,7 +286,9 @@ apply_advisor_section_rule() {
       match_result="섹션 미충족: $fp"
       break
     fi
-  done
+  done <<EOF_M
+$modified_files
+EOF_M
   if [ -n "$match_result" ]; then
     # match_result 에 해당하는 파일 경로 추출 ("섹션 부재: <fp>" 또는 "섹션 미충족: <fp>")
     local matched_file=""
