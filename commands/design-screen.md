@@ -40,11 +40,17 @@ bash scripts/_internal/design-screen.sh {name}
 > 2. 주요 **컴포넌트**는 무엇인가요? (예: 로그인 버튼, 이메일 입력)
 > 3. 이 화면에서 다음으로 이동하는 **화면**이 있나요?"
 
-### Step 2.5: [ui-ux-pro-max 있으면] design system 자문 (자동)
+### Step 2.5: [ui-ux-pro-max 있으면] design system 자문 + rationale 보관 (자동)
 
 **탐지**: 현재 세션 available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있는가?
-- **없으면**: 이 단계 전체 skip → Step 3 직행
+- **없으면**: 이 단계 전체 skip → Step 3 직행. `rationale = null`
 - **있으면**: `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: ui-ux-pro-max 결과 우선 채택 — DESIGN.md 토큰은 후순위 fallback.
+
+  자문 완료 후 아래 4개 항목을 **rationale 변수**로 추출해 이후 Step에서 사용:
+  - `style`: style 이름 + 근거 한 줄
+  - `color`: primary hex / surface hex
+  - `font`: heading-font / body-font 페어링
+  - `antipatterns`: anti-pattern 목록 배열 (필드 부재 시 빈 배열 `[]`)
 
 ### Step 3: HTML artifact 생성
 
@@ -56,7 +62,20 @@ bash scripts/_internal/design-screen.sh {name}
 사용자에게 artifact를 보여주고 수정 요청을 받는다:
 > "위 HTML 미리보기를 확인해 주세요. 수정이 필요하시면 말씀해 주세요. 진행할까요? [y/n]"
 
-수정 요청 시 → HTML artifact 재생성 후 재확인 루프.
+- `y` 또는 수정 없음 → Step 3.5 진행
+- `n` 또는 수정 요청 → HTML artifact 재생성 후 재확인 루프
+
+### Step 3.5: Anti-pattern 게이트 (자동)
+
+**활성 조건**: `rationale`가 null이면 → skip, Step 4 직행. null이 아닌 경우 `rationale.antipatterns`가 빈 배열(`[]`)이면 → skip, Step 4 직행.
+
+**활성 시**: Step 3에서 생성한 HTML과 `rationale.antipatterns` 목록을 대조:
+
+- **위반 없음** → `✅ Anti-pattern 체크 통과` 출력 후 Step 4 직행
+- **위반 발견** → 아래 프롬프트 출력 후 응답 대기:
+  > `⚠️ Anti-pattern 위반: {위반 항목 목록}. 수정 후 저장 / 그냥 저장 [m/s, 기본=s]`
+  - `m` → Step 3(HTML artifact 생성 + 수정 루프)으로 복귀
+  - `s` 또는 Enter → Step 4 직행 (위반 인지, 사용자 주권 존중)
 
 ### Step 4: 파일 저장
 
@@ -64,6 +83,19 @@ bash scripts/_internal/design-screen.sh {name}
 - screen.md: 목적, Layout, Components, States, Interactions 섹션 완성
 - screen.html: Step 3에서 승인한 HTML로 교체
 - `screens-overview.md` 갱신은 Step 1 스크립트가 이미 완료
+
+**[rationale 있으면]** screen.md 파일 끝에 다음 섹션을 append:
+```markdown
+## Design Rationale
+
+> ui-ux-pro-max 자문 기반 ({YYYY-MM-DD})
+
+- **Style**: {rationale.style}
+- **Color**: {rationale.color}
+- **Font pairing**: {rationale.font}
+- **Anti-patterns (금지)**: {rationale.antipatterns 쉼표 연결}
+```
+rationale가 null이면 append 없이 저장 완료.
 
 ### Step 5: git commit
 
