@@ -45,9 +45,14 @@ _run_check() {
   fi
 }
 
-echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
-_run_check "scripts/tests/run-all.sh"
-echo "-> pre-flight PASS"
+# run-all.sh 내부에서 호출된 경우 (test-release T10.b) pre-flight 재실행 시 무한 재귀 — skip
+if [ "${SPECOPS_RUN_ALL:-}" = "1" ] && [ -z "$PREFLIGHT_CMD" ]; then
+  echo "-> pre-flight skip (run-all 내부 — 재귀 방지)"
+else
+  echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
+  _run_check "scripts/tests/run-all.sh"
+  echo "-> pre-flight PASS"
+fi
 
 CHANGELOG="$PLUGIN_ROOT/CHANGELOG.md"
 README="$PLUGIN_ROOT/README.md"
@@ -110,6 +115,11 @@ if [ -n "$OLD_VER" ]; then
   _sed_i "s|(${OLD_VER})|(v${VERSION})|g" "$README"
 fi
 
+# FR-6b: README footer 최신 버전 스탬프 갱신 (**최신: vX.Y.Z (날짜)**)
+if grep -qE '최신: v[0-9]+\.[0-9]+\.[0-9]+' "$README"; then
+  _sed_i "s|최신: v[0-9][0-9.]* ([0-9-]*)|최신: v${VERSION} (${DATE})|" "$README"
+fi
+
 # FR-7: commands/*.md footer 스탬프 불일치 수정
 for cmd_file in "$PLUGIN_ROOT/commands/"*.md; do
   [ -f "$cmd_file" ] || continue
@@ -131,6 +141,12 @@ for manifest in "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
   _sed_i "s/\"version\": \"[0-9][^\"]*\"/\"version\": \"${VERSION}\"/" "$manifest"
   CHANGED_FILES+=("$manifest")
 done
+
+# FR-7c: marketplace metadata.description 내 (vX.Y.Z — 토큰 갱신
+MARKET="$PLUGIN_ROOT/.claude-plugin/marketplace.json"
+if [ -f "$MARKET" ] && grep -qE '\(v[0-9]+\.[0-9]+\.[0-9]+ —' "$MARKET"; then
+  _sed_i "s|(v[0-9][0-9.]* —|(v${VERSION} —|" "$MARKET"
+fi
 
 echo "-> 파일 변환 완료"
 
