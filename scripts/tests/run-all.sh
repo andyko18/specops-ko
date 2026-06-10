@@ -16,6 +16,7 @@ SUITES+=("scripts/_internal/validate-structure.sh")
 for f in "$PLUGIN"/scripts/tests/test-*.sh \
          "$PLUGIN"/scripts/tests/dag/test-*.sh \
          "$PLUGIN"/scripts/tests/governance/test-*.sh \
+         "$PLUGIN"/scripts/tests/llm-eval/test-*.sh \
          "$PLUGIN"/scripts/tests/test-convention/test-*.sh; do
   [ -f "$f" ] || continue
   SUITES+=("${f#"$PLUGIN"/}")

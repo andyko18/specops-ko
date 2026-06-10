@@ -135,6 +135,17 @@ bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 # ↑ validate-structure.sh 가 이 모두를 자동화 — 직접 실행 불필요
 ```
 
+## llm-eval — LLM 동작 smoke eval (수동 전용)
+
+메타 skill 의 신호 감지 + 체인 진입을 headless `claude -p` 로 검증합니다.
+
+⚠️ 실 claude 호출은 토큰 비용 발생 (~$0.5/fixture, 총 10 fixture) — run-all/CI **비포함**. 릴리즈 전 수동 실행 권장.
+
+```bash
+bash scripts/tests/llm-eval/run-evals.sh            # 실 eval (claude CLI 필요, 비용 발생)
+bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (stub, 토큰 0 — run-all 포함)
+```
+
 ## 참조
 
 - `docs/OSS-ATTRIBUTION.md` — drift 관리 프로토콜

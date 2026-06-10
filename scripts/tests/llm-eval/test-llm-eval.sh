@@ -188,6 +188,23 @@ else
 fi
 rm -rf "$TD"
 
+# ── T5 run-all 등재 + 문서 (AC-7, AC-8) ──
+
+# T5.a run-all glob 에 llm-eval/test-*.sh 포함 + run-evals.sh 미포함
+if grep -q 'scripts/tests/llm-eval/test-\*\.sh' "$PLUGIN/scripts/tests/run-all.sh" \
+   && ! grep -q 'run-evals' "$PLUGIN/scripts/tests/run-all.sh"; then
+  PASS=$((PASS+1)); echo "PASS T5.a run-all 등재 (단위 테스트만)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a run-all glob"
+fi
+
+# T5.b 문서 등재 — scripts/README.md + CLAUDE.md 에 run-evals.sh 언급
+if grep -q 'run-evals.sh' "$PLUGIN/scripts/README.md" && grep -q 'run-evals.sh' "$PLUGIN/CLAUDE.md"; then
+  PASS=$((PASS+1)); echo "PASS T5.b 문서 등재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b 문서 등재"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
