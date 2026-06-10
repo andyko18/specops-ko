@@ -1,0 +1,10 @@
+{"id":"new-1","prompt":"CSV 파일 줄 수를 세는 CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new","note":"신규 — 명확한 산출물 요청"}
+{"id":"new-2","prompt":"문자열을 URL 슬러그로 바꾸는 모듈을 구현해줘","expect_skill":"specifying-ko","expect_flag":"new","note":"신규 — 구현해줘 신호"}
+{"id":"new-3","prompt":"마크다운 표를 CSV 로 변환하는 기능을 만들고 싶어","expect_skill":"specifying-ko","expect_flag":"new","note":"신규 — 만들고 싶어 신호"}
+{"id":"maint-1","prompt":"scripts/slug.sh 한글 변환이 깨지는 버그 고쳐줘","expect_skill":"analyzing-ko","expect_flag":"maintain","note":"유지보수 — 버그 수정 (Phase C: analyzing-ko 선행)"}
+{"id":"maint-2","prompt":"scripts/release.sh 를 리팩터링 해줘","expect_skill":"analyzing-ko","expect_flag":"maintain","note":"유지보수 — 리팩터링 신호"}
+{"id":"none-1","prompt":"이 저장소에서 jq 는 어떤 스크립트들이 사용하고 있어?","expect_skill":"none","expect_flag":"none","note":"비신호 — 정보 질문"}
+{"id":"none-2","prompt":"bash 의 set -e 와 set -u 차이를 설명해줘","expect_skill":"none","expect_flag":"none","note":"비신호 — 개념 질문"}
+{"id":"none-3","prompt":"README.md 의 거버넌스 섹션을 세 줄로 요약해줘","expect_skill":"none","expect_flag":"none","note":"비신호 — 요약 요청"}
+{"id":"border-1","prompt":"hooks/governance-lib.sh 코드를 설명해줘. 그리고 느린 부분이 있으면 고치면 좋겠어","expect_any":["analyzing-ko","specifying-ko","none"],"note":"경계 — 설명+수정 혼재 (비차단)"}
+{"id":"border-2","prompt":"테스트가 가끔 깨지는 것 같은데 어떻게 생각해?","expect_any":["analyzing-ko","none"],"note":"경계 — 문제 서술 (비차단)"}
