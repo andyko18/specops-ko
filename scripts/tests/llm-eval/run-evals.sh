@@ -11,7 +11,10 @@ CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MAX_TURNS="${LLM_EVAL_MAX_TURNS:-2}"
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-120}"
 
-total=$(grep -c . "$FIXTURES" || echo 0)
+# I-1: fixtures 부재 시 false green 차단
+[ -f "$FIXTURES" ] || { echo "FAIL: fixtures 없음: $FIXTURES"; exit 1; }
+
+total=$(grep -c . "$FIXTURES" || true)
 if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
   echo "SKIP: claude CLI 부재 (CLAUDE_BIN=$CLAUDE_BIN)"
   echo "PASS=0 FAIL=0 SKIP=$total BORDERLINE=0 COST=\$0.00"
@@ -21,17 +24,20 @@ fi
 PASS=0; FAIL=0; BORDER=0; COST=0
 
 run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (bash 3.2, GNU timeout 미의존)
+  # I-2: stderr 는 R_ERR 에 보존, timeout kill 은 R_MARK 마커 기록 (호출자 attempt 가 경로 준비)
   local out_f pid watcher
   out_f=$(mktemp)
   "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose \
-    --max-turns "$MAX_TURNS" --allowedTools Skill > "$out_f" 2>/dev/null &
+    --max-turns "$MAX_TURNS" --allowedTools Skill > "$out_f" 2>"$R_ERR" &
   pid=$!
   # 워치독 stdout/stderr 차단 필수 — 미차단 시 자식 sleep 이 명령치환 파이프를 물고 EOF 지연 (hang)
-  ( sleep "$TIMEOUT_S" & wait $!; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  # 마커는 kill 직전 기록 — 정상 종료 후엔 watcher 를 먼저 kill 해 false 마커 차단
+  ( sleep "$TIMEOUT_S" & wait $!; : > "$R_MARK"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   watcher=$!
   wait "$pid" 2>/dev/null || true
+  kill "$watcher" 2>/dev/null
   pkill -P "$watcher" 2>/dev/null
-  kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null || true
+  wait "$watcher" 2>/dev/null || true
   cat "$out_f"; rm -f "$out_f"
 }
 
@@ -63,9 +69,14 @@ judge() {  # $1=expect_skill $2=expect_flag $3=got_skill $4=got_args_l1 → PASS
   echo PASS
 }
 
-attempt() {  # $1=prompt → 전역 G_SKILL/G_L1 설정 + COST 누적
+attempt() {  # $1=prompt → 전역 G_SKILL/G_L1/G_TIMEOUT/G_ERR1 설정 + COST 누적
   local out res c
+  R_MARK=$(mktemp); rm -f "$R_MARK"   # 부재 = timeout 없음
+  R_ERR=$(mktemp)
   out=$(run_once "$1")
+  G_TIMEOUT=0; [ -f "$R_MARK" ] && G_TIMEOUT=1
+  G_ERR1=$(head -1 "$R_ERR" 2>/dev/null || true)
+  rm -f "$R_MARK" "$R_ERR"
   c=$(printf '%s\n' "$out" | extract_cost)
   COST=$(awk -v a="$COST" -v b="$c" 'BEGIN{printf "%.4f", a+b}')
   res=$(printf '%s\n' "$out" | parse_first_skill)
@@ -84,6 +95,9 @@ run_fixture() {  # $1=fixture json 1줄
   attempt "$prompt"
 
   if [ -n "$any" ]; then  # 경계 케이스 — judge 전 처리, 비차단·재시도 없음 (AC-11)
+    if [ "$G_TIMEOUT" = "1" ]; then  # I-2: timeout 빈 출력의 'none' 가양성 차단 (비차단 유지)
+      BORDER=$((BORDER+1)); echo "BORDERLINE $id (TIMEOUT ${TIMEOUT_S}s)"; return
+    fi
     short="${G_SKILL#specops-auto-ko:}"; [ -z "$G_SKILL" ] && short="none"
     case ",$any," in
       *",$short,"*) PASS=$((PASS+1)); echo "PASS $id (borderline-allowed)" ;;
@@ -93,15 +107,19 @@ run_fixture() {  # $1=fixture json 1줄
   fi
 
   verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1")
+  [ "$G_TIMEOUT" = "1" ] && verdict=TIMEOUT  # I-2: timeout 시도는 판정 불성립 — none PASS 차단
   if [ "$verdict" != "PASS" ]; then  # 재시도 cap=1 (AC-6)
     attempt "$prompt"
     verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1")
+    [ "$G_TIMEOUT" = "1" ] && verdict=TIMEOUT
     retry=" retry"
   fi
   if [ "$verdict" = "PASS" ]; then
     PASS=$((PASS+1)); echo "PASS $id$retry"
+  elif [ "$verdict" = "TIMEOUT" ]; then
+    FAIL=$((FAIL+1)); echo "FAIL $id$retry (TIMEOUT ${TIMEOUT_S}s)${G_ERR1:+ — stderr: $G_ERR1}"
   else
-    FAIL=$((FAIL+1)); echo "FAIL $id$retry (want=$want got=${G_SKILL:-none})"
+    FAIL=$((FAIL+1)); echo "FAIL $id$retry (want=$want got=${G_SKILL:-none})${G_ERR1:+ — stderr: $G_ERR1}"
   fi
 }
 

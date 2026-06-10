@@ -171,6 +171,23 @@ else
 fi
 rm -rf "$TD"
 
+# T4.d timeout 경로 — LLM_EVAL_TIMEOUT=1 + sleep stub → none fixture 가양성 차단, TIMEOUT FAIL (I-2)
+TD=$(mktemp -d)
+cat > "$TD/slow-claude.sh" <<'SLOW'
+#!/usr/bin/env bash
+echo "stub: simulated hang" >&2
+exec sleep 30
+SLOW
+chmod +x "$TD/slow-claude.sh"
+mk_fx "$TD/fx.jsonl" '{"id":"none-1","prompt":"질문","expect_skill":"none","expect_flag":"none"}'
+out=$(CLAUDE_BIN="$TD/slow-claude.sh" LLM_EVAL_TIMEOUT=1 bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL none-1.*TIMEOUT'; then
+  PASS=$((PASS+1)); echo "PASS T4.d timeout TIMEOUT FAIL 처리"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.d (rc=$rc out=$out)"
+fi
+rm -rf "$TD"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
