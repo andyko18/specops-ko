@@ -113,16 +113,16 @@ apply_lookback_rule() {
   if [ -z "$found" ]; then
     # triggering Bash tool_use 이벤트의 transcript 라인 번호 (0-based)
     # PostToolUse 는 현재 triggering 이벤트 직후 발화 → 마지막 매칭이 현재 이벤트
-    local offset=-1 line_no=0
-    while IFS= read -r line; do
-      if echo "$line" | jq -e --arg t "$trigger_tool" --arg pat "$trigger_pattern" \
-           '(.type == "assistant") and (any(.message.content[]?; .type == "tool_use" and .name == $t and ((.input.command // "") | test($pat))))' \
-           >/dev/null 2>&1; then
-        offset=$line_no
-      fi
-      line_no=$((line_no + 1))
-    done < "$transcript"
-    [ "$offset" -lt 0 ] && offset=$line_no
+    # perf: 단일 jq 패스 — 줄단위 echo|jq fork 루프 제거 (2000줄 기준 수 초 → 수십 ms)
+    local offset
+    offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
+      [inputs] as $all
+      | ([ $all | to_entries[]
+           | select(.value.type == "assistant")
+           | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
+           | .key ] | last) // ($all | length)
+    ' "$transcript" 2>/dev/null)
+    [ -z "$offset" ] && offset=0
     jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -148,54 +148,47 @@ apply_skill_declaration_rule() {
   local decl_re="([Uu]sing[[:space:]]+${name_re}|[Ii]nvoking[[:space:]]+${name_re}|[Cc]alling[[:space:]]+${name_re}|[Ss]witching[[:space:]]+to[[:space:]]+${name_re}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
   # user turn 첫 진입 예외 트리거 (사용자 입력에 이 패턴이 있으면 첫 Skill 호출은 면제)
   local trigger_re='(/start|/quick|/free|만들[고어]|구현|추가|수정|fix|feature)'
-  # 직전 N=3 assistant text 메시지를 ring buffer로 유지
-  local prev_text_1="" prev_text_2="" prev_text_3=""
-  local last_user_text=""
-  # v0.5: lifecycle chain 추적 — 직전 Skill(specops-auto-ko:*) 호출 저장
-  local prev_lifecycle_skill=""
-  local matched=0
-  local offset=0
-  while IFS= read -r line; do
-    offset=$((offset + 1))
-    local ev_type
-    ev_type=$(echo "$line" | jq -r '.type' 2>/dev/null)
-    if [ "$ev_type" = "user" ]; then
-      # user turn 직후 — 마지막 user text 갱신, assistant ring buffer 초기화 안 함 (lookback 보존)
-      last_user_text=$(echo "$line" | jq -r '.message.content // empty | if type == "string" then . else (.[]? | select(.type == "text") | .text) // "" end' 2>/dev/null | head -1)
-      continue
-    fi
-    [ "$ev_type" = "assistant" ] || continue
-    local has_target_skill
-    has_target_skill=$(echo "$line" | jq -r --arg s "$skill_full" '.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s) | .input.skill' 2>/dev/null)
-    if [ -n "$has_target_skill" ]; then
-      # 직전 3개 assistant text 또는 user trigger 또는 lifecycle chain 검사
-      local combined="${prev_text_1}\n${prev_text_2}\n${prev_text_3}"
-      if [ -n "$prev_lifecycle_skill" ]; then
-        matched=0  # lifecycle chain 자동 호출 → 면제 (v0.5 W1)
-      elif printf '%s' "$combined" | grep -Eq "$decl_re"; then
-        matched=0  # 선언 발견 → 미매칭
-      elif [ -n "$last_user_text" ] && printf '%s' "$last_user_text" | grep -Eq "$trigger_re"; then
-        matched=0  # user turn trigger 직후 첫 Skill 호출 → 면제
-      else
-        matched=1  # 선언도 없고 trigger 면제도 없음 → 매칭
-      fi
-      break
-    fi
-    # v0.5: lifecycle chain 추적 — 현재 라인의 Skill(specops-auto-ko:*) 호출 저장
-    local cur_lifecycle_skill
-    cur_lifecycle_skill=$(echo "$line" | jq -r '.message.content[]? | select(.type == "tool_use" and .name == "Skill") | .input.skill // empty' 2>/dev/null \
-      | grep -E '^specops-auto-ko:' | head -1)
-    [ -n "$cur_lifecycle_skill" ] && prev_lifecycle_skill="$cur_lifecycle_skill"
-    local cur_text
-    cur_text=$(echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null)
-    if [ -n "$cur_text" ]; then
-      # ring buffer shift (가장 오래된 것 폐기, 새로운 것 push)
-      prev_text_3="$prev_text_2"
-      prev_text_2="$prev_text_1"
-      prev_text_1="$cur_text"
-    fi
-  done < "$transcript"
-  if [ "$matched" -eq 1 ]; then
+  # perf: 단일 jq reduce 패스 — 줄단위 echo|jq fork ×4 루프 제거.
+  # 상태: p1~p3(assistant text ring buffer, p1=최신), lu(마지막 user text),
+  #       plc(직전 lifecycle skill — v0.5 chain 면제), matched/done/offset.
+  # combined 구분자는 원 구현의 bash 리터럴 "\n"(역슬래시+n) 을 jq "\\n" 으로 보존.
+  local res
+  res=$(jq -nc --arg s "$skill_full" --arg decl "$decl_re" --arg trig "$trigger_re" '
+    def utext: [.message.content // "" | if type == "string" then . else (.[]? | select(.type == "text") | .text) end] | first // "";
+    def atext: [.message.content[]? | select(.type == "text") | .text] | join("\n");
+    def has_target($s): [.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s)] | length > 0;
+    def lc_skill: [.message.content[]? | select(.type == "tool_use" and .name == "Skill") | (.input.skill // "") | select(startswith("specops-auto-ko:"))] | first // "";
+    [inputs] as $all
+    | reduce range(0; $all | length) as $i (
+        {p1: "", p2: "", p3: "", lu: "", plc: "", matched: false, done: false, offset: 0};
+        if .done then .
+        else $all[$i] as $e
+        | if ($e.type // "") == "user" then
+            .lu = ($e | utext)
+          elif ($e.type // "") != "assistant" then
+            .
+          elif ($e | has_target($s)) then
+            .offset = ($i + 1)
+            | .done = true
+            | .matched = (
+                if .plc != "" then false
+                elif ((.p1 + "\\n" + .p2 + "\\n" + .p3) | test($decl)) then false
+                elif (.lu != "" and (.lu | test($trig))) then false
+                else true
+                end)
+          else
+            (($e | lc_skill) as $l | if $l != "" then .plc = $l else . end)
+            | (($e | atext) as $t
+               | if $t != "" then .p3 = .p2 | .p2 = .p1 | .p1 = $t else . end)
+          end
+        end)
+    | { matched, offset }
+  ' "$transcript" 2>/dev/null)
+  local matched offset
+  matched=$(printf '%s' "$res" | jq -r '.matched' 2>/dev/null)
+  offset=$(printf '%s' "$res" | jq -r '.offset' 2>/dev/null)
+  [ -z "$offset" ] && offset=0
+  if [ "$matched" = "true" ]; then
     jq -nc --arg id "R-3" --arg snippet "Skill($skill_full) 호출 전 선언 부재" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -222,16 +215,16 @@ apply_assertion_without_test_rule() {
   if [ -z "$has_runner" ]; then
     # assertion 매칭된 가장 마지막 assistant text 이벤트의 라인 번호 (0-based)
     # Stop hook 이므로 최근 주장이 증거로 더 적합
-    local offset=-1 line_no=0
-    while IFS= read -r line; do
-      local txt
-      txt=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' 2>/dev/null)
-      if [ -n "$txt" ] && printf '%s' "$txt" | grep -Eq "$assertion_re"; then
-        offset=$line_no
-      fi
-      line_no=$((line_no + 1))
-    done < "$transcript"
-    [ "$offset" -lt 0 ] && offset=$line_no
+    # perf: 단일 jq 패스 — 줄단위 echo|jq fork 루프 제거 (Stop 훅 매 발화 경로)
+    local offset
+    offset=$(jq -n --arg re "$assertion_re" '
+      [inputs] as $all
+      | ([ $all | to_entries[]
+           | select(.value.type == "assistant")
+           | select([.value.message.content[]? | select(.type == "text") | .text | test($re)] | any)
+           | .key ] | last) // ($all | length)
+    ' "$transcript" 2>/dev/null)
+    [ -z "$offset" ] && offset=0
     jq -nc --arg id "R-4" --arg snippet "성공 주장 '$has_assertion' + test runner 실행 부재" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -297,19 +290,19 @@ apply_advisor_section_rule() {
       matched_file="${match_result##*: }"
     fi
     # 첫 Edit/MultiEdit 이벤트 (target file 대상) 의 transcript 라인 번호 (0-based)
-    local offset=-1 line_no=0
+    # perf: 단일 jq 패스 — 줄단위 echo|jq fork 루프 제거.
+    # 원 동작 보존: matched_file 비면 0, 매칭 파일은 있으나 이벤트 미발견이면 전체 라인 수.
+    local offset=0
     if [ -n "$matched_file" ]; then
-      while IFS= read -r line; do
-        local fp_hit
-        fp_hit=$(echo "$line" | jq -r --arg p "$matched_file" 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Edit" or .name == "MultiEdit") and .input.file_path == $p) | .input.file_path' 2>/dev/null)
-        if [ -n "$fp_hit" ]; then
-          offset=$line_no
-          break
-        fi
-        line_no=$((line_no + 1))
-      done < "$transcript"
+      offset=$(jq -n --arg p "$matched_file" '
+        [inputs] as $all
+        | ([ $all | to_entries[]
+             | select(.value.type == "assistant")
+             | select([.value.message.content[]? | select(.type == "tool_use" and (.name == "Edit" or .name == "MultiEdit") and .input.file_path == $p)] | any)
+             | .key ] | first) // ($all | length)
+      ' "$transcript" 2>/dev/null)
+      [ -z "$offset" ] && offset=0
     fi
-    [ "$offset" -lt 0 ] && offset=$line_no
     jq -nc --arg id "R-5" --arg snippet "$match_result" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
@@ -343,51 +336,34 @@ apply_gbrain_absence_rule() {
     | grep -E "$verify_skill_re" | head -1)
   [ -n "$has_verify" ] || return 0
 
-  # 2. 가장 최근 evidence.md Write 또는 Edit 의 라인 위치·경로
+  # 2.+3. 가장 최근 evidence.md Write/Edit/Bash-invocation 위치 + 그 이후 gbrain runner 존재 여부
   # Edit 도 포함 — Claude 가 run-verification.sh append 후 헤더/AC 매핑 추가할 때 Edit 사용 (외부 review 후속 fix)
-  # Bash 분기 추가 — dogfood 경로 (bash scripts/_internal/run-verification.sh <FID>) invocation 도 evidence 의도 인정
-  local last_evi_line=-1 last_evi_path="" line_no=0
-  while IFS= read -r line; do
-    # Minor1 (hot-path tightening): tool_use 없는 라인(user 메시지 등)은 jq fork 2회를
-    # 건너뛴다. union 강제(단일 jq) 는 same-turn Write+Bash 의 Bash-우선 순서(T-R6.17)를
-    # 배열 순서에 의존시켜 fragile — 동작 보존하며 fork 만 줄이는 선검사로 대체.
-    case "$line" in *'"tool_use"'*) ;; *) line_no=$((line_no + 1)); continue ;; esac
-    local fp
-    fp=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | .input.file_path // empty' 2>/dev/null \
-      | grep -E "$evidence_path_re" | head -1)
-    if [ -n "$fp" ]; then
-      last_evi_line=$line_no
-      last_evi_path="$fp"
-    fi
-    local bash_cmd
-    bash_cmd=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and .name == "Bash") | .input.command // empty' 2>/dev/null)
-    if [ -n "$bash_cmd" ] && [[ "$bash_cmd" =~ bash[[:space:]]+(.*/)?run-verification\.sh[[:space:]]+([^[:space:]]+) ]]; then
-      local synth_path=".specops/${BASH_REMATCH[2]}/evidence.md"
-      # defense-in-depth: 합성 path 가 rules.jsonl 의 evidence_path_pattern 통과 시에만 수용
-      if printf '%s' "$synth_path" | grep -Eq "$evidence_path_re"; then
-        last_evi_line=$line_no
-        last_evi_path="$synth_path"
-      fi
-    fi
-    line_no=$((line_no + 1))
-  done < "$transcript"
-  [ "$last_evi_line" -lt 0 ] && return 0
-
-  # 3. last_evi_line 이후 gbrain runner 호출
-  local has_gbrain_after="" cur=0
-  while IFS= read -r line; do
-    if [ "$cur" -gt "$last_evi_line" ]; then
-      local g
-      g=$(echo "$line" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use" and (.name == "Bash" or .name == "Skill")) | (.input.command // .input.skill // empty)' 2>/dev/null \
-        | grep -E "$gbrain_runner_re" | head -1)
-      if [ -n "$g" ]; then
-        has_gbrain_after="$g"
-        break
-      fi
-    fi
-    cur=$((cur + 1))
-  done < "$transcript"
-  [ -n "$has_gbrain_after" ] && return 0  # PASS — gbrain 호출 있음
+  # Bash 분기 — dogfood 경로 (bash scripts/_internal/run-verification.sh <FID>) invocation 도 evidence 의도 인정
+  # perf: 단일 jq 패스 — transcript 2회 완주 + 줄단위 fork 루프 제거.
+  # same-turn Write+Bash 의 Bash-우선 순서 (T-R6.17) 는 라인 내 bsynth 우선 평가로 보존.
+  local res
+  res=$(jq -nc --arg evire "$evidence_path_re" --arg grun "$gbrain_runner_re" '
+    def wpath: [.message.content[]? | select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) | (.input.file_path // "") | select(test($evire))] | first // "";
+    def bsynth: [.message.content[]? | select(.type == "tool_use" and .name == "Bash") | (.input.command // "")
+                 | (capture("bash[[:space:]]+(?:.*/)?run-verification\\.sh[[:space:]]+(?<fid>[^[:space:]]+)")? // empty)
+                 | ".specops/" + .fid + "/evidence.md"
+                 | select(test($evire))] | first // "";
+    def grunner: [.message.content[]? | select(.type == "tool_use" and (.name == "Bash" or .name == "Skill")) | (.input.command // .input.skill // "") | select(test($grun))] | length > 0;
+    [inputs] as $all
+    | ($all | to_entries | map(select(.value.type == "assistant"))) as $ents
+    | ([ $ents[] | { i: .key, p: ((.value | bsynth) as $b | if $b != "" then $b else (.value | wpath) end) } | select(.p != "") ] | last) as $evi
+    | if $evi == null then { evi: -1, path: "", gb: false }
+      else { evi: $evi.i, path: $evi.p, gb: ([ $ents[] | select(.key > $evi.i) | select(.value | grunner) ] | length > 0) }
+      end
+  ' "$transcript" 2>/dev/null)
+  local last_evi_line last_evi_path has_gbrain_after
+  last_evi_line=$(printf '%s' "$res" | jq -r '.evi' 2>/dev/null)
+  last_evi_path=$(printf '%s' "$res" | jq -r '.path' 2>/dev/null)
+  has_gbrain_after=$(printf '%s' "$res" | jq -r '.gb' 2>/dev/null)
+  if [ -z "$last_evi_line" ] || [ "$last_evi_line" -lt 0 ]; then
+    return 0
+  fi
+  [ "$has_gbrain_after" = "true" ] && return 0  # PASS — gbrain 호출 있음
 
   # 4. trivial-skip — evidence path 의 spec.md §유형 = trivial 이면 skip
   local fid_dir spec_path type_label

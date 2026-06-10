@@ -14,3 +14,5 @@ jobs:
         run: python3 -m pip install --user pyyaml
       - name: Run full test suite
         run: bash scripts/tests/run-all.sh --quiet
+      - name: Governance hook performance gate
+        run: BENCH_THRESHOLD_MS=800 BENCH_STOP_THRESHOLD_MS=3000 bash scripts/tests/governance/bench-hook.sh
