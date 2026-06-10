@@ -136,6 +136,72 @@ else
   emit skill_conventions FAIL "$detail"
 fi
 
+# 8) version_sync — plugin.json 기준 README header/footer · CHANGELOG 최신 헤딩 · marketplace description 동기화
+pv2=$(jq -r '.version // empty' .claude-plugin/plugin.json 2>/dev/null || true)
+if [ -z "$pv2" ]; then
+  emit version_sync SKIP "plugin.json version 미확인"
+elif [ ! -f README.md ] && [ ! -f CHANGELOG.md ]; then
+  emit version_sync SKIP "README/CHANGELOG 부재"
+else
+  vs=()
+  mdesc=$(jq -r '.metadata.description // empty' .claude-plugin/marketplace.json 2>/dev/null || true)
+  mdv=$(printf '%s' "$mdesc" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+  [ -n "$mdv" ] && [ "$mdv" != "v$pv2" ] && vs+=("marketplace.description=$mdv")
+  if [ -f README.md ]; then
+    rh=$(grep -oE '\(v[0-9]+\.[0-9]+\.[0-9]+\)' README.md | head -1 | tr -d '()' || true)
+    [ -n "$rh" ] && [ "$rh" != "v$pv2" ] && vs+=("README.header=$rh")
+    rf=$(grep -oE '최신: v[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1 | grep -oE 'v[0-9.]+' || true)
+    [ -n "$rf" ] && [ "$rf" != "v$pv2" ] && vs+=("README.footer=$rf")
+  fi
+  if [ -f CHANGELOG.md ]; then
+    cl=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+    [ -n "$cl" ] && [ "$cl" != "$pv2" ] && vs+=("CHANGELOG.latest=$cl")
+  fi
+  if [ ${#vs[@]} -eq 0 ]; then emit version_sync OK "v$pv2"; else emit version_sync FAIL "plugin.json=v$pv2 vs ${vs[*]}"; fi
+fi
+
+# 9) readme_counts — README 구조 트리 카운트 (SKILL.md × N / templates ← N건 / agents ← N건) vs 실측
+if [ ! -f README.md ]; then
+  emit readme_counts SKIP "README.md 부재"
+else
+  rc_i=()
+  r_sk=$(grep -oE 'SKILL\.md × [0-9]+' README.md | head -1 | grep -oE '[0-9]+' || true)
+  a_sk=$(find skills -mindepth 2 -maxdepth 2 -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' ')
+  [ -n "$r_sk" ] && [ "$r_sk" != "$a_sk" ] && rc_i+=("skills: README=$r_sk actual=$a_sk")
+  r_tp=$(grep -E 'templates/.*← [0-9]+건' README.md | head -1 | grep -oE '[0-9]+건' | tr -d '건' || true)
+  a_tp=$(find templates -type f ! -name '.*' 2>/dev/null | wc -l | tr -d ' ')
+  [ -n "$r_tp" ] && [ "$r_tp" != "$a_tp" ] && rc_i+=("templates: README=$r_tp actual=$a_tp")
+  r_ag=$(grep -E 'agents/.*← [0-9]+건' README.md | head -1 | grep -oE '[0-9]+건' | tr -d '건' || true)
+  a_ag=$(ls agents/*.md 2>/dev/null | wc -l | tr -d ' ')
+  [ -n "$r_ag" ] && [ "$r_ag" != "$a_ag" ] && rc_i+=("agents: README=$r_ag actual=$a_ag")
+  if [ ${#rc_i[@]} -eq 0 ]; then emit readme_counts OK; else emit readme_counts FAIL "${rc_i[*]}"; fi
+fi
+
+# 10) changelog_body — 최신 릴리즈 섹션 본문 비공백 (공백 릴리즈 노트 차단)
+if [ ! -f CHANGELOG.md ]; then
+  emit changelog_body SKIP "CHANGELOG.md 부재"
+elif ! grep -qE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md; then
+  emit changelog_body SKIP "릴리즈 헤딩 없음"
+else
+  latest=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | head -1)
+  body=$(awk '
+    /^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ { if (found) exit; found=1; next }
+    found && /^## /        { exit }
+    found && /^\[[0-9A-Za-z]/ { exit }
+    found && NF && !/^-+$/ { print }
+  ' CHANGELOG.md)
+  if [ -n "$body" ]; then emit changelog_body OK "$latest"; else emit changelog_body FAIL "최신 릴리즈 ${latest} 본문 공백"; fi
+fi
+
+# 11) xref_resolve — skills/·commands/ 본문의 specops-auto-ko:<name> 토큰이 skills/·commands/·agents/ 에 실재
+xr=()
+while IFS= read -r tok; do
+  [ -z "$tok" ] && continue
+  short="${tok#specops-auto-ko:}"
+  [ -f "skills/$short/SKILL.md" ] || [ -f "commands/$short.md" ] || [ -f "agents/$short.md" ] || xr+=("$tok")
+done < <(grep -rhoE 'specops-auto-ko:[a-z0-9][a-z0-9-]*' skills commands --include='*.md' 2>/dev/null | sort -u)
+if [ ${#xr[@]} -eq 0 ]; then emit xref_resolve OK; else emit xref_resolve FAIL "미해석: ${xr[*]}"; fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"

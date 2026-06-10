@@ -191,5 +191,140 @@ else
 fi
 rm -rf "$sb"
 
+# ── drift guard (v1.12): version_sync · readme_counts · changelog_body · xref_resolve ─────────
+
+# sandbox 에 plugin 버전(0.1.0)과 정합하는 README/CHANGELOG 추가
+add_docs() {
+  local sb=$1
+  cat > "$sb/README.md" <<'EOF'
+# test-plugin (v0.1.0)
+
+├── skills/    ← flat: skills/<name>/SKILL.md × 16
+
+*초기화: 2026-01-01 · **최신: v0.1.0 (2026-01-01)** · test*
+EOF
+  cat > "$sb/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] — 2026-01-01
+
+### Added
+- 최초 릴리즈
+EOF
+}
+
+# T9.a docs 정합 → 신규 체크 4종 전부 OK + rc=0
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ version_sync: OK' \
+   && echo "$out" | grep -q '✅ readme_counts: OK' \
+   && echo "$out" | grep -q '✅ changelog_body: OK' \
+   && echo "$out" | grep -q '✅ xref_resolve: OK'; then
+  PASS=$((PASS+1)); echo "PASS T9.a drift 4종 정합 → OK"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.a (rc=$rc)"; echo "$out" | sed 's/^/    /'
+fi
+rm -rf "$sb"
+
+# T9.b README footer 버전 불일치 → version_sync FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+sed -i.bak 's/최신: v0.1.0/최신: v0.0.9/' "$sb/README.md"; rm -f "$sb/README.md.bak"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'version_sync: FAIL' && echo "$err" | grep -q 'README.footer=v0.0.9'; then
+  PASS=$((PASS+1)); echo "PASS T9.b footer drift → version_sync FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.b (rc=$rc, out=$(echo "$err" | grep version_sync))"
+fi
+rm -rf "$sb"
+
+# T9.c CHANGELOG 최신 헤딩 버전 불일치 → version_sync FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+sed -i.bak 's/## \[0.1.0\]/## [0.0.9]/' "$sb/CHANGELOG.md"; rm -f "$sb/CHANGELOG.md.bak"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'version_sync: FAIL' && echo "$err" | grep -q 'CHANGELOG.latest=0.0.9'; then
+  PASS=$((PASS+1)); echo "PASS T9.c CHANGELOG drift → version_sync FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.c (rc=$rc, out=$(echo "$err" | grep version_sync))"
+fi
+rm -rf "$sb"
+
+# T9.d marketplace description 버전 토큰 불일치 → version_sync FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+echo '{"metadata":{"description":"test (v0.0.9 — local)"},"plugins":[{"version":"0.1.0"}]}' > "$sb/.claude-plugin/marketplace.json"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'version_sync: FAIL' && echo "$err" | grep -q 'marketplace.description=v0.0.9'; then
+  PASS=$((PASS+1)); echo "PASS T9.d marketplace description drift → version_sync FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.d (rc=$rc, out=$(echo "$err" | grep version_sync))"
+fi
+rm -rf "$sb"
+
+# T9.e README/CHANGELOG 부재 (기존 sandbox) → version_sync SKIP (기존 테스트 비파괴)
+sb=$(mktemp -d); make_sandbox "$sb"
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q 'version_sync: SKIP'; then
+  PASS=$((PASS+1)); echo "PASS T9.e docs 부재 → SKIP (graceful)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.e (rc=$rc)"
+fi
+rm -rf "$sb"
+
+# T10.a README skill 카운트 불일치 → readme_counts FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+sed -i.bak 's/× 16/× 99/' "$sb/README.md"; rm -f "$sb/README.md.bak"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'readme_counts: FAIL' && echo "$err" | grep -q 'README=99 actual=16'; then
+  PASS=$((PASS+1)); echo "PASS T10.a skill 카운트 drift → readme_counts FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.a (rc=$rc, out=$(echo "$err" | grep readme_counts))"
+fi
+rm -rf "$sb"
+
+# T11.a CHANGELOG 최신 릴리즈 본문 공백 → changelog_body FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+cat > "$sb/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] — 2026-01-01
+
+## [0.0.9] — 2025-12-01
+
+### Added
+- old
+EOF
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'changelog_body: FAIL'; then
+  PASS=$((PASS+1)); echo "PASS T11.a 최신 릴리즈 본문 공백 → changelog_body FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.a (rc=$rc, out=$(echo "$err" | grep changelog_body))"
+fi
+rm -rf "$sb"
+
+# T12.a 미존재 skill 토큰 참조 → xref_resolve FAIL
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+printf -- '---\nname: tdd-ko\n---\n다음은 specops-auto-ko:nonexistent-zz 호출.\n' > "$sb/skills/tdd-ko/SKILL.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'xref_resolve: FAIL' && echo "$err" | grep -q 'nonexistent-zz'; then
+  PASS=$((PASS+1)); echo "PASS T12.a 미존재 토큰 → xref_resolve FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.a (rc=$rc, out=$(echo "$err" | grep xref_resolve))"
+fi
+rm -rf "$sb"
+
+# T13 실제 repo — 신규 체크 4종 전부 ✅ (drift 0 상태 유지 보증)
+out=$(bash "$SCRIPT" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ version_sync: OK' \
+   && echo "$out" | grep -q '✅ readme_counts: OK' \
+   && echo "$out" | grep -q '✅ changelog_body: OK' \
+   && echo "$out" | grep -q '✅ xref_resolve: OK'; then
+  PASS=$((PASS+1)); echo "PASS T13 실제 repo drift 4종 ✅"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T13 (rc=$rc)"; echo "$out" | grep -E 'version_sync|readme_counts|changelog_body|xref_resolve' | sed 's/^/    /'
+fi
+
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL

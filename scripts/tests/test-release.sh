@@ -25,6 +25,9 @@ JSON
   cat > "$dir/.claude-plugin/marketplace.json" <<'JSON'
 {
   "name": "specops-auto-ko",
+  "metadata": {
+    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.9.0 — test)"
+  },
   "version": "1.9.0"
 }
 JSON
@@ -39,7 +42,13 @@ JSON
 [Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.9.0...HEAD
 [1.9.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.8.0...v1.9.0
 CHANGELOG
-  printf '# specops-auto-ko (v1.9.0)\n\nTest.\n' > "$dir/README.md"
+  cat > "$dir/README.md" <<'README'
+# specops-auto-ko (v1.9.0)
+
+Test.
+
+*초기화: 2026-01-01 · **최신: v1.9.0 (2026-01-01)** · test*
+README
   cat > "$dir/commands/cmd.md" <<'CMD'
 ---
 name: cmd
@@ -147,19 +156,42 @@ rm -rf "$TD"
 # T10: pre-flight 실제 경로 검증 (Important fix — PREFLIGHT_CMD 우회 없이)
 # T10.a: 스크립트 파일 존재 확인
 [ -f "$PLUGIN/scripts/_internal/validate-structure.sh" ] \
-  && [ -f "$PLUGIN/scripts/tests/governance/test-rules.sh" ] \
-  && [ -f "$PLUGIN/scripts/tests/dag/test-parse-dag.sh" ] \
+  && [ -f "$PLUGIN/scripts/tests/run-all.sh" ] \
   && ok "T10.a pre-flight 스크립트 경로 실재" || fail "T10.a pre-flight 경로 미존재"
 
 # T10.b: 실제 repo dry-run — RELEASE_PREFLIGHT_CMD 미설정, repo clean 시에만 실행
+# run-all 내부에서 호출된 경우(SPECOPS_RUN_ALL=1)에도 재귀 가드 메시지로 통과해야 함
 if [ -z "$(git -C "$PLUGIN" status --porcelain 2>/dev/null)" ] \
     && ! git -C "$PLUGIN" tag -l "v9.99.0" 2>/dev/null | grep -q "v9.99.0"; then
   out=$(bash "$RELEASE" 9.99.0 --dry-run 2>&1); rc=$?
-  [ "$rc" -eq 0 ] && echo "$out" | grep -q "pre-flight PASS" \
+  [ "$rc" -eq 0 ] && echo "$out" | grep -qE "pre-flight (PASS|skip)" \
     && ok "T10.b 실제 pre-flight 경로 dry-run PASS" || fail "T10.b (rc=$rc out='$out')"
 else
   ok "T10.b (SKIP — repo unclean 또는 v9.99.0 태그 존재)"
 fi
+
+# T11: 재귀 가드 — SPECOPS_RUN_ALL=1 + PREFLIGHT_CMD 미설정 → pre-flight skip (run-all 무한 재귀 방지)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" SPECOPS_RUN_ALL=1 bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+rm -rf "$TD"
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "재귀 방지" \
+  && ok "T11.a SPECOPS_RUN_ALL=1 → pre-flight skip (재귀 가드)" || fail "T11.a (rc=$rc out='$out')"
+
+# T12: FR-6b README footer 최신 스탬프 갱신
+TD=$(mktemp -d); _make_git_fixture "$TD"
+RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 > /dev/null 2>&1
+TODAY=$(date +%Y-%m-%d)
+grep -q "최신: v1.11.0 (${TODAY})" "$TD/README.md" && ! grep -q "최신: v1.9.0" "$TD/README.md" \
+  && ok "T12.a README footer 최신 스탬프 갱신" || fail "T12.a (footer=$(grep '최신' "$TD/README.md"))"
+rm -rf "$TD"
+
+# T13: FR-7c marketplace metadata.description 버전 토큰 갱신
+TD=$(mktemp -d); _make_git_fixture "$TD"
+RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 > /dev/null 2>&1
+grep -q "(v1.11.0 — test)" "$TD/.claude-plugin/marketplace.json" \
+  && ! grep -q "(v1.9.0 — test)" "$TD/.claude-plugin/marketplace.json" \
+  && ok "T13.a marketplace description 버전 갱신" || fail "T13.a (desc=$(grep description "$TD/.claude-plugin/marketplace.json"))"
+rm -rf "$TD"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

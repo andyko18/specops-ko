@@ -6,6 +6,8 @@
 set -uo pipefail
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# 재귀 가드: test-release.sh 의 release.sh dry-run 이 pre-flight 로 run-all 을 재호출하는 무한 재귀 차단
+export SPECOPS_RUN_ALL=1
 QUIET=false
 [ "${1:-}" = "--quiet" ] && QUIET=true
 
