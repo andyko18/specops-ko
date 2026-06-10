@@ -97,7 +97,7 @@ specops-auto-ko/
 │   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
 │   ├── design-screens.md                     ← 일괄 화면 설계 /design-screens
-│   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (8단계)
+│   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (9단계)
 │   ├── gbrain.md                             ← 세션 인사이트 조회 /gbrain
 │   ├── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
 │   ├── release.md                            ← 릴리즈 자동화 /release
@@ -110,7 +110,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 29
+├── skills/                               ← flat: skills/<name>/SKILL.md × 30
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -144,7 +144,7 @@ specops-auto-ko/
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
 │   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (9단계)
-├── templates/                            ← 27건
+├── templates/                            ← 28건
 │   │  Lifecycle/공통 템플릿 (15건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
 │   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest
@@ -174,7 +174,7 @@ specops-auto-ko/
 
 ## 거버넌스 엔진
 
-`hooks/rules.jsonl`에 정의된 6 규칙이 PostToolUse + Stop 훅으로 자동 검사됩니다.
+`hooks/rules.jsonl`에 정의된 6 규칙 중 R-1~R-5 가 PostToolUse + Stop 훅으로 자동 검사됩니다 (R-6 은 `enabled: false` — gbrain-ko manual-only 설계).
 
 | Rule | 원칙 | 감지 조건 |
 |---|---|---|
@@ -183,7 +183,7 @@ specops-auto-ko/
 | R-3 | 1 (투명성) | specops-auto-ko 스킬 호출 전 "Using ..." 선언 부재 |
 | R-4 | 5 (검증) | 성공 주장 있으나 테스트 러너 미실행 |
 | R-5 | 1 (투명성) | plan.md 수정 시 Advisor 협의 기록 섹션 누락 |
-| R-6 | 1 (투명성) | `/verify` + evidence.md 후 gbrain-append 호출 부재 (lifecycle 완주 인사이트 누적 권고) |
+| R-6 | 1 (투명성) | `/verify` + evidence.md 후 gbrain-append 호출 부재 — **비활성** (gbrain-ko manual-only 설계, `enabled: false`) |
 
 위반 시 `.specops/<FID>/friction-log.jsonl`에 자동 기록 (Soft Warn).
 
@@ -194,8 +194,9 @@ specops-auto-ko/
 - **Lifecycle dogfood**: 5회 완주 (csv-lines · slug-cli · cvt-cli · b64-cli · hex-cli)
 - **거버넌스 테스트**: `bash scripts/tests/governance/test-rules.sh` → 전 항목 PASS (R-1~R-6)
 - **DAG 파서 테스트**: `bash scripts/tests/dag/test-parse-dag.sh` → 전 항목 PASS
+- **전체 테스트**: `bash scripts/tests/run-all.sh` → 41 suites PASS (릴리즈 pre-flight 게이트)
 - **거버넌스 성능**: p95 69ms / median 67ms (AC-8 < 200ms 충족)
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.10.0 (2026-06-09)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.11.0 (2026-06-09)** · Claude Code 전용*

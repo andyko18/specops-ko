@@ -1,6 +1,6 @@
 ---
 name: e2e-test-ko
-description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (start-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(finishing 정리) 8단계 완주
+description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (start-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(integration/performance SKIP)→(finishing 정리) 9단계 완주
 layer: 3
 reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 specops_version: 1.0.0
