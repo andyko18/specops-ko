@@ -32,6 +32,20 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b (total=$total spec=$n_spec ana=$n_ana none=$n_none any=$n_any)"
 fi
 
+# T2.a stub — STUB_PLAN 1째 줄 skill 지정 시 tool_use 이벤트 + result 이벤트 출력
+TD=$(mktemp -d)
+export STUB_STATE="$TD/count" STUB_PLAN="$TD/plan.jsonl"
+echo '{"skill":"specops-auto-ko:specifying-ko","args":"CSV CLI","cost":0.1}' > "$STUB_PLAN"
+out=$(bash "$STUB" -p "아무 프롬프트" --output-format stream-json 2>/dev/null)
+got_skill=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Skill") | .input.skill' | head -1)
+got_cost=$(printf '%s\n' "$out" | jq -r 'select(.type=="result") | .total_cost_usd' | head -1)
+if [ "$got_skill" = "specops-auto-ko:specifying-ko" ] && [ "$got_cost" = "0.1" ] && [ "$(cat "$STUB_STATE")" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T2.a stub tool_use + result + 카운터"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a (skill=$got_skill cost=$got_cost)"
+fi
+rm -rf "$TD"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
