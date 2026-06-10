@@ -126,6 +126,51 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.f (rc=$rc out=$out)"
 fi
 
+# ── T4 재시도·BORDERLINE·비용 ──
+
+# T4.a 재시도 성공 — 1차 오답 → 2차 정답 → PASS + retry 표기 + stub 2회 호출 (AC-6)
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
+mk_fx "$STUB_PLAN" '{"skill":null}' '{"skill":"specops-auto-ko:specifying-ko","args":"CLI","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+calls=$(cat "$STUB_STATE")
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS new-1 retry' && [ "$calls" = "2" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.a 재시도 cap=1 성공 경로"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.a (rc=$rc calls=$calls out=$out)"
+fi
+rm -rf "$TD"
+
+# T4.b BORDERLINE — expect_any 목록 밖 → BORDERLINE 표기 + FAIL 미산입 + exit 0 + 재시도 없음 (AC-11)
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" '{"id":"border-1","prompt":"설명해줘 그리고 고쳐줘","expect_any":["analyzing-ko","none"]}'
+mk_fx "$STUB_PLAN" '{"skill":"specops-auto-ko:specifying-ko","args":"x","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+calls=$(cat "$STUB_STATE")
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^BORDERLINE border-1' \
+   && echo "$out" | grep -q 'FAIL=0' && echo "$out" | grep -q 'BORDERLINE=1' && [ "$calls" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.b BORDERLINE 비차단·재시도 없음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.b (rc=$rc calls=$calls out=$out)"
+fi
+rm -rf "$TD"
+
+# T4.c 비용 합산 — cost 0.5 × fixture 2건 → COST=$1.00 (AC-10)
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" \
+  '{"id":"new-1","prompt":"a","expect_skill":"specifying-ko","expect_flag":"new"}' \
+  '{"id":"new-2","prompt":"b","expect_skill":"specifying-ko","expect_flag":"new"}'
+mk_fx "$STUB_PLAN" \
+  '{"skill":"specops-auto-ko:specifying-ko","args":"a","cost":0.5}' \
+  '{"skill":"specops-auto-ko:specifying-ko","args":"b","cost":0.5}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q 'COST=\$1\.00'; then
+  PASS=$((PASS+1)); echo "PASS T4.c 비용 합산"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.c (rc=$rc out=$out)"
+fi
+rm -rf "$TD"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
