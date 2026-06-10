@@ -21,6 +21,12 @@ safe_exit() {
 # shellcheck disable=SC1091
 source "$script_dir/governance-lib.sh" 2>/dev/null || safe_exit "governance-lib.sh source 실패"
 
+# CWD 앵커링 — subdir/worktree 에서 기동돼도 .specops 상대경로(detect_fid·R-5·R-6 trivial-skip)가
+# 프로젝트 루트 기준으로 동작. env 부재 시 기존 CWD 유지 (테스트 fixture 호환).
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR:-}" ]; then
+  cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || true
+fi
+
 input=$(cat 2>/dev/null || echo "")
 if ! echo "$input" | jq -e . >/dev/null 2>&1; then
   safe_exit "stdin JSON parse failed"

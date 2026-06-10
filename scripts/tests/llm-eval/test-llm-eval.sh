@@ -118,9 +118,10 @@ else
 fi
 rm -rf "$TD"
 
-# T3.f claude 부재 → SKIP + exit 0 (AC-3)
+# T3.f claude 부재 → SKIP + exit 0 (AC-3) — 기대 SKIP 수는 fixtures 실측 (M-2: 하드코딩 제거)
+fx_n=$(grep -c . "$FIXTURES")
 out=$(CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$FIXTURES" 2>&1); rc=$?
-if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP: claude CLI 부재' && echo "$out" | grep -q 'SKIP=10'; then
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP: claude CLI 부재' && echo "$out" | grep -q "SKIP=$fx_n"; then
   PASS=$((PASS+1)); echo "PASS T3.f CLI 부재 graceful SKIP"
 else
   FAIL=$((FAIL+1)); echo "FAIL T3.f (rc=$rc out=$out)"
@@ -250,6 +251,24 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.b (rc=$rc pwd=${got_pwd:-없음})"
 fi
 unset PWD_F; rm -rf "$TD"
+
+# T6.c expect_any + TIMEOUT → BORDERLINE 비차단 (외부 리뷰 Minor — 미보유 분기 단위 테스트)
+TD=$(mktemp -d)
+cat > "$TD/hang-claude.sh" <<'HANG'
+#!/usr/bin/env bash
+echo "stub: simulated hang for any" >&2
+exec sleep 30
+HANG
+chmod +x "$TD/hang-claude.sh"
+mk_fx "$TD/fx.jsonl" '{"id":"border-1","prompt":"애매한 질문","expect_any":["analyzing-ko","none"]}'
+out=$(LLM_EVAL_TIMEOUT=1 CLAUDE_BIN="$TD/hang-claude.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -qE '^BORDERLINE border-1.*TIMEOUT' \
+   && echo "$out" | grep -q 'FAIL=0' && echo "$out" | grep -q 'BORDERLINE=1'; then
+  PASS=$((PASS+1)); echo "PASS T6.c expect_any+TIMEOUT → BORDERLINE 비차단"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.c (rc=$rc out=$out)"
+fi
+rm -rf "$TD"
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

@@ -48,7 +48,8 @@ run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (ba
   pid=$!
   # 워치독 stdout/stderr 차단 필수 — 미차단 시 자식 sleep 이 명령치환 파이프를 물고 EOF 지연 (hang)
   # 마커는 kill 직전 기록 — 정상 종료 후엔 watcher 를 먼저 kill 해 false 마커 차단
-  ( sleep "$TIMEOUT_S" & wait $!; : > "$R_MARK"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  # timeout 시 claude 가 띄운 자식 프로세스까지 정리 (pkill -P) 후 본체 kill
+  ( sleep "$TIMEOUT_S" & wait $!; : > "$R_MARK"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   watcher=$!
   wait "$pid" 2>/dev/null || true
   kill "$watcher" 2>/dev/null
