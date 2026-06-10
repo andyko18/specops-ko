@@ -256,7 +256,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - `agents/spec-reviewer-ko.md` — 스펙 준수 리뷰어 (Phase B)
 - `agents/code-reviewer-ko.md` — 코드 품질 리뷰어 (Phase C)
 
-각 에이전트는 `subagent_type: "specops-auto-ko:implementer-ko"` 형식으로 dispatch되며, `templates/dispatch-context.md` 포맷의 컨텍스트 파일을 입력으로 받는다.
+각 에이전트는 **자신의 namespace subagent_type** 으로 dispatch 한다 — Phase A 는 `subagent_type: "specops-auto-ko:implementer-ko"`, Phase B 는 `"specops-auto-ko:spec-reviewer-ko"`, Phase C 는 `"specops-auto-ko:code-reviewer-ko"` (Generator/Evaluator 분리 — 리뷰어를 implementer 로 dispatch 금지). 모두 `templates/dispatch-context.md` 포맷의 컨텍스트 파일을 입력으로 받는다.
 
 ## 레드 플래그 — 금지
 
