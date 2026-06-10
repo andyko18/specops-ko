@@ -63,7 +63,7 @@ for i in $(seq 1 10); do
   echo "  run $i: ${elapsed}ms" >&2
 done
 
-# 오름차순 정렬 → 9 번째 (90th percentile, 10 샘플 기준 p95 근사)
+# 오름차순 정렬 → 9 번째 — 정확히는 p90 (10 샘플). 게이트 라벨은 관례상 p95 로 유지 (보수적 방향 아님 인지)
 sorted=$(printf '%s\n' "${timings[@]}" | sort -n)
 p95=$(echo "$sorted" | sed -n '9p')
 median=$(echo "$sorted" | sed -n '5p')
