@@ -36,6 +36,16 @@ BASE_SHA=$(git rev-parse HEAD~1)  # 또는 origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
+### 외부 모델 의견 병행 (advisory — multimodel-critic)
+
+리뷰어 dispatch **전** 1회:
+
+1. `git diff <BASE_SHA>..<HEAD_SHA> > /tmp/<FID>-review.diff`
+2. `bash scripts/critic-ask.sh templates/critic-prompt-diff.md --files /tmp/<FID>-review.diff`
+3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (file-based-communication)
+4. `CRITIC: SKIP/FAIL` → 미첨부 + review-request.md 에 `외부 critic: SKIP (<사유>)` 1줄 (한계 고백)
+5. **advisory**: 외부 의견은 **판정 권한 없음** — Claude 리뷰어가 비판적으로 평가할 입력 (receiving-code-review 규약 적용)
+
 ### 2. 코드 리뷰어 서브에이전트 dispatch
 
 `Agent` 도구로 `code-reviewer`(또는 `oh-my-claudecode:code-reviewer`) 서브에이전트 호출. 다음 정보를 **전체 텍스트**로 포함:

@@ -83,6 +83,36 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.f 템플릿 누락"
 fi
 
+# ── T2 skill 연결 (AC-5·6·7) ──
+
+# T2.a planning-ko — critic 병행 단계 (PASS 직후·§8 기록·advisory) (AC-5)
+PL="$PLUGIN/skills/planning-ko/SKILL.md"
+if grep -q 'critic-ask.sh' "$PL" && grep -q 'critic-prompt-plan.md' "$PL" \
+   && awk '/### 외부 critic 병행/,/^## /' "$PL" | grep -q '판정 권한 없음'; then
+  PASS=$((PASS+1)); echo "PASS T2.a planning-ko 연결"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a"
+fi
+
+# T2.b requesting-code-review-ko — diff 의견 병행 (저장 경로·경로만 전달·advisory) (AC-6)
+RQ="$PLUGIN/skills/requesting-code-review-ko/SKILL.md"
+if grep -q 'critic-ask.sh' "$RQ" && grep -q 'critic-prompt-diff.md' "$RQ" \
+   && grep -q 'reviews/external-critic.md' "$RQ" \
+   && awk '/### 외부 모델 의견 병행/,/^## /' "$RQ" | grep -q '판정 권한 없음'; then
+  PASS=$((PASS+1)); echo "PASS T2.b requesting-code-review-ko 연결"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.b"
+fi
+
+# T2.c advisor-ko — 외부 위탁 경로 문서화 (세션 미접근 한계 포함) (AC-7)
+AD="$PLUGIN/skills/advisor-ko/SKILL.md"
+if grep -q 'critic-ask.sh' "$AD" && grep -q 'conversation' "$AD" \
+   && grep -qE '(advisor disabled|disabled 환경)' "$AD"; then
+  PASS=$((PASS+1)); echo "PASS T2.c advisor-ko 문서화"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.c"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

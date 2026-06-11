@@ -171,6 +171,16 @@ cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/rev
 
 | <N> | <ISO-8601> | plan-reviewer | plan-reviewer-ko | PASS\|FAIL | - |
 
+### 외부 critic 병행 (advisory — multimodel-critic)
+
+plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로 포함 — 자동통과도 진행 확정이므로 동일 호출. FAIL 루프 중에는 미호출):
+
+1. `bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`
+2. 의견 출력 시 (`CRITIC[<provider>]:`): 요지 1~2문장을 plan.md §8 에 행 추가 —
+   `| <ts> | 외부 critic (<provider>) | <요지> | 참고 | §N |`
+3. `CRITIC: SKIP/FAIL` → dispatch-log 1줄만 기록 (plan.md §8 미기재 — 잡음 방지)
+4. **advisory**: 외부 의견은 참고 입력 — PASS/FAIL **판정 권한 없음** (판정은 plan-reviewer 소관)
+
 ## 5원칙 주입 (specops-auto-ko 고유)
 
 | 원칙 | 본 스킬 적용 |

@@ -98,6 +98,18 @@ advisor()
 | 4 **주권** | advisor 판단이 사용자 결정과 충돌 시 사용자 개입 요청 |
 | 5 **한계 고백** | "advisor 미호출 = 자체검토만" 상태 명시 |
 
+## 외부 모델 위탁 경로 (multimodel-critic)
+
+advisor disabled 환경 또는 동종 모델 편향 차단이 필요할 때, **파일 기반 산출물 검증** 은 외부 모델로 위탁 가능:
+
+```bash
+bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
+```
+
+- 한계: 외부 CLI 는 본 세션의 conversation 에 접근 불가 — `advisor()` (세션 전체 자동 전송) 의 **대체가 아니라 산출물 검증 보강**
+- CLI (codex/gemini) 부재 시 `CRITIC: SKIP` — graceful (chain 비차단)
+- 연결 지점: planning-ko (plan.md) · requesting-code-review-ko (diff) — 모두 advisory (판정 권한 없음)
+
 ## 참조
 
 - `skills/karpathy-ko/SKILL.md` — 동일한 cross-cutting skill 패턴
