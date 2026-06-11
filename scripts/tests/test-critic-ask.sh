@@ -74,6 +74,20 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.e (rc=$rc err=$err)"
 fi
 
+# T1.g provider 즉시 실패 (exit 1) → CRITIC: FAIL (provider rc=1) + exit 0 (AC-3 — advisory 비차단)
+cat > "$TD/fail-stub.sh" <<'FS'
+#!/usr/bin/env bash
+echo "boom" >&2
+exit 1
+FS
+chmod +x "$TD/fail-stub.sh"
+out=$(CRITIC_BIN="$TD/fail-stub.sh" bash "$SCRIPT" "$TD/prompt.md" 2>/dev/null); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^CRITIC: FAIL (provider rc=1)'; then
+  PASS=$((PASS+1)); echo "PASS T1.g provider 실패 FAIL + exit 0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.g (rc=$rc out=$out)"
+fi
+
 # T1.f 템플릿 2종 존재 + respond-in-Korean 지시 (AC-8)
 if [ -f "$PLUGIN/templates/critic-prompt-plan.md" ] && [ -f "$PLUGIN/templates/critic-prompt-diff.md" ] \
    && grep -qi 'respond in korean' "$PLUGIN/templates/critic-prompt-plan.md" \

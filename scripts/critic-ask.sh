@@ -34,7 +34,7 @@ else
 fi
 
 syn=""; out_f=""; err_f=""; mark=""
-cleanup() { rm -f "$syn" "$out_f" "$err_f" "$mark" 2>/dev/null; }
+cleanup() { rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" 2>/dev/null; }
 trap cleanup EXIT
 
 # 프롬프트 합성: prompt-file + 구분자 + 대상 파일들 (NFR-3 200KB 절단)
@@ -47,7 +47,13 @@ for f in ${FILES+"${FILES[@]}"}; do
 done
 size=$(wc -c < "$syn" | tr -d ' ')
 if [ "$size" -gt "$MAX_BYTES" ]; then
-  head -c "$MAX_BYTES" "$syn" > "$syn.cut" && mv "$syn.cut" "$syn"
+  if command -v iconv >/dev/null 2>&1; then
+    # UTF-8 불완전 꼬리 바이트 제거 (iconv 부재 시 기존 동작 graceful)
+    head -c "$MAX_BYTES" "$syn" | iconv -c -f UTF-8 -t UTF-8 > "$syn.cut"
+  else
+    head -c "$MAX_BYTES" "$syn" > "$syn.cut"
+  fi
+  mv "$syn.cut" "$syn"
   printf '\n[절단: 합성 %sB > %sB — 앞부분만 위탁]\n' "$size" "$MAX_BYTES" >> "$syn"
   echo "CRITIC: 절단 적용 (${size}B → ${MAX_BYTES}B)" >&2
 fi
