@@ -25,6 +25,44 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.c memory 기타 파일이 ignore 안 됨"
 fi
 
+# T3.d check-ignore rc 정밀 구분 — rc=1 (비-ignore) 만 PASS, rc>=2 는 git 오류 (Phase C 보강)
+rc=$(git -C "$PLUGIN" check-ignore -q .specops/memory/learnings.jsonl; echo $?)
+if [ "$rc" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T3.d learnings.jsonl 비-ignore (rc=1 정밀 확인)"
+elif [ "$rc" -ge 2 ]; then
+  FAIL=$((FAIL+1)); echo "FAIL T3.d git check-ignore 오류 (rc=$rc)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.d learnings.jsonl 이 ignore 됨 (rc=0)"
+fi
+
+# ── T4 skill 본문 연결 (AC-5·6·12) ──
+PERF="$PLUGIN/skills/performance-test-ko/SKILL.md"
+SPEC="$PLUGIN/skills/specifying-ko/SKILL.md"
+
+# T4.a 추출 단계 — collect 호출 + append 연결 + batch 분기 (AC-5)
+if grep -q 'gbrain-collect.sh' "$PERF" && grep -q '## 학습 추출' "$PERF" \
+   && grep -q 'gbrain-append.sh' "$PERF" \
+   && awk '/^## 학습 추출/,/^## 다음 skill/' "$PERF" | grep -q 'BATCH-PERF-DONE'; then
+  PASS=$((PASS+1)); echo "PASS T4.a performance-test-ko 추출 단계"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.a 추출 단계 누락"
+fi
+
+# T4.b tags 규약 + 건수 상한 (AC-12)
+if grep -q '영문 소문자 kebab' "$PERF" && grep -qE '(≤3건|최대 3건)' "$PERF"; then
+  PASS=$((PASS+1)); echo "PASS T4.b tags 규약 + 상한"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.b tags 규약/상한 누락"
+fi
+
+# T4.c 환류 분기 — recall 호출 + 인용 포맷 + 회귀 보호 문구 (AC-6)
+if grep -q 'gbrain-recall.sh' "$SPEC" && grep -q '과거 인사이트 (gbrain' "$SPEC" \
+   && grep -q 'graceful skip' "$SPEC"; then
+  PASS=$((PASS+1)); echo "PASS T4.c specifying-ko 환류 분기"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.c 환류 분기 누락"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

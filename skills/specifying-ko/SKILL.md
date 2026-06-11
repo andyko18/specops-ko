@@ -81,6 +81,11 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - **`docs/adr/*.md` Architecture Decision Records 자동 감지** (v2.1 신규):
      - `ls docs/adr/*.md 2>/dev/null | wc -l` — 0이면 graceful skip
      - N > 0이면: spec.md `§참조`에 `"아키텍처 결정 기록 — \`docs/adr/\` (N건)"` 인용
+   - **gbrain 과거 인사이트 환류** (v2.3 신규 — learning-loop):
+     - `bash scripts/gbrain-recall.sh "<args 원문 — entry HTML 주석 줄 제외>"` 실행
+     - learnings.jsonl 부재 또는 매칭 0건 → graceful skip (환류 블록 미출력)
+     - 결과 있으면 (≤3건): spec.md `§참조` 에 각 건을 `- 과거 인사이트 (gbrain, <fid>): <insight>` bullet 로 인용
+     - **회귀 보호 계약**: §참조에 인용만 추가 — 다른 섹션·내용 무변경 (memory 감지 표와 동일)
    - **유지보수·foundation·batch 분기 진입 신호 검사** (Phase A):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
