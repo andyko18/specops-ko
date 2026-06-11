@@ -155,3 +155,12 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `docs/ARCHITECTURE.md` §7
 - `docs/case-studies/2026-04-21-session-5-design.md` §3.1 — validate-structure 상세 설계
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
+
+## critic-ask.sh — 외부 모델 critic 위탁 (advisory)
+
+plan.md·diff 를 Codex/Gemini CLI 에 위탁해 이종 모델 의견을 받습니다. CLI 부재 시 `CRITIC: SKIP` (chain 비차단).
+
+```bash
+bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
+CRITIC_BIN=/path/to/cli bash scripts/critic-ask.sh ...   # provider 강제 (테스트 stub 포함)
+```

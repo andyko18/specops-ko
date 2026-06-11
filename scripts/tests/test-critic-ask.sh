@@ -113,6 +113,13 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T2.c"
 fi
 
+# ── T3 문서 등재 (AC-9) ──
+if grep -q 'critic-ask.sh' "$PLUGIN/scripts/README.md"; then
+  PASS=$((PASS+1)); echo "PASS T3.a scripts/README 등재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.a"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
