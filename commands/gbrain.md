@@ -47,7 +47,7 @@ bash scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
 ## 안티패턴
 
 - **인사이트 수정·삭제** — 본 슬래시는 읽기 전용
-- **자동 추가** — 추가는 `gbrain-append.sh` 수동 호출만
+- **gbrain-append.sh 우회 직접 쓰기** — 추가는 `gbrain-append.sh` 경유만 (performance-test-ko 학습 추출 자동 + 수동 호출)
 
 ## 참조
 
