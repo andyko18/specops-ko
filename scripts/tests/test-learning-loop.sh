@@ -55,12 +55,21 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T4.b tags 규약/상한 누락"
 fi
 
-# T4.c 환류 분기 — recall 호출 + 인용 포맷 + 회귀 보호 문구 (AC-6)
+# T4.c 환류 분기 — recall 호출 + 인용 포맷 + 환류 블록 내 graceful skip (AC-6)
 if grep -q 'gbrain-recall.sh' "$SPEC" && grep -q '과거 인사이트 (gbrain' "$SPEC" \
-   && grep -q 'graceful skip' "$SPEC"; then
+   && awk '/gbrain 과거 인사이트 환류/,/회귀 보호 계약/' "$SPEC" | grep -q 'graceful skip'; then
   PASS=$((PASS+1)); echo "PASS T4.c specifying-ko 환류 분기"
 else
   FAIL=$((FAIL+1)); echo "FAIL T4.c 환류 분기 누락"
+fi
+
+# ── T5 문서 등재 (AC-8) ──
+if grep -q 'gbrain-recall.sh' "$PLUGIN/skills/gbrain-ko/SKILL.md" \
+   && grep -q 'gbrain-collect.sh' "$PLUGIN/skills/gbrain-ko/SKILL.md" \
+   && grep -q 'gbrain-recall.sh' "$PLUGIN/commands/gbrain.md"; then
+  PASS=$((PASS+1)); echo "PASS T5.a 문서 등재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a 문서 등재 누락"
 fi
 
 echo "--- SUMMARY ---"

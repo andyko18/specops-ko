@@ -80,6 +80,16 @@ if [ -n "$FID_FILTER" ]; then
 fi
 ```
 
+## 연계 유틸 (learning-loop)
+
+| 스크립트 | 역할 | 호출 지점 |
+|---|---|---|
+| `scripts/gbrain-append.sh` | 인사이트 1줄 기록 | performance-test-ko 학습 추출 (자동) + 수동 |
+| `scripts/gbrain-collect.sh <FID>` | handoffs/evidence 결정적 수집 | performance-test-ko 학습 추출 1단계 |
+| `scripts/gbrain-recall.sh "<질의>" [--top N]` | 토큰 중첩 관련 인사이트 조회 | specifying-ko Step 1 환류 (자동) + 수동 |
+
+learnings.jsonl 은 git 추적 (학습 자산 영속 — gitignore 예외).
+
 ## 인사이트 추가
 
 세션 중 발견한 패턴·주의사항을 추가:

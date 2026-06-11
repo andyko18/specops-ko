@@ -42,6 +42,8 @@ reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 
 bash scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
 ```
 
+연계: `gbrain-collect.sh` (추출 수집) · `gbrain-recall.sh` (환류 조회) — 상세는 `skills/gbrain-ko/SKILL.md` §연계 유틸.
+
 ## 안티패턴
 
 - **인사이트 수정·삭제** — 본 슬래시는 읽기 전용
