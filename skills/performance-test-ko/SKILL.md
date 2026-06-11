@@ -297,6 +297,23 @@ bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
 
 ---
 
+## 학습 추출 (learning-loop)
+
+PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으므로) 다음을 수행한다:
+
+1. `bash scripts/gbrain-collect.sh <FID>` 실행 — handoffs Decided/Risks + evidence 결과 요약 수집
+2. 수집 출력에서 **차기 기능에 재사용 가능한 교훈만** 정제 — FID 당 ≤3건 (일회성 사실·당연한 절차는 제외)
+3. 각 건마다 호출:
+   ```bash
+   bash scripts/gbrain-append.sh "<인사이트 1줄>" --fid <FID> --tags "<tag1,tag2>"
+   ```
+   tags 는 **영문 소문자 kebab 2~4개** — gbrain-recall 토큰 매칭 안정성 (한국어 토큰화 한계 보완)
+4. `COLLECT: EMPTY` 면 추출 skip — 기록 없음도 정직한 결과 (억지 인사이트 금지)
+
+**[batch 모드]**: `BATCH-PERF-DONE: <FID>` 출력 **직전** 에 동일 수행 (FID 별 추출).
+
+---
+
 ## 다음 skill
 
 본 skill은 specops-auto-ko Lifecycle의 **최종 단계**다.
