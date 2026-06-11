@@ -1,8 +1,11 @@
 # OMC 런타임 state (개별 개발 환경용)
 .omc/
 
-# dogfood 세션 FID 아티팩트 — 플러그인 배포 불포함
-.specops/
+# dogfood FID 아티팩트 — 배포 불포함 (learnings.jsonl 만 학습 자산으로 git 추적)
+.specops/*
+!.specops/memory/
+.specops/memory/*
+!.specops/memory/learnings.jsonl
 .worktrees/
 
 # Node.js
