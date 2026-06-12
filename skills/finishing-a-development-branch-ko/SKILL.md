@@ -2,7 +2,7 @@
 name: finishing-a-development-branch-ko
 description: feature branch 작업 완료 후 worktree 정리·branch 삭제·main 동기화를 체계적으로 수행하는 Lifecycle 최종 정리 스킬
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/finishing-a-development-branch/SKILL.md
+reference_upstream: obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md
 specops_version: 1.0.0
 used_by: specops-auto-ko:using-git-worktrees-ko (짝 스킬 — 작업 완료 후 호출)
 ---
@@ -18,6 +18,14 @@ feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/re
 **시작 시 선언**: "specops-auto-ko:finishing-a-development-branch-ko 스킬로 브랜치 정리를 시작합니다."
 
 ## 체크리스트
+
+**0. detached HEAD 감지 (PRI-974)**:
+
+```bash
+git symbolic-ref -q HEAD >/dev/null || echo "detached HEAD — 브랜치 없음"
+```
+
+detached (분리) 상태면 **merge/PR 관련 스텝 (Step 2 PR 상태 확인·Step 4~6 merge/push) 을 skip** 하고, 사용자에게 **(1) worktree 그대로 유지 (2) worktree 폐기** 만 질문한다.
 
 ### Step 1: 현재 상태 확인
 
@@ -65,18 +73,21 @@ fi
 
 ### Step 3: Worktree 정리
 
-```bash
-# 현재 FID 관련 worktree 탐색
-git worktree list | grep -F ".worktrees/"
+> **Provenance (PRI-974)**: 아래 정리는 `.worktrees/` 내부 (플러그인 생성분) 만 대상. 그 외 위치 worktree 는 **사용자 소유 — 불가침** (목록에 보여도 제거 금지):
 
-# 각 worktree 제거 (미커밋 변경 있으면 HARD GATE)
-git worktree list | grep -F ".worktrees/" | awk '{print $1}' | while read wt; do
-  if [ -n "$(git -C "$wt" status --short 2>/dev/null)" ]; then
-    echo "HARD GATE: $wt 에 미커밋 변경 있음 — 수동 처리 후 재실행"
+```bash
+# 전체 worktree 순회 — provenance 필터는 루프 내 case 1곳 (이중화 금지)
+git worktree list | awk '{print $1}' | while read wt_path; do
+  case "$wt_path" in
+    */.worktrees/*) ;;  # 플러그인 생성분 — 정리 진행
+    *) echo "사용자 소유 worktree ($wt_path) — 정리 대상 제외 (provenance)"; continue ;;
+  esac
+  if [ -n "$(git -C "$wt_path" status --short 2>/dev/null)" ]; then
+    echo "HARD GATE: $wt_path 에 미커밋 변경 있음 — 수동 처리 후 재실행"
     exit 1
   fi
-  echo "Removing worktree: $wt"
-  git worktree remove "$wt"
+  echo "Removing worktree: $wt_path"
+  git worktree remove "$wt_path"
 done
 ```
 
@@ -152,7 +163,7 @@ feat/<FID> 브랜치와 관련 worktree가 목록에 없으면 정리 성공.
 ## 참조
 
 - 짝 스킬: `skills/using-git-worktrees-ko/SKILL.md` — worktree 생성 측
-- upstream 참조: `obra/superpowers@v5.0.7 skills/finishing-a-development-branch/SKILL.md`
+- upstream 참조: `obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md`
 
 ## 다음 skill
 
