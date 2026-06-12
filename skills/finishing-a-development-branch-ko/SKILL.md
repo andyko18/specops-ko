@@ -25,7 +25,7 @@ feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/re
 git symbolic-ref -q HEAD >/dev/null || echo "detached HEAD — 브랜치 없음"
 ```
 
-detached (분리) 상태면 merge/PR 옵션 비표시 — 메뉴를 **(1) 그대로 유지 (2) worktree 폐기** 2개로 축소.
+detached (분리) 상태면 **merge/PR 관련 스텝 (Step 2 PR 상태 확인·Step 4~6 merge/push) 을 skip** 하고, 사용자에게 **(1) worktree 그대로 유지 (2) worktree 폐기** 만 질문한다.
 
 ### Step 1: 현재 상태 확인
 
