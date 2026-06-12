@@ -281,7 +281,7 @@ worktree 준비 완료 후:
 
 ## 참조
 
-- 원본: `obra/superpowers@v5.0.7 skills/using-git-worktrees/SKILL.md`
+- 원본: `obra/superpowers@v5.1.0 skills/using-git-worktrees/SKILL.md`
 - 짝: `specops-auto-ko:finishing-a-development-branch-ko`
 - 호출 위치: `specops-auto-ko:specifying-ko`, `specops-auto-ko:implementing-ko`
 

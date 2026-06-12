@@ -163,7 +163,7 @@ feat/<FID> 브랜치와 관련 worktree가 목록에 없으면 정리 성공.
 ## 참조
 
 - 짝 스킬: `skills/using-git-worktrees-ko/SKILL.md` — worktree 생성 측
-- upstream 참조: `obra/superpowers@v5.0.7 skills/finishing-a-development-branch/SKILL.md`
+- upstream 참조: `obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md`
 
 ## 다음 skill
 
