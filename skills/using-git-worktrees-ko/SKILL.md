@@ -18,6 +18,8 @@ git worktree는 동일 저장소를 공유하는 격리 워크스페이스를 �
 
 **시작 시 선언**: "specops-auto-ko:using-git-worktrees-ko 스킬을 사용해 격리 워크스페이스를 설정합니다."
 
+**Provenance 규약 (v5.1.0 PRI-974)**: `.worktrees/` 내부 경로 = 플러그인 생성분 — finishing 의 정리 대상. 그 외 위치의 worktree = 사용자 소유 — **불가침** (정리·삭제 금지).
+
 ## 디렉터리 선택 프로세스
 
 다음 우선순위 순서로:
@@ -55,6 +57,17 @@ worktree 디렉터리 없음. 어디에 worktree를 만들까요?
 
 ## 안전 검증
 
+**0. 중첩 worktree 감지 (PRI-974)** — 생성 전 필수:
+
+```bash
+gd=$(git rev-parse --git-dir 2>/dev/null); gcd=$(git rev-parse --git-common-dir 2>/dev/null)
+if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then
+  echo "이미 linked worktree 내부 ($(pwd)) — 신규 생성 skip, 현 worktree 재사용"
+fi
+```
+
+감지 시 생성 절차를 중단하고 현 worktree 를 그대로 사용한다 (common dir 이동 금지 — 사용자 작업 위치 보존). submodule 은 `git-dir == git-common-dir` 이므로 오탐 없음.
+
 ### 프로젝트 로컬 디렉터리 (`.worktrees` 또는 `worktrees`)
 
 **worktree 생성 전에 디렉터리가 ignore되었는지 검증 의무**:
@@ -74,6 +87,17 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 ### 전역 디렉터리 (`~/.config/specops-auto-ko/worktrees`)
 
 .gitignore 검증 불필요 — 프로젝트 외부.
+
+## 생성 동의 게이트 (PRI-974 — 모드별 분기)
+
+worktree 생성은 **동의 없이는 금지** (upstream #991). 모드별 동의 주체:
+
+| 모드 | 동의 주체 | 동작 |
+|---|---|---|
+| 단일 | 사용자 | "worktree 생성 (<목록>) — 진행? [y/n]". **n → worktree 없이 SEQUENTIAL 분기로 전환** (거부 ≠ 작업 중단) |
+| §auto | 자동통과 (가역) | dispatch-log 기록 + PR 게이트 **가정 다이제스트** 집계 |
+| §batch | 오케스트레이터 대행 | dispatch-log 기록 |
+| 병렬 wave (implementing-ko) | 부모가 wave 시작 시 **1회 일괄** 동의 요청 (leaf 수·경로 명시) | 단일 모드 규칙. §auto/batch 면 해당 행 적용 |
 
 ## 생성 단계
 
@@ -162,6 +186,8 @@ Worktree 준비됨: <full-path>
 | 디렉터리 ignore 안 됨 | .gitignore 추가 + commit |
 | baseline 테스트 실패 | 실패 보고 + 사용자 확인 |
 | package.json/Cargo.toml 없음 | 의존성 설치 생략 |
+| 중첩 감지 | git-dir ≠ git-common-dir 이면 생성 skip |
+| 동의 | 생성 전 모드별 게이트 (위 표) |
 
 ## 5원칙 주입
 
@@ -215,6 +241,9 @@ auth 기능 구현 준비 완료
 - 사용자 확인 없이 실패 테스트로 진행
 - 모호 시 디렉터리 위치 가정
 - CLAUDE.md 확인 생략
+- **동의 없이 worktree 생성** — 모드별 동의 게이트 우회 금지 (#991)
+- **중첩 생성** — linked worktree 내부에서 또 생성 (감지 스텝 생략 금지)
+- **외부 worktree 정리** — `.worktrees/` 밖은 사용자 소유 (provenance)
 
 **의무**:
 - 디렉터리 우선순위 따름: 기존 > CLAUDE.md > 질문
