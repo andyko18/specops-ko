@@ -218,6 +218,11 @@ tasks:
 
 **dispatch 시 tier 적용**: implementing-ko(부모)가 tier를 판단해 dispatch 컨텍스트에 명시. `agents/implementer-ko.md`는 `model: inherit` 유지 — 부모가 tier 결정.
 
+**Agent 도구 model 파라미터 연결** (P2 O-4): 부모는 판단한 tier 를 dispatch 시 Agent 도구의 `model` 파라미터로 실제 전달한다 —
+- `low` → `model: "haiku"` · `medium` → `model: "sonnet"` · `high` → **생략** (inherit — 세션 최상위 모델 유지, 다운그레이드 방지)
+- tier 미부여·판단 불확실 시 **생략** (inherit) — 과소 모델로 인한 구현 품질 하락보다 보수적 기본 우선
+- **리뷰어 (Phase B/C) 는 본 매핑 비적용** — 평가 품질 보수 (항상 inherit)
+
 **재dispatch 시**: BLOCKED → 더 강한 모델 필요 판단 시 tier 상향 (low→medium, medium→high) 후 재dispatch.
 
 ## 구현자 상태 처리
