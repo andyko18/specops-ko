@@ -2,7 +2,7 @@
 name: finishing-a-development-branch-ko
 description: feature branch 작업 완료 후 worktree 정리·branch 삭제·main 동기화를 체계적으로 수행하는 Lifecycle 최종 정리 스킬
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/finishing-a-development-branch/SKILL.md
+reference_upstream: obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md
 specops_version: 1.0.0
 used_by: specops-auto-ko:using-git-worktrees-ko (짝 스킬 — 작업 완료 후 호출)
 ---
