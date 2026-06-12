@@ -19,6 +19,14 @@ feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/re
 
 ## 체크리스트
 
+**0. detached HEAD 감지 (PRI-974)**:
+
+```bash
+git symbolic-ref -q HEAD >/dev/null || echo "detached HEAD — 브랜치 없음"
+```
+
+detached (분리) 상태면 merge/PR 옵션 비표시 — 메뉴를 **(1) 그대로 유지 (2) worktree 폐기** 2개로 축소.
+
 ### Step 1: 현재 상태 확인
 
 ```bash
@@ -65,18 +73,21 @@ fi
 
 ### Step 3: Worktree 정리
 
-```bash
-# 현재 FID 관련 worktree 탐색
-git worktree list | grep -F ".worktrees/"
+> **Provenance (PRI-974)**: 아래 정리는 `.worktrees/` 내부 (플러그인 생성분) 만 대상. 그 외 위치 worktree 는 **사용자 소유 — 불가침** (목록에 보여도 제거 금지):
 
-# 각 worktree 제거 (미커밋 변경 있으면 HARD GATE)
-git worktree list | grep -F ".worktrees/" | awk '{print $1}' | while read wt; do
-  if [ -n "$(git -C "$wt" status --short 2>/dev/null)" ]; then
-    echo "HARD GATE: $wt 에 미커밋 변경 있음 — 수동 처리 후 재실행"
+```bash
+# 전체 worktree 순회 — provenance 필터는 루프 내 case 1곳 (이중화 금지)
+git worktree list | awk '{print $1}' | while read wt_path; do
+  case "$wt_path" in
+    */.worktrees/*) ;;  # 플러그인 생성분 — 정리 진행
+    *) echo "사용자 소유 worktree ($wt_path) — 정리 대상 제외 (provenance)"; continue ;;
+  esac
+  if [ -n "$(git -C "$wt_path" status --short 2>/dev/null)" ]; then
+    echo "HARD GATE: $wt_path 에 미커밋 변경 있음 — 수동 처리 후 재실행"
     exit 1
   fi
-  echo "Removing worktree: $wt"
-  git worktree remove "$wt"
+  echo "Removing worktree: $wt_path"
+  git worktree remove "$wt_path"
 done
 ```
 

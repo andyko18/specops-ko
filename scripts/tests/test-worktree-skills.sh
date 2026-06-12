@@ -49,6 +49,40 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.e"
 fi
 
+# ── T2 finishing (AC-4·5) + 교차 (AC-R-2·3) ──
+
+# T2.a provenance 정리 검사 (AC-4) — 기존 .worktrees/ 필터와 통합 (이중 루프 금지)
+if grep -q 'provenance' "$FIN" && grep -q '사용자 소유' "$FIN"; then
+  PASS=$((PASS+1)); echo "PASS T2.a provenance 정리"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a"
+fi
+
+# T2.b detached HEAD 분기 (AC-5)
+if grep -q 'symbolic-ref' "$FIN" && grep -qE '(detached|분리)' "$FIN" \
+   && awk '/symbolic-ref/,0' "$FIN" | grep -q '폐기'; then
+  PASS=$((PASS+1)); echo "PASS T2.b detached 분기"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.b"
+fi
+
+# T2.c 교차: implementing-ko 의 worktree 경로 규약 정합 (AC-R-2)
+if grep -q '\.worktrees/<FID>-<task-id>' "$PLUGIN/skills/implementing-ko/SKILL.md" \
+   && grep -q '\.worktrees/' "$WT"; then
+  PASS=$((PASS+1)); echo "PASS T2.c implementing 경로 정합"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.c"
+fi
+
+# T2.d 교차: e2e S7 기존 검증 키워드 무손상 (AC-R-3)
+E2E="$PLUGIN/skills/e2e-test-ko/SKILL.md"
+if grep -q 'V17' "$E2E" && grep -q 'branch -d' "$E2E" && grep -q 'worktree' "$E2E" \
+   && grep -q 'git checkout main' "$FIN"; then
+  PASS=$((PASS+1)); echo "PASS T2.d e2e S7 비충돌"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.d"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
