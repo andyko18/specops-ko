@@ -1,0 +1,2 @@
+{"id":"d1","type":"coverage","locator":"AC-3 미매핑","desc":"AC-3 이 §5 태스크에 없음"}
+{"id":"d2","type":"type","locator":"parseInput 미정의","desc":"§5 는 parse_input 인데 §4 계약은 parseInput·validateResult 로 명명 불일치"}

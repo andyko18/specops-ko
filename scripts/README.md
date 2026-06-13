@@ -150,6 +150,7 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 ```
 
 - `bash scripts/tests/llm-eval/run-pressure-evals.sh` — **압박 테스트** (HARD GATE 우회 거부 검증, 실 claude 비용·수동 전용). `test-pressure-evals.sh` 는 stub 단위 (토큰 0, run-all 포함).
+- `bash scripts/tests/llm-eval/run-plan-ab.sh` — **plan 리뷰 A/B 측정** (inline self-review vs 2중 dispatch 검출률·토큰, 실 claude 비용·수동·예비 측정). `test-plan-ab.sh` 는 stub 집계 단위 (토큰 0).
 
 ## 참조
 
