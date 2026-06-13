@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **plan 리뷰 A/B 측정 하니스** (FID 20260613-plan-review-ab, PR #65) — `run-plan-ab.sh` 가 결함 심은 plan fixture 에 inline self-review(A) vs 2중 dispatch(B) 를 적용해 검출률·토큰 비교. `count_detected` 이중 가드 (plan 본문 등장 locator 무효화 — claude 입력 인용 over-count 차단), 결함 fixture 2종 (커버리지·플레이스홀더·타입), stub 단위 9 (토큰 0). 격차 분석 P2-1, Superpowers v5.0.6 subagent-리뷰 폐지 측정의 코드베이스 재현. 실 baseline 은 모델 가용 시 수동 측정 (한계 고백).
+
 ## [1.13.0] — 2026-06-12
 
 ### Added
