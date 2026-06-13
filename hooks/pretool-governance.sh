@@ -61,7 +61,12 @@ while IFS= read -r rule; do
 done < <(load_rules "$rules_path" "posttool" 2>/dev/null || true)
 
 if [ -n "$violation" ]; then
-  reason="verify 미실행 — verifying-evidence-ko 선행 필요. 우회: SPECOPS_GOVERNANCE_BYPASS=1"
+  case "$violation" in
+    R-1) act="git commit" ;;
+    R-2) act="gh pr create" ;;
+    *)   act="이 작업" ;;
+  esac
+  reason="$act 차단 — verify 미실행. verifying-evidence-ko 선행 필요. 우회: SPECOPS_GOVERNANCE_BYPASS=1"
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
