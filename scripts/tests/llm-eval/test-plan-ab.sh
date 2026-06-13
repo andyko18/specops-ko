@@ -76,6 +76,14 @@ if echo "$out" | grep -qE '방식 A: recall=1/2'; then
 else FAIL=$((FAIL+1)); echo "FAIL T2.e (out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 
+# ── T3 문서·무손상 ──
+if grep -q 'run-plan-ab.sh' "$PLUGIN/scripts/README.md"; then
+  PASS=$((PASS+1)); echo "PASS T3.a 문서 등재"
+else FAIL=$((FAIL+1)); echo "FAIL T3.a"; fi
+if git -C "$PLUGIN" diff --quiet HEAD -- scripts/tests/llm-eval/run-evals.sh scripts/tests/llm-eval/run-pressure-evals.sh 2>/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T3.b 기존 eval 무손상"
+else FAIL=$((FAIL+1)); echo "FAIL T3.b"; fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
