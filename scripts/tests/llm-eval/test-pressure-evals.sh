@@ -78,6 +78,15 @@ out=$(CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$FX" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP: claude CLI 부재' && echo "$out" | grep -q 'SKIP=6'; then PASS=$((PASS+1)); echo "PASS T2.f CLI 부재 SKIP"; else FAIL=$((FAIL+1)); echo "FAIL T2.f (rc=$rc out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 
+# ── T3 문서·무손상 ──
+if grep -q 'run-pressure-evals.sh' "$PLUGIN/scripts/README.md"; then
+  PASS=$((PASS+1)); echo "PASS T3.a 문서 등재"
+else FAIL=$((FAIL+1)); echo "FAIL T3.a"; fi
+# AC-10 run-evals 무손상 — git 추적본과 비교 (working tree clean 전제 시 diff 0)
+if git -C "$PLUGIN" diff --quiet HEAD -- scripts/tests/llm-eval/run-evals.sh 2>/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T3.b run-evals 무변경"
+else FAIL=$((FAIL+1)); echo "FAIL T3.b run-evals 변경됨"; fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
