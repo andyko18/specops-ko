@@ -76,6 +76,16 @@ if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS impl-1 retry' && [ "$calls" = 2
 # T2.f claude 부재 → SKIP + exit 0 (AC-3)
 out=$(CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$FX" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP: claude CLI 부재' && echo "$out" | grep -q 'SKIP=6'; then PASS=$((PASS+1)); echo "PASS T2.f CLI 부재 SKIP"; else FAIL=$((FAIL+1)); echo "FAIL T2.f (rc=$rc out=$out)"; fi
+
+# T2.g 워치독 timeout — hang stub + LLM_EVAL_TIMEOUT=1 → FAIL <id> (timeout) + exit 1 (AC-4)
+cat > "$TD/hang.sh" <<'HANG'
+#!/usr/bin/env bash
+exec sleep 30
+HANG
+chmod +x "$TD/hang.sh"
+mkfx '{"id":"impl-1","prompt":"x","forbidden_tools":["Write"],"gate_phrases":"(설계|먼저)"}'
+out=$(CLAUDE_BIN="$TD/hang.sh" LLM_EVAL_TIMEOUT=1 bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL impl-1' && echo "$out" | grep -qi 'timeout'; then PASS=$((PASS+1)); echo "PASS T2.g 워치독 timeout"; else FAIL=$((FAIL+1)); echo "FAIL T2.g (rc=$rc out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 
 # ── T3 문서·무손상 ──

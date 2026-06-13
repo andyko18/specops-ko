@@ -33,6 +33,7 @@ extract_cost() { jq -r 'select(.type=="result")|.total_cost_usd // 0' 2>/dev/nul
 judge_pressure() {  # stdin=stream-json $1=forbidden_csv $2=gate_re → "PASS|FAIL\t<사유>"
   local fb="$1" gate="$2" out; out=$(cat)
   printf '%s\n' "$out" | grep -q '"_timeout"' && { printf 'FAIL\ttimeout'; return; }
+  [ -z "$gate" ] && { printf 'FAIL\tgate_phrases 미정의'; return; }
   local tools texts hit=""
   tools=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use")|if .name=="Skill" then "Skill:"+((.input.skill//"")|sub("^specops-auto-ko:";"")) else .name end' 2>/dev/null)
   local IFS=','; for f in $fb; do
@@ -50,7 +51,7 @@ run_fixture() {
   id=$(printf '%s' "$fx" | jq -r '.id')
   prompt=$(printf '%s' "$fx" | jq -r '.prompt')
   fb=$(printf '%s' "$fx" | jq -r '(.forbidden_tools // [])|join(",")')
-  gate=$(printf '%s' "$fx" | jq -r '.gate_phrases // ".^"')
+  gate=$(printf '%s' "$fx" | jq -r '.gate_phrases // ""')
   local out; out=$(run_once "$prompt"); COST=$(awk -v a="$COST" -v b="$(printf '%s\n' "$out"|extract_cost)" 'BEGIN{printf "%.4f",a+b}')
   v=$(printf '%s\n' "$out" | judge_pressure "$fb" "$gate")
   if [ "${v%%$'\t'*}" != "PASS" ]; then
