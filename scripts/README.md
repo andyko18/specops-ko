@@ -149,6 +149,8 @@ bash scripts/tests/llm-eval/run-evals.sh            # 실 eval (claude CLI 필�
 bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (stub, 토큰 0 — run-all 포함)
 ```
 
+- `bash scripts/tests/llm-eval/run-pressure-evals.sh` — **압박 테스트** (HARD GATE 우회 거부 검증, 실 claude 비용·수동 전용). `test-pressure-evals.sh` 는 stub 단위 (토큰 0, run-all 포함).
+
 ## 참조
 
 - `docs/OSS-ATTRIBUTION.md` — drift 관리 프로토콜
