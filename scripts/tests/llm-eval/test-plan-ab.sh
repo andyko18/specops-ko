@@ -74,6 +74,15 @@ out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx" 2>&1)
 if echo "$out" | grep -qE '방식 A: recall=1/2'; then
   PASS=$((PASS+1)); echo "PASS T2.e 입력 누출 방지 (본문 키워드 미검출)"
 else FAIL=$((FAIL+1)); echo "FAIL T2.e (out=$out)"; fi
+
+# T2.f count_detected 본문 가드 — locator 가 plan 본문에도 등장하면 stub 가 인용해도 검출 무효 (측정 무결성)
+# m1 defects: d1="AC-3 미매핑"(본문 비등장) d2="명명 불일치"(본문 등장). stub 둘 다 인용해도 d2 무효 → recall=1/2
+printf '# plan 명명 불일치 본문등장\n' > "$TD/fx/m1/plan.md"
+printf '%s\n%s\n%s\n' '{"detected":["AC-3 미매핑 / 명명 불일치"],"cost":0.1}' '{"detected":["AC-3 미매핑 / 명명 불일치"],"cost":0.1}' '{"detected":["AC-3 미매핑 / 명명 불일치"],"cost":0.1}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx" 2>&1)
+if echo "$out" | grep -qE '방식 A: recall=1/2'; then
+  PASS=$((PASS+1)); echo "PASS T2.f 본문 가드 (인용해도 본문등장 locator 무효)"
+else FAIL=$((FAIL+1)); echo "FAIL T2.f (out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 
 # ── T3 문서·무손상 ──

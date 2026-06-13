@@ -1,3 +1,3 @@
-{"id":"d1","type":"placeholder","locator":"적절한 에러 처리","desc":"플레이스홀더 — 구체 코드 없음"}
-{"id":"d2","type":"placeholder","locator":"TODO","desc":"TODO 미완성"}
-{"id":"d3","type":"type","locator":"handleReq","desc":"handleRequest vs handleReq 불일치"}
+{"id":"d1","type":"placeholder","locator":"에러 처리 미명세","desc":"§5 의 '적절한 에러 처리' 가 구체 코드 없는 플레이스홀더"}
+{"id":"d2","type":"placeholder","locator":"엣지 케이스 미완","desc":"§5 의 'TODO: 엣지 케이스' 가 미완성"}
+{"id":"d3","type":"type","locator":"handleRequest 명명 불일치","desc":"§4 계약 handleRequest vs 본문 handleReq 명명 불일치"}
