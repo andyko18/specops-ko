@@ -28,6 +28,56 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b (miss=$miss)"
 fi
 
+# ── T2 judge_pressure (stub, 토큰 0) ──
+TD=$(mktemp -d)
+# stub: STUB_PLAN N째 줄 {"tools":[...],"text":"..."} → multi-content stream-json
+cat > "$TD/stub.sh" <<'STUB'
+#!/usr/bin/env bash
+n=0; [ -f "$STUB_STATE" ] && n=$(cat "$STUB_STATE"); n=$((n+1)); printf '%s' "$n" > "$STUB_STATE"
+line=$(sed -n "${n}p" "$STUB_PLAN"); [ -z "$line" ] && line=$(tail -1 "$STUB_PLAN")
+tools=$(printf '%s' "$line" | jq -r '.tools // [] | @json')
+text=$(printf '%s' "$line" | jq -r '.text // ""')
+jq -cn --argjson t "$tools" --arg x "$text" '{type:"assistant",message:{content:(($t|map({type:"tool_use",name:(if startswith("Skill:") then "Skill" else . end),input:(if startswith("Skill:") then {skill:("specops-auto-ko:"+(.|sub("^Skill:";"")))} else {} end)})) + (if $x=="" then [] else [{type:"text",text:$x}] end))}}'
+jq -cn '{type:"result",subtype:"success",total_cost_usd:0}'
+STUB
+chmod +x "$TD/stub.sh"
+mkfx(){ : > "$TD/fx.jsonl"; for l in "$@"; do printf '%s\n' "$l" >> "$TD/fx.jsonl"; done; }
+
+# T2.a 거부 발화 + 금지 도구 0 → PASS
+export STUB_STATE="$TD/c" STUB_PLAN="$TD/p"
+mkfx '{"id":"impl-1","prompt":"x","forbidden_tools":["Write","Skill:implementing-ko"],"gate_phrases":"(설계|먼저)"}'
+printf '%s\n' '{"tools":[],"text":"먼저 설계를 진행하겠습니다"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS impl-1'; then PASS=$((PASS+1)); echo "PASS T2.a 거부발화 PASS"; else FAIL=$((FAIL+1)); echo "FAIL T2.a (rc=$rc out=$out)"; fi
+
+# T2.b 금지 도구 호출 → FAIL (게이트 붕괴), 재시도 후도 → exit 1
+printf '%s\n%s\n' '{"tools":["Write"],"text":"코드 작성합니다"}' '{"tools":["Write"],"text":"코드 작성합니다"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL impl-1' && echo "$out" | grep -qi '붕괴\|Write'; then PASS=$((PASS+1)); echo "PASS T2.b 금지도구 FAIL"; else FAIL=$((FAIL+1)); echo "FAIL T2.b (rc=$rc out=$out)"; fi
+
+# T2.c 침묵 (도구 0 + gate 발화 0) → FAIL (발화 부재)
+printf '%s\n%s\n' '{"tools":[],"text":""}' '{"tools":[],"text":""}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL impl-1' && echo "$out" | grep -q '발화 부재'; then PASS=$((PASS+1)); echo "PASS T2.c 침묵 FAIL"; else FAIL=$((FAIL+1)); echo "FAIL T2.c (rc=$rc out=$out)"; fi
+
+# T2.d Skill 금지 도구 exact 매칭 — implementing-ko 호출 → FAIL, specifying-ko 호출(허용)+발화 → PASS
+mkfx '{"id":"spec-1","prompt":"x","forbidden_tools":["Skill:implementing-ko"],"gate_phrases":"(설계|먼저)"}'
+printf '%s\n' '{"tools":["Skill:specifying-ko"],"text":"먼저 설계합니다"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS spec-1'; then PASS=$((PASS+1)); echo "PASS T2.d 허용 skill PASS"; else FAIL=$((FAIL+1)); echo "FAIL T2.d (rc=$rc out=$out)"; fi
+
+# T2.e 재시도 cap=1 — 1차 침묵 → 2차 거부발화 → PASS retry + stub 2회
+printf '%s\n%s\n' '{"tools":[],"text":""}' '{"tools":[],"text":"먼저 설계"}' > "$TD/p"; : > "$TD/c"
+mkfx '{"id":"impl-1","prompt":"x","forbidden_tools":["Write"],"gate_phrases":"(설계|먼저)"}'
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+calls=$(cat "$TD/c")
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS impl-1 retry' && [ "$calls" = 2 ]; then PASS=$((PASS+1)); echo "PASS T2.e 재시도"; else FAIL=$((FAIL+1)); echo "FAIL T2.e (rc=$rc calls=$calls out=$out)"; fi
+
+# T2.f claude 부재 → SKIP + exit 0 (AC-3)
+out=$(CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$FX" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP: claude CLI 부재' && echo "$out" | grep -q 'SKIP=6'; then PASS=$((PASS+1)); echo "PASS T2.f CLI 부재 SKIP"; else FAIL=$((FAIL+1)); echo "FAIL T2.f (rc=$rc out=$out)"; fi
+rm -rf "$TD"; unset STUB_STATE STUB_PLAN
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
