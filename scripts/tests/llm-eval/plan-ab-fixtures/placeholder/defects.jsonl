@@ -1,0 +1,3 @@
+{"id":"d1","type":"placeholder","locator":"적절한 에러 처리","desc":"플레이스홀더 — 구체 코드 없음"}
+{"id":"d2","type":"placeholder","locator":"TODO","desc":"TODO 미완성"}
+{"id":"d3","type":"type","locator":"handleReq","desc":"handleRequest vs handleReq 불일치"}
