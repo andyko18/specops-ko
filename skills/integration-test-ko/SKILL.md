@@ -38,6 +38,9 @@ INTEGRATION: SKIP — <근거: spec.md §섹션명 Lxx-yy, 표현 예: "§범위
 ```
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## 다음 skill`로 chain** (나머지 절차 스킵).
 
+> **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-1 L52`). 근거 없는 SKIP 은 형식화 — 거부.
+> **관측**: `bash scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율을 확인할 수 있다 (advisory — 형식화 남발 감지).
+
 > 한계 고백: spec.md가 없거나 §범위 섹션이 없는 경우 → 사용자에게 "spec.md §범위 미발견 — 통합 표면을 수동으로 알려주세요 [혹은 skip?]" 1줄 질문. 사용자 응답에 따라 진행 또는 SKIP 처리.
 
 ---

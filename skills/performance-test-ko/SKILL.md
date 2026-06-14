@@ -37,6 +37,9 @@ PERFORMANCE: SKIP — <근거: spec.md §NFR Lxx-yy, 표현 예: "§NFR L8-12 �
 ```
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## PR 생성 게이트`로 진행** (나머지 절차 스킵).
 
+> **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **§NFR 섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-3 L54`). 근거 없는 SKIP 은 형식화 — 거부.
+> **관측**: `bash scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율을 확인할 수 있다 (advisory).
+
 > 한계 고백: spec.md §NFR 섹션이 없거나 모호한 경우 → 사용자에게 "spec.md §NFR에서 성능 임계값을 찾을 수 없습니다. [임계값 명시 / skip]" 1줄 질문.
 
 ---

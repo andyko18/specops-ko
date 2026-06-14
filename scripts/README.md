@@ -160,6 +160,19 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `docs/case-studies/2026-04-21-session-5-design.md` §3.1 — validate-structure 상세 설계
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
+## skip-tracker.sh — SKIP 비율 관측 (advisory)
+
+- `skip-tracker.sh` — integration/performance 게이트 SKIP 비율 관측 (읽기 전용, advisory). `.specops/*/evidence.md` 집계. 임계: `SKIP_TRACKER_THRESHOLD` (기본 70).
+
+```bash
+bash scripts/skip-tracker.sh
+# 출력 예 (게이트별 1줄, SKIP 비율 정수):
+# integration: total=12 PASS=3 SKIP=9 FAIL=0 (SKIP 75%)  ⚠️ 형식화 의심 (>70%)
+# performance: total=13 PASS=4 SKIP=8 FAIL=1 (SKIP 61%)
+```
+
+---
+
 ## critic-ask.sh — 외부 모델 critic 위탁 (advisory)
 
 plan.md·diff 를 Codex/Gemini CLI 에 위탁해 이종 모델 의견을 받습니다. CLI 부재 시 `CRITIC: SKIP` (chain 비차단).
