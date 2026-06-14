@@ -305,6 +305,7 @@ bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
 PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으므로) 다음을 수행한다:
 
 1. `bash scripts/gbrain-collect.sh <FID>` 실행 — handoffs Decided/Risks + evidence 결과 요약 수집
+1b. **성공지표 환류**: spec.md §1 `### 성공지표` 가 존재하면, 해당 measurable target과 evidence.md 실측 결과를 대조해 "목표 달성 여부"를 1줄로 gbrain-append 인사이트에 포함한다(가치 입증 환류). §성공지표 부재(trivial 등) 시 skip.
 2. 수집 출력에서 **차기 기능에 재사용 가능한 교훈만** 정제 — FID 당 ≤3건 (일회성 사실·당연한 절차는 제외)
 3. 각 건마다 호출:
    ```bash

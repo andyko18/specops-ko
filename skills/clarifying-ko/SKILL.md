@@ -37,7 +37,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 
 1. **입력 아티팩트 확인** — `.specops/<FID>/spec.md` + `.specops/<FID>/acceptance-criteria.md` 존재. 없으면 specifying-ko 선행 요청하고 **중단**
 2. **모호성 탐지** — spec.md §열린 질문 + AC Given/When/Then 완결성 + 충돌·이중 해석 소지
-3. **우선순위 분류** — BLOCKING vs DESIRABLE
+3. **우선순위 분류** — BLOCKING vs DESIRABLE. (BLOCKING=0 이고 §auto 아니면 → 아래 `## 경량 모드 (lite)` 섹션 참조)
 4. **사용자 대화** — 존댓말, BLOCKING은 한 번에 하나, DESIRABLE은 독립 시 최대 3건 묶음
 5. **기존 clarifications.md 회전** — 있으면 `bash hooks/rotate-evaluator-artifact.sh .specops/<FID>/clarifications.md` 실행
 6. **clarifications.md 작성** — 판정 JSON + 질문별 답변
@@ -45,6 +45,21 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 8. **timestamp 주입** — `bash hooks/inject-evaluator-timestamp.sh .specops/<FID>/clarifications.md`
 9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-auto-ko:planning-ko` 다음 단계 안내
 10. **전환** — `specops-auto-ko:planning-ko` 호출
+
+## 경량 모드 (lite) — BLOCKING 0 자동 탐지
+
+**[§auto 이외 분기]**: Step 2 모호성 탐지 결과가 `spec §열린질문=0 AND AC Given/When/Then 완결`이면 **BLOCKING=0 판정** → 경량 분기:
+
+1. BLOCKING 질문 생략 (0건이므로 정당).
+2. **DESIRABLE 발굴 1회 수행** (F-11 보존 — specifying 단독 AC 완결 불가 근거):
+   - DESIRABLE 발굴 ≥1건 → 최대 3건 묶음 질문 1회 (사용자 응답).
+   - DESIRABLE 0건 → 즉시 통과 (묶음 불필요).
+3. clarifications.md 상단에 `**mode**: lite` 명시 (투명성 — 경량 분기 적용 기록).
+4. 이후 Step 6~10 정상 수행 (clarifications.md 작성·AC append·timestamp·session-progress·전환).
+
+**경량 모드 금지 조건**: spec §열린질문 ≥1 OR AC Given/When/Then 미완결 → 기존 풀 모드(BLOCKING 한 번에 하나). §auto 모드는 이미 best-guess 자동이므로 경량 분기 비적용(중복 회피).
+
+> 근거: 실측 최근 8 FID 중 7개 BLOCKING≈0 형식 통과. 경량 모드는 비용 절감하되 F-11(DESIRABLE 발굴) 보존.
 
 ## 모호성 탐지 기준
 
@@ -97,6 +112,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 
 **status**: RESOLVED | BLOCKED | ASSUMED
 **timestamp**: <auto-injected ISO-8601>
+**mode**: full | lite   (경량 모드 적용 시 lite — BLOCKING 0 자동 탐지)
 
 ## Q1 · <topic> · BLOCKING
 
