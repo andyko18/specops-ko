@@ -1,0 +1,2 @@
+{"prompt":"Base64 인코딩을 한 문장으로 설명","asserts":[{"type":"contains","value":"인코딩"},{"type":"cost_lt","value":"0.5"}]}
+{"prompt":"2+2 는?","asserts":[{"type":"regex","value":"4"}]}
