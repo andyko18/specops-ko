@@ -23,18 +23,30 @@ mut::score() {  # <killed> <survived> → 백분율 정수
   echo $(( killed * 100 / total ))
 }
 
+# equivalent-mutant 판정 — config 의 <target>|<line>|<pattern>| 매칭 (return-code/관찰불가 변형 제외용)
+# config: MUT_EQUIV_CONF env 또는 스크립트 디렉토리 mutation-equivalent.conf
+mut::is_equivalent() {  # <target> <line> <pattern> → 0(equivalent) | 1
+  local target="$1" line="$2" pattern="$3" conf
+  conf="${MUT_EQUIV_CONF:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mutation-equivalent.conf}"
+  [ -f "$conf" ] || return 1
+  grep -Fq -- "${target}|${line}|${pattern}|" "$conf"
+}
+
 mut::run_target() {  # <target> <test_command>
   local target="$1" testcmd="$2"
   [ -f "$target" ] || { echo "SKIP: $target 부재"; return 0; }
   local bak; bak=$(mktemp)
   cp "$target" "$bak"
   trap 'cp "$bak" "$target" 2>/dev/null; rm -f "$bak"' RETURN INT TERM
-  local killed=0 survived=0 invalid=0 survived_list=""
+  local killed=0 survived=0 invalid=0 equivalent=0 survived_list=""
   local pat sedexpr lines ln
   while IFS=$'\t' read -r pat sedexpr; do
     [ -z "$pat" ] && continue
     lines=$(grep -nF -- "$pat" "$bak" 2>/dev/null | cut -d: -f1)
     for ln in $lines; do
+      if mut::is_equivalent "$target" "$ln" "$pat"; then
+        equivalent=$(( equivalent + 1 )); continue
+      fi
       cp "$bak" "$target"
       sed "${ln}${sedexpr}" "$bak" > "$target" 2>/dev/null
       # 빈 결과(sed 실패) 또는 문법 오류 → invalid (거짓 survived 차단 — Phase C Important)
@@ -50,7 +62,7 @@ mut::run_target() {  # <target> <test_command>
   done < <(mut::catalog)
   cp "$bak" "$target"
   local score; score=$(mut::score "$killed" "$survived")
-  echo "MUTATION $target: killed=$killed survived=$survived invalid=$invalid score=${score}%"
+  echo "MUTATION $target: killed=$killed survived=$survived invalid=$invalid equivalent=$equivalent score=${score}%"
   [ -n "$survived_list" ] && printf 'SURVIVED:\n%s' "$survived_list"
   trap - RETURN INT TERM
 }

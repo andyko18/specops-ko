@@ -44,5 +44,22 @@ rm -rf "$tmp"
 out3=$(mut::run_target "/nonexistent/tgt.sh" "true" 2>/dev/null)
 if printf '%s' "$out3" | grep -q "SKIP"; then echo "PASS T10 target 부재 SKIP"; PASS=$((PASS+1)); else echo "FAIL T10 SKIP ($out3)"; FAIL=$((FAIL+1)); fi
 
+# T11 equivalent 제외 — config 매칭 (target,line,pattern) 변형은 equivalent 카운트 + 분모 제외
+tmpe=$(mktemp -d)
+cat > "$tmpe/tgt.sh" <<'EOS'
+#!/usr/bin/env bash
+f() { [ -f "$1" ] || return 0; echo found; }
+f "$@"
+EOS
+cat > "$tmpe/eqv.conf" <<EOS
+$tmpe/tgt.sh|2|return 0|test stub equivalent
+EOS
+if MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::is_equivalent "$tmpe/tgt.sh" 2 "return 0"; then echo "PASS T11 is_equivalent 매칭"; PASS=$((PASS+1)); else echo "FAIL T11"; FAIL=$((FAIL+1)); fi
+if MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::is_equivalent "$tmpe/tgt.sh" 2 "&&"; then echo "FAIL T12 다른 pattern 매칭됨"; FAIL=$((FAIL+1)); else echo "PASS T12 pattern 정밀 미매칭"; PASS=$((PASS+1)); fi
+if MUT_EQUIV_CONF="/nonexistent" mut::is_equivalent "$tmpe/tgt.sh" 2 "return 0"; then echo "FAIL T13 config 부재 매칭됨"; FAIL=$((FAIL+1)); else echo "PASS T13 config 부재 graceful"; PASS=$((PASS+1)); fi
+out=$(MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::run_target "$tmpe/tgt.sh" "true" 2>/dev/null)
+if printf '%s' "$out" | grep -qE "equivalent=[0-9]+"; then echo "PASS T14 리포트 equivalent="; PASS=$((PASS+1)); else echo "FAIL T14 ($out)"; FAIL=$((FAIL+1)); fi
+rm -rf "$tmpe"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
