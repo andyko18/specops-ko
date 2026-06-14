@@ -10,6 +10,8 @@ Read the following two files (paths provided in this invocation's context):
 
 ## Review Criteria
 
+**실측 의무 (추측 판정 금지)**: 검증 가능한 주장(파일 존재·라인 위치·bash 문법·심볼 정의)은 명령 실행(`grep`/`bash -n`/`ls`)·파일 읽기(Read)로 **실측한 뒤** 판정한다. 추측("~일 것")으로 ISSUES 판정 금지. 실측 불가 항목은 `[검증 불가]` 라벨 + 근거로 명시한다.
+
 Check these 4 axes:
 
 ### 1. Completeness
