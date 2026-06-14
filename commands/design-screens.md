@@ -34,9 +34,9 @@ args = 기능 설명. 비어 있거나 너무 짧으면(10자 미만) 최소 예
 
 ## Step 2: design system 자문 + rationale 보관 (1회 공유)
 
-available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있으면 **첫 화면 전 단 1회** 호출한다. 산출된 design system을 모든 화면에 공유 적용한다. (단수 `/design-screen`은 화면마다 호출하지만 복수는 1회로 집약 — 일관성 + 토큰 절감)
+ui-ux-pro-max 는 plugin.json hard dependency(보장 동반)다. **첫 화면 전 단 1회** `ui-ux-pro-max:ui-ux-pro-max` 를 호출해 산출된 design system을 모든 화면에 공유 적용한다. (단수 `/design-screen`은 화면마다 호출하지만 복수는 1회로 집약 — 일관성 + 토큰 절감)
 
-없으면 skip → DESIGN.md 토큰 fallback(DESIGN.md 존재 시 읽어 공유). `rationale = null`
+**graceful 안전망**: 의존성 미해결(marketplace 미등록 등)로 available-skills 미감지 시 DESIGN.md 토큰 fallback(`rationale = null` + `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 경고).
 
 **[있으면]** 자문 완료 후 단수 Step 2.5와 동일한 4개 항목을 **rationale 변수**로 추출해 모든 화면에 공유 적용:
 - `style`: style 이름 + 근거 한 줄

@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- ui-ux-pro-max cross-marketplace hard dependency 선언 — 화면 설계 design system 자문을 보장 동반 설치로 격상 (plugin.json dependencies + marketplace.json allowCrossMarketplaceDependenciesOn). graceful 안전망 보존. (#20260615-uiux-hard-dependency)
+
 ## [1.14.0] — 2026-06-14
 
 ### Added

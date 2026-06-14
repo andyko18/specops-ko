@@ -28,6 +28,20 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 ---
 
+## 의존성 (ui-ux-pro-max)
+
+specops-auto-ko 는 화면 설계 시 `ui-ux-pro-max`(MIT, marketplace `ui-ux-pro-max-skill`)를 **cross-marketplace hard dependency**로 사용한다.
+
+**설치 전 marketplace 선행 등록 필수** — 미등록 시 설치가 `cross-marketplace` 에러로 **실패**한다:
+
+```bash
+claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
+```
+
+등록 후 specops-auto-ko 설치 시 ui-ux-pro-max 가 자동 동반 설치된다. (미해결 환경에서도 화면 설계는 DESIGN.md fallback 으로 graceful 동작)
+
+---
+
 ## 개요
 
 슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.

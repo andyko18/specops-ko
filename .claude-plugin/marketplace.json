@@ -1,5 +1,6 @@
 {
   "name": "specops-auto-ko-local",
+  "allowCrossMarketplaceDependenciesOn": ["ui-ux-pro-max-skill"],
   "metadata": {
     "description": "specops-auto-ko 로컬 마켓플레이스 (v1.14.0 — Claude Code 전용)"
   },

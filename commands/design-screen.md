@@ -40,10 +40,10 @@ bash scripts/_internal/design-screen.sh {name}
 > 2. 주요 **컴포넌트**는 무엇인가요? (예: 로그인 버튼, 이메일 입력)
 > 3. 이 화면에서 다음으로 이동하는 **화면**이 있나요?"
 
-### Step 2.5: [ui-ux-pro-max 있으면] design system 자문 + rationale 보관 (자동)
+### Step 2.5: design system 자문 (ui-ux-pro-max hard dependency) + rationale 보관 (자동)
 
-**탐지**: 현재 세션 available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 가 있는가?
-- **없으면**: 이 단계 전체 skip → Step 3 직행. `rationale = null`
+**탐지**: ui-ux-pro-max 는 plugin.json hard dependency(보장)다. available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 감지 시 호출, 미감지(의존성 미해결) 시 graceful fallback.
+- **없으면 (의존성 미해결)**: 이 단계 전체 skip → Step 3 직행. `rationale = null`. ⚠️ `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 로 marketplace 선행 등록 권고.
 - **있으면**: `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: ui-ux-pro-max 결과 우선 채택 — DESIGN.md 토큰은 후순위 fallback.
 
   자문 완료 후 아래 4개 항목을 **rationale 변수**로 추출해 이후 Step에서 사용:
