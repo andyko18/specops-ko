@@ -85,6 +85,30 @@ log_friction() {
     >> "$target"
 }
 
+# log_friction 의 severity 파라미터화 변형 (기존 log_friction 무변경 — append).
+# usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity>
+log_friction_sev() {
+  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}"
+  local target=".specops/$fid/friction-log.jsonl"
+  [ -n "$fid" ] || return 0
+  mkdir -p ".specops/$fid" 2>/dev/null || return 0
+  local ts; ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  local fid_json; fid_json=$(printf '%s' "$fid" | jq -R .)
+  local safe_snippet; safe_snippet=$(printf '%s' "$snippet" | cut -c1-200)
+  # dedup 비대칭(의도): block 항목끼리만 비교 — 기존 warn 줄(log_friction, severity 무시)과 공존 허용.
+  # 정상 흐름(pretool deny → posttool 미실행 / bypass → block 미기록)에선 동일 snippet 에 둘이 안 생긴다.
+  # 집계 로직이 severity 별 카운트 시 엣지에서 동일 snippet 이중계상 가능 — block 강제 기록 우선.
+  if [ -f "$target" ] && jq -e --arg r "$rule_id" --arg s "$safe_snippet" \
+       'select(.rule_id == $r and .evidence_snippet == $s and .severity == "block")' "$target" >/dev/null 2>&1; then
+    return 0
+  fi
+  jq -nc --arg ts "$ts" --argjson fid "$fid_json" --arg rule_id "$rule_id" \
+    --argjson principle "$principle" --arg snippet "$safe_snippet" \
+    --argjson offset "$offset" --arg sev "$severity" \
+    '{ ts:$ts, fid:$fid, rule_id:$rule_id, principle:$principle, severity:$sev, evidence_snippet:$snippet, transcript_offset:$offset }' \
+    >> "$target"
+}
+
 # rules.jsonl 에서 matcher + enabled:true 룰만 반환
 # usage: load_rules <rules_path> <matcher>
 load_rules() {

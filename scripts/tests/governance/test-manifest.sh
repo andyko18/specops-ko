@@ -46,6 +46,13 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T12.f"
 fi
 
+# T12.g hooks.json: PreToolUse 배열 + pretool-governance 항목 배선
+if jq -e '.hooks.PreToolUse[] | .hooks[] | select(.command | contains("pretool-governance.sh"))' "$HOOKS_JSON" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T12.g PreToolUse pretool-governance 배선"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.g PreToolUse pretool-governance 배선"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
