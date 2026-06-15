@@ -164,5 +164,54 @@ T5_c() {
 }
 T5_c && ok "T5.c 빈섹션 첫 항목 추가 (AC-6)" || fail "T5.c 빈섹션 첫 항목 추가 (AC-6)"
 
+# ── T6: escape 회귀 케이스 (AC-5/6/3) ───────────────────────────────────
+
+# T6.a AC-2/6: memo \n → 리터럴 1줄 (멀티라인 오염 0)
+T6_a() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-ea /specify 완료 'a\nb' "F" >/dev/null 2>&1 )
+  local f; f="$tmp/.specops/session-progress.md"
+  local lit; lit=$(grep -cF 'a\nb' "$f" 2>/dev/null || echo 0)
+  local sec; sec=$(awk '/^## /{x=($0 ~ "^## 20260615-ea")} x&&/^- /{c++} END{print c+0}' "$f")
+  rm -rf "$tmp"
+  [ "$lit" = "1" ] && [ "$sec" = "1" ]
+}
+T6_a && ok "T6.a memo \\n 리터럴 1줄·오염0 (AC-2/6)" || fail "T6.a memo \\n 리터럴 1줄·오염0 (AC-2/6)"
+
+# T6.b AC-6: memo \t → 리터럴 보존
+T6_b() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-eb /specify 완료 'x\ty' "F" >/dev/null 2>&1 )
+  local ret=0; grep -qF 'x\ty' "$tmp/.specops/session-progress.md" || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T6_b && ok "T6.b memo \\t 리터럴 보존 (AC-6)" || fail "T6.b memo \\t 리터럴 보존 (AC-6)"
+
+# T6.c AC-6: memo \\ → 리터럴 보존
+T6_c() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-ec /specify 완료 'p\\q' "F" >/dev/null 2>&1 )
+  local ret=0; grep -qF 'p\\q' "$tmp/.specops/session-progress.md" || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T6_c && ok "T6.c memo \\\\ 리터럴 보존 (AC-6)" || fail "T6.c memo \\\\ 리터럴 보존 (AC-6)"
+
+# T6.d AC-3: escape 포함 동일 라인 재append → 1회 (멱등)
+T6_d() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' "F" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' >/dev/null 2>&1 )
+  local cnt; cnt=$(grep -cF 'a\nb' "$tmp/.specops/session-progress.md" 2>/dev/null || echo 99)
+  rm -rf "$tmp"
+  [ "$cnt" = "1" ]
+}
+T6_d && ok "T6.d escape 동일 라인 멱등 1회 (AC-3)" || fail "T6.d escape 동일 라인 멱등 1회 (AC-3)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

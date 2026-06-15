@@ -70,9 +70,9 @@ SECTION_HEADER="## $FID"
 if grep -qF "$SECTION_HEADER" "$TARGET"; then
   # 섹션 존재 — 섹션 직후 첫 빈 줄 다음에 LINE prepend (멱등 체크 후)
   # 멱등 — 섹션 전체 스캔 (AC-5): FID 섹션 내 동일 line 존재 시 추가 skip
-  already=$(awk -v fid="$FID" -v line="$LINE" '
-    /^## / { in_s = ($0 == "## " fid || index($0, "## " fid " ") == 1) ? 1 : 0 }
-    in_s && $0 == line { found = 1 }
+  already=$(LINE="$LINE" FID="$FID" awk '
+    /^## / { in_s = ($0 == "## " ENVIRON["FID"] || index($0, "## " ENVIRON["FID"] " ") == 1) ? 1 : 0 }
+    in_s && $0 == ENVIRON["LINE"] { found = 1 }
     END { print (found ? "1" : "0") }
   ' "$TARGET")
   if [ "$already" = "1" ]; then
@@ -81,11 +81,11 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
   fi
   # awk로 처리: ## <FID> 이후 첫 빈 줄 만나면 LINE 추가, 그 다음 기존 줄들
   TMP=$(mktemp)
-  awk -v fid="$FID" -v line="$LINE" '
+  LINE="$LINE" FID="$FID" awk '
     BEGIN { added = 0; in_section = 0 }
     /^## / {
-      if (in_section && !added) { print line; added = 1 }
-      if ($0 == "## " fid || index($0, "## " fid " ") == 1) {
+      if (in_section && !added) { print ENVIRON["LINE"]; added = 1 }
+      if ($0 == "## " ENVIRON["FID"] || index($0, "## " ENVIRON["FID"] " ") == 1) {
         in_section = 1
         print
         next
@@ -94,14 +94,14 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
       }
     }
     in_section && !added && /^- / {
-      if ($0 != line) { print line }
+      if ($0 != ENVIRON["LINE"]) { print ENVIRON["LINE"] }
       added = 1
       print
       next
     }
     { print }
     END {
-      if (in_section && !added) print line
+      if (in_section && !added) print ENVIRON["LINE"]
     }
   ' "$TARGET" > "$TMP"
   mv "$TMP" "$TARGET"
@@ -113,14 +113,14 @@ else
     HEADER="$HEADER · $FEATURE"
   fi
   TMP=$(mktemp)
-  awk -v header="$HEADER" -v line="$LINE" '
+  HEADER="$HEADER" LINE="$LINE" awk '
     BEGIN { added = 0 }
     /^---$/ && !added {
       print
       print ""
-      print header
+      print ENVIRON["HEADER"]
       print ""
-      print line
+      print ENVIRON["LINE"]
       print ""
       added = 1
       next
