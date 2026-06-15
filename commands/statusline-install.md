@@ -1,0 +1,33 @@
+---
+name: statusline-install
+description: specops-auto-ko HUD statusLine을 프로젝트 .claude/settings.json에 등록 (Lifecycle 진행 상태 상시 표시)
+layer: 3
+reference_upstream: specops-auto-ko 독자 추가
+specops_version: 1.16.0
+used_by: 사용자 (1회 수동 실행)
+---
+
+# /statusline-install
+
+## 동작
+
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/statusline-install.sh"` 를 실행해 statusline.sh 절대경로를 프로젝트 `.claude/settings.json` 의 `statusLine` 키에 주입한다.
+
+- 플러그인은 statusLine을 번들 배포할 수 없으므로(Claude Code 제약) 본 command가 수동 등록을 담당한다.
+- 기존 `statusLine` 있으면 `.claude/settings.json.bak` 백업 후 갱신. 다른 키는 무손상.
+- 멱등 — 재실행해도 동일 결과.
+
+## 표시 포맷
+
+```
+◆ specops · <FID> · /<step> <status>
+```
+
+- 색상: PASS/완료/DONE 초록, FAIL/BLOCK 빨강.
+- session-progress.md 부재(비-specops 프로젝트) → `◆ specops-auto-ko` (graceful).
+
+## 참조
+
+- `scripts/statusline.sh` — 상태줄 렌더러
+- `scripts/statusline-install.sh` — 설치 핵심
+- `.specops/session-progress.md` — 파싱 소스
