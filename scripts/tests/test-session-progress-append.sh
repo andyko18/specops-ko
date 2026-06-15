@@ -124,5 +124,45 @@ T4_a() {
 }
 T4_a && ok "T4.a 파일 미존재 시 자동 생성" || fail "T4.a 파일 미존재 시 자동 생성"
 
+# ── T5: 멱등성·빈섹션 회귀 ─────────────────────────────────────────────
+
+# T5.a AC-2/5: 신규섹션 동일 라인 재append → 1회 (멱등 섹션 전체 스캔)
+T5_a() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-i /specify 완료 "m" "F" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-i /specify 완료 "m" >/dev/null 2>&1 )
+  local cnt; cnt=$(grep -c "specify 완료 (m)" "$tmp/.specops/session-progress.md" 2>/dev/null || echo 99)
+  rm -rf "$tmp"
+  [ "$cnt" = "1" ]
+}
+T5_a && ok "T5.a 멱등 재append 1회 (AC-2/5)" || fail "T5.a 멱등 재append 1회 (AC-2/5)"
+
+# T5.b AC-R-1: 다른 라인 → prepend (섹션 첫 줄 앞), 기존 라인 보존
+T5_b() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-p /specify 완료 "a" "F" >/dev/null 2>&1
+    bash "$SCRIPT" 20260615-p /clarify 완료 "b" >/dev/null 2>&1 )
+  local f; f="$tmp/.specops/session-progress.md"
+  local ret=0
+  grep -q "clarify 완료 (b)" "$f" && grep -q "specify 완료 (a)" "$f" || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T5_b && ok "T5.b 다른 라인 prepend 무손상 (AC-R-1)" || fail "T5.b 다른 라인 prepend 무손상 (AC-R-1)"
+
+# T5.c AC-6: 빈섹션(항목0)에 첫 항목 추가 보존
+T5_c() {
+  local tmp; tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
+  printf -- '---\n\n## 20260615-e · F\n\n## 20260101-old · O\n\n- old line\n' > "$tmp/.specops/session-progress.md"
+  ( cd "$tmp" && bash "$SCRIPT" 20260615-e /specify 완료 "x" >/dev/null 2>&1 )
+  local ret=0
+  grep -q "specify 완료 (x)" "$tmp/.specops/session-progress.md" || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T5_c && ok "T5.c 빈섹션 첫 항목 추가 (AC-6)" || fail "T5.c 빈섹션 첫 항목 추가 (AC-6)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

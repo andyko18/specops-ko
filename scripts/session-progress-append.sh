@@ -69,32 +69,32 @@ fi
 SECTION_HEADER="## $FID"
 if grep -qF "$SECTION_HEADER" "$TARGET"; then
   # 섹션 존재 — 섹션 직후 첫 빈 줄 다음에 LINE prepend (멱등 체크 후)
+  # 멱등 — 섹션 전체 스캔 (AC-5): FID 섹션 내 동일 line 존재 시 추가 skip
+  already=$(awk -v fid="$FID" -v line="$LINE" '
+    /^## / { in_s = ($0 == "## " fid || index($0, "## " fid " ") == 1) ? 1 : 0 }
+    in_s && $0 == line { found = 1 }
+    END { print (found ? "1" : "0") }
+  ' "$TARGET")
+  if [ "$already" = "1" ]; then
+    echo "already present (idempotent): $FID"
+    exit 0
+  fi
   # awk로 처리: ## <FID> 이후 첫 빈 줄 만나면 LINE 추가, 그 다음 기존 줄들
   TMP=$(mktemp)
   awk -v fid="$FID" -v line="$LINE" '
     BEGIN { added = 0; in_section = 0 }
     /^## / {
-      # 섹션 헤더 만남
-      if (in_section && !added) {
-        # 이전 섹션 끝 — 추가 못 했으면 여기서 추가 안 함 (다른 섹션이라)
-        in_section = 0
-      }
+      if (in_section && !added) { print line; added = 1 }
       if ($0 == "## " fid || index($0, "## " fid " ") == 1) {
         in_section = 1
         print
         next
+      } else {
+        in_section = 0
       }
     }
     in_section && !added && /^- / {
-      # 섹션 내 첫 "- " 줄 — 멱등 체크 후 LINE 추가
       if ($0 != line) { print line }
-      added = 1
-      print
-      next
-    }
-    in_section && !added && /^$/ {
-      # 섹션 내 빈 줄 (첫 항목 없음) — LINE 추가
-      print line
       added = 1
       print
       next
