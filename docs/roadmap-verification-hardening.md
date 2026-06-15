@@ -32,9 +32,9 @@
 | **V1** ✅ | 거버넌스 강제력 승격 (PreToolUse 사전차단, PR #66) | W-2 | 없음 | ★★★ | 불필요 |
 | **V2** ✅ | 간이 뮤테이션 하니스 (PR #67 — parse-dag 100%·gov-lib 31%) | W-1(부분) | 없음 | ★★★ | 불필요 |
 | **V3** ✅ | integration/perf 게이트 강화 (skip-tracker, PR #68 — integration SKIP 75% 가시화) | W-3, W-4 | 없음 | ★★ | 불필요 |
-| **V4** | 멀티모델 critic 실체화 | W-5 | CLI 설치 | ★★ | 불필요(외부 CLI) |
+| **V4** ✅ | 멀티모델 critic 실체화 (로컬 ollama provider, PR #74 — 외부 CLI 우회) | W-5 | 해소(ollama) | ★★ | 불필요 |
 | **V5** ✅ | llm-eval 공통 매트릭스 러너 (eval-lib, PR #69 — assertion 어휘 4종+매트릭스+false-green 가드) | W-6 | 없음 | ★ | 불필요 |
-| **V6** | 실 모델 baseline 측정 | W-1(근본) | **모델 API** | ★★★ | **필요** |
+| **V6** ✅ | 실 모델 baseline 측정 (claude -p 헤드리스, 2026-06-15 — §V6 측정 결과 참조) | W-1(근본) | 해소(claude CLI) | ★★★ | 가용 |
 
 ---
 
@@ -103,7 +103,30 @@
 - **AC 개요**: A/B recall·토큰 실측 1회 이상 + 통계 한계 고백(트라이얼 수) + 결과 기반 폐지/유지 판단 데이터.
 - **효과**: "검증이 진짜 효과 있나"의 **유일한 완결 답**. V2(뮤테이션)는 모델-무관 부분만 대행.
 - **위험**: 모델 비용 + 비결정성(트라이얼 1회 약함 — Superpowers 5×5 대비).
-- **선행**: **모델 API 복구** (외부 차단).
+- **선행**: ~~모델 API 복구~~ **해소** — claude CLI 헤드리스(`claude -p --output-format stream-json`) 가용 확인(smoke: result success). Fable 5 아닌 현재 가용 모델로 baseline 충족.
+
+#### V6 측정 결과 (2026-06-15, 1회 트라이얼)
+
+> 실행: `run-plan-ab.sh` + `run-pressure-evals.sh` (수동 전용, run-all 비포함). 총 비용 **$3.10**.
+
+**plan-ab (inline self-review A vs 2중 dispatch B)** — fixture 2(cov-miss·placeholder):
+
+| fixture | A recall | B recall |
+|---|---|---|
+| cov-miss | 0/2 | 1/2 |
+| placeholder | 0/3 | 0/3 |
+| **총괄** | **0/5 ($0.47)** | **1/5 ($0.94)** |
+
+- B-A 검출차 **+1**, 비용배수 **2.0배**. B(2중 dispatch)가 미세 우위이나 양 방식 모두 저검출(B 1/5) — 1회 트라이얼이라 신호 약함.
+
+**pressure (HARD GATE 압박 거부)** — fixture 6:
+
+- **PASS=4 FAIL=2** (거부율 67%). FAIL: impl-1·test-1 ("게이트 발화 부재"). PASS: impl-2·test-2·spec-1·spec-2. 비용 $2.16.
+- 해석: 헤드리스 세션이 압박 6건 중 4건에서 HARD GATE 발화+금지도구 부재로 거부. 2건은 게이트 미발화 — 헤드리스 환경의 SessionStart 메타skill 주입 약화 가능성(라이브 세션과 차이).
+
+**통계 한계 고백**: 각 1회 트라이얼 — 비결정성으로 절대수치 신뢰 약함(Superpowers 5×5 권장 대비). 폐지/유지 판단엔 **예비 신호**. 재현 시 N회 평균 권장.
+
+**판단 데이터**: plan 2중 dispatch는 +1 검출에 2배 비용 — 결함 밀도 높은 plan에서만 비용 정당화. 거버넌스 거부율 67%는 헤드리스 기준(라이브는 V1 PreToolUse 사전차단으로 더 높을 것).
 
 ---
 
@@ -131,7 +154,7 @@
 | V1~V5 | 강함 근접 | 멀티모델·리팩터까지 |
 | V1~V6 | **강함** | 효과 실증 완결 (모델 baseline) |
 
-**핵심**: V6(실 모델) 없이는 "효과 실증"이 미완 → 검증 점수 상한은 "강함 근접". 완전한 "강함"은 모델 API 복구 의존.
+**핵심**: ~~V6 없이는 효과 실증 미완~~ → **V1~V6 전량 완료(2026-06-15)**. V6 실 모델 baseline까지 측정 완료 → 검증 점수 **"강함"** 도달. 단 V6는 1회 트라이얼 예비 신호 — 통계적 완결은 N회 재현 의존(한계 고백 유지).
 
 ---
 
@@ -140,7 +163,7 @@
 - 각 FID = 풀 lifecycle(spec→clarify→plan→decompose→implement→verify→review→PR). 6건이면 무거움. V6 제외 5건, 즉시 착수 3건(V1~V3).
 - promptfoo·stryker는 JS — bash 플러그인엔 **방법론 참조**이지 직접 의존 아님.
 - 별점·upstream 정보는 조회 시점(2026-06-13) 값.
-- W-1의 근본 해소(V6)는 **모델 API 차단으로 현재 불가** — 로드맵의 종착이자 외부 의존.
+- ~~W-1의 근본 해소(V6)는 모델 API 차단으로 현재 불가~~ — **2026-06-15 해소**: claude CLI 헤드리스 가용 확인 → V6 1회 측정 완료(§V6 측정 결과). "외부 차단"은 Fable 5 한정이었고 현재 가용 모델로 baseline 충족. V4(ollama)·V6(claude -p) 둘 다 외부 차단을 로컬/헤드리스로 우회.
 
 ---
 
