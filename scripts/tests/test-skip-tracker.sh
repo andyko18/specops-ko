@@ -36,5 +36,26 @@ printf '## /integration-test — 2026-06-14\n## /performance-test — 2026-06-14
 ck "T11 인접 헤더 오연관 차단 (integration verdict 없음)" "$(skip::verdicts "$tmp2/evidence.md" integration)" ""
 rm -rf "$tmp2"
 
+# T12~T16: cite_status CITED/BARE + bare 경고
+tmpc=$(mktemp -d); mkdir -p "$tmpc/fid-c" "$tmpc/fid-b"
+printf '## /integration-test — 2026-06-15\n**결과**: SKIP\n**근거**: spec.md §2 L20-23\n' > "$tmpc/fid-c/evidence.md"
+printf '## /integration-test — SKIP (인프라, 표면 없음)\n' > "$tmpc/fid-b/evidence.md"
+ck "T12 cite_status 두줄형 CITED" "$(skip::cite_status "$tmpc/fid-c/evidence.md" integration)" "CITED"
+ck "T13 cite_status 한줄형 BARE" "$(skip::cite_status "$tmpc/fid-b/evidence.md" integration)" "BARE"
+# T13b: 두줄형 결과:SKIP 직후 근거 라인 부재(다음 헤더 직행) → BARE (hardening)
+printf '## /integration-test — 2026-06-15\n**결과**: SKIP\n## /performance-test — 2026-06-15\n**결과**: PASS\n' > "$tmpc/fid-b/evidence.md"
+ck "T13b cite_status 근거부재 두줄형 BARE" "$(skip::cite_status "$tmpc/fid-b/evidence.md" integration)" "BARE"
+printf '## /integration-test — SKIP (인프라, 표면 없음)\n' > "$tmpc/fid-b/evidence.md"
+ck "T14 verdicts 토큰 불변(CITED 파일도 SKIP)" "$(skip::verdicts "$tmpc/fid-c/evidence.md" integration)" "SKIP"
+outb=$(skip::report "$tmpc" 2>/dev/null)
+if printf '%s' "$outb" | grep -q "근거 없는 SKIP 1건"; then echo "PASS T15 bare 경고 1건"; PASS=$((PASS+1)); else echo "FAIL T15 ($outb)"; FAIL=$((FAIL+1)); fi
+rm -rf "$tmpc"
+# T16: bare=0(전부 CITED) → 경고 없음
+tmpz=$(mktemp -d); mkdir -p "$tmpz/fid-z"
+printf '## /integration-test — 2026-06-15\n**결과**: SKIP\n**근거**: §범위 L12-15\n## /performance-test — 2026-06-15\n**결과**: SKIP\n**근거**: §NFR L45\n' > "$tmpz/fid-z/evidence.md"
+outz=$(skip::report "$tmpz" 2>/dev/null)
+if printf '%s' "$outz" | grep -q "근거 없는 SKIP"; then echo "FAIL T16 cited인데 경고 ($outz)"; FAIL=$((FAIL+1)); else echo "PASS T16 cited→경고0"; PASS=$((PASS+1)); fi
+rm -rf "$tmpz"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

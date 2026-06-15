@@ -26,6 +26,29 @@ skip::verdicts() {  # <file> <gate: integration|performance>
   ' "$file"
 }
 
+skip::cite_status() {  # <file> <gate> → CITED|BARE per SKIP (라인인용 §...L<n> 또는 L<n> 유무)
+  local file="$1" gate="$2"
+  [ -f "$file" ] || return 0
+  awk -v hdr="^## /${gate}-test" -v cite='L[0-9]|§[^ ]*[0-9]' '
+    $0 ~ hdr {
+      if (skipwait) { print "BARE"; skipwait=0 }
+      if ($0 ~ /SKIP/) { print ($0 ~ cite) ? "CITED" : "BARE"; pending=0; skipwait=0 }
+      else            { pending=1; skipwait=0 }
+      next
+    }
+    /^## / { if (skipwait) { print "BARE"; skipwait=0 } pending=0; next }
+    pending && /^\*\*결과\*\*:/ {
+      if ($0 ~ /SKIP/) { skipwait=1 } else { pending=0 }
+      next
+    }
+    skipwait && /^\*\*근거\*\*:/ {
+      print ($0 ~ cite) ? "CITED" : "BARE"
+      skipwait=0; pending=0
+    }
+    END { if (skipwait) print "BARE" }
+  ' "$file"
+}
+
 skip::count() {  # <dir> <gate> → "PASS SKIP FAIL"
   local dir="$1" gate="$2" p=0 s=0 f=0 v file
   for file in "$dir"/*/evidence.md; do
@@ -44,20 +67,25 @@ skip::rate() {  # <skip> <total> → 백분율 정수
 }
 
 skip::report() {  # <dir>
-  local dir="$1" thr="${SKIP_TRACKER_THRESHOLD:-70}"
+  local dir="$1" thr="${SKIP_TRACKER_THRESHOLD:-70}" bthr="${SKIP_TRACKER_BARE_THRESHOLD:-0}"
   local any=0 file
   for file in "$dir"/*/evidence.md; do [ -f "$file" ] && { any=1; break; }; done
   [ "$any" -eq 0 ] && { echo "SKIP-TRACKER: evidence 없음 ($dir)"; return 0; }
-  local g p s f total rate
+  local g p s f total rate bare v
   for g in integration performance; do
     read -r p s f <<EOF
 $(skip::count "$dir" "$g")
 EOF
     total=$(( p + s + f ))
     rate=$(skip::rate "$s" "$total")
+    bare=0
+    for file in "$dir"/*/evidence.md; do
+      [ -f "$file" ] || continue
+      while IFS= read -r v; do [ "$v" = "BARE" ] && bare=$((bare+1)); done < <(skip::cite_status "$file" "$g")
+    done
     local warn=""
-    [ "$total" -gt 0 ] && [ "$rate" -gt "$thr" ] && warn="  ⚠️ 형식화 의심 (>${thr}%)"
-    echo "${g}: total=${total} PASS=${p} SKIP=${s} FAIL=${f} (SKIP ${rate}%)${warn}"
+    [ "$bare" -gt "$bthr" ] && warn="  ⚠️ 근거 없는 SKIP ${bare}건 (>${bthr})"
+    echo "${g}: total=${total} PASS=${p} SKIP=${s} FAIL=${f} (SKIP ${rate}% 참고) bare=${bare}${warn}"
   done
   return 0
 }
