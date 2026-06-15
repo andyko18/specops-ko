@@ -134,6 +134,29 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.a"
 fi
 
+# ── T-ollama provider 정적 검증 (AC-5) ──
+
+# T-ollama provider 로직 정적 검증 (실 위탁은 verify smoke — 토큰0)
+SRC_FILE="$SCRIPT"   # critic-ask.sh 경로
+if grep -q 'provider="ollama"' "$SRC_FILE" && grep -q 'api/generate' "$SRC_FILE" && grep -q 'CRITIC_MODEL' "$SRC_FILE"; then
+  PASS=$((PASS+1)); echo "PASS T-ollama provider 로직(감지+API+CRITIC_MODEL) 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-ollama provider 로직 누락"
+fi
+
+# T-ollama-2 CRITIC_BIN 최우선 보존 — ollama 설치돼도 CRITIC_BIN 우선 (디스패치 우선순위)
+cat > "$TD/stub2.sh" <<'STUB2'
+#!/usr/bin/env bash
+cat >/dev/null; echo "stub-custom-opinion"
+STUB2
+chmod +x "$TD/stub2.sh"
+out=$(CRITIC_BIN="$TD/stub2.sh" bash "$SCRIPT" "$TD/prompt.md"); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q "CRITIC\[custom\]"; then
+  PASS=$((PASS+1)); echo "PASS T-ollama-2 CRITIC_BIN 최우선(ollama 무관)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-ollama-2 (rc=$rc out=$out)"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

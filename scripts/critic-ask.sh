@@ -28,6 +28,8 @@ elif command -v codex >/dev/null 2>&1; then
   provider="codex"; bin="codex"
 elif command -v gemini >/dev/null 2>&1; then
   provider="gemini"; bin="gemini"
+elif command -v ollama >/dev/null 2>&1 && curl -sf -m 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
+  provider="ollama"; bin="ollama"   # 로컬 — 외부 송신 0
 else
   echo "CRITIC: SKIP (외부 CLI 부재)"
   exit 0
@@ -65,6 +67,9 @@ _invoke_provider() {
     custom) "$bin" ;;
     codex)  codex exec - ;;
     gemini) gemini -p - ;;
+    ollama) jq -Rs --arg m "${CRITIC_MODEL:-qwen2.5:7b}" '{model:$m, prompt:., stream:false}' \
+              | curl -sS -m "$TIMEOUT_S" http://localhost:11434/api/generate -d @- \
+              | jq -r '.response // empty' ;;
   esac
 }
 
