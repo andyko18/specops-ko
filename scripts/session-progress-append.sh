@@ -56,6 +56,9 @@ if [ ! -f "$TARGET" ]; then
   fi
 fi
 
+# 이중화 — prepend 직전 현 상태를 .bak 1세대로 백업 (best-effort, 실패해도 prepend 계속 — AC-2)
+[ -f "$TARGET" ] && cp "$TARGET" "$TARGET.bak" 2>/dev/null || true
+
 TS=$(date +"%Y-%m-%d %H:%M")
 LINE="- $TS $COMMAND $STATUS"
 if [ -n "$MEMO" ]; then
