@@ -211,5 +211,44 @@ EOF
 }
 T3_b && ok "T3.b §5 절대 경로 허용" || fail "T3.b §5 절대 경로 허용"
 
+# ── T4: AC-R 단독 인식 ────────────────────────────────────────────────────
+
+# T4.a: AC-R 단독 §1 통과 (AC-R-N 인식)
+T4_a() {
+  local tmp f
+  tmp=$(mktemp -d)
+  f="$tmp/ctx.md"
+  cat > "$f" <<'CTX'
+# Dispatch Context: T
+
+## 1. 담당 AC
+
+- AC-R-2: 회귀 무손상
+
+## 2. 관련 spec.md 섹션
+
+- .specops/x/spec.md
+
+## 3. 테스트 명령
+
+```bash
+bash scripts/tests/run-all.sh
+```
+
+## 4. 수정 허용 파일 (whitelist)
+
+- `foo.sh`
+
+## 5. 작업 디렉터리
+
+- `/tmp/x`
+CTX
+  local ret=0
+  bash "$SCRIPT" "$f" >/dev/null 2>&1 || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T4_a && ok "T4.a AC-R 단독 §1 통과 (AC-R-N 인식)" || fail "T4.a AC-R 단독 §1 통과 (AC-R-N 인식)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

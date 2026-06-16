@@ -6,7 +6,7 @@
 #       2 = 사용법 오류 또는 파일 없음
 #
 # 검증 항목 (5 컨텍스트):
-#   1. ## 1. 담당 AC          — 최소 AC-N 1건
+#   1. ## 1. 담당 AC          — 최소 AC-N/AC-R-N 1건
 #   2. ## 2. 관련 spec.md 섹션 — 최소 .specops/<FID>/spec.md 또는 acceptance-criteria.md 1개
 #   3. ## 3. 테스트 명령       — bash 코드 블록 1개 (`bash` shebang 또는 명령 라인)
 #   4. ## 4. 수정 허용 파일   — 최소 1 파일 (whitelist 비어있지 않음)
@@ -49,9 +49,9 @@ has_meaningful_content() {
   printf '%s' "$body" | grep -Eq "$pattern"
 }
 
-# 1. 담당 AC — 최소 "AC-N" 패턴 1건 (placeholder <Given/When/Then ...> 제외)
+# 1. 담당 AC — 최소 "AC-N" 또는 "AC-R-N" 패턴 1건 (placeholder <Given/When/Then ...> 제외)
 sec1=$(extract_section "1\\. 담당 AC")
-if ! printf '%s' "$sec1" | grep -E '^- AC-[0-9]+' | grep -vq '<' ; then
+if ! printf '%s' "$sec1" | grep -E '^- AC-(R-)?[0-9]+' | grep -vq '<' ; then
   MISSING+=("1. 담당 AC (AC-N 1건 이상 필요)")
 fi
 
