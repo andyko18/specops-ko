@@ -1,6 +1,6 @@
 # specops-auto-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.15.1)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.16.0)
 
 ## 사용방법
 
@@ -238,4 +238,4 @@ specops-auto-ko/
 
 ---
 
-*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.15.1 (2026-06-15)** · Claude Code 전용*
+*초기화: 2026-04-21 · PoC Gold PASS: 2026-04-22 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.16.0 (2026-06-19)** · Claude Code 전용*
