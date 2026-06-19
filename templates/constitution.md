@@ -1,11 +1,11 @@
 <!-- reference_upstream: github/spec-kit .specify/memory/constitution-template.md -->
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 헌법
 
 > AI 에이전트와 사람 모두 읽는 프로젝트의 **불변 원칙** 문서. spec-kit `.specify/memory/constitution-template.md` 패턴 차용.
-> 본 파일은 `/start-project` 가 1회 생성. 이후 변경은 거버넌스 §개정 절차 준수.
+> 본 파일은 `/init-project` 가 1회 생성. 이후 변경은 거버넌스 §개정 절차 준수.
 
 **version**: 1.0.0
 **ratification_date**: <YYYY-MM-DD>
@@ -65,4 +65,4 @@
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 3)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 3)*

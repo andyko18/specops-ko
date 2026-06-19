@@ -1,14 +1,14 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Document -->
 
 # <PROJECT_NAME> PRD
 
-> Product Requirements Document — 프로젝트 전체 비전·목표·페르소나·마일스톤. `/start-project` Phase 4 가 1회 생성.
+> Product Requirements Document — 프로젝트 전체 비전·목표·페르소나·마일스톤. `/init-project` Phase 4 가 1회 생성.
 > 이후 기능별 spec.md 가 본 PRD 의 §4 마일스톤을 분해.
 
 ## 1. 프로젝트 개요
 
-**한 줄 설명**: <한 줄 — `/start-project` Q1 입력값>
+**한 줄 설명**: <한 줄 — `/init-project` Q1 입력값>
 
 **목적**: <2~3 문장 — 이 프로젝트가 해결하는 문제>
 
@@ -16,13 +16,13 @@
 
 ## 2. 대상 사용자 / 페르소나
 
-**주요 페르소나**: <`/start-project` Q2 입력값 — 1~2 문장>
+**주요 페르소나**: <`/init-project` Q2 입력값 — 1~2 문장>
 
 **부차적 페르소나** (선택): <필요 시 추가>
 
 ## 3. 핵심 가치제안
 
-`/start-project` Q3 입력값 — 3 개:
+`/init-project` Q3 입력값 — 3 개:
 
 - <가치 1>
 - <가치 2>
@@ -32,7 +32,7 @@
 
 각 마일스톤이 1~N 개의 `.specops/<FID>/spec.md` 로 분해됨:
 
-- **M1**: <`/start-project` Q5 입력값 — 첫 마일스톤 한 줄>
+- **M1**: <`/init-project` Q5 입력값 — 첫 마일스톤 한 줄>
 - **M2**: <Q6 입력값>
 - **M3**: <Q7 입력값>
 
@@ -70,4 +70,4 @@ placeholder — `.specops/memory/requirements.md` §3 NFR 표가 상세화:
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 4)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 4)*

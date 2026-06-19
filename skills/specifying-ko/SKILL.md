@@ -42,12 +42,12 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
 1. **프로젝트 맥락 탐색** — 파일·문서·최근 커밋 확인
    - 프로젝트 루트 `DESIGN.md` 존재 확인 (`ls DESIGN.md`)
      → **있으면**: 생성하는 `spec.md` §참조에 "`DESIGN.md` 디자인 시스템 준수" 포함
-     → **없으면**: UI 컴포넌트 포함 기능이면 (HTML/CSS/React/Vue 등 시각 렌더링 포함) `/start-project` 실행 안내 (Phase 6 에서 DESIGN.md 생성 — `/start-design` 은 deprecated, `/start-project` 로 통합)
+     → **없으면**: UI 컴포넌트 포함 기능이면 (HTML/CSS/React/Vue 등 시각 렌더링 포함) `/init-project` 실행 안내 (Phase 6 에서 DESIGN.md 생성 — `/start-design` 은 deprecated, `/init-project` 로 통합)
    - 프로젝트 루트 `screens/` 존재 확인 (`ls screens/ 2>/dev/null`)
      → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (Step 5.5에서 신규 화면 설계 예정)
      → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
      → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (Step 5.5 인라인 화면 설계에서 처리)
-   - **`.specops/memory/*` 부트스트랩 산출물 자동 감지** (v2.0 신규 — `/start-project` 산출):
+   - **`.specops/memory/*` 부트스트랩 산출물 자동 감지** (v2.0 신규 — `/init-project` 산출):
      - `.specops/memory/` 부재 → **graceful skip** (기존 dogfood 회귀 보호 — 부트스트랩되지 않은 프로젝트도 specifying-ko 정상 동작)
      - 존재 시: `ls .specops/memory/*.md 2>/dev/null` 결과를 spec.md `§참조` 에 자동 인용 (Step 6 작성 시):
 
@@ -169,7 +169,7 @@ args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 �
     ↓
 DESIGN.md 존재? ── yes ──▶ spec.md §참조에 "DESIGN.md 디자인 시스템 준수" 포함
     │                              ↓
-    └── no (UI 기능이면 /start-project 안내 — Phase 6 에서 DESIGN.md 생성)
+    └── no (UI 기능이면 /init-project 안내 — Phase 6 에서 DESIGN.md 생성)
     ↓
 screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
     │

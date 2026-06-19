@@ -18,7 +18,7 @@ used_by: /brainstorming, 선택적 pre-start-project 진입
 
 **코드 작성 금지.** 파일 생성·수정·삭제·commit 금지.
 
-탐색 완료 후 구현은 `/start-project` → `/start <기능>` 으로 진입.
+탐색 완료 후 구현은 `/init-project` → `/start <기능>` 으로 진입.
 </HARD-GATE>
 
 ---
@@ -248,7 +248,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 - [ ] ...
 
 ## 다음 단계
-- [ ] /start-project <프로젝트명>
+- [ ] /init-project <프로젝트명>
 ```
 
 **[Builder 모드] 산출물:**
@@ -277,7 +277,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 - [ ] ...
 
 ## 다음 단계
-- [ ] /start-project <프로젝트명>
+- [ ] /init-project <프로젝트명>
 ```
 
 **저장 전 자가 점검** — 5개 중 3개 이상 충족 시 저장 진행:
@@ -303,7 +303,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 브레인스토밍 완료 후:
 
-- `/start-project` — 프로젝트 구조 부트스트랩 (탐색 메모 자동 참조)
+- `/init-project` — 프로젝트 구조 부트스트랩 (탐색 메모 자동 참조)
 - `/start <기능>` — 프로젝트가 이미 초기화된 경우 바로 Lifecycle 진입
 
 강제 chain 없음 — 탐색 결과로 방향 사용자 결정.

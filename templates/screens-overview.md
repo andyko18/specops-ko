@@ -1,14 +1,14 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 화면 목록 마스터
 
-> 한국 SI 표준 "화면설계서" 의 마스터. `/start-project` Phase 8g (또는 Phase 7 화면 입력 시) 가 1회 생성.
+> 한국 SI 표준 "화면설계서" 의 마스터. `/init-project` Phase 8g (또는 Phase 7 화면 입력 시) 가 1회 생성.
 > 화면별 상세는 `screens/<name>.md` + `screens/<name>.html` 참조 (specifying-ko Step 5.5 또는 `/design-screen` 으로 갱신).
 
 ## 1. 화면 목록
 
-`/start-project` Phase 7 가 사용자 화면 목록 입력을 받아 자동 채움:
+`/init-project` Phase 7 가 사용자 화면 목록 입력을 받아 자동 채움:
 
 | name | 제목 | 목적 | 상세 스펙 | 미리보기 |
 |---|---|---|---|---|
@@ -75,4 +75,4 @@ stateDiagram-v2
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 7 또는 8g)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 7 또는 8g)*

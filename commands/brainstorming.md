@@ -13,7 +13,7 @@ reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 
 
 ## 목적
 
-`/start-project` 전에 "뭘 만들지 모르겠을 때" 또는 아이디어를 검증·구체화하고 싶을 때 사용하는 **선택적 진입점**.
+`/init-project` 전에 "뭘 만들지 모르겠을 때" 또는 아이디어를 검증·구체화하고 싶을 때 사용하는 **선택적 진입점**.
 
 Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(창의 탐색) 중 하나를 선택해 진행한다.
 
@@ -23,7 +23,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 2. 모드 선택 GATE (Startup / Builder)
 3. 질문 기반 탐색 진행
 4. 산출물 저장: `.specops/memory/brainstorming-<날짜>-<슬러그>.md`
-5. 탐색 완료 후 사용자 결정에 따라 `/start-project` 또는 `/start <기능>` 진행
+5. 탐색 완료 후 사용자 결정에 따라 `/init-project` 또는 `/start <기능>` 진행
 
 ## 권장 흐름
 
@@ -32,7 +32,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
     ↓
 .specops/memory/brainstorming-*.md 저장
     ↓ (탐색 완료 후 선택)
-/start-project          # 프로젝트 구조 부트스트랩 (메모 자동 참조)
+/init-project          # 프로젝트 구조 부트스트랩 (메모 자동 참조)
     ↓
 /start <첫 기능>         # Lifecycle 진입
 ```
@@ -46,7 +46,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 → "Startup / Builder 모드 선택" GATE
 → Startup 선택 → YC 6 질문 진행
 → .specops/memory/brainstorming-20260515-schedule-app.md 저장
-→ "/start-project 로 부트스트랩하시겠어요?" 안내
+→ "/init-project 로 부트스트랩하시겠어요?" 안내
 ```
 
 ```
@@ -60,18 +60,18 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ## 선택적 진입점
 
-본 슬래시는 Lifecycle **필수 단계가 아니다**. 이미 뭘 만들지 알면 바로 `/start-project` 또는 `/start <기능>`으로 진입해도 된다.
+본 슬래시는 Lifecycle **필수 단계가 아니다**. 이미 뭘 만들지 알면 바로 `/init-project` 또는 `/start <기능>`으로 진입해도 된다.
 
 | 상황 | 권장 진입 |
 |---|---|
-| 아이디어가 있지만 방향 불확실 | `/brainstorming <아이디어>` → `/start-project` |
-| 무엇을 만들지 이미 앎 | `/start-project` 직행 |
+| 아이디어가 있지만 방향 불확실 | `/brainstorming <아이디어>` → `/init-project` |
+| 무엇을 만들지 이미 앎 | `/init-project` 직행 |
 | 프로젝트 초기화됨, 기능 구현 시작 | `/start <기능>` 직행 |
 
 ## 안티패턴
 
 - **구현 직진 요구** — 탐색이 목적. 코드 작성은 brainstorming-ko의 HARD GATE에 의해 거절됨
-- **강제 chain** — 탐색 후 `/start-project` 자동 호출 없음. 사용자 결정
+- **강제 chain** — 탐색 후 `/init-project` 자동 호출 없음. 사용자 결정
 
 ## 참조
 

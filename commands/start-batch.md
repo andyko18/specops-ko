@@ -15,7 +15,7 @@ reference_upstream: specops-auto-ko 독자 추가
 
 `requirements.md` FR 표의 **전체 기능**을 단일 세션에서 일괄 구현하는 오케스트레이터.
 
-`/start-project`(doc-only) → `/start-foundation`(공통 코드) → **`/start-batch`(전체 기능 일괄 구현)** 순서로 진행. `/start`의 단일 기능 루프를 FR 단위로 자동 반복한다.
+`/init-project`(doc-only) → `/start-foundation`(공통 코드) → **`/start-batch`(전체 기능 일괄 구현)** 순서로 진행. `/start`의 단일 기능 루프를 FR 단위로 자동 반복한다.
 
 ## Process
 
@@ -27,7 +27,7 @@ reference_upstream: specops-auto-ko 독자 추가
    ```
 2. **requirements.md 탐색** (`.specops/memory/requirements.md` 우선, 없으면 루트):
    - 탐색 순서: `.specops/memory/requirements.md` → `requirements.md`
-   - 두 곳 모두 없으면: "`requirements.md`가 없습니다. `/start-project`를 먼저 실행하세요." 출력 후 **중단**
+   - 두 곳 모두 없으면: "`requirements.md`가 없습니다. `/init-project`를 먼저 실행하세요." 출력 후 **중단**
 3. **FR 목록 파싱**:
    ```bash
    grep -E '^\| FR-[0-9]+ \|' <requirements.md 경로>
@@ -138,7 +138,7 @@ EOF
 
 ## 안티패턴
 
-- **requirements.md FR 표 없이 실행** — `/start-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-batch` 진입
+- **requirements.md FR 표 없이 실행** — `/init-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-batch` 진입
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
 - **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step C)만 생성
 - **Phase 2 건너뜀** — 일괄 리뷰 게이트는 필수. 사용자 확인 없이 Phase 3 진입 금지

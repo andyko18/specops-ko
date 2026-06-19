@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 전체 아키텍처
 
-> 한국 SI 표준 "전체 아키텍처". `/start-project` Phase 8b 가 1회 생성.
+> 한국 SI 표준 "전체 아키텍처". `/init-project` Phase 8b 가 1회 생성.
 > 시스템 컴포넌트·통신·배포·외부 의존 마스터. 프론트/백엔드 상세는 별도 문서.
 
 ## 1. 시스템 컴포넌트
@@ -89,4 +89,4 @@ graph TD
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8b)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8b)*

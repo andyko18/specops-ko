@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 프론트엔드 아키텍처
 
-> 한국 SI 표준 "프론트 아키텍처". `/start-project` Phase 8c 가 1회 생성 (UI/풀스택/모바일 종류만).
+> 한국 SI 표준 "프론트 아키텍처". `/init-project` Phase 8c 가 1회 생성 (UI/풀스택/모바일 종류만).
 > 디자인 시스템은 `DESIGN.md` 참조. AI 에이전트 일관성을 위해 §6 AI Usage Guidelines 자동 인용.
 
 ## 1. 프레임워크
@@ -84,4 +84,4 @@ src/
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8c)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8c)*

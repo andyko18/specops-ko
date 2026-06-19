@@ -24,7 +24,7 @@ reference_upstream: specops-auto-ko 독자 추가
 | **`/design-screen [name]`** | 독립 슬래시 | lifecycle 밖에서 **화면 1개** 신규/수정 |
 | **`/design-screens`** | 독립 슬래시 | lifecycle 밖에서 **여러 화면 일괄** (목록 자동판단 + 승인게이트 + 순차루프) |
 
-> `/start-project` Phase 7 은 화면 **목록 + 빈 골격**만 생성(설계 콘텐츠 X) — 위 3경로가 채운다.
+> `/init-project` Phase 7 은 화면 **목록 + 빈 골격**만 생성(설계 콘텐츠 X) — 위 3경로가 채운다.
 > 즉 `/start` 로 UI 기능 개발 중이면 Step 5.5 가 자동 처리하므로 `/design-screen` 을 따로 부를 필요 없다. 독립 화면 작업 시에만 단수/복수 슬래시 사용.
 
 ## Process

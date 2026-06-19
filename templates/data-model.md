@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 테이블 설계서 (Data Model)
 
-> 한국 SI 표준 "테이블 설계서". `/start-project` Phase 8e 가 1회 생성 (DB 사용 시).
+> 한국 SI 표준 "테이블 설계서". `/init-project` Phase 8e 가 1회 생성 (DB 사용 시).
 > ERD + 엔티티 표 + 인덱스 + 제약 + 마이그레이션 도구 마스터.
 
 ## 1. DB 종류
@@ -120,4 +120,4 @@ erDiagram
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8e)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8e)*

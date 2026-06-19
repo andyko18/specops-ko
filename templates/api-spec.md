@@ -1,14 +1,14 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> IF 설계서 (API Specification)
 
-> 한국 SI 표준 "IF 설계서". `/start-project` Phase 8f 가 1회 생성 (BE/풀스택 종류만).
+> 한국 SI 표준 "IF 설계서". `/init-project` Phase 8f 가 1회 생성 (BE/풀스택 종류만).
 > 4 가지 정의 방식 중 사용자가 선택한 §섹션만 활성. 나머지는 placeholder 로 남김.
 
 ## §0. 정의 방식 선택
 
-`/start-project` Phase 8f 가 사용자에게 선택받음. 활성 §섹션 표시:
+`/init-project` Phase 8f 가 사용자에게 선택받음. 활성 §섹션 표시:
 
 - [ ] §1 Markdown 엔드포인트 표 (가벼움, 빠른 시작)
 - [ ] §2 OpenAPI 3.1 YAML 골격 (정식, swagger 통합)
@@ -218,4 +218,4 @@ export interface UserRouter {
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8f)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8f)*

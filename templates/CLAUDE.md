@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-<PRD §1 한 줄 설명 자동 인용 — `/start-project` Phase 5 가 채움>
+<PRD §1 한 줄 설명 자동 인용 — `/init-project` Phase 5 가 채움>
 
 ## specops-auto-ko 사용
 
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **신규 기능**: `/start "<기능 설명>"`
 - **유지보수**: `/maintain "<대상>"`
-- **프로젝트 부트스트랩**: `/start-project [<프로젝트명>]` (이미 실행됨)
+- **프로젝트 부트스트랩**: `/init-project [<프로젝트명>]` (이미 실행됨)
 - **산출물**: `.specops/<FID>/` (기능별 lifecycle 산출물)
 
 ## 테스트 명령
@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 코딩 컨벤션
 
-<constitution.md §원칙 5개 자동 요약 인용 — `/start-project` Phase 5 가 채움>
+<constitution.md §원칙 5개 자동 요약 인용 — `/init-project` Phase 5 가 채움>
 
 - 원칙 1: <원칙 1 이름 — 1줄 요약>
 - 원칙 2: <원칙 2 이름 — 1줄 요약>
@@ -39,7 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 아키텍처
 
-`.specops/memory/*` 산출물 자동 인덱스 — `/start-project` Phase 5 가 활성 산출물만 채움:
+`.specops/memory/*` 산출물 자동 인덱스 — `/init-project` Phase 5 가 활성 산출물만 채움:
 
 - 헌법: `.specops/memory/constitution.md`
 - 요구사항 마스터: `.specops/memory/requirements.md`
@@ -63,4 +63,4 @@ UI 프로젝트인 경우:
 
 ---
 
-*생성: /start-project (Phase 5) · `.specops/memory/*` 인덱스 자동 갱신*
+*생성: /init-project (Phase 5) · `.specops/memory/*` 인덱스 자동 갱신*

@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 백엔드 아키텍처
 
-> 한국 SI 표준 "백엔드 아키텍처". `/start-project` Phase 8d 가 1회 생성 (BE/풀스택 종류만).
+> 한국 SI 표준 "백엔드 아키텍처". `/init-project` Phase 8d 가 1회 생성 (BE/풀스택 종류만).
 
 ## 1. 프레임워크
 
@@ -97,4 +97,4 @@ DLQ (Dead Letter Queue) 정책: 3 회 실패 → DLQ 이동 + 알림
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8d)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8d)*

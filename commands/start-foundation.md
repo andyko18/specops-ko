@@ -15,7 +15,7 @@ reference_upstream: specops-auto-ko 독자 추가
 
 specops-auto-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 가능한 공통부 코드(라우팅·레이아웃·인증·공통 컴포넌트·DB 마이그레이션)를 생성하는 독립 커맨드.
 
-한국 SI 표준 "공통부 먼저 개발" 단계를 지원한다. `/start-project`(doc-only) → **`/start-foundation`(공통 코드)** → `/start`(기능 단위) 순서로 진행.
+한국 SI 표준 "공통부 먼저 개발" 단계를 지원한다. `/init-project`(doc-only) → **`/start-foundation`(공통 코드)** → `/start`(기능 단위) 순서로 진행.
 
 ## Process
 
@@ -40,7 +40,7 @@ specops-auto-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** �
 
 - **화면 단위 구현 요구** — `/start-foundation` 은 인프라·공통부 전용. 화면 단위 기능은 foundation 완료 후 `/start` 로 진행
 - **specifying-ko 생략** — 공통부라도 spec → clarify → plan → decompose 체인 필수. 직접 구현 금지
-- **`/start-project` 대체** — `/start-foundation` 은 foundation 코드 생성 전용. 프로젝트 문서 부트스트랩은 `/start-project` 담당
+- **`/init-project` 대체** — `/start-foundation` 은 foundation 코드 생성 전용. 프로젝트 문서 부트스트랩은 `/init-project` 담당
 
 ## 참조
 

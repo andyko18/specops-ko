@@ -97,7 +97,7 @@ e2e_check() {
 
 ## [S0] BOOTSTRAP — start-project 부트스트랩 (격리 repo, 진입부)
 
-lifecycle **진입부** 검증 — `/start-project` 의 비대화 산출물 생성을 격리 repo 에서 확인.
+lifecycle **진입부** 검증 — `/init-project` 의 비대화 산출물 생성을 격리 repo 에서 확인.
 **비대화 우회**: phase_4 fallback 이 `/dev/tty` 를 직접 read 하므로 `echo n |` 으로는 막힌다.
 대신 **유효 numbered list 를 stdin 공급해 parse 성공(≥4/6) 경로를 강제**(fallback 미진입).
 `PROJECT_KIND=3`(CLI) 은 greet 의미 일치 + phase 6/7/8b/8c/8d/8f skip(python3 의존 제거).
@@ -155,7 +155,7 @@ rm -rf "$TMP"
 생성 후:
 
 ```bash
-bash scripts/session-progress-append.sh "$FID" "/start-project" "완료" "부트스트랩 V10~V13 (격리 repo)" "greet-cli E2E"
+bash scripts/session-progress-append.sh "$FID" "/init-project" "완료" "부트스트랩 V10~V13 (격리 repo)" "greet-cli E2E"
 ```
 
 ---

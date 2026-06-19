@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 요구사항 설계서
 
-> 한국 SI 표준 "요구사항 설계서". 전사 FR/NFR/제약 마스터. `/start-project` Phase 8a 가 1회 생성.
+> 한국 SI 표준 "요구사항 설계서". 전사 FR/NFR/제약 마스터. `/init-project` Phase 8a 가 1회 생성.
 > 기능별 상세는 `.specops/<FID>/spec.md` 가 위임받음.
 
 ## 1. 개요
@@ -71,4 +71,4 @@
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8a)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8a)*

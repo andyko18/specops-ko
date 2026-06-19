@@ -1,9 +1,9 @@
-<!-- OWNER_COMMAND: /start-project -->
+<!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 테스트 전략
 
-> 한국 SI 표준 "테스트 CASE" 의 전사 정책. `/start-project` Phase 8h 가 1회 생성.
+> 한국 SI 표준 "테스트 CASE" 의 전사 정책. `/init-project` Phase 8h 가 1회 생성.
 > 기능별 테스트 CASE 는 `.specops/<FID>/acceptance-criteria.md` 가 흡수 (sprint-contracts-ko 계약).
 
 ## 1. 테스트 피라미드 정책
@@ -82,4 +82,4 @@ jobs:
 
 ---
 
-*작성: <작성자> · <YYYY-MM-DD> · 생성: /start-project (Phase 8h)*
+*작성: <작성자> · <YYYY-MM-DD> · 생성: /init-project (Phase 8h)*

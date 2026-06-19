@@ -1,6 +1,6 @@
 # <PROJECT_NAME>
 
-<PRD §1 한 줄 설명 자동 인용 — `/start-project` Phase 9 가 채움>
+<PRD §1 한 줄 설명 자동 인용 — `/init-project` Phase 9 가 채움>
 
 ## 설치
 
@@ -46,4 +46,4 @@
 
 ---
 
-*초기화: <YYYY-MM-DD> · 생성: /start-project (Phase 9)*
+*초기화: <YYYY-MM-DD> · 생성: /init-project (Phase 9)*
