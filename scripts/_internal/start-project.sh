@@ -464,7 +464,29 @@ _phase_8a_requirements() {
   _should_skip "$target" && { echo "→ ${target} skip"; return; }
   cp "$PLUGIN/templates/requirements.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
-  echo "→ ${target} (8a 모든 종류)"
+  # 전략 C: PRD 마일스톤(PRD_F4/F5/F6) → §5 이름 치환 + §2 FR 시드행
+  _seed_fr_row() {  # $1=FR-N $2=텍스트 $3=마일스톤 $4=우선순위
+    [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
+    _replace_line_prefix "$target" "| $1 |" "| $1 | $2 | $3 | $4 | (TBD) |"
+  }
+  _seed_ms_name() { # $1=마일스톤헤더 prefix $2=텍스트
+    [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
+    _replace_line_prefix "$target" "$1" "$1$2"
+  }
+  _seed_ms_name "### M1 — " "${PRD_F4:-}"
+  _seed_ms_name "### M2 — " "${PRD_F5:-}"
+  _seed_ms_name "### M3 — " "${PRD_F6:-}"
+  _seed_fr_row "FR-1" "${PRD_F4:-}" "M1" "must"
+  _seed_fr_row "FR-2" "${PRD_F5:-}" "M2" "should"
+  _seed_fr_row "FR-3" "${PRD_F6:-}" "M3" "nice"
+  # 안내 주석 — 실제 시드값(<TODO> 아닌 비어있지 않은 값) 1건 이상일 때만 (critic 권고 반영)
+  if [ "${PRD_F4:-}" != "" ] && [ "${PRD_F4:-}" != "<TODO>" ] \
+     || { [ "${PRD_F5:-}" != "" ] && [ "${PRD_F5:-}" != "<TODO>" ]; } \
+     || { [ "${PRD_F6:-}" != "" ] && [ "${PRD_F6:-}" != "<TODO>" ]; }; then
+    _replace_line_prefix "$target" "각 FR 은 고유 ID" \
+      "각 FR 은 고유 ID + 마일스톤 매핑 + 우선순위. > 아래 FR-1~3 은 PRD 마일스톤 시드 — 세부 FR 로 분해하세요."
+  fi
+  echo "→ ${target} (8a 모든 종류, FR 합성)"
 }
 
 _phase_8b_architecture() {
