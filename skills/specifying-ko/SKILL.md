@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - specops-ko skills/engine/brainstorming-ko.md
 specops_version: 1.10.0
-used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-batch
+used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-all
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -37,7 +37,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    기존 `.specops/<FID>/` 디렉토리가 있으면 (유지보수 분기 재진입) 스킵.
    [유지보수 분기]는 analyzing-ko Step 0이 브랜치 생성을 담당하므로 본 스텝 적용 제외.
 
-   **[batch 분기]**: args 첫 줄이 `<!-- entry: batch -->` 이면 → `bash scripts/git-branch-create.sh` **호출 금지** (브랜치는 `/start-batch` 오케스트레이터가 이미 생성). 둘째 줄 `<!-- batch-id: <id> -->` 에서 batch-id를 추출해 Step 6에서 `**§batch**: <id>` 라벨 기재에 사용.
+   **[batch 분기]**: args 첫 줄이 `<!-- entry: batch -->` 이면 → `bash scripts/git-branch-create.sh` **호출 금지** (브랜치는 `/start-all` 오케스트레이터가 이미 생성). 둘째 줄 `<!-- batch-id: <id> -->` 에서 batch-id를 추출해 Step 6에서 `**§batch**: <id>` 라벨 기재에 사용.
 
 1. **프로젝트 맥락 탐색** — 파일·문서·최근 커밋 확인
    - 프로젝트 루트 `DESIGN.md` 존재 확인 (`ls DESIGN.md`)

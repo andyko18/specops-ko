@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
 specops_version: 1.10.0
-used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구), /start-batch (BATCH-PHASE1-DONE halt 분기)
+used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
 # Engine 스킬 — 태스크 분해 (decomposing)
@@ -274,7 +274,7 @@ else
 fi
 ```
 
-- **§batch (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-batch` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
+- **§batch (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-all` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
 - **§auto (auto 분기)** → implementing-ko 직행. §auto 라벨이 propagate되어 각 단계에서 가역 게이트 자동 통과가 계속됨.
 - **단일 분기** → 기존 동작:
 

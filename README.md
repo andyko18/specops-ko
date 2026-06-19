@@ -16,7 +16,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 |---|---|---|
 | **프로젝트 초기화** (1회) | `/init-project [<프로젝트명>]` | (메타 skill 자동 안내) |
 | **공통부 개발** (초기 1회) | `/start-foundation "라우팅·인증·공통 레이아웃"` | — |
-| **전체 기능 일괄 구현** | `/start-batch` | — |
+| **전체 기능 일괄 구현** | `/start-all` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **신규 기능 (무인)** | `/start-auto "<기능>"` | — |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
@@ -31,7 +31,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 │         ├─ 예 → /start-foundation (공통부 코드, 1회)
 │         └─ 아니오 → 다음
 │         ↓ requirements.md FR 표 확정 + 한번에 일괄?
-│         ├─ 예 → /start-batch (FR 전체 일괄, batch PR 1개)
+│         ├─ 예 → /start-all (FR 전체 일괄, batch PR 1개)
 │         └─ 아니오 → 기능마다 ↓
 │
 └─ 기존 프로젝트 작업 ↓
@@ -41,7 +41,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
    └─ 예 (기존 수정·제거·확장) → /maintain "<대상>"
          · analyzing 선행(영향 분석) + 회귀 AC 강제
 
-· 신규 프로젝트 순서: /init-project → /start-foundation → /start-batch (또는 기능마다 /start)
+· 신규 프로젝트 순서: /init-project → /start-foundation → /start-all (또는 기능마다 /start)
 · 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
 ```
 
@@ -128,7 +128,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (15건)
+├── commands/                                 ← 슬래시 진입로 (16건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -141,7 +141,8 @@ specops-auto-ko/
 │   ├── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
 │   ├── release.md                            ← 릴리즈 자동화 /release
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
-│   └── start-batch.md                        ← 배치 오케스트레이터 /start-batch
+│   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
+│   └── start-batch.md                        ← [deprecated] /start-all alias
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate

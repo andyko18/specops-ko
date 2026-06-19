@@ -20,7 +20,7 @@ grep -q '/init-project' "$P/skills/using-specops-auto-ko-ko/SKILL.md" \
 # AC-4: chain 안내 파일에 /init-project 등장 + 사용자노출 /start-project 잔존 0
 #   (deprecated stub·테스트·CHANGELOG·start-project.sh 참조 제외)
 miss=""
-for f in skills/specifying-ko/SKILL.md skills/e2e-test-ko/SKILL.md commands/start-batch.md commands/start-foundation.md; do
+for f in skills/specifying-ko/SKILL.md skills/e2e-test-ko/SKILL.md commands/start-all.md commands/start-foundation.md; do
   grep -q '/init-project' "$P/$f" || miss="$miss $f(no-init)"
   # start-project.{sh,md} 경로 마스킹 후 /start-project(슬래시) 잔존 검사 (줄단위 false-neg 회피)
   # sed -E 필수 — BSD sed(macOS)는 BRE `\|` 교대 미지원(no-op→false-positive). plan-reviewer 2회차.

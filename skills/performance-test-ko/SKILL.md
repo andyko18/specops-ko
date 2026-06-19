@@ -4,7 +4,7 @@ description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
-used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-batch (batch 모드 BATCH-PERF-DONE halt 진출)
+used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
 # Engine 스킬 — 성능 테스트 (performance-test)
@@ -185,7 +185,7 @@ else
 fi
 ```
 
-- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-PERF-DONE: <FID>` 출력 + **PR 게이트 전체 skip**. `/start-batch` 오케스트레이터가 batch PR을 소유한다.
+- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-PERF-DONE: <FID>` 출력 + **PR 게이트 전체 skip**. `/start-all` 오케스트레이터가 batch PR을 소유한다.
 
 - **auto 모드** (`**§auto**` 라벨 감지) → **가정 다이제스트 제시 + 단일 [y/n] 확인** (아래 §auto 게이트 참조).
 
@@ -323,7 +323,7 @@ PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으�
 본 skill은 specops-auto-ko Lifecycle의 **최종 단계**다.
 
 - **단일 모드 PASS·SKIP** → PR 생성 게이트 진행 → Lifecycle 종료
-- **batch 모드 PASS·SKIP** → `BATCH-PERF-DONE: <FID>` 출력 → `/start-batch` 오케스트레이터로 제어 반환 (PR 게이트 skip)
+- **batch 모드 PASS·SKIP** → `BATCH-PERF-DONE: <FID>` 출력 → `/start-all` 오케스트레이터로 제어 반환 (PR 게이트 skip)
 - **FAIL** → `specops-auto-ko:systematic-debugging-ko` 호출 (수정 후 chain 복귀)
 - **PR 생성·머지 후** worktree/branch 정리가 필요하면 `specops-auto-ko:finishing-a-development-branch-ko` 스킬로 마무리 (PR `state==MERGED` HARD GATE이므로 **자동 chain하지 않음** — 머지 확인 후 수동 진입)
 

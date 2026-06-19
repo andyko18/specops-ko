@@ -4,7 +4,7 @@ description: lifecycle chain에서 통합 표면(API 엔드포인트·DB·다중
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
-used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-batch (batch 모드 직접 호출), performance-test-ko (chain 출구)
+used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
 ---
 
 # Engine 스킬 — 통합 테스트 (integration-test)
