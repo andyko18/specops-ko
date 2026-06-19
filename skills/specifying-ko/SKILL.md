@@ -114,6 +114,8 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
 5. **설계 제시** — 섹션을 복잡도에 맞춰 스케일, 각 섹션 후 사용자 승인 확인
 5.5. **[UI 기능인 경우] 인라인 화면 설계** — 설계 승인 직후 실행:
 
+   > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
+
    **[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
    - 화면 목록을 자동 판단하여 **즉시 생성·수락** (수정 루프 없음):
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성

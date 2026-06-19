@@ -116,6 +116,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 ## 참조
 
 - `commands/design-screen.md` — 단수 커맨드 (화면 1개씩 `/design-screen`)
+- 화면 설계 3경로 분업 기준: `commands/design-screen.md` §화면 설계 3경로 분업
 - `scripts/_internal/design-screen.sh` — 스캐폴딩 백엔드 (CLI: `<name> [--force]`, name regex `^[A-Za-z0-9_-]{1,64}$`)
 - `templates/screen.html` — HTML 기반 템플릿
 - `screens/` — 화면 산출물 저장 디렉터리

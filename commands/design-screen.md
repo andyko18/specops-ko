@@ -16,6 +16,17 @@ reference_upstream: specops-auto-ko 독자 추가
 `screens/{name}.md` (화면 스펙) + `screens/{name}.html` (HTML 미리보기)을 생성하거나 수정한다.
 `scripts/_internal/design-screen.sh`가 보일러플레이트(파일 스캐폴딩·DESIGN.md 색상 추출·screens-overview.md 갱신)를 자동 처리하고, Claude는 레이아웃·컴포넌트 콘텐츠 생성에 집중한다.
 
+## 화면 설계 3경로 분업
+
+| 경로 | 진입 | 언제 쓰나 |
+|---|---|---|
+| **specifying Step 5.5** (인라인) | lifecycle 자동 (UI 기능 spec 승인 직후) | `/start` 흐름 중 — **별도 호출 불필요**. 기능에 필요한 화면을 자동 판단·설계 |
+| **`/design-screen [name]`** | 독립 슬래시 | lifecycle 밖에서 **화면 1개** 신규/수정 |
+| **`/design-screens`** | 독립 슬래시 | lifecycle 밖에서 **여러 화면 일괄** (목록 자동판단 + 승인게이트 + 순차루프) |
+
+> `/start-project` Phase 7 은 화면 **목록 + 빈 골격**만 생성(설계 콘텐츠 X) — 위 3경로가 채운다.
+> 즉 `/start` 로 UI 기능 개발 중이면 Step 5.5 가 자동 처리하므로 `/design-screen` 을 따로 부를 필요 없다. 독립 화면 작업 시에만 단수/복수 슬래시 사용.
+
 ## Process
 
 ### Step 1: 스크립트로 스캐폴딩
