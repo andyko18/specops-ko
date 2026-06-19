@@ -18,7 +18,32 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 | **공통부 개발** (초기 1회) | `/start-foundation "라우팅·인증·공통 레이아웃"` | — |
 | **전체 기능 일괄 구현** | `/start-batch` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
+| **신규 기능 (무인)** | `/start-auto "<기능>"` | — |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
+| **(선택) 아이디어 탐색** | `/brainstorming` | — |
+
+**어느 진입로를 고를까 — 결정 트리:**
+
+```
+신규 프로젝트인가?
+├─ 예 → /start-project (문서 13종 부트스트랩, 1회)
+│         ↓ 공통 인프라(라우팅·인증·DB) 필요?
+│         ├─ 예 → /start-foundation (공통부 코드, 1회)
+│         └─ 아니오 → 다음
+│         ↓ requirements.md FR 표 확정 + 한번에 일괄?
+│         ├─ 예 → /start-batch (FR 전체 일괄, batch PR 1개)
+│         └─ 아니오 → 기능마다 ↓
+│
+└─ 기존 프로젝트 작업 ↓
+   작업이 기존 코드/화면을 수정·삭제하나?
+   ├─ 아니오 (새 산출물) → /start "<기능>"
+   │     · 매 게이트 확인(대화형)  |  무인 진행 원하면 → /start-auto (가역 게이트 자동 통과, PR만 확인)
+   └─ 예 (기존 수정·제거·확장) → /maintain "<대상>"
+         · analyzing 선행(영향 분석) + 회귀 AC 강제
+
+· 신규 프로젝트 순서: /start-project → /start-foundation → /start-batch (또는 기능마다 /start)
+· 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
+```
 
 > `/start-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. (구 `/start-design` 은 본 슬래시로 통합·제거됨.)
 
