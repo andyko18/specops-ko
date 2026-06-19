@@ -7,7 +7,6 @@ mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle
 reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
-  - commands/start.md (자매 진입로 패턴 답습)
 ---
 
 # /maintain [<대상 또는 변경 설명>]

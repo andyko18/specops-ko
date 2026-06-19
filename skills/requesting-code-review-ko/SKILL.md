@@ -3,8 +3,6 @@ name: requesting-code-review-ko
 description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결과물이 요구를 충족하는지 외부 리뷰어에게 검증 요청
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
-  - obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
-  - specops-ko skills/engine/requesting-code-review-ko.md
 specops_version: 1.0.0
 used_by: specops-auto-ko:verifying-evidence-ko (chain 진입), specops-auto-ko:receiving-code-review-ko (chain 출구)
 ---

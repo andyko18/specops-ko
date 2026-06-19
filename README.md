@@ -213,7 +213,7 @@ specops-auto-ko/
 
 ## 거버넌스 엔진
 
-`hooks/rules.jsonl`에 정의된 6 규칙 중 R-1~R-5 가 PostToolUse + Stop 훅으로 자동 검사됩니다 (R-6 은 `enabled: false` — gbrain-ko manual-only 설계).
+`hooks/rules.jsonl`에 정의된 6 규칙 중 R-1·R-2 는 PreToolUse 사전 차단(verify 누락 시 commit/PR deny, v1.14.0 신설), R-1~R-5 는 PostToolUse + Stop 훅으로 감사 검사됩니다 (R-6 은 `enabled: false` — gbrain-ko manual-only 설계).
 
 | Rule | 원칙 | 감지 조건 |
 |---|---|---|
@@ -233,7 +233,7 @@ specops-auto-ko/
 - **Lifecycle dogfood**: 5회 완주 (csv-lines · slug-cli · cvt-cli · b64-cli · hex-cli)
 - **거버넌스 테스트**: `bash scripts/tests/governance/test-rules.sh` → 전 항목 PASS (R-1~R-6)
 - **DAG 파서 테스트**: `bash scripts/tests/dag/test-parse-dag.sh` → 전 항목 PASS
-- **전체 테스트**: `bash scripts/tests/run-all.sh` → 41 suites PASS (릴리즈 pre-flight 게이트)
+- **전체 테스트**: `bash scripts/tests/run-all.sh` → 전체 suite PASS (릴리즈 pre-flight 게이트)
 - **거버넌스 성능**: p95 69ms / median 67ms (AC-8 < 200ms 충족)
 
 ---

@@ -9,7 +9,7 @@ specops-auto-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인*
 ## 테스트 명령
 
 ```bash
-# 전체 테스트 (42 suites — 릴리즈 pre-flight 게이트와 동일)
+# 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
 bash scripts/tests/run-all.sh
 
 # LLM 동작 smoke eval (수동 전용 — 토큰 비용 발생, run-all 비포함)
