@@ -29,5 +29,24 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_
 check "T7 §auto exempt → allow" '"continue":true' "$out"
 rm -rf "$tmproot"
 
+# T8~T12 evasion 우회 deny (no-verify fixture)
+out=$(mkstdin "cd /tmp && git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T8 compound commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git -C . commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T9 -C commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin " git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T10 선행공백 commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "env FOO=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T11 env-prefix commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "cd /x && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T12 compound pr create → deny" '"permissionDecision":"deny"' "$out"
+# T13~T15 오탐 allow (commit/pr 아님)
+out=$(mkstdin 'echo "git commit"' "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T13 echo string → allow" '"continue":true' "$out"
+out=$(mkstdin "mygit commit" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T14 mygit → allow" '"continue":true' "$out"
+out=$(mkstdin "git committed --amend" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T15 committed 단어경계 → allow" '"continue":true' "$out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

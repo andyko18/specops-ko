@@ -28,7 +28,7 @@ tool_cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 
 [ "$tool_name" = "Bash" ] || allow
-printf '%s' "$tool_cmd" | grep -Eq '^git[[:space:]]+commit\b|^gh[[:space:]]+pr[[:space:]]+create\b' || allow
+printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|])[[:space:]]*(env[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)*commit\b|(^|[;&|])[[:space:]]*(env[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
 
