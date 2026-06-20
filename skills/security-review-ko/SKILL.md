@@ -58,7 +58,7 @@ git diff --name-only main...HEAD
 
 ### Step 2: SAST 스캔 실행
 
-`scripts/security-scan.sh`를 실행한다. 이 래퍼는 `semgrep`·`gitleaks`의 설치 여부를 `command -v`로 확인하고, 설치된 스캐너만 실행한 뒤 심각도를 집계한다.
+`scripts/security-scan.sh`를 실행한다. 이 래퍼는 먼저 설치 필요 없는 self-check(bash 정규식 기반 secret·위험함수 룰)를 항상 실행하고, 그 후 `semgrep`·`gitleaks` 설치 여부를 `command -v`로 확인하여 설치된 스캐너만 실행한 뒤 심각도를 집계한다.
 
 ```bash
 bash scripts/security-scan.sh <스캔대상 디렉토리/파일>
