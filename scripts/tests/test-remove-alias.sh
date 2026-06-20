@@ -9,9 +9,10 @@ nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 # AC-1: alias 2파일 부재
 [ ! -f "$P/commands/start-project.md" ] && [ ! -f "$P/commands/start-batch.md" ] \
   && ok "AC-1 alias 2건 삭제" || nope "AC-1" "alias 파일 잔존"
-# AC-2: baseline commands 14
-grep -q '"category":"commands","glob":"commands/\*.md","count":14' "$P/scripts/_internal/.structure-baseline" \
-  && ok "AC-2 baseline commands 14" || nope "AC-2" "baseline 미갱신"
+# AC-2: baseline commands count 가 실제 commands/*.md 수와 정합 (하드코딩 14 → 동적 — 새 command 추가에 brittle하지 않게)
+bc=$(grep -o '"glob":"commands/\*\.md","count":[0-9]*' "$P/scripts/_internal/.structure-baseline" | grep -o '[0-9]*$')
+ac=$(ls "$P"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
+[ -n "$bc" ] && [ "$bc" = "$ac" ] && ok "AC-2 baseline commands 정합 ($bc=$ac)" || nope "AC-2" "baseline($bc)≠실제($ac)"
 # AC-3: stale 문구 정리 — "deprecated alias 보존"·"(구 /start-batch)" 부재
 ! grep -q 'deprecated alias 보존' "$P/commands/init-project.md" && ! grep -q '(구 /start-batch)' "$P/commands/start-all.md" \
   && ok "AC-3 stale 문구 정리" || nope "AC-3" "stale 문구 잔존"

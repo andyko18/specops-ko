@@ -130,7 +130,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (14건)
+├── commands/                                 ← 슬래시 진입로 (15건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -144,7 +144,7 @@ specops-auto-ko/
 │   ├── release.md                            ← 릴리즈 자동화 /release
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
 │   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
-│   └── start-all.md                          ← 전체 기능 일괄 /start-all
+│   └── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
