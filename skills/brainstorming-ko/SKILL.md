@@ -324,14 +324,14 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 - `commands/brainstorming.md` — 슬래시 진입점
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill
-- `commands/start-project.md` — 다음 단계 (부트스트랩)
+- `commands/init-project.md` — 다음 단계 (부트스트랩)
 - `commands/start.md` — Lifecycle 진입
 
 ## 다음 skill
 
 탐색 완료 + 산출물 저장 후 사용자 선택에 따라:
 
-- **프로젝트 초기화 필요** → `specops-auto-ko:start-project` 호출
+- **프로젝트 초기화 필요** → `specops-auto-ko:init-project` 호출
 - **프로젝트 이미 초기화** → `specops-auto-ko:specifying-ko` 호출
 
 강제 chain 없음. 본 brainstorming-ko는 **사용자가 명시적으로 선택하기 전까지 어떤 구현 스킬도 호출하지 않는다.**

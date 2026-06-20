@@ -10,10 +10,8 @@ nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 SA="$P/commands/start-all.md"
 [ -f "$SA" ] && grep -q '^name: start-all' "$SA" && grep -q '"/start-all"' "$SA" && grep -q 'Phase 1' "$SA" \
   && ok "AC-1 start-all.md 신설" || nope "AC-1" "start-all.md 결함"
-# AC-2: start-batch.md deprecated stub
-SB="$P/commands/start-batch.md"
-grep -qi 'deprecated' "$SB" && grep -q '/start-all' "$SB" \
-  && ok "AC-2 start-batch deprecated stub" || nope "AC-2" "stub 결함"
+# AC-2: start-batch alias 제거됨
+[ ! -f "$P/commands/start-batch.md" ] && ok "AC-2 start-batch alias 제거" || nope "AC-2" "alias 잔존"
 # AC-3: 사용자 슬래시 갱신 — /init-project 류 마스킹 후 /start-batch(슬래시) 잔존 0
 #   (.md 파일명·§batch·batch-id·BATCH- 신호어 제외)
 miss=""

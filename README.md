@@ -128,11 +128,11 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (16건)
+├── commands/                                 ← 슬래시 진입로 (14건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
-│   ├── start-project.md                      ← 프로젝트 초기화 /init-project
+│   ├── init-project.md                       ← 프로젝트 초기화 /init-project
 │   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
 │   ├── design-screens.md                     ← 일괄 화면 설계 /design-screens
@@ -142,7 +142,7 @@ specops-auto-ko/
 │   ├── release.md                            ← 릴리즈 자동화 /release
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
 │   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
-│   └── start-batch.md                        ← [deprecated] /start-all alias
+│   └── start-all.md                          ← 전체 기능 일괄 /start-all
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate

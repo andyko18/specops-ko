@@ -437,9 +437,9 @@ else
 fi
 teardown_fixture
 
-# ── T22.a commands/start-project.md 에 --resume 문서화 ──
-if grep -q "\-\-resume" "$PLUGIN/commands/start-project.md"; then
-  ok "T22.a commands/start-project.md 에 --resume 문서화"
+# ── T22.a commands/init-project.md 에 --resume 문서화 ──
+if grep -q "\-\-resume" "$PLUGIN/commands/init-project.md"; then
+  ok "T22.a commands/init-project.md 에 --resume 문서화"
 else
   nope "T22.a resume docs" "--resume 언급 없음"
 fi

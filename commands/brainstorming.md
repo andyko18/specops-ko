@@ -76,7 +76,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 ## 참조
 
 - `skills/brainstorming-ko/SKILL.md` — 본 슬래시의 실행 skill
-- `commands/start-project.md` — 다음 단계 (부트스트랩)
+- `commands/init-project.md` — 다음 단계 (부트스트랩)
 - `commands/start.md` — Lifecycle 진입점
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill (선택 진입점 언급)
 

@@ -10,10 +10,8 @@ nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 IP="$P/commands/init-project.md"
 [ -f "$IP" ] && grep -q '^name: init-project' "$IP" && grep -q '"/init-project"' "$IP" && grep -q 'start-project.sh' "$IP" \
   && ok "AC-1 init-project.md 신설" || nope "AC-1" "init-project.md 결함"
-# AC-2: start-project.md deprecated stub
-SP="$P/commands/start-project.md"
-grep -qi 'deprecated' "$SP" && grep -q '/init-project' "$SP" && grep -q 'start-project.sh' "$SP" \
-  && ok "AC-2 start-project deprecated stub" || nope "AC-2" "stub 결함"
+# AC-2: start-project alias 제거됨 (deprecated stub → 부재)
+[ ! -f "$P/commands/start-project.md" ] && ok "AC-2 start-project alias 제거" || nope "AC-2" "alias 잔존"
 # AC-3: 메타skill /init-project 안내
 grep -q '/init-project' "$P/skills/using-specops-auto-ko-ko/SKILL.md" \
   && ok "AC-3 메타skill /init-project" || nope "AC-3" "메타skill 미갱신"

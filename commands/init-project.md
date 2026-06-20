@@ -13,7 +13,7 @@ reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안
 
 ## 목적
 
-프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 는 본 슬래시로 rename — `commands/start-project.md` 가 deprecated alias 보존.)
+프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
 
 ## Process
 
