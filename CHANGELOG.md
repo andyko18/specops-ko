@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-06-20
+
 ### Changed
 - **`/start-project` → `/init-project` rename** (FID 20260619-rename-init-project, PR #92) — start- 계열 중 유일하게 lifecycle chain 을 안 도는 doc-only 부트스트랩을 init- 로 분리해 의미 명확화. built-in `/init` 충돌은 `-project` 접미로 회피. `commands/init-project.md` 신설 + `commands/start-project.md` = deprecated alias stub(동작 보존, 1~2 릴리즈 후 제거). 오케스트레이터 `start-project.sh`·런타임 토큰 무변경, 사용자 노출 26파일 치환.
 - **`/start-batch` → `/start-all` rename** (FID 20260619-rename-start-all, PR #93) — "batch" 전문용어를 친숙한 "all"(전체 기능 일괄)로. `commands/start-all.md` 신설(3-Phase 오케스트레이터 본문 이관) + `commands/start-batch.md` = deprecated alias stub. **내부 분기 신호어(§batch·BATCH-*·batch-id·entry:batch) 100% 보존** — 안전 sed 로 사용자 슬래시만 치환.
@@ -272,7 +274,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.15.1...v1.16.0
 [1.15.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.14.0...v1.15.0
