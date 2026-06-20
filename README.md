@@ -47,7 +47,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 > `/init-project` 는 한국 SI 표준 13종 산출물 (PRD/CLAUDE/DESIGN/architecture/api-spec/data-model/screens-overview 등) 을 자동 부트스트랩한다. (구 `/start-design` 은 본 슬래시로 통합·제거됨.)
 
-진입 1회로 **spec → clarify → plan → TDD implement → verify → review → integration-test → performance-test → PR** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
+진입 1회로 **spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
 
 > 자연어 진입은 SessionStart 시 자동 주입되는 메타 스킬 (`using-specops-auto-ko-ko`) 이 신호를 감지해 `specifying-ko` (신규) 또는 `analyzing-ko` (유지보수) 로 라우팅합니다.
 
@@ -112,6 +112,8 @@ specops-auto-ko:requesting-code-review-ko
     ↓
 specops-auto-ko:receiving-code-review-ko
     ↓
+specops-auto-ko:security-review-ko    (SAST — 코드 표면·도구 없으면 graceful skip)
+    ↓
 specops-auto-ko:integration-test-ko   (통합 표면 없으면 graceful skip)
     ↓
 specops-auto-ko:performance-test-ko   (성능 NFR 없으면 graceful skip)
@@ -150,7 +152,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 30
+├── skills/                               ← flat: skills/<name>/SKILL.md × 31
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -166,6 +168,7 @@ specops-auto-ko/
 │   ├── verifying-evidence-ko/            ← 증거 기반 검증
 │   ├── requesting-code-review-ko/        ← 코드 리뷰 요청
 │   ├── receiving-code-review-ko/         ← 리뷰 피드백 수용
+│   ├── security-review-ko/               ← SAST 보안 게이트 (semgrep+gitleaks, 표면·도구 없으면 graceful skip)
 │   ├── integration-test-ko/              ← 통합 테스트 (PR 직전, 표면 없으면 graceful skip)
 │   ├── performance-test-ko/              ← 성능 테스트 + PR 게이트 (임계값 없으면 graceful skip)
 │   ├── finishing-a-development-branch-ko/ ← worktree 정리·branch 삭제·main 동기화

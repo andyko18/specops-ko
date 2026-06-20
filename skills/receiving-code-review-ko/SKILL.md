@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.m
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
 specops_version: 1.8.0
-used_by: requesting-code-review-ko (chain 진입), integration-test-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
+used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
 ---
 
 # Engine 스킬 — 코드 리뷰 수용 (receiving-code-review)
@@ -228,12 +228,12 @@ grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) — **리뷰 이슈가 모두 해결된 상태** → 즉시 호출:
 
 ```
-Skill: specops-auto-ko:integration-test-ko
+Skill: specops-auto-ko:security-review-ko
 ```
 
-integration-test-ko가 통합 표면을 판정하고 → performance-test-ko → PR 생성 게이트로 chain한다.
+security-review-ko가 SAST 보안 스캔을 점검하고 → integration-test-ko → performance-test-ko → PR 생성 게이트로 chain한다.
 
 - **Important 이슈 수정 필요** → `specops-auto-ko:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
 - **재검증 필요** → `specops-auto-ko:verifying-evidence-ko` 재호출
 
-본 receiving-code-review-ko는 단일 모드에서 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 및 batch halt 제외).
+본 receiving-code-review-ko는 단일 모드에서 **security-review-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 및 batch halt 제외).

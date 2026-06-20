@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-specops-auto-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/maintain`) 또는 자연어 진입 후 메타 스킬이 spec → clarify → plan → TDD implement → verify → review → integration-test → performance-test → PR 전 단계를 자동 chain한다. Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+specops-auto-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/maintain`) 또는 자연어 진입 후 메타 스킬이 spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
@@ -34,7 +34,7 @@ skills/<name>/SKILL.md   ← 플랫 구조, layer 필드로 계층 구분
 ```
 
 - **layer: 1** — 메타 스킬 (`using-specops-auto-ko-ko`): SessionStart 훅으로 자동 주입, 신호 감지 후 chain 진입
-- **layer: 2** — Engine Skills: Lifecycle 체인의 각 단계 (specifying → clarifying → planning → decomposing → implementing → verifying → reviewing → integration-test → performance-test → PR)
+- **layer: 2** — Engine Skills: Lifecycle 체인의 각 단계 (specifying → clarifying → planning → decomposing → implementing → verifying → reviewing → security-review → integration-test → performance-test → PR)
 - **layer: 2** — `karpathy-ko`: cross-cutting 행동 원칙 (Think·Simplicity·Surgical·Goal), 구현 단계 자동 활성
 - **layer: 3** — Harness Skills: 아키텍처 원칙 강제 (sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication) + e2e-test-ko (lifecycle E2E 자동 검증)
 

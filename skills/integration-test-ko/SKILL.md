@@ -4,7 +4,7 @@ description: lifecycle chain에서 통합 표면(API 엔드포인트·DB·다중
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
-used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
+used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
 ---
 
 # Engine 스킬 — 통합 테스트 (integration-test)
@@ -17,7 +17,7 @@ used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batc
 
 **핵심 원칙**: "주장 전에 증거." verifying-evidence-ko의 철칙을 계승. 테스트를 실행하지 않고 통과를 주장하는 것은 부정직이다.
 
-**선결 조건**: 본 skill은 `receiving-code-review-ko` 완료 후 호출된다. 코드 리뷰 이슈가 미해결이면 본 skill 진입 전에 해결한다.
+**선결 조건**: 본 skill은 `security-review-ko` 완료 후 호출된다. 코드 리뷰 이슈·보안 스캔 결함이 미해결이면 본 skill 진입 전에 해결한다.
 
 ---
 
