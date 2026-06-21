@@ -32,7 +32,7 @@ done
 echo "$BATCH_C" | grep -q '^decomposing-ko$' && echo "$AUTO_C" | grep -q '^verifying-evidence-ko$' && ok "AC-4 핵심 기대치 포함" || true
 
 # 3-way 분기 로직 (소비처 동일 패턴 재현)
-classify() { if grep -q '\*\*§batch\*\*' "$1"; then echo BATCH; elif grep -q '\*\*§auto\*\*' "$1"; then echo AUTO; else echo SINGLE; fi; }
+classify() { if grep -qE '^\*\*§batch\*\*:' "$1"; then echo BATCH; elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$1"; then echo AUTO; else echo SINGLE; fi; }
 
 # AC-3: §batch fixture → BATCH
 T=$(mktemp); printf '# spec\n**§batch**: batch-20260619\n' > "$T"
@@ -47,6 +47,16 @@ T=$(mktemp); printf '# spec\n**§유형**: 유지보수\n' > "$T"
 # AC-5: specifying-ko 생산 표기 유지
 grep -q '\*\*§batch\*\*' "$SK/specifying-ko/SKILL.md" && ok "AC-5a 생산 §batch 표기" || nope "AC-5a" "생산 표기 소실"
 grep -q '\*\*§auto\*\*' "$SK/specifying-ko/SKILL.md" && ok "AC-5b 생산 §auto 표기" || nope "AC-5b" "생산 표기 소실"
+
+# AC-R-2: 본문 라벨 키워드 오탐 방지 — **§batch**/**§auto** 가 줄 중간(설명) 등장 → SINGLE
+T=$(mktemp); printf '# spec\n설명: 라벨 **§batch** 는 decomposing 정지 신호다.\n' > "$T"
+[ "$(classify "$T")" = "SINGLE" ] && ok "AC-R-2a 본문 §batch 언급→SINGLE" || nope "AC-R-2a" "본문 오탐"; rm -f "$T"
+T=$(mktemp); printf '# spec\n참고: **§auto** 모드는 자동통과한다.\n' > "$T"
+[ "$(classify "$T")" = "SINGLE" ] && ok "AC-R-2b 본문 §auto 언급→SINGLE" || nope "AC-R-2b" "본문 오탐"; rm -f "$T"
+
+# AC-R-3: 소비처 whole-file 패턴(줄앵커 ^ 없는 grep -q '\*\*§…) 잔존 0건
+remain=$(grep -rnF "grep -q '\\*\\*§" "$SK"/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
+[ "$remain" = "0" ] && ok "AC-R-3 whole-file grep 잔존 0" || nope "AC-R-3" "$remain 건 잔존"
 
 echo "── test-branch-label-contract: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

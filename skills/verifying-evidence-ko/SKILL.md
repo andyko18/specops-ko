@@ -225,7 +225,7 @@ FAIL 항목 존재?
 fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
 
 ```
-§auto 감지? (grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md)
+§auto 감지? (grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md)
   ├─ NO  → 기존 HARD GATE: "VERIFY-HARD-GATE: <FID> fix_loop 상한 초과 (3/3)..."
   └─ YES → auto-state.md 읽기 (.specops/<FID>/auto-state.md — 없으면 auto_retry_count=0)
            auto_retry_count < 1?

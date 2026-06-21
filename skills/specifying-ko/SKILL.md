@@ -116,7 +116,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
 
    > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
 
-   **[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+   **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - 화면 목록을 자동 판단하여 **즉시 생성·수락** (수정 루프 없음):
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성
      2. **자동 수락** — 사용자 응답 대기 없이 `screens/{name}.md` + `screens/{name}.html` 저장
@@ -309,7 +309,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 ### 사용자 검토 게이트
 
-**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+**[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 
 자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 clarifying-ko 직행. handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
 

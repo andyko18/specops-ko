@@ -92,7 +92,7 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 
 worktree 생성은 **동의 없이는 금지** (upstream #991). 모드별 동의 주체:
 
-모드 감지: `grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md` (§batch 동일 패턴) — 라벨 없으면 단일 모드.
+모드 감지: `grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md` (§batch 동일 패턴) — 라벨 없으면 단일 모드.
 
 | 모드 | 동의 주체 | 동작 |
 |---|---|---|

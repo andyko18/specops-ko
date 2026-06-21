@@ -83,9 +83,9 @@ used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 
 ```bash
 # 무인 모드 감지 (§batch OR §auto)
-if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+if grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md; then
   MODE="batch"
-elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md; then
   MODE="auto"
 else
   MODE="single"

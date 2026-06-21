@@ -17,7 +17,7 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 <HARD-GATE>
 **BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-auto-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 
-**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+**[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - 합리적 기본값·컨텍스트 기반 추론으로 답변 선택
 - clarifications.md Q-block에 `status: ASSUMED` 기재 + `**가정 근거**: <한 줄 이유>` 필드 추가

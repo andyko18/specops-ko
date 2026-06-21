@@ -220,7 +220,7 @@ bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N
 **[batch 모드 분기]** 먼저 spec.md `**§batch**` 라벨 감지 확인:
 
 ```bash
-grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
+grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
 ```
 
 - **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-REVIEW-DONE: <FID>` 출력 + **halt**. integration-test-ko 미호출. `/start-all` 오케스트레이터가 다음 단계를 제어한다

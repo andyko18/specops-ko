@@ -265,9 +265,9 @@ tasks.md 저장 + AC 커버리지 100% + 플레이스홀더 0 확인 + handoff.m
 **3-way 분기 확인**:
 
 ```bash
-if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+if grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md; then
   echo "BATCH"
-elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md; then
   echo "AUTO"
 else
   echo "SINGLE"

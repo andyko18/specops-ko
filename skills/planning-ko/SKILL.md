@@ -164,7 +164,7 @@ Skill: specops-auto-ko:plan-reviewer-ko
 | `PLAN-REVIEW-RESULT: FAIL` (초기 시도) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
 | `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | `HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요` 출력 후 중단 |
 
-**[§auto 모드]** (`grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md`):
+**[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/review 단계가 검증). dispatch-log.md에 "plan-reviewer cap 초과 → §auto 자동통과" 기록.
 
 **dispatch-log.md 기록** (`.specops/<FID>/dispatch-log.md` — 부재 시 `templates/dispatch-log.md` 복사):

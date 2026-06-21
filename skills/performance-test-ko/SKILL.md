@@ -176,9 +176,9 @@ PASS 또는 SKIP + session-progress append 완료 후 PR 생성 게이트를 진
 **3-way 분기 확인**:
 
 ```bash
-if grep -q '\*\*§batch\*\*' .specops/<FID>/spec.md; then
+if grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md; then
   echo "BATCH"
-elif grep -q '\*\*§auto\*\*' .specops/<FID>/spec.md; then
+elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md; then
   echo "AUTO"
 else
   echo "SINGLE"
