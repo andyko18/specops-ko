@@ -42,6 +42,14 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.c (boot=$n_boot seed=$n_seed maint=$n_maint)"
 fi
 
+# T1.d 무결성 — expect_any + expect_bootstrap 동시 보유 금지 (boot 차원 silent 무시 방어, Phase C Important#1)
+n_conflict=$(jq -s '[.[] | select(.expect_any != null and .expect_bootstrap != null)] | length' "$FIXTURES")
+if [ "$n_conflict" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.d any+boot 동시보유 0건"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.d (conflict=$n_conflict — expect_any+expect_bootstrap 동시 fixture는 boot 무시됨)"
+fi
+
 # T2.a stub — STUB_PLAN 1째 줄 skill 지정 시 tool_use 이벤트 + result 이벤트 출력
 TD=$(mktemp -d)
 export STUB_STATE="$TD/count" STUB_PLAN="$TD/plan.jsonl"
