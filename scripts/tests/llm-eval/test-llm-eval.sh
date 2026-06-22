@@ -32,6 +32,16 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b (total=$total spec=$n_spec ana=$n_ana none=$n_none any=$n_any)"
 fi
 
+# T1.c 부트스트랩·표현다양화 fixture — boot 2건 + sandbox_seed ≥2 + maintain ≥3
+n_boot=$(jq -s '[.[] | select(.expect_bootstrap != null)] | length' "$FIXTURES")
+n_seed=$(jq -s '[.[] | select(.sandbox_seed != null)] | length' "$FIXTURES")
+n_maint=$(jq -s '[.[] | select(.expect_flag=="maintain")] | length' "$FIXTURES")
+if [ "$n_boot" -ge 2 ] && [ "$n_seed" -ge 2 ] && [ "$n_maint" -ge 3 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.c boot=$n_boot seed=$n_seed maint=$n_maint"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.c (boot=$n_boot seed=$n_seed maint=$n_maint)"
+fi
+
 # T2.a stub — STUB_PLAN 1째 줄 skill 지정 시 tool_use 이벤트 + result 이벤트 출력
 TD=$(mktemp -d)
 export STUB_STATE="$TD/count" STUB_PLAN="$TD/plan.jsonl"
