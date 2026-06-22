@@ -154,7 +154,7 @@ specops-auto-ko/
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── stop-governance.sh               ← 세션 종료 정리
-├── skills/                               ← flat: skills/<name>/SKILL.md × 31
+├── skills/                               ← flat: skills/<name>/SKILL.md × 30
 │   │
 │   │  Engine Skills (Lifecycle 체인)
 │   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
@@ -163,7 +163,6 @@ specops-auto-ko/
 │   ├── specifying-ko/                    ← spec.md + AC 작성
 │   ├── clarifying-ko/                    ← 모호성 해소
 │   ├── planning-ko/                      ← 구현 플랜
-│   ├── plan-reviewer-ko/                 ← plan.md Eng 리뷰 서브에이전트
 │   ├── decomposing-ko/                   ← TDD 태스크 분해 + DAG
 │   ├── implementing-ko/                  ← 서브에이전트 dispatch
 │   ├── tdd-ko/                           ← TDD 5스텝 (서브에이전트용)
@@ -196,7 +195,7 @@ specops-auto-ko/
 │   │  /init-project 산출 템플릿 (12건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy
-├── agents/                               ← 3건 (implementer, spec-reviewer, code-reviewer)
+├── agents/                               ← 4건 (implementer, spec-reviewer, code-reviewer, plan-reviewer)
 ├── scripts/
 │   ├── session-progress-append.sh
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증
