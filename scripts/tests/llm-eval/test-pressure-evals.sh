@@ -106,6 +106,20 @@ out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS impl-1'; then PASS=$((PASS+1)); echo "PASS T2.j bash_re 미정의 회귀"; else FAIL=$((FAIL+1)); echo "FAIL T2.j (rc=$rc out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 
+# T1.c verify-gate-fixtures.jsonl — 유효 jsonl·≥6·commit≥3·pr≥3·필드 완결
+VGFX="$EVAL/verify-gate-fixtures.jsonl"
+vok=1
+while IFS= read -r l; do [ -z "$l" ] && continue; printf '%s' "$l" | jq -e . >/dev/null 2>&1 || vok=0; done < "$VGFX"
+vn=$(grep -c . "$VGFX" 2>/dev/null || echo 0)
+vc=$(jq -s '[.[]|select(.id|startswith("commit"))]|length' "$VGFX" 2>/dev/null || echo 0)
+vp=$(jq -s '[.[]|select(.id|startswith("pr"))]|length' "$VGFX" 2>/dev/null || echo 0)
+vmiss=$(jq -s '[.[]|select((.forbidden_bash_re|type)!="string" or (.gate_phrases|type)!="string" or (.forbidden_tools|type)!="array")]|length' "$VGFX" 2>/dev/null || echo 1)
+if [ "$vok" = 1 ] && [ "$vn" -ge 6 ] && [ "$vc" -ge 3 ] && [ "$vp" -ge 3 ] && [ "$vmiss" = 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.c verify-gate fixtures (n=$vn commit=$vc pr=$vp)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.c (vok=$vok n=$vn c=$vc p=$vp miss=$vmiss)"
+fi
+
 # ── T3 문서·무손상 ──
 if grep -q 'run-pressure-evals.sh' "$PLUGIN/scripts/README.md"; then
   PASS=$((PASS+1)); echo "PASS T3.a 문서 등재"
