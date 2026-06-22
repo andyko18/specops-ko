@@ -70,4 +70,20 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.e (loc=$loc — plan.md 본문 등장 또는 파일 누락)"
 fi
 
+# T1.f 단어경계 — locator AC-7 이 출력의 AC-70 을 오매칭 안 함 (부분문자열 false-green 차단)
+TD=$(mktemp -d); FX="$TD/decompose-covmiss"; mkdir -p "$FX"
+printf '# plan\n1. T1 (AC-1)\n' > "$FX/plan.md"
+printf '%s\n' '- AC-1' '- AC-7 미커버' > "$FX/acceptance-criteria.md"
+printf '%s\n' '{"id":"d1","locator":"AC-7","desc":"AC-7 미커버"}' > "$FX/defects.jsonl"
+cat > "$TD/stub.sh" <<'STUB'
+#!/usr/bin/env bash
+[ "${1:-}" = "--version" ] && { echo "stub 0.0.1"; exit 0; }
+jq -cn '{type:"assistant",message:{content:[{type:"text",text:"미커버: AC-70 AC-71"}]}}'
+jq -cn '{type:"result",subtype:"success",total_cost_usd:0}'
+STUB
+chmod +x "$TD/stub.sh"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD" 2>&1); rc=$?
+if echo "$out" | grep -q 'recall=0/1'; then PASS=$((PASS+1)); echo "PASS T1.f 단어경계(AC-7≠AC-70)"; else FAIL=$((FAIL+1)); echo "FAIL T1.f (rc=$rc out=$out)"; fi
+rm -rf "$TD"
+
 echo "--- SUMMARY ---"; echo "PASS=$PASS FAIL=$FAIL"; exit $FAIL

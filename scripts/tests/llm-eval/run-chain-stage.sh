@@ -25,8 +25,8 @@ out_text() { jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=
 count_detected() {  # $1=출력텍스트 $2=defects.jsonl $3=plan본문 → 검출수 (이중가드: plan 본문 등장 locator 무효, AC.md 제외)
   local n=0 loc; while IFS= read -r d; do [ -z "$d" ] && continue
     loc=$(printf '%s' "$d" | jq -r '.locator')
-    printf '%s' "$3" | grep -Fq "$loc" && continue   # plan.md 본문 등장 → 무효(인용 차단)
-    printf '%s' "$1" | grep -Fq "$loc" && n=$((n+1))
+    printf '%s' "$3" | grep -Eq -- "${loc}([^0-9]|$)" && continue   # plan.md 본문 등장 → 무효(인용 차단). 뒤 숫자경계로 AC-7≠AC-70 구분
+    printf '%s' "$1" | grep -Eq -- "${loc}([^0-9]|$)" && n=$((n+1))
   done < "$2"; echo "$n"
 }
 
