@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.21.0] — 2026-06-22
+
 ### Added
 - **거버넌스 R-1/R-2 docs-only 면제** (FID 20260622-governance-docs-exempt, PR #102) — commit/PR 전 verify 강제에 문서 전용 변경 면제 조항 신설. `is_docs_only_change()`(`git diff HEAD --name-only` = staged∪unstaged tracked 합집합)가 변경 파일이 전부 `.md`·`.txt`·`.rst`면 verify 없이 통과시킨다. 문서·CHANGELOG·오타 수정마다 `SPECOPS_GOVERNANCE_BYPASS=1`을 반복하던 마찰을 제거 → bypass 습관화로 인한 거버넌스 무력화(메타 플러그인 자기모순) 차단. pretool 면제 분기(BYPASS·§auto 동렬)·posttool audit 정합. **보안 불변식**: 코드 1개라도 혼합 → 비면제(차단 보존), 빈목록·git 실패 → 비면제(fail-safe, fail-open과 구분). Phase C 코드리뷰가 `git commit -am` 우회 표면(staged=docs면 `-a`가 unstaged 코드 커밋)을 포착해 staged-only 분기 → 합집합으로 정정, 우회 차단 실증(deny). 회귀: test-lib T-docs.a~d(면제/혼합 비면제/fail-safe/우회) + test-pretool T16~18(allow/deny/commit-am 우회 deny).
 
@@ -312,7 +314,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.20.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.2...v1.20.0
 [1.19.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.1...v1.19.2
 [1.19.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.0...v1.19.1
