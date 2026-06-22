@@ -69,3 +69,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 - `commands/start-auto.md` — §auto 단일기능 선례(자체 독립 본문 패턴)
 - `skills/specifying-ko/SKILL.md` — batch+auto 라벨 동시기재 분기
 - `skills/clarifying-ko/SKILL.md` L20 — §auto best-guess 분기(spec 라벨 grep)
+
+---
+
+*specops-auto-ko v1.19.2 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*
