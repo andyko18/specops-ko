@@ -25,6 +25,26 @@ detect_fid() {
     | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/'
 }
 
+# staged(우선) 또는 HEAD fallback 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
+# 빈 목록·git 실패 → 1 (fail-safe — 판정 불가 시 차단 보존). fail-open(hook 에러 allow)과 구분.
+is_docs_only_change() {
+  local files
+  files=$(git diff --cached --name-only 2>/dev/null)
+  [ -z "$files" ] && files=$(git diff HEAD --name-only 2>/dev/null)
+  [ -z "$files" ] && return 1
+  local f
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in
+      *.md|*.txt|*.rst) ;;
+      *) return 1 ;;
+    esac
+  done <<EOF
+$files
+EOF
+  return 0
+}
+
 # transcript JSONL 에서 최근 N 개 tool_use 이벤트를 추출
 # 출력: JSONL, 각 줄 { "index": <0-based>, "tool_name": "...", "input": {...} }
 #   index = 필터된 tool_use 이벤트 배열의 0-based 위치 (raw JSONL line 아님)
