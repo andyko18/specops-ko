@@ -89,7 +89,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - **유지보수·foundation·batch 분기 진입 신호 검사** (Phase A):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
-     - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출)
+     - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
 
@@ -163,7 +163,7 @@ args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 �
     │
     └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip → 공통부 spec 작성 (§유형=foundation) → Step 3
                     │
-                    └── no ──▶ args 첫 줄 = "<!-- entry: batch -->"? ── yes ──▶ **[batch 분기]** git-branch-create skip → spec.md §batch 라벨 기재 → [신규 분기] 동작 계속
+                    └── no ──▶ args 첫 줄 = "<!-- entry: batch -->"? ── yes ──▶ **[batch 분기]** git-branch-create skip → spec.md §batch 라벨 기재 (+ 셋째 줄 auto:true 시 §auto 라벨 병기) → [신규 분기] 동작 계속
                                     │
                                     └── no ──▶ [신규 분기] (현재 동작) ↓
     ↓
