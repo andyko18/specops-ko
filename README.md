@@ -17,6 +17,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 | **프로젝트 초기화** (1회) | `/init-project [<프로젝트명>]` | (메타 skill 자동 안내) |
 | **공통부 개발** (초기 1회) | `/start-foundation "라우팅·인증·공통 레이아웃"` | — |
 | **전체 기능 일괄 구현** | `/start-all` | — |
+| **전체 기능 일괄 구현 (무인)** | `/start-all-auto` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
 | **신규 기능 (무인)** | `/start-auto "<기능>"` | — |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
@@ -130,7 +131,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (15건)
+├── commands/                                 ← 슬래시 진입로 (16건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -144,6 +145,7 @@ specops-auto-ko/
 │   ├── release.md                            ← 릴리즈 자동화 /release
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
 │   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
+│   ├── start-all-auto.md                     ← 무인 배치 오케스트레이터 /start-all-auto
 │   └── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
 ├── hooks/
 │   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
