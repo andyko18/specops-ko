@@ -206,7 +206,7 @@ specops-auto-ko/
 │       ├── diff-upstream.sh
 │       ├── is-hook-enabled.sh
 │       ├── validate-task-dependencies.sh
-│       └── start-project.sh             ← /init-project 오케스트레이터 (10 phase)
+│       └── init-project.sh              ← /init-project 오케스트레이터 (10 phase)
 ├── examples/                             ← dogfood CLI 예시 (epoch/hex/b64/cvt/slug)
 └── README.md
 ```

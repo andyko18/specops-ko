@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops-auto-ko:brainstorming-ko 호출. pre-start-project 선택 진입점.
+description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops-auto-ko:brainstorming-ko 호출. pre-init-project 선택 진입점.
 triggers:
   - "/brainstorming"
 mode: ask

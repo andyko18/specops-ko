@@ -207,8 +207,18 @@ bash scripts/session-progress-append.sh <FID> /integration-test DONE|SKIP|FAIL "
 
 PASS 또는 SKIP + session-progress append 직후 즉시 호출:
 
+**[batch 모드 분기]** 먼저 spec.md `**§batch**` 라벨 감지 확인:
+
+```bash
+grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
+```
+
+- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-INTEGRATION-DONE: <FID>` 출력 + **halt**. performance-test-ko 미호출. `/start-all` 오케스트레이터가 다음 단계(성능)를 제어한다
+
+**[단일 모드]** (`**§batch**` 라벨 없는 경우) → 즉시 호출:
+
 ```
 Skill: specops-auto-ko:performance-test-ko
 ```
 
-performance-test-ko가 성능 NFR 임계값 존재 여부를 판정하고 PR 게이트까지 진행한다. 본 integration-test-ko는 **performance-test-ko 이외의 다음 스킬을 호출하지 않는다** (FAIL 시 systematic-debugging-ko 경유 후 chain 복귀).
+performance-test-ko가 성능 NFR 임계값 존재 여부를 판정하고 PR 게이트까지 진행한다. 본 integration-test-ko는 단일 모드에서 **performance-test-ko 이외의 다음 스킬을 호출하지 않는다** (batch halt·FAIL 시 systematic-debugging-ko 경유 후 chain 복귀 제외).

@@ -23,7 +23,7 @@ ok "AC-1 §batch 역방향 수집 ($(echo $BATCH_C | wc -w | tr -d ' ')건)"
 echo "$AUTO_C" | grep -q '^using-git-worktrees-ko$' && ok "AC-2 §auto 수집에 using-git-worktrees-ko 포함" || nope "AC-2" "worktree 누락"
 
 # AC-4: 핵심 기대치 — 반드시 있어야 할 소비처
-for k in decomposing-ko performance-test-ko; do
+for k in decomposing-ko performance-test-ko integration-test-ko; do
   echo "$BATCH_C" | grep -q "^$k$" || nope "AC-4 §batch 핵심 $k" "누락"
 done
 for k in decomposing-ko verifying-evidence-ko; do

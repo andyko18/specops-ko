@@ -17,7 +17,7 @@ reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안
 
 ## Process
 
-1. `bash scripts/_internal/start-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
+1. `bash scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
    - Phase 1: 사전검사 (git/.specops/memory 검사 + 13종 파일별 표 + 충돌 정책)
@@ -55,7 +55,7 @@ reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안
 
 ## 참조
 
-- `scripts/_internal/start-project.sh` — 본 슬래시의 오케스트레이터
+- `scripts/_internal/init-project.sh` — 본 슬래시의 오케스트레이터
 - `templates/{constitution,PRD,CLAUDE,README,DESIGN,...}.md` — 13종 템플릿
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)

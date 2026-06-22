@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# start-project Phase 8a FR 표 자동 합성 (FID 20260619-start-project-fr-synth)
+# init-project Phase 8a FR 표 자동 합성 (FID 20260619-start-project-fr-synth)
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-SCRIPT="$PLUGIN/scripts/_internal/start-project.sh"
+SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
 ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
 nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
@@ -34,5 +34,5 @@ grep -q '<마일스톤 1 이름>' "$REQ" && ok "T1.f AC-R-1 <TODO> placeholder �
 grep -qE '^\| FR-1 \| <한 줄> \|' "$REQ" && ok "T1.g AC-R-1b FR placeholder 보존" || nope "T1.g AC-R-1b" "FR <TODO> 치환됨"
 cd /tmp; rm -rf "$T"
 
-echo "── test-start-project-requirements: PASS=$PASS FAIL=$FAIL ──"
+echo "── test-init-project-requirements: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

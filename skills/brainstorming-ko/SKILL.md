@@ -4,7 +4,7 @@ description: 구현 전 아이디어 탐색·수요 검증 — Startup(YC 6 forc
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 specops_version: 1.0.0
-used_by: /brainstorming, 선택적 pre-start-project 진입
+used_by: /brainstorming, 선택적 pre-init-project 진입
 ---
 
 # 브레인스토밍 — 아이디어 탐색 & 수요 검증

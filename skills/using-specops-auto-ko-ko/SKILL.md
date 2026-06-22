@@ -170,7 +170,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 - `skills/engine/*-ko.md` (10건) — Phase 1 구축 완료
 - `skills/harness/*-ko.md` (5건 + 본 skill) — 내부 규약
 - `commands/start.md` — 슬래시 진입점
-- `commands/brainstorming.md` — 선택적 pre-start-project 탐색 진입점
+- `commands/brainstorming.md` — 선택적 pre-init-project 탐색 진입점
 - `skills/brainstorming-ko/SKILL.md` — 아이디어 탐색 skill
 - `hooks/hooks.json` — SessionStart·Stop hook 매니페스트
 

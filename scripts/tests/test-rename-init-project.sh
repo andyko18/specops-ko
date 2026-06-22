@@ -8,7 +8,7 @@ nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # AC-1: init-project.md 존재 + name + trigger + 오케스트레이터 호출
 IP="$P/commands/init-project.md"
-[ -f "$IP" ] && grep -q '^name: init-project' "$IP" && grep -q '"/init-project"' "$IP" && grep -q 'start-project.sh' "$IP" \
+[ -f "$IP" ] && grep -q '^name: init-project' "$IP" && grep -q '"/init-project"' "$IP" && grep -q 'init-project.sh' "$IP" \
   && ok "AC-1 init-project.md 신설" || nope "AC-1" "init-project.md 결함"
 # AC-2: start-project alias 제거됨 (deprecated stub → 부재)
 [ ! -f "$P/commands/start-project.md" ] && ok "AC-2 start-project alias 제거" || nope "AC-2" "alias 잔존"
@@ -16,7 +16,7 @@ IP="$P/commands/init-project.md"
 grep -q '/init-project' "$P/skills/using-specops-auto-ko-ko/SKILL.md" \
   && ok "AC-3 메타skill /init-project" || nope "AC-3" "메타skill 미갱신"
 # AC-4: chain 안내 파일에 /init-project 등장 + 사용자노출 /start-project 잔존 0
-#   (deprecated stub·테스트·CHANGELOG·start-project.sh 참조 제외)
+#   (deprecated stub·테스트·CHANGELOG·init-project.sh 참조 제외)
 miss=""
 for f in skills/specifying-ko/SKILL.md skills/e2e-test-ko/SKILL.md commands/start-all.md commands/start-foundation.md; do
   grep -q '/init-project' "$P/$f" || miss="$miss $f(no-init)"
@@ -28,8 +28,12 @@ done
 # AC-5: templates footer + README 갱신 (대표 샘플)
 grep -q '/init-project' "$P/templates/PRD.md" && grep -q '/init-project' "$P/README.md" \
   && ok "AC-5 templates/README 갱신" || nope "AC-5" "footer/README 미갱신"
-# AC-R-1: start-project.sh 무변경 (git)
-git -C "$P" diff HEAD --quiet -- scripts/_internal/start-project.sh && ok "AC-R-1 start-project.sh 무변경" || nope "AC-R-1" "오케스트레이터 변경됨"
+# AC-R-1: 오케스트레이터 실행 진입 보존 (파일 rename·escape fix 후에도 main 진입 유지)
+#   — 구 "git diff 무변경" 가드는 start-project.sh→init-project.sh rename + awk escape fix 로 폐기.
+#     회귀 정신(오케스트레이터를 깨먹지 마라)은 "파일 존재 + main 진입부 보존"으로 전환.
+OS="$P/scripts/_internal/init-project.sh"
+[ -f "$OS" ] && grep -q 'main "\$@"' "$OS" \
+  && ok "AC-R-1 오케스트레이터 main 진입 보존" || nope "AC-R-1" "오케스트레이터 진입부 결함"
 
 echo "── test-rename-init-project: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

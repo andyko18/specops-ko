@@ -16,9 +16,14 @@ ac=$(ls "$P"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
 # AC-3: stale 문구 정리 — "deprecated alias 보존"·"(구 /start-batch)" 부재
 ! grep -q 'deprecated alias 보존' "$P/commands/init-project.md" && ! grep -q '(구 /start-batch)' "$P/commands/start-all.md" \
   && ok "AC-3 stale 문구 정리" || nope "AC-3" "stale 문구 잔존"
-# AC-R-3: 오케스트레이터·런타임토큰 보존
-[ -f "$P/scripts/_internal/start-project.sh" ] && grep -q '/start-project' "$P/templates/api-spec.md" \
-  && ok "AC-R-3 오케스트레이터·런타임토큰 보존" || nope "AC-R-3" "보존 대상 소실"
+# AC-R-3: 오케스트레이터·런타임 치환 토큰 정합 (placeholder 짝 일치 → _replace_token 동작 보존)
+#   — 구 가드는 api-spec.md 의 `/start-project` 문자열 존재만 확인했으나 init-project rename 으로 `/init-project` 로 전환.
+#     회귀 정신(런타임 치환이 깨지지 않는가)은 "두 파일의 placeholder 토큰이 동일"로 직접 검증.
+TOK='<`/init-project` 입력값>'   # api-spec.md placeholder (escape 없음)
+[ -f "$P/scripts/_internal/init-project.sh" ] \
+  && grep -qF "$TOK" "$P/templates/api-spec.md" \
+  && grep -q '_replace_token.*init-project.*입력값' "$P/scripts/_internal/init-project.sh" \
+  && ok "AC-R-3 런타임 치환 토큰 정합" || nope "AC-R-3" "placeholder 짝 불일치"
 
 echo "── test-remove-alias: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

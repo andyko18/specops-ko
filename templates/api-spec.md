@@ -15,7 +15,7 @@
 - [ ] §3 GraphQL SDL 골격
 - [ ] §4 RPC / TS 시그니처
 
-**채택한 방식**: <`/start-project` 입력값>
+**채택한 방식**: <`/init-project` 입력값>
 
 ## §1. Markdown 엔드포인트 표
 

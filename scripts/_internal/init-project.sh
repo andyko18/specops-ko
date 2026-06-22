@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# /start-project 오케스트레이터 — 10 Phase 구현 (T13b~T13f 가 각 phase 함수 추가)
+# /init-project 오케스트레이터 — 10 Phase 구현 (T13b~T13f 가 각 phase 함수 추가)
 # 한국 SI 표준 13종 산출물 자동 부트스트랩
 set -u
 
@@ -99,9 +99,9 @@ _replace_token() {
 # 다중 매칭이 필요한 케이스가 등장하면 fence 패턴 (_rebuild_screens_table 참조) 으로 전환.
 _replace_line_prefix() {
   local file="$1" prefix="$2" content="$3"
-  awk -v p="$prefix" -v c="$content" '
-    BEGIN { plen = length(p) }
-    substr($0, 1, plen) == p { print c; next }
+  P="$prefix" C="$content" awk '
+    BEGIN { plen = length(ENVIRON["P"]) }
+    substr($0, 1, plen) == ENVIRON["P"] { print ENVIRON["C"]; next }
     { print }
   ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 }
@@ -551,7 +551,7 @@ _phase_8f_api_spec() {
     4) fmt_label="RPC / TS 시그니처";       fmt_sec="§4" ;;
   esac
   sed -i.bak "s/\[ \] ${fmt_sec} /[x] ${fmt_sec} /" "$target" && rm -f "${target}.bak"
-  _replace_token "$target" "<\`/start-project\` 입력값>" "${fmt_label} (${fmt_sec})"
+  _replace_token "$target" "<\`/init-project\` 입력값>" "${fmt_label} (${fmt_sec})"
   python3 - "$target" "$m" <<'PYEOF'
 import sys, re
 path, keep = sys.argv[1], sys.argv[2]
@@ -652,7 +652,7 @@ EOF
     echo "→ commit 대상 없음 (skip 정책으로 모두 보존된 듯)"
     return
   fi
-  git commit -q -m "chore(init): /start-project 부트스트랩 (${label} · 13종 중 ${active}종)"
+  git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 13종 중 ${active}종)"
   echo "→ git commit 완료 (${label} · ${active}/13)"
   echo ""
   echo "초기화 완료. 활성 산출물 ${active}종."
@@ -699,4 +699,7 @@ main() {
   phase_10_commit
 }
 
-main "$@"
+# source 가드 — sourced 시 함수만 로드 (테스트가 _replace_line_prefix 등 단위 호출 가능)
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi

@@ -1,6 +1,6 @@
 ---
 name: e2e-test-ko
-description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (start-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(security/integration/performance SKIP)→(finishing 정리) 9단계 완주
+description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (init-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(security/integration/performance SKIP)→(finishing 정리) 9단계 완주
 layer: 3
 reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 specops_version: 1.0.0
@@ -10,11 +10,11 @@ used_by: /e2e-test
 # Harness 스킬 — E2E 자동 테스트 (e2e-test-ko)
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
-(start-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
+(init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
 9단계를 HARD GATE 없이 완주하고 20개 검증 항목(V1~V20)을 점검한다.
 
 > **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
-> **repo ROOT 를 변경**하므로 (start-project 가 PRD/CLAUDE/README 작성 + `git commit`,
+> **repo ROOT 를 변경**하므로 (init-project 가 PRD/CLAUDE/README 작성 + `git commit`,
 > finishing 이 `git checkout main`/`branch -d`/`worktree remove`) 플러그인 repo 에서
 > 직접 실행하면 자기 파일을 파괴한다. 따라서 두 단계는 **각각 `mktemp -d` + `git init`
 > throwaway repo 안에서** 실행하고 끝에 `rm -rf` 로 제거한다. 검증 판정은 temp repo
@@ -26,7 +26,7 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-c
 다음 각 항목을 순서대로 완료한다:
 
 1. **[PRE] FID + 디렉토리 생성** (+ `e2e_check` 헬퍼·카운터 정의)
-2. **[S0] BOOTSTRAP** — start-project 부트스트랩 (격리 repo, 진입부) → V10~V13
+2. **[S0] BOOTSTRAP** — init-project 부트스트랩 (격리 repo, 진입부) → V10~V13
 3. **[S1] SPECIFY** — spec.md + acceptance-criteria.md 생성
 4. **[S2] CLARIFY** — clarifications.md 생성 + AC append
 5. **[S3] PLAN** — plan.md 생성
@@ -95,7 +95,7 @@ e2e_check() {
 
 ---
 
-## [S0] BOOTSTRAP — start-project 부트스트랩 (격리 repo, 진입부)
+## [S0] BOOTSTRAP — init-project 부트스트랩 (격리 repo, 진입부)
 
 lifecycle **진입부** 검증 — `/init-project` 의 비대화 산출물 생성을 격리 repo 에서 확인.
 **비대화 우회**: phase_4 fallback 이 `/dev/tty` 를 직접 read 하므로 `echo n |` 으로는 막힌다.
@@ -109,7 +109,7 @@ TMP="$(mktemp -d)"
   cd "$TMP" && git init -q \
     && git config user.email e2e@test.local && git config user.name e2e
   printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/start-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 
 # V10: root 산출물 3종
@@ -122,14 +122,14 @@ TMP="$(mktemp -d)"
 { [ -f "$TMP/.specops/session-progress.md" ] \
   && [ "$(git -C "$TMP" log --oneline 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ]; } && r12=0 || r12=1
 
-e2e_check V10 "start-project root 산출물 3종" "$r10"
-e2e_check V11 "start-project memory 산출물 3종" "$r11"
+e2e_check V10 "init-project root 산출물 3종" "$r10"
+e2e_check V11 "init-project memory 산출물 3종" "$r11"
 e2e_check V12 "session-progress 골격 + init 커밋" "$r12"
 
 rm -rf "$TMP"
 ```
 
-**V13 — brainstorming → start-project 참조 흐름** (별도 격리 repo):
+**V13 — brainstorming → init-project 참조 흐름** (별도 격리 repo):
 메모를 `.specops/memory/` 에 선생성하면 `_check_memory`(`[y/N]`)·`_check_brainstorming`(`[Y/n]`)
 prompt 가 발동하므로 스트림 선두에 `y`(재부트) + `Y`(참조) prepend. PRD.md 에
 `## 브레인스토밍 컨텍스트` 주입되면 PASS.
@@ -143,7 +143,7 @@ TMP="$(mktemp -d)"
   printf '# 브레인스토밍 메모\n## 문제\n사용자 인사 자동화\n' \
     > .specops/memory/brainstorming-$(date +%Y%m%d)-greet.md
   printf 'y\nY\n3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/start-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 
 grep -q '## 브레인스토밍 컨텍스트' "$TMP/PRD.md" 2>/dev/null && r13=0 || r13=1
@@ -854,7 +854,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [PRE] FID 생성 + mkdir + e2e_check/카운터 정의
     ↓
-[S0] start-project 부트스트랩 (격리 repo) → V10~V13   ← 진입부 (신규)
+[S0] init-project 부트스트랩 (격리 repo) → V10~V13   ← 진입부 (신규)
     ↓
 [S1] spec.md + acceptance-criteria.md (AC-1, AC-2)
     ↓
@@ -885,7 +885,7 @@ PASS=20 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥19 허용)
 | V7 (session-progress) | scripts/session-progress-append.sh 실패 | ensure-session-progress.sh 실행 후 재시도 |
 | V8 (DAG 파싱) | parse-dag.sh 로드 실패 | `bash scripts/dag/parse-dag.sh` 직접 실행해 오류 확인 |
 | V9 (validate-structure) | 파일 개수 불일치 | validate-structure.sh 실행해 구체적 FAIL 항목 확인 |
-| V10~V12 (부트스트랩) | start-project.sh phase_4 fallback 진입 (parse <4/6) | stdin numbered list 라인이 `숫자. 라벨: 값` 형식인지·빈 줄 sentinel 누락 확인. `[Phase 4] ... 개별 입력 모드로 전환` 출력 시 fallback 진입 (parse 실패) |
+| V10~V12 (부트스트랩) | init-project.sh phase_4 fallback 진입 (parse <4/6) | stdin numbered list 라인이 `숫자. 라벨: 값` 형식인지·빈 줄 sentinel 누락 확인. `[Phase 4] ... 개별 입력 모드로 전환` 출력 시 fallback 진입 (parse 실패) |
 | V13 (brainstorming 참조) | `_check_memory`/`_check_brainstorming` prompt 미소비 | stdin 선두 `y`(재부트) + `Y`(참조) prepend 확인. 메모가 `.specops/memory/brainstorming-*.md` 경로인지 확인 |
 | V14~V17 (finishing GATE) | git fixture 셋업 실패 | `git init --bare`/clone/push 단계 오류 확인. `gh pr` 실제 MERGED 경로는 검증 범위 외 (한계 고백 참조) |
 

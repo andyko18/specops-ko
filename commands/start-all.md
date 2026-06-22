@@ -105,6 +105,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
 
 2. `specops-auto-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 통합 표면(API·DB·서비스 간 호출) 신호 부재 시 graceful skip
+   - `BATCH-INTEGRATION-DONE: <BATCH_ID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
    - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
 
 **Step C: batch 레벨 성능 테스트**

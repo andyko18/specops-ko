@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# T19 — /start-project 통합 테스트 (FID 20260507-start-project-bootstrap)
+# T19 — /init-project 통합 테스트 (FID 20260507-start-project-bootstrap)
 # 14 테스트: KIND 매트릭스 (T1~T4) + skip/conflict/git (T5~T7) + deprecate (T8)
 #          + 인용 검증 (T9~T11) + screens (T12) + memory 재실행 (T13) + DB 분기 (T14)
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-SCRIPT="$PLUGIN/scripts/_internal/start-project.sh"
+SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
 
 # ── 헬퍼 ──────────────────────────────────────
 TMPDIR=""
@@ -151,9 +151,9 @@ else
 fi
 teardown_fixture
 
-# ── T8.a start-design.md 삭제 확인 (/start-project 통합 완료) ──
+# ── T8.a start-design.md 삭제 확인 (/init-project 통합 완료) ──
 if [ ! -f "$PLUGIN/commands/start-design.md" ]; then
-  ok "T8.a commands/start-design.md 삭제됨 (/start-project 통합 완료)"
+  ok "T8.a commands/start-design.md 삭제됨 (/init-project 통합 완료)"
 else
   nope "T8.a start-design 잔존" "start-design.md 가 아직 존재함 — 삭제 필요"
 fi
@@ -468,6 +468,18 @@ else
   nope "T24.a merge warning" "merge fallback 경고 미출력 (out='$(echo "$out_24" | head -5)')"
 fi
 teardown_fixture
+
+# ── T25.a _replace_line_prefix 백슬래시 escape 회귀 ──
+T25=$(mktemp)
+printf '**한 줄 설명**: <placeholder>\n' > "$T25"
+( source "$SCRIPT" 2>/dev/null
+  _replace_line_prefix "$T25" '**한 줄 설명**:' '**한 줄 설명**: 경로\test\new' )
+if grep -qF '경로\test\new' "$T25"; then
+  ok "T25.a _replace_line_prefix 백슬래시 원문 보존"
+else
+  nope "T25.a 백슬래시" "escape 확장됨 (awk -v 미전환)"
+fi
+rm -f "$T25"
 
 # ── 결과 ──────────────────────────────────────
 echo ""

@@ -27,7 +27,7 @@ rm -rf "$TMPDIR"
 # ── T1.b extract: placeholder (<...>) 제외 ─────
 TMPDIR=$(mktemp -d)
 cat > "$TMPDIR/tasks.md" <<'EOF'
-- [ ] **스텝 3**: 실행: `bash scripts/_internal/start-project.sh "<프로젝트명>"`
+- [ ] **스텝 3**: 실행: `bash scripts/_internal/init-project.sh "<프로젝트명>"`
 - [ ] **스텝 4**: 실행: `bash scripts/tests/test-real.sh`
 EOF
 out=$(bash "$EXTRACT" "$TMPDIR/tasks.md")

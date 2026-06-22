@@ -1,6 +1,6 @@
 ---
 name: e2e-test
-description: specops-auto-ko E2E 자동 테스트 — (start-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
+description: specops-auto-ko E2E 자동 테스트 — (init-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
 triggers:
   - "/e2e-test"
 mode: auto
@@ -14,7 +14,7 @@ reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 ## 목적
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없이 내장 `greet-cli` fixture를 사용해
-`(start-project 부트스트랩) → specifying → clarifying → planning → decomposing → implementing → verifying-evidence → (integration/performance SKIP) → (finishing 정리)`
+`(init-project 부트스트랩) → specifying → clarifying → planning → decomposing → implementing → verifying-evidence → (integration/performance SKIP) → (finishing 정리)`
 9단계를 완주하고 19개 검증 항목(V1~V19)을 점검한다.
 
 ## Process
