@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`start-all` 안티패턴 교차참조 오타** — `commands/start-all.md` 안티패턴 "per-FR PR 생성" 항목이 최종 batch PR 생성 단계를 `Step C`(performance-test)로 잘못 지칭하던 오타를 실제 PR 생성 단계인 `Step D`로 정정.
+
 ## [1.19.1] — 2026-06-22
 
 ### Fixed
