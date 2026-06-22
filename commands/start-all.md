@@ -71,6 +71,7 @@ reference_upstream: specops-auto-ko 독자 추가
 ### Phase 2 — 일괄 리뷰 (단일 게이트)
 
 1. 전 FID의 `.specops/<FID>/spec.md`, `plan.md`, `tasks.md` 핵심 내용 요약 제시
+1.5. **[§auto 모드]** (`/start-all-auto` 진입 — 전 FID spec.md에 `**§auto**: true`): 본 일괄 리뷰 게이트를 **자동 통과** → Phase 3 직행. 사용자 응답 대기 없음. (가역 게이트 — 가정은 batch PR 게이트 다이제스트로 집계)
 2. 단일 게이트: **"전체 구현 진행? [y/n]"**
    - `n` → **중단**. 아티팩트 보존, `feat/<BATCH_ID>` 브랜치 보존. `/start-all` 재진입 시 Phase 3부터 재개 가능
    - `y` → Phase 3 진입
