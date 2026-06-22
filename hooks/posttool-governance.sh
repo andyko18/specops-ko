@@ -51,7 +51,9 @@ while IFS= read -r rule; do
   result=""
   case "$local_id" in
     R-1|R-2)
-      result=$(apply_lookback_rule "$rule" "$transcript" "$tool_name" "$tool_cmd" 2>/dev/null || true)
+      if ! is_docs_only_change; then
+        result=$(apply_lookback_rule "$rule" "$transcript" "$tool_name" "$tool_cmd" 2>/dev/null || true)
+      fi
       ;;
     R-3)
       if [ "$tool_name" = "Skill" ] && printf '%s' "$tool_cmd" | grep -Eq '^specops-auto-ko:'; then
