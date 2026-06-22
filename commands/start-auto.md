@@ -26,7 +26,7 @@ specops-auto-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 �
    <원본 기능 설명>
    ```
 3. **즉시 `specops-auto-ko:specifying-ko` 스킬 호출** — prepend된 args를 초기 맥락으로 제공
-4. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` + `§auto` 분기가 가역 게이트를 자동 통과 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → integration-test-ko → performance-test-ko → PR 게이트). 본 command는 **specifying-ko 진입만** 책임.
+4. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` + `§auto` 분기가 가역 게이트를 자동 통과 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR 게이트). 본 command는 **specifying-ko 진입만** 책임.
 
 ## §auto 모드 동작
 
@@ -39,6 +39,7 @@ specops-auto-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 �
 | implementing-ko Phase B/C cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | implementing-ko 파괴적/덮어쓰기 task | mini HARD GATE — 발생 위치에서 정지 | 🛑 |
 | verifying-evidence-ko fix_loop cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
+| security-review-ko Critical/High | 차단 — §auto여도 자동통과 금지 (systematic-debugging 후 재실행) | 🛑 |
 | performance-test-ko PR 게이트 | 가정 다이제스트 제시 + [y/n] 단일 확인 | 🛑 |
 
 ## 가정 다이제스트 (PR 게이트)
