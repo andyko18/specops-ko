@@ -269,6 +269,6 @@ bash scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X �
 Skill: specops-auto-ko:requesting-code-review-ko
 ```
 
-requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다**.
+requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 아래 fix_loop 상한 초과 복구).
 
 fix_loop 상한(3회) 초과 시: `specops-auto-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

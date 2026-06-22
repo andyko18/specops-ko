@@ -113,7 +113,7 @@ bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID
 ## 참조
 
 - `skills/karpathy-ko/SKILL.md` — 동일한 cross-cutting skill 패턴
-- `skills/planning-ko/SKILL.md` L177 — `## 8. Advisor 협의 기록` 섹션 (이미 강제)
+- `skills/planning-ko/SKILL.md` — `## 8. Advisor 협의 기록` 섹션 (이미 강제)
 - `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill cross-cutting 주입 위치
 
 ---
