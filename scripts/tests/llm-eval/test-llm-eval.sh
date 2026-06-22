@@ -127,6 +127,35 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.f (rc=$rc out=$out)"
 fi
 
+# ── T7 부트스트랩 차원 (expect_bootstrap early-return + sandbox_seed) ──
+
+# T7.b RED 실증 — expect_bootstrap fixture 안내 미발화 시 FAIL 되어야.
+#   원본(미구현): judge expect_bootstrap 무시 + expect_skill 기본 none + Skill 미호출(got="") → 오판 PASS(rc=0)
+#     → 단언(rc=1 && FAIL boot-none) 불충족 → 본 테스트 FAIL = RED.
+#   구현 후: early-return text "진행합니다" 미매칭 → FAIL(rc=1) → 단언 충족 → PASS.
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" '{"id":"boot-none","prompt":"x","sandbox_seed":"none","expect_bootstrap":"/init-project|초기화되지 않|--resume|권장|부트스트랩"}'
+mk_fx "$STUB_PLAN" '{"text":"네 알겠습니다 진행합니다","cost":0}' '{"text":"네 알겠습니다 진행합니다","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL boot-none'; then PASS=$((PASS+1)); echo "PASS T7.b 안내 미발화 FAIL"; else FAIL=$((FAIL+1)); echo "FAIL T7.b (rc=$rc out=$out)"; fi
+rm -rf "$TD"
+
+# T7.a expect_bootstrap — 부트스트랩 안내 text 방출 → text 정규식 매칭 PASS (Skill 차원 무시)
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" '{"id":"boot-none","prompt":"CLI 만들어줘","sandbox_seed":"none","expect_bootstrap":"/init-project|초기화되지 않|--resume|권장|부트스트랩"}'
+mk_fx "$STUB_PLAN" '{"text":"프로젝트가 초기화되지 않았습니다. /init-project 권장 [y/N]","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS boot-none'; then PASS=$((PASS+1)); echo "PASS T7.a expect_bootstrap 매칭"; else FAIL=$((FAIL+1)); echo "FAIL T7.a (rc=$rc out=$out)"; fi
+rm -rf "$TD"
+
+# T7.c expect_bootstrap 미정의 + Skill 호출 → 기존 Skill 차원 회귀 (early-return 미발동)
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
+mk_fx "$STUB_PLAN" '{"skill":"specops-auto-ko:specifying-ko","args":"CLI","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS new-1'; then PASS=$((PASS+1)); echo "PASS T7.c expect_bootstrap 미정의 회귀"; else FAIL=$((FAIL+1)); echo "FAIL T7.c (rc=$rc out=$out)"; fi
+rm -rf "$TD"
+
 # ── T4 재시도·BORDERLINE·비용 ──
 
 # T4.a 재시도 성공 — 1차 오답 → 2차 정답 → PASS + retry 표기 + stub 2회 호출 (AC-6)

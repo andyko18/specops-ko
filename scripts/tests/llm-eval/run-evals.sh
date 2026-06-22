@@ -25,11 +25,18 @@ fi
 PASS=0; FAIL=0; BORDER=0; COST=0
 
 # sandbox 격리 — headless lifecycle 부작용 (브랜치 생성·체크아웃·.specops 오염) 을 temp repo 에 가둠
-# CLAUDE.md + .specops 존재 시 메타 skill 의 프로젝트 최초 진입(부트스트랩 안내) 분기 회피 — 정상 specifying 진입
-SANDBOX=$(mktemp -d)
-git -C "$SANDBOX" init -q
-mkdir -p "$SANDBOX/.specops"
-printf '# sandbox\n' > "$SANDBOX/CLAUDE.md"
+# fixture별 sandbox_seed 에 맞춰 재시드 (both=정상 specifying 진입 / none·specops-only=부트스트랩 안내 유도)
+SANDBOX=""
+setup_sandbox() {  # $1=seed(both|none|specops-only) → 전역 SANDBOX 재구성 (fixture별 격리)
+  [ -n "$SANDBOX" ] && rm -rf "$SANDBOX"
+  SANDBOX=$(mktemp -d)
+  git -C "$SANDBOX" init -q
+  case "$1" in
+    none) ;;                                          # 둘 다 미시드 → 전체 부트스트랩 안내
+    specops-only) mkdir -p "$SANDBOX/.specops" ;;     # .specops만 → 부분 안내
+    *) mkdir -p "$SANDBOX/.specops"; printf '# sandbox\n' > "$SANDBOX/CLAUDE.md" ;;  # both(기본)
+  esac
+}
 cleanup() {  # M-4: mktemp trap — sandbox + attempt 잔여 임시파일 정리
   rm -rf "$SANDBOX"
   [ -n "${R_MARK:-}" ] && rm -f "$R_MARK"
@@ -68,8 +75,12 @@ extract_cost() {  # stdin=stream-json → 비용 (없으면 0)
   jq -r 'select(.type=="result") | .total_cost_usd // 0' 2>/dev/null | head -1 | grep . || echo 0
 }
 
-judge() {  # $1=expect_skill $2=expect_flag $3=got_skill $4=got_args_l1 → PASS|FAIL
-  local want="$1" flag="$2" got="$3" l1="$4"
+judge() {  # $1=expect_skill $2=expect_flag $3=got_skill $4=got_args_l1 $5=expect_bootstrap $6=texts → PASS|FAIL
+  local want="$1" flag="$2" got="$3" l1="$4" boot="$5" texts="$6"
+  if [ -n "$boot" ]; then  # 부트스트랩 차원 — text 발화만 검사, Skill 차원 완전 분리 (early-return)
+    printf '%s' "$texts" | grep -Eq "$boot" && echo PASS || echo FAIL
+    return
+  fi
   if [ "$want" = "none" ]; then
     [ -z "$got" ] && echo PASS || echo FAIL
     return
@@ -99,6 +110,7 @@ attempt() {  # $1=prompt → 전역 G_SKILL/G_L1/G_TIMEOUT/G_ERR1 설정 + COST 
   res=$(printf '%s\n' "$out" | parse_first_skill)
   G_SKILL="${res%%$'\t'*}"
   G_L1="${res#*$'\t'}"; [ "$res" = "$G_SKILL" ] && G_L1=""
+  G_TEXTS=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="text")|.text' 2>/dev/null | paste -sd' ' -)
 }
 
 run_fixture() {  # $1=fixture json 1줄
@@ -108,6 +120,10 @@ run_fixture() {  # $1=fixture json 1줄
   any=$(printf '%s' "$fx" | jq -r '(.expect_any // []) | join(",")')
   want=$(printf '%s' "$fx" | jq -r '.expect_skill // "none"')
   flag=$(printf '%s' "$fx" | jq -r '.expect_flag // "none"')
+  local seed boot
+  seed=$(printf '%s' "$fx" | jq -r '.sandbox_seed // "both"')
+  boot=$(printf '%s' "$fx" | jq -r '.expect_bootstrap // ""')
+  setup_sandbox "$seed"
 
   attempt "$prompt"
 
@@ -123,11 +139,11 @@ run_fixture() {  # $1=fixture json 1줄
     return
   fi
 
-  verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1")
+  verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1" "$boot" "$G_TEXTS")
   [ "$G_TIMEOUT" = "1" ] && verdict=TIMEOUT  # I-2: timeout 시도는 판정 불성립 — none PASS 차단
   if [ "$verdict" != "PASS" ]; then  # 재시도 cap=1 (AC-6)
     attempt "$prompt"
-    verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1")
+    verdict=$(judge "$want" "$flag" "$G_SKILL" "$G_L1" "$boot" "$G_TEXTS")
     [ "$G_TIMEOUT" = "1" ] && verdict=TIMEOUT
     retry=" retry"
   fi
