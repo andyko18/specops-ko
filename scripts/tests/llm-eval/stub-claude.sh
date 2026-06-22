@@ -10,10 +10,13 @@ line=$(sed -n "${n}p" "${STUB_PLAN:?STUB_PLAN 필요}")
 [ -z "$line" ] && line=$(tail -1 "$STUB_PLAN")
 skill=$(printf '%s' "$line" | jq -r '.skill // empty')
 args=$(printf '%s' "$line" | jq -r '.args // ""')
+text=$(printf '%s' "$line" | jq -r '.text // empty')
 cost=$(printf '%s' "$line" | jq -r '.cost // 0')
 if [ -n "$skill" ]; then
   jq -cn --arg s "$skill" --arg a "$args" \
     '{type:"assistant",message:{content:[{type:"tool_use",name:"Skill",input:{skill:$s,args:$a}}]}}'
+elif [ -n "$text" ]; then
+  jq -cn --arg t "$text" '{type:"assistant",message:{content:[{type:"text",text:$t}]}}'
 else
   jq -cn '{type:"assistant",message:{content:[{type:"text",text:"일반 응답"}]}}'
 fi

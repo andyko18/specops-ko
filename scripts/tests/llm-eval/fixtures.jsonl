@@ -8,3 +8,7 @@
 {"id":"none-3","prompt":"README.md 의 거버넌스 섹션을 세 줄로 요약해줘","expect_skill":"none","expect_flag":"none","note":"비신호 — 요약 요청"}
 {"id":"border-1","prompt":"hooks/governance-lib.sh 코드를 설명해줘. 그리고 느린 부분이 있으면 고치면 좋겠어","expect_any":["analyzing-ko","specifying-ko","none"],"note":"경계 — 설명+수정 혼재 (비차단)"}
 {"id":"border-2","prompt":"테스트가 가끔 깨지는 것 같은데 어떻게 생각해?","expect_any":["analyzing-ko","none"],"note":"경계 — 문제 서술 (비차단)"}
+{"id":"boot-none","prompt":"CSV 줄 수 세는 CLI 만들어줘","sandbox_seed":"none","expect_bootstrap":"/init-project|초기화되지 않|--resume|권장|부트스트랩","note":"부트스트랩 전체 안내 — .specops·CLAUDE.md 부재"}
+{"id":"boot-partial","prompt":"URL 슬러그 변환 모듈 구현해줘","sandbox_seed":"specops-only","expect_bootstrap":"/init-project|초기화되지 않|--resume|권장|부트스트랩","note":"부트스트랩 부분 안내 — CLAUDE.md 부재"}
+{"id":"new-4","prompt":"로그 파일을 JSON 으로 변환하는 도구로 업그레이드 해줘","sandbox_seed":"both","expect_skill":"specifying-ko","expect_flag":"new","note":"신규 — 업그레이드 표현(신규 산출물)"}
+{"id":"maint-3","prompt":"scripts/slug.sh 성능을 개선해줘","sandbox_seed":"both","expect_skill":"analyzing-ko","expect_flag":"maintain","note":"유지보수 — 개선 표현"}

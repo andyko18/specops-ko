@@ -155,6 +155,7 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `tests/mutation-score.sh` — 간이 뮤테이션 하니스 (수동 — bash 스크립트 변형 주입 후 테스트 검출률 측정). run-all 비포함. config: `tests/mutation-targets.conf`.
   - `mutation-equivalent.conf` — 알려진 equivalent mutant(`<target>|<line>|<pattern>|<reason>`) 분모 제외. return-code/관찰불가 변형만(남용 금지). `MUT_EQUIV_CONF` 로 오버라이드.
 - `tests/llm-eval/eval-lib.sh` — llm-eval 공통 lib (소스 전용): assertion 어휘 4종(contains/regex/cost_lt/llm_rubric) + 매트릭스 평가. promptfoo 방법론 bash 이식. `run-matrix-eval.sh` 가 declarative 사용 (기본 stub, `CLAUDE_BIN` 시 실 모델). run-all 비포함(test-eval-matrix.sh 만).
+- signal eval은 `sandbox_seed`(both/none/specops-only) + `expect_bootstrap` fixture 필드로 **프로젝트 최초 진입 부트스트랩 안내**(/init-project 권장 발화) 감지를 커버한다.
 
 ## 참조
 
