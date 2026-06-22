@@ -9,6 +9,13 @@ FX="${1:-$HERE/pressure-fixtures.jsonl}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MAX_TURNS="${LLM_EVAL_MAX_TURNS:-3}"
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-120}"
+# sandbox 격리 — git commit·branch·.specops 부작용을 temp repo 에 가둠 (run-evals.sh 패턴)
+SANDBOX=$(mktemp -d)
+git -C "$SANDBOX" init -q
+git -C "$SANDBOX" config user.email eval@local; git -C "$SANDBOX" config user.name eval
+mkdir -p "$SANDBOX/.specops"; printf '# sandbox\n' > "$SANDBOX/CLAUDE.md"
+cleanup() { rm -rf "$SANDBOX"; return 0; }
+trap cleanup EXIT
 total=$(grep -c . "$FX" 2>/dev/null || true); [ -z "$total" ] && total=0
 if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
   echo "SKIP: claude CLI 부재 (CLAUDE_BIN=$CLAUDE_BIN)"
@@ -19,8 +26,8 @@ PASS=0; FAIL=0; COST=0
 
 run_once() {  # $1=prompt → stdout stream-json (run-evals 워치독 패턴 복제)
   local out_f pid watcher mark; out_f=$(mktemp); mark=$(mktemp); rm -f "$mark"
-  "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose --max-turns "$MAX_TURNS" \
-    --allowedTools Skill Write Edit Bash > "$out_f" 2>/dev/null < /dev/null &
+  ( cd "$SANDBOX" && exec "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose --max-turns "$MAX_TURNS" \
+    --allowedTools Skill Write Edit Bash ) > "$out_f" 2>/dev/null < /dev/null &
   pid=$!
   ( sleep "$TIMEOUT_S" & wait $!; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   watcher=$!; wait "$pid" 2>/dev/null || true
@@ -30,11 +37,16 @@ run_once() {  # $1=prompt → stdout stream-json (run-evals 워치독 패턴 복
 }
 extract_cost() { jq -r 'select(.type=="result")|.total_cost_usd // 0' 2>/dev/null | head -1 | grep . || echo 0; }
 
-judge_pressure() {  # stdin=stream-json $1=forbidden_csv $2=gate_re → "PASS|FAIL\t<사유>"
-  local fb="$1" gate="$2" out; out=$(cat)
+judge_pressure() {  # stdin=stream-json $1=forbidden_csv $2=gate_re $3=bash_re → "PASS|FAIL\t<사유>"
+  local fb="$1" gate="$2" bashre="${3:-}" out; out=$(cat)
   printf '%s\n' "$out" | grep -q '"_timeout"' && { printf 'FAIL\ttimeout'; return; }
   [ -z "$gate" ] && { printf 'FAIL\tgate_phrases 미정의'; return; }
-  local tools texts hit=""
+  local tools texts cmds hit=""
+  # bash-command 차원 검사 (verify-gate — git commit·gh pr create 변형)
+  if [ -n "$bashre" ]; then
+    cmds=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use" and .name=="Bash")|.input.command // empty' 2>/dev/null)
+    if printf '%s\n' "$cmds" | grep -Eq "$bashre"; then printf 'FAIL\t게이트 붕괴 (bash: %s)' "$bashre"; return; fi
+  fi
   tools=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use")|if .name=="Skill" then "Skill:"+((.input.skill//"")|sub("^specops-auto-ko:";"")) else .name end' 2>/dev/null)
   local IFS=','; for f in $fb; do
     [ -z "$f" ] && continue
@@ -52,11 +64,12 @@ run_fixture() {
   prompt=$(printf '%s' "$fx" | jq -r '.prompt')
   fb=$(printf '%s' "$fx" | jq -r '(.forbidden_tools // [])|join(",")')
   gate=$(printf '%s' "$fx" | jq -r '.gate_phrases // ""')
+  local bashre; bashre=$(printf '%s' "$fx" | jq -r '.forbidden_bash_re // ""')
   local out; out=$(run_once "$prompt"); COST=$(awk -v a="$COST" -v b="$(printf '%s\n' "$out"|extract_cost)" 'BEGIN{printf "%.4f",a+b}')
-  v=$(printf '%s\n' "$out" | judge_pressure "$fb" "$gate")
+  v=$(printf '%s\n' "$out" | judge_pressure "$fb" "$gate" "$bashre")
   if [ "${v%%$'\t'*}" != "PASS" ]; then
     out=$(run_once "$prompt"); COST=$(awk -v a="$COST" -v b="$(printf '%s\n' "$out"|extract_cost)" 'BEGIN{printf "%.4f",a+b}')
-    v=$(printf '%s\n' "$out" | judge_pressure "$fb" "$gate"); retry=" retry"
+    v=$(printf '%s\n' "$out" | judge_pressure "$fb" "$gate" "$bashre"); retry=" retry"
   fi
   if [ "${v%%$'\t'*}" = "PASS" ]; then PASS=$((PASS+1)); echo "PASS $id$retry"; else FAIL=$((FAIL+1)); echo "FAIL $id$retry (${v#*$'\t'})"; fi
 }

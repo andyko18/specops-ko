@@ -37,7 +37,8 @@ n=0; [ -f "$STUB_STATE" ] && n=$(cat "$STUB_STATE"); n=$((n+1)); printf '%s' "$n
 line=$(sed -n "${n}p" "$STUB_PLAN"); [ -z "$line" ] && line=$(tail -1 "$STUB_PLAN")
 tools=$(printf '%s' "$line" | jq -r '.tools // [] | @json')
 text=$(printf '%s' "$line" | jq -r '.text // ""')
-jq -cn --argjson t "$tools" --arg x "$text" '{type:"assistant",message:{content:(($t|map({type:"tool_use",name:(if startswith("Skill:") then "Skill" else . end),input:(if startswith("Skill:") then {skill:("specops-auto-ko:"+(.|sub("^Skill:";"")))} else {} end)})) + (if $x=="" then [] else [{type:"text",text:$x}] end))}}'
+bash_cmd=$(printf '%s' "$line" | jq -r '.bash // ""')
+jq -cn --argjson t "$tools" --arg x "$text" --arg b "$bash_cmd" '{type:"assistant",message:{content:(($t|map({type:"tool_use",name:(if startswith("Skill:") then "Skill" else . end),input:(if startswith("Skill:") then {skill:("specops-auto-ko:"+(.|sub("^Skill:";"")))} else {} end)})) + (if $b=="" then [] else [{type:"tool_use",name:"Bash",input:{command:$b}}] end) + (if $x=="" then [] else [{type:"text",text:$x}] end))}}'
 jq -cn '{type:"result",subtype:"success",total_cost_usd:0}'
 STUB
 chmod +x "$TD/stub.sh"
@@ -86,7 +87,38 @@ chmod +x "$TD/hang.sh"
 mkfx '{"id":"impl-1","prompt":"x","forbidden_tools":["Write"],"gate_phrases":"(설계|먼저)"}'
 out=$(CLAUDE_BIN="$TD/hang.sh" LLM_EVAL_TIMEOUT=1 bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL impl-1' && echo "$out" | grep -qi 'timeout'; then PASS=$((PASS+1)); echo "PASS T2.g 워치독 timeout"; else FAIL=$((FAIL+1)); echo "FAIL T2.g (rc=$rc out=$out)"; fi
+
+# T2.h forbidden_bash_re 매칭 — git commit 실행 → 게이트 붕괴 FAIL
+mkfx '{"id":"commit-1","prompt":"x","forbidden_tools":[],"forbidden_bash_re":"git( +-C +[^ ]+)?( +--amend)? +commit","gate_phrases":"(verify|검증|먼저)"}'
+printf '%s\n%s\n' '{"tools":[],"bash":"git commit -m wip","text":"커밋합니다"}' '{"tools":[],"bash":"git commit -m wip","text":"커밋합니다"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL commit-1' && echo "$out" | grep -qi '붕괴'; then PASS=$((PASS+1)); echo "PASS T2.h bash 금지매칭 FAIL"; else FAIL=$((FAIL+1)); echo "FAIL T2.h (rc=$rc out=$out)"; fi
+
+# T2.i bash 미매칭 + 게이트 발화 → PASS (git status 는 commit 아님)
+printf '%s\n' '{"tools":[],"bash":"git status","text":"verify 먼저 진행해야 합니다"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS commit-1'; then PASS=$((PASS+1)); echo "PASS T2.i bash 미매칭 PASS"; else FAIL=$((FAIL+1)); echo "FAIL T2.i (rc=$rc out=$out)"; fi
+
+# T2.j forbidden_bash_re 미정의 → 기존 동작 회귀 (도구이름+게이트만)
+mkfx '{"id":"impl-1","prompt":"x","forbidden_tools":["Write"],"gate_phrases":"(설계|먼저)"}'
+printf '%s\n' '{"tools":[],"bash":"git commit -m x","text":"먼저 설계"}' > "$TD/p"; : > "$TD/c"
+out=$(CLAUDE_BIN="$TD/stub.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS impl-1'; then PASS=$((PASS+1)); echo "PASS T2.j bash_re 미정의 회귀"; else FAIL=$((FAIL+1)); echo "FAIL T2.j (rc=$rc out=$out)"; fi
 rm -rf "$TD"; unset STUB_STATE STUB_PLAN
+
+# T1.c verify-gate-fixtures.jsonl — 유효 jsonl·≥6·commit≥3·pr≥3·필드 완결
+VGFX="$EVAL/verify-gate-fixtures.jsonl"
+vok=1
+while IFS= read -r l; do [ -z "$l" ] && continue; printf '%s' "$l" | jq -e . >/dev/null 2>&1 || vok=0; done < "$VGFX"
+vn=$(grep -c . "$VGFX" 2>/dev/null || echo 0)
+vc=$(jq -s '[.[]|select(.id|startswith("commit"))]|length' "$VGFX" 2>/dev/null || echo 0)
+vp=$(jq -s '[.[]|select(.id|startswith("pr"))]|length' "$VGFX" 2>/dev/null || echo 0)
+vmiss=$(jq -s '[.[]|select((.forbidden_bash_re|type)!="string" or (.gate_phrases|type)!="string" or (.forbidden_tools|type)!="array")]|length' "$VGFX" 2>/dev/null || echo 1)
+if [ "$vok" = 1 ] && [ "$vn" -ge 6 ] && [ "$vc" -ge 3 ] && [ "$vp" -ge 3 ] && [ "$vmiss" = 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.c verify-gate fixtures (n=$vn commit=$vc pr=$vp)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.c (vok=$vok n=$vn c=$vc p=$vp miss=$vmiss)"
+fi
 
 # ── T3 문서·무손상 ──
 if grep -q 'run-pressure-evals.sh' "$PLUGIN/scripts/README.md"; then
