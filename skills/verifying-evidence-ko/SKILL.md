@@ -231,6 +231,7 @@ fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시�
            auto_retry_count < 1?
            ├─ YES → auto_retry_count += 1 저장 + escalations 기록
            │        → verify-loop.md 초기화 (fix_count=0)
+           │        → advisor() 1회 자문 시도(보조 입력 — 근본 원인 가설) + escalations 기록. 미연결 시 skip(graceful fallback)
            │        → specops-auto-ko:systematic-debugging-ko 호출
            │        → 복귀 후 VERIFY LOOP 재진입
            └─ NO  → HARD GATE (무인 종료):

@@ -21,6 +21,9 @@ used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-
 BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - 합리적 기본값·컨텍스트 기반 추론으로 답변 선택
 - clarifications.md Q-block에 `status: ASSUMED` 기재 + `**가정 근거**: <한 줄 이유>` 필드 추가
+- **advisor() 보조 자문** (고영향 가정 한정 — 비용 통제): 가정이 **아키텍처·저장소·프로토콜·핵심 동작 입출력** 선택이면(또는 batch FR당 1회 묶음) best-guess 확정 **전** `advisor()` 1회 호출 → 권고를 best-guess 입력에 반영하고 `**가정 근거**`에 `advisor 의견: <요지>` 기록. **UI 세부·로깅·비치명 엣지·trivial 가정은 advisor 트리거 제외**(기존 best-guess 단독).
+- **graceful fallback**: `advisor()` 미연결·미응답·실패 시 즉시 기존 best-guess 단독 진행 + `**가정 근거**`에 `advisor 미연결 — 자기추론` 기록(투명성). advisor 하드 의존 금지.
+- **주권 보존**: advisor 반영 가정도 `status: ASSUMED` 유지 — advisor 는 1 의견이며 최종 확인은 PR 게이트 다이제스트의 사용자 몫.
 - 이 가정은 performance-test-ko PR 게이트의 **가정 다이제스트**로 집계된다
 - BLOCKING 자동 처리 후 planning-ko 직행 (사용자 응답 대기 없음)
 </HARD-GATE>
