@@ -119,6 +119,12 @@ td=$(mktemp -d); ( cd "$td" && git init -q && git commit -q --allow-empty -m ini
   source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
 if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.c 빈목록 fail-safe"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.c"; fi
 rm -rf "$td"
+# T-docs.d staged=docs + unstaged tracked 코드 → 비면제(1) [git commit -am 우회 차단]
+td=$(mktemp -d); ( cd "$td" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
+  echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
+if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.d staged-docs+unstaged-code 비면제(commit -am 우회 차단)"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.d 보안우회!"; fi
+rm -rf "$td"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
