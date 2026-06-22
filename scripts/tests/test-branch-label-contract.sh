@@ -54,6 +54,12 @@ T=$(mktemp); printf '# spec\n설명: 라벨 **§batch** 는 decomposing 정지 �
 T=$(mktemp); printf '# spec\n참고: **§auto** 모드는 자동통과한다.\n' > "$T"
 [ "$(classify "$T")" = "SINGLE" ] && ok "AC-R-2b 본문 §auto 언급→SINGLE" || nope "AC-R-2b" "본문 오탐"; rm -f "$T"
 
+# AC-R-6: batch+auto 공존(/start-all-auto) → classify BATCH 우선 + §auto 라벨 병존
+T=$(mktemp); printf '**§유형**: 신규\n**§batch**: batch-20260622\n**§auto**: true\n' > "$T"
+[ "$(classify "$T")" = "BATCH" ] && ok "AC-R-6a 공존→BATCH(§batch 우선)" || nope "AC-R-6a" "분기 오판"
+grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$T" && ok "AC-R-6b 공존 spec §auto 라벨 grep 양성" || nope "AC-R-6b" "§auto 미검출"
+rm -f "$T"
+
 # AC-R-3: 소비처 whole-file 패턴(줄앵커 ^ 없는 grep -q '\*\*§…) 잔존 0건
 remain=$(grep -rnF "grep -q '\\*\\*§" "$SK"/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
 [ "$remain" = "0" ] && ok "AC-R-3 whole-file grep 잔존 0" || nope "AC-R-3" "$remain 건 잔존"
