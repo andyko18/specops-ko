@@ -31,6 +31,7 @@ transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|])[[:space:]]*(env[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)*commit\b|(^|[;&|])[[:space:]]*(env[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
+is_docs_only_change && allow
 
 fid=$(detect_fid)
 if [ -n "$fid" ] && [ -f ".specops/$fid/spec.md" ] && grep -qE '^\*\*§auto\*\*:[[:space:]]*true' ".specops/$fid/spec.md" 2>/dev/null; then

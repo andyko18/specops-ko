@@ -104,6 +104,28 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T-docs.a is_docs_only_change: .md만 staged → 면제(0)
+td=$(mktemp -d); ( cd "$td" && git init -q && echo x > a.md && git add a.md
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
+if [ "$rc" -eq 0 ]; then PASS=$((PASS+1)); echo "PASS T-docs.a .md-only 면제"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.a"; fi
+rm -rf "$td"
+# T-docs.b 코드 혼합 → 비면제(1) [보안 불변식]
+td=$(mktemp -d); ( cd "$td" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
+if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.b 코드혼합 비면제"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.b 보안회귀!"; fi
+rm -rf "$td"
+# T-docs.c 빈 목록(변경 없음) → 비면제(1) [fail-safe]
+td=$(mktemp -d); ( cd "$td" && git init -q && git commit -q --allow-empty -m init
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
+if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.c 빈목록 fail-safe"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.c"; fi
+rm -rf "$td"
+# T-docs.d staged=docs + unstaged tracked 코드 → 비면제(1) [git commit -am 우회 차단]
+td=$(mktemp -d); ( cd "$td" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
+  echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change ); rc=$?
+if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.d staged-docs+unstaged-code 비면제(commit -am 우회 차단)"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.d 보안우회!"; fi
+rm -rf "$td"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

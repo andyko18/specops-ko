@@ -48,5 +48,22 @@ check "T14 mygit → allow" '"continue":true' "$out"
 out=$(mkstdin "git committed --amend" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T15 committed 단어경계 → allow" '"continue":true' "$out"
 
+# T16 docs-only(.md staged) → allow [면제, AC-R-1]
+dgit=$(mktemp -d); ( cd "$dgit" && git init -q && echo x > CHANGELOG.md && git add CHANGELOG.md )
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$dgit" bash "$HOOK" 2>/dev/null)
+check "T16 docs-only → allow" '"continue":true' "$out"
+rm -rf "$dgit"
+# T17 코드 혼합(.md+.sh staged) → deny [보안 불변식, AC-R-2]
+mgit=$(mktemp -d); ( cd "$mgit" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh )
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$mgit" bash "$HOOK" 2>/dev/null)
+check "T17 코드혼합 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$mgit"
+# T18 staged docs + unstaged tracked 코드 + `git commit -am` → deny [commit -am 우회 차단, 보안 Critical]
+agit=$(mktemp -d); ( cd "$agit" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
+  echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh )
+out=$(mkstdin "git commit -am wip" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$agit" bash "$HOOK" 2>/dev/null)
+check "T18 commit -am unstaged-code 우회 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$agit"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
