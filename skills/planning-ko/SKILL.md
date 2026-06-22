@@ -150,8 +150,7 @@ git commit -m "feat: 특정 기능 추가"
 
 자체 검토 통과 후 `specops-auto-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다.
 
-**dispatch:**
-Skill: specops-auto-ko:plan-reviewer-ko
+**dispatch:** `Agent` 도구, `subagent_type: "specops-auto-ko:plan-reviewer-ko"`
 입력: `.specops/<FID>/plan.md` 경로
 
 **판정 처리 (cap=2):**
