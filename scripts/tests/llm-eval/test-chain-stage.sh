@@ -58,4 +58,16 @@ rm -rf "$TD"
 out=$(CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$EVAL/chain-stage-fixtures" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^SKIP'; then PASS=$((PASS+1)); echo "PASS T1.d CLI 부재 SKIP"; else FAIL=$((FAIL+1)); echo "FAIL T1.d (rc=$rc out=$out)"; fi
 
+# T1.e fixture 무결성 — decompose-covmiss 3파일 + 미커버 AC가 plan.md 본문 미등장 + AC.md 등장
+CFX="$EVAL/chain-stage-fixtures/decompose-covmiss"
+loc=$(jq -r '.locator' "$CFX/defects.jsonl" 2>/dev/null | head -1)
+if [ -f "$CFX/plan.md" ] && [ -f "$CFX/acceptance-criteria.md" ] && [ -f "$CFX/defects.jsonl" ] \
+   && [ -n "$loc" ] \
+   && ! grep -Fq "$loc" "$CFX/plan.md" \
+   && grep -Fq "$loc" "$CFX/acceptance-criteria.md"; then
+  PASS=$((PASS+1)); echo "PASS T1.e fixture 무결성 (loc=$loc plan미등장 AC.md등장)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.e (loc=$loc — plan.md 본문 등장 또는 파일 누락)"
+fi
+
 echo "--- SUMMARY ---"; echo "PASS=$PASS FAIL=$FAIL"; exit $FAIL
