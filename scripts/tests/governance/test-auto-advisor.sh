@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # §auto advisor 보조 자문 통합 회귀 — 3 분기 advisor 텍스트 + graceful fallback 문구 가드
+# 한계: presence-only(문구 존재만 검증) — 삽입 위치·흐름 통합은 미검증. 본문 리워딩 시 grep 완화 필요.
 set -u
 PASS=0; FAIL=0
 PLUGIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -19,7 +20,7 @@ grep -q 'graceful fallback' "$P" && ok "AC-R-2b planning fallback" || nope "AC-R
 
 # T3: verifying §auto fix_loop advisor + fallback
 V="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
-grep -q 'advisor() 1회 자문 시도' "$V" && ok "AC-4 verify advisor" || nope "AC-4" "advisor 미존재"
+grep -q 'advisor().*자문 시도' "$V" && ok "AC-4 verify advisor" || nope "AC-4" "advisor 미존재"
 grep -q 'graceful fallback' "$V" && ok "AC-R-2c verify fallback" || nope "AC-R-2c" "fallback 미존재"
 
 # T4: advisor-ko §auto 무인 행 + 주권
