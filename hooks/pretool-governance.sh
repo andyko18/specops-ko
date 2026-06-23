@@ -28,7 +28,7 @@ tool_cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 
 [ "$tool_name" = "Bash" ] || allow
-printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*git[[:space:]]+((-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--exec-path|--config-env)[[:space:]]+[^[:space:]]+[[:space:]]+|((--no-pager|-p|--paginate|--bare|--no-replace-objects|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|-P)|--[^[:space:]=]+=[^[:space:]]+)[[:space:]]+)*commit\b|(^|[;&|])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
+printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*git[[:space:]]+((-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--exec-path|--config-env)[[:space:]]+[^[:space:]]+[[:space:]]+|((--no-pager|-p|--paginate|--bare|--no-replace-objects|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-advice|-P)|--[^[:space:]=]+=[^[:space:]]+)[[:space:]]+)*commit\b|(^|[;&|])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
 is_docs_only_change && allow
