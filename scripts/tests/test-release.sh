@@ -193,6 +193,38 @@ grep -q "(v1.11.0 — test)" "$TD/.claude-plugin/marketplace.json" \
   && ok "T13.a marketplace description 버전 갱신" || fail "T13.a (desc=$(grep description "$TD/.claude-plugin/marketplace.json"))"
 rm -rf "$TD"
 
+# T14: FR-12 origin 존재 시 push + gh release 발행 (bare origin + gh stub — 실제 GitHub 호출 없음)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+BARE=$(mktemp -d); git init --bare -q "$BARE"
+git -C "$TD" remote add origin "$BARE"
+git -C "$TD" push -q -u origin HEAD          # upstream 설정 (release.sh 의 `git push` 대상)
+FAKEBIN=$(mktemp -d); GH_LOG=$(mktemp)
+cat > "$FAKEBIN/gh" <<GHSTUB
+#!/usr/bin/env bash
+echo "\$@" >> "$GH_LOG"
+exit 0
+GHSTUB
+chmod +x "$FAKEBIN/gh"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true PATH="$FAKEBIN:$PATH" bash "$RELEASE" 1.11.0 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "릴리즈 발행 완료" \
+  && ok "T14.a origin 존재 → push+release exit 0" || fail "T14.a (rc=$rc out='$out')"
+git -C "$BARE" tag -l "v1.11.0" 2>/dev/null | grep -q "v1.11.0" \
+  && ok "T14.b 태그 v1.11.0 origin(bare) push 확인" || fail "T14.b 태그 미push"
+grep -q "release create" "$GH_LOG" && grep -q -- "--verify-tag" "$GH_LOG" && grep -q -- "--latest" "$GH_LOG" \
+  && ok "T14.c gh release create --verify-tag --latest 호출" || fail "T14.c (gh_log='$(cat "$GH_LOG")')"
+grep -q -- "--notes-file" "$GH_LOG" \
+  && ok "T14.d CHANGELOG 노트 --notes-file 전달" || fail "T14.d (gh_log='$(cat "$GH_LOG")')"
+rm -rf "$TD" "$BARE" "$FAKEBIN" "$GH_LOG"
+
+# T15: FR-12 origin 부재 시 push/release skip (commit/tag 는 로컬 수행, exit 0)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "원격 origin 없음" \
+  && ok "T15.a origin 부재 → push/release skip exit 0" || fail "T15.a (rc=$rc out='$out')"
+git -C "$TD" tag -l "v1.11.0" 2>/dev/null | grep -q "v1.11.0" \
+  && ok "T15.b origin 부재여도 로컬 태그 v1.11.0 생성" || fail "T15.b 로컬 태그 미생성"
+rm -rf "$TD"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

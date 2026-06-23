@@ -78,6 +78,8 @@ if $DRY_RUN; then
   echo "4. .claude-plugin/plugin.json + marketplace.json: 버전 bump"
   echo "5. git commit: chore: release v${VERSION}"
   echo "6. git tag: v${VERSION}"
+  echo "7. git push (origin 존재 시): main + v${VERSION} 태그"
+  echo "8. gh release create v${VERSION} (gh 설치 시): CHANGELOG [${VERSION}] 노트 + --latest"
   echo "--- DRY-RUN 완료 (변경 없음) ---"
   trap - EXIT
   exit 0
@@ -166,5 +168,53 @@ trap - EXIT
 
 echo ""
 echo "로컬 릴리즈 완료 (v${VERSION})"
-echo "다음 명령으로 원격에 push하세요:"
-echo "  git push && git push --tags"
+
+# FR-12: 원격 push + GitHub Release 발행
+# origin 부재 시(테스트 임시 repo 등) push/release skip — fail-safe, 테스트 무손상
+if ! git -C "$PLUGIN_ROOT" remote get-url origin > /dev/null 2>&1; then
+  echo "원격 origin 없음 — push/release skip. 수동: git push && git push --tags"
+  exit 0
+fi
+
+echo "-> 원격 push..."
+git -C "$PLUGIN_ROOT" push
+git -C "$PLUGIN_ROOT" push origin "v${VERSION}"
+
+# gh CLI 미설치 시 release 만 graceful skip (push 는 이미 성공)
+if ! command -v gh > /dev/null 2>&1; then
+  echo "Warning: gh CLI 미설치 — GitHub Release 생성 skip." >&2
+  echo "  수동: gh release create v${VERSION} --verify-tag --latest --generate-notes" >&2
+  exit 0
+fi
+
+echo "-> GitHub Release 생성..."
+# CHANGELOG 의 [VERSION] 섹션 본문을 release 노트로 추출 (헤더 제외)
+NOTES_FILE=$(mktemp)
+awk -v v="$VERSION" '
+  $0 ~ "^## \\[" v "\\]" { f=1; next }
+  f && /^## \[/ { exit }
+  f { print }
+' "$CHANGELOG" > "$NOTES_FILE"
+
+# compare 링크 추가 (PREV/BASE_URL 은 CHANGELOG 변환 단계에서 산출됨)
+if [ -n "${PREV:-}" ] && [ -n "${BASE_URL:-}" ]; then
+  printf '\n**Full Changelog**: %s/compare/%s...v%s\n' "$BASE_URL" "$PREV" "$VERSION" >> "$NOTES_FILE"
+fi
+
+# 노트 본문이 비면 gh 자동 생성으로 fallback
+if [ -s "$NOTES_FILE" ]; then
+  gh release create "v${VERSION}" \
+    --repo "$(git -C "$PLUGIN_ROOT" remote get-url origin)" \
+    --title "v${VERSION}" \
+    --notes-file "$NOTES_FILE" \
+    --verify-tag --latest
+else
+  gh release create "v${VERSION}" \
+    --repo "$(git -C "$PLUGIN_ROOT" remote get-url origin)" \
+    --title "v${VERSION}" \
+    --verify-tag --latest --generate-notes
+fi
+rm -f "$NOTES_FILE"
+
+echo ""
+echo "릴리즈 발행 완료 (v${VERSION})"
