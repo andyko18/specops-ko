@@ -27,12 +27,26 @@ detect_fid() {
 
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
 # git diff HEAD = working tree vs HEAD = staged + unstaged tracked 전부 포함 (commit -a 우회 차단).
-# 신규 repo(HEAD 없음) → --cached fallback. 빈 목록·git 실패 → 1 (fail-safe — 판정 불가 시 차단 보존).
-# fail-open(hook 에러 allow)과 구분.
+# base branch 자동감지 — main 우선, master 차선, 없으면 실패(안전측 차단).
+_detect_base_branch() {
+  local b
+  for b in main master; do
+    git show-ref --verify --quiet "refs/heads/$b" && { printf '%s' "$b"; return 0; }
+  done
+  return 1
+}
+
+# 신규 repo(HEAD 없음) → --cached fallback. working tree·staged 빈(=PR 맥락, 커밋 완료) → base...HEAD PR-범위 diff.
+# 빈 목록·git 실패·base 결정 불가 → 1 (fail-safe — 판정 불가 시 차단 보존). fail-open(hook 에러 allow)과 구분.
 is_docs_only_change() {
   local files
   files=$(git diff HEAD --name-only 2>/dev/null)
   [ -z "$files" ] && files=$(git diff --cached --name-only 2>/dev/null)
+  if [ -z "$files" ]; then
+    local base
+    base=$(_detect_base_branch) || return 1
+    files=$(git diff "$base"...HEAD --name-only 2>/dev/null)
+  fi
   [ -z "$files" ] && return 1
   local f
   while IFS= read -r f; do
