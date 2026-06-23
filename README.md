@@ -146,14 +146,17 @@ specops-auto-ko/
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
 │   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
 │   ├── start-all-auto.md                     ← 무인 배치 오케스트레이터 /start-all-auto
-│   └── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
-├── hooks/
-│   ├── hooks.json                        ← SessionStart + PostToolUse + Stop 매니페스트
+│   ├── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
+│   └── statusline-install.md                 ← HUD statusLine 등록 /statusline-install
+├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (4종)
+│   ├── hooks.json                        ← 훅 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
-│   ├── posttool-governance.sh            ← 도구 호출 후 R-1~R-3 검사 (R-4~R-6 은 Stop 훅)
+│   ├── pretool-governance.sh             ← commit/PR 전 verify 누락 사전 차단 (R-1·R-2 Hard block)
+│   ├── posttool-governance.sh            ← 도구 호출 후 감사 (R-1·R-2·R-3 Soft Warn)
+│   ├── stop-governance.sh                ← 세션 종료 검사 (R-4·R-5, R-6 비활성)
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
-│   └── stop-governance.sh               ← 세션 종료 정리
+│   └── (보조) inject-evaluator-timestamp · rotate-evaluator-artifact · notify
 ├── skills/                               ← flat: skills/<name>/SKILL.md × 30
 │   │
 │   │  Engine Skills (Lifecycle 체인)
@@ -188,10 +191,10 @@ specops-auto-ko/
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
 │   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (9단계)
-├── templates/                            ← 30건
-│   │  Lifecycle/공통 템플릿 (15건): spec, acceptance-criteria, plan, tasks, session-progress,
+├── templates/                            ← 30건 (md 29 + html 1)
+│   │  Lifecycle/공통 템플릿 (18건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
-│   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest
+│   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest, critic-prompt-{diff,plan}
 │   │  /init-project 산출 템플릿 (12건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy

@@ -1,7 +1,7 @@
 # scripts/ — 구조 검증·릴리즈·DAG·eval 유틸리티
 
-> 구성 (v1.12.0 기준): `_internal/` (validate-structure·init-project·run-verification 등 내부 유틸) ·
-> `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator + 42 suites + llm-eval) ·
+> 구성 (v1.21.2 기준): `_internal/` (validate-structure·init-project·run-verification 등 내부 유틸) ·
+> `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator + 68 suites + llm-eval) ·
 > 루트 (release.sh·gbrain-append.sh·session-progress-append.sh·git-branch-create.sh·show-fid-status.sh·slug.sh 등).
 > 아래 절들은 초기 (v0.1~v0.2) 스크립트의 상세 설명 — 경로는 현행 (`_internal/`) 기준으로 갱신됨.
 
@@ -39,19 +39,25 @@ scripts/_internal/validate-task-dependencies.sh 20260420-rss-cache
 플러그인 구조 무결성 정적 검증 Gate. 리팩토링·실수로 구조가 깨졌을 때 빨리 감지.
 
 ```bash
-scripts/validate-structure.sh         # 사람이 읽는 출력
-scripts/validate-structure.sh --json  # CI 통합용 JSON
+scripts/_internal/validate-structure.sh         # 사람이 읽는 출력
+scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 ```
 
-**검증 항목 6개**:
-| # | 항목 | 실패 조건 |
-|---|---|---|
-| 1 | 디렉토리 존재 | 12개 필수 디렉토리 중 하나라도 부재 |
-| 2 | 파일 개수 | commands=8, agents=8, harness=5, engine≥4, templates=6 |
-| 3 | frontmatter YAML 유효 | 첫 `---` 블록 파싱 실패 |
-| 4 | superpowers 런타임 참조 | `commands/`·`agents/` 에 매칭 발견 |
-| 5 | 매니페스트 일관성 | `plugin.json.version ≠ marketplace.json.plugins[0].version` |
-| 6 | ref_upstream 포맷 | 구조화 비율 정보성 보고만 (FAIL 아님) |
+**검증 항목 12개** (`.structure-baseline` jsonl 카운트 기준):
+| 항목 | 실패 조건 |
+|---|---|
+| `directories` | 필수 디렉토리 부재 |
+| `file_counts` | `.structure-baseline` glob 카운트 불일치 (commands=16·skills=30·templates=29·agents=4) |
+| `meta_injection` | `session-start.sh` 메타 skill 주입 누락 |
+| `frontmatter` | YAML 파싱 실패 (pyyaml 부재 시 SKIP — 한계 고백) |
+| `no_superpowers` | `commands/`·`agents/` 에 superpowers 런타임 참조 발견 |
+| `manifest` | `plugin.json` ≠ `marketplace.json` 버전 |
+| `ref_upstream_fmt` | 구조화 비율 정보성 보고 (FAIL 아님) |
+| `skill_conventions` | SKILL.md 필수 필드·섹션 누락 |
+| `version_sync` | 버전 문자열 불일치 |
+| `readme_counts` | README 자산 카운트 불일치 |
+| `changelog_body` | CHANGELOG 최신 버전 섹션 부재 |
+| `xref_resolve` | 문서 상호참조 깨짐 |
 
 **의존성**:
 - Python 3 (필수) — JSON 파싱

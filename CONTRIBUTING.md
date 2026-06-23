@@ -7,8 +7,10 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 - Claude Code 설치 (`claude` CLI)
 - `bash 5+`, `jq`, `python3` (+ `pyyaml`)
 - 플러그인을 marketplace로 등록 후 dogfood
+- `ui-ux-pro-max` cross-marketplace hard dependency 선행 등록 필수 (미등록 시 설치 실패)
 
 ```bash
+claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill   # 의존성 선행 등록
 claude plugin marketplace add ~/Project/0.Claude/specops-auto-ko
 ```
 
@@ -26,20 +28,23 @@ claude plugin marketplace add ~/Project/0.Claude/specops-auto-ko
 ## PR 전 필수 체크
 
 ```bash
-# 1) 구조 무결성 (8/8 OK 목표)
+# 1) 구조 무결성 (12/12 OK 목표)
 bash scripts/_internal/validate-structure.sh
 
-# 2) 거버넌스 규칙 38 + 신규 회귀 (45 PASS 목표)
+# 2) 거버넌스 규칙 회귀 (PASS=72 목표)
 bash scripts/tests/governance/test-rules.sh
 
-# 3) DAG 파서 (16 PASS 목표)
+# 3) DAG 파서 (PASS=24 목표)
 bash scripts/tests/dag/test-parse-dag.sh
 
 # 4) SKILL.md 규약
 bash scripts/tests/test-skill-conventions.sh
+
+# (권장) 전체 pre-flight 게이트 한 번에 — 릴리즈와 동일
+bash scripts/tests/run-all.sh
 ```
 
-전체 시간 < 10초. 1건이라도 FAIL 시 머지 금지.
+1건이라도 FAIL 시 머지 금지.
 
 ## Skill 추가 규약
 
