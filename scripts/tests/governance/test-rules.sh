@@ -71,6 +71,21 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
 fi
 
+# T6.g R-1 bare VAR=val prefix 우회 → 매칭 (F-2 회귀)
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'FOO=bar git commit -m "x"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.g R-1 bare VAR=val prefix 우회 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.g R-1 bare VAR=val prefix 우회 — out: $out"
+fi
+# T6.h R-1 git -c 옵션 우회 → 매칭 (F-1 회귀)
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git -c k=v commit -m "x"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.h R-1 git -c 옵션 우회 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.h R-1 git -c 옵션 우회 — out: $out"
+fi
+
 # T6.e R-1 offset 회귀 방지: 2 매칭 transcript 에서 triggering(마지막) 라인 번호 반환
 # fixture r1-two-commits-without-verify.jsonl: line 0 = first commit, line 1 = ls, line 2 = second commit
 # PostToolUse 는 현재 이벤트 직후 발화 → 마지막 매칭(라인 2)이 triggering
