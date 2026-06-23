@@ -9,13 +9,19 @@ pass=0; fail=0
 check() { if printf '%s' "$3" | grep -q "$2"; then echo "PASS $1"; pass=$((pass+1)); else echo "FAIL $1 — expected '$2' in: $3"; fail=$((fail+1)); fi; }
 mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{command:$c}, transcript_path:$t}'; }
 
-out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+# deny 테스트 격리용 공유 sandbox — 코드(.sh) staged 로 is_docs_only_change 면제 미발동 유도
+# (실 repo working tree 의 .md dirty 오염과 분리 — pretool-governance L19 CLAUDE_PROJECT_DIR cd)
+codesandbox=$(mktemp -d)
+( cd "$codesandbox" && git init -q && echo "echo x" > a.sh && git add a.sh )
+trap 'rm -rf "$codesandbox"' EXIT
+
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T1 commit no-verify → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T2 commit with-verify → allow" '"continue":true' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 bash "$HOOK" 2>/dev/null)
 check "T3 env bypass → allow" '"continue":true' "$out"
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T4 pr no-verify → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "ls -la" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T5 unmatched → allow" '"continue":true' "$out"
@@ -30,15 +36,15 @@ check "T7 §auto exempt → allow" '"continue":true' "$out"
 rm -rf "$tmproot"
 
 # T8~T12 evasion 우회 deny (no-verify fixture)
-out=$(mkstdin "cd /tmp && git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "cd /tmp && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T8 compound commit → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin "git -C . commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git -C . commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T9 -C commit → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin " git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin " git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T10 선행공백 commit → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin "env FOO=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "env FOO=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T11 env-prefix commit → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin "cd /x && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "cd /x && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T12 compound pr create → deny" '"permissionDecision":"deny"' "$out"
 # T13~T15 오탐 allow (commit/pr 아님)
 out=$(mkstdin 'echo "git commit"' "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
