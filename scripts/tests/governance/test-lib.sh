@@ -130,6 +130,7 @@ rm -rf "$td"
 _docs_case() {  # $1 expect_rc(0=allow/1=deny) $2 label $3 setup-eval
   local exp="$1" label="$2" setup="$3" rc
   ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
     sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
     eval "$setup"
     is_docs_only_change; rc=$?
@@ -147,6 +148,7 @@ _docs_case 1 "T-docs.i R-1 코드혼합 차단" 'git init -q; echo m>m.md; git a
 _base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
   local exp="$1" label="$2" setup="$3" out
   out=$( ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
     sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
     eval "$setup"
     _detect_base_branch 2>/dev/null
