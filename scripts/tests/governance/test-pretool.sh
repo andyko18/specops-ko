@@ -86,5 +86,16 @@ check "T23 git config commit.X → allow" '"continue":true' "$out"
 out=$(mkstdin "git log --grep=commit" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T24 git log --grep=commit → allow" '"continue":true' "$out"
 
+# T25~T26 over-match 제거 (commit=ref명 — allow 목표)
+out=$(mkstdin "git --no-pager log commit" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T25 over-match git <opt> log commit → allow" '"continue":true' "$out"
+out=$(mkstdin "git -p show commit" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T26 over-match git -p show commit → allow" '"continue":true' "$out"
+# T27~T28 정당 deny 보존 (=형 옵션 + 다중 옵션)
+out=$(mkstdin "git --git-dir=/x commit" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T27 git --git-dir=/x commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git --work-tree /w --bare commit" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T28 git --work-tree /w --bare commit → deny" '"permissionDecision":"deny"' "$out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
