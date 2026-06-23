@@ -143,6 +143,20 @@ _docs_case 1 "T-docs.g base없음 안전측 차단" 'git init -q; git checkout -
 _docs_case 0 "T-docs.h R-1 staged docs 면제" 'git init -q; echo m>m.md; git add m.md'
 _docs_case 1 "T-docs.i R-1 코드혼합 차단" 'git init -q; echo m>m.md; git add m.md; echo y>c.sh; git add c.sh'
 
+# T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
+_base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
+  local exp="$1" label="$2" setup="$3" out
+  out=$( ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
+    eval "$setup"
+    _detect_base_branch 2>/dev/null
+    cd /; rm -rf "$sb" ) )
+  if [ "$out" = "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (out='$out' exp='$exp')"; fi
+}
+_base_case "main"   "T-base.a main 우선"      'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+_base_case "master" "T-base.b master 차선"    'git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+_base_case ""       "T-base.c 둘 다 부재 실패" 'git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
