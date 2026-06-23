@@ -85,6 +85,13 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.h R-1 git -c 옵션 우회 — out: $out"
 fi
+# T6.i R-1 over-match 제거: git <opt> <arg> commit(commit=ref명) → 미매칭(allow)
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git --no-pager log commit')
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.i R-1 over-match 미매칭(allow)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.i R-1 over-match — 매칭됨(deny): $out"
+fi
 
 # T6.e R-1 offset 회귀 방지: 2 매칭 transcript 에서 triggering(마지막) 라인 번호 반환
 # fixture r1-two-commits-without-verify.jsonl: line 0 = first commit, line 1 = ls, line 2 = second commit
