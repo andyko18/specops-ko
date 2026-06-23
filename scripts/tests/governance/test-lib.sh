@@ -126,6 +126,39 @@ td=$(mktemp -d); ( cd "$td" && git init -q && echo "echo orig" > tracked.sh && g
 if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.d staged-docs+unstaged-code 비면제(commit -am 우회 차단)"; else FAIL=$((FAIL+1)); echo "FAIL T-docs.d 보안우회!"; fi
 rm -rf "$td"
 
+# T-docs.e~i: is_docs_only_change PR-범위 fallback (R-2 비대칭 해소) — sandbox 함수 단위
+_docs_case() {  # $1 expect_rc(0=allow/1=deny) $2 label $3 setup-eval
+  local exp="$1" label="$2" setup="$3" rc
+  ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+    sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
+    eval "$setup"
+    is_docs_only_change; rc=$?
+    cd /; rm -rf "$sb"; exit $rc )
+  rc=$?
+  if [ "$rc" -eq "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (rc=$rc exp=$exp)"; fi
+}
+_docs_case 0 "T-docs.e docs-only PR(커밋완료) 면제" 'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; git "$C" -q -m d'
+_docs_case 1 "T-docs.f 코드혼합 PR 차단" 'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; echo x>s.sh; git add s.sh; git "$C" -q -m m'
+_docs_case 1 "T-docs.g base없음 안전측 차단" 'git init -q; git checkout -q -b odd 2>/dev/null; echo d>d.md; git add d.md; git "$C" -q -m i; git checkout -q -b f2; echo e>e.md; git add e.md; git "$C" -q -m m'
+_docs_case 0 "T-docs.h R-1 staged docs 면제" 'git init -q; echo m>m.md; git add m.md'
+_docs_case 1 "T-docs.i R-1 코드혼합 차단" 'git init -q; echo m>m.md; git add m.md; echo y>c.sh; git add c.sh'
+
+# T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
+_base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
+  local exp="$1" label="$2" setup="$3" out
+  out=$( ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+    sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
+    eval "$setup"
+    _detect_base_branch 2>/dev/null
+    cd /; rm -rf "$sb" ) )
+  if [ "$out" = "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (out='$out' exp='$exp')"; fi
+}
+_base_case "main"   "T-base.a main 우선"      'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+_base_case "master" "T-base.b master 차선"    'git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+_base_case ""       "T-base.c 둘 다 부재 실패" 'git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
