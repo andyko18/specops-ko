@@ -163,6 +163,18 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 자명한 작업 (typo / 1 줄 rename) 은 호출 회피. 긴 작업은 substantive work 직전 + 종결 직전 1 회 이상 권장.
 
 
+## 자유작업 pending 처리 (freecomment-capture)
+
+SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사용자 턴 시작 시** 자동 처리한다 (AC-11):
+
+1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다.
+2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다 (bash 휴리스틱 교정 — AC-12).
+3. learnings 기록: `bash scripts/gbrain-append.sh "<요약>" --tags freelog,<type>` (AC-5).
+4. `.specops/freelog.md` 에 append (escape 유의 — AC-8, AC-13): `## YYYYMMDD` 섹션 하위 `- HH:MM [<type>] <files> — <요약>`.
+5. `type` 이 `design-change` 면 "spec/requirements 갱신할까?" **제안만** 한다 (자동 변경 금지 — AC-6).
+6. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등 — 재처리 0).
+7. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 (freelog.md)" (AC-11).
+
 ## 참조
 
 - `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md` — 원본
