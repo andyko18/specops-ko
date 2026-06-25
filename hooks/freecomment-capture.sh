@@ -49,6 +49,7 @@ esac
 mkdir -p "$cwd/.specops"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전
-jq -cn --arg ts "$ts" --argjson files "$files_json" --arg p "$lu" --arg t "$type" \
-  '{ts:$ts, files:$files, prompt:$p, type:$t}' >> "$cwd/.specops/pending-capture.jsonl" 2>/dev/null
+fid=$(cd "$cwd" && detect_fid 2>/dev/null || echo "")
+jq -cn --arg ts "$ts" --argjson files "$files_json" --arg p "$lu" --arg t "$type" --arg fid "$fid" \
+  '{ts:$ts, files:$files, prompt:$p, type:$t, fid:$fid}' >> "$cwd/.specops/pending-capture.jsonl" 2>/dev/null
 safe_exit

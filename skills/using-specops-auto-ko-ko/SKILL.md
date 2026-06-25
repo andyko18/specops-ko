@@ -163,22 +163,23 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 자명한 작업 (typo / 1 줄 rename) 은 호출 회피. 긴 작업은 substantive work 직전 + 종결 직전 1 회 이상 권장.
 
 
-## 자유작업 pending 처리 (freecomment-capture)
+## 자유작업 pending 처리 (freecomment-capture → mini-lifecycle 편입)
 
-SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사용자 턴 시작 시** 자동 처리한다 (AC-11):
+SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사용자 턴 시작 시** 자동 처리한다:
 
-1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다.
-2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다 (bash 휴리스틱 교정 — AC-12).
-3. learnings 기록: `bash scripts/gbrain-append.sh "<요약>" --tags freelog,<type>` (AC-5).
-4. `.specops/freelog.md` 에 append (escape 유의 — AC-8, AC-13): `## YYYYMMDD` 섹션 하위 `- HH:MM [<type>] <files> — <요약>`.
-5. `type` 이 `design-change` 면 **requirements 반자동 연결** (AC-6 — 자동 변경 금지·승인형):
-   - `.specops/memory/requirements.md`(없으면 루트 `requirements.md`) 존재 확인. 부재 시 이 단계 skip.
-   - 변경이 **새 기능 요구사항**으로 볼 만한가 LLM 이 1차 판단 (단순 리팩터·버그수정이면 skip — FR 표 오탐 오염 방지).
-   - 그렇다면 FR 초안(한 줄 요구사항·마일스톤·우선순위)을 만들어 사용자에게 **제시 + [y/n] 승인 요청** (자동 추가 금지 — 사용자 주권).
-   - `y` 면: `bash scripts/requirements-append-fr.sh <req-path> "<요구사항 한 줄>" --milestone <M> --priority <must|should|nice>` 호출. 출력 `APPENDED: FR-N`(추가) 또는 `SKIP: 중복`(멱등) 확인. spec/requirements 본문 직접 수정은 여전히 금지 — 헬퍼만 사용.
-   - `n` 또는 비-기능 판단 시: 기록(freelog)만 남기고 requirements 무변경.
-6. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등 — 재처리 0).
-7. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 (freelog.md)" + requirements 추가 시 "FR-N 추가" 부기 (AC-11).
+1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다 (`{ts,files,prompt,type,fid}`).
+2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다.
+3. **귀속/신규 판정**: `bash scripts/freework-resolve-fid.sh "<레코드 fid>"` 호출.
+   - 출력 `ATTACH:<fid>` → **귀속 분기** (진행 중 lifecycle): 새 FID 생성 안 함. `<fid>` 를 대상 FID 로 사용 (쉘로 추출 시 `fid=${out#ATTACH:}`) (4·5·6 단계 진행, freework.md·mkdir 생략).
+   - 출력 `NEW` → **mini-FID 분기**: 요약 기반 `YYYYMMDD-<slug>` FID 생성. slug 불가 시 `YYYYMMDD-freework-<HHMM>`. 이어:
+     - `mkdir -p .specops/<FID>`
+     - `.specops/<FID>/freework.md` 작성 (`templates/freework.md` 의 `{{...}}` 치환 — prompt 빈값 시 `(빈값 — 변경파일 기반 추론)`).
+4. **session-progress 기록**: `bash scripts/session-progress-append.sh <대상FID> /freework 완료 "<요약>"`.
+5. **learnings 기록**: `bash scripts/gbrain-append.sh "<요약>" --fid <대상FID> --tags freelog,<type>` (fid 비빈값 — AC-6).
+6. **freelog 기록**: `.specops/freelog.md` 에 `## YYYYMMDD` 하위 `- HH:MM [<type>] (<대상FID>) <files> — <요약>` append (escape 유의).
+7. `type` 이 `design-change` 면 **requirements 반자동 연결** (승인형 — 기존 유지): requirements.md 확인 → 새 기능 요구사항 판단 → FR 초안 [y/n] → `bash scripts/requirements-append-fr.sh ...`.
+8. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등): `: > .specops/pending-capture.jsonl` (truncate — 빈 파일이라야 SessionStart `[ -s ]` 가 재안내 skip).
+9. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 — mini-FID M건(<FID목록>), 귀속 K건. (freelog.md)".
 
 ## 참조
 
