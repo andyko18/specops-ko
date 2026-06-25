@@ -115,5 +115,12 @@ check "T34 backtick commit → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "(gh pr create --fill)" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T35 subshell pr create → deny" '"permissionDecision":"deny"' "$out"
 
+# T36 inline prefix bypass → allow (F-2)
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36 inline bypass prefix → allow" '"continue":true' "$out"
+# T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
+out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T37 message token → deny" '"permissionDecision":"deny"' "$out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

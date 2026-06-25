@@ -25,6 +25,29 @@ detect_fid() {
     | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/'
 }
 
+# F-1(5c): session-progress 의 FID 섹션에서 /verify PASS 가 최신 코드변경보다 뒤(위)면 0(verify유효), 아니면 1.
+# 코드변경 = /implement(항상) | /receive-review + (fix [1-9]|수용). /specify·/plan·/tasks·/clarify·/analyze 제외(.md).
+_verify_passed_in_progress() {
+  local fid="$1"
+  local progress=".specops/session-progress.md"
+  [ -f "$progress" ] || return 1
+  local section
+  section=$(awk -v f="## $fid" '
+    $0 ~ "^"f"( |$)" {insec=1; next}
+    insec && /^## / {exit}
+    insec {print}
+  ' "$progress")
+  [ -n "$section" ] || return 1
+  # I-2: 명령 필드 앵커(시각 HH:MM + 명령) — memo 자유텍스트의 명령 언급(괄호 안) 무매칭 → false-block 자기모순 차단.
+  # session-progress 줄 포맷 `- YYYY-MM-DD HH:MM /command ...` 의 시각 선행 패턴 의존.
+  local vline cline
+  vline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /verify PASS' | head -1 | cut -d: -f1)
+  cline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /implement|[0-9][0-9]:[0-9][0-9] /receive-review.*(fix [1-9]|수용)' | head -1 | cut -d: -f1)
+  [ -z "$vline" ] && return 1            # verify 없음
+  [ -z "$cline" ] && return 0            # 코드변경 없음 → verify 유효
+  [ "$vline" -lt "$cline" ] && return 0 || return 1   # verify 가 위(최신)면 유효
+}
+
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
 # git diff HEAD = working tree vs HEAD = staged + unstaged tracked 전부 포함 (commit -a 우회 차단).
 # base branch 자동감지 — main 우선, master 차선, 없으면 실패(안전측 차단).
@@ -166,6 +189,12 @@ apply_lookback_rule() {
   printf '%s' "$tool_cmd" | grep -Eq "$trigger_pattern" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
+  # F-1(5c): session-progress verify 우선 — transcript lookback false-block 회피
+  local _fid
+  _fid=$(detect_fid)
+  if [ -n "$_fid" ] && _verify_passed_in_progress "$_fid"; then
+    return 0   # verify 유효 → 위반 아님 (transcript lookback skip)
+  fi
   local found
   found=$(read_recent_tool_events "$transcript" "$lookback" \
     | jq -c --arg p "$neg_pattern" 'select(.tool_name == "Skill" and (.input.skill // "" | test($p)))' \

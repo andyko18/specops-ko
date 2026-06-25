@@ -39,6 +39,10 @@ fi
 source "$PLUGIN/hooks/governance-lib.sh"
 FIXTURES="$PLUGIN/scripts/tests/governance/fixtures"
 rule_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
+# T6 격리: apply_lookback_rule 이 detect_fid → 실 repo .specops/session-progress.md 의
+# /verify PASS 를 읽어 위반을 면제(false-negative)하지 않도록 빈 cwd 로 격리 (governance-lookback-fix).
+# T6.* 케이스는 전부 절대경로($PLUGIN/$FIXTURES) 인자만 사용 → cwd 변경 무해. T7+ 는 자체 mktemp/subshell 격리.
+_t6_orig=$PWD; _t6_sb=$(mktemp -d) || exit 1; cd "$_t6_sb" || exit 1
 out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git commit -m "feat: x"')
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
   PASS=$((PASS+1)); echo "PASS T6.a R-1 verify 부재 → 매칭"
@@ -112,6 +116,8 @@ if [ "$offset" = "1" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.f (offset=$offset, expect 1, out=$out)"
 fi
+# T6 격리 해제 — 원 repo cwd 복귀 (T7+ 는 자체 mktemp/subshell 격리)
+cd "$_t6_orig" || exit 1; rm -rf "$_t6_sb"
 
 # T7.a R-3 선언 부재 → 매칭
 out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-auto-ko:planning-ko")
