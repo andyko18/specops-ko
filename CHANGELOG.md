@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.24.0] — 2026-06-25
+
 ### Added
 - **`/promote` 승격 커맨드 — 자유작업 mini-FID → lifecycle in-place 승격** — 자유작업이 만든 mini-FID(`freework.md` 마커만 있는 경량 트랙)를 lifecycle full 트리로 in-place 승격한다. `freework.md` 를 시드로 `spec.md`+AC 를 역작성하고 이미 된 변경을 보존(회귀 테스트 보강)해, 자유작업에서 시작한 일을 정식 lifecycle(specify→…→PR)로 끊김 없이 이어받는다. v1.23.0(PR #116)이 남긴 "자유작업→lifecycle 승격" 갭을 메움.
 - 진입 검증을 `scripts/promote-validate.sh` 헬퍼로 추출(`OK`|`REJECT:<사유>` 7케이스 — bash 단위테스트 가능). `commands/promote.md` 가 거부 5케이스를 표준 문구로 매핑 + args 합성(`entry:maintain`+`promote-fid` 신호) → `analyzing-ko` 진입. `analyzing-ko` Step 0 promote-fid 분기가 mini-FID 를 in-place 재사용(새 FID 생성 skip, 기존 `/maintain` 동작 무손상). FID 포맷 검증(`[0-9]{8}-[a-z0-9-]+`)으로 경로 traversal(`fid=.`·`../x`) 차단. (PR #117, FID `20260625-promote-command`)
@@ -366,7 +368,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.23.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.1...v1.23.0
 [1.22.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.3...v1.22.0
