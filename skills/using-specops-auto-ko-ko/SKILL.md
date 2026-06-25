@@ -171,9 +171,14 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다 (bash 휴리스틱 교정 — AC-12).
 3. learnings 기록: `bash scripts/gbrain-append.sh "<요약>" --tags freelog,<type>` (AC-5).
 4. `.specops/freelog.md` 에 append (escape 유의 — AC-8, AC-13): `## YYYYMMDD` 섹션 하위 `- HH:MM [<type>] <files> — <요약>`.
-5. `type` 이 `design-change` 면 "spec/requirements 갱신할까?" **제안만** 한다 (자동 변경 금지 — AC-6).
+5. `type` 이 `design-change` 면 **requirements 반자동 연결** (AC-6 — 자동 변경 금지·승인형):
+   - `.specops/memory/requirements.md`(없으면 루트 `requirements.md`) 존재 확인. 부재 시 이 단계 skip.
+   - 변경이 **새 기능 요구사항**으로 볼 만한가 LLM 이 1차 판단 (단순 리팩터·버그수정이면 skip — FR 표 오탐 오염 방지).
+   - 그렇다면 FR 초안(한 줄 요구사항·마일스톤·우선순위)을 만들어 사용자에게 **제시 + [y/n] 승인 요청** (자동 추가 금지 — 사용자 주권).
+   - `y` 면: `bash scripts/requirements-append-fr.sh <req-path> "<요구사항 한 줄>" --milestone <M> --priority <must|should|nice>` 호출. 출력 `APPENDED: FR-N`(추가) 또는 `SKIP: 중복`(멱등) 확인. spec/requirements 본문 직접 수정은 여전히 금지 — 헬퍼만 사용.
+   - `n` 또는 비-기능 판단 시: 기록(freelog)만 남기고 requirements 무변경.
 6. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등 — 재처리 0).
-7. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 (freelog.md)" (AC-11).
+7. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 (freelog.md)" + requirements 추가 시 "FR-N 추가" 부기 (AC-11).
 
 ## 참조
 
