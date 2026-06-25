@@ -11,7 +11,7 @@ mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{com
 
 # deny 테스트 격리용 공유 sandbox — 코드(.sh) staged 로 is_docs_only_change 면제 미발동 유도
 # (실 repo working tree 의 .md dirty 오염과 분리 — pretool-governance L19 CLAUDE_PROJECT_DIR cd)
-codesandbox=$(mktemp -d)
+codesandbox=$(mktemp -d) || exit 1
 ( cd "$codesandbox" && git init -q && echo "echo x" > a.sh && git add a.sh )
 trap 'rm -rf "$codesandbox"' EXIT
 
@@ -27,7 +27,7 @@ out=$(mkstdin "ls -la" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null
 check "T5 unmatched → allow" '"continue":true' "$out"
 out=$(printf 'NOT JSON' | bash "$HOOK" 2>/dev/null)
 check "T6 bad json → allow" '"continue":true' "$out"
-tmproot=$(mktemp -d)
+tmproot=$(mktemp -d) || exit 1
 mkdir -p "$tmproot/.specops/20260101-auto-fixture"
 printf '## 20260101-auto-fixture\n' > "$tmproot/.specops/session-progress.md"
 printf '# spec\n**§auto**: true\n' > "$tmproot/.specops/20260101-auto-fixture/spec.md"
@@ -55,17 +55,17 @@ out=$(mkstdin "git committed --amend" "$FIX/pretool-no-verify.jsonl" | bash "$HO
 check "T15 committed 단어경계 → allow" '"continue":true' "$out"
 
 # T16 docs-only(.md staged) → allow [면제, AC-R-1]
-dgit=$(mktemp -d); ( cd "$dgit" && git init -q && echo x > CHANGELOG.md && git add CHANGELOG.md )
+dgit=$(mktemp -d) || exit 1; ( cd "$dgit" && git init -q && echo x > CHANGELOG.md && git add CHANGELOG.md )
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$dgit" bash "$HOOK" 2>/dev/null)
 check "T16 docs-only → allow" '"continue":true' "$out"
 rm -rf "$dgit"
 # T17 코드 혼합(.md+.sh staged) → deny [보안 불변식, AC-R-2]
-mgit=$(mktemp -d); ( cd "$mgit" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh )
+mgit=$(mktemp -d) || exit 1; ( cd "$mgit" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh )
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$mgit" bash "$HOOK" 2>/dev/null)
 check "T17 코드혼합 → deny" '"permissionDecision":"deny"' "$out"
 rm -rf "$mgit"
 # T18 staged docs + unstaged tracked 코드 + `git commit -am` → deny [commit -am 우회 차단, 보안 Critical]
-agit=$(mktemp -d); ( cd "$agit" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
+agit=$(mktemp -d) || exit 1; ( cd "$agit" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
   echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh )
 out=$(mkstdin "git commit -am wip" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$agit" bash "$HOOK" 2>/dev/null)
 check "T18 commit -am unstaged-code 우회 → deny" '"permissionDecision":"deny"' "$out"
@@ -121,6 +121,21 @@ check "T36 inline bypass prefix → allow" '"continue":true' "$out"
 # T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"
+
+# T38~T39 통합 wiring (F-1) — transcript 에 verify skill 부재(lookback 밖 시뮬)인데
+# session-progress 에 /verify PASS 가 최신이면 ALLOW (positive), /implement 가 더 최신이면 deny (negative).
+# spgit: 코드(.sh) staged 로 docs-only 면제 차단 + .specops/session-progress.md FID 섹션 주입.
+# T38 positive: /verify PASS 가 /implement 보다 위(최신) → _verify_passed_in_progress=0 → allow
+spgit=$(mktemp -d) || exit 1
+( cd "$spgit" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir -p .specops )
+printf '## 20260626-wire\n- 2026-06-26 10:05 /verify PASS (evidence.md, AC 5/5)\n- 2026-06-26 10:00 /implement DONE (T1)\n' > "$spgit/.specops/session-progress.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
+check "T38 session-progress verify 최신 → allow (통합 positive)" '"continue":true' "$out"
+# T39 negative: /implement 가 /verify 보다 위(최신) → 무효 → transcript fallback(verify 없음) → deny
+printf '## 20260626-wire\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026-06-26 10:05 /verify PASS (AC 5/5)\n' > "$spgit/.specops/session-progress.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
+check "T39 session-progress implement 최신 → deny (R-1 보존)" '"permissionDecision":"deny"' "$out"
+rm -rf "$spgit"
 
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
