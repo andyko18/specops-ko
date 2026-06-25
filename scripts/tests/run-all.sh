@@ -17,7 +17,8 @@ for f in "$PLUGIN"/scripts/tests/test-*.sh \
          "$PLUGIN"/scripts/tests/dag/test-*.sh \
          "$PLUGIN"/scripts/tests/governance/test-*.sh \
          "$PLUGIN"/scripts/tests/llm-eval/test-*.sh \
-         "$PLUGIN"/scripts/tests/test-convention/test-*.sh; do
+         "$PLUGIN"/scripts/tests/test-convention/test-*.sh \
+         "$PLUGIN"/scripts/tests/freecomment/test-*.sh; do
   [ -f "$f" ] || continue
   SUITES+=("${f#"$PLUGIN"/}")
 done

@@ -62,6 +62,14 @@ if [ -n "$progress_block" ]; then
   session_context="${session_context}\n\n<session-progress-rehydrate>\n${progress_escaped}\n</session-progress-rehydrate>"
 fi
 
+# pending 자유작업 안내 (freecomment-capture) — 기존 출력 경로 불변, 블록만 이어붙임
+pending_file="$(pwd)/.specops/pending-capture.jsonl"
+if [ -f "$pending_file" ] && [ -s "$pending_file" ]; then
+  pending_n=$(grep -c . "$pending_file" 2>/dev/null) || true
+  pending_n=${pending_n:-0}
+  session_context="${session_context}\n\n<freecomment-pending>\n미기록 자유작업 ${pending_n}건 있음 — pending-capture.jsonl 을 요약해 .specops/freelog.md 와 learnings 에 기록 후 pending 비우고 1줄 보고하라.\n</freecomment-pending>"
+fi
+
 printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
 
 exit 0

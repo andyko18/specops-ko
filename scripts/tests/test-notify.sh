@@ -73,10 +73,10 @@ if jq -e '.hooks.Notification | length == 2' "$PLUGIN/hooks/hooks.json" >/dev/nu
   PASS=$((PASS+1)); echo "PASS T2.a AC-5 Notification 2 matcher"
 else FAIL=$((FAIL+1)); echo "FAIL T2.a Notification"; fi
 
-# T2.b AC-5/AC-R-1: Stop 2종 무손상
-if jq -e '.hooks.Stop | length == 2' "$PLUGIN/hooks/hooks.json" >/dev/null 2>&1 \
+# T2.b AC-5/AC-R-1: Stop 3종(+freecomment-capture) — 기존 2종(stop-governance·ensure-session-progress) 무손상
+if jq -e '.hooks.Stop | length == 3' "$PLUGIN/hooks/hooks.json" >/dev/null 2>&1 \
    && jq -e '[.hooks.Stop[].hooks[0].command] | map(select(test("stop-governance|ensure-session-progress"))) | length == 2' "$PLUGIN/hooks/hooks.json" >/dev/null 2>&1; then
-  PASS=$((PASS+1)); echo "PASS T2.b AC-R-1 Stop 2종 무손상"
+  PASS=$((PASS+1)); echo "PASS T2.b AC-R-1 Stop 3종 — 기존 2종 무손상"
 else FAIL=$((FAIL+1)); echo "FAIL T2.b Stop 무손상"; fi
 
 # T2.c AC-5: async true
