@@ -79,5 +79,23 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T2.c (pending 생성됨 — 오탐)"
 fi
 
+# T4.a fid 필드 존재 — detect_fid 결과 기록 (AC-1, AC-2)
+work4="$TMP/work4"; mkdir -p "$work4"
+(cd "$work4" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q)
+mkdir -p "$work4/.specops"
+printf '## 20260625-live\n- 2026-06-25 10:00 /implement 진행\n' > "$work4/.specops/session-progress.md"
+echo "y" > "$work4/bar.sh"; (cd "$work4" && git add bar.sh)
+tr4="$TMP/tr4.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"리팩터"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"bar.sh"}}]}}' > "$tr4"
+echo "{\"transcript_path\":\"$tr4\",\"cwd\":\"$work4\"}" | bash "$HOOK" 2>/dev/null
+got=$(jq -r '.fid' "$work4/.specops/pending-capture.jsonl" 2>/dev/null)
+if [ "$got" = "20260625-live" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.a fid 필드=$got"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.a (fid=$got)"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
