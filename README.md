@@ -131,7 +131,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (16건)
+├── commands/                                 ← 슬래시 진입로 (17건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -141,6 +141,7 @@ specops-auto-ko/
 │   ├── design-screens.md                     ← 일괄 화면 설계 /design-screens
 │   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (9단계)
 │   ├── gbrain.md                             ← 세션 인사이트 조회 /gbrain
+│   ├── log.md                                ← 자유작업 인사이트 즉석 기록 /log
 │   ├── improve-arch.md                       ← 아키텍처 정적 분석 /improve-arch
 │   ├── release.md                            ← 릴리즈 자동화 /release
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto

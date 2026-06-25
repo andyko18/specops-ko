@@ -47,7 +47,7 @@ scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 | 항목 | 실패 조건 |
 |---|---|
 | `directories` | 필수 디렉토리 부재 |
-| `file_counts` | `.structure-baseline` glob 카운트 불일치 (commands=16·skills=30·templates=29·agents=4) |
+| `file_counts` | `.structure-baseline` glob 카운트 불일치 (commands=17·skills=30·templates=29·agents=4) |
 | `meta_injection` | `session-start.sh` 메타 skill 주입 누락 |
 | `frontmatter` | YAML 파싱 실패 (pyyaml 부재 시 SKIP — 한계 고백) |
 | `no_superpowers` | `commands/`·`agents/` 에 superpowers 런타임 참조 발견 |
