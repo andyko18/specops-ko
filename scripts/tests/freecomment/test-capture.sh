@@ -26,7 +26,7 @@ fi
 
 # T2.a 자유작업 감지 → pending stub 기록 + type 분류 (AC-3)
 work="$TMP/work"; mkdir -p "$work"
-(cd "$work" && git init -q && git commit --allow-empty -m init -q)
+(cd "$work" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 echo "x" > "$work/foo.sh"
 (cd "$work" && git add foo.sh)
 tr2="$TMP/tr2.jsonl"
@@ -43,7 +43,7 @@ fi
 
 # T2.b 공백 파일명 → files_json 에 정확히 1항목 (분할 안 됨)
 work2="$TMP/work2"; mkdir -p "$work2"
-(cd "$work2" && git init -q && git commit --allow-empty -m init -q)
+(cd "$work2" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 printf 'x' > "$work2/a b.sh"
 (cd "$work2" && git add "a b.sh")
 tr2b="$TMP/tr2b.jsonl"
@@ -65,7 +65,7 @@ fi
 
 # T2.c substring 오탐 방지 — changed=app.sh, edit=pp.sh → pending 미생성
 work3="$TMP/work3"; mkdir -p "$work3"
-(cd "$work3" && git init -q && git commit --allow-empty -m init -q)
+(cd "$work3" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 printf 'x' > "$work3/app.sh"
 (cd "$work3" && git add app.sh)
 tr2c="$TMP/tr2c.jsonl"
