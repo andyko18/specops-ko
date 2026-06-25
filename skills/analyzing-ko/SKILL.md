@@ -21,6 +21,13 @@ used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phas
 
 ### Step 0: FID 생성 + 디렉토리 보장 (AC-1)
 
+**[promote-fid 분기]** (신규 — `/promote` 진입): args 둘째 줄이 `<!-- promote-fid: <FID> -->` 이면:
+- 해당 `<FID>` 를 그대로 사용 — **새 FID 슬러그 생성 skip**. `mkdir -p .specops/<FID>`·`bash scripts/git-branch-create.sh <FID>` 는 그대로(idempotent — FID 이미 존재).
+- current-state.md §1 변경 대상을 **`.specops/<FID>/freework.md` 의 `files`** + 실제 변경(`git diff HEAD` 미커밋 우선, 빈손이면 `git log` 최근 커밋 변경 fallback)으로 시드한다.
+- §4 관찰 동작은 freework.md 요약 + 위 변경 상태로 캡처.
+- **사용자 메시지**: promote-fid 분기는 `"FID: <FID> — mini-FID 승격 분석을 시작합니다."` 로 출력(아래 Step 0 기본 메시지 대신 — 승격 진입 명시, 투명성).
+- promote-fid 신호가 **없으면** 아래 기존 FID 생성 절차를 그대로 수행한다(무손상).
+
 args에서 `<!-- entry: maintain -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
 
 **FID 생성 절차:**
