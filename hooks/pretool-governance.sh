@@ -28,6 +28,10 @@ tool_cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 
 [ "$tool_name" = "Bash" ] || allow
+# 의도적 범위 경계(F-3, WON'T-FIX): 선행자는 쉘 메타문자([;&|({`])·줄시작·VAR=val/env 접두만 인식.
+#   wrapper-class(sh -c·bash -c·eval·perl -e·python -c·xargs·find -exec…)는 미차단 — 정규식으로 무한확장 닫기 불가(두더지잡기).
+#   본 게이트는 적대적 경계가 아닌 Claude 자기정직 스캐폴드(공식 우회 SPECOPS_GOVERNANCE_BYPASS=1 제공). honest Claude 가
+#   자기 commit 을 wrapper 난독화할 동기 0 = honest-mistake 경로 부재. 보안 1차방어는 is_docs_only_change(git-authoritative, wrapper-agnostic).
 printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*git[[:space:]]+((-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--exec-path|--config-env)[[:space:]]+[^[:space:]]+[[:space:]]+|((--no-pager|-p|--paginate|--bare|--no-replace-objects|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-advice|-P)|--[^[:space:]=]+=[^[:space:]]+)[[:space:]]+)*commit\b|(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow

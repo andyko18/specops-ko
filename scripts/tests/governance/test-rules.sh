@@ -674,6 +674,18 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.18 negative 매칭됨: $out"
 fi
 
+# T-H1 (single-source 정합): pretool L31 prefilter 정규식 == rules.jsonl R-1|R-2 trigger_pattern.
+# 한쪽만 수정 시 prefilter 통과해도 apply_lookback_rule deny 미발동(또는 반대) — 조용한 불일치 차단.
+h1_r1=$(jq -r 'select(.id=="R-1")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
+h1_r2=$(jq -r 'select(.id=="R-2")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
+h1_expected="$h1_r1|$h1_r2"
+h1_actual=$(grep -oE "grep -Eq '[^']*'" "$PLUGIN/hooks/pretool-governance.sh" | head -1 | sed "s/^grep -Eq '//;s/'$//")
+if [ "$h1_expected" = "$h1_actual" ]; then
+  PASS=$((PASS+1)); echo "PASS T-H1 pretool L31 prefilter ≡ rules.jsonl R-1|R-2 (single-source 정합)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-H1 prefilter≠rules — expected:[$h1_expected] actual:[$h1_actual]"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

@@ -61,4 +61,15 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7 analyzing 분기"
 fi
 
+# T8 (G5): Step 1 에 promote-fid 시드 로직 구현 — Step 0 선언이 Step 1 본문에 연결됐는가
+# (선언만 있고 시드 절차 없던 갭 회귀 차단). Step 1 섹션 내에 promote-fid 분기 + files 1차 + 경계 한계고백.
+step1=$(awk '/^### Step 1:/{f=1} f&&/^### Step 2:/{f=0} f' "$ANA")
+if printf '%s' "$step1" | grep -q 'promote-fid 분기' \
+   && printf '%s' "$step1" | grep -q 'files.*1차 소스\|1차 소스' \
+   && printf '%s' "$step1" | grep -q '변경 대상 미확정'; then
+  PASS=$((PASS+1)); echo "PASS T8 Step1 promote-fid 시드 로직 (files 1차 + 경계 한계고백)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8 Step1 시드 로직 미구현"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

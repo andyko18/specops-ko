@@ -59,6 +59,14 @@ bash scripts/git-branch-create.sh <FID>
 
 `templates/current-state.md` §1 포맷으로 작성. 실제 grep 결과로 채움.
 
+**[promote-fid 분기]** (Step 0 에서 promote-fid 감지 시 — 아래 일반 grep 대신 다음으로 §1 시드):
+1. **`freework.md` 의 `files` 필드를 1차 소스**로 — 각 파일을 §1 표에 나열(`wc -l` 라인수 포함).
+2. files 가 비었거나 `(빈값 — …)` 플레이스홀더면 실제 변경에서 추출:
+   - `git diff HEAD --name-only` (미커밋 우선)
+   - 빈손이면 `git log -n 1 --name-only --format=` (직전 1커밋 — promote 대상 자유작업=단일 커밋 가정. 다중 커밋이면 `> 한계: git log -n 1 만 시드 — 추가 커밋 수동 확인 필요` 명시)
+3. **위 1·2 모두 빈손이면** §1 에 `> ⚠️ 변경 대상 미확정 — freework.md files·git diff·git log 모두 빈손. 사용자 확인 필요.` 명시(빈 §1 금지 — 한계 고백). trivial 판정 보류 후 사용자에게 변경 대상 질문.
+4. 이후 trivial 판정·§2~§5 는 시드된 파일 목록 기준으로 아래 일반 절차 수행.
+
 **탐색 명령:**
 ```bash
 # 파일 직접 지정된 경우
