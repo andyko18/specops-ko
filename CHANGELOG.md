@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.25.0] — 2026-06-26
+
 ### Fixed
 - **거버넌스 R-1/R-2 verify lookback false-block 수정** — 긴 lifecycle(도구 20+ 호출) 후 commit/PR 시 verify Skill 이 transcript `negative_lookback=20` 밖으로 밀려 false-block 되던 결함 해소. `_verify_passed_in_progress(fid)` 헬퍼가 `session-progress.md` 의 `/verify PASS` 를 윈도우 밖 보조 면제 신호로 사용(R-1/R-2 공용). `SPECOPS_GOVERNANCE_BYPASS=1` inline prefix 면제도 추가(메시지 내 토큰 언급은 미면제). (PR #118, FID `20260625-governance-lookback-fix`)
 - **docs-only 면제 rename 우회 차단** — `is_docs_only_change` 의 git diff 호출에 `--no-renames` 추가. 코드파일을 `.md` 로 rename(`tool.sh`→`tool.md`)해 docs-only 오인 면제되던 표면 차단(rename→delete+add 분해로 원본 노출). (PR #122, FID `20260626-r2-docs-edge`)
@@ -380,7 +382,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.24.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.25.0...HEAD
+[1.25.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.1...v1.23.0
 [1.22.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.0...v1.22.1
