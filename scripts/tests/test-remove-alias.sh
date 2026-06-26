@@ -22,7 +22,7 @@ ac=$(ls "$P"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
 TOK='<`/init-project` 입력값>'   # api-spec.md placeholder (escape 없음)
 [ -f "$P/scripts/_internal/init-project.sh" ] \
   && grep -qF "$TOK" "$P/templates/api-spec.md" \
-  && grep -q '_replace_token.*init-project.*입력값' "$P/scripts/_internal/init-project.sh" \
+  && cat "$P"/scripts/_internal/init-project.sh "$P"/scripts/_internal/init-project/*.sh 2>/dev/null | grep -q '_replace_token.*init-project.*입력값' \
   && ok "AC-R-3 런타임 치환 토큰 정합" || nope "AC-R-3" "placeholder 짝 불일치"
 
 echo "── test-remove-alias: PASS=$PASS FAIL=$FAIL ──"
