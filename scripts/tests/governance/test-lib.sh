@@ -143,6 +143,11 @@ _docs_case 1 "T-docs.f 코드혼합 PR 차단" 'git init -q; git checkout -q -b 
 _docs_case 1 "T-docs.g base없음 안전측 차단" 'git init -q; git checkout -q -b odd 2>/dev/null; echo d>d.md; git add d.md; git "$C" -q -m i; git checkout -q -b f2; echo e>e.md; git add e.md; git "$C" -q -m m'
 _docs_case 0 "T-docs.h R-1 staged docs 면제" 'git init -q; echo m>m.md; git add m.md'
 _docs_case 1 "T-docs.i R-1 코드혼합 차단" 'git init -q; echo m>m.md; git add m.md; echo y>c.sh; git add c.sh'
+# T-docs.j~m: rename 우회 차단 (--no-renames — code→docs rename 을 docs-only 로 오인면제 차단)
+_docs_case 1 "T-docs.j code→docs rename 차단(불변식)" 'git init -q; echo x>a.sh; git add a.sh; git "$C" -q -m i; git mv a.sh a.md'
+_docs_case 0 "T-docs.k docs→docs rename 무회귀" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md b.md'
+_docs_case 1 "T-docs.l docs→code rename 유지" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md a.sh'
+_docs_case 1 "T-docs.m PR범위 code→docs rename 차단" 'git init -q; git checkout -q -b main 2>/dev/null; echo x>a.sh; git add a.sh; git "$C" -q -m i; git checkout -q -b feat; git mv a.sh a.md; git "$C" -q -m r'
 
 # T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
 _base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval

@@ -68,13 +68,15 @@ _detect_base_branch() {
 # 신규 repo(HEAD 없음) → --cached fallback. working tree·staged 빈(=PR 맥락, 커밋 완료) → base...HEAD PR-범위 diff.
 # 빈 목록·git 실패·base 결정 불가 → 1 (fail-safe — 판정 불가 시 차단 보존). fail-open(hook 에러 allow)과 구분.
 is_docs_only_change() {
+  # --no-renames: rename 을 delete(old)+add(new) 2줄로 분해 → 코드파일 .md rename 위장
+  #   (tool.sh→tool.md)이 원본 .sh 를 숨겨 docs-only 오인면제되던 표면 차단. 출력포맷(--name-only) 무변경.
   local files
-  files=$(git diff HEAD --name-only 2>/dev/null)
-  [ -z "$files" ] && files=$(git diff --cached --name-only 2>/dev/null)
+  files=$(git diff HEAD --name-only --no-renames 2>/dev/null)
+  [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null)
   if [ -z "$files" ]; then
     local base
     base=$(_detect_base_branch) || return 1
-    files=$(git diff "$base"...HEAD --name-only 2>/dev/null)
+    files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
   local f
