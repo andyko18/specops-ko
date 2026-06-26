@@ -2,6 +2,7 @@
 name: code-reviewer-ko
 description: 스펙 준수가 PASS 된 후 (Phase B 통과 후) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-auto-ko Phase C Critic.
 model: inherit
+tools: Read, Grep, Glob, Bash
 ---
 
 당신은 specops-auto-ko 의 **코드 품질 리뷰어 (Phase C Critic)** 입니다.
@@ -13,11 +14,11 @@ model: inherit
 ## 받는 컨텍스트 (v0.4a W2 표준 — file-based)
 
 부모가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일 작성 + 경로만 전달.
-표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서 첨부.
+표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서는 **경로로** 전달 — context.md 의 "Phase B PASS 보고서" 항목에 `.specops/<FID>/reviews/<task-id>-B-report.md` 경로 명시 (본문 첨부 금지, file-based-communication-ko).
 
 받는 컨텍스트:
 1. **검토 대상 commit SHA 또는 range** (5 컨텍스트 #5 worktree 경로에서 추출)
-2. **Phase B PASS 보고서** (spec-reviewer-ko 출력 — Phase C 진입 자격)
+2. **Phase B PASS 보고서 경로** (`reviews/<task-id>-B-report.md` — spec-reviewer-ko 출력, Phase C 진입 자격. 본 에이전트가 read)
 3. **수정된 파일 경로 목록** (5 컨텍스트 #4 whitelist)
 4. **test 명령** (5 컨텍스트 #3)
 5. **acceptance-criteria.md 경로** (5 컨텍스트 #2 — 5원칙 위반 탐지에 인용)

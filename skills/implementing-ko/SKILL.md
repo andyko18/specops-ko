@@ -179,11 +179,14 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
   `n` 시 → Lifecycle 종료. `y` 시 → 진행.
 - 단일 모드 + `irreversible: true` → task 내부 Step 0 (기존 동작)
 
-**reviewer feedback 파일 경로 규약** (file-based-communication-ko 준수):
-- `.specops/<FID>/reviews/<task-id>-B-feedback.md` — **implementing-ko(부모)가 spec-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
-- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — **implementing-ko(부모)가 code-reviewer-ko 출력을 수신 후 저장** (reviewer 에이전트는 read-only)
+**reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, 부모가 저장):
+- `.specops/<FID>/reviews/<task-id>-B-report.md` — **부모가 spec-reviewer-ko 판정 보고서(PASS/FAIL 무관)를 수신 후 저장**
+- `.specops/<FID>/reviews/<task-id>-B-feedback.md` — FAIL 시 implementer-ko 재dispatch 용 (B-report 와 동일 내용이거나 이슈 발췌)
+- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — **부모가 code-reviewer-ko 출력을 수신 후 저장**
 
-Phase B/C FAIL 직후 부모가 reviewer 출력 전문을 위 경로에 저장한 뒤 implementer-ko 재dispatch. 재dispatch 시 파일의 **경로만** 추가 컨텍스트로 전달 (본문 페이로드 금지).
+전달 규약 (본문 페이로드 금지 — 항상 **경로만**):
+- **PASS 경로 (Phase B→C)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
+- **FAIL 경로**: Phase B/C FAIL 직후 부모가 reviewer 출력을 위 feedback 경로에 저장한 뒤 implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
 
 ## dispatch-log.md 자동 append (Wave 2 U5)
 
@@ -270,7 +273,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 리뷰 생략 (스펙 준수 OR 코드 품질)
 - **미해결 이슈를 두고 진행**
 - 구현 서브에이전트를 **상태 공유 시 병렬로** dispatch (충돌, R11). v0.4a 정정: outputs disjoint 한 독립 leaf 2+ 는 `dispatching-parallel-agents-ko` DAG-aware 모드로 자동 병렬 권장 — `dag::find_independent_batch` 가 자동 식별. **상태 공유 (같은 파일 수정) 시에만 병렬 금지**
-- 서브에이전트에게 **플랜 파일을 읽게 함** (전체 텍스트를 당신이 제공)
+- 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — `file-based-communication-ko` 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
 - 서브에이전트 질문 무시 (진행 전에 답하기)
 - "근접함"으로 스펙 준수 인정 (스펙 리뷰어가 이슈 발견 = 미완료)
@@ -308,9 +311,9 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 리뷰 체크포인트 자동
 
 **효율**:
-- 파일 읽기 오버헤드 없음 (컨트롤러가 전체 텍스트 제공)
-- 컨트롤러가 **정확히 필요한 컨텍스트만** 조립
-- 서브에이전트는 처음부터 완전한 정보 보유
+- 컨트롤러 컨텍스트 보존 (파일 본문 미적재 — 경로만 전달, 서브에이전트가 필요 시 직접 read)
+- 컨트롤러가 `dispatch-context.md` 로 **정확히 필요한 컨텍스트 경로만** 조립
+- 서브에이전트는 지정된 파일을 read 해 완전한 정보 도달
 - 질문이 작업 **시작 전에** 노출 (작업 후가 아니라)
 
 **품질 게이트**:

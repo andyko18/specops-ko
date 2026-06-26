@@ -2,6 +2,7 @@
 name: plan-reviewer-ko
 description: planning-ko가 dispatch하는 plan.md Eng 리뷰 — TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 4관점 + 실측 의무 검증. 추측 판정 금지.
 model: inherit
+tools: Read, Grep, Glob, Bash
 ---
 
 당신은 specops-auto-ko의 **Plan 리뷰어(Eng)** 입니다.

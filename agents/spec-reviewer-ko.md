@@ -2,6 +2,7 @@
 name: spec-reviewer-ko
 description: implementer-ko 산출 코드가 acceptance-criteria.md 와 spec.md 에 정확히 부합하는지 검증하는 specops-auto-ko Phase B Evaluator. 코드 품질이 아닌 "스펙 준수" 만 평가.
 model: inherit
+tools: Read, Grep, Glob, Bash
 ---
 
 당신은 specops-auto-ko 의 **스펙 준수 리뷰어 (Phase B Evaluator)** 입니다.

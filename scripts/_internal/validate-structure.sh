@@ -208,6 +208,17 @@ ubf=$(grep -rlE '^used_by:.*specops-auto-ko:' skills --include='SKILL.md' 2>/dev
   | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
 if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
 
+# 13) agent_tools — read-only reviewer agent 는 frontmatter `tools:` 명시 + Write/Edit 박탈(하드강제).
+#     Generator-Evaluator 분리(generator-evaluator-ko)의 구조적 보장 — prose-only 면 Evaluator 가 코드 수정 가능.
+atf=()
+for a in spec-reviewer-ko code-reviewer-ko plan-reviewer-ko; do
+  [ -f "agents/$a.md" ] || continue   # 파일 부재(sandbox 등) → graceful skip
+  tl=$(grep -E '^tools:' "agents/$a.md" 2>/dev/null)
+  if [ -z "$tl" ]; then atf+=("$a:tools누락"); continue; fi
+  printf '%s' "$tl" | grep -qwE 'Write|Edit' && atf+=("$a:Write/Edit포함")
+done
+if [ ${#atf[@]} -eq 0 ]; then emit agent_tools OK; else emit agent_tools FAIL "${atf[*]}"; fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"
