@@ -9,7 +9,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
 specops_version: 1.10.0
-used_by: specops-auto-ko:planning-ko (chain 진입), specops-auto-ko:verifying-evidence-ko (chain 출구)
+used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
 # Engine 스킬 — 서브에이전트 주도 구현 (implementing)

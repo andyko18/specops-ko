@@ -4,7 +4,7 @@ description: 코드 작성·검토·리팩터링 시 항상 적용 — Think·Si
 layer: 2
 reference_upstream: forrestchang/andrej-karpathy-skills@main skills/karpathy-guidelines/SKILL.md
 specops_version: 1.0.0
-used_by: specops-auto-ko:using-specops-auto-ko-ko (cross-cutting), specops-auto-ko:implementing-ko, specops-auto-ko:tdd-ko
+used_by: using-specops-auto-ko-ko (cross-cutting), implementing-ko, tdd-ko
 ---
 
 # Karpathy 행동 원칙

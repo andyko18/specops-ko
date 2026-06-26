@@ -202,6 +202,12 @@ while IFS= read -r tok; do
 done < <(grep -rhoE 'specops-auto-ko:[a-z0-9][a-z0-9-]*' skills commands --include='*.md' 2>/dev/null | sort -u)
 if [ ${#xr[@]} -eq 0 ]; then emit xref_resolve OK; else emit xref_resolve FAIL "미해석: ${xr[*]}"; fi
 
+# 12) used_by_fmt — skill used_by 는 short name 규약 (CLAUDE.md): skill 참조는 <name>-ko, command 는 /<name>.
+#     full `specops-auto-ko:` prefix 금지 (used_by 역참조·기계 파싱 일관성). 본문 토큰(xref_resolve 대상)은 무관.
+ubf=$(grep -rlE '^used_by:.*specops-auto-ko:' skills --include='SKILL.md' 2>/dev/null \
+  | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
+if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"

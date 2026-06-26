@@ -4,7 +4,7 @@ description: 기획·분석·설계·개발 중 애매한 부분/모르는 부�
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
 specops_version: 1.1.1
-used_by: specops-auto-ko:using-specops-auto-ko-ko (cross-cutting), specops-auto-ko:specifying-ko, specops-auto-ko:analyzing-ko, specops-auto-ko:planning-ko, specops-auto-ko:implementing-ko
+used_by: using-specops-auto-ko-ko (cross-cutting), specifying-ko, analyzing-ko, planning-ko, implementing-ko
 ---
 
 # Advisor 활용 원칙

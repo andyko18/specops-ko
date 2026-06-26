@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - github/spec-kit commands/clarify.md (specops-ko 경유)
   - specops-ko commands/clarify.md
 specops_version: 1.10.0
-used_by: specops-auto-ko:specifying-ko (chain 진입), specops-auto-ko:planning-ko (chain 출구)
+used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
 ---
 
 # Engine 스킬 — 명확화 (clarifying)

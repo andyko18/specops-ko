@@ -4,7 +4,7 @@ description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결�
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
 specops_version: 1.0.0
-used_by: specops-auto-ko:verifying-evidence-ko (chain 진입), specops-auto-ko:receiving-code-review-ko (chain 출구)
+used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain 출구)
 ---
 
 # Engine 스킬 — 코드 리뷰 요청 (requesting-code-review)

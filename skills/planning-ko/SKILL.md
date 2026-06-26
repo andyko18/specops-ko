@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
 specops_version: 1.10.0
-used_by: specops-auto-ko:clarifying-ko (chain 진입), specops-auto-ko:decomposing-ko (chain 출구)
+used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구)
 ---
 
 # Engine 스킬 — 구현 플랜 작성 (planning)
