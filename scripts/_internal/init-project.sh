@@ -3,7 +3,7 @@
 # 한국 SI 표준 13종 산출물 자동 부트스트랩
 set -u
 
-PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
 # 13종 산출물 (root 4개 + .specops/memory 9개)
 ARTIFACTS_ROOT=("PRD.md" "CLAUDE.md" "README.md" "DESIGN.md")
