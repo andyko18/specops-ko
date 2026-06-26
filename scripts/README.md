@@ -192,3 +192,13 @@ plan.md·diff 를 Codex/Gemini CLI 에 위탁해 이종 모델 의견을 받습�
 bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
 CRITIC_BIN=/path/to/cli bash scripts/critic-ask.sh ...   # provider 강제 (테스트 stub 포함)
 ```
+
+---
+
+## verdict-board.sh — FID별 게이트 결과 매트릭스 (advisory, 읽기 전용)
+
+`.specops/*/evidence.md` 의 게이트 판정(verify·integration·performance)을 FID별 매트릭스로 표시하는 **수동 관측 유틸** (lifecycle chain 에 자동 연결되지 않음 — 온디맨드 실행). `skip-tracker.sh` 의 `skip::verdicts` 를 source 재사용하며 verify 는 자체 집계.
+
+```bash
+bash scripts/verdict-board.sh [.specops 경로]
+```

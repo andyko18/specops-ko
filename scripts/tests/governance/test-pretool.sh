@@ -53,6 +53,8 @@ out=$(mkstdin "mygit commit" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/de
 check "T14 mygit → allow" '"continue":true' "$out"
 out=$(mkstdin "git committed --amend" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T15 committed 단어경계 → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit-tree abc123" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T15b commit-tree plumbing(over-match 해소) → allow" '"continue":true' "$out"
 
 # T16 docs-only(.md staged) → allow [면제, AC-R-1]
 dgit=$(mktemp -d) || exit 1; ( cd "$dgit" && git init -q && echo x > CHANGELOG.md && git add CHANGELOG.md )

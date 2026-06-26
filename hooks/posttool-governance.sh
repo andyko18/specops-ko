@@ -56,6 +56,8 @@ while IFS= read -r rule; do
       fi
       ;;
     R-3)
+      # NOTE: 아래 패턴은 rules.jsonl R-3.trigger_skill_pattern("^specops-auto-ko:")과 일치 유지 필요 —
+      #   현재 하드코딩(rules 값 미참조)이라 R-1/R-2 처럼 단일소스화 안 됨. rules 만 바꾸면 조용한 drift.
       if [ "$tool_name" = "Skill" ] && printf '%s' "$tool_cmd" | grep -Eq '^specops-auto-ko:'; then
         result=$(apply_skill_declaration_rule "$transcript" "$tool_cmd" 2>/dev/null || true)
       fi

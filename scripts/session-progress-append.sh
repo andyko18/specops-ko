@@ -80,7 +80,7 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
     exit 0
   fi
   # awk로 처리: ## <FID> 이후 첫 빈 줄 만나면 LINE 추가, 그 다음 기존 줄들
-  TMP=$(mktemp)
+  TMP=$(mktemp) || exit 1
   LINE="$LINE" FID="$FID" awk '
     BEGIN { added = 0; in_section = 0 }
     /^## / {
@@ -112,7 +112,7 @@ else
   if [ -n "$FEATURE" ]; then
     HEADER="$HEADER · $FEATURE"
   fi
-  TMP=$(mktemp)
+  TMP=$(mktemp) || exit 1
   HEADER="$HEADER" LINE="$LINE" awk '
     BEGIN { added = 0 }
     /^---$/ && !added {
