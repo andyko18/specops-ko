@@ -47,7 +47,7 @@ skills/<name>/SKILL.md   ← 플랫 구조, layer 필드로 계층 구분
 훅 4종이 자동 실행되며, `hooks/rules.jsonl`에 정의된 6개 규칙 중 R-1~R-5 를 검사한다 (R-6 은 `enabled: false` — gbrain-ko manual-only 설계):
 
 - `SessionStart` → `session-start.sh`: 메타 스킬 주입 + session-progress rehydrate
-- `PreToolUse` → `pretool-governance.sh` (v1.14.0 신설): R-1(commit 전 verify)·R-2(PR 전 verify) **사전 차단(Hard block)** — verify 누락 시 `git commit`·`gh pr create` 실행 전 deny. `§auto`·`SPECOPS_GOVERNANCE_BYPASS=1` 면제, fail-open
+- `PreToolUse` → `pretool-governance.sh` (v1.14.0 신설): R-1(commit 전 verify)·R-2(PR 전 verify) **사전 차단(Hard block)** — verify 누락 시 `git commit`·`gh pr create` 실행 전 deny. **관할 한정**: cwd 에 `.specops/` 부재 시(specops 미사용 repo) 면제 — 플러그인은 자기 관할 repo 만 통제(5원칙 4 주권). `§auto`·`SPECOPS_GOVERNANCE_BYPASS=1` 면제, fail-open
 - `PostToolUse` → `posttool-governance.sh`: R-1(commit 전 verify), R-2(PR 전 verify) **감사 기록(Soft Warn)**, R-3(스킬 선언 투명성)
 - `Stop` → `stop-governance.sh`: R-4(성공 주장 + 테스트 미실행), R-5(plan 수정 + Advisor 협의 누락), R-6(`/verify` + evidence.md 후 gbrain-append 호출 부재 — 비활성)
 

@@ -36,6 +36,9 @@ printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
 printf '%s' "$tool_cmd" | grep -Eq '^[[:space:]]*SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]' && allow
+# M2 관할 가드: .specops 부재 = specops 미사용 repo → verify-before-commit 강제 면제 (5원칙 4 주권 — 플러그인은
+#   자기 관할 repo 만 통제, 무관 repo 월권 금지). lifecycle 진행 중(.specops 존재)이면 그대로 강제 — 보호 손실 0.
+[ -d ".specops" ] || allow
 is_docs_only_change && allow
 
 fid=$(detect_fid)

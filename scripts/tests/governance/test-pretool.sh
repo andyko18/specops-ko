@@ -12,7 +12,8 @@ mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{com
 # deny 테스트 격리용 공유 sandbox — 코드(.sh) staged 로 is_docs_only_change 면제 미발동 유도
 # (실 repo working tree 의 .md dirty 오염과 분리 — pretool-governance L19 CLAUDE_PROJECT_DIR cd)
 codesandbox=$(mktemp -d) || exit 1
-( cd "$codesandbox" && git init -q && echo "echo x" > a.sh && git add a.sh )
+# .specops 보유 = specops 관할 repo (M2 가드 통과 → verify 강제 검사 진입). deny 의도 유지.
+( cd "$codesandbox" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir .specops )
 trap 'rm -rf "$codesandbox"' EXIT
 
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
@@ -62,13 +63,13 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_
 check "T16 docs-only → allow" '"continue":true' "$out"
 rm -rf "$dgit"
 # T17 코드 혼합(.md+.sh staged) → deny [보안 불변식, AC-R-2]
-mgit=$(mktemp -d) || exit 1; ( cd "$mgit" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh )
+mgit=$(mktemp -d) || exit 1; ( cd "$mgit" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh && mkdir .specops )
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$mgit" bash "$HOOK" 2>/dev/null)
 check "T17 코드혼합 → deny" '"permissionDecision":"deny"' "$out"
 rm -rf "$mgit"
 # T18 staged docs + unstaged tracked 코드 + `git commit -am` → deny [commit -am 우회 차단, 보안 Critical]
 agit=$(mktemp -d) || exit 1; ( cd "$agit" && git init -q && echo "echo orig" > tracked.sh && git add tracked.sh && git commit -q -m init
-  echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh )
+  echo doc > README.md && git add README.md && echo "echo changed" > tracked.sh && mkdir .specops )
 out=$(mkstdin "git commit -am wip" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$agit" bash "$HOOK" 2>/dev/null)
 check "T18 commit -am unstaged-code 우회 → deny" '"permissionDecision":"deny"' "$out"
 rm -rf "$agit"
@@ -138,6 +139,13 @@ printf '## 20260626-wire\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
 check "T39 session-progress implement 최신 → deny (R-1 보존)" '"permissionDecision":"deny"' "$out"
 rm -rf "$spgit"
+
+# T40 .specops 부재 repo(specops 관할 밖) → verify 강제 면제 → allow [M2 스코프 가드]
+# codesandbox 와 동일 구성이나 .specops 없음 — 차이는 오직 M2 가드. 가드 없으면 deny(red).
+nosg=$(mktemp -d) || exit 1; ( cd "$nosg" && git init -q && echo "echo x" > a.sh && git add a.sh )
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$nosg" bash "$HOOK" 2>/dev/null)
+check "T40 .specops 부재 repo → allow (M2 관할 가드)" '"continue":true' "$out"
+rm -rf "$nosg"
 
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

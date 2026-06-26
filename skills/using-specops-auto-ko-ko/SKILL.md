@@ -59,7 +59,7 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
     ↓ YES                              ↓ NO
 maintenance flag 분류 (Phase D 추가)        일반 응답
     ├─ false (신규)  → specifying-ko 직행 (args 그대로)
-    └─ true (유지보수) → specifying-ko 호출 (args 첫 줄 "<!-- entry: maintain -->" prepend)
+    └─ true (유지보수) → analyzing-ko 먼저 (★ HARD GATE) → specifying-ko (args 첫 줄 "<!-- entry: maintain -->" prepend)
     ↓
 spec.md + acceptance-criteria.md 작성
     ↓
@@ -185,8 +185,7 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 - `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md` — 원본
 - specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
-- `skills/engine/*-ko.md` (10건) — Phase 1 구축 완료
-- `skills/harness/*-ko.md` (5건 + 본 skill) — 내부 규약
+- `skills/<name>/SKILL.md` (layer=2 engine·layer=3 harness 플랫 구조 — CLAUDE.md §Skill 계층 참조)
 - `commands/start.md` — 슬래시 진입점
 - `commands/brainstorming.md` — 선택적 pre-init-project 탐색 진입점
 - `skills/brainstorming-ko/SKILL.md` — 아이디어 탐색 skill

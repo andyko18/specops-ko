@@ -103,8 +103,7 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
     END {
       if (in_section && !added) print ENVIRON["LINE"]
     }
-  ' "$TARGET" > "$TMP"
-  mv "$TMP" "$TARGET"
+  ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
   echo "appended to existing section: $FID"
 else
   # 섹션 없음 — 파일 상단 (구분선 --- 다음 첫 ## 자리) 에 신규 섹션 prepend
@@ -126,7 +125,6 @@ else
       next
     }
     { print }
-  ' "$TARGET" > "$TMP"
-  mv "$TMP" "$TARGET"
+  ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
   echo "created new section: $HEADER"
 fi

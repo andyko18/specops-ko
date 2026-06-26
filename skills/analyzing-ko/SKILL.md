@@ -4,7 +4,7 @@ description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 �
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 1.0.0
-used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phase C 적용 후)
+used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phase C 적용 후), /promote (promote-fid 분기)
 ---
 
 # Engine 스킬 — 분석 (analyzing)

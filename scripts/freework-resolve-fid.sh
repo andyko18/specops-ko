@@ -7,6 +7,8 @@ set -u
 fid="${1:-}"
 # 1) 빈 후보 → 순수 자유작업
 [ -z "$fid" ] && { echo "NEW"; exit 0; }
+# 1b) FID 포맷 불량(정규식 메타문자 등) → awk 동적정규식 오판정 차단·오귀속 방지 위해 신규 처리
+printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$' || { echo "NEW"; exit 0; }
 
 progress=".specops/session-progress.md"
 [ -f "$progress" ] || { echo "ATTACH:$fid"; exit 0; }
