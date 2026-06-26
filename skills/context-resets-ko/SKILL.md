@@ -21,8 +21,8 @@ used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 
 ## 체크리스트
 
-1. 커맨드 종료 시 `session-progress.md`에 **무엇이 끝났고 다음 커맨드는 무엇인지** 한 줄 append.
-2. 다음 커맨드 착수 시 `session-progress.md` 마지막 10~20줄만 읽어 "현재 FID", "직전 단계", "차단 요소"를 파악.
+1. 커맨드 종료 시 `session-progress.md` FID 섹션 **상단에 한 줄 prepend**(최신=맨 위).
+2. 다음 커맨드 착수 시 `session-progress.md` **상단 10~20줄**만 읽어 "현재 FID", "직전 단계", "차단 요소"를 파악.
 3. 직전 단계 산출물이 필요하면 **파일로 다시 읽어라**. 대화에서 기억나는 내용으로 진행하지 마라 — 부정확하다.
 4. Generator/Evaluator 전환 시 반드시 리셋. 예: planner-ko 종료 → analyzer-ko 호출 시 대화 맥락 단절.
 5. 세션이 실제로 종료(Claude Code 재시작)되어도 `session-progress.md`만으로 복귀 가능해야 한다.
@@ -33,18 +33,20 @@ used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 # Session Progress — <project-name>
 
 ## <FID-1> · <제목>
-- 2026-04-20 10:00 /specify 완료 (spec.md, acceptance-criteria.md)
-- 2026-04-20 10:30 /clarify 완료 (clarifications.md — 3개 쟁점 해소)
-- 2026-04-20 11:10 /plan 완료 (plan.md, data-model.md)
-- 2026-04-20 11:30 /tasks 완료 (tasks.md — 12 바이트-사이즈 태스크)
-- 2026-04-20 12:00 /analyze BLOCK (analysis.md — 태스크 3 계약 위반)
-- 2026-04-20 13:00 /plan 재실행 완료
 - 2026-04-20 13:20 /analyze PASS
+- 2026-04-20 13:00 /plan 재실행 완료
+- 2026-04-20 12:00 /analyze BLOCK (analysis.md — 태스크 3 계약 위반)
+- 2026-04-20 11:30 /tasks 완료 (tasks.md — 12 바이트-사이즈 태스크)
+- 2026-04-20 11:10 /plan 완료 (plan.md, data-model.md)
+- 2026-04-20 10:30 /clarify 완료 (clarifications.md — 3개 쟁점 해소)
+- 2026-04-20 10:00 /specify 완료 (spec.md, acceptance-criteria.md)
 
 ## <FID-2> · ...
 ```
 
 한 줄 규칙: `<YYYY-MM-DD HH:MM> <command> <상태> (<산출·메모>)`.
+
+**줄 순서 불변식**: FID 섹션 내 줄은 **최신이 위(prepend, 작은 줄번호)** — 블록 단위뿐 아니라 줄 단위도 내림차순. 거버넌스 verify-lookback(`hooks/governance-lib.sh` `_verify_passed_in_progress`)이 "verify 줄번호 < 코드변경 줄번호 = verify 가 최신" 판정에 이 순서를 직접 의존하므로, 오름차순(최신=하단)으로 작성하면 R-1/R-2 가 commit/PR 을 false-allow 한다.
 
 ## 안티패턴
 

@@ -70,6 +70,33 @@ PYEOF
 }
 run "T2.d 큰따옴표 포함 insight python3 round-trip" T2_d
 
+# T2.f: 제어문자(개행·탭) 포함 insight JSONL 유효 (H1 escape fix — control chars U+0000~U+001F)
+T2_f() {
+  command -v jq >/dev/null 2>&1 || return 0  # jq 없으면 SKIP (pass)
+  local tmp line
+  tmp=$(mktemp) || return 1
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "$(printf 'multi\nline\ttab')" 2>/dev/null
+  line=$(cat "$tmp")
+  rm -f "$tmp"
+  # fix 전: literal 개행/탭 → 무효 JSON(여러 줄) → jq 실패. fix 후: \n·\t 이스케이프된 단일 유효 JSON.
+  printf '%s\n' "$line" | jq -e . >/dev/null 2>&1
+}
+run "T2.f 제어문자 포함 insight JSONL 유효" T2_f
+
+# T2.g: 제어문자 포함 insight round-trip 보존 (python3)
+T2_g() {
+  command -v python3 >/dev/null 2>&1 || return 0  # python3 없으면 SKIP (pass)
+  local tmp line result expected
+  expected=$(printf 'multi\nline\ttab')
+  tmp=$(mktemp) || return 1
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "$expected" 2>/dev/null
+  line=$(cat "$tmp")
+  rm -f "$tmp"
+  result=$(printf '%s' "$line" | python3 -c 'import sys,json; print(json.load(sys.stdin)["insight"])')
+  [ "$result" = "$expected" ]
+}
+run "T2.g 제어문자 포함 insight round-trip" T2_g
+
 # T2.e: SKILL.md parse_line 코드 블록에 python3 분기 존재
 run "T2.e SKILL.md python3 파싱 분기 존재" \
   grep -q 'python3' "$PLUGIN/skills/gbrain-ko/SKILL.md"

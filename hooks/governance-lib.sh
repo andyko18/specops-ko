@@ -46,6 +46,9 @@ _verify_passed_in_progress() {
   [ -n "$section" ] || return 1
   # I-2: 명령 필드 앵커(시각 HH:MM + 명령) — memo 자유텍스트의 명령 언급(괄호 안) 무매칭 → false-block 자기모순 차단.
   # session-progress 줄 포맷 `- YYYY-MM-DD HH:MM /command ...` 의 시각 선행 패턴 의존.
+  # ★ 불변식 의존: FID 섹션 내 줄은 "최신=상단(작은 줄번호, prepend)" 이어야 한다(L54 vline<cline 비교 전제).
+  #   정본: templates/session-progress.md(prepend/내림차순) + skills/context-resets-ko(줄순서 불변식).
+  #   writer 가 오름차순(최신=하단)으로 작성하면 verify-후-재구현을 verify 유효로 오판 → R-1/R-2 false-allow.
   local vline cline
   vline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /verify PASS' | head -1 | cut -d: -f1)
   cline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /implement|[0-9][0-9]:[0-9][0-9] /receive-review.*(fix [1-9]|수용)' | head -1 | cut -d: -f1)

@@ -2,13 +2,6 @@
 # Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]
 set -euo pipefail
 
-json_esc() {
-  local s="$1"
-  s="${s//\\/\\\\}"    # 백슬래시 먼저
-  s="${s//\"/\\\"}"    # 큰따옴표
-  printf '%s' "$s"
-}
-
 INSIGHT="${1:-}"
 if [ -z "$INSIGHT" ]; then
   echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]" >&2
@@ -56,5 +49,11 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 TARGET="${GBRAIN_FILE:-.specops/memory/learnings.jsonl}"
 mkdir -p "$(dirname "$TARGET")"
 
-printf '{"ts":"%s","fid":"%s","insight":"%s","tags":%s}\n' \
-  "$TS" "$(json_esc "$FID_VAL")" "$(json_esc "$INSIGHT")" "$TAGS" >> "$TARGET"
+# 전체 객체를 jq 로 생성 — insight/fid 의 제어문자(개행·탭, U+0000~U+001F)·"·\ 까지 완전 이스케이프.
+# (printf+수동 json_esc 는 제어문자 미처리 → 무효 JSON 줄 + recall 유실 결함. TAGS 는 이미 valid JSON array → --argjson.)
+jq -cn \
+  --arg ts "$TS" \
+  --arg fid "$FID_VAL" \
+  --arg insight "$INSIGHT" \
+  --argjson tags "$TAGS" \
+  '{ts:$ts, fid:$fid, insight:$insight, tags:$tags}' >> "$TARGET"

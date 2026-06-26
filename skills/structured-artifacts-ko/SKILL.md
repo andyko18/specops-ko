@@ -124,8 +124,8 @@ escalations: []
 2. `.specops/<FID>/` 디렉토리 존재 여부 확인. 없으면 생성.
 3. 입력 아티팩트(커맨드별 `specops_artifact_in` 명시)가 모두 존재하는지 확인. 누락 시 **문지기로서 중단**하고 앞 단계 실행을 요청.
 4. 출력 아티팩트 경로를 계산하되 **아직 쓰지 않는다**. 본 Process 완료 시에만 쓴다.
-5. `session-progress.md`에 "<timestamp> <command> <FID> 시작" 한 줄 append.
-6. 종료 시 "<timestamp> <command> <FID> 완료 (출력: ...)" append.
+5. `session-progress.md` FID 섹션 상단에 "<timestamp> <command> <FID> 시작" 한 줄 prepend(최신=위).
+6. 종료 시 "<timestamp> <command> <FID> 완료 (출력: ...)" 한 줄 prepend. (줄 순서 불변식 — `skills/context-resets-ko` 참조: 거버넌스 verify-lookback 이 의존.)
 
 ## 예시
 
