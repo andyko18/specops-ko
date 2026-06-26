@@ -27,6 +27,12 @@ detect_fid() {
 
 # F-1(5c): session-progress 의 FID 섹션에서 /verify PASS 가 최신 코드변경보다 뒤(위)면 0(verify유효), 아니면 1.
 # 코드변경 = /implement(항상) | /receive-review + (fix [1-9]|수용). /specify·/plan·/tasks·/clarify·/analyze 제외(.md).
+#
+# 한계(20260626 분석, WON'T-FIX): session-progress 는 self-reported — verify 후 lifecycle 밖
+#   수동 변경(Edit·핫픽스·직접 git add, /implement 줄 미기록)은 감지 못 함(false-allow). self-report
+#   에게 un-self-reported 변경 탐지는 범주 오류 = honesty-failure / out-of-band 2차 방어 클래스.
+#   1차 방어는 pretool is_docs_only_change(git-authoritative, verify shortcut 前 실행)가 담당.
+#   설계안 A(tree해시 자가오염)·B(수동변경 transcript 無로 우회)·C(detect_fid 무력화 회귀) 전수 기각.
 _verify_passed_in_progress() {
   local fid="$1"
   local progress=".specops/session-progress.md"
