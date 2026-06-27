@@ -3,7 +3,7 @@ name: using-specops-auto-ko-ko
 description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제 (Superpowers using-superpowers 한국어 재창작 + 5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.26.3
 used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 ---
 
@@ -109,6 +109,21 @@ specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 - `y` 응답 시: `/init-project` 호출 → 부트스트랩 완료 → 사용자에게 "이제 `/start \"<기능>\"` 재실행" 안내.
 - `N` 또는 무응답 시: 그대로 specifying-ko 진입 (사용자가 부트스트랩 없이 진행 의지).
 - `--resume` 플래그는 후속 릴리즈 (현재 안내 메시지로만 제시. 사용자가 입력하면 `/init-project` 가 Phase 1 의 충돌 정책으로 처리).
+
+## 미완 lifecycle 재개 통보 (v1.26.3 신규)
+
+SessionStart 가 `<session-progress-rehydrate>` 블록을 주입했으면, **데이터만 있고 통보 규칙이 없던** 공백을 메운다 (재접속 사용자가 "어디까지 했나" 헤매는 것 방지). 사용자 입력 처리 전에 1 회 점검:
+
+1. 최신 FID 섹션의 **최상단 활동 줄**(가장 최근 — session-progress 는 prepend 포맷)을 본다.
+2. **종결 마커**(`/lifecycle DONE`·`/finishing 완료`·`PR #N 생성`·`DONE (PR`)면 → 완료된 작업. **통보 불필요** (노이즈 회피, 침묵).
+3. **종결 마커 아니면**(미완) → 분기:
+   - **사용자가 새 신호**(신규/유지보수)를 보냈으면 → **신호 처리 우선** (5원칙 4 주권 — 새 작업 의지 명확). 단 **1 줄 참고** 첨부: "(참고: 진행 중 `<FID>` 미완 — 직전 `<단계>`. 이어서 하려면 알려주세요)".
+   - **신호 없는 일반 입력**이면 → **능동 재개 제안**: "진행 중 `<FID>` — 직전 `<단계>`, 다음 `<chain 다음 단계>`. 이어서 진행할까요? [y/n]".
+4. **다음 단계 추론**: chain 순서(specify→clarify→plan→decompose→implement→verify→request-review→receive-review→security-review→integration-test→performance-test→PR)에서 최신 완료 단계의 **다음** 단계.
+
+**원칙**:
+- **강제 X — 미완일 때만 1 회**. 완료 FID 는 침묵 (5원칙 4 주권).
+- **새 신호가 항상 우선** — 재개통보가 새 작업 진입을 막지 않는다 (재개는 신호 없을 때만 능동 제안).
 
 ## skill 호출 방법
 
