@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.26.5] — 2026-06-27
+
 ### Security
 - **`.specops` symlink path-escape 차단** — `.specops` 가 symlink 면 `mkdir -p .specops` 가 OS 따라 외부 dir 타겟에 friction-log·session-progress 를 write-through(악성 repo clone 시 정보 누출·파일 clobber)하던 표면 차단. `governance-lib` 의 `log_friction`·`log_friction_sev` + `session-progress-append.sh` 진입에 symlink 거부 가드(`_specops_dir_safe`). 정상 dir 영향 0. 회귀 테스트 `test-lib` T-symlink 추가. (심층감사 보안 M-A)
 - **ui-ux-pro-max 의존 상한 핀** — `>=2.0.0` → `>=2.0.0 <3.0.0`. cross-marketplace hard dependency 의 major breaking 릴리즈 자동 신뢰 표면 축소(공급망). (심층감사 보안 S-1)
@@ -446,7 +448,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.4...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.5...HEAD
+[1.26.5]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.4...v1.26.5
 [1.26.4]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.3...v1.26.4
 [1.26.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.2...v1.26.3
 [1.26.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.1...v1.26.2
