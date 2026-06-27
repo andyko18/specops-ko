@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.26.2] — 2026-06-27
+
 ### Fixed
 - **pretool 거버넌스 R-1/R-2 관할 한정 — `.specops` 부재 repo 월권 차단 제거** — 플러그인 훅이 전역 발화하므로 specops 미사용 repo(`.specops/` 디렉토리 부재)의 `git commit`·`gh pr create` 까지 verify 누락으로 하드차단하던 결함(5원칙 4 주권 위반). `[ -d .specops ] || allow` 가드 추가 — lifecycle 진행 중(`.specops` 존재) repo 는 그대로 강제(보호 손실 0). `test-pretool` deny sandbox 3종 `.specops` 보정 + T40 신규(red-green). (PR #129, 재감사 M2)
 - **`using-specops-auto-ko-ko` 유지보수 분기 ASCII 자기모순 정정** — 진입 다이어그램이 `analyzing-ko ★HARD GATE` 선행을 건너뛰고 `specifying-ko 직행`으로 표기(Phase A 잔재)해 권위 테이블과 모순. `analyzing-ko 먼저 → specifying-ko` 로 정합화. (PR #129, 재감사 M1)
@@ -417,7 +419,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.1...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.2...HEAD
+[1.26.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.1...v1.26.2
 [1.26.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.0...v1.26.1
 [1.26.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.24.0...v1.25.0
