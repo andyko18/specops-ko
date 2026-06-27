@@ -113,10 +113,15 @@ read_recent_tool_events() {
   ' "$transcript"
 }
 
+# .specops 가 symlink 면 비정상(악성 repo clone 시 외부 dir 로 write-through path-escape) — 쓰기 거부.
+# fail-safe: symlink 면 1(거부), 정상 dir·부재(곧 mkdir)면 0.
+_specops_dir_safe() { [ ! -L ".specops" ]; }
+
 # friction-log append. FID 우선 fallback 전역.
 # usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset>
 log_friction() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5"
+  _specops_dir_safe || { echo "log_friction: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   if [ -n "$fid" ] && ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
     echo "log_friction: invalid fid format" >&2
     return 1
@@ -159,6 +164,7 @@ log_friction() {
 # usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity>
 log_friction_sev() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}"
+  _specops_dir_safe || { echo "log_friction_sev: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   local target=".specops/$fid/friction-log.jsonl"
   [ -n "$fid" ] || return 0
   mkdir -p ".specops/$fid" 2>/dev/null || return 0

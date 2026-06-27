@@ -164,6 +164,16 @@ _base_case "main"   "T-base.a main 우선"      'git init -q; git checkout -q -b
 _base_case "master" "T-base.b master 차선"    'git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
 _base_case ""       "T-base.c 둘 다 부재 실패" 'git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
 
+# T-symlink: log_friction — .specops 가 symlink 면 쓰기 거부 (path-escape 차단)
+tmp=$(mktemp -d); real=$(mktemp -d); cd "$tmp"; ln -s "$real" .specops
+log_friction "20260424-sl" "R-1" 5 "x" 7 2>/dev/null
+if [ ! -e "$real/20260424-sl/friction-log.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T-symlink log_friction symlink 거부"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-symlink (REAL 타겟 write-through 누출)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp" "$real"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Security
+- **`.specops` symlink path-escape 차단** — `.specops` 가 symlink 면 `mkdir -p .specops` 가 OS 따라 외부 dir 타겟에 friction-log·session-progress 를 write-through(악성 repo clone 시 정보 누출·파일 clobber)하던 표면 차단. `governance-lib` 의 `log_friction`·`log_friction_sev` + `session-progress-append.sh` 진입에 symlink 거부 가드(`_specops_dir_safe`). 정상 dir 영향 0. 회귀 테스트 `test-lib` T-symlink 추가. (심층감사 보안 M-A)
+- **ui-ux-pro-max 의존 상한 핀** — `>=2.0.0` → `>=2.0.0 <3.0.0`. cross-marketplace hard dependency 의 major breaking 릴리즈 자동 신뢰 표면 축소(공급망). (심층감사 보안 S-1)
+
 ### Changed
 - **테스트 헬퍼 공통화 (DRY) — `scripts/tests/harness.sh` 신설** — `ok`/`fail`/`nope`/`run` 헬퍼를 26+파일에 인라인 재정의하던 중복(변종 4종 + 출력포맷 드리프트 `PASS:`/`FAIL -`/`FAIL —`)을 단일 하네스로 통합. `ok/fail/nope/run/finish` 표준 시그니처 + 통일 출력. ok/nope/fail/run 클러스터 **28파일**을 `source` 로 교체. check/ck 클러스터(소문자 `pass/fail` 카운터·grep 매칭 시그니처)는 별도 체계라 범위 외. 회귀: run-all 79/79. (심층감사 중복/DRY)
 

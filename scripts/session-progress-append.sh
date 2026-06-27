@@ -31,6 +31,12 @@ EOF
   exit 2
 fi
 
+# .specops 가 symlink 면 거부 — 악성 repo clone 시 외부 dir write-through(path-escape) 차단
+if [ -L ".specops" ]; then
+  echo "ERROR: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2
+  exit 1
+fi
+
 FID=$1
 COMMAND=$2
 STATUS=$3
