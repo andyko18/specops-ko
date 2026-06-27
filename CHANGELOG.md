@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.26.4] — 2026-06-27
+
 ### Added
 - **`/status [<FID>]` 슬래시 신설 — 재개 조회 수단** — 오펀이던 `show-fid-status.sh`(Lifecycle 단계·아티팩트 ✅/❌ 현황)를 슬래시로 연결. 인자 없으면 session-progress 최신 FID 자동. 메타skill "미완 lifecycle 재개 통보"(자동 1줄)와 짝을 이루는 능동 상세 조회. (심층감사 UX backlog)
 
@@ -437,7 +439,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.3...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.4...HEAD
+[1.26.4]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.3...v1.26.4
 [1.26.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.2...v1.26.3
 [1.26.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.1...v1.26.2
 [1.26.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.0...v1.26.1
