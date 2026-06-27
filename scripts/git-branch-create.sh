@@ -7,5 +7,11 @@ if ! printf '%s' "$FID" | grep -Eq '^[A-Za-z0-9._-]+$' || printf '%s' "$FID" | g
   exit 1
 fi
 BRANCH="feat/$FID"
-git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
-echo "branch: $BRANCH"
+if git checkout -b "$BRANCH" 2>/dev/null; then
+  echo "branch: $BRANCH"
+else
+  # 기존 브랜치 재사용 — 같은 FID 재진입(정당) 또는 슬러그 충돌(주의) 양쪽 가능. 무경고 덮어쓰기 방지 가시화(H1).
+  echo "WARN: 기존 브랜치 '$BRANCH' 재사용 — 다른 기능이면 FID 슬러그를 바꿔 재실행" >&2
+  git checkout "$BRANCH"
+  echo "branch: $BRANCH (재사용)"
+fi

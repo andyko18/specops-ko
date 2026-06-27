@@ -29,7 +29,7 @@ fi
 
 input=$(cat 2>/dev/null || echo "")
 if ! echo "$input" | jq -e . >/dev/null 2>&1; then
-  safe_exit "stdin JSON parse failed"
+  safe_exit "stdin JSON parse 실패"
 fi
 
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')

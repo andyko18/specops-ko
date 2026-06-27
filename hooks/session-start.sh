@@ -49,6 +49,9 @@ escape_for_json() {
   s="${s//$'\n'/\\n}"
   s="${s//$'\r'/\\r}"
   s="${s//$'\t'/\\t}"
+  # 잔여 C0 제어문자(\b·\f·ESC·NUL 등 — \t\n\r 제외) 제거: raw 제어문자가 additionalContext JSON 을
+  # invalid 화 → Claude Code 가 메타skill+거버넌스 스캐폴드 통째 drop 하던 침묵 무력화 방지 (M-B).
+  s=$(printf '%s' "$s" | tr -d '\000-\010\013\014\016-\037')
   printf '%s' "$s"
 }
 

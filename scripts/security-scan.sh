@@ -60,5 +60,9 @@ if [ "$ran" = 0 ]; then
   echo "SECURITY: SKIP (semgrep·gitleaks 미설치 — graceful skip)"
   exit 0
 fi
-echo "SECURITY: crit=$crit high=$high med=$med"
+# 외부 SAST 미실행 표기 — self-check 만 ran=1 일 때 crit=0 을 full SAST 통과로 오인 방지 (M6)
+ext_note=""
+{ command -v semgrep >/dev/null 2>&1 || command -v gitleaks >/dev/null 2>&1; } \
+  || ext_note=" (self-check only — semgrep·gitleaks 미설치)"
+echo "SECURITY: crit=$crit high=$high med=$med$ext_note"
 { [ "$crit" -gt 0 ] || [ "$high" -gt 0 ]; } && exit 1 || exit 0
