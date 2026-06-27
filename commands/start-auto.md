@@ -1,6 +1,6 @@
 ---
 name: start-auto
-description: specops-auto-ko 완전자동 Lifecycle 진입 슬래시 — 가역 게이트 자동 통과, PR 직전 단일 확인점만 남김. specops-auto-ko:specifying-ko 호출
+description: "[단일·무인] specops-auto-ko 완전자동 Lifecycle 단일 기능 진입 — 가역 게이트 자동 통과, PR 직전 단일 확인점만. specops-auto-ko:specifying-ko 호출"
 triggers:
   - "/start-auto"
 mode: ask

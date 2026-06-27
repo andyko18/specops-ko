@@ -1,6 +1,6 @@
 ---
 name: start-all-auto
-description: specops-auto-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 무인(가역 게이트 자동통과) 일괄 구현 슬래시. /start-all 무인 변형, batch PR 직전 1회만 확인
+description: "[전체·무인] specops-auto-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 무인(가역 게이트 자동통과) 일괄 구현. /start-all 무인 변형, batch PR 직전 1회만 확인"
 triggers:
   - "/start-all-auto"
 mode: ask

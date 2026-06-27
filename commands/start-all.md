@@ -1,6 +1,6 @@
 ---
 name: start-all
-description: specops-auto-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현 슬래시. 3-Phase 오케스트레이터
+description: "[전체·대화형] specops-auto-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현. 3-Phase 오케스트레이터"
 triggers:
   - "/start-all"
 mode: ask

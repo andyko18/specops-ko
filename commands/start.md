@@ -1,6 +1,6 @@
 ---
 name: start
-description: specops-auto-ko 한국어 자율 Lifecycle 단일 진입 슬래시 — specops-auto-ko:specifying-ko 호출
+description: "[단일·대화형] specops-auto-ko 한국어 자율 Lifecycle 단일 기능 진입 슬래시 — specops-auto-ko:specifying-ko 호출"
 triggers:
   - "/start"
 mode: ask

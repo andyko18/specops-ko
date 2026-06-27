@@ -29,6 +29,8 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
 
    ```bash
    # FID 결정 (날짜 + 기능 설명 슬러그)
+   # 슬러그 규칙: 소문자 kebab-case, 영숫자+하이픈만, 최대 40자(초과 시 의미 단위로 절단),
+   #   추출 불가(빈값·특수문자만·이모지) 시 fallback `feature-<HHMM>` 사용 — trailing dash 금지
    FID="YYYYMMDD-<slug>"
    mkdir -p .specops/$FID
    bash scripts/git-branch-create.sh $FID
