@@ -3,8 +3,7 @@
 set -u
 PASS=0; FAIL=0
 P=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
+source "$P/scripts/tests/harness.sh"
 DS="$P/scripts/dast-scan.sh"
 
 [ -f "$DS" ] && [ -x "$DS" ] || nope "존재" "dast-scan.sh 부재/비실행"

@@ -2,10 +2,9 @@
 set -u  # set -e 의도적 미사용 — rc 수동 체크 패턴 (테스트별 개별 판정)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 RELEASE="$PLUGIN/scripts/release.sh"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 
 # AC-7 격리: tmpdir + git init (실제 repo 오염 차단)
 _make_git_fixture() {

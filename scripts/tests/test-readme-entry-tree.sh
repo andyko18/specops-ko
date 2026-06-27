@@ -3,9 +3,8 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 R="$PLUGIN/README.md"
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # AC-1: /start-auto 등장
 grep -q '/start-auto' "$R" && ok "AC-1 start-auto 등장" || nope "AC-1" "start-auto 누락"

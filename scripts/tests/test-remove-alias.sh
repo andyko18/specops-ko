@@ -3,8 +3,7 @@
 set -u
 PASS=0; FAIL=0
 P=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
+source "$P/scripts/tests/harness.sh"
 
 # AC-1: alias 2파일 부재
 [ ! -f "$P/commands/start-project.md" ] && [ ! -f "$P/commands/start-batch.md" ] \

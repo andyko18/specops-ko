@@ -3,8 +3,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
+source "$PLUGIN/scripts/tests/harness.sh"
 DS="$PLUGIN/commands/design-screen.md"
 DSS="$PLUGIN/commands/design-screens.md"
 SP="$PLUGIN/skills/specifying-ko/SKILL.md"

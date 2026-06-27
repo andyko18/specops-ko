@@ -3,8 +3,7 @@
 set -u
 PASS=0; FAIL=0
 P=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
+source "$P/scripts/tests/harness.sh"
 
 # AC-1: init-project.md 존재 + name + trigger + 오케스트레이터 호출
 IP="$P/commands/init-project.md"

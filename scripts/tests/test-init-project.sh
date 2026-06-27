@@ -5,6 +5,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
 
 # ── 헬퍼 ──────────────────────────────────────
@@ -21,8 +22,6 @@ teardown_fixture() {
   rm -rf "$TMPDIR"
   TMPDIR=""
 }
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # 활성 산출물 카운트
 count_active() {

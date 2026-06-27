@@ -3,9 +3,8 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SK="$PLUGIN/skills"
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # 역방향 소비처 자동 수집 (하드코딩 제거 — label_consumer backlog 해소)
 # 주의: collect 는 grep -F(리터럴) — 소비처의 `grep -q '\*\*§batch\*\*'` 코드(백슬래시 포함)를 매칭.

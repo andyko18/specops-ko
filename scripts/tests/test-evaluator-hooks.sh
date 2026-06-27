@@ -6,8 +6,7 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 ROTATE="$PLUGIN/hooks/rotate-evaluator-artifact.sh"
 INJECT="$PLUGIN/hooks/inject-evaluator-timestamp.sh"
 
-ok() { PASS=$((PASS+1)); echo "PASS: $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
+source "$PLUGIN/scripts/tests/harness.sh"
 
 setup_file() {
   local f="$1"

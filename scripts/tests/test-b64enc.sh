@@ -2,10 +2,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/b64enc.sh"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 
 # T1.a: 인자 인코딩 "hello" → "aGVsbG8=" (AC-1)
 out=$("$SCRIPT" "hello"); rc=$?

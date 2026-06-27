@@ -2,10 +2,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 CVT="$PLUGIN/scripts/cvt.py"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 
 TMP=$(mktemp -d /tmp/cvt-test-XXXXXX)
 trap 'rm -rf "$TMP"' EXIT

@@ -4,10 +4,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 HOOK="$PLUGIN/hooks/ensure-session-progress.sh"
 
-ok()   { PASS=$((PASS+1)); echo "PASS: $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 
 # setup_temp_plugin: $tmp_plugin 디렉토리에 ensure 실행에 필요한 최소 PLUGIN_ROOT 구성
 # 인자 1: with-template (true|false) — templates/session-progress.md 포함 여부

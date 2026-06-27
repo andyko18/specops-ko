@@ -3,11 +3,10 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 RUN="$PLUGIN/scripts/_internal/run-verification.sh"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # ── T1.a extract: bash scripts/ 패턴 추출 ─────
 TMPDIR=$(mktemp -d)

@@ -2,12 +2,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
-
-run() {
-  local desc="$1"; shift
-  if "$@" 2>/dev/null; then PASS=$((PASS+1)); echo "PASS: $desc"
-  else FAIL=$((FAIL+1)); echo "FAIL: $desc"; fi
-}
+source "$PLUGIN/scripts/tests/harness.sh"
 
 # T1.a: gbrain-append.sh 존재
 run "T1.a gbrain-append.sh 존재" \

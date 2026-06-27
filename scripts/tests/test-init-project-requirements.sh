@@ -3,9 +3,8 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # _parse_numbered 가 'N. label: text' 의 colon 뒤만 추출 → 입력 colon 필수.
 # 정상: 1/2/3 + M 3개 = 6 필드 ≥4 → fallback 미발동.

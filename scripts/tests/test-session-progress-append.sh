@@ -3,10 +3,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/session-progress-append.sh"
 
-ok() { PASS=$((PASS+1)); echo "PASS: $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 
 # ── fixture helpers ─────────────────────────────────────────────────────
 

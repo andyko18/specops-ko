@@ -2,10 +2,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/b64val.sh"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-fail() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 
 # T3.a: 유효한 base64 "aGVsbG8=" → "valid" exit 0 (AC-7)
 out=$("$SCRIPT" "aGVsbG8="); rc=$?

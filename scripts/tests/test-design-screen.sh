@@ -3,10 +3,9 @@
 set -u
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/_internal/design-screen.sh"
 PASS=0; FAIL=0
-ok()   { echo "PASS $1"; PASS=$((PASS+1)); }
-nope() { echo "FAIL $1 — $2"; FAIL=$((FAIL+1)); }
 
 # 격리 임시 디렉토리
 TMP=$(mktemp -d)

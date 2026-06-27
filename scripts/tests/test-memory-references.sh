@@ -6,10 +6,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SKILL="$PLUGIN/skills/specifying-ko/SKILL.md"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 # ── T1.a 정적: SKILL.md 가 9종 .specops/memory/*.md 모두 명시 ──
 expected=(constitution requirements architecture frontend-architecture backend-architecture api-spec data-model screens-overview test-strategy)

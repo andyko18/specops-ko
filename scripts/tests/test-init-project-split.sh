@@ -2,9 +2,8 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
-ok()   { echo "PASS $1"; PASS=$((PASS+1)); }
-nope() { echo "FAIL $1 — $2"; FAIL=$((FAIL+1)); }
 
 # T-split.a 임의 cwd 에서 source 시 헬퍼+phase 전 함수 로드 (main 미실행)
 out=$(cd /tmp && source "$SCRIPT" 2>/dev/null; type -t _replace_line_prefix; type -t phase_8_artifacts; type -t phase_1_precheck)

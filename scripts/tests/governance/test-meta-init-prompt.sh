@@ -6,10 +6,9 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd ../.. && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
 SKILL="$PLUGIN/skills/using-specops-auto-ko-ko/SKILL.md"
 
-ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
-nope() { FAIL=$((FAIL+1)); echo "FAIL $1 — $2"; }
 
 eval_branch() {
   # echo branch label for given (.specops, CLAUDE.md) combination

@@ -4,8 +4,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-ok(){ PASS=$((PASS+1)); echo "PASS: $1"; }
-nope(){ FAIL=$((FAIL+1)); echo "FAIL: $1 — $2"; }
+source "$PLUGIN/scripts/tests/harness.sh"
 
 # T1: clarifying §auto advisor + fallback + 주권
 C="$PLUGIN/skills/clarifying-ko/SKILL.md"
