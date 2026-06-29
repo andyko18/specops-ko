@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+- **gbrain confidence scoring — ecc instinct 흡수** — `gbrain-append --confidence low|medium|high` enum 옵션으로 learnings 레코드에 조건부 `confidence` 필드(미지정 시 생략 — 기존 ~120 레코드 graceful). `gbrain-recall` score 동점 시 confidence 가중(high=3/medium=2/low=1/미지정=0) tiebreak + 표시, `gbrain-ko` 조회 출력 렌더. confidence 는 **표시·정렬 보조만** — `/evolve` skill 자동생성·임계 자동승격은 흡수 금지(메타플러그인 무결성). 회귀: recall 탭 평탄화(jq `$txt|gsub`) + 테스트 mktemp 가드. (#139, #140)
+- **`SPECOPS_GOVERNANCE_PROFILE` 프리셋 (minimal/standard/strict) — ecc #4 흡수** — `is-hook-enabled.sh` 에 ENV 프리셋 분기. minimal(pretool+session-start)·standard(4 훅)·strict(6 훅). **minimal 도 R-1/R-2 hard-block 유지**(거버넌스 해자 보존). pyyaml 독립 bash case. (#137)
+
+### Changed
+- **advisor-ko 이종 백엔드 자동 fallback 확대 — omc #2 경량 흡수** — `critic-ask` 연결지점 2→5곳 + 미연결 시 자동 fallback 트리거. advisor 미연결 환경에서도 graceful. (#136)
+
+### Fixed
+- **R-1/R-2 verify 면제 방어 보강** — R-1 면제가 verifying-evidence-ko skill transcript 패턴에 강결합돼 직접 verify(skill 우회) 시 false-block 하던 결함 수정. `run-verification.sh` 의 `RUN-VERIFICATION-RESULT` evidence stamp 를 보조 면제 신호로 추가 + `_verify_passed_in_progress` **3-state**(0 유효/1 inconclusive/2 affirmative-stale). stamp 면제는 vp=1 만, vp=2(stale)는 stamp 무시 차단(거짓면제 0, T39 보존). (#138)
+
 ## [1.27.0] — 2026-06-29
 
 ### Added
