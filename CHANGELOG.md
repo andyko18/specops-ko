@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.28.0] — 2026-06-29
+
 ### Added
 - **gbrain confidence scoring — ecc instinct 흡수** — `gbrain-append --confidence low|medium|high` enum 옵션으로 learnings 레코드에 조건부 `confidence` 필드(미지정 시 생략 — 기존 ~120 레코드 graceful). `gbrain-recall` score 동점 시 confidence 가중(high=3/medium=2/low=1/미지정=0) tiebreak + 표시, `gbrain-ko` 조회 출력 렌더. confidence 는 **표시·정렬 보조만** — `/evolve` skill 자동생성·임계 자동승격은 흡수 금지(메타플러그인 무결성). 회귀: recall 탭 평탄화(jq `$txt|gsub`) + 테스트 mktemp 가드. (#139, #140)
 - **`SPECOPS_GOVERNANCE_PROFILE` 프리셋 (minimal/standard/strict) — ecc #4 흡수** — `is-hook-enabled.sh` 에 ENV 프리셋 분기. minimal(pretool+session-start)·standard(4 훅)·strict(6 훅). **minimal 도 R-1/R-2 hard-block 유지**(거버넌스 해자 보존). pyyaml 독립 bash case. (#137)
@@ -468,7 +470,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.27.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.28.0...HEAD
+[1.28.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.27.0...v1.28.0
 [1.27.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.5...v1.27.0
 [1.26.5]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.4...v1.26.5
 [1.26.4]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.3...v1.26.4
