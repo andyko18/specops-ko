@@ -75,6 +75,7 @@ while IFS= read -r cmd; do
 done <<< "$commands"
 
 if [ "$skipped" -gt 0 ]; then
+  echo "RUN-VERIFICATION-RESULT: PARTIAL" >> "$EVIDENCE"
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"
   exit 1
 fi
@@ -83,7 +84,9 @@ if [ "$executed" -eq 0 ]; then
   exit 0
 fi
 if [ "$all_pass" = "1" ]; then
+  echo "RUN-VERIFICATION-RESULT: PASS" >> "$EVIDENCE"
   echo "VERIFY: PASS"
   exit 0
 fi
+echo "RUN-VERIFICATION-RESULT: FAIL" >> "$EVIDENCE"
 exit 1

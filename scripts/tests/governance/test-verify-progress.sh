@@ -58,4 +58,20 @@ _verify_passed_in_progress 20260625-x && { PASS=$((PASS+1)); echo "PASS T7 memo�
 rm -f "$sp"
 _verify_passed_in_progress 20260625-x && { FAIL=$((FAIL+1)); echo "FAIL T6"; } || { PASS=$((PASS+1)); echo "PASS T6 부재→무효"; }
 
+# === _verify_evidence_stamp (AC-2/4) ===
+mkdir -p .specops/test-fid
+_verify_evidence_stamp test-fid && { FAIL=$((FAIL+1)); echo "FAIL: AC-4 stamp 부재 면제됨"; } || PASS=$((PASS+1))
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > .specops/test-fid/evidence.md
+_verify_evidence_stamp test-fid && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-2 PASS stamp 면제"; }
+printf 'RUN-VERIFICATION-RESULT: FAIL\n' > .specops/test-fid/evidence.md
+_verify_evidence_stamp test-fid && { FAIL=$((FAIL+1)); echo "FAIL: AC-4 FAIL stamp 면제됨"; } || PASS=$((PASS+1))
+rm -rf .specops/test-fid
+# === 3-state affirmative-stale 보존 (T39 정합) ===
+mkdir -p .specops/stale-fid
+printf '## stale-fid\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026-06-26 10:05 /verify PASS (AC 5/5)\n' >> .specops/session-progress.md
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > .specops/stale-fid/evidence.md
+_verify_passed_in_progress stale-fid; vp=$?
+[ "$vp" -eq 2 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: 3-state affirmative-stale return 2 아님 (vp=$vp)"; }
+rm -rf .specops/stale-fid
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

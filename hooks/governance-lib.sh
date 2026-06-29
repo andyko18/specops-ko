@@ -54,7 +54,16 @@ _verify_passed_in_progress() {
   cline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /implement|[0-9][0-9]:[0-9][0-9] /receive-review.*(fix [1-9]|수용)' | head -1 | cut -d: -f1)
   [ -z "$vline" ] && return 1            # verify 없음
   [ -z "$cline" ] && return 0            # 코드변경 없음 → verify 유효
-  [ "$vline" -lt "$cline" ] && return 0 || return 1   # verify 가 위(최신)면 유효
+  [ "$vline" -lt "$cline" ] && return 0 || return 2   # 0=유효 / 2=affirmative-stale(implement 최신)
+}
+
+# evidence.md 의 run-verification PASS stamp (honest-scaffold — 실제 테스트 실행 증거).
+# inconclusive(verify 줄 부재) 보조 면제용. affirmative-stale 에는 미적용(apply_lookback 분기).
+_verify_evidence_stamp() {
+  local fid="$1"
+  local ev=".specops/$fid/evidence.md"
+  [ -f "$ev" ] || return 1
+  grep -q '^RUN-VERIFICATION-RESULT: PASS' "$ev" && return 0 || return 1
 }
 
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
@@ -209,8 +218,15 @@ apply_lookback_rule() {
   # F-1(5c): session-progress verify 우선 — transcript lookback false-block 회피
   local _fid
   _fid=$(detect_fid)
-  if [ -n "$_fid" ] && _verify_passed_in_progress "$_fid"; then
-    return 0   # verify 유효 → 위반 아님 (transcript lookback skip)
+  if [ -n "$_fid" ]; then
+    _verify_passed_in_progress "$_fid"; local _vp=$?
+    if [ "$_vp" -eq 0 ]; then
+      return 0   # 유효 → 면제
+    fi
+    if [ "$_vp" -eq 1 ] && _verify_evidence_stamp "$_fid"; then
+      return 0   # inconclusive(verify 줄 부재) + evidence stamp → 면제
+    fi
+    # _vp=2 (affirmative-stale) → stamp 무시, 차단 진행 (T39/spec L21 보존)
   fi
   local found
   found=$(read_recent_tool_events "$transcript" "$lookback" \

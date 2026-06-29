@@ -138,6 +138,13 @@ check "T38 session-progress verify 최신 → allow (통합 positive)" '"continu
 printf '## 20260626-wire\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026-06-26 10:05 /verify PASS (AC 5/5)\n' > "$spgit/.specops/session-progress.md"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
 check "T39 session-progress implement 최신 → deny (R-1 보존)" '"permissionDecision":"deny"' "$out"
+# T39b 통합 (거짓면제 0 불변식): T39 와 동일 stale(implement 최신) 상태 + evidence PASS stamp 동시.
+# vp=2(affirmative-stale)면 evidence stamp 무시하고 deny — stamp fallback 은 vp=1(inconclusive)만.
+# apply_lookback_rule 의 `_vp -eq 1` 가드 제거 시 이 케이스가 allow 로 회귀(red) → 단위(test-verify-progress)가 못 잡는 구멍 보강.
+mkdir -p "$spgit/.specops/20260626-wire"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$spgit/.specops/20260626-wire/evidence.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
+check "T39b stale + evidence PASS stamp → deny (vp=2 stamp 무시, 거짓면제 0)" '"permissionDecision":"deny"' "$out"
 rm -rf "$spgit"
 
 # T40 .specops 부재 repo(specops 관할 밖) → verify 강제 면제 → allow [M2 스코프 가드]
