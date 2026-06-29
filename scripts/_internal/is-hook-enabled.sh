@@ -13,6 +13,27 @@ if [ "$#" -ne 1 ]; then
 fi
 
 HOOK=$1
+# SPECOPS_GOVERNANCE_PROFILE ENV 프리셋 (최우선 — config.yaml·pyyaml 불요)
+# 우선순위: ENV > config.yaml profile > hooks.enabled > default strict
+PROFILE_ENV="${SPECOPS_GOVERNANCE_PROFILE:-}"
+if [ -n "$PROFILE_ENV" ]; then
+  case "$PROFILE_ENV" in
+    strict) exit 0 ;;
+    standard)
+      case "$HOOK" in
+        pretool-governance|posttool-governance|stop-governance|session-start) exit 0 ;;
+        *) exit 1 ;;
+      esac ;;
+    minimal)
+      case "$HOOK" in
+        pretool-governance|session-start) exit 0 ;;
+        *) exit 1 ;;
+      esac ;;
+    *)
+      echo "⚠️  is-hook-enabled: SPECOPS_GOVERNANCE_PROFILE='$PROFILE_ENV' 미지원 프리셋 — default strict 적용" >&2
+      exit 0 ;;
+  esac
+fi
 CONFIG=${SPECOPS_CONFIG:-.specops/config.yaml}
 
 # config 파일 없음 → default enabled (strict 동작 유지)

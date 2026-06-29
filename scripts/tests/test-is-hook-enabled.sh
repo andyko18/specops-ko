@@ -130,5 +130,29 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T7 exec-bit"
 fi
 
+# === SPECOPS_GOVERNANCE_PROFILE ENV 프리셋 (AC-1~6) ===
+chk_env() {
+  SPECOPS_GOVERNANCE_PROFILE="$1" bash "$SCRIPT" "$2" >/dev/null 2>&1; local rc=$?
+  if [ "$rc" -eq "$3" ]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: $4 (rc=$rc, want $3)"; fi
+}
+# AC-1 strict: 6훅 전부 활성(rc=0)
+for h in pretool-governance posttool-governance stop-governance session-start ensure-session-progress notify; do
+  chk_env strict "$h" 0 "AC-1 strict $h"
+done
+# AC-2 standard: pretool/posttool/stop/session-start 활성, ensure/notify 비활성
+for h in pretool-governance posttool-governance stop-governance session-start; do chk_env standard "$h" 0 "AC-2 standard $h 활성"; done
+for h in ensure-session-progress notify; do chk_env standard "$h" 1 "AC-2 standard $h 비활성"; done
+# AC-3 minimal: pretool/session-start 활성(hard-block 유지), 나머지 비활성
+for h in pretool-governance session-start; do chk_env minimal "$h" 0 "AC-3 minimal $h 활성"; done
+for h in posttool-governance stop-governance ensure-session-progress notify; do chk_env minimal "$h" 1 "AC-3 minimal $h 비활성"; done
+# AC-5 미지원 프리셋 → default strict(rc=0) + 경고
+out="$(SPECOPS_GOVERNANCE_PROFILE=bogus bash "$SCRIPT" pretool-governance 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: AC-5 bogus exit"; fi
+if printf '%s' "$out" | grep -q "미지원"; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: AC-5 경고 미출력"; fi
+# AC-4 우선순위·AC-6 pyyaml 독립: config.yaml 부재 환경에서 AC-1~3 통과로 입증
+# AC-R-1 ENV 미설정 무변경
+unset SPECOPS_GOVERNANCE_PROFILE
+bash "$SCRIPT" pretool-governance >/dev/null 2>&1 && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-R-1 미설정 default"; }
+
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL
