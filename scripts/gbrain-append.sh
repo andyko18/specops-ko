@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]
+# Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2] [--confidence low|medium|high]
 set -euo pipefail
 
 INSIGHT="${1:-}"
 if [ -z "$INSIGHT" ]; then
-  echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]" >&2
+  echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2] [--confidence low|medium|high]" >&2
   exit 1
 fi
 shift
 
 case "$INSIGHT" in
-  --*) echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]" >&2; exit 1 ;;
+  --*) echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2] [--confidence low|medium|high]" >&2; exit 1 ;;
 esac
 
 FID_VAL=""
 TAGS="[]"
+CONF_VAL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --fid)
@@ -39,8 +40,14 @@ while [ $# -gt 0 ]; do
       fi
       shift 2
       ;;
+    --confidence)
+      case "${2:-}" in
+        low|medium|high) CONF_VAL="$2" ;;
+        *) echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2] [--confidence low|medium|high]" >&2; exit 1 ;;
+      esac
+      shift 2 ;;
     *)
-      echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]" >&2
+      echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2] [--confidence low|medium|high]" >&2
       exit 1 ;;
   esac
 done
@@ -56,4 +63,5 @@ jq -cn \
   --arg fid "$FID_VAL" \
   --arg insight "$INSIGHT" \
   --argjson tags "$TAGS" \
-  '{ts:$ts, fid:$fid, insight:$insight, tags:$tags}' >> "$TARGET"
+  --arg conf "${CONF_VAL:-}" \
+  '{ts:$ts, fid:$fid, insight:$insight, tags:$tags} + (if $conf != "" then {confidence:$conf} else {} end)' >> "$TARGET"

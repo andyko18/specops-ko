@@ -143,5 +143,27 @@ T7_a() {
 }
 run "T7.a --fid 레코드 기록" T7_a
 
+# === --confidence (AC-1/4/R-1) ===
+T_conf_high() {
+  local gf gd; gd=$(mktemp -d) || return 1; gf="$gd/learnings.jsonl"
+  GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "테스트" --confidence high >/dev/null 2>&1
+  local ok=1; [ "$(tail -1 "$gf" | jq -r '.confidence // "none"')" = "high" ] || ok=0
+  rm -rf "$(dirname "$gf")"; [ "$ok" = 1 ]
+}
+run "AC-1 --confidence high 필드" T_conf_high
+T_conf_none() {
+  local gf gd; gd=$(mktemp -d) || return 1; gf="$gd/learnings.jsonl"
+  GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "노confidence" >/dev/null 2>&1
+  local ok=1; [ "$(tail -1 "$gf" | jq 'has("confidence")')" = "false" ] || ok=0
+  rm -rf "$(dirname "$gf")"; [ "$ok" = 1 ]
+}
+run "AC-R-1 미지정 필드 없음" T_conf_none
+T_conf_bogus() {
+  local gf gd; gd=$(mktemp -d) || return 1; gf="$gd/learnings.jsonl"
+  ! GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "x" --confidence bogus >/dev/null 2>&1
+  local r=$?; rm -rf "$(dirname "$gf")"; return $r
+}
+run "AC-4 bogus 거부(exit 1)" T_conf_bogus
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

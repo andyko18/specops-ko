@@ -109,6 +109,28 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T2.j (top=$top_fid)"
 fi
 
+# === confidence tiebreak (AC-3/R-2) ===
+# 역순 배치(high=line1, low=line2) — NR-desc 만으로는 low(line2)가 위로 와야 하므로
+# cw 키(-k2)를 회귀로 제거하면 FAIL 하는 변별적 가드. cw tiebreak 작동 시에만 high 우선.
+gd=$(mktemp -d) || exit 1; gf="$gd/learnings.jsonl"
+printf '%s\n' '{"ts":"t","fid":"f","insight":"공통토큰 인사이트 높음","tags":["x"],"confidence":"high"}' >> "$gf"
+printf '%s\n' '{"ts":"t","fid":"f","insight":"공통토큰 인사이트 낮음","tags":["x"],"confidence":"low"}' >> "$gf"
+out=$(GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-recall.sh" "공통토큰 인사이트" --top 2 2>/dev/null)
+first=$(printf '%s' "$out" | head -1 | jq -r '.confidence')
+[ "$first" = "high" ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-3 tiebreak high 우선 아님 ($first)"; }
+printf '%s\n' '{"ts":"t","fid":"f","insight":"공통토큰 노conf","tags":["x"]}' >> "$gf"
+GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-recall.sh" "공통토큰" --top 3 >/dev/null 2>&1 && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-R-2 graceful"; }
+rm -rf "$(dirname "$gf")"
+
+# === 탭 포함 insight 스코어 무회귀 (AC-R-2 — Phase C Important #1) ===
+# insight 에 리터럴 탭 → 탭 이후 토큰도 스코어링돼야 함 (jq $txt 탭 평탄화).
+# 회귀(gsub 제거) 시 -F'\t' 가 탭 이후를 $3+ 로 밀어 미매칭 → FAIL 하는 변별적 가드.
+gd=$(mktemp -d) || exit 1; gf="$gd/learnings.jsonl"
+printf '%s\n' '{"ts":"t","fid":"f","insight":"alpha\tbetagamma keyword","tags":["x"]}' >> "$gf"
+out=$(GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-recall.sh" "betagamma" --top 1 2>/dev/null)
+[ -n "$out" ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-R-2 탭 이후 토큰 스코어 누락(회귀)"; }
+rm -rf "$(dirname "$gf")"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

@@ -13,6 +13,8 @@ used_by: /gbrain
 
 `scripts/gbrain-append.sh`로 누적된 `.specops/memory/learnings.jsonl` 레코드를 읽어 최신 10건을 요약 출력한다.
 
+- 레코드에 `confidence`(low/medium/high) 필드가 있으면 조회·요약 출력에 신뢰도로 표시한다 (없으면 생략 — 기존 레코드 호환).
+
 ## 사용법
 
 ```
@@ -49,8 +51,10 @@ try:
     ts = obj.get("ts", "")
     fid = obj.get("fid", "")
     insight = obj.get("insight", "")
+    conf = obj.get("confidence", "")
     fid_part = f" (FID: {fid})" if fid else ""
-    print(f"- [{ts}]{fid_part} {insight}")
+    conf_part = f" [conf:{conf}]" if conf else ""
+    print(f"- [{ts}]{fid_part} {insight}{conf_part}")
 except Exception:
     print(f"- [parse error] {sys.argv[1][:80]}")
 PYEOF
@@ -58,7 +62,8 @@ PYEOF
     ts=$(echo "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
     insight=$(echo "$line" | grep -o '"insight":"[^"]*"' | cut -d'"' -f4)
     fid=$(echo "$line" | grep -o '"fid":"[^"]*"' | cut -d'"' -f4)
-    echo "- [$ts]${fid:+ (FID: $fid)} $insight"
+    conf=$(echo "$line" | grep -o '"confidence":"[^"]*"' | cut -d'"' -f4)
+    echo "- [$ts]${fid:+ (FID: $fid)} $insight${conf:+ [conf:$conf]}"
   fi
 }
 

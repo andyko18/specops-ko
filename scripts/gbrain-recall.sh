@@ -24,8 +24,11 @@ TAB=$(printf '\t')
 # 단일 awk 패스: 토큰화(소문자·영숫자/한글 2자+) + 질의 교집합 스코어 → "score<TAB>lineno"
 # 상위 N 선별은 awk NR<=n — head 조기 종료로 인한 sort SIGPIPE(rc=141) 방지
 ranked=$(
-  jq -Rr '(fromjson? | objects | (((.tags // []) | join(" ")) + " " + (.insight // ""))) // ""' "$FILE" |
-  awk -v q="$Q" '
+  jq -Rr '(fromjson? | objects
+    | ((((.tags // []) | join(" ")) + " " + (.insight // ""))) as $txt
+    | (((.confidence // "") | if . == "high" then 3 elif . == "medium" then 2 elif . == "low" then 1 else 0 end)) as $cw
+    | "\($cw)\t\($txt | gsub("\t";" "))") // "0\t"' "$FILE" |
+  awk -F'\t' -v q="$Q" '
     function addtok(s, set,   i, n, p) {
       s = tolower(s)
       gsub(/[^a-z0-9가-힣]+/, " ", s)
@@ -33,16 +36,10 @@ ranked=$(
       for (i = 1; i <= n; i++) if (length(p[i]) >= 2) set[p[i]] = 1
     }
     BEGIN { addtok(q, qt) }
-    {
-      split("", lt)
-      addtok($0, lt)
-      score = 0
-      for (t in qt) if (t in lt) score++
-      if (score >= 1) print score "\t" NR
-    }
+    { cw = $1 + 0; split("", lt); addtok($2, lt); score = 0; for (t in qt) if (t in lt) score++; if (score >= 1) print score "\t" cw "\t" NR }
   ' |
-  sort -t"$TAB" -k1,1nr -k2,2nr |
-  awk -v n="$TOP" 'NR <= n { print $2 }'
+  sort -t"$TAB" -k1,1nr -k2,2nr -k3,3nr |
+  awk -v n="$TOP" 'NR <= n { print $3 }'
 )
 [ -z "$ranked" ] && exit 0
 
