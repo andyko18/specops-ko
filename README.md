@@ -199,7 +199,7 @@ specops-auto-ko/
 │   │  /init-project 산출 템플릿 (12건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, data-model, screens-overview, test-strategy
-├── agents/                               ← 4건 (implementer, spec-reviewer, code-reviewer, plan-reviewer)
+├── agents/                               ← 7건 (implementer, spec-reviewer, code-reviewer, plan-reviewer, red-team, blue-team, auditor)
 ├── scripts/
 │   ├── session-progress-append.sh
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증
