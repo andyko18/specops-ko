@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+- **`/security-scan --self-config` 모드 — ecc AgentShield 흡수** — 플러그인 **자기 설정**(`hooks/*.sh`·`skills/*/SKILL.md`·`rules.jsonl`·`plugin.json`·`settings`)을 red/blue/auditor 3 서브에이전트 적대추론으로 on-demand 보안감사. `collect → red → blue → auditor` CHAIN, risk 등급(A~F). 그간 수동 심층감사(PR #129/#130/#134)로 메우던 사각지대 자동화. (#135)
+- **`scripts/self-config-collect.sh`** — 자기 설정 표면 read-only 번들. 공백 경로 안전(`-print0` + process substitution), `.claude-plugin/plugin.json` 마커 부재 시 거부(임의 경로 차단).
+- **`agents/red-team-ko`·`blue-team-ko`·`auditor-ko`** — 적대감사 3종. `tools: Read/Grep/Glob/Bash` read-only 불변식(Write/Edit 미보유 → 거버넌스 훅 충돌 0). 회귀 테스트 `test-self-config-collect`(공백경로 포함)·`test-self-config-agents`.
+
+### Design
+- ecc AgentShield 의 red/blue/auditor 적대 파이프라인은 specops 의 **Generator↔Evaluator 분리 철학과 동형**이라 자연 흡수. on-demand 전용(토큰 비용 관리), 기존 `/security-scan` SAST/DAST 무변경.
+
 ## [1.26.5] — 2026-06-27
 
 ### Security
