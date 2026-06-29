@@ -164,6 +164,24 @@ T_conf_bogus() {
   local r=$?; rm -rf "$(dirname "$gf")"; return $r
 }
 run "AC-4 bogus 거부(exit 1)" T_conf_bogus
+# low/medium 값도 대칭 동작 (high 외 enum 값 회귀 가드)
+T_conf_lowmed() {
+  local gf gd; gd=$(mktemp -d) || return 1; gf="$gd/learnings.jsonl"
+  local ok=1
+  GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "낮음" --confidence low >/dev/null 2>&1
+  [ "$(tail -1 "$gf" | jq -r '.confidence // "none"')" = "low" ] || ok=0
+  GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "중간" --confidence medium >/dev/null 2>&1
+  [ "$(tail -1 "$gf" | jq -r '.confidence // "none"')" = "medium" ] || ok=0
+  rm -rf "$gd"; [ "$ok" = 1 ]
+}
+run "AC-1 --confidence low/medium 필드" T_conf_lowmed
+# --confidence 뒤 값 누락 → usage 오류 + exit 1 (case ${2:-} 빈값 미매칭)
+T_conf_missing() {
+  local gf gd; gd=$(mktemp -d) || return 1; gf="$gd/learnings.jsonl"
+  ! GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-append.sh" "x" --confidence >/dev/null 2>&1
+  local r=$?; rm -rf "$gd"; return $r
+}
+run "AC-4 --confidence 값 누락 거부(exit 1)" T_conf_missing
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
