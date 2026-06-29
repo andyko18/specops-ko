@@ -15,6 +15,13 @@ printf '%s' "$out" | grep -q "===== hook:" || nope "T1.b AC-1 hooks 섹션 누�
 printf '%s' "$out" | grep -q "===== skill:" || nope "T1.c AC-1 skills 섹션 누락"
 printf '%s' "$out" | grep -q "===== rules:" || nope "T1.d AC-1 rules 섹션 누락"
 printf '%s' "$out" | grep -q "===== plugin:" || nope "T1.e AC-1 plugin 섹션 누락"
+printf '%s' "$out" | grep -q "===== agent:" || nope "T1.e2 AC-1 agents 섹션 누락(번들 범위 확대)"
+printf '%s' "$out" | grep -q "===== script:" || nope "T1.e3 AC-1 scripts 섹션 누락(번들 범위 확대)"
+# 번들 범위 확대 회귀: kill-switch·reviewer frontmatter 실제 포함 보장
+printf '%s' "$out" | grep -q "script: scripts/_internal/is-hook-enabled.sh" || nope "T1.e4 거버넌스 kill-switch 미수집"
+printf '%s' "$out" | grep -q "agent: agents/code-reviewer-ko.md" || nope "T1.e5 reviewer agent frontmatter 미수집"
+# scripts/tests 는 감사 표면 아님 — 제외 보장(번들 폭증 방지)
+printf '%s' "$out" | grep -q "script: scripts/tests/" && nope "T1.e6 scripts/tests 오수집(번들 폭증)" || ok
 
 # AC-9: 플러그인 마커 부재 경로 거부
 tmp="$(mktemp -d)" || exit 1

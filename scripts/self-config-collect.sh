@@ -33,6 +33,12 @@ _emit skill    < <(find "$ROOT/skills" -maxdepth 2 -name 'SKILL.md' -print0 2>/d
 _emit rules    < <(printf '%s\0' "$ROOT/hooks/rules.jsonl")
 _emit plugin   < <(printf '%s\0' "$ROOT/.claude-plugin/plugin.json")
 _emit settings < <(find "$ROOT" -maxdepth 2 -name 'settings*.json' -not -path '*/.git/*' -print0 2>/dev/null)
+# 번들 범위 확대(20260630 self-config 감사 갭): 신뢰근원(거버넌스 kill-switch)·실행체인·reviewer frontmatter
+#   agents/*.md — reviewer tool 그랜트(generator-evaluator 분리·최소권한) 감사 표면
+#   scripts/**.sh — is-hook-enabled(kill-switch)·run-verification·statusline·init-project 등 훅 실행체인.
+#                   scripts/tests 는 감사 표면 아님 → 제외(번들 폭증 방지)
+_emit agent  < <(find "$ROOT/agents" -maxdepth 1 -name '*.md' -print0 2>/dev/null)
+_emit script < <(find "$ROOT/scripts" -name '*.sh' -not -path '*/tests/*' -print0 2>/dev/null)
 
 printf '%s\n' "$bundle"
 # AC-2: 전체 표면 0건 시 빈손 명시 (graceful)
