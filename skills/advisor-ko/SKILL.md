@@ -3,7 +3,7 @@ name: advisor-ko
 description: 기획·분석·설계·개발 중 애매한 부분/모르는 부분 발생 시 항상 적용 — advisor 도구로 외부 자문을 받아 단정·합리화·circular 검증을 차단
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
-specops_version: 1.1.1
+specops_version: 1.27.0
 used_by: using-specops-auto-ko-ko (cross-cutting), specifying-ko, analyzing-ko, planning-ko, implementing-ko
 ---
 
@@ -107,9 +107,10 @@ advisor disabled 환경 또는 동종 모델 편향 차단이 필요할 때, **�
 bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
 ```
 
-- 한계: 외부 CLI 는 본 세션의 conversation 에 접근 불가 — `advisor()` (세션 전체 자동 전송) 의 **대체가 아니라 산출물 검증 보강**
-- CLI (codex/gemini) 부재 시 `CRITIC: SKIP` — graceful (chain 비차단)
-- 연결 지점: planning-ko (plan.md) · requesting-code-review-ko (diff) — 모두 advisory (판정 권한 없음)
+- 한계: 외부 CLI 는 본 세션의 conversation 에 접근 불가 — `advisor()` (세션 전체 자동 전송) 의 **대체가 아니라 산출물 검증 보강**. 세션 맥락 의존 자문은 critic-ask 부적합(파일 기반만).
+- CLI (codex/gemini/ollama) 부재·실패 시 `CRITIC: SKIP/FAIL` — graceful (chain 비차단, 자기추론 fallback)
+- **자동 fallback 트리거**: advisor() 호출이 미연결/실패(graceful)이고 검증 대상이 산출물(`.specops/<FID>/*.md`)이면, 해당 단계는 critic-ask.sh 를 보조 검증 경로로 **자동 시도**한다(수동 선택 불요). 의견은 advisory — Claude 가 비판적 평가, 판정 권한 없음.
+- 연결 지점: planning-ko (plan.md) · clarifying-ko (clarifications.md) · verifying-evidence-ko (evidence.md) · analyzing-ko (impact-analysis.md) · requesting-code-review-ko (diff) — 모두 advisory (판정 권한 없음)
 
 ## 참조
 
@@ -119,4 +120,4 @@ bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID
 
 ---
 
-*v1.1.1 · 2026-05-07 · specops-auto-ko 독자 추가 (advisor 도구 활용 패턴 정형화)*
+*v1.27.0 · 2026-06-29 · specops-auto-ko 독자 추가 (advisor 도구 활용 패턴 + critic-ask 자동 fallback)*
