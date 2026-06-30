@@ -26,7 +26,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-plugin_root=$(dirname "$script_dir")
+plugin_root=$(cd "$script_dir/../.." && pwd)
 cd "$plugin_root"
 
 CACHE_DIR=".specops-cache/upstream"

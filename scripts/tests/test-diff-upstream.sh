@@ -6,9 +6,9 @@ SCRIPT="$(pwd)/scripts/_internal/diff-upstream.sh"
 
 make_sandbox() {
   local sb=$1
-  mkdir -p "$sb"/{commands,agents,skills,knowledge,docs,scripts,.specops-cache/upstream}
-  cp "$SCRIPT" "$sb/scripts/diff-upstream.sh"
-  chmod +x "$sb/scripts/diff-upstream.sh"
+  mkdir -p "$sb"/{commands,agents,skills,knowledge,docs,scripts/_internal,.specops-cache/upstream}
+  cp "$SCRIPT" "$sb/scripts/_internal/diff-upstream.sh"
+  chmod +x "$sb/scripts/_internal/diff-upstream.sh"
 }
 
 # T1 unknown flag
@@ -27,7 +27,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL
 ---
 ## Local Section
 EOF
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --cached 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --cached 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'struct=1' \
    && echo "$out" | grep -q 'cache_miss=1' \
    && grep -q 'CACHE_MISS' "$sb/docs/upstream-drift-log.md"; then
@@ -51,7 +51,7 @@ cat > "$sb/.specops-cache/upstream/obra__superpowers__v5.0.7__skills_test-driven
 ## Upstream Section Y
 ## Upstream Section Z
 EOF
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --no-fetch 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --no-fetch 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'cache_hit=1' && echo "$out" | grep -q 'fetched=0'; then
   PASS=$((PASS+1)); echo "PASS T3 --no-fetch + cache hit"
 else
@@ -73,7 +73,7 @@ cat > "$sb/.specops-cache/upstream/obra__superpowers__v5.0.7__skills_test-driven
 ## Upstream New 1
 ## Upstream New 2
 EOF
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --no-fetch 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --no-fetch 2>&1); rc=$?
 log="$sb/docs/upstream-drift-log.md"
 if [ $rc -eq 0 ] \
    && grep -q '상류 헤더: 3, 로컬 헤더: 2, 공통: 1' "$log" \
@@ -94,7 +94,7 @@ reference_upstream: obra/superpowers@v5.0.7 test-driven-development + executing-
 ---
 ## Section
 EOF
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --cached 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --cached 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'struct=0' && echo "$out" | grep -q 'manual=1'; then
   PASS=$((PASS+1)); echo "PASS T5 multi-ref → manual"
 else
@@ -104,7 +104,7 @@ rm -rf "$sb"
 
 # T6 drift-log 템플릿 자동 생성
 sb=$(mktemp -d); make_sandbox "$sb"
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --cached 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --cached 2>&1); rc=$?
 log="$sb/docs/upstream-drift-log.md"
 if [ $rc -eq 0 ] && [ -f "$log" ] \
    && grep -q '^# Upstream Drift Log' "$log" \
@@ -129,7 +129,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
 ---
 ## B
 EOF
-out=$(cd "$sb" && bash scripts/diff-upstream.sh --cached --file skills/target.md 2>&1); rc=$?
+out=$(cd "$sb" && bash scripts/_internal/diff-upstream.sh --cached --file skills/target.md 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'struct=1' && echo "$out" | grep -q 'manual=0'; then
   PASS=$((PASS+1)); echo "PASS T7 --file single"
 else
