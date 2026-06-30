@@ -90,7 +90,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      - **회귀 보호 계약**: §참조에 인용만 추가 — 다른 섹션·내용 무변경 (memory 감지 표와 동일)
    - **유지보수·foundation·batch 분기 진입 신호 검사** (Phase A):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
-     - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
+     - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). **단 Step 5.6(인터페이스 설계)은 적용한다** — foundation 은 DB 스키마·공통 API 의 본진이므로 design-first 가 가장 중요: 공통부 DB 스키마는 `data-model.md`, 공통 제공 API 는 `api-spec.md` 에 **먼저 반영**. (**역할 분리**: §2 DAG 추출 = 구현 **태스크 분해** 단위 / Step 5.6 `data-model`·`api-spec` 갱신 = **설계 기준 계약** — 둘은 다른 산출물이며 **모두 수행**한다.) spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
      - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
@@ -123,7 +123,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성
      2. **자동 수락** — 사용자 응답 대기 없이 `screens/{name}.md` + `screens/{name}.html` 저장
      3. spec.md §1에 "**자동 결정 화면**: {name1}, {name2}, ..." 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
-   - 모든 화면 저장 완료 후 Step 6 진행
+   - 모든 화면 저장 완료 후 **Step 5.6 진행** (인터페이스 설계도 거친다 — Step 6 직행 금지)
 
    **[§auto 이외 모드]** (기존 동작):
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
@@ -141,9 +141,10 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    > **원칙**: 구현이 이 설계를 따른다(design-first). 구현 중 불가피하게 벗어나면 `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 감지한다.
 
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
-   - 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 해당 memory 문서에 **즉시 반영·수락**:
-     1. `api-spec.md` §1(엔드포인트 표) 또는 채택된 정의방식 섹션에 신규 행 반영
-     2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 반영
+   - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
+   - 존재 시 — 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 **append**(섹션 **덮어쓰기 금지** — `/start-all-auto` batch 의 다수 기능이 같은 마스터 문서를 순차 기록할 때 충돌·오염 방지):
+     1. `api-spec.md` 의 **채택된 정의방식 섹션**(§1 표 또는 OpenAPI/GraphQL/RPC 중 선택분)에 신규 행 **추가**
+     2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 **추가**
      3. spec.md §1 에 "**자동 결정 인터페이스**: {엔드포인트/테이블 요약}" 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
    - 반영 완료 후 Step 6 진행
 
@@ -151,8 +152,8 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - 이번 기능이 건드리는 인터페이스/스키마를 명시:
      > "이 기능은 다음 인터페이스를 추가/변경합니다: {POST /orders — 주문 생성}, {orders 테이블 — id·user_id·status ...}"
    - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
-     - `api-spec.md`: 엔드포인트 표·요청/응답 스키마·인증 반영
-     - `data-model.md`: 엔티티 표·ERD·인덱스 반영
+     - `api-spec.md`: **채택된 정의방식 섹션**(§1 Markdown 표 또는 §2 OpenAPI/§3 GraphQL/§4 RPC 중 init 8f 에서 선택·보존된 것)에 엔드포인트·요청/응답 스키마·인증 반영
+     - `data-model.md`: §3 엔티티 표·§2 ERD·§4 인덱스 반영
    - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
@@ -222,7 +223,11 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
                               │                      │ no
                               └── no ────────────────┘
                                    ↓
-                              설계 문서 작성 (spec.md — §참조에 screens/ 포함)
+                          API/스키마 기능? ── yes ──▶ api-spec/data-model design-first 갱신 (Step 5.6)
+                                   │                          ↓
+                                   └── no ─────────────────────┘
+                                   ↓
+                              설계 문서 작성 (spec.md — §참조에 screens/ + api-spec/data-model 포함)
                                    ↓
                               스펙 자체 검토 (인라인 수정)
                                    ↓

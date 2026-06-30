@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.10.0
+specops_version: 1.29.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
@@ -19,6 +19,15 @@ used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 **왜 서브에이전트**: 전문 에이전트에게 **격리된 컨텍스트**로 태스크를 위임. 지시와 컨텍스트를 **정확히** 조립해 집중·성공을 보장. 서브에이전트는 **당신 세션의 컨텍스트·히스토리를 절대 상속하지 않는다** — 필요한 것만 당신이 구성해 넘긴다. 이로써 당신의 컨텍스트도 코디네이션 용도로 보존된다.
 
 **핵심 원칙**: 태스크별 fresh 서브에이전트 + 2단계 리뷰(스펙 → 품질) = **고품질 + 빠른 반복**.
+
+## 설계 계약 준수 (design-first 후진 teeth)
+
+사전 설계 산출물이 존재하면 구현은 이를 **계약**으로 준수한다 (specifying-ko 의 정방향 design-first 가 구현까지 이어지도록 — 화면·인터페이스 대칭):
+
+- `screens/{name}.md`·`.html` — 화면 기능의 **UI 계약** (Step 5.5 산출)
+- `.specops/memory/api-spec.md`·`data-model.md` — **인터페이스/스키마 계약** (Step 5.6 design-first 산출)
+
+dispatch 컨텍스트가 해당 태스크의 인터페이스/화면/스키마를 건드리면, 위 계약 문서 경로를 컨텍스트 참조에 포함해 구현자가 준수하게 한다. 구현이 계약과 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하고, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약 + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
 
 ## 사용 시점
 
