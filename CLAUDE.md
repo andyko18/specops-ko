@@ -49,7 +49,7 @@ skills/<name>/SKILL.md   ← 플랫 구조, layer 필드로 계층 구분
 - `SessionStart` → `session-start.sh`: 메타 스킬 주입 + session-progress rehydrate
 - `PreToolUse` → `pretool-governance.sh` (v1.14.0 신설): R-1(commit 전 verify)·R-2(PR 전 verify) **사전 차단(Hard block)** — verify 누락 시 `git commit`·`gh pr create` 실행 전 deny. **관할 한정**: cwd 에 `.specops/` 부재 시(specops 미사용 repo) 면제 — 플러그인은 자기 관할 repo 만 통제(5원칙 4 주권). `§auto`·`SPECOPS_GOVERNANCE_BYPASS=1` 면제, fail-open
 - `PostToolUse` → `posttool-governance.sh`: R-1(commit 전 verify), R-2(PR 전 verify) **감사 기록(Soft Warn)**, R-3(스킬 선언 투명성)
-- `Stop` → `stop-governance.sh`: R-4(성공 주장 + 테스트 미실행), R-5(plan 수정 + Advisor 협의 누락), R-6(`/verify` + evidence.md 후 gbrain-append 호출 부재 — 비활성)
+- `Stop` → 3 훅 발화: `ensure-session-progress.sh`(session-progress.md 보장) + `stop-governance.sh`(거버넌스: R-4 성공 주장 + 테스트 미실행, R-5 plan 수정 + Advisor 협의 누락, R-6 `/verify` + evidence.md 후 gbrain-append 호출 부재 — 비활성) + `freecomment-capture.sh`(자유 코멘트 자동 캡처 — pending 적재, SessionStart 에서 LLM 요약→freelog.md)
 
 R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된다(면제·fail-open 시 posttool audit trail 보존). 그 외 위반은 `.specops/<FID>/friction-log.jsonl`에 Soft Warn으로 기록된다.
 

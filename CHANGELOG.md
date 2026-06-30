@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+- **self-config 적대감사 번들 범위 확대** — `self-config-collect.sh` 가 `agents/*.md`·`scripts/_internal/**` 표면까지 흡수(44→90 표면). 1차 감사 미수집 4종(kill-switch·agents·statusline·init-project) 수집. TDD 회귀 `T1.e2~e6`. (#141)
+
+### Fixed
+- **self-config 감사 잔여 backlog 처리** — 2026-06-30 `/security-scan --self-config` 실전 감사(등급 D) 후속 fix 묶음:
+  - SessionStart rehydrate 신뢰경계 펜스 — untrusted-repo `session-progress.md` 자동주입을 `<untrusted-repo-content>` 태그로 래핑(R5). (#142)
+  - `log_friction_sev` 디렉토리 symlink 가드 대칭화 + verify-stamp 면제 불변식(vp=1 전용·vp=2 불가침) characterization 잠금(R6·N1). (#143)
+  - `friction-log.jsonl` **파일** 자체 symlink append 가드 — 디렉토리만 검사하던 사각 보강, 양 함수 `[ ! -L ]` 대칭. (#144)
+  - untrusted-repo 출력 위생 — statusline `step`/`status` 제어문자 strip(ANSI escape injection 차단) + `phases-artifacts.sh` raw sed→`_replace_token`(N5·N6). (#145)
+  - posttool R-3 trigger 패턴 `rules.jsonl` 단일소스화(하드코딩 drift 제거) + 감사 에이전트 Bash 행동계약 명문화·auditor description 정직 정정(R8·N2·N3). (#146)
+
 ## [1.28.0] — 2026-06-29
 
 ### Added

@@ -157,7 +157,7 @@ specops-auto-ko/
 │   ├── stop-governance.sh                ← 세션 종료 검사 (R-4·R-5, R-6 비활성)
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
-│   └── (보조) inject-evaluator-timestamp · rotate-evaluator-artifact · notify
+│   └── (보조) inject-evaluator-timestamp · rotate-evaluator-artifact · notify · freecomment-capture
 ├── skills/                               ← flat: skills/<name>/SKILL.md × 30
 │   │
 │   │  Engine Skills (Lifecycle 체인)

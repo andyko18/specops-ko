@@ -3,7 +3,7 @@ name: advisor-ko
 description: 기획·분석·설계·개발 중 애매한 부분/모르는 부분 발생 시 항상 적용 — advisor 도구로 외부 자문을 받아 단정·합리화·circular 검증을 차단
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
-specops_version: 1.27.0
+specops_version: 1.28.0
 used_by: using-specops-auto-ko-ko (cross-cutting), specifying-ko, analyzing-ko, planning-ko, implementing-ko
 ---
 
