@@ -74,4 +74,73 @@ _verify_passed_in_progress stale-fid; vp=$?
 [ "$vp" -eq 2 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: 3-state affirmative-stale return 2 아님 (vp=$vp)"; }
 rm -rf .specops/stale-fid
 
+# === R6: log_friction_sev 대칭화 (AC-1~3) ===
+# T8: log_friction_sev 잘못된 fid 형식 → 거부(non-zero) (AC-2)
+log_friction_sev "../evil" R-1 '"P1"' "snippet" 0 warn 2>/dev/null \
+  && { FAIL=$((FAIL+1)); echo "FAIL T8 잘못된 fid 면제됨"; } \
+  || { PASS=$((PASS+1)); echo "PASS T8 잘못된 fid 거부"; }
+
+# T9: _specops_fid_dir_safe 빈 fid → 통과(0) (AC-1)
+_specops_fid_dir_safe "" \
+  && { PASS=$((PASS+1)); echo "PASS T9 빈 fid 통과"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T9 빈 fid 거부됨"; }
+
+# T10: per-FID 디렉토리 symlink → log_friction_sev 거부 (AC-3)
+mkdir -p "$TMP/ext-target"
+ln -s "$TMP/ext-target" ".specops/20260630-symtest"
+log_friction_sev "20260630-symtest" R-1 '"P1"' "s" 0 warn 2>/dev/null \
+  && { FAIL=$((FAIL+1)); echo "FAIL T10 per-FID symlink 면제됨"; } \
+  || { PASS=$((PASS+1)); echo "PASS T10 per-FID symlink 거부"; }
+rm -f ".specops/20260630-symtest"
+
+# T10b: per-FID 디렉토리 symlink → log_friction 도 거부 (AC-3 — 양 함수 대칭)
+mkdir -p "$TMP/ext-target2"
+ln -s "$TMP/ext-target2" ".specops/20260630-symtest2"
+log_friction "20260630-symtest2" R-1 '"P1"' "s" 0 2>/dev/null \
+  && { FAIL=$((FAIL+1)); echo "FAIL T10b log_friction per-FID symlink 면제됨"; } \
+  || { PASS=$((PASS+1)); echo "PASS T10b log_friction per-FID symlink 거부"; }
+rm -f ".specops/20260630-symtest2"
+
+# T11: log_friction_sev 정상 fid + 정상 dir → append 성공(0) (AC-R-2 대칭)
+log_friction_sev "20260630-okfid" R-1 '"P1"' "ok" 0 warn \
+  && { PASS=$((PASS+1)); echo "PASS T11 정상 fid append"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T11 정상 fid 거부됨"; }
+
+# === N1: apply_lookback _vp=2(stale)+stamp → 차단 유지 불변식 (AC-4) ===
+# 프로덕션 코드 무변경 — 기존 L229 차단 로직 회귀 잠금(characterization).
+_rule='{"id":"R-1","trigger_tool":"Bash","trigger_pattern":"git commit","negative_lookback":20,"negative_skill_pattern":"verifying-evidence"}'
+printf '' > "$TMP/empty-transcript.jsonl"
+
+# T12: _vp=2(stale — implement 가 verify 보다 최신=상단) + stamp → 면제 안 함(차단 JSON 출력)
+# 불변식(governance-lib.sh L49/L57): 최신=상단(작은 줄번호). stale 유도 = implement 를 verify 위에 배치.
+cat > "$sp" <<'PROG'
+<!-- active-fid: 20260630-staletest -->
+## 20260630-staletest
+- 2026-06-30 11:00 /implement DONE (T1)
+- 2026-06-30 10:00 /verify PASS (evidence.md)
+PROG
+mkdir -p ".specops/20260630-staletest"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > ".specops/20260630-staletest/evidence.md"
+out=$(apply_lookback_rule "$_rule" "$TMP/empty-transcript.jsonl" "Bash" "git commit -m x")
+if [ -n "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T12 vp=2+stamp 차단 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12 vp=2+stamp 면제됨(stale stamp 우회)"
+fi
+
+# T13: _vp=1(verify 줄 부재) + stamp → 면제(빈 출력) 보존 — 대조군
+cat > "$sp" <<'PROG'
+<!-- active-fid: 20260630-incltest -->
+## 20260630-incltest
+- 2026-06-30 11:00 /implement DONE (T1)
+PROG
+mkdir -p ".specops/20260630-incltest"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > ".specops/20260630-incltest/evidence.md"
+out=$(apply_lookback_rule "$_rule" "$TMP/empty-transcript.jsonl" "Bash" "git commit -m x")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T13 vp=1+stamp 면제 보존"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T13 vp=1+stamp 차단됨(면제 회귀)"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -126,6 +126,9 @@ read_recent_tool_events() {
 # fail-safe: symlink 면 1(거부), 정상 dir·부재(곧 mkdir)면 0.
 _specops_dir_safe() { [ ! -L ".specops" ]; }
 
+# per-FID 디렉토리 symlink 거부 (빈 fid → 무검사 통과). detect_fid 1차 차단 위 defense-in-depth.
+_specops_fid_dir_safe() { [ -z "${1:-}" ] || [ ! -L ".specops/$1" ]; }
+
 # friction-log append. FID 우선 fallback 전역.
 # usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset>
 log_friction() {
@@ -135,6 +138,7 @@ log_friction() {
     echo "log_friction: invalid fid format" >&2
     return 1
   fi
+  _specops_fid_dir_safe "$fid" || { echo "log_friction: .specops/$fid 가 symlink — 거부" >&2; return 1; }
   local target
   if [ -n "$fid" ]; then
     mkdir -p ".specops/$fid"
@@ -174,8 +178,12 @@ log_friction() {
 log_friction_sev() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}"
   _specops_dir_safe || { echo "log_friction_sev: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
-  local target=".specops/$fid/friction-log.jsonl"
   [ -n "$fid" ] || return 0
+  if ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
+    echo "log_friction_sev: invalid fid format" >&2; return 1
+  fi
+  _specops_fid_dir_safe "$fid" || { echo "log_friction_sev: .specops/$fid 가 symlink — 거부" >&2; return 1; }
+  local target=".specops/$fid/friction-log.jsonl"
   mkdir -p ".specops/$fid" 2>/dev/null || return 0
   local ts; ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local fid_json; fid_json=$(printf '%s' "$fid" | jq -R .)
