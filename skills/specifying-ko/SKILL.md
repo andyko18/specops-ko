@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.10.0
+specops_version: 1.29.0
 used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
 ---
 
@@ -133,9 +133,31 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성 (별도 질문 없이)
      2. 사용자에게 보여주고 수정 요청 수렴 → 수정 요청 시 재생성 루프
      3. 승인 → `screens/{name}.md` + `screens/{name}.html` 저장 (`mkdir -p screens` 선행)
-   - 모든 화면 완료 후 Step 6 진행
+   - 모든 화면 완료 후 Step 5.6 진행
+5.6. **[API/스키마 기능인 경우] 인라인 인터페이스 설계** — 설계 승인 직후 실행 (화면 Step 5.5 와 **대칭** — 인터페이스도 design-first):
+
+   > **적용 조건**: 이번 기능이 **API 엔드포인트**(제공) 또는 **DB 스키마**(테이블·필드)를 신설·변경한다. 해당 없으면(순수 UI·CLI 로직 등) 본 스텝 skip.
+   > **대상 산출물**: `.specops/memory/api-spec.md`(IF 설계서) · `.specops/memory/data-model.md`(테이블 설계서) — 영향받는 것만. 화면이 `screens/`(화면별 파일)을 생성하듯, 인터페이스는 이 **마스터 문서의 해당 섹션을 갱신**한다.
+   > **원칙**: 구현이 이 설계를 따른다(design-first). 구현 중 불가피하게 벗어나면 `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 감지한다.
+
+   **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
+   - 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 해당 memory 문서에 **즉시 반영·수락**:
+     1. `api-spec.md` §1(엔드포인트 표) 또는 채택된 정의방식 섹션에 신규 행 반영
+     2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 반영
+     3. spec.md §1 에 "**자동 결정 인터페이스**: {엔드포인트/테이블 요약}" 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
+   - 반영 완료 후 Step 6 진행
+
+   **[§auto 이외 모드]**:
+   - 이번 기능이 건드리는 인터페이스/스키마를 명시:
+     > "이 기능은 다음 인터페이스를 추가/변경합니다: {POST /orders — 주문 생성}, {orders 테이블 — id·user_id·status ...}"
+   - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
+     - `api-spec.md`: 엔드포인트 표·요청/응답 스키마·인증 반영
+     - `data-model.md`: 엔티티 표·ERD·인덱스 반영
+   - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md` 기반 생성)
+   - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
+   - API/스키마 기능이면 §참조에 `.specops/memory/api-spec.md`·`data-model.md` 자동 포함 (Step 5.6 갱신분)
    - **§유형 라벨 자동 기재** (Phase A — 신규 추가): spec.md §1 개요 의 `**§유형**` 라벨을 다음 규칙으로 자동 부여 — 진입 신호 + current-state.md §1 라인 범위 메타 합산 기반:
 
      | 진입 신호 | current-state.md §1 라인 범위 합산 | 라벨 |

@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **인터페이스 design-first 대칭 — `specifying-ko` Step 5.6 신설** — 화면(Step 5.5)처럼 인터페이스(API 엔드포인트·DB 스키마)도 구현 전 `api-spec.md`·`data-model.md` 에 **먼저 설계 반영**한다. 그간 화면만 design-first(Step 5.5)이고 인터페이스는 설계 단계 없이 구현→방치되던 비대칭 해소. 보조로 `verifying-evidence-ko` 에 **역방향 안전망**("memory 설계 동기화 점검") 추가 — 구현(`git diff`)을 inspect-first 로 읽어 memory 문서와 괴리 감지 시 evidence.md 에 권고 기록(자동수정 금지, chain 비차단). 산출물이 init 골격 후 stale 되던 lifecycle 단절 해소. (ecc inspect-first 메커니즘 차용, SI design-first 철학 유지) (#150)
 - **self-config 적대감사 번들 범위 확대** — `self-config-collect.sh` 가 `agents/*.md`·`scripts/_internal/**` 표면까지 흡수(44→90 표면). 1차 감사 미수집 4종(kill-switch·agents·statusline·init-project) 수집. TDD 회귀 `T1.e2~e6`. (#141)
 
 ### Fixed

@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
-specops_version: 1.10.0
+specops_version: 1.29.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 ---
 
@@ -154,6 +154,11 @@ Superpowers 원본 24개 실패 기록에서:
 - [ ] 스펙 요구사항 체크리스트 — 각 항목 증거 있음
 - [ ] 회귀 테스트 Red-Green 사이클 검증 (버그 픽스 태스크인 경우)
 - [ ] 서브에이전트 위임 태스크면 `git diff` 확인 (변경이 실제로 일어남)
+- [ ] **memory 설계 동기화 점검 (역방향 안전망 — design-first 보조)**: `.specops/memory/api-spec.md`·`data-model.md` 가 존재할 때만 (없으면 graceful skip — CLI 등).
+  - **inspect-first**(코드를 진실원천으로): 이번 구현(`git diff`)이 도입·변경한 **엔드포인트**(라우트·핸들러 시그니처) 또는 **스키마**(테이블·필드·마이그레이션)를 추출한다.
+  - 추출분이 `api-spec.md`·`data-model.md` 에 **반영돼 있는지 대조**. 통상 `specifying-ko` Step 5.6(정방향 인터페이스 설계)이 선반영했으면 일치한다.
+  - **누락·괴리 발견 시**: evidence.md 에 `## memory 동기화 권고` 섹션 기록 — "코드의 `POST /orders` 가 api-spec §1 에 없음 → 반영 검토" 식으로 **무엇을 어디에** 명시 + 사용자에게 출력.
+  - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-auto-ko 고유)
