@@ -174,6 +174,21 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp" "$real"
 
+# T-symlink-file: friction-log.jsonl *파일* 자체가 symlink 면 append 거부.
+# 디렉토리(.specops/<fid>)는 정상이라 _specops_fid_dir_safe 통과 — 파일 symlink 는 별개 표면.
+# 악성 repo clone 후 .specops/<fid>/friction-log.jsonl → 외부 파일 symlink 시 >> 따라감 차단.
+tmp=$(mktemp -d); real=$(mktemp -d); cd "$tmp"
+mkdir -p ".specops/20260630-fsl"
+ln -s "$real/leak.jsonl" ".specops/20260630-fsl/friction-log.jsonl"
+log_friction "20260630-fsl" "R-1" 5 "x" 7 2>/dev/null
+log_friction_sev "20260630-fsl" "R-1" 5 "x" 7 "block" 2>/dev/null
+if [ ! -e "$real/leak.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T-symlink-file friction-log 파일 symlink 거부"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-symlink-file (파일 symlink write-through 누출)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp" "$real"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

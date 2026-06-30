@@ -147,6 +147,9 @@ log_friction() {
     mkdir -p ".specops"
     target=".specops/friction-log.jsonl"
   fi
+  # 파일 symlink 가드: 디렉토리(_specops_fid_dir_safe)는 통과해도 friction-log.jsonl
+  # *파일* 자체가 symlink 면 >> 가 따라가 외부 path 누출 — append 전 차단.
+  [ ! -L "$target" ] || { echo "log_friction: $target 가 symlink — 거부" >&2; return 1; }
   local ts
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   local fid_json
@@ -185,6 +188,8 @@ log_friction_sev() {
   _specops_fid_dir_safe "$fid" || { echo "log_friction_sev: .specops/$fid 가 symlink — 거부" >&2; return 1; }
   local target=".specops/$fid/friction-log.jsonl"
   mkdir -p ".specops/$fid" 2>/dev/null || return 0
+  # 파일 symlink 가드 (log_friction 과 대칭) — friction-log.jsonl 파일 symlink 추종 차단.
+  [ ! -L "$target" ] || { echo "log_friction_sev: $target 가 symlink — 거부" >&2; return 1; }
   local ts; ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local fid_json; fid_json=$(printf '%s' "$fid" | jq -R .)
   local safe_snippet; safe_snippet=$(printf '%s' "$snippet" | cut -c1-200)
