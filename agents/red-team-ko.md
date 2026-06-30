@@ -23,4 +23,5 @@ tools: Read, Grep, Glob, Bash
 
 ## 불변식
 - **read-only**: 읽고 분석만. 수정·생성 금지.
+- **Bash 행동계약**: `tools:` 에 Bash 가 있어도 읽기·검증 전용(grep·jq·git log·cat 등). 파일·git 상태 변이 명령(쓰기·rm·mv·git add/commit 등) 금지. (N2: 도구레벨 미강제 → 행동계약으로 보강)
 - 추측 금지 — 실제 번들 라인 인용 근거 (원칙 1·3·5).

@@ -27,6 +27,8 @@ tools: Read, Grep, Glob, Bash
 
 본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 5 컨텍스트 누락 시 NEEDS_CONTEXT 반환.
 
+> **Bash 행동계약 (N3)**: `tools:` 의 Bash 는 #5 test 명령 실행(AC 충족 실증) + 읽기·검증(git diff·grep) 전용. 코드·파일·git 상태 변이 명령 금지 — read-only 와 정합. test 실행은 검증이지 변이가 아니므로 read-only 위반 아님.
+
 ## 프로세스
 
 1. **컨텍스트 확인**: 위 5개 모두 받았는지 검증. 누락 시 NEEDS_CONTEXT 반환.

@@ -686,6 +686,17 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-H1 prefilter≠rules — expected:[$h1_expected] actual:[$h1_actual]"
 fi
 
+# T-R8 (single-source 정합): R-3 trigger 패턴은 rules.jsonl R-3.trigger_skill_pattern 단일소스.
+# posttool 이 그 값을 동적 참조하고 하드코딩 literal grep 을 갖지 않아야(drift 차단 — R-1/R-2 T-H1 동류).
+r8_pat=$(jq -r 'select(.id=="R-3")|.trigger_skill_pattern' "$PLUGIN/hooks/rules.jsonl")
+if [ -n "$r8_pat" ] && [ "$r8_pat" != "null" ] \
+   && grep -q 'trigger_skill_pattern' "$PLUGIN/hooks/posttool-governance.sh" \
+   && ! grep -qE "grep -Eq '\^specops-auto-ko:'" "$PLUGIN/hooks/posttool-governance.sh"; then
+  PASS=$((PASS+1)); echo "PASS T-R8 R-3 trigger ≡ rules.jsonl single-source"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-R8 (pat=[$r8_pat] — posttool R-3 하드코딩 drift?)"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
