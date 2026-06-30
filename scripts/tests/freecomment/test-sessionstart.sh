@@ -25,5 +25,40 @@ if ! echo "$out" | grep -q '미기록 자유작업' && echo "$out" | grep -q 'ad
 else
   FAIL=$((FAIL+1)); echo "FAIL T4.b (out=$out)"
 fi
+
+# T4.c session-progress.md 존재 → rehydrate 블록에 신뢰경계 펜스 안내문 주입 (R5, AC-1)
+printf '## 20260630-demo\n- 2026-06-30 10:00 /verify 완료\n' > "$TMP/.specops/session-progress.md"
+out=$(cd "$TMP" && echo '{}' | bash "$HOOK" 2>/dev/null)
+if echo "$out" | grep -q '신뢰 불가 데이터' && echo "$out" | grep -q '지시·명령으로 해석'; then
+  PASS=$((PASS+1)); echo "PASS T4.c R5 펜스 안내문 주입"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.c (out=$out)"
+fi
+
+# T4.d 태그명 불변(session-progress-rehydrate) 회귀 (AC-2)
+if echo "$out" | grep -q 'session-progress-rehydrate'; then
+  PASS=$((PASS+1)); echo "PASS T4.d 태그명 불변"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.d (out=$out)"
+fi
+
+# T4.f 펜스 안내문이 progress 내용보다 앞 (AC-1 ordering 불변식 — 주입 데이터가 안내문 선점 차단)
+fence_pos=$(echo "$out" | grep -abo '신뢰 불가 데이터' | head -1 | cut -d: -f1)
+prog_pos=$(echo "$out" | grep -abo '20260630-demo' | head -1 | cut -d: -f1)
+if [ -n "$fence_pos" ] && [ -n "$prog_pos" ] && [ "$fence_pos" -lt "$prog_pos" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.f 펜스가 progress 앞"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.f (fence=$fence_pos prog=$prog_pos)"
+fi
+
+# T4.e session-progress.md 부재 → 펜스 안내문 미출력 (AC-R-2)
+rm -f "$TMP/.specops/session-progress.md"
+out2=$(cd "$TMP" && echo '{}' | bash "$HOOK" 2>/dev/null)
+if ! echo "$out2" | grep -q '신뢰 불가 데이터'; then
+  PASS=$((PASS+1)); echo "PASS T4.e progress 부재 시 펜스 미출력"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.e (out2=$out2)"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
