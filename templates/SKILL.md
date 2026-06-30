@@ -39,6 +39,16 @@ used_by: "{{호출 스킬 목록 — 예: specops-auto-ko:implementing-ko}}"
 - `{{관련 skill 또는 파일 경로}}` — {{설명}}
 - upstream 원본: `{{reference_upstream 값}}`
 
+## 합리화 차단표 (Rationalization Table)
+
+> 본 섹션은 **discipline-class skill** (거버넌스 강제·규율 위반 방지 목적)에만 포함.
+> 일반 skill 은 생략. failure-first 관찰로 발견한 agent 합리화 패턴만 기재.
+
+| AI 합리화 패턴 | 차단 규칙 |
+|---|---|
+| "{{핑계 1}}" | {{차단 방법}} |
+| "{{핑계 2}}" | {{차단 방법}} |
+
 ## 다음 skill
 
 {{이 skill 완료 후 호출할 skill. 또는 "chain 종료" 명시.}}

@@ -238,6 +238,9 @@ auth 기능 구현 준비 완료
 ## 적색 플래그
 
 **금지**:
+- **`git worktree add` 직접 사용** — `EnterWorktree` 같은 native tool 이 있으면 반드시 사용. 이것이 #1 실수 (upstream v5.1.0)
+- Step 0 감지에서 기존 격리 환경 탐지 시 worktree 추가 생성
+- Step 1a 생략하고 곧바로 Step 1b git 명령 실행
 - 프로젝트 로컬 디렉터리에서 ignore 검증 없이 worktree 생성
 - baseline 테스트 검증 생략
 - 사용자 확인 없이 실패 테스트로 진행

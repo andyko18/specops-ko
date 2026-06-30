@@ -109,5 +109,22 @@ else
   FAIL=$((FAIL+1)); echo "FAIL: T6.b templates/SKILL.md 없어서 검사 불가"
 fi
 
+# T7: 메타 skill(using-specops-auto-ko-ko) — rationalization 차단 문구 존재
+# discipline-class 핵심 skill 이 합리화 차단을 명시적으로 포함하는지 검증
+META_SKILL="$PLUGIN/skills/using-specops-auto-ko-ko/SKILL.md"
+if [ -f "$META_SKILL" ] && grep -qE '합리화.*우회|rationalization|rationalize|우회.*금지' "$META_SKILL"; then
+  PASS=$((PASS+1)); echo "PASS: T7 메타 skill 합리화 차단 문구 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T7 메타 skill 합리화 차단 문구 없음 (using-specops-auto-ko-ko)"
+fi
+
+# T8: templates/SKILL.md — rationalization-table 섹션 양식 존재
+# 신규 discipline-class skill 작성자가 양식을 즉시 참조할 수 있어야 함
+if [ -f "$PLUGIN/templates/SKILL.md" ] && grep -q '합리화 차단표' "$PLUGIN/templates/SKILL.md"; then
+  PASS=$((PASS+1)); echo "PASS: T8 templates/SKILL.md 합리화 차단표 섹션 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T8 templates/SKILL.md 합리화 차단표 섹션 없음"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

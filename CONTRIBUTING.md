@@ -76,6 +76,30 @@ used_by: <호출 skill 목록 (namespace 포함)>
 - `## 다음 skill` — chain 끊김 방지 (layer 1 메타 skill 제외)
 - `## 참조` — upstream 링크 + 관련 skill
 
+### Skill 작성 방법론
+
+skill 본문 작성 시 **failure-first + rationalization table** 2원칙을 따른다.
+
+**ⓐ failure-first (실패 먼저 관찰)**
+
+> "skill 없이 agent 가 실패하는 걸 안 봤으면, 그 skill 이 맞는지도 모른다."
+
+1. **RED** — skill 없이 agent 에게 해당 작업 시킴. 어떻게 틀리는지 *직접 목격*.
+2. **GREEN** — 목격한 실패만 겨냥하는 최소 skill 작성.
+3. **REFACTOR** — agent 가 찾아낸 합리화 루프홀을 표로 닫음 (→ rationalization table).
+
+머리로 상상한 문제가 아닌, **실제 목격한 실패만** skill 로 만든다. 과잉설계 방지.
+
+**ⓑ rationalization table (합리화 차단표)**
+
+discipline-class skill(거버넌스 강제·규율 위반 방지 목적)에는 `## 합리화 차단표` 섹션을 포함한다. 양식은 `templates/SKILL.md` 참조.
+
+| AI 합리화 패턴 예시 | 차단 규칙 |
+|---|---|
+| "이건 사소해서 면제" | 사소함 자기판단 금지, 무조건 적용 |
+| "이미 통과했음(증거 없음)" | transcript 증거 없으면 불인정 |
+| "예외 케이스임" | 예외 판단 권한 없음, 규칙 준수 |
+
 ## Command 추가 규약
 
 `commands/<slug>.md` frontmatter에 `specops_layer`, `specops_version` 필수. 단순 wrapper면 process 본문은 5줄 이내 — 실제 로직은 skill에 위임.
