@@ -8,11 +8,38 @@ on:
 jobs:
   run-all:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install pyyaml
-        run: python3 -m pip install --user pyyaml
+        run: python3 -m pip install --user 'pyyaml==6.0.2'
       - name: Run full test suite
         run: bash scripts/tests/run-all.sh --quiet
       - name: Governance hook performance gate
         run: BENCH_THRESHOLD_MS=800 BENCH_STOP_THRESHOLD_MS=3000 bash scripts/tests/governance/bench-hook.sh
+
+  # macOS/BSD 경로 검증 (release.sh _sed_i Darwin 분기·bash 3.2 호환). 첫 실측이라 비차단 —
+  # 결과 관찰 후 차단 승격. timing 게이트(bench)는 플랫폼 무관 로직이 아니라 ubuntu 전담.
+  run-all-macos:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pyyaml
+        run: python3 -m pip install --user --break-system-packages 'pyyaml==6.0.2'
+      - name: Run full test suite (macOS smoke)
+        run: bash scripts/tests/run-all.sh --quiet
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      # error severity 게이트 (현재 0건 — footgun 유입 차단). warning 은 점진 개선 대상.
+      - name: Lint (error gate)
+        run: find hooks scripts -name '*.sh' -print0 | xargs -0 shellcheck -S error
+      - name: Warning report (non-blocking)
+        run: find hooks scripts -name '*.sh' -print0 | xargs -0 shellcheck -S warning || true
