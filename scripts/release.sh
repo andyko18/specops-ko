@@ -30,6 +30,21 @@ if git -C "$PLUGIN_ROOT" tag -l "v${VERSION}" 2>/dev/null | grep -q "^v${VERSION
   exit 1
 fi
 
+# B#1: 버전 단조성 — 현재 plugin.json 버전보다 높아야 (회귀/중복 버전 발행 차단).
+# 미태그 회귀버전(release 1.5.0)·동일버전 재발행을 사전 차단 — partial-failure 후
+# 잔류 commit(plugin.json 이미 bump) 재실행도 여기서 명확히 거부된다.
+PLUGIN_JSON="$PLUGIN_ROOT/.claude-plugin/plugin.json"
+if [ -f "$PLUGIN_JSON" ]; then
+  CUR_VER=$(grep -oE '"version": *"[0-9]+\.[0-9]+\.[0-9]+"' "$PLUGIN_JSON" | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  if [ -n "$CUR_VER" ]; then
+    higher=$(printf '%s\n%s\n' "$CUR_VER" "$VERSION" | sort -V | tail -1)
+    if [ "$VERSION" = "$CUR_VER" ] || [ "$higher" != "$VERSION" ]; then
+      echo "Error: v${VERSION} 는 현재 버전 v${CUR_VER} 이하입니다 — 회귀/중복 발행 차단 (단조 증가 필요)" >&2
+      exit 1
+    fi
+  fi
+fi
+
 _run_check() {
   local label="$1"
   if [ -n "$PREFLIGHT_CMD" ]; then
@@ -86,7 +101,11 @@ if $DRY_RUN; then
 fi
 
 # FR-4+FR-5: CHANGELOG 변환 (awk — cross-platform)
-if grep -q '^## \[Unreleased\]$' "$CHANGELOG"; then
+# B#2: 멱등 가드 — [VERSION] 섹션이 이미 존재하면 변환 skip (부분 실패 재실행 시
+#   [Unreleased] 잔존으로 인한 [VERSION] heading 이중삽입 방지). 단조성 게이트(B#1)와 중첩 방어.
+if grep -qE "^## \[${VERSION//./\\.}\]( |$)" "$CHANGELOG"; then
+  echo "Warning: CHANGELOG 에 [${VERSION}] 섹션 이미 존재 — CHANGELOG 변환 skip (멱등)" >&2
+elif grep -q '^## \[Unreleased\]$' "$CHANGELOG"; then
   CHANGED_FILES+=("$CHANGELOG")
   PREV=$(grep '^\[Unreleased\]:' "$CHANGELOG" | sed 's|.*compare/\([^.]*\.[^.]*\.[^.]*\)\.\.\.HEAD|\1|')
   BASE_URL=$(grep '^\[Unreleased\]:' "$CHANGELOG" | sed 's|\[Unreleased\]: \(.*\)/compare/.*|\1|')

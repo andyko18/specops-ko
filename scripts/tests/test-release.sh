@@ -224,6 +224,28 @@ git -C "$TD" tag -l "v1.11.0" 2>/dev/null | grep -q "v1.11.0" \
   && ok "T15.b origin 부재여도 로컬 태그 v1.11.0 생성" || fail "T15.b 로컬 태그 미생성"
 rm -rf "$TD"
 
+# T16: 버전 단조성 게이트 — 현재(plugin.json=1.9.0) 이하 버전 발행 차단 (B#1)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.5.0 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "회귀/중복" \
+  && ok "T16.a 회귀버전(1.5.0<1.9.0) → exit 1" || fail "T16.a (rc=$rc out='$out')"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.9.0 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "회귀/중복" \
+  && ok "T16.b 동일버전(1.9.0) → exit 1" || fail "T16.b (rc=$rc out='$out')"
+# 상위 버전 통과는 기존 T4~T15(1.11.0)가 커버 — 음성 회귀만 추가
+rm -rf "$TD"
+
+# T17: CHANGELOG 멱등 — [VERSION] 섹션 이미 존재 시 이중삽입 방지 (B#2)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+# 부분 실패 재실행 시뮬: CHANGELOG 에 [1.11.0] 선삽입 (plugin.json 은 1.9.0 유지 → 단조성 통과)
+awk '/^## \[Unreleased\]$/{print; print ""; print "## [1.11.0] — 2026-01-01"; next} {print}' \
+  "$TD/CHANGELOG.md" > "$TD/CHANGELOG.md.t" && mv "$TD/CHANGELOG.md.t" "$TD/CHANGELOG.md"
+git -C "$TD" add -A; git -C "$TD" commit -q -m "pre"
+RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 > /dev/null 2>&1
+cnt=$(grep -c "^## \[1.11.0\]" "$TD/CHANGELOG.md")
+[ "$cnt" -eq 1 ] && ok "T17.a CHANGELOG [1.11.0] 이중삽입 방지(멱등)" || fail "T17.a (heading count=$cnt)"
+rm -rf "$TD"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
