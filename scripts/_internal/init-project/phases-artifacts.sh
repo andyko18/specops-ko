@@ -179,8 +179,9 @@ EOF
   # session-progress.md 골격
   if [ ! -f .specops/session-progress.md ]; then
     cp "$PLUGIN/templates/session-progress.md" .specops/session-progress.md
-    sed -i.bak "s|<project-name>|${PROJECT_NAME}|g" .specops/session-progress.md \
-      && rm -f .specops/session-progress.md.bak
+    # N6: raw sed 대신 _replace_token(|·&·\ escape) — PROJECT_NAME 의 sed 메타문자
+    #   일관 처리(lib.sh 의 다른 호출처와 정합). self-input robustness.
+    _replace_token .specops/session-progress.md "<project-name>" "$PROJECT_NAME"
   fi
   local active label
   active=$(_count_active)

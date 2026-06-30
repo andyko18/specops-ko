@@ -50,6 +50,18 @@ if [ $rc -eq 0 ] && echo "$out3" | grep -qF "◆ specops-auto-ko"; then
   PASS=$((PASS+1)); echo "PASS T1.e AC-2b 빈 stdin graceful"
 else FAIL=$((FAIL+1)); echo "FAIL T1.e AC-2b (rc=$rc out=$out3)"; fi
 
+# T1.f AC-6: untrusted-repo control-char strip — session-progress 의 step/status 에 심긴
+#   ANSI ESC 가 statusline 출력으로 누출되면 터미널 escape injection. col/rst 외 ESC 0건이어야.
+printf '## 20260615-evil \xc2\xb7 t\n- 2026-06-15 10:00 /step \033[31mEVIL\033]0;pwned\007\n' \
+  > "$TD/.specops/session-progress.md"
+oute=$(printf '{"cwd":"%s"}' "$TD" | bash "$SL")
+# status=EVIL... 은 PASS/FAIL 미매칭 → col='' → 출력 ESC=주입 누출분만 남음
+if printf '%s' "$oute" | grep -q $'\033'; then
+  FAIL=$((FAIL+1)); echo "FAIL T1.f AC-6 control-char 누출 ($oute)"
+else
+  PASS=$((PASS+1)); echo "PASS T1.f AC-6 control-char strip"
+fi
+
 # T2.a AC-4: install 주입
 mkdir -p "$TD/scripts"; cp "$SL" "$TD/scripts/statusline.sh"
 ( cd "$TD" && CLAUDE_PLUGIN_ROOT="$TD" bash "$INST" >/dev/null 2>&1 )

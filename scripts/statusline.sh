@@ -31,9 +31,13 @@ parsed=$(awk '
 
 [ -n "$parsed" ] || { printf '%s\n' "$FALLBACK"; exit 0; }
 
-fid=$(printf '%s' "$parsed" | cut -f1)
-step=$(printf '%s' "$parsed" | cut -f2)
-status=$(printf '%s' "$parsed" | cut -f3)
+# control-char strip: session-progress 는 untrusted-repo write-path — 원시 step/status 에 심긴
+# ANSI ESC/제어문자가 statusline 출력으로 누출되면 터미널 escape injection (R5 동류). col/rst 는
+# 아래에서 strip 후 우리가 직접 부착하므로 안전. fid 는 정규식 한정이나 defense-in-depth 로 동일 처리.
+_strip() { printf '%s' "$1" | tr -d '\000-\037\177'; }
+fid=$(_strip "$(printf '%s' "$parsed" | cut -f1)")
+step=$(_strip "$(printf '%s' "$parsed" | cut -f2)")
+status=$(_strip "$(printf '%s' "$parsed" | cut -f3)")
 
 case "$status" in
   *PASS*|*완료*|*DONE*) col=$'\033[32m'; rst=$'\033[0m' ;;
