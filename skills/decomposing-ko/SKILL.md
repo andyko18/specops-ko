@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.10.0
+specops_version: 1.29.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -187,6 +187,17 @@ git add tests/path/test.py src/path/file.py
 git commit -m "feat: <기능명> 추가"
 ```
 ````
+
+## 마이그레이션 태스크 분해 (DB 스키마 변경 시)
+
+`data-model.md` 스키마 변경(테이블·컬럼·인덱스 신설/변경)이 있으면, 마이그레이션을 **forward+reverse 쌍**으로 분해한다 (단순 "비가역 격리"로 끝내지 말 것):
+
+1. **forward(up) 태스크** — DDL 적용 (`CREATE/ALTER`). `data-model.md` §6 도구(Prisma Migrate/Alembic/Flyway 등)·명명 규약(`<timestamp>_<desc>`) 준수
+2. **reverse(down) 태스크** — 롤백 DDL. 가역 가능하면 작성, **데이터 손실 동반(DROP 류)이면** down 으로도 복구 불가임을 명시 + 아래 "파괴적 작업 격리" + `analyzing-ko §2 expand-contract` 적용
+3. **마이그레이션 테스트 태스크** — up→down→up **멱등·역가역성** + 제약(NOT NULL/CHECK/UNIQUE) 위반 경로 + 인덱스 존재 검증
+4. data-model.md 의 ERD·엔티티표가 forward 와 일치하도록 갱신 (Step 5.6 design-first 산출과 정합)
+
+DAG: down·테스트는 up 에 `depends_on`. 파괴적 forward 는 아래 격리 규칙으로 `irreversible: true`.
 
 ## 파괴적 작업 격리
 

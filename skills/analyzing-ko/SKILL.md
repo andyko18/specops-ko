@@ -3,7 +3,7 @@ name: analyzing-ko
 description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 대상의 baseline (current-state.md) 과 외부 영향 (impact-analysis.md) 을 산출하고 사용자 검토 ★ HARD GATE 발동
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
-specops_version: 1.0.0
+specops_version: 1.29.0
 used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phase C 적용 후), /promote (promote-fid 분기)
 ---
 
@@ -189,6 +189,12 @@ grep -rn "<target-module>" . \
 git log --oneline -3  # 마지막 커밋 SHA
 # → git revert <SHA> 로 원복 가능 여부 판단
 ```
+
+**★ 코드 롤백 ≠ 데이터 롤백 (DB 스키마 변경 시 필수 구분)**:
+- `git revert` 는 **코드만** 원복한다 — 이미 적용된 DB 스키마·데이터는 복원되지 않는다.
+- 파괴적 스키마 변경(`ALTER TABLE DROP COLUMN/TABLE`, 타입 변경, NOT NULL 추가)은 git revert 로 **데이터 복원 불가** → 별도 **데이터 마이그레이션 down**(reverse migration) 이 필요하며, drop 류는 down 으로도 원본 데이터 복구 불가임을 명시.
+- **안전 패턴 — expand-contract**: ① 신 컬럼 추가 + backfill → ② 코드 전환 → ③ 구 컬럼 제거를 **별도 릴리즈로 분리**(즉시 drop 금지). 이렇게 각 단계가 가역.
+- `impact-analysis.md` 의 "데이터 이전 필요" 가 yes 면 → 롤백 전략에 **data-down + 데이터 보존 정책**(백업·shadow 컬럼)을 명시한다. decomposing-ko 의 마이그레이션 forward+reverse 쌍 분해로 이어진다.
 
 §3 — 관련 PR·이슈 히스토리:
 

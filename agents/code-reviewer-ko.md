@@ -34,6 +34,11 @@ tools: Read, Grep, Glob, Bash
    - **안전**: 비밀 노출, 입력 검증, 의존성 취약점, injection 경로
    - **5원칙 준수**: 투명성·문지기·깊이·주권·한계 고백 위반 자동 탐지
    - **테스트 커버리지**: 실패 시나리오·경계값·모의 외부 API 포함 여부
+   - **[조건부] DB 스키마 관점** (변경이 `.specops/memory/data-model.md`·마이그레이션 파일·DDL·ORM 스키마를 건드릴 때만 — 해당 표면 없으면 skip):
+     - **인덱스**: FK 무인덱스, 조회 패턴 대비 인덱스 누락/과다, 미사용 인덱스
+     - **제약**: FK `ON DELETE` 정책(CASCADE/RESTRICT/SET NULL) 명시 여부, NOT NULL/CHECK/UNIQUE 누락
+     - **쿼리**: N+1 유발 구조, 정규화/비정규화 근거 부재
+     - **정합**: `data-model.md` 의 ERD·엔티티표 ↔ 실제 DDL/마이그레이션 일치 (괴리 시 Important+)
 4. **이슈 분류**:
    - 🔴 **Critical**: merge 전 반드시 수정
    - 🟡 **Important**: 권장 수정, 선택

@@ -9,6 +9,8 @@
 - **self-config 적대감사 번들 범위 확대** — `self-config-collect.sh` 가 `agents/*.md`·`scripts/_internal/**` 표면까지 흡수(44→90 표면). 1차 감사 미수집 4종(kill-switch·agents·statusline·init-project) 수집. TDD 회귀 `T1.e2~e6`. (#141)
 
 ### Fixed
+- **DB 테이블 설계→구현 lifecycle 결손 3건** — 독립 분석으로 발견: 설계(data-model design-first)는 #150/#151 로 됐으나 "설계 이후"가 비어 있던 것 보강. ① **마이그레이션 흐름 부재** — `decomposing-ko` 에 마이그레이션 **forward+reverse 태스크 쌍** 분해 패턴 추가(up/down·멱등 테스트·DDL 도구 규약, 단순 "비가역 격리"에서 격상) ② **DB 전문 리뷰 부재** — `code-reviewer-ko`(Phase C) 에 조건부 **DB 스키마 관점**(인덱스·FK ON DELETE·N+1·정규화·data-model↔DDL 정합) 추가 ③ **데이터 손실 롤백** — `analyzing-ko` §2 가 스키마 변경 롤백을 `git revert`(코드만)로 답하던 것을 **코드 롤백 vs 데이터 마이그레이션 down 구분** + expand-contract 안전 패턴 명시(`ALTER DROP` 데이터 복원 불가 경고). (#152)
+
 - **인터페이스 design-first 배선 결함 7건 (#150 follow-up)** — 적대 검토(Generator↔Evaluator 분리)로 #150 의 미완성 배선 발견·수정: ① **verify 안전망 무력화** — `/implement` 태스크별 커밋으로 working-tree 클린 → bare `git diff` 빈출력 → 항상 통과하던 것을 `git diff base...HEAD`(R-2 동일 패턴)로 수정 ② **foundation 분기 Step 5.6 미배선** — DB 스키마 본진이 design-first 미적용이던 것 배선 + §2 DAG/data-model 역할 경계 명시 ③ **design-first 강제력** — `implementing-ko` 에 "설계 계약 준수"(screens·api-spec·data-model 화면·인터페이스 대칭) 후진 teeth 추가 ④ **§auto·흐름도가 Step 5.6 우회** — §auto 화면 블록 Step 6 직행 수정 + 프로세스 흐름도에 5.6 노드 추가 ⑤ **§auto 부재 가드** — 무인 마스터 문서 임의생성 금지 + batch append-only ⑥⑦ 추출 기준·섹션 표현 통일. (#151)
 
 - **self-config 감사 잔여 backlog 처리** — 2026-06-30 `/security-scan --self-config` 실전 감사(등급 D) 후속 fix 묶음:
