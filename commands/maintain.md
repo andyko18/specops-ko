@@ -28,9 +28,10 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 /maintain auth.js 토큰 만료 버그
 
 → args 합성: "<!-- entry: maintain -->\nauth.js 토큰 만료 버그"
-→ specifying-ko Step 1 [유지보수 분기]
-→ current-state.md ★ HARD GATE
+→ analyzing-ko (current-state.md + impact-analysis.md) ★ HARD GATE
+→ 사용자 검토 통과 → specifying-ko Step 1 [유지보수 분기] (두 산출물 참조)
 → spec.md §유형 = 유지보수 + acceptance-criteria.md AC-R-1 강제
+   (DB 스키마 변경이면 analyzing trivial override + AC-R-2 데이터 보존 강제)
 → ... (Lifecycle 자동)
 ```
 

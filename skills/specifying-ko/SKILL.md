@@ -99,7 +99,8 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      - `analyzing-ko` 가 이미 호출되어 `.specops/<FID>/current-state.md` + `.specops/<FID>/impact-analysis.md` 가 산출되어 있어야 함
      - 본 skill 은 두 산출물을 **참조만** — 재분석 안 함
      - spec.md `§참조` 에 `current-state.md` + `impact-analysis.md` 경로 자동 포함
-     - Step 3 명확화 질문으로 진행
+     - Step 3 명확화 질문으로 진행 (이후 순차 체크리스트로 Step 5.5/5.6 도달)
+     - **★ 기존 API/스키마 수정 시 Step 5.6(인터페이스 design-first) 적용** — 변경된 엔드포인트/테이블을 구현 전 `api-spec.md`·`data-model.md` 에 반영(신규와 동일). 파괴적 스키마는 `impact-analysis.md §2`(expand-contract·data-down)·회귀 AC-R-2(데이터 보존) 연계.
 
      **Phase A 단독 시점 fallback** (analyzing-ko 부재 시 — Phase A 만 적용된 환경):
      - 본 skill 이 5 항목 mini-checklist 직접 실행:
@@ -186,7 +187,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
     ↓
 args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 분기] 5 항목 mini-checklist + current-state.md ★ HARD GATE → spec.md §유형 자동 라벨 (유지보수 / trivial — 라인 ≤ 5) → Step 3
     │
-    └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip → 공통부 spec 작성 (§유형=foundation) → Step 3
+    └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip(화면) · **Step 5.6 적용**(공통 스키마·API design-first) → 공통부 spec 작성 (§유형=foundation) → Step 3
                     │
                     └── no ──▶ args 첫 줄 = "<!-- entry: batch -->"? ── yes ──▶ **[batch 분기]** git-branch-create skip → spec.md §batch 라벨 기재 (+ 셋째 줄 auto:true 시 §auto 라벨 병기) → [신규 분기] 동작 계속
                                     │

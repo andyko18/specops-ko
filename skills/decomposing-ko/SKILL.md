@@ -190,7 +190,9 @@ git commit -m "feat: <기능명> 추가"
 
 ## 마이그레이션 태스크 분해 (DB 스키마 변경 시)
 
-`data-model.md` 스키마 변경(테이블·컬럼·인덱스 신설/변경)이 있으면, 마이그레이션을 **forward+reverse 쌍**으로 분해한다 (단순 "비가역 격리"로 끝내지 말 것):
+**트리거**: `data-model.md` 스키마 변경(테이블·컬럼·인덱스 신설/변경) **또는** `plan.md` 에 DDL 표면(`CREATE/ALTER TABLE`·ORM 스키마·마이그레이션 파일 생성)이 있으면 — **둘 중 하나라도** 마이그레이션을 분해한다. (★ `data-model.md` 가 미부트스트랩인 `/start-auto` DB 기능에서도 plan DDL 만으로 발동 — 파괴적 마이그레이션이 reverse/test 없이 진행되는 구멍 차단.)
+
+마이그레이션을 **forward+reverse 쌍**으로 분해한다 (단순 "비가역 격리"로 끝내지 말 것):
 
 1. **forward(up) 태스크** — DDL 적용 (`CREATE/ALTER`). `data-model.md` §6 도구(Prisma Migrate/Alembic/Flyway 등)·명명 규약(`<timestamp>_<desc>`) 준수
 2. **reverse(down) 태스크** — 롤백 DDL. 가역 가능하면 작성, **데이터 손실 동반(DROP 류)이면** down 으로도 복구 불가임을 명시 + 아래 "파괴적 작업 격리" + `analyzing-ko §2 expand-contract` 적용

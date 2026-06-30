@@ -64,12 +64,13 @@ _phase_8d_backend() {
 }
 
 _phase_8e_data_model() {
+  # _should_skip 선검사 (다른 phase 와 정합) — resume·재실행 시 기존 파일 보존 + 불필요 프롬프트 회피
+  local target=".specops/memory/data-model.md"
+  _should_skip "$target" && { echo "→ data-model.md 보존 (skip 정책)"; return; }
   printf "[Phase 8e] DB (Postgres/MySQL/MongoDB 등) 사용? [y/N/skip]: "
   local ans=""
   read -r ans || true
   case "$ans" in y|Y) ;; *) echo "→ data-model.md skip (8e ${ans:-N})"; return ;; esac
-  local target=".specops/memory/data-model.md"
-  _should_skip "$target" && return
   cp "$PLUGIN/templates/data-model.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
   echo "→ ${target} (8e DB=y)"
@@ -77,14 +78,15 @@ _phase_8e_data_model() {
 
 _phase_8f_api_spec() {
   case "$PROJECT_KIND" in 2|4) ;; *) return ;; esac
+  # _should_skip 선검사 (다른 phase 와 정합) — resume·재실행 시 기존 파일 보존 + 불필요 프롬프트 회피
+  local target=".specops/memory/api-spec.md"
+  _should_skip "$target" && { echo "→ api-spec.md 보존 (skip 정책)"; return; }
   echo "[Phase 8f] API 정의 방식? (1)Markdown (2)OpenAPI (3)GraphQL (4)RPC (5)skip"
   printf "선택 [1]: "
   local m=""
   read -r m || true
   case "$m" in 5) echo "→ api-spec.md skip"; return ;; esac
   case "$m" in 1|2|3|4) ;; *) m="1" ;; esac
-  local target=".specops/memory/api-spec.md"
-  _should_skip "$target" && return
   cp "$PLUGIN/templates/api-spec.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
   local fmt_label fmt_sec

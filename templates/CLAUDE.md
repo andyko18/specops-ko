@@ -44,11 +44,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 헌법: `.specops/memory/constitution.md`
 - 요구사항 마스터: `.specops/memory/requirements.md`
 - 전체 아키텍처: `.specops/memory/architecture.md`
-- 프론트 아키텍처: `.specops/memory/frontend-architecture.md` (UI/풀스택만)
+- 프론트 아키텍처: `.specops/memory/frontend-architecture.md` (UI/풀스택/모바일)
 - 백엔드 아키텍처: `.specops/memory/backend-architecture.md` (BE/풀스택만)
 - IF 설계서: `.specops/memory/api-spec.md` (BE/풀스택만)
 - 테이블 설계서: `.specops/memory/data-model.md` (DB 사용 시)
-- 화면 목록: `.specops/memory/screens-overview.md` (UI/풀스택만)
+- 화면 목록: `.specops/memory/screens-overview.md` (UI/풀스택/모바일)
 - 테스트 전략: `.specops/memory/test-strategy.md`
 
 UI 프로젝트인 경우:

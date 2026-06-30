@@ -6,13 +6,13 @@
 > 한국 SI 표준 "테이블 설계서". `/init-project` Phase 8e 가 1회 생성 (DB 사용 시).
 > ERD + 엔티티 표 + 인덱스 + 제약 + 마이그레이션 도구 마스터.
 
-## 1. DB 종류
+## §1. DB 종류
 
 - **유형**: <PostgreSQL / MySQL / SQLite / MongoDB>
 - **버전**: <버전>
 - **호스팅**: <RDS / Cloud SQL / 자체 호스팅>
 
-## 2. ERD (Entity-Relationship Diagram)
+## §2. ERD (Entity-Relationship Diagram)
 
 ```mermaid
 erDiagram
@@ -62,7 +62,7 @@ erDiagram
   }
 ```
 
-## 3. 핵심 엔티티 표
+## §3. 핵심 엔티티 표
 
 | 테이블 | 역할 | 주요 컬럼 | 관계 |
 |---|---|---|---|
@@ -72,7 +72,7 @@ erDiagram
 | `products` | 상품 카탈로그 | `id`, `name`, `price`, `stock` | 1:N order_items |
 | `addresses` | 사용자 배송지 | `id`, `user_id`, `line1`, `city`, `postal_code` | N:1 user |
 
-## 4. 인덱스 정책
+## §4. 인덱스 정책
 
 조회 패턴 기반:
 
@@ -84,7 +84,7 @@ erDiagram
 | `idx_order_items_order` | order_items | `order_id` | btree | 주문 상세 JOIN |
 | `idx_products_name_trgm` | products | `name` | GIN trigram | 상품 검색 (PostgreSQL) |
 
-## 5. 제약사항
+## §5. 제약사항
 
 - **PK**: 모든 테이블 `uuid` (gen_random_uuid 또는 ULID)
 - **FK**: ON DELETE 정책 명시 (CASCADE / RESTRICT / SET NULL)
@@ -92,27 +92,27 @@ erDiagram
 - **CHECK**: `orders.total_amount >= 0`, `products.stock >= 0`, `order_items.quantity > 0`
 - **NOT NULL**: 필수 필드는 모두 NOT NULL + DEFAULT 명시
 
-## 6. 마이그레이션 도구
+## §6. 마이그레이션 도구
 
 - **도구**: <Prisma Migrate / TypeORM / Alembic / Flyway / sqlx-cli>
 - **명명 규약**: `<YYYYMMDDHHMMSS>_<description>.sql` (timestamp 우선)
 - **롤백 정책**: 모든 forward 는 reverse 동반 (가능한 경우). 제거 시 deprecate 단계
 - **CI 검증**: PR 마다 schema 변경 자동 적용 + 테스트
 
-## 7. 백업·복구
+## §7. 백업·복구
 
 - **백업 주기**: 일일 full + 시간별 incremental
 - **보관**: 30 일 + 월별 1 년 보관
 - **복구 RPO/RTO**: RPO < 1h, RTO < 4h
 
-## 8. 데이터 보호
+## §8. 데이터 보호
 
 - **암호화 at-rest**: DB 레벨 (TDE) + 디스크 암호화
 - **암호화 in-transit**: TLS 1.2+
 - **민감 컬럼**: `password_hash` (bcrypt cost 12+), PII 는 별도 암호화 (KMS)
 - **GDPR / 개인정보보호법**: 사용자 삭제 요청 시 cascade + 30 일 후 hard delete
 
-## 9. 참조
+## §9. 참조
 
 - 상위: `.specops/memory/architecture.md` §1 컴포넌트 (DB)
 - 백엔드: `.specops/memory/backend-architecture.md` §6 데이터 접근
