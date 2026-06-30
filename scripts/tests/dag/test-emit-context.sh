@@ -71,5 +71,32 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.e decomposing-ko Step 10b 부재"
 fi
 
+# T1.f: §6 설계 계약 — memory/data-model.md 존재 시 §6 섹션 + 경로 emit (#4 design-first 배선)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/ok-fid" "$tmp/.specops/memory"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/ok-fid/"
+echo "# data-model" > "$tmp/.specops/memory/data-model.md"
+(cd "$tmp" && bash "$EMIT" ok-fid >/dev/null 2>&1)
+ctx="$tmp/.specops/ok-fid/dispatch/T1-context.md"
+if grep -q "6. 설계 계약" "$ctx" && grep -q "data-model.md" "$ctx"; then
+  PASS=$((PASS+1)); echo "PASS T1.f §6 설계 계약 (memory 존재 시 emit)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.f §6 미생성/경로누락"
+fi
+rm -rf "$tmp"
+
+# T1.g: memory 부재 시 §6 미생성 (graceful — 순수 로직/CLI 회귀 보호)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/ok-fid"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/ok-fid/"
+(cd "$tmp" && bash "$EMIT" ok-fid >/dev/null 2>&1)
+ctx="$tmp/.specops/ok-fid/dispatch/T1-context.md"
+if ! grep -q "6. 설계 계약" "$ctx"; then
+  PASS=$((PASS+1)); echo "PASS T1.g §6 미생성 (memory 부재 graceful)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.g §6 생성됨 (graceful 위반)"
+fi
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

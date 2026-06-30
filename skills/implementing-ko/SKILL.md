@@ -27,7 +27,7 @@ used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 - `screens/{name}.md`·`.html` — 화면 기능의 **UI 계약** (Step 5.5 산출)
 - `.specops/memory/api-spec.md`·`data-model.md` — **인터페이스/스키마 계약** (Step 5.6 design-first 산출)
 
-dispatch 컨텍스트가 해당 태스크의 인터페이스/화면/스키마를 건드리면, 위 계약 문서 경로를 컨텍스트 참조에 포함해 구현자가 준수하게 한다. 구현이 계약과 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하고, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약 + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
+`emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
 
 ## 사용 시점
 

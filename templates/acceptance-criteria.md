@@ -68,7 +68,19 @@
 **관련 FR**: 회귀 방지
 **우선순위**: must
 
-> **§유형 = 신규 / trivial 인 경우 본 섹션 면제** — `**§유형**: 신규` 또는 `**§유형**: trivial` (변경 라인 ≤ 5 자동) 이면 회귀 AC 강제 발동 안 함. 단 신규 chain 무손상은 별도 AC 로 보장 권장.
+### AC-R-2: 데이터 보존·역가역성 (DB 스키마 변경 시 필수)
+
+> **활성 조건**: `impact-analysis.md §1` 의 `DB 스키마` 가 변경 있음(특히 파괴적 `ALTER`/`DROP`)이거나 analyzing-ko trivial **스키마 override** 발동 시 — 본 AC 를 작성한다. 스키마 무변경이면 생략.
+
+**Given** [마이그레이션 적용 전 데이터 상태 / 대상 테이블·컬럼]
+**When** 마이그레이션 forward(up) 적용 후 reverse(down) 적용
+**Then** ① up→down→up **멱등**(스키마 동일 복원) ② 기존 데이터가 손실 없이 보존(또는 파괴적이면 backup/expand-contract 로 복구 경로 확보) ③ 제약(NOT NULL/CHECK/UNIQUE) 위반 0
+
+**검증 방법**: [마이그레이션 테스트 — up/down 왕복 + 데이터 보존 단언]
+**관련 FR**: 데이터 안전
+**우선순위**: must
+
+> **§유형 = 신규 / trivial 인 경우 본 섹션(AC-R-1) 면제** — `**§유형**: 신규` 또는 `**§유형**: trivial` (변경 라인 ≤ 5 자동) 이면 회귀 AC 강제 발동 안 함. 단 신규 chain 무손상은 별도 AC 로 보장 권장. **예외**: trivial 이어도 analyzing-ko **스키마 override**(파괴적 DB 변경)가 발동하면 AC-R-2 는 강제(데이터 안전은 라인수에 면제되지 않음).
 
 ---
 

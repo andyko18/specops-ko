@@ -92,6 +92,20 @@ for t in tasks:
     inputs_lines = "\n".join(f"- `{p}`" for p in inputs) or "- (없음)"
     whitelist = sorted(set(inputs) | set(outputs))
     wl_lines = "\n".join(f"- `{p}`" for p in whitelist)
+    # §6 설계 계약 (design-first 후진 teeth — implementing 계약 준수 실배선).
+    #   존재하는 설계 산출물만 emit, 부재 시 §6 자체 생략(graceful — 순수 로직/CLI 무영향).
+    contract = [p for p in (".specops/memory/api-spec.md", ".specops/memory/data-model.md") if os.path.exists(p)]
+    if os.path.isdir("screens"):
+        contract.append("screens/")
+    contract_section = ""
+    if contract:
+        cp_lines = "\n".join(f"- `{p}`" for p in contract)
+        contract_section = (
+            "\n## 6. 설계 계약 (design-first — 준수)\n\n"
+            "> 이 task 가 인터페이스/스키마/화면을 건드리면 아래 설계 계약을 **준수**한다. "
+            "어긋나야 하면 사용자 확인 필요 (verifying-evidence-ko memory 동기화 점검이 사후 검증).\n\n"
+            f"{cp_lines}\n"
+        )
     body = f"""<!-- specops-auto-ko Wave 2 U2 — emit-context.sh 자동 산출 -->
 <!-- FID: {fid} · task: {tid} -->
 
@@ -123,7 +137,7 @@ for t in tasks:
 - `<repo-root>/.worktrees/{fid}-{tid}/`
 
 > implementing-ko 가 worktree 생성 후 본 라인 sed 갱신.
-"""
+{contract_section}"""
     with open(os.path.join(disp, f"{tid}-context.md"), "w", encoding="utf-8") as fh:
         fh.write(body)
     count += 1

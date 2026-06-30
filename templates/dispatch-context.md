@@ -51,6 +51,14 @@ bash scripts/tests/test-<feature>.sh
 
 > ⚠️ leaf는 **이 디렉터리 안에서만 작업**. 부모 main worktree 직접 수정 금지.
 
+## 6. 설계 계약 (design-first — 선택, 존재 시만 emit)
+
+> 인터페이스/스키마/화면을 건드리는 task 에만 emit-context.sh 가 자동 포함(`api-spec.md`·`data-model.md`·`screens/` 존재 시). 부재 시 본 섹션 생략(graceful). leaf 는 이 계약을 **준수**하고, 어긋나야 하면 사용자 확인.
+
+- `.specops/memory/api-spec.md` (인터페이스 계약 — 있을 때)
+- `.specops/memory/data-model.md` (스키마 계약 — 있을 때)
+- `screens/` (화면 계약 — 있을 때)
+
 ---
 
 ## leaf 의무 (5원칙 주입)
