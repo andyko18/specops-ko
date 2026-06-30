@@ -68,7 +68,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 - 지쳐서 작업 끝내고 싶음
 - **검증 실행 없이 성공을 암시하는 어떤 표현이라도**
 
-## 합리화 방지
+## 합리화 차단표
 
 | 변명 | 실제 |
 |---|---|

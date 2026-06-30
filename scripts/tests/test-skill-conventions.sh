@@ -126,5 +126,21 @@ else
   FAIL=$((FAIL+1)); echo "FAIL: T8 templates/SKILL.md 합리화 차단표 섹션 없음"
 fi
 
+# T9: discipline-class skill 3종 — 합리화 차단표 섹션 존재
+# (systematic-debugging, tdd, verifying-evidence — 거버넌스 프로세스 강제 목적)
+DISCIPLINE_SKILLS="skills/systematic-debugging-ko/SKILL.md skills/tdd-ko/SKILL.md skills/verifying-evidence-ko/SKILL.md"
+disc_missing=()
+for ds in $DISCIPLINE_SKILLS; do
+  if [ ! -f "$PLUGIN/$ds" ] || ! grep -q '^## 합리화 차단표' "$PLUGIN/$ds"; then
+    disc_missing+=("$ds")
+  fi
+done
+if [ ${#disc_missing[@]} -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS: T9 discipline-class skill 3종 합리화 차단표 섹션 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T9 합리화 차단표 누락 (${#disc_missing[@]}건)"
+  for item in "${disc_missing[@]}"; do echo "  - $item"; done
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

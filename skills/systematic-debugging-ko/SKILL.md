@@ -248,7 +248,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 **이런 신호 보면**: 중단. Phase 1 복귀.
 
-## 흔한 합리화
+## 합리화 차단표
 
 | 변명 | 실제 |
 |---|---|
