@@ -21,3 +21,4 @@ skills/brainstorming-ko/scripts/node_modules/
 # 로컬 개발 설정 + dev 도구 산출물 (배포 불포함)
 .claude/
 scripts/docs/
+.specops-cache/
