@@ -27,7 +27,7 @@ teardown_fixture() {
 count_active() {
   local n=0 f
   for f in PRD.md CLAUDE.md README.md DESIGN.md \
-    .specops/memory/{constitution,requirements,test-strategy,architecture,frontend-architecture,backend-architecture,api-spec,data-model,screens-overview}.md; do
+    .specops/memory/{constitution,requirements,test-strategy,architecture,frontend-architecture,backend-architecture,api-spec,api-spec-consumer,data-model,screens-overview}.md; do
     [ -f "$f" ] && n=$((n+1))
   done
   echo "$n"
@@ -45,13 +45,14 @@ setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
-  printf "1\nhome\nn\n"
+  printf "1\nhome\nn\nn\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=n
 } | bash "$SCRIPT" >/dev/null 2>&1
 if [ -f DESIGN.md ] && [ -f .specops/memory/frontend-architecture.md ] \
    && [ -f .specops/memory/screens-overview.md ] \
    && [ ! -f .specops/memory/backend-architecture.md ] \
-   && [ ! -f .specops/memory/api-spec.md ]; then
-  ok "T1.a UI(KIND=1) → DESIGN/frontend/screens-overview 활성, backend/api 부재"
+   && [ ! -f .specops/memory/api-spec.md ] \
+   && [ ! -f .specops/memory/api-spec-consumer.md ]; then
+  ok "T1.a UI(KIND=1) → DESIGN/frontend/screens-overview 활성, backend/api/consumer 부재"
 else
   nope "T1.a UI" "활성 매트릭스 mismatch (count=$(count_active))"
 fi
@@ -479,6 +480,21 @@ else
   nope "T25.a 백슬래시" "escape 확장됨 (awk -v 미전환)"
 fi
 rm -f "$T25"
+
+# ── T15.a UI(KIND=1) consumer=y → api-spec-consumer.md 생성 ──────────────────
+setup_fixture
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. UI consumer\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\nhome\nn\ny\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=y
+} | bash "$SCRIPT" >/dev/null 2>&1
+if [ -f .specops/memory/api-spec-consumer.md ] \
+   && ! grep -q '<PROJECT_NAME>' .specops/memory/api-spec-consumer.md; then
+  ok "T15.a UI(KIND=1) consumer=y → api-spec-consumer.md 생성 + PROJECT_NAME 치환"
+else
+  nope "T15.a consumer=y" "파일 미생성 또는 PROJECT_NAME 미치환"
+fi
+teardown_fixture
 
 # ── 결과 ──────────────────────────────────────
 echo ""

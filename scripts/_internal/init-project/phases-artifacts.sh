@@ -116,6 +116,19 @@ PYEOF
   echo "→ ${target} (8f 방식=${m} ${fmt_label})"
 }
 
+_phase_8g_api_consumer() {
+  case "$PROJECT_KIND" in 1|5) ;; *) return ;; esac
+  local target=".specops/memory/api-spec-consumer.md"
+  _should_skip "$target" && { echo "→ api-spec-consumer.md 보존 (skip 정책)"; return; }
+  printf "[Phase 8g] 외부 API 소비 계약 문서 작성? [y/N]: "
+  local ans=""
+  read -r ans || true
+  case "$ans" in y|Y) ;; *) echo "→ api-spec-consumer.md skip (8g ${ans:-N})"; return ;; esac
+  cp "$PLUGIN/templates/api-spec-consumer.md" "$target"
+  _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  echo "→ ${target} (8g 소비 IF)"
+}
+
 _phase_8h_test_strategy() {
   local target=".specops/memory/test-strategy.md"
   _should_skip "$target" && return
@@ -134,6 +147,7 @@ phase_8_artifacts() {
   _phase_8d_backend
   _phase_8e_data_model
   _phase_8f_api_spec
+  _phase_8g_api_consumer
   _phase_8h_test_strategy
 }
 phase_9_readme() {

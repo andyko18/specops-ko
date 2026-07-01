@@ -155,7 +155,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
      - `api-spec.md`: **채택된 정의방식 섹션**(§1 Markdown 표 또는 §2 OpenAPI/§3 GraphQL/§4 RPC 중 init 8f 에서 선택·보존된 것)에 엔드포인트·요청/응답 스키마·인증 반영
      - `data-model.md`: §3 엔티티 표·§2 ERD·§4 인덱스 반영
-   - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md` 기반 생성)
+   - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md`, 외부 소비면 `templates/api-spec-consumer.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
