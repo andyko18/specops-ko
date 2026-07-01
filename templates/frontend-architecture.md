@@ -80,7 +80,7 @@ src/
 
 - 상위: `.specops/memory/architecture.md`
 - 디자인: `DESIGN.md`, `screens/<name>.{md,html}`
-- 백엔드 인터페이스: `.specops/memory/api-spec.md`
+- 백엔드 인터페이스: `.specops/memory/api-spec.md`(BE/풀스택: Step 5.6 자동 생성; UI·모바일: 외부 API 소비 시 수동 작성)
 
 ---
 
