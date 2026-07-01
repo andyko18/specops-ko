@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.30.0] — 2026-07-01
+
 ### Fixed
 - **`diff-upstream.sh` plugin_root 경로 계산 오류** — `scripts/_internal/` 하위에서 실행 시 `dirname` 1회 적용으로 `scripts/`를 repo root로 오인하던 버그. `cd "$script_dir/../.."` 2단계 상위로 수정. struct=0→21, manual=0→26 정상 산출. 테스트 sandbox 경로도 동일하게 수정 (T2~T7 PASS). (#155)
 
@@ -501,7 +503,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...HEAD
+[1.30.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...v1.30.0
 [1.29.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.27.0...v1.28.0
 [1.27.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.5...v1.27.0
