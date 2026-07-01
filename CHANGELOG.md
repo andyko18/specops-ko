@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.32.0] — 2026-07-01
+
 ### Added
 - **`/init-project` Phase 8g — 소비자 IF 템플릿(`api-spec-consumer.md`) 신설** — KIND 1(UI)·5(Mobile)에서 외부 API 소비 계약 문서를 y/N 프롬프트로 조건부 생성. `templates/api-spec-consumer.md` 신설(소비 서비스 목록·의존 엔드포인트·실패 처리 전략). `emit-context.sh` §6 설계 계약에 포함(소비 계약 구현자 전달). `specifying-ko` 부재 가드에 소비자 분기 명시. `templates/CLAUDE.md`·`frontend-architecture.md` 인덱스 업데이트. `test-init-project.sh` T1.a 수정 + T15.a(consumer=y 케이스) 추가.
 
@@ -514,7 +516,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...HEAD
+[1.32.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...v1.30.0
 [1.29.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.28.0...v1.29.0
