@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **`/init-project` Phase 8g — 소비자 IF 템플릿(`api-spec-consumer.md`) 신설** — KIND 1(UI)·5(Mobile)에서 외부 API 소비 계약 문서를 y/N 프롬프트로 조건부 생성. `templates/api-spec-consumer.md` 신설(소비 서비스 목록·의존 엔드포인트·실패 처리 전략). `emit-context.sh` §6 설계 계약에 포함(소비 계약 구현자 전달). `specifying-ko` 부재 가드에 소비자 분기 명시. `templates/CLAUDE.md`·`frontend-architecture.md` 인덱스 업데이트. `test-init-project.sh` T1.a 수정 + T15.a(consumer=y 케이스) 추가.
+
 ### Changed
 - **commands frontmatter 스키마 위생** — `log.md`·`release.md`·`statusline-install.md` 3개 파일에 누락 필드 추가. `log.md`: `triggers·mode·specops_version·specops_layer·reference_upstream·footer` 신설. `release.md`: `specops_layer·reference_upstream` 추가. `statusline-install.md`: skills 포맷(`layer·used_by`) → commands 포맷(`triggers·mode·specops_layer`) 변환·footer 추가. 런타임 무영향.
 
