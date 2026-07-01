@@ -44,17 +44,22 @@ _verify_passed_in_progress() {
     insec {print}
   ' "$progress")
   [ -n "$section" ] || return 1
-  # I-2: 명령 필드 앵커(시각 HH:MM + 명령) — memo 자유텍스트의 명령 언급(괄호 안) 무매칭 → false-block 자기모순 차단.
-  # session-progress 줄 포맷 `- YYYY-MM-DD HH:MM /command ...` 의 시각 선행 패턴 의존.
-  # ★ 불변식 의존: FID 섹션 내 줄은 "최신=상단(작은 줄번호, prepend)" 이어야 한다(L54 vline<cline 비교 전제).
-  #   정본: templates/session-progress.md(prepend/내림차순) + skills/context-resets-ko(줄순서 불변식).
-  #   writer 가 오름차순(최신=하단)으로 작성하면 verify-후-재구현을 verify 유효로 오판 → R-1/R-2 false-allow.
-  local vline cline
-  vline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /verify PASS' | head -1 | cut -d: -f1)
-  cline=$(printf '%s\n' "$section" | grep -nE '[0-9][0-9]:[0-9][0-9] /implement|[0-9][0-9]:[0-9][0-9] /receive-review.*(fix [1-9]|수용)' | head -1 | cut -d: -f1)
-  [ -z "$vline" ] && return 1            # verify 없음
-  [ -z "$cline" ] && return 0            # 코드변경 없음 → verify 유효
-  [ "$vline" -lt "$cline" ] && return 0 || return 2   # 0=유효 / 2=affirmative-stale(implement 최신)
+  # I-2: 행 선두 앵커(`^- YYYY-MM-DD HH:MM /command`) — memo 자유텍스트 명령 언급 무매칭 → false-block 차단.
+  # YYYY-MM-DD HH:MM 전체 비교: 사전순 = 연대순, 날짜경계(23:59→00:00) 자동 처리.
+  # sort -r|head-1 로 max 추출: 줄 순서(prepend 불변식)가 아닌 타임스탬프 값 기준 → writer 순서 오류 무관.
+  # 동률(same-minute) → 안전측 = return 2(stale/deny). evidence-stamp 구제 없음(T39b 불변식 보존).
+  local vts cts
+  vts=$(printf '%s\n' "$section" \
+    | grep -E '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} /verify PASS' \
+    | grep -oE '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}' \
+    | sed 's/^- //' | sort -r | head -1)
+  cts=$(printf '%s\n' "$section" \
+    | grep -E '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} (/implement|/receive-review.*(fix [1-9]|수용))' \
+    | grep -oE '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}' \
+    | sed 's/^- //' | sort -r | head -1)
+  [ -z "$vts" ] && return 1              # verify 없음
+  [ -z "$cts" ] && return 0             # 코드변경 없음 → verify 유효
+  [[ "$vts" > "$cts" ]] && return 0 || return 2   # 0=유효 / 2=affirmative-stale(implement최신 or 동률)
 }
 
 # evidence.md 의 run-verification PASS stamp (honest-scaffold — 실제 테스트 실행 증거).

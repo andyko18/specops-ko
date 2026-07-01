@@ -74,6 +74,33 @@ _verify_passed_in_progress stale-fid; vp=$?
 [ "$vp" -eq 2 ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: 3-state affirmative-stale return 2 아님 (vp=$vp)"; }
 rm -rf .specops/stale-fid
 
+# === H2: 타임스탬프 비교 — 줄 순서와 타임스탬프 불일치 케이스 ===
+# T-H2a: implement 물리적 위 + verify 타임스탬프 더 최신 → allow (구 코드=deny, 신 코드=allow)
+cat > "$sp" <<'EOF'
+## 20260701-h2a
+- 2026-07-01 10:00 /implement DONE (T1)
+- 2026-07-01 10:05 /verify PASS (AC 5/5)
+EOF
+_verify_passed_in_progress 20260701-h2a && { PASS=$((PASS+1)); echo "PASS T-H2a implement물리적위+verify타임스탬프최신→allow"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2a (줄순서가 아닌 타임스탬프 기준 판정 실패)"; }
+
+# T-H2b: verify 물리적 위 + implement 타임스탬프 더 최신 → deny (구 코드=allow, 신 코드=deny)
+cat > "$sp" <<'EOF'
+## 20260701-h2b
+- 2026-07-01 10:36 /verify PASS (AC 5/5)
+- 2026-07-01 10:40 /implement DONE (재구현)
+EOF
+_verify_passed_in_progress 20260701-h2b; vp=$?
+[ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2b verify물리적위+implement타임스탬프최신→deny(stale)"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2b (vp=$vp, 줄순서 우선 false-allow 회귀)"; }
+
+# T-H2c: 동일 타임스탬프 → deny (tie = safe-side stale)
+cat > "$sp" <<'EOF'
+## 20260701-h2c
+- 2026-07-01 10:05 /verify PASS (AC 5/5)
+- 2026-07-01 10:05 /implement DONE (T1)
+EOF
+_verify_passed_in_progress 20260701-h2c; vp=$?
+[ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2c 동일타임스탬프→deny(tie=safe-side)"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2c (vp=$vp, tie 동률 안전측 deny 실패)"; }
+
 # === R6: log_friction_sev 대칭화 (AC-1~3) ===
 # T8: log_friction_sev 잘못된 fid 형식 → 거부(non-zero) (AC-2)
 log_friction_sev "../evil" R-1 '"P1"' "snippet" 0 warn 2>/dev/null \
