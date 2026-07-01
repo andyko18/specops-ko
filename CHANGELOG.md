@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.31.0] — 2026-07-01
+
 ### Fixed
 - **`_verify_passed_in_progress` 타임스탬프 비교 전환 — prepend 불변식 의존 제거** — 기존 줄 번호(`vline < cline`) 비교가 session-progress 작성자가 내림차순(prepend) 대신 오름차순으로 기록할 경우 false-allow를 유발하는 구조적 취약점. `YYYY-MM-DD HH:MM` 전체 타임스탬프 추출 + `sort -r | head -1`(max) 비교로 교체. 날짜경계(23:59→00:00) 자동 처리. 동률(same-minute) → 안전측 `return 2`(deny). 행 선두 앵커(`^- YYYY-MM-DD HH:MM /command`)로 memo 자유텍스트 날짜 오염 차단. `test-verify-progress.sh` T-H2a/T-H2b/T-H2c 3케이스 추가(줄순서↔타임스탬프 불일치 시 타임스탬프 기준 판정 검증). 기존 T1~T13 전체 회귀 없음.
 
@@ -506,7 +508,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...HEAD
+[1.31.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...v1.30.0
 [1.29.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.27.0...v1.28.0
