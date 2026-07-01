@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`diff-upstream.sh` plugin_root 경로 계산 오류** — `scripts/_internal/` 하위에서 실행 시 `dirname` 1회 적용으로 `scripts/`를 repo root로 오인하던 버그. `cd "$script_dir/../.."` 2단계 상위로 수정. struct=0→21, manual=0→26 정상 산출. 테스트 sandbox 경로도 동일하게 수정 (T2~T7 PASS). (#155)
+
+### Added
+- **`writing-skills` 방법론 흡수 — failure-first + rationalization table 3 인프라 동시 전파** — superpowers upstream drift 점검에서 rationalization 섹션 대거 추가 확인(실증 근거). 신규 skill 추가 없이 기존 3 인프라에 teeth 동시 전파(aspirational-without-enforcement 방지): `CONTRIBUTING.md` Skill 작성 방법론 신설, `templates/SKILL.md` 합리화 차단표 섹션 양식 추가, `test-skill-conventions.sh` T7/T8 형식 게이트. `using-git-worktrees-ko` 적색 플래그 누락 항목 보강(EnterWorktree native tool 우선, upstream v5.1.0). (#156)
+
+### Refactored
+- **discipline-class skill 합리화 차단표 헤딩 통일 + T9 gate** — `## 흔한 합리화`(systematic-debugging-ko, tdd-ko), `## 합리화 방지`(verifying-evidence-ko) → `## 합리화 차단표` 통일. `test-skill-conventions.sh` T9: 3종 discipline-class skill 합리화 차단표 섹션 존재 강제 게이트. T1~T9 10개 체계 완성. (#157)
+
 ## [1.29.0] — 2026-06-30
 
 ### Added
