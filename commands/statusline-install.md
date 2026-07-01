@@ -1,10 +1,12 @@
 ---
 name: statusline-install
 description: specops-auto-ko HUD statusLine을 프로젝트 .claude/settings.json에 등록 (Lifecycle 진행 상태 상시 표시)
-layer: 3
-reference_upstream: specops-auto-ko 독자 추가
+triggers:
+  - "/statusline-install"
+mode: auto
 specops_version: 1.16.0
-used_by: 사용자 (1회 수동 실행)
+specops_layer: Lifecycle-Tool
+reference_upstream: specops-auto-ko 독자 추가
 ---
 
 # /statusline-install
@@ -31,3 +33,7 @@ used_by: 사용자 (1회 수동 실행)
 - `scripts/statusline.sh` — 상태줄 렌더러
 - `scripts/statusline-install.sh` — 설치 핵심
 - `.specops/session-progress.md` — 파싱 소스
+
+---
+
+*specops-auto-ko v1.16.0 · 2026-06-15 · /statusline-install command*

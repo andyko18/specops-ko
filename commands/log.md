@@ -1,6 +1,12 @@
 ---
 name: log
 description: 자유작업 인사이트 즉석 수동 기록 — gbrain-append 재사용
+triggers:
+  - "/log"
+mode: auto
+specops_version: 1.31.0
+specops_layer: Lifecycle-Tool
+reference_upstream: specops-auto-ko 독자 추가
 ---
 
 # /log "<요약>"
@@ -12,3 +18,7 @@ description: 자유작업 인사이트 즉석 수동 기록 — gbrain-append �
 bash scripts/gbrain-append.sh "$ARGUMENTS" --tags freelog,manual
 ```
 기록 후 "기록함: <요약>" 1줄 보고.
+
+---
+
+*specops-auto-ko v1.31.0 · 2026-06-25 · /log command*

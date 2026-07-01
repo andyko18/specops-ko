@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **commands frontmatter 스키마 위생** — `log.md`·`release.md`·`statusline-install.md` 3개 파일에 누락 필드 추가. `log.md`: `triggers·mode·specops_version·specops_layer·reference_upstream·footer` 신설. `release.md`: `specops_layer·reference_upstream` 추가. `statusline-install.md`: skills 포맷(`layer·used_by`) → commands 포맷(`triggers·mode·specops_layer`) 변환·footer 추가. 런타임 무영향.
+
 ## [1.31.0] — 2026-07-01
 
 ### Fixed

@@ -5,6 +5,8 @@ triggers:
   - "/release"
 mode: ask
 specops_version: 1.10.0
+specops_layer: Lifecycle-Tool
+reference_upstream: specops-auto-ko 독자 추가
 ---
 
 # /release — 릴리즈 자동화
