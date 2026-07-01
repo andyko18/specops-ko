@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.32.1] — 2026-07-02
+
 ### Fixed
 - **`emit-context.sh` §6에서 `api-spec-consumer.md` 제거** — 소비자 IF는 init-time·KIND-gated 1회 생성 문서(per-feature 아님). §6 per-feature 계약 목록에 포함 시 specifying-ko Step 5.6·verifying 역방향 안전망과 3-way 불일치 발생. `frontend-architecture.md`와 동일 패턴으로 §6 제외.
 
@@ -519,7 +521,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.1...HEAD
+[1.32.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...v1.32.1
 [1.32.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...v1.30.0
