@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.32.3] — 2026-07-02
+
 ### Changed
 - **Superpowers 코멘트성 언급 제거 (21파일 29건)** — skill 본문 산문·`## 참조` upstream 링크 라인·footer stamp·메타 skill description 괄호·템플릿 예시 경로(`docs/superpowers/...`)·템플릿 HTML 주석에서 Superpowers 표기 제거. **인프라 데이터는 유지**: frontmatter `reference_upstream:`(validate-structure·diff-upstream 소비), `docs/upstream-drift-log.md` 자동 생성 기록, CHANGELOG 과거 릴리즈 노트, `.specops-cache/upstream/`. 기능 무변경 — 사용 중 노출 표면만 정리.
 
@@ -534,7 +536,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.2...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...HEAD
+[1.32.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.2...v1.32.3
 [1.32.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.1...v1.32.2
 [1.32.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...v1.32.1
 [1.32.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...v1.32.0
