@@ -2,6 +2,7 @@
 # 외부 모델 critic 위탁 래퍼 — advisory only (판정 권한 없음, provider 오류·timeout 도 exit 0)
 # 사용: bash scripts/critic-ask.sh <prompt-file> [--files <f1> [f2 ...]]
 # 환경: CRITIC_BIN (강제 provider — stdin 합성 프롬프트 / stdout 의견 계약) · CRITIC_TIMEOUT (기본 120s)
+#       CRITIC_CLAUDE_MODEL (기본 fable) · CRITIC_CLAUDE_FALLBACK (기본 opus) — claude provider 모델 선택
 # 출력: "CRITIC[<provider>]:" + 의견 / "CRITIC: SKIP (외부 CLI 부재)" / "CRITIC: FAIL (<사유>)"
 # 종료: 항상 0 — prompt-file 부재만 1 (사용 오류)
 set -uo pipefail
@@ -20,10 +21,17 @@ fi
 TIMEOUT_S="${CRITIC_TIMEOUT:-120}"
 MAX_BYTES=204800
 
-# provider 감지: CRITIC_BIN > codex > gemini (A-1)
+# provider 감지: CRITIC_BIN > claude > codex > gemini > ollama (A-1)
+# claude: advisor 백엔드 최우선 — claude code 사용자는 항상 보유. 모델은 fable 우선·opus fallback
+#   (CRITIC_CLAUDE_MODEL / CRITIC_CLAUDE_FALLBACK 로 override). fable 접근 불가·overload 시 claude 내장
+#   --fallback-model 이 opus 로 자동 전환 = "fable 존재하면 fable, 없으면 opus" 요구의 런타임 구현.
 provider=""; bin=""
+CLAUDE_MODEL="${CRITIC_CLAUDE_MODEL:-fable}"
+CLAUDE_FALLBACK="${CRITIC_CLAUDE_FALLBACK:-opus}"
 if [ -n "${CRITIC_BIN:-}" ]; then
   provider="custom"; bin="$CRITIC_BIN"
+elif command -v claude >/dev/null 2>&1; then
+  provider="claude"; bin="claude"
 elif command -v codex >/dev/null 2>&1; then
   provider="codex"; bin="codex"
 elif command -v gemini >/dev/null 2>&1; then
@@ -65,6 +73,7 @@ _invoke_provider() {
   # A-2 한계 고백: codex/gemini 플래그는 실측 미확인 (미설치 환경 작성) — 설치 후 본 함수만 보정
   case "$provider" in
     custom) "$bin" ;;
+    claude) claude -p --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
     codex)  codex exec - ;;
     gemini) gemini -p - ;;
     ollama) jq -Rs --arg m "${CRITIC_MODEL:-qwen2.5:7b}" '{model:$m, prompt:., stream:false}' \

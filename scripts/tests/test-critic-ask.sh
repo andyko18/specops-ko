@@ -157,6 +157,32 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-ollama-2 (rc=$rc out=$out)"
 fi
 
+# ── T-claude provider 정적 검증 (advisor 백엔드 최우선 — fable 우선·opus fallback) ──
+
+# T-claude provider 로직 존재 (감지 + --model/--fallback-model + CRITIC_CLAUDE_MODEL override)
+if grep -q 'provider="claude"' "$SRC_FILE" \
+   && grep -q -- '--fallback-model' "$SRC_FILE" \
+   && grep -q 'CRITIC_CLAUDE_MODEL' "$SRC_FILE"; then
+  PASS=$((PASS+1)); echo "PASS T-claude provider 로직(감지+fallback-model+CRITIC_CLAUDE_MODEL) 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-claude provider 로직 누락"
+fi
+
+# T-claude-2 감지 우선순위: CRITIC_BIN > claude (custom override 가 claude 설치보다 우선)
+out=$(CRITIC_BIN="$TD/stub2.sh" bash "$SCRIPT" "$TD/prompt.md"); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q "CRITIC\[custom\]"; then
+  PASS=$((PASS+1)); echo "PASS T-claude-2 CRITIC_BIN 이 claude 보다 우선"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-claude-2 (rc=$rc out=$out)"
+fi
+
+# T-claude-3 기본 모델 = fable, fallback = opus (요구 계약)
+if grep -q 'CRITIC_CLAUDE_MODEL:-fable' "$SRC_FILE" && grep -q 'CRITIC_CLAUDE_FALLBACK:-opus' "$SRC_FILE"; then
+  PASS=$((PASS+1)); echo "PASS T-claude-3 기본 fable·fallback opus"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-claude-3 기본 모델 계약 누락"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
