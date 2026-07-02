@@ -1,0 +1,54 @@
+name: llm-smoke
+on:
+  schedule:
+    - cron: '0 0 * * 1'   # 매주 월요일 00:00 UTC
+  workflow_dispatch: {}
+permissions:
+  issues: write
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: secret 확인 (부재 시 graceful skip)
+        id: gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::notice::ANTHROPIC_API_KEY secret 미등록 — smoke skip (gh secret set ANTHROPIC_API_KEY 로 활성화)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: claude CLI 설치
+        if: steps.gate.outputs.run == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: smoke eval (6 fixtures, ~$3)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          bash scripts/tests/llm-eval/run-evals.sh scripts/tests/llm-eval/fixtures-smoke.jsonl 2>&1 | tee /tmp/smoke-out.txt
+      - name: 실패 시 issue 통보 (FAIL 요약 포함 — FR-3)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="[llm-smoke] weekly failure"
+          if [ -s /tmp/smoke-out.txt ]; then
+            SUMMARY=$(grep -E '^FAIL |^PASS=' /tmp/smoke-out.txt | tail -10)
+          fi
+          SUMMARY="${SUMMARY:-출력 캡처 없음}"
+          # issue 본문은 GitHub secret 마스킹 미적용 — CLI stderr 유래 key 조각 방어 (Phase C 권고)
+          SUMMARY=$(printf '%s' "$SUMMARY" | sed -E 's/sk-ant-[A-Za-z0-9_-]+/[REDACTED]/g')
+          BODY="주간 LLM smoke 실패 — run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAIL 요약:
+          \`\`\`
+          ${SUMMARY}
+          \`\`\`"
+          EXISTING=$(gh issue list --state open --search "in:title $TITLE" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then gh issue comment "$EXISTING" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi

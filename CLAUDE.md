@@ -14,6 +14,7 @@ bash scripts/tests/run-all.sh
 
 # LLM 동작 smoke eval (수동 전용 — 토큰 비용 발생, run-all 비포함)
 bash scripts/tests/llm-eval/run-evals.sh
+# 주간 자동 smoke: .github/workflows/llm-smoke.yml (ANTHROPIC_API_KEY secret 등록 시 활성 — 미등록 시 graceful skip)
 
 # lifecycle E2E 자동 검증 (수동 전용 — 토큰 비용 발생, run-all 비포함)
 # e2e-test-ko skill 이 greet-cli fixture 로 9단계 chain 완주 + 산출물 구조 검증

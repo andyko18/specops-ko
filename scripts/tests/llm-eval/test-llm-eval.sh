@@ -8,6 +8,14 @@ FIXTURES="$EVAL/fixtures.jsonl"
 RUNNER="$EVAL/run-evals.sh"
 STUB="$EVAL/stub-claude.sh"
 
+# 스탬프 격리 — stub 케이스가 실 repo .specops-cache/ 를 갱신하면 release staleness 경고가 영구 미발화 (false-green)
+LLM_EVAL_STAMP_DIR=$(mktemp -d) || exit 1
+export LLM_EVAL_STAMP_DIR
+trap 'rm -rf "$LLM_EVAL_STAMP_DIR"' EXIT
+# T8.c 격리 실증용 — 실 repo 스탬프 상태 사전 캡처 (mtime 또는 absent)
+REAL_STAMP="$PLUGIN/.specops-cache/llm-eval-last-run"
+REAL_STAMP_BEFORE=$(stat -c %Y "$REAL_STAMP" 2>/dev/null || stat -f %m "$REAL_STAMP" 2>/dev/null || echo absent)
+
 # T1.a fixtures.jsonl 전 라인 jq 유효
 ok=1
 while IFS= read -r line; do
@@ -316,6 +324,48 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.c (rc=$rc out=$out)"
 fi
 rm -rf "$TD"
+
+# ── T8 완주 스탬프 (B층 신호원 — AC-4) ──
+
+# T8.a stub 완주(비 SKIP) → $LLM_EVAL_STAMP_DIR/llm-eval-last-run 존재 + ISO-8601 1줄
+TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
+rm -f "$LLM_EVAL_STAMP_DIR/llm-eval-last-run"   # 선행 케이스 완주 잔재 제거 — 본 케이스가 기록 주체임을 단언
+mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
+mk_fx "$STUB_PLAN" '{"skill":"specops-auto-ko:specifying-ko","args":"CLI","cost":0}'
+out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && [ -f "$LLM_EVAL_STAMP_DIR/llm-eval-last-run" ] \
+   && grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$LLM_EVAL_STAMP_DIR/llm-eval-last-run"; then
+  PASS=$((PASS+1)); echo "PASS T8.a 완주 스탬프 기록 (ISO-8601)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.a (rc=$rc stamp=$(cat "$LLM_EVAL_STAMP_DIR/llm-eval-last-run" 2>/dev/null || echo 부재) out=$out)"
+fi
+rm -rf "$TD"
+
+# T8.b SKIP 경로(claude 부재) → 스탬프 미기록 (별도 STAMP_DIR 로 T8.a 잔재와 격리)
+SKIP_SD=$(mktemp -d)
+out=$(LLM_EVAL_STAMP_DIR="$SKIP_SD" CLAUDE_BIN=/nonexistent-claude bash "$RUNNER" "$FIXTURES" 2>&1); rc=$?
+if [ $rc -eq 0 ] && [ ! -f "$SKIP_SD/llm-eval-last-run" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.b SKIP 경로 스탬프 미기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.b (rc=$rc stamp_exists=$([ -f "$SKIP_SD/llm-eval-last-run" ] && echo yes || echo no))"
+fi
+rm -rf "$SKIP_SD"
+
+# T8.c 격리 실증 — 본 스위트 전체(stub 완주 다수)가 실 repo .specops-cache 스탬프를 생성/갱신하지 않음
+REAL_STAMP_AFTER=$(stat -c %Y "$REAL_STAMP" 2>/dev/null || stat -f %m "$REAL_STAMP" 2>/dev/null || echo absent)
+if [ "$REAL_STAMP_BEFORE" = "$REAL_STAMP_AFTER" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.c 실 repo 스탬프 미생성/미갱신 (before=$REAL_STAMP_BEFORE after=$REAL_STAMP_AFTER)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.c (before=$REAL_STAMP_BEFORE after=$REAL_STAMP_AFTER — 격리 붕괴)"
+fi
+
+# T8.d fixtures-smoke drift 가드 — smoke 서브셋 6줄이 원본 fixtures.jsonl 에 자구 그대로 존재 (AC-1 영구 잠금, Phase C 권고)
+SMOKE="$PLUGIN/scripts/tests/llm-eval/fixtures-smoke.jsonl"
+if [ -f "$SMOKE" ] && [ "$(grep -F -x -f "$SMOKE" "$PLUGIN/scripts/tests/llm-eval/fixtures.jsonl" | wc -l | tr -d ' ')" = "6" ] && [ "$(grep -c . "$SMOKE")" = "6" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.d fixtures-smoke 6/6 원본 자구 동일"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.d fixtures-smoke drift 또는 부재"
+fi
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

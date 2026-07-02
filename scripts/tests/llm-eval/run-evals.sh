@@ -161,5 +161,11 @@ while IFS= read -r fx; do
   run_fixture "$fx"
 done < "$FIXTURES"
 
+# B층 신호: 실행 완주 시각 기록 (SKIP 경로 제외 — release.sh pre-flight staleness 경고가 소비)
+# LLM_EVAL_STAMP_DIR: 테스트 격리용 override (기본 repo root .specops-cache/)
+STAMP_DIR="${LLM_EVAL_STAMP_DIR:-$HERE/../../../.specops-cache}"
+mkdir -p "$STAMP_DIR" 2>/dev/null || true
+date -u +%Y-%m-%dT%H:%M:%SZ > "$STAMP_DIR/llm-eval-last-run" 2>/dev/null || true
+
 printf 'PASS=%d FAIL=%d SKIP=0 BORDERLINE=%d COST=$%.2f\n' "$PASS" "$FAIL" "$BORDER" "$COST"
 [ "$FAIL" -eq 0 ]

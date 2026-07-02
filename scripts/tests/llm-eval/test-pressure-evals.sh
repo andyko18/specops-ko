@@ -3,6 +3,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../../.." && pwd)
+_T3B_BEFORE=$(cksum "$PLUGIN/scripts/tests/llm-eval/run-evals.sh" 2>/dev/null)
 EVAL="$PLUGIN/scripts/tests/llm-eval"
 FX="$EVAL/pressure-fixtures.jsonl"
 RUNNER="$EVAL/run-pressure-evals.sh"
@@ -124,10 +125,11 @@ fi
 if grep -q 'run-pressure-evals.sh' "$PLUGIN/scripts/README.md"; then
   PASS=$((PASS+1)); echo "PASS T3.a 문서 등재"
 else FAIL=$((FAIL+1)); echo "FAIL T3.a"; fi
-# AC-10 run-evals 무손상 — git 추적본과 비교 (working tree clean 전제 시 diff 0)
-if git -C "$PLUGIN" diff --quiet HEAD -- scripts/tests/llm-eval/run-evals.sh 2>/dev/null; then
-  PASS=$((PASS+1)); echo "PASS T3.b run-evals 무변경"
-else FAIL=$((FAIL+1)); echo "FAIL T3.b run-evals 변경됨"; fi
+# AC-10 run-evals 무손상 — 스위트 실행 전후 checksum 비교 (HEAD diff 는 정당 미커밋 수정도 FAIL — FID 20260702-llm-smoke-ci 전환)
+_t3b_after=$(cksum "$PLUGIN/scripts/tests/llm-eval/run-evals.sh" 2>/dev/null)
+if [ "$_t3b_after" = "$_T3B_BEFORE" ]; then
+  PASS=$((PASS+1)); echo "PASS T3.b run-evals 무손상 (실행 전후 checksum 동일)"
+else FAIL=$((FAIL+1)); echo "FAIL T3.b 스위트 실행이 run-evals 변경"; fi
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

@@ -246,6 +246,41 @@ cnt=$(grep -c "^## \[1.11.0\]" "$TD/CHANGELOG.md")
 [ "$cnt" -eq 1 ] && ok "T17.a CHANGELOG [1.11.0] 이중삽입 방지(멱등)" || fail "T17.a (heading count=$cnt)"
 rm -rf "$TD"
 
+# T18: B층 llm-eval staleness soft 경고 (AC-5) — dry-run + PREFLIGHT_CMD=true 로 빠른 실행
+# fixture 에 .specops-cache/ gitignore 선반영 (스탬프 생성이 FR-2 클린 트리 게이트를 오염하지 않도록 — 실 repo 와 동일 조건)
+_seed_stamp_ignore() {  # $1=fixture dir
+  printf '.specops-cache/\n' > "$1/.gitignore"
+  git -C "$1" add .gitignore
+  git -C "$1" commit -q -m "ignore cache"
+}
+
+# T18.a 스탬프 부재 → "실행 기록 없음" 경고 + release 계속 (exit 0, dry-run 완주)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "실행 기록 없음" && echo "$out" | grep -q "DRY-RUN 완료" \
+  && ok "T18.a 스탬프 부재 → soft 경고 + release 계속" || fail "T18.a (rc=$rc out='$out')"
+rm -rf "$TD"
+
+# T18.b 8일 전 스탬프 → "N일 경과" 경고 + release 계속 (mtime 조작 — Darwin -v / GNU -d fallback)
+TD=$(mktemp -d); _make_git_fixture "$TD"; _seed_stamp_ignore "$TD"
+mkdir -p "$TD/.specops-cache"
+date -u +%Y-%m-%dT%H:%M:%SZ > "$TD/.specops-cache/llm-eval-last-run"
+touch -t "$(date -v-8d +%Y%m%d%H%M 2>/dev/null || date -d '8 days ago' +%Y%m%d%H%M)" "$TD/.specops-cache/llm-eval-last-run"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "일 경과" && echo "$out" | grep -q "DRY-RUN 완료" \
+  && ok "T18.b 8일 경과 스탬프 → staleness 경고 + release 계속" || fail "T18.b (rc=$rc out='$out')"
+rm -rf "$TD"
+
+# T18.c 방금 스탬프 → 무경고 (3문구 전부 부재) + release 계속
+TD=$(mktemp -d); _make_git_fixture "$TD"; _seed_stamp_ignore "$TD"
+mkdir -p "$TD/.specops-cache"
+date -u +%Y-%m-%dT%H:%M:%SZ > "$TD/.specops-cache/llm-eval-last-run"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -q "실행 기록 없음" && ! echo "$out" | grep -q "일 경과" \
+  && ! echo "$out" | grep -q "판독 불가" && echo "$out" | grep -q "DRY-RUN 완료" \
+  && ok "T18.c 신선 스탬프 → 무경고 + release 계속" || fail "T18.c (rc=$rc out='$out')"
+rm -rf "$TD"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

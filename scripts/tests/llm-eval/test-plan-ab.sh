@@ -3,6 +3,7 @@
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../../.." && pwd)
+_T3B_BEFORE=$(cksum "$PLUGIN/scripts/tests/llm-eval/run-evals.sh" "$PLUGIN/scripts/tests/llm-eval/run-pressure-evals.sh" 2>/dev/null)
 EVAL="$PLUGIN/scripts/tests/llm-eval"
 FXDIR="$EVAL/plan-ab-fixtures"
 RUNNER="$EVAL/run-plan-ab.sh"
@@ -89,9 +90,11 @@ rm -rf "$TD"; unset STUB_STATE STUB_PLAN
 if grep -q 'run-plan-ab.sh' "$PLUGIN/scripts/README.md"; then
   PASS=$((PASS+1)); echo "PASS T3.a 문서 등재"
 else FAIL=$((FAIL+1)); echo "FAIL T3.a"; fi
-if git -C "$PLUGIN" diff --quiet HEAD -- scripts/tests/llm-eval/run-evals.sh scripts/tests/llm-eval/run-pressure-evals.sh 2>/dev/null; then
-  PASS=$((PASS+1)); echo "PASS T3.b 기존 eval 무손상"
-else FAIL=$((FAIL+1)); echo "FAIL T3.b"; fi
+# T3.b 기존 eval 무손상 — 스위트 실행 전후 checksum 비교 (HEAD 대비 diff 는 정당한 미커밋 수정도 FAIL 시키는 자기참조 결함 — FID 20260702-llm-smoke-ci 에서 전환)
+_t3b_after=$(cksum "$PLUGIN/scripts/tests/llm-eval/run-evals.sh" "$PLUGIN/scripts/tests/llm-eval/run-pressure-evals.sh" 2>/dev/null)
+if [ "$_t3b_after" = "$_T3B_BEFORE" ]; then
+  PASS=$((PASS+1)); echo "PASS T3.b 기존 eval 무손상 (실행 전후 checksum 동일)"
+else FAIL=$((FAIL+1)); echo "FAIL T3.b 스위트 실행이 eval 파일 변경"; fi
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

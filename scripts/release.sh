@@ -70,6 +70,21 @@ else
   echo "-> pre-flight PASS"
 fi
 
+# B층: llm-eval staleness soft 경고 (비차단 — LLM chain 은 run-all 밖이라 별도 신호)
+# stat: GNU(-c) 우선, Darwin(-f) fallback — 역순이면 GNU 에서 -f 가 fs 덤프 출력 (hard fail 원인)
+STAMP="$PLUGIN_ROOT/.specops-cache/llm-eval-last-run"
+if [ ! -f "$STAMP" ]; then
+  echo "⚠️  llm-eval 실행 기록 없음 — 릴리즈 전 bash scripts/tests/llm-eval/run-evals.sh 권장 (soft)" >&2
+else
+  stamp_epoch=$(stat -c %Y "$STAMP" 2>/dev/null || stat -f %m "$STAMP" 2>/dev/null || echo 0)
+  age_days=$(( ( $(date +%s) - stamp_epoch ) / 86400 ))
+  if [ "$stamp_epoch" -eq 0 ]; then
+    echo "⚠️  llm-eval 스탬프 시각 판독 불가 — 재실행 권장 (soft)" >&2
+  elif [ "$age_days" -gt 7 ]; then
+    echo "⚠️  llm-eval 마지막 실행 ${age_days}일 경과 — 재실행 권장 (soft)" >&2
+  fi
+fi
+
 CHANGELOG="$PLUGIN_ROOT/CHANGELOG.md"
 README="$PLUGIN_ROOT/README.md"
 DATE=$(date +%Y-%m-%d)
