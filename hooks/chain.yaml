@@ -1,0 +1,16 @@
+# specops-auto-ko lifecycle chain — 단일 Source of Truth
+# 대조 게이트: scripts/_internal/validate-structure.sh `chain_consistency`
+# 범위: primary edge 만 (SKILL.md `## 다음 skill` 코드블록 `Skill:` 라인).
+#       조건 분기 산문 참조(FAIL→systematic-debugging 등)는 xref_resolve 관할 — 여기 선언 금지.
+edges:
+  - {from: analyzing-ko, to: specifying-ko}
+  - {from: specifying-ko, to: clarifying-ko}
+  - {from: clarifying-ko, to: planning-ko}
+  - {from: planning-ko, to: decomposing-ko}
+  - {from: decomposing-ko, to: implementing-ko}
+  - {from: implementing-ko, to: verifying-evidence-ko}
+  - {from: verifying-evidence-ko, to: requesting-code-review-ko}
+  - {from: requesting-code-review-ko, to: receiving-code-review-ko}
+  - {from: receiving-code-review-ko, to: security-review-ko}
+  - {from: security-review-ko, to: integration-test-ko}
+  - {from: integration-test-ko, to: performance-test-ko}

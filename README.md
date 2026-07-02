@@ -158,6 +158,7 @@ specops-auto-ko/
 │   ├── posttool-governance.sh            ← 도구 호출 후 감사 (R-1·R-2·R-3 Soft Warn)
 │   ├── stop-governance.sh                ← 세션 종료 검사 (R-4·R-5, R-6 비활성)
 │   ├── governance-lib.sh + rules.jsonl   ← 거버넌스 라이브러리 + 규칙 정의
+│   ├── chain.yaml                        ← lifecycle chain primary edge 단일 Source of Truth
 │   ├── ensure-session-progress.sh        ← session-progress.md 보장
 │   └── (보조) inject-evaluator-timestamp · rotate-evaluator-artifact · notify · freecomment-capture
 ├── skills/                               ← flat: skills/<name>/SKILL.md × 30

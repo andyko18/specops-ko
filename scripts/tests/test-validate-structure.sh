@@ -44,6 +44,14 @@ make_sandbox() {
     printf -- '---\nname: %s\n---\n' "$name" > "$sb/skills/$name/SKILL.md"
   done
   for i in 1 2 3 4 5 6; do printf -- '---\nname: t%s\n---\n' "$i" > "$sb/templates/t$i.md"; done
+  # chain fixture (FID 20260702-chain-single-source): 기존 skill 2개 재사용 — 신규 skill 생성 금지
+  # (신규 skill 은 xref_resolve 미존재 FAIL + baseline 카운트 + add_docs README 하드코딩 3중 회귀)
+  # s1=specifying-ko → s2=clarifying-ko (T12.a 가 변조하는 tdd-ko 회피)
+  printf -- '\n## 다음 skill\n\nSkill: specops-auto-ko:clarifying-ko\n' >> "$sb/skills/specifying-ko/SKILL.md"
+  cat > "$sb/hooks/chain.yaml" <<'EOF'
+edges:
+  - {from: specifying-ko, to: clarifying-ko}
+EOF
   # 메타 skill 주입 경로 (validator 의 meta_injection 체크 대상)
   printf '#!/usr/bin/env bash\necho "{}"\n' > "$sb/hooks/session-start.sh"
   chmod +x "$sb/hooks/session-start.sh"
@@ -324,6 +332,83 @@ if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ version_sync: OK' \
   PASS=$((PASS+1)); echo "PASS T13 실제 repo drift 4종 ✅"
 else
   FAIL=$((FAIL+1)); echo "FAIL T13 (rc=$rc)"; echo "$out" | grep -E 'version_sync|readme_counts|changelog_body|xref_resolve' | sed 's/^/    /'
+fi
+
+# ── chain_consistency (FID 20260702-chain-single-source): hooks/chain.yaml 단일 source 대조 ─────────
+
+# T14.a 실제 repo — chain_consistency OK (오탐 0 보증, AC-1)
+out=$(bash "$SCRIPT" 2>&1); rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'chain_consistency: OK'; then
+  PASS=$((PASS+1)); echo "PASS T14.a chain_consistency 실제 repo OK"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.a chain_consistency 누락 또는 FAIL: $(printf '%s' "$out" | grep chain_consistency || echo '검사 부재')"
+fi
+
+# T14.b SKILL.md 측 drift — s1 의 Skill: 라인 대상을 제3 skill 로 변경 (chain.yaml 미갱신) → FAIL + edge 명시 (AC-2)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
+sed -i.bak 's/^Skill: specops-auto-ko:clarifying-ko$/Skill: specops-auto-ko:planning-ko/' "$sb/skills/specifying-ko/SKILL.md"
+rm -f "$sb/skills/specifying-ko/SKILL.md.bak"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
+   && [ $rc -ne 0 ] && printf '%s' "$err" | grep -q 'chain_consistency: FAIL' \
+   && printf '%s' "$err" | grep -q 'specifying-ko → planning-ko'; then
+  PASS=$((PASS+1)); echo "PASS T14.b SKILL.md 측 drift → chain_consistency FAIL + edge 명시"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.b (pre_rc=$pre_rc rc=$rc, out=$(printf '%s' "$err" | grep chain_consistency))"
+fi
+rm -rf "$sb"
+
+# T14.c chain.yaml 측 drift — edge 1개 제거 (edges: [] 화, SKILL.md 미변경) → FAIL + edge 명시 (AC-3)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
+printf 'edges: []\n' > "$sb/hooks/chain.yaml"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
+   && [ $rc -ne 0 ] && printf '%s' "$err" | grep -q 'chain_consistency: FAIL' \
+   && printf '%s' "$err" | grep -q 'SKILL.md에만: specifying-ko → clarifying-ko'; then
+  PASS=$((PASS+1)); echo "PASS T14.c chain.yaml 측 drift → chain_consistency FAIL + edge 명시"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.c (pre_rc=$pre_rc rc=$rc, out=$(printf '%s' "$err" | grep chain_consistency))"
+fi
+rm -rf "$sb"
+
+# T14.d 메타 fixture 미선언 edge — 화살표 라인 s2 → s1 추가 (chain.yaml 미변경) → FAIL (AC-4)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
+printf -- '\nclarifying-ko → specifying-ko\n' >> "$sb/skills/using-specops-auto-ko-ko/SKILL.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
+   && [ $rc -ne 0 ] && printf '%s' "$err" | grep -q 'chain_consistency: FAIL' \
+   && printf '%s' "$err" | grep -q '메타목록 미선언 edge: clarifying-ko → specifying-ko'; then
+  PASS=$((PASS+1)); echo "PASS T14.d 메타목록 미선언 edge → chain_consistency FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.d (pre_rc=$pre_rc rc=$rc, out=$(printf '%s' "$err" | grep chain_consistency))"
+fi
+rm -rf "$sb"
+
+# T14.e chain.yaml 절단 파손 → FAIL "파싱 실패" (silent pass 금지, AC-6)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
+printf 'edges: [{from:\n' > "$sb/hooks/chain.yaml"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
+   && [ $rc -ne 0 ] && printf '%s' "$err" | grep -q 'chain_consistency: FAIL' \
+   && printf '%s' "$err" | grep -q '파싱 실패'; then
+  PASS=$((PASS+1)); echo "PASS T14.e yaml 파손 → chain_consistency FAIL (파싱 실패)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.e (pre_rc=$pre_rc rc=$rc, out=$(printf '%s' "$err" | grep chain_consistency))"
+fi
+rm -rf "$sb"
+
+# T14.f pyyaml 부재 graceful SKIP (AC-5)
+# 한계 고백: 기존 T6 은 pyyaml "존재"를 전제(부재 시 케이스 자체 skip)하는 기법이라 SKIP 경로 런타임 모의 불가
+# (python3 PATH 조작은 frontmatter 등 다른 검사까지 SKIP 시켜 sandbox 단언이 무의미해짐).
+# → SKIP 분기 코드 존재를 정적 검증 (frontmatter SKIP 선례와 동일 분기 구조).
+if grep -q 'emit chain_consistency SKIP' "$SCRIPT"; then
+  PASS=$((PASS+1)); echo "PASS T14.f pyyaml 부재 SKIP 분기 존재 (정적 검증)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T14.f chain_consistency SKIP 분기 부재"
 fi
 
 echo "passed=$PASS failed=$FAIL"

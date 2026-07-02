@@ -219,6 +219,57 @@ for a in spec-reviewer-ko code-reviewer-ko plan-reviewer-ko; do
 done
 if [ ${#atf[@]} -eq 0 ]; then emit agent_tools OK; else emit agent_tools FAIL "${atf[*]}"; fi
 
+# 14) chain_consistency — hooks/chain.yaml(단일 source) ↔ SKILL.md `## 다음 skill` ↔ 메타 skill 화살표 목록
+#     primary edge 만 대조 (조건 분기 산문은 xref_resolve 관할). T-H1(prefilter≡rules.jsonl) 동일 클래스.
+if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
+  emit chain_consistency SKIP "python3+pyyaml 미설치 — 한계 고백"
+elif [ ! -f hooks/chain.yaml ]; then
+  emit chain_consistency FAIL "hooks/chain.yaml 부재"
+else
+  cc_out=$(python3 - <<'PYEOF' 2>&1
+import glob, re, sys, yaml
+
+try:
+    with open('hooks/chain.yaml') as f:
+        data = yaml.safe_load(f)
+    declared = {(e['from'], e['to']) for e in data['edges']}
+except Exception as ex:
+    print(f"chain.yaml 파싱 실패: {ex}"); sys.exit(1)
+
+actual = set()
+for path in glob.glob('skills/*/SKILL.md'):
+    name = path.split('/')[1]
+    in_sec = False
+    for line in open(path, encoding='utf-8'):
+        if line.startswith('## 다음 skill'):
+            in_sec = True; continue
+        if in_sec and line.startswith('## '):
+            in_sec = False; continue  # 섹션 종료 리셋 — 후속 섹션 Skill: 라인 오수집 방지
+        m = re.match(r'^Skill: specops-auto-ko:([a-z-]+)\s*$', line)
+        if in_sec and m:
+            actual.add((name, m.group(1)))
+
+issues = [f"chain.yaml에만: {f} → {t}" for f, t in sorted(declared - actual)]
+issues += [f"SKILL.md에만: {f} → {t}" for f, t in sorted(actual - declared)]
+
+# 메타 skill 화살표 목록: 인접 pair ⊆ declared (요약 목록이라 생략 허용 — 존재하지 않는 edge 주장만 FAIL)
+meta = open('skills/using-specops-auto-ko-ko/SKILL.md', encoding='utf-8').read()
+for line in meta.splitlines():
+    if '→' not in line or '-ko' not in line:
+        continue
+    toks = [t for t in (re.fullmatch(r'([a-z][a-z-]*-ko)\b.*', s.strip()) for s in line.split('→')) if t]
+    names = [t.group(1) for t in toks]
+    for a, b in zip(names, names[1:]):
+        if (a, b) not in declared:
+            issues.append(f"메타목록 미선언 edge: {a} → {b}")
+
+if issues:
+    print('; '.join(issues)); sys.exit(1)
+PYEOF
+)
+  if [ $? -eq 0 ]; then emit chain_consistency OK; else emit chain_consistency FAIL "$cc_out"; fi
+fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"
