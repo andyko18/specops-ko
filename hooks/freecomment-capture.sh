@@ -46,6 +46,10 @@ case "$lu" in
   *\?*|*뭐*|*어떻게*|*왜*) type="question" ;;
 esac
 
+# symlink 가드 (#144 log_friction 대칭) — 악성 repo 가 .specops 또는 pending 파일을
+# 외부 dir symlink 로 심으면 write-through path-escape. 훅 자기 cwd 가 아닌 $cwd 기준이라 인라인 검사.
+[ ! -L "$cwd/.specops" ] || safe_exit
+[ ! -L "$cwd/.specops/pending-capture.jsonl" ] || safe_exit
 mkdir -p "$cwd/.specops"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전

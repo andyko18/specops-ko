@@ -97,5 +97,37 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T4.a (fid=$got)"
 fi
 
+# T5.a .specops 디렉토리 symlink → 외부 write-through 차단 (#144 대칭)
+work5="$TMP/work5"; outside5="$TMP/outside5"; mkdir -p "$work5" "$outside5"
+(cd "$work5" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q)
+ln -s "$outside5" "$work5/.specops"
+echo "z" > "$work5/baz.sh"; (cd "$work5" && git add baz.sh)
+tr5="$TMP/tr5.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"고쳐줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"baz.sh"}}]}}' > "$tr5"
+out=$(echo "{\"transcript_path\":\"$tr5\",\"cwd\":\"$work5\"}" | bash "$HOOK" 2>/dev/null)
+if echo "$out" | grep -q '"continue":true' && [ ! -f "$outside5/pending-capture.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.a .specops symlink write 거부"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a (외부 write 관통 또는 continue 아님)"
+fi
+
+# T5.b pending-capture.jsonl 파일 symlink → append 거부 (#144 대칭, 파일 벡터)
+work6="$TMP/work6"; outside6="$TMP/outside6"; mkdir -p "$work6/.specops" "$outside6"
+(cd "$work6" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q)
+ln -s "$outside6/leak.jsonl" "$work6/.specops/pending-capture.jsonl"
+echo "w" > "$work6/qux.sh"; (cd "$work6" && git add qux.sh)
+tr6="$TMP/tr6.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"고쳐줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"qux.sh"}}]}}' > "$tr6"
+out=$(echo "{\"transcript_path\":\"$tr6\",\"cwd\":\"$work6\"}" | bash "$HOOK" 2>/dev/null)
+if echo "$out" | grep -q '"continue":true' && [ ! -f "$outside6/leak.jsonl" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.b pending 파일 symlink append 거부"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b (파일 symlink 관통)"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

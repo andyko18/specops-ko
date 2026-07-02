@@ -15,6 +15,11 @@ if [ -f "$target" ]; then
   exit 0
 fi
 
+# symlink 가드 (#144 log_friction 대칭) — .specops 디렉토리 또는 target 이 symlink 면
+# mkdir -p / sed > / cp 가 따라가 외부 path 로 관통. 세션 훅이라 조용히 exit 0 (fail-open).
+[ ! -L ".specops" ] || { echo "ensure-session-progress: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; exit 0; }
+[ ! -L "$target" ] || { echo "ensure-session-progress: $target 가 symlink — 쓰기 거부" >&2; exit 0; }
+
 # 이중화 복원 — target 부재 시 .bak 있으면 복원 (빈 template 대신 작업 이력 유지 — AC-3, 조용히, template 무관)
 mkdir -p .specops
 if [ -f "$target.bak" ]; then

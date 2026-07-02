@@ -64,7 +64,15 @@ fi
 # 3. 테스트 명령 — bash 코드 블록 안에 명령 라인 1+
 sec3=$(extract_section "3\\. 테스트 명령")
 # fenced code block 안 라인 추출 (bash 또는 sh fence)
-test_cmd=$(printf '%s' "$sec3" | awk '/^```(bash|sh)?$/{in_b=1; next} /^```/{in_b=0} in_b' | grep -v '^[[:space:]]*$' | grep -v '^[[:space:]]*#')
+# fence 상태 추적 — 닫는 ``` 가 (bash|sh)? 빈 매치로 여는 패턴에 걸려 in_b 가 안 꺼지는 결함 방지.
+# 모든 ``` 줄이 fence 상태를 토글하고, bash/sh/bare 여는 fence 일 때만 내용 캡처.
+test_cmd=$(printf '%s' "$sec3" | awk '
+  /^```/ {
+    if (in_fence) { in_fence=0; capture=0 }
+    else { in_fence=1; capture = ($0 ~ /^```(bash|sh)?$/) }
+    next
+  }
+  capture' | grep -v '^[[:space:]]*$' | grep -v '^[[:space:]]*#')
 if [ -z "$test_cmd" ]; then
   MISSING+=("3. 테스트 명령 (bash fenced block 안에 실제 명령 라인 필요)")
 fi

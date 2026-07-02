@@ -249,5 +249,81 @@ CTX
 }
 T4_a && ok "T4.a AC-R 단독 §1 통과 (AC-R-N 인식)" || fail "T4.a AC-R 단독 §1 통과 (AC-R-N 인식)"
 
+# ── T5: §3 fence 상태 추적 ────────────────────────────────────────────────
+
+# T5.a: 코드블록에 명령 없고 닫는 fence 뒤 산문만 → exit 1 (fence 누출 거짓 PASS 회귀)
+T5_a() {
+  local f
+  f=$(mktemp)
+  cat > "$f" <<'EOF'
+# Dispatch Context: task-1
+
+## 1. 담당 AC
+
+- AC-1: Given X / When Y / Then Z
+
+## 2. 관련 spec.md 섹션
+
+- `.specops/20260101-test/spec.md` §2 (line 10-30)
+
+## 3. 테스트 명령
+
+```bash
+# TODO
+```
+
+명령은 추후 기재 예정.
+
+## 4. 수정 허용 파일 (whitelist)
+
+- `scripts/feature.sh`
+
+## 5. 작업 디렉터리
+
+- `.worktrees/20260101-test-task-1/`
+EOF
+  bash "$SCRIPT" "$f" >/dev/null 2>&1
+  local rc=$?
+  rm -f "$f"
+  [ $rc -eq 1 ]
+}
+T5_a && ok "T5.a §3 fence 뒤 산문 누출 차단 → exit 1" || fail "T5.a §3 fence 뒤 산문 누출 차단 → exit 1"
+
+# T5.b: bash 아닌 fence(```text) 내용은 테스트 명령으로 미인식 → exit 1
+T5_b() {
+  local f
+  f=$(mktemp)
+  cat > "$f" <<'EOF'
+# Dispatch Context: task-1
+
+## 1. 담당 AC
+
+- AC-1: Given X / When Y / Then Z
+
+## 2. 관련 spec.md 섹션
+
+- `.specops/20260101-test/spec.md` §2 (line 10-30)
+
+## 3. 테스트 명령
+
+```text
+이것은 명령이 아님
+```
+
+## 4. 수정 허용 파일 (whitelist)
+
+- `scripts/feature.sh`
+
+## 5. 작업 디렉터리
+
+- `.worktrees/20260101-test-task-1/`
+EOF
+  bash "$SCRIPT" "$f" >/dev/null 2>&1
+  local rc=$?
+  rm -f "$f"
+  [ $rc -eq 1 ]
+}
+T5_b && ok "T5.b §3 비-bash fence 미인식 → exit 1" || fail "T5.b §3 비-bash fence 미인식 → exit 1"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

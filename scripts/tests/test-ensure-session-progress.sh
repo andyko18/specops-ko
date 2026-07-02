@@ -94,5 +94,28 @@ T1e_rc=$?
   || fail "T1.e mkdir -p .specops (rc=$T1e_rc, dir 존재=$([ -d $tmp/.specops ] && echo yes || echo no), file 존재=$([ -f $tmp/.specops/session-progress.md ] && echo yes || echo no))"
 rm -rf "$tmp"
 
+# ── T1.f .specops 디렉토리 symlink → 외부 write-through 차단 (#144 대칭) ──
+tmp=$(mktemp -d)
+outside=$(mktemp -d)
+ln -s "$outside" "$tmp/.specops"
+(cd "$tmp" && bash "$HOOK" >/dev/null 2>&1)
+T1f_rc=$?
+[ "$T1f_rc" -eq 0 ] && [ ! -f "$outside/session-progress.md" ] \
+  && ok "T1.f .specops symlink → write 거부 (rc=0, 외부 미생성)" \
+  || fail "T1.f .specops symlink write 거부 (rc=$T1f_rc, 외부생성=$([ -f "$outside/session-progress.md" ] && echo yes || echo no))"
+rm -rf "$tmp" "$outside"
+
+# ── T1.g session-progress.md dangling symlink → sed 관통 차단 (#144 대칭) ──
+tmp=$(mktemp -d)
+outside=$(mktemp -d)
+mkdir -p "$tmp/.specops"
+ln -s "$outside/leak.md" "$tmp/.specops/session-progress.md"   # dangling — L14 -f 통과
+(cd "$tmp" && bash "$HOOK" >/dev/null 2>&1)
+T1g_rc=$?
+[ "$T1g_rc" -eq 0 ] && [ ! -f "$outside/leak.md" ] \
+  && ok "T1.g target 파일 symlink → write 거부" \
+  || fail "T1.g target 파일 symlink write 거부 (rc=$T1g_rc, 관통=$([ -f "$outside/leak.md" ] && echo yes || echo no))"
+rm -rf "$tmp" "$outside"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Stop 훅 `.specops` symlink 가드 대칭화 (#144 잔여)** — `log_friction` 계열에만 적용됐던 write-through path-escape 가드를 같은 Stop 계층의 나머지 `.specops` writer 2곳에 전파. `freecomment-capture.sh`: `.specops` 디렉토리·`pending-capture.jsonl` 파일 symlink 시 append 거부(safe_exit). `ensure-session-progress.sh`: `.specops` 디렉토리·`session-progress.md` dangling symlink 시 write 거부(조용히 exit 0). 악성 repo 가 symlink 를 심어 repo 밖 파일에 쓰게 만드는 벡터 차단 — 한 세션 안에서 log_friction 은 거부하는데 다른 writer 는 관통하던 자기모순 해소. 회귀 테스트 4케이스(T5.a/T5.b, T1.f/T1.g) red-green.
+- **`validate-context.sh` §3 fence 상태 추적 결함** — 닫는 ``` 가 `(bash|sh)?` 빈 매치로 여는 패턴에 걸려 `in_b=0` 규칙이 죽은 코드였음. 빈 코드블록 뒤 산문이 테스트 명령으로 오인돼 실제 명령 없는 dispatch context 를 거짓 PASS 하는 검증기 soundness 결함. fence 상태 토글 + bash/sh/bare 여는 fence 만 캡처로 교체. 회귀 테스트 T5.a(산문 누출 차단)·T5.b(비-bash fence 미인식) red-green.
+
 ## [1.32.1] — 2026-07-02
 
 ### Fixed
