@@ -151,7 +151,7 @@ specops-auto-ko/
 │   ├── status.md                             ← FID Lifecycle 단계·아티팩트 현황 /status
 │   ├── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
 │   └── statusline-install.md                 ← HUD statusLine 등록 /statusline-install
-├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (4종)
+├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (거버넌스 4종) + Notification (보조)
 │   ├── hooks.json                        ← 훅 매니페스트
 │   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
 │   ├── pretool-governance.sh             ← commit/PR 전 verify 누락 사전 차단 (R-1·R-2 Hard block)

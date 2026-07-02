@@ -71,6 +71,8 @@ struct_cnt=0; manual_cnt=0; cache_hit=0; fetched=0; cache_miss=0; errors=0
 
 struct_tmp=$(mktemp)
 manual_tmp=$(mktemp)
+# 중단(SIGINT/kill)·중간 실패 시 임시파일 잔류 방지 — 정상경로 rm 은 유지(멱등)
+trap 'rm -f "${struct_tmp:-}" "${manual_tmp:-}" "${up_tmp:-}" "${lo_tmp:-}" "${block_tmp:-}" "${final_tmp:-}"' EXIT
 
 while IFS= read -r f; do
   [ -z "$f" ] && continue

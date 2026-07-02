@@ -62,12 +62,14 @@ _resolve_conflict_policy() {
   fi
 }
 
-# 토큰 치환: <TOKEN> → value (sed | 구분자, value 의 |·& escape)
+# 토큰 치환: <TOKEN> → value (sed | 구분자, LHS 토큰 BRE 메타문자 + RHS value 의 |·& escape)
 _replace_token() {
   local file="$1" token="$2" value="$3"
-  local esc
+  local esc_token esc
+  # 토큰(LHS)은 BRE 리터럴로 — . * [ ] ^ $ \ 및 구분자 | escape (`.` any-char 오매치 차단)
+  esc_token=$(printf '%s' "$token" | sed 's/[].[*^$\|]/\\&/g')
   esc=$(printf '%s' "$value" | sed 's/[|&\\]/\\&/g')
-  sed -i.bak "s|${token}|${esc}|g" "$file" && rm -f "${file}.bak"
+  sed -i.bak "s|${esc_token}|${esc}|g" "$file" && rm -f "${file}.bak"
 }
 
 # 라인 교체: prefix 가 일치하는 줄을 content 로 바꿈 (awk dynamic regex backslash 회피)

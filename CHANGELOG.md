@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **2026-07-02 전체 감사 잔여 LOW 5건 일괄 처리** — ① `test-shellcheck-lint.sh` 신설: CI 전용이던 `shellcheck -S error` 게이트의 로컬 run-all parity(미설치 시 graceful SKIP) — 로컬 green 후 push 에서 최초 발각되던 비대칭 해소. ② `_replace_token` 토큰(LHS) BRE 메타문자 escape — `.` any-char 오매치·`*[]` 미매치·`|` 구분자 파손 차단, `test-init-lib-token.sh` 5케이스 red-green. ③ `diff-upstream.sh` trap EXIT — 중단 시 임시파일 6종 잔류 방지. ④ used_by frontmatter 정합 2건 — `systematic-debugging-ko` 에 security-review-ko FAIL 분기 추가, `advisor-ko` 를 실배선 기준(ambient + planning-ko 실호출)으로 정확화. ⑤ 훅 표기 정밀화 — CLAUDE.md·README "훅 4종" → 거버넌스 4종 + Notification 보조 1종.
 - **Stop 훅 `.specops` symlink 가드 대칭화 (#144 잔여)** — `log_friction` 계열에만 적용됐던 write-through path-escape 가드를 같은 Stop 계층의 나머지 `.specops` writer 2곳에 전파. `freecomment-capture.sh`: `.specops` 디렉토리·`pending-capture.jsonl` 파일 symlink 시 append 거부(safe_exit). `ensure-session-progress.sh`: `.specops` 디렉토리·`session-progress.md` dangling symlink 시 write 거부(조용히 exit 0). 악성 repo 가 symlink 를 심어 repo 밖 파일에 쓰게 만드는 벡터 차단 — 한 세션 안에서 log_friction 은 거부하는데 다른 writer 는 관통하던 자기모순 해소. 회귀 테스트 4케이스(T5.a/T5.b, T1.f/T1.g) red-green.
 - **`validate-context.sh` §3 fence 상태 추적 결함** — 닫는 ``` 가 `(bash|sh)?` 빈 매치로 여는 패턴에 걸려 `in_b=0` 규칙이 죽은 코드였음. 빈 코드블록 뒤 산문이 테스트 명령으로 오인돼 실제 명령 없는 dispatch context 를 거짓 PASS 하는 검증기 soundness 결함. fence 상태 토글 + bash/sh/bare 여는 fence 만 캡처로 교체. 회귀 테스트 T5.a(산문 누출 차단)·T5.b(비-bash fence 미인식) red-green.
 
