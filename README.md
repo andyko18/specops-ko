@@ -147,6 +147,8 @@ specops-auto-ko/
 │   ├── start-auto.md                         ← 완전자동 모드 /start-auto
 │   ├── start-all.md                          ← 배치 오케스트레이터 /start-all
 │   ├── start-all-auto.md                     ← 무인 배치 오케스트레이터 /start-all-auto
+│   ├── promote.md                            ← 자유작업 mini-FID lifecycle 승격 /promote
+│   ├── status.md                             ← FID Lifecycle 단계·아티팩트 현황 /status
 │   ├── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
 │   └── statusline-install.md                 ← HUD statusLine 등록 /statusline-install
 ├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (4종)
@@ -193,12 +195,12 @@ specops-auto-ko/
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
 │   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (9단계)
 ├── templates/                            ← 32건 (md 31 + html 1)
-│   │  Lifecycle/공통 템플릿 (18건): spec, acceptance-criteria, plan, tasks, session-progress,
+│   │  Lifecycle/공통 템플릿 (19건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
-│   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest, critic-prompt-{diff,plan}
-│   │  /init-project 산출 템플릿 (12건): constitution, PRD, requirements,
+│   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest, critic-prompt-{diff,plan}, freework
+│   │  /init-project 산출 템플릿 (13건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
-│   │      api-spec, data-model, screens-overview, test-strategy
+│   │      api-spec, api-spec-consumer, data-model, screens-overview, test-strategy
 ├── agents/                               ← 7건 (implementer, spec-reviewer, code-reviewer, plan-reviewer, red-team, blue-team, auditor)
 ├── scripts/
 │   ├── session-progress-append.sh

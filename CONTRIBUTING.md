@@ -28,10 +28,10 @@ claude plugin marketplace add ~/Project/0.Claude/specops-auto-ko
 ## PR 전 필수 체크
 
 ```bash
-# 1) 구조 무결성 (12/12 OK 목표)
+# 1) 구조 무결성 (전 항목 ✅ 목표)
 bash scripts/_internal/validate-structure.sh
 
-# 2) 거버넌스 규칙 회귀 (PASS=72 목표)
+# 2) 거버넌스 규칙 회귀 (전 항목 PASS, FAIL=0 목표)
 bash scripts/tests/governance/test-rules.sh
 
 # 3) DAG 파서 (PASS=24 목표)

@@ -8,7 +8,7 @@
 - `struct` (auto): `<owner>/<repo>@<tag> <path.ext>` 엄격 매칭 — 섹션 수·제목 비교
 - `manual`: 다중·서술형·확장자 없음 — 수동 리뷰 대상 (v0.3 구조화 마이그레이션 예정)
 
-**카운트 해석**: `scripts/validate-structure.sh`의 `ref_upstream_fmt` struct는 덜 엄격한 정규식 산출. diff-upstream의 struct는 확장자 + 라인 끝 앵커 엄격 매칭. 두 숫자가 다른 것이 정상.
+**카운트 해석**: `scripts/_internal/validate-structure.sh`의 `ref_upstream_fmt` struct는 덜 엄격한 정규식 산출. diff-upstream의 struct는 확장자 + 라인 끝 앵커 엄격 매칭. 두 숫자가 다른 것이 정상.
 
 ---
 
