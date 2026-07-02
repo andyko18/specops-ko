@@ -2,6 +2,7 @@
 name: auditor-ko
 description: red 발견 + blue 평가를 종합해 specops 플러그인 self-config 의 risk 등급(A~F)과 우선순위 리포트를 산출하는 Auditor 에이전트. 번들 read-only(분석) + 리포트 .md 1건 산출.
 model: inherit
+role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 

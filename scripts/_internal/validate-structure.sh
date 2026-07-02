@@ -208,16 +208,31 @@ ubf=$(grep -rlE '^used_by:.*specops-auto-ko:' skills --include='SKILL.md' 2>/dev
   | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
 if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
 
-# 13) agent_tools — read-only reviewer agent 는 frontmatter `tools:` 명시 + Write/Edit 박탈(하드강제).
-#     Generator-Evaluator 분리(generator-evaluator-ko)의 구조적 보장 — prose-only 면 Evaluator 가 코드 수정 가능.
-atf=()
-for a in spec-reviewer-ko code-reviewer-ko plan-reviewer-ko; do
-  [ -f "agents/$a.md" ] || continue   # 파일 부재(sandbox 등) → graceful skip
-  tl=$(grep -E '^tools:' "agents/$a.md" 2>/dev/null)
-  if [ -z "$tl" ]; then atf+=("$a:tools누락"); continue; fi
-  printf '%s' "$tl" | grep -qwE 'Write|Edit' && atf+=("$a:Write/Edit포함")
-done
-if [ ${#atf[@]} -eq 0 ]; then emit agent_tools OK; else emit agent_tools FAIL "${atf[*]}"; fi
+# 13) agent_tools — role: evaluator 역방향 스캔 (Generator-Evaluator 도구 박탈 하드강제)
+#     ① 마킹 evaluator 전체: tools 명시 + Write/Edit 박탈 ② 파일명 *reviewer* 미마킹 FAIL (2차 방어)
+#     ③ 파일 존재 + 마킹 0건 FAIL (공회전 방지) ④ agents/*.md 0건(sandbox) SKIP
+#     한계 고백: 미마킹 + 파일명 비reviewer 신규 evaluator (critic 류) 는 사각 — 마킹 규약(CLAUDE.md)으로 안내
+if ! ls agents/*.md >/dev/null 2>&1; then
+  emit agent_tools SKIP "agents/*.md 부재 (sandbox 등)"
+else
+  atf=()
+  ev=$(grep -l '^role: evaluator' agents/*.md 2>/dev/null || true)
+  if [ -z "$ev" ]; then
+    atf+=("evaluator마킹0건")
+  else
+    for f in $ev; do
+      a=$(basename "$f" .md)
+      tl=$(grep -E '^tools:' "$f" 2>/dev/null)
+      if [ -z "$tl" ]; then atf+=("$a:tools누락"); continue; fi
+      printf '%s' "$tl" | grep -qwE 'Write|Edit' && atf+=("$a:Write/Edit포함")
+    done
+  fi
+  for f in agents/*reviewer*.md; do
+    [ -f "$f" ] || continue
+    grep -q '^role: evaluator' "$f" || atf+=("$(basename "$f" .md):role마킹누락")
+  done
+  if [ ${#atf[@]} -eq 0 ]; then emit agent_tools OK; else emit agent_tools FAIL "${atf[*]}"; fi
+fi
 
 # 14) chain_consistency — hooks/chain.yaml(단일 source) ↔ SKILL.md `## 다음 skill` ↔ 메타 skill 화살표 목록
 #     primary edge 만 대조 (조건 분기 산문은 xref_resolve 관할). T-H1(prefilter≡rules.jsonl) 동일 클래스.

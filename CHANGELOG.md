@@ -7,6 +7,9 @@
 ### Added
 - **chain 단일 source + 정합 게이트** — `hooks/chain.yaml` 이 lifecycle primary edge 의 Source of Truth 로 신설. `validate-structure.sh` 신규 검사 `chain_consistency`(#14) 가 21개 SKILL.md `## 다음 skill` 코드블록·메타 skill 화살표 목록과의 drift 를 양방향 적발 (edge 좌표 명시 FAIL). #150~153 전파 누락 4회 재발 클래스 차단. red-green T14.a~f (drift 4방향 + pyyaml SKIP + yaml 파손). FID `20260702-chain-single-source`
 
+### Changed
+- **하드코딩 목록 → frontmatter marker 역방향 스캔** — `validate-structure.sh` agent_tools 가 reviewer 3종 리터럴에서 `role: evaluator` marker 스캔으로 전환 (red/blue/auditor 편입 — 6종, `*reviewer*` 미마킹 2차 방어 + 마킹 0건 공회전 방지). `test-skill-conventions.sh` T9 가 discipline 3종 리터럴에서 `discipline: true` marker 스캔 + 하한 3 으로 전환. 신규 evaluator/discipline 항목은 marker 만 달면 자동 검사 편입 (T9 completeness Known-Limited 해소). red-green T15.a~d·T9.r/s. FID `20260702-marker-reverse-scan`
+
 ## [1.32.3] — 2026-07-02
 
 ### Changed

@@ -43,6 +43,7 @@ used_by: "{{호출 스킬 목록 — 예: specops-auto-ko:implementing-ko}}"
 
 > 본 섹션은 **discipline-class skill** (거버넌스 강제·규율 위반 방지 목적)에만 포함.
 > 일반 skill 은 생략. failure-first 관찰로 발견한 agent 합리화 패턴만 기재.
+> discipline-class 는 frontmatter 에 `discipline: true` marker 필수 — test-skill-conventions T9 가 marker 스캔으로 본 섹션 존재를 강제한다 (marker 누락 시 검사 사각).
 
 | AI 합리화 패턴 | 차단 규칙 |
 |---|---|

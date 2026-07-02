@@ -411,5 +411,65 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T14.f chain_consistency SKIP 분기 부재"
 fi
 
+# ── agent_tools marker 역방향 스캔 (FID 20260702-marker-reverse-scan) ─────────
+
+# T15.a 실제 repo — agent_tools 가 role: evaluator 역방향 스캔으로 6종 검사
+ev_count=$(grep -l '^role: evaluator' "$PLUGIN"/agents/*.md 2>/dev/null | grep -c . || true)
+if [ "$ev_count" -eq 6 ] && bash "$SCRIPT" 2>&1 | grep -q 'agent_tools: OK'; then
+  PASS=$((PASS+1)); echo "PASS T15.a role: evaluator 마킹 6종 + 역방향 스캔 OK"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T15.a evaluator 마킹 $ev_count/6 또는 agent_tools 비OK"
+fi
+
+# T15.b 가짜 evaluator (role: evaluator + Write) 자동 편입 적발 — 스크립트 무수정 (AC-2)
+#       파일명 비reviewer(fake-audit-ko)로 2차 방어 분기와 판정 단일화
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if ! echo "$pre" | grep -q 'agent_tools: SKIP'; then
+  FAIL=$((FAIL+1)); echo "FAIL T15.b 변조 전 단언 (agents 빈 sandbox 가 SKIP 아님)"
+else
+  printf -- '---\nname: good-eval-ko\nrole: evaluator\ntools: Read\n---\n' > "$sb/agents/good-eval-ko.md"
+  printf -- '---\nname: fake-audit-ko\nrole: evaluator\ntools: Read, Write\n---\n' > "$sb/agents/fake-audit-ko.md"
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+  if [ $rc -eq 1 ] && echo "$err" | grep -q 'agent_tools: FAIL' && echo "$err" | grep -q 'fake-audit-ko:Write/Edit포함'; then
+    PASS=$((PASS+1)); echo "PASS T15.b 가짜 evaluator 자동 편입 적발"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T15.b (rc=$rc, out=$(echo "$err" | grep agent_tools))"
+  fi
+fi
+rm -rf "$sb"
+
+# T15.c 미마킹 reviewer (role 없음) 2차 방어 (AC-3)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if ! echo "$pre" | grep -q 'agent_tools: SKIP'; then
+  FAIL=$((FAIL+1)); echo "FAIL T15.c 변조 전 단언 (agents 빈 sandbox 가 SKIP 아님)"
+else
+  printf -- '---\nname: good-eval-ko\nrole: evaluator\ntools: Read\n---\n' > "$sb/agents/good-eval-ko.md"
+  printf -- '---\nname: fake-reviewer-ko\ntools: Read\n---\n' > "$sb/agents/fake-reviewer-ko.md"
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+  if [ $rc -eq 1 ] && echo "$err" | grep -q 'agent_tools: FAIL' && echo "$err" | grep -q 'fake-reviewer-ko:role마킹누락'; then
+    PASS=$((PASS+1)); echo "PASS T15.c 미마킹 reviewer 2차 방어"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T15.c (rc=$rc, out=$(echo "$err" | grep agent_tools))"
+  fi
+fi
+rm -rf "$sb"
+
+# T15.d agents 파일 존재 + evaluator 마킹 0건 → 공회전 방지 (AC-4)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if ! echo "$pre" | grep -q 'agent_tools: SKIP'; then
+  FAIL=$((FAIL+1)); echo "FAIL T15.d 변조 전 단언 (agents 빈 sandbox 가 SKIP 아님)"
+else
+  printf -- '---\nname: plain-agent-ko\ntools: Read\n---\n' > "$sb/agents/plain-agent-ko.md"
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+  if [ $rc -eq 1 ] && echo "$err" | grep -q 'agent_tools: FAIL' && echo "$err" | grep -q 'evaluator마킹0건'; then
+    PASS=$((PASS+1)); echo "PASS T15.d 마킹 0건 공회전 방지"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T15.d (rc=$rc, out=$(echo "$err" | grep agent_tools))"
+  fi
+fi
+rm -rf "$sb"
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL

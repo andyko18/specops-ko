@@ -2,6 +2,7 @@
 name: blue-team-ko
 description: red-team-ko 가 보고한 self-config 공격 표면 각각에 대해 기존 방어·완화 장치 유효성을 평가하는 Blue 에이전트. read-only.
 model: inherit
+role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 

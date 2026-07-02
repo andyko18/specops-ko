@@ -2,6 +2,7 @@
 name: red-team-ko
 description: specops 플러그인 자기 설정(hooks·skills·rules.jsonl·plugin.json·settings) 번들에서 공격 체인·우회 표면을 탐색하는 self-config 적대감사 Red 에이전트. read-only.
 model: inherit
+role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 
