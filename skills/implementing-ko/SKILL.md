@@ -363,7 +363,6 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md` + 3 프롬프트
 - specops-ko 한국어 선례: `skills/engine/subagent-driven-development-ko.md`
 - `skills/generator-evaluator-ko/SKILL.md` — 2단계 리뷰(스펙·품질) 분리 원칙
 - `skills/context-resets-ko/SKILL.md` — fresh 서브에이전트 세션 보장

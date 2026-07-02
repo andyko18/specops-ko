@@ -1,6 +1,6 @@
 ---
 name: using-specops-auto-ko-ko
-description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제 (Superpowers using-superpowers 한국어 재창작 + 5원칙 주입)
+description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 1.26.3
@@ -198,7 +198,6 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 ## 참조
 
-- `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md` — 원본
 - specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
 - `skills/<name>/SKILL.md` (layer=2 engine·layer=3 harness 플랫 구조 — CLAUDE.md §Skill 계층 참조)
 - `commands/start.md` — 슬래시 진입점
@@ -208,4 +207,4 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · Superpowers using-superpowers 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
+*specops-auto-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*

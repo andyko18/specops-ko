@@ -192,9 +192,8 @@ implementing-ko 의 기본 순차 dispatch 경로 유지. 본 스킬 호출 안 
 
 ## 참조
 
-- 원본: `obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md`
 - 관련 스킬: `specops-auto-ko:implementing-ko` (caller), `specops-auto-ko:context-resets-ko` (fresh 세션 보장), `specops-auto-ko:file-based-communication-ko` (프롬프트는 파일 경로만)
 
 ---
 
-*2026-04-25 · Superpowers dispatching-parallel-agents 한국어 이식 + 5원칙 주입 + AC injection contract 통합*
+*2026-04-25 · 한국어 이식 + 5원칙 주입 + AC injection contract 통합*

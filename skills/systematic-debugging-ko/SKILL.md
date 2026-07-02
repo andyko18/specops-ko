@@ -304,7 +304,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 ## 실제 영향
 
-디버깅 세션 실적 (Superpowers 원본):
+디버깅 세션 실적 (원본):
 - 체계적 접근: 15~30분 픽스
 - 무작위 픽스: 2~3시간 thrashing
 - 첫 시도 성공률: 95% vs 40%
@@ -312,7 +312,6 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/systematic-debugging-ko.md`
 
 ## 다음 skill

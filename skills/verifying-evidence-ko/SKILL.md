@@ -115,7 +115,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 ## 중요한 이유
 
-Superpowers 원본 24개 실패 기록에서:
+원본 24개 실패 기록에서:
 - 사용자 파트너가 "I don't believe you" 선언 — 신뢰 파괴
 - 미정의 함수 배포 — 크래시
 - 누락 요구사항 배포 — 기능 불완전
@@ -182,7 +182,6 @@ Superpowers 원본 24개 실패 기록에서:
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md`
 - ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/verification-loop/`
 - specops-ko 한국어 선례: `skills/engine/verifying-evidence-ko.md`
 

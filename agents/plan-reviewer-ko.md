@@ -77,7 +77,6 @@ Minor: <N>건
 ## 참조
 
 - `skills/planning-ko/SKILL.md` — 본 에이전트를 dispatch하는 부모
-- upstream 참조: `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`
 
 ## 다음 단계
 

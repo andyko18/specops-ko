@@ -56,7 +56,6 @@ specops-auto-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자�
 - `skills/specifying-ko/SKILL.md` — 첫 Lifecycle 단계
 - `skills/structured-artifacts-ko/SKILL.md` — `.specops/<FID>/` 경로 규약
 - 설계 근거: specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
-- 참조: obra/superpowers@v5.0.7 commands/brainstorm.md (deprecated하지만 진입 패턴 참고)
 - 참조: affaan-m/everything-claude-code@1.2.0 commands/orchestrate.md
 
 ---

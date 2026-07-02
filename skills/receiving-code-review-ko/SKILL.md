@@ -203,7 +203,6 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md`
 - specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
 
 ## session-progress append (v0.4-pre P1 신설)

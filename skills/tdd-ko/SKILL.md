@@ -350,7 +350,6 @@ PASS
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md`
 - ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow/`
 - specops-ko 한국어 선례: `skills/engine/tdd-ko.md`
 - `skills/karpathy-ko/SKILL.md` — 원칙 4 목표 기반 실행 (Goal-Driven Execution)

@@ -203,7 +203,7 @@ plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로
 > 어느 쪽으로 할까요?"
 
 **서브에이전트 주도 선택 시**:
-- 필수 하위 스킬: `specops-auto-ko:implementing-ko` (Superpowers subagent-driven-development 이식)
+- 필수 하위 스킬: `specops-auto-ko:implementing-ko`
 - 태스크별 fresh 서브에이전트 + 2단계 리뷰
 
 **인라인 실행 선택 시**:
@@ -223,7 +223,6 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 
 - `templates/plan.md` — 작성 포맷 (**정확히 따를 것**, 특히 §8 Advisor 협의 기록 섹션)
 - `templates/tasks.md` — 태스크 분해 포맷
-- upstream 원본: `obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md`
 - `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 

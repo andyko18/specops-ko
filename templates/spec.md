@@ -91,7 +91,7 @@ specifying 중 애매하거나 근거가 부족한 지점에서 `advisor()` 를 
 
 ## 10. 참조
 
-- 관련 스펙: `docs/superpowers/specs/<file>.md`
+- 관련 스펙: `docs/specs/<file>.md`
 - 관련 이슈·PR: <링크>
 
 ---

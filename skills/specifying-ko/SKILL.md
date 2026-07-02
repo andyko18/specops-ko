@@ -395,7 +395,6 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 
 - `skills/structured-artifacts-ko/SKILL.md` — 스펙 파일 경로 규약
 - `templates/spec.md` · `templates/acceptance-criteria.md` — 작성 포맷
-- upstream 원본: `obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md`
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 

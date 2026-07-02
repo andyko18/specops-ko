@@ -160,7 +160,6 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - `skills/specifying-ko/SKILL.md` — 선행 스킬
 - `skills/structured-artifacts-ko/SKILL.md` — 아티팩트 경로 규약
 - `templates/acceptance-criteria.md` — AC 포맷
-- upstream 근거: `obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md` 후반 "Spec Self-Review" + "User Review Gate"
 - specops-ko 선례: `commands/clarify.md`
 
 ## 다음 skill

@@ -284,10 +284,9 @@ worktree 준비 완료 후:
 
 ## 참조
 
-- 원본: `obra/superpowers@v5.1.0 skills/using-git-worktrees/SKILL.md`
 - 짝: `specops-auto-ko:finishing-a-development-branch-ko`
 - 호출 위치: `specops-auto-ko:specifying-ko`, `specops-auto-ko:implementing-ko`
 
 ---
 
-*2026-04-25 · Superpowers using-git-worktrees 한국어 이식 + 5원칙 주입 + specops bash 프로젝트 셋업 추가*
+*2026-04-25 · 한국어 이식 + 5원칙 주입 + specops bash 프로젝트 셋업 추가*

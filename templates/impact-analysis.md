@@ -1,7 +1,7 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /maintain (analyzing-ko) -->
 <!-- MUTABLE_BY: /clarify (append only) -->
-<!-- reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재) -->
+<!-- reference_upstream: specops-auto-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # 영향 분석 (Impact Analysis) — <FID>

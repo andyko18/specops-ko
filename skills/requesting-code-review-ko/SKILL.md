@@ -75,7 +75,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 [code-reviewer 서브에이전트 dispatch]
   WHAT_WAS_IMPLEMENTED: 대화 인덱스 검증·수리 함수
-  PLAN_OR_REQUIREMENTS: docs/superpowers/plans/deployment-plan.md Task 2
+  PLAN_OR_REQUIREMENTS: docs/plans/deployment-plan.md Task 2
   BASE_SHA: a7981ec
   HEAD_SHA: 3df7661
   DESCRIPTION: verifyIndex() + repairIndex() 추가, 4 이슈 타입
@@ -131,7 +131,6 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ## 참조
 
-- upstream 원본: `obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md`
 - 리뷰어 에이전트: `agents/code-reviewer-ko.md` (Phase C — `subagent_type: "specops-auto-ko:code-reviewer-ko"`)
 - specops-ko 한국어 선례: `skills/engine/requesting-code-review-ko.md`
 
