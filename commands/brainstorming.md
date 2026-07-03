@@ -22,7 +22,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 1. **즉시 `specops-auto-ko:brainstorming-ko` 호출** — 전달된 `<주제>`를 초기 맥락으로 제공
 2. 모드 선택 GATE (Startup / Builder)
 3. 질문 기반 탐색 진행
-4. 산출물 저장: `.specops/memory/brainstorming-<날짜>-<슬러그>.md`
+4. 산출물 저장: `.specops/memory/brainstorming-<날짜>-<시간>-<슬러그>.md`
 5. 탐색 완료 후 사용자 결정에 따라 `/init-project` 또는 `/start <기능>` 진행
 
 ## 권장 흐름
@@ -30,7 +30,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 ```
 /brainstorming <아이디어>
     ↓
-.specops/memory/brainstorming-*.md 저장
+.specops/memory/brainstorming-<날짜>-<시간>-<슬러그>.md 저장
     ↓ (탐색 완료 후 선택)
 /init-project          # 프로젝트 구조 부트스트랩 (메모 자동 참조)
     ↓
@@ -45,7 +45,8 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 → brainstorming-ko 호출
 → "Startup / Builder 모드 선택" GATE
 → Startup 선택 → YC 6 질문 진행
-→ .specops/memory/brainstorming-20260515-schedule-app.md 저장
+→ .specops/memory/brainstorming-20260515-143022-sanae-iljeong-gwanri-aep.md 저장
+  (slug 은 scripts/slug.sh 가 국립국어원 로마자 표기법으로 한글 주제를 ASCII kebab 변환)
 → "/init-project 로 부트스트랩하시겠어요?" 안내
 ```
 
