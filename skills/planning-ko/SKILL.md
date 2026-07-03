@@ -234,6 +234,8 @@ spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마�
 
 이 태스크가 없으면 후속 `/start <기능>` 시 decomposing-ko HARD GATE 가 `foundation-manifest.md` 를 발견하지 못해 재사용 게이트가 동작하지 않는다.
 
+**강제**: 이는 산문 권고가 아니다 — `verifying-evidence-ko` 의 **foundation manifest 산출 게이트**가 §유형=foundation 인 FID 완료 시 `.specops/memory/foundation-manifest.md` 존재+채움을 검사하여 누락 시 `VERIFY: FAIL` 로 완료를 차단한다(태스크 누락·파일 미작성 모두). 즉 manifest 없이는 foundation lifecycle 이 완료 선언될 수 없다.
+
 ## session-progress append (v0.4-pre P1 신설)
 
 플랜 저장 직후, decomposing-ko 호출 직전에:

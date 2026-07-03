@@ -161,6 +161,9 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - 추출분이 `api-spec.md`·`data-model.md` 에 **반영돼 있는지 대조**. 통상 `specifying-ko` Step 5.6(정방향 인터페이스 설계)이 선반영했으면 일치한다.
   - **누락·괴리 발견 시**: evidence.md 에 `## memory 동기화 권고` 섹션 기록 — "코드의 `POST /orders` 가 api-spec 의 **채택된 정의방식 섹션**에 없음 → 반영 검토" 식으로 **무엇을 어디에** 명시 + 사용자에게 출력.
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
+- [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.
+  - **FAIL 조건**: 파일 부재 **또는** raw 템플릿 placeholder 잔존(`grep -q '<경로>' .specops/memory/foundation-manifest.md` — 미채움 간주) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단.
+  - **근거**: 소비측 재사용 게이트(`decomposing-ko`)는 이 파일 **존재를 전제**로만 발동한다. 생산은 `planning-ko` 산문 지시뿐(강제 evaluator 부재)이라, verify 가 실제 산출물을 확인하지 않으면 manifest 누락 시 후속 `/start` 재사용 게이트가 **침묵 무발동(no-op)** 한다. 본 게이트가 **Mode1(manifest 태스크 누락)·Mode2(태스크 존재하나 파일 미작성)** 를 모두 차단 → implementing **후** 실제 파일을 검사하는 유일 지점이므로 소비 게이트를 무접촉으로 transitively 건전화한다.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-auto-ko 고유)
