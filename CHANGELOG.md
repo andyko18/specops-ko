@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **init-project 생성 문서의 오인 예시·자기모순·유령행 정리** — 라이브 부트스트랩 산출물 내용 검토에서 발견한 3결함. **A**: `data-model`(`users`/`orders`/`products`)·`api-spec`(`/v1/users`)이 프로젝트 무관 e-commerce 예시인데 placeholder 마커 없어 실제 설계로 오인 소지 → "예시 — 실제 도메인으로 교체" 경고 배너(architecture/front/back은 `<Redux/Zustand>` choice-placeholder라 이미 자명, 미대상). **B**: `requirements` FR 표·§5 마일스톤 매핑이 seed(FR-N↔M-N 1:1)와 어긋나 FR-4 유령행·§5 오매핑(M2→FR-3) → seed 1:1 모델 정합 + FR-4 제거. **C**: `screens-overview` §2 전이도·§5 인증표가 fence 밖이라 입력 안 한 `dashboard`(미존재 화면) 고착 → §1 실측과 자기모순·dangling 링크 → 예시 배너 + 화면명 placeholder화. 데모 재생성 실측 검증, test-init-project 31 PASS. PR #168
+
 ## [1.34.0] — 2026-07-03
 
 ### Added
