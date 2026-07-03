@@ -285,6 +285,46 @@ PYEOF
   if [ $? -eq 0 ]; then emit chain_consistency OK; else emit chain_consistency FAIL "$cc_out"; fi
 fi
 
+# 15) contract_consistency — cross-skill 계약 토큰(BATCH-*-DONE halt signal) 방출↔감시 정합
+#     skill 이 방출(emit)하는 signal 을 오케스트레이터 command 가 감시(watch)하는지 + suffix 일치.
+#     recurring 결함 클래스(feedback_skill_body_infra_propagation)의 구조적 절반을 결정적으로 적발:
+#     start-all F1(suffix drift <BATCH_ID>↔<FID>)·고아 signal 을 LLM 없이 CI 에서 차단.
+if ! command -v python3 >/dev/null 2>&1; then
+  emit contract_consistency SKIP "python3 미설치 — 한계 고백"
+else
+  ct_out=$(python3 - <<'PYEOF' 2>&1
+import glob, re, sys
+sig_re = re.compile(r'(BATCH-[A-Z0-9]+-DONE): <([A-Z_]+)>')
+emit_, watch = {}, {}   # token -> set(suffix)
+for path in glob.glob('skills/*/SKILL.md'):
+    for line in open(path, encoding='utf-8'):
+        for m in sig_re.finditer(line):
+            emit_.setdefault(m.group(1), set()).add(m.group(2))
+for path in glob.glob('commands/*.md'):
+    for line in open(path, encoding='utf-8'):
+        for m in sig_re.finditer(line):
+            watch.setdefault(m.group(1), set()).add(m.group(2))
+tokens = sorted(set(emit_) | set(watch))
+if not tokens:
+    print("0 signals"); sys.exit(0)
+issues = []
+for t in tokens:
+    e, w = emit_.get(t, set()), watch.get(t, set())
+    if not e:
+        issues.append(f"{t}: 오케스트레이터 감시하나 skill 방출 없음(고아 watcher)")
+    if not w:
+        issues.append(f"{t}: skill 방출하나 오케스트레이터 감시 없음(고아 emitter)")
+    sfx = e | w
+    if len(sfx) > 1:
+        issues.append(f"{t}: suffix 불일치 {sorted(sfx)} (emit↔watch drift)")
+if issues:
+    print('; '.join(issues)); sys.exit(1)
+print(f"{len(tokens)} signals OK")
+PYEOF
+)
+  if [ $? -eq 0 ]; then emit contract_consistency OK "$ct_out"; else emit contract_consistency FAIL "$ct_out"; fi
+fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"
