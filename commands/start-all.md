@@ -94,19 +94,21 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
 
 전 FID IMPL_DONE 확인 후:
 
+> **batch-level 호출 규약**: Step A/B/C 의 skill 은 §batch 감지를 `grep .specops/<FID>/spec.md` 로 **FID-scoped** 수행한다. 오케스트레이터는 batch 의 **대표 FID**(queue.md 의 임의 IMPL_DONE FID — 전 FR spec 이 `**§batch**` 라벨 보유)의 spec.md 를 참조해 호출해야 batch 모드가 발동한다(§batch 부재 스코프로 호출 시 SINGLE 모드 falling back → 단일-batch-PR 불변식 위협). 따라서 아래 `-DONE` signal 의 suffix 는 그 대표 `<FID>` 다(스캔 범위는 batch 전체지만 라벨 판정 기준은 대표 FID).
+
 **Step A: batch 레벨 보안 리뷰 (SAST)**
 
 1. `specops-auto-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 코드 변경 표면 신호 부재 시 graceful skip
    - 또는 `bash scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
-   - `BATCH-SECURITY-DONE: <BATCH_ID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
+   - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
    - Critical/High 검출 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
 
 **Step B: batch 레벨 통합 테스트**
 
 2. `specops-auto-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 통합 표면(API·DB·서비스 간 호출) 신호 부재 시 graceful skip
-   - `BATCH-INTEGRATION-DONE: <BATCH_ID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
+   - `BATCH-INTEGRATION-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
    - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
 
 **Step C: batch 레벨 성능 테스트**
@@ -115,7 +117,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
    - `.specops/memory/requirements.md` `## 3. 비기능 요구사항 (NFR)` + 각 FR spec.md `§NFR` 스캔
    - 성능 임계값 신호 부재 시 graceful skip
    - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
-   - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <BATCH_ID>` 출력 후 오케스트레이터로 제어 반환)
+   - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환)
 
 **Step D: batch PR 생성**
 
