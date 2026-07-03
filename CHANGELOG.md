@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.33.0] — 2026-07-03
+
 ### Added
 - **LLM chain 저비용 CI (A층+B층)** — `.github/workflows/llm-smoke.yml` 주 1회 cron + workflow_dispatch 로 신호감지 대표 6 fixture smoke (~$3/회, `ANTHROPIC_API_KEY` secret 부재 시 graceful skip, 실패 시 issue 자동 통보 + FAIL 요약·redaction). `run-evals.sh` 완주 스탬프(`.specops-cache/llm-eval-last-run`, `LLM_EVAL_STAMP_DIR` 테스트 격리) + `release.sh` pre-flight staleness soft 경고(7일). red-green T8.a~d·T18.a~c. C층(월간 e2e cron)은 설계 기록만 — 사용자 후속 결정. FID `20260702-llm-smoke-ci`
 - **chain 단일 source + 정합 게이트** — `hooks/chain.yaml` 이 lifecycle primary edge 의 Source of Truth 로 신설. `validate-structure.sh` 신규 검사 `chain_consistency`(#14) 가 21개 SKILL.md `## 다음 skill` 코드블록·메타 skill 화살표 목록과의 drift 를 양방향 적발 (edge 좌표 명시 FAIL). #150~153 전파 누락 4회 재발 클래스 차단. red-green T14.a~f (drift 4방향 + pyyaml SKIP + yaml 파손). FID `20260702-chain-single-source`
@@ -544,7 +546,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...HEAD
+[1.33.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...v1.33.0
 [1.32.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.2...v1.32.3
 [1.32.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.1...v1.32.2
 [1.32.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...v1.32.1
