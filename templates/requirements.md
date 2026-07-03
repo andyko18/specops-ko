@@ -18,12 +18,13 @@
 
 각 FR 은 고유 ID + 마일스톤 매핑 + 우선순위 (must / should / nice-to-have).
 
+> **FR-1~3 은 `/init-project` 가 PRD §4 마일스톤(M1~M3)을 1:1 로 시드**한 값이다(각 마일스톤 = 1 FR). 세부 기능은 이 시드를 **여러 FR 로 분해**하며(FR-4, FR-5 …), 각 FR 은 `/start` 진입 시 `.specops/<FID>/spec.md` 로 위임된다.
+
 | ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
 |---|---|---|---|---|
-| FR-1 | <한 줄> | M1 | must | `.specops/<FID-1>/spec.md` |
-| FR-2 | <한 줄> | M1 | must | `.specops/<FID-2>/spec.md` |
-| FR-3 | <한 줄> | M2 | should | (TBD) |
-| FR-4 | <한 줄> | M3 | nice | (TBD) |
+| FR-1 | <한 줄> | M1 | must | (TBD) |
+| FR-2 | <한 줄> | M2 | should | (TBD) |
+| FR-3 | <한 줄> | M3 | nice | (TBD) |
 
 ## 3. 비기능 요구사항 (NFR)
 
@@ -47,20 +48,20 @@
 
 ### M1 — <마일스톤 1 이름>
 
-- 포함 FR: FR-1, FR-2
+- 포함 FR: FR-1 (분해 시 FR-4+ 추가)
 - 종속 NFR: NFR-1, NFR-3
 - 예상 기간: <기간>
 - 종속 .specops/<FID> 디렉토리: <목록>
 
 ### M2 — <마일스톤 2 이름>
 
-- 포함 FR: FR-3
+- 포함 FR: FR-2
 - 종속 NFR: NFR-2
 - 예상 기간: <기간>
 
 ### M3 — <마일스톤 3 이름>
 
-- 포함 FR: FR-4
+- 포함 FR: FR-3
 - 예상 기간: <기간>
 
 ## 6. 참조

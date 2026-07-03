@@ -6,6 +6,8 @@
 > 한국 SI 표준 "테이블 설계서". `/init-project` Phase 8e 가 1회 생성 (DB 사용 시).
 > ERD + 엔티티 표 + 인덱스 + 제약 + 마이그레이션 도구 마스터.
 
+> ⚠️ **§2 ERD·§3 엔티티 표의 `users`/`orders`/`products` 등은 작성 방법을 보여주는 예시(e-commerce 샘플)이며 본 프로젝트 도메인과 무관하다. 실제 엔티티로 전부 교체하라.**
+
 ## §1. DB 종류
 
 - **유형**: <PostgreSQL / MySQL / SQLite / MongoDB>
