@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Added
+- **skill-body 게이트 결정적 회귀 인프라** — 유료 llm-smoke CI(secret 미등록 도먼트)에 의존하지 않고 recurring 결함 클래스(teeth in body, 강제 인프라 소실)의 **구조적 절반**을 무료·결정적으로 봉쇄. ① `validate-structure.sh` 신규 검사 `contract_consistency`(#15): cross-skill `BATCH-*-DONE` halt signal 의 방출(skill)↔감시(orchestrator) 정합 + suffix 일치 검사 — `<BATCH_ID>`↔`<FID>` drift·고아 signal 을 LLM 없이 CI 차단. ② `scripts/tests/test-gate-presence.sh`(9 assertion, run-all 자동편입): skill-body HARD GATE 문구 소실 회귀 — foundation 3-지점 계약(verify 생산 게이트·decomposing 소비 게이트·planning 강제 cross-ref)·경로 정합·BATCH 5신호 방출측. red-green 검증. PR #167
+
+### Fixed
+- **lifecycle 단계별 실측 결함 7건** — 신규 프로젝트 lifecycle 6단계 검증에서 발견·수정. **brainstorming**: Q0 라우팅↔자가점검 고정참조 역설(유료고객 경로가 항상 반려)·한글 slug `tr -cd` 전삭제→`scripts/slug.sh`(국립국어원 로마자) 교체. **init-project**: `api-spec-consumer.md` 가 배열 밖이라 git add 누락(고아화)→`git add .specops/memory`·constitution skip placeholder 누출 가드(T1.b 회귀). **start-foundation**: `foundation-manifest.md` 생산이 산문 지시뿐이라(강제 evaluator 부재) 후속 `/start` 재사용 게이트가 침묵 no-op 되던 구조 결함 → `verifying-evidence-ko` HARD GATE 신설(Mode1 태스크누락·Mode2 파일미작성 동시 차단). **start-all**: batch-level halt signal suffix drift(`<BATCH_ID>`↔`<FID>`) 정합. **release**: 문서가 실제 자동 push+GitHub Release 동작을 오도하던 것 정합. **specifying-ko**: Q5+ 명확화 위임을 spec.md §8 구체 기재로 명시(clarifying 경량분기 오판 차단). PR #165·#166
+
 ## [1.33.0] — 2026-07-03
 
 ### Added
