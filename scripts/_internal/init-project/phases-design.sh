@@ -19,6 +19,8 @@ phase_5_claude() {
     name=$(grep -m1 "^### 원칙 ${i}:" .specops/memory/constitution.md 2>/dev/null \
       | sed "s/^### 원칙 ${i}: *//" || echo "원칙${i}")
     [ -z "$name" ] && name="원칙${i}"
+    # constitution 'skip' 시 raw placeholder(<PRINCIPLE_N_NAME>) 가 CLAUDE.md 로 누출되는 것 차단
+    case "$name" in '<'*'>') name="원칙${i}" ;; esac
     _replace_line_prefix "$target" "- 원칙 ${i}:" "- 원칙 ${i}: ${name}"
   done
   echo "→ ${target} 작성 완료"
