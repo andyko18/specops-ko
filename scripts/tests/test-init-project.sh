@@ -58,6 +58,21 @@ else
 fi
 teardown_fixture
 
+# ── T1.b UI(KIND=1) consumer=y → api-spec-consumer.md 생성 + git 추적 (M1 회귀) ──
+setup_fixture
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\nhome\nn\ny\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=y
+} | bash "$SCRIPT" >/dev/null 2>&1
+if [ -f .specops/memory/api-spec-consumer.md ] \
+   && git ls-files --error-unmatch .specops/memory/api-spec-consumer.md >/dev/null 2>&1; then
+  ok "T1.b UI consumer=y → api-spec-consumer.md 생성 + git 추적 (고아 방지 M1)"
+else
+  nope "T1.b consumer 고아" "consumer.md 미생성 또는 git 미추적 (phase_10 memory add 누락)"
+fi
+teardown_fixture
+
 # ── T2.a 백엔드 (KIND=2) ──────────────────────
 setup_fixture
 {

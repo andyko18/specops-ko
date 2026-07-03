@@ -207,6 +207,9 @@ EOF
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
     [ -f "$f" ] && git add "$f"
   done
+  # memory/ 전체 add — 조건부 산출물(api-spec-consumer.md 등 13종 배열 밖) 고아화 방지.
+  #   .specops/.gitignore 정책이 "memory/ 는 commit" 이므로 디렉토리 단위 add 가 정합.
+  [ -d .specops/memory ] && git add .specops/memory
   [ -d screens ] && git add screens
   git add .specops/.gitignore .specops/session-progress.md
   if git diff --cached --quiet; then

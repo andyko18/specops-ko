@@ -21,20 +21,17 @@ reference_upstream: specops-auto-ko 독자 추가
 
 `bash scripts/release.sh <X.Y.Z>` 를 실행해 다음을 수행한다:
 
-1. **pre-flight**: validate-structure + governance + DAG 테스트 PASS 확인
-2. **CHANGELOG**: `[Unreleased]` 섹션을 버전·날짜 헤딩으로 변환 + compare 링크 갱신
-3. **README**: 버전 배지 `(vOLD)` → `(vNEW)` 갱신
-4. **footer**: `commands/*.md` footer/frontmatter 버전 불일치 수정
-5. **post-flight**: validate-structure 재실행
-6. **git**: `chore: release vX.Y.Z` 커밋 + annotated tag 생성
+1. **사전 검증**: semver 형식 + 워킹트리 클린 + 태그 중복 + **버전 단조성**(현재 plugin.json 버전 이하 거부)
+2. **pre-flight**: `run-all.sh`(validate-structure + governance + DAG) 테스트 PASS 확인
+3. **CHANGELOG**: `[Unreleased]` 섹션을 버전·날짜 헤딩으로 변환 + compare 링크 갱신 (멱등 — 이미 존재 시 skip)
+4. **README**: 버전 배지 `(vOLD)` → `(vNEW)` + footer 최신 스탬프 갱신
+5. **footer**: `commands/*.md` footer/frontmatter 버전 불일치 수정
+6. **manifest**: `.claude-plugin/plugin.json` + `marketplace.json` 버전 bump + marketplace description 토큰 갱신
+7. **post-flight**: `validate-structure.sh` 재실행 (FAIL 시 trap 롤백)
+8. **git**: `chore: release vX.Y.Z` 커밋 + annotated tag 생성
+9. **원격 발행 (자동)**: origin 존재 시 `git push` + 태그 push, gh CLI 설치 시 `gh release create`(CHANGELOG 본문을 노트로) 까지 **자동 수행**
 
-완료 후 push 명령 안내:
-
-```
-✅ 로컬 릴리즈 완료 (vX.Y.Z)
-다음 명령으로 원격에 push하세요:
-  git push && git push --tags
-```
+> **주의**: 로컬 커밋에서 멈추지 않는다 — origin·gh 가 있으면 **자동으로 원격 push + GitHub Release 발행**까지 진행된다. origin 부재(테스트 임시 repo 등) 시에만 push/release 를 graceful skip 하고 수동 명령(`git push && git push --tags`)을 안내한다.
 
 ## 예행 연습
 
