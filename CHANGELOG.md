@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.34.0] — 2026-07-03
+
 ### Added
 - **skill-body 게이트 결정적 회귀 인프라** — 유료 llm-smoke CI(secret 미등록 도먼트)에 의존하지 않고 recurring 결함 클래스(teeth in body, 강제 인프라 소실)의 **구조적 절반**을 무료·결정적으로 봉쇄. ① `validate-structure.sh` 신규 검사 `contract_consistency`(#15): cross-skill `BATCH-*-DONE` halt signal 의 방출(skill)↔감시(orchestrator) 정합 + suffix 일치 검사 — `<BATCH_ID>`↔`<FID>` drift·고아 signal 을 LLM 없이 CI 차단. ② `scripts/tests/test-gate-presence.sh`(9 assertion, run-all 자동편입): skill-body HARD GATE 문구 소실 회귀 — foundation 3-지점 계약(verify 생산 게이트·decomposing 소비 게이트·planning 강제 cross-ref)·경로 정합·BATCH 5신호 방출측. red-green 검증. PR #167
 
@@ -552,7 +554,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.0...HEAD
+[1.34.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...v1.33.0
 [1.32.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.2...v1.32.3
 [1.32.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.1...v1.32.2
