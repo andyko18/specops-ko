@@ -1,6 +1,6 @@
 ---
 name: release-ko
-description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer 동기화 및 git 태그까지 완료되는 릴리즈 자동화
+description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer·manifest 동기화, git 태그, 원격 push·GitHub Release 발행까지 완료되는 릴리즈 자동화
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
 specops_version: 1.10.0
@@ -13,25 +13,27 @@ used_by: /release
 
 `bash scripts/release.sh <X.Y.Z>` 1회로 다음을 자동화한다:
 
-1. **pre-flight** — `validate-structure.sh` + governance + DAG 테스트 PASS 확인
-2. **CHANGELOG** — `## [Unreleased]` → `## [X.Y.Z] — YYYY-MM-DD` 변환 + compare 링크 갱신
-3. **README** — `(vOLD)` → `(vNEW)` 배지 갱신
-4. **footer 스탬프** — `commands/*.md` footer/frontmatter 버전 불일치 수정
-5. **post-flight** — `validate-structure.sh` 재실행
-6. **git** — `chore: release vX.Y.Z` 커밋 + annotated tag
+1. **사전 검증** — semver + 워킹트리 클린 + 태그 중복 + 버전 단조성(현재 이하 거부)
+2. **pre-flight** — `run-all.sh`(validate-structure + governance + DAG) 테스트 PASS 확인
+3. **CHANGELOG** — `## [Unreleased]` → `## [X.Y.Z] — YYYY-MM-DD` 변환 + compare 링크 갱신 (멱등)
+4. **README** — `(vOLD)` → `(vNEW)` 배지 + footer 최신 스탬프 갱신
+5. **footer 스탬프** — `commands/*.md` footer/frontmatter 버전 불일치 수정
+6. **manifest** — `plugin.json` + `marketplace.json` 버전 bump + description 토큰 갱신
+7. **post-flight** — `validate-structure.sh` 재실행 (FAIL 시 trap 롤백)
+8. **git** — `chore: release vX.Y.Z` 커밋 + annotated tag
+9. **원격 발행 (자동)** — origin 존재 시 `git push` + 태그 push, gh CLI 설치 시 `gh release create` 까지 **자동 수행**
 
 ## 사용법
 
 ```bash
-# 릴리즈 실행
+# 릴리즈 실행 — origin·gh 있으면 원격 push + GitHub Release 발행까지 자동
 bash scripts/release.sh <X.Y.Z>
 
 # 예행 연습 (변경 없음)
 bash scripts/release.sh <X.Y.Z> --dry-run
-
-# 로컬 릴리즈 완료 후 push
-git push && git push --tags
 ```
+
+> **주의**: 로컬 커밋에서 멈추지 않는다 — origin·gh 감지 시 **원격 push + GitHub Release 발행까지 자동 진행**. origin 부재 시에만 push/release graceful skip + 수동 명령(`git push && git push --tags`) 안내.
 
 ## 환경변수 (테스트용)
 
