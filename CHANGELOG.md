@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.35.0] — 2026-07-06
+
 ### Added
 - **서브에이전트 모델 라우팅 고정** — 서브에이전트 단계의 모델을 명시 고정(메인루프 스킬은 `/model`이 지배하므로 대상 밖). `implementer-ko`(개발+TDD 5스텝) `inherit → opus`, `code-reviewer-ko`·`spec-reviewer-ko`·`plan-reviewer-ko`(리뷰) `inherit → fable`. 메인루프(브레인스토밍·specifying·analyzing·planning·verify)는 세션 `/model` 따름. `red/blue/auditor`(security-scan 감사)는 스코프 밖 inherit 유지. PR #169
 
@@ -562,7 +564,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.1...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...HEAD
+[1.35.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.1...v1.35.0
 [1.34.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.0...v1.34.1
 [1.34.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...v1.33.0
