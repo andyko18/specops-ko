@@ -1,7 +1,7 @@
 ---
 name: code-reviewer-ko
 description: 스펙 준수가 PASS 된 후 (Phase B 통과 후) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-auto-ko Phase C Critic.
-model: inherit
+model: fable
 role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
