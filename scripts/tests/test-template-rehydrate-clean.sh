@@ -77,6 +77,28 @@ else
   fail "T6 실 FID 섹션만 추출 (가이드 경계 인식) — out=${T6_out//$'\n'/ · }"
 fi
 
+# ── T7: 실 파이프라인 첫 append 오염 (신규 프로젝트 시나리오) ──
+# 합성 fixture 아닌 실제 흐름: 템플릿 cp → append.sh 첫 FID prepend → 추출.
+# append.sh 는 첫 ^---$ 직후에 신규 섹션을 꽂으므로, 그 아래 놓인 안내문·주석
+# 예시가 섹션 본문으로 딸려 들어가면 오염 (T1~T6 이 못 잡던 갭).
+T7_dir=$(mktemp -d) || exit 1
+(
+  cd "$T7_dir" && mkdir -p .specops \
+    && cp "$TPL" .specops/session-progress.md \
+    && bash "$PLUGIN/scripts/session-progress-append.sh" \
+         20260420-t7-fixture /specify 완료 "spec.md" >/dev/null 2>&1
+)
+T7_out=$(awk "$AWK_EXTRACT" "$T7_dir/.specops/session-progress.md")
+rm -rf "$T7_dir"
+if echo "$T7_out" | grep -q "20260420-t7-fixture" \
+   && ! echo "$T7_out" | grep -q "아직 기록 없음" \
+   && ! echo "$T7_out" | grep -q "작성 예시" \
+   && ! echo "$T7_out" | grep -q "20260420-rss-cache"; then
+  ok "T7 첫 append 후 추출 = FID 섹션만 (안내문·예시 미오염)"
+else
+  fail "T7 첫 append 후 추출 = FID 섹션만 — out=${T7_out//$'\n'/ · }"
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
