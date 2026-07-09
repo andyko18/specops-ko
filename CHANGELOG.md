@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **init-project Phase 11 LLM 보강 패스** — bash 10 Phase 종료 후 LLM 이 13종 산출물을 개발 기준 문서 수준으로 보강 (그룹 3묶음 승인 + 사실성 계약 + 재커밋). 브레인스토밍 메모 존재 시 PRD 6필드 초안 합성. `--enrich` 소급 경로 (placeholder 잔존 문서만 — 멱등). e2e V21 placeholder 스캔. 계약 스캔 테스트 `test-init-project-enrich.sh` 신규. bash 레이어 0 diff. FID 20260709-init-project-llm-enrich
+
 ## [1.35.0] — 2026-07-06
 
 ### Added
