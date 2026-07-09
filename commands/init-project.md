@@ -75,7 +75,7 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 
 ## --enrich (소급 보강 단독 실행)
 
-`/init-project --enrich`: Phase 1~10 부트스트랩 **skip**, Phase 11 만 단독 실행.
+`/init-project --enrich`: Phase 1~10 부트스트랩 **skip** (Process 항목 0 PRD 초안 합성도 skip — Phase 4 stdin 공급처 없음), Phase 11 만 단독 실행.
 
 - 대상 = 원시 placeholder(`<...>`) 또는 `<미확정 — 근거 필요>` 가 **잔존 문서만** (문서 자체가 상태 — 재실행 멱등 수렴).
 - 사용자 기작성 본문 무변경 보존.
@@ -93,6 +93,8 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 → Phase 8e DB? (y)
 → Phase 8f API 방식? (2 = OpenAPI)
 → 13종 자동 생성 + git commit "(풀스택 · 13종 중 13종)"
+→ Phase 11 LLM 보강: ① 제품 [y] → ② 아키텍처 [y] → ③ 운영 [y]
+→ git commit "chore(init): Phase 11 LLM 보강 (13종)"
 → "이제 /start \"채팅 기본 기능\" 으로 lifecycle 진입하세요"
 ```
 
@@ -111,4 +113,4 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 
 ---
 
-*specops-auto-ko v1.16.0 · 2026-06-19 · 한국 SI 13종 부트스트랩*
+*specops-auto-ko v1.36.0 · 2026-07-09 · 한국 SI 13종 부트스트랩 + Phase 11 LLM 보강*

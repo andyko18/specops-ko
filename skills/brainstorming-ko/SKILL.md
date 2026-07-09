@@ -361,4 +361,4 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-15 · garrytan/gstack office-hours/SKILL.md 한국어 재창작*
+*specops-auto-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 한국어 재창작*

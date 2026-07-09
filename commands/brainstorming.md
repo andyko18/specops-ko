@@ -83,4 +83,4 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-15 · garrytan/gstack office-hours/SKILL.md 참조*
+*specops-auto-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 참조*
