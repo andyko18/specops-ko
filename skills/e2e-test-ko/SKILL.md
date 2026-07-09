@@ -3,7 +3,7 @@ name: e2e-test-ko
 description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (init-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(security/integration/performance SKIP)→(finishing 정리) 9단계 완주
 layer: 3
 reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
-specops_version: 1.0.0
+specops_version: 1.36.0
 used_by: /e2e-test
 ---
 
@@ -11,7 +11,7 @@ used_by: /e2e-test
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
-9단계를 HARD GATE 없이 완주하고 20개 검증 항목(V1~V20)을 점검한다.
+9단계를 HARD GATE 없이 완주하고 21개 검증 항목(V1~V21)을 점검한다.
 
 > **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
 > **repo ROOT 를 변경**하므로 (init-project 가 PRD/CLAUDE/README 작성 + `git commit`,
@@ -26,7 +26,7 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-c
 다음 각 항목을 순서대로 완료한다:
 
 1. **[PRE] FID + 디렉토리 생성** (+ `e2e_check` 헬퍼·카운터 정의)
-2. **[S0] BOOTSTRAP** — init-project 부트스트랩 (격리 repo, 진입부) → V10~V13
+2. **[S0] BOOTSTRAP** — init-project 부트스트랩 (격리 repo, 진입부) → V10~V13, V21
 3. **[S1] SPECIFY** — spec.md + acceptance-criteria.md 생성
 4. **[S2] CLARIFY** — clarifications.md 생성 + AC append
 5. **[S3] PLAN** — plan.md 생성
@@ -152,10 +152,54 @@ e2e_check V13 "brainstorming 메모 PRD 참조 주입" "$r13"
 rm -rf "$TMP"
 ```
 
+**V21 — Phase 11 무인 자동수락 보강 후 원시 placeholder 스캔** (자체완결 격리 repo):
+V13 과 독립된 TMP 격리 repo 에 부트스트랩을 재실행한 뒤, **executor(Claude)가
+`commands/init-project.md` §Phase 11 을 `$TMP` 산출물 대상 자동수락으로 직접 수행**하고
+(순수 bash 아님 — e2e 무인 자동수락 계약 경로를 실증하는 LLM 스텝), 그 결과물에서 원시
+placeholder 잔존을 라인 단위로 스캔한다. `미확정 — 근거 필요` 마커 줄은 허용(제외).
+
+> **V21 의 의미**: Phase 11 **무인 자동수락 경로 자체를 실증**한다 — 보강을 수행하지 않거나
+> 보강이 placeholder 를 못 지우면 원시 `<...>` 검출로 **정직하게 FAIL** 한다 (거짓 PASS 방지).
+> [S0] 소속 진입부 검증 항목으로, V13 블록을 침습하지 않는다.
+
+```bash
+TMP="$(mktemp -d)"
+(
+  cd "$TMP" && git init -q \
+    && git config user.email e2e@test.local && git config user.name e2e
+  printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+) >/dev/null 2>&1
+```
+
+**여기서 executor(Claude)는 `commands/init-project.md` §Phase 11 절차를 `$TMP` 산출물
+(`$TMP/PRD.md`·`$TMP/.specops/memory/*.md`) 대상으로 자동수락(§auto 무인) 수행한다** —
+그룹①②③ 보강 + `가정:` 접두·`미확정 — 근거 필요` 마커 규약 적용. 보강 완료 후 아래 스캔:
+
+```bash
+# 원시 placeholder(<...>) 라인 단위 검출 — 미확정 마커 줄 제외. 검출 0 줄이면 PASS.
+# M1 가드: 대상 PRD.md 부재 시 FAIL (무증상 PASS 방지).
+if [ -f "$TMP/PRD.md" ]; then
+  ph=$(grep -rEn '<[A-Za-z가-힣][^>]{0,40}>' "$TMP/PRD.md" "$TMP"/.specops/memory/*.md 2>/dev/null \
+    | grep -v '미확정 — 근거 필요')
+  [ -z "$ph" ] && r21=0 || r21=1
+else
+  r21=1
+fi
+e2e_check V21 "Phase 11 placeholder 스캔" "$r21"
+
+rm -rf "$TMP"
+```
+
+> **V21 계약 (C1·I1·M1)**: `e2e_check` 는 `$result="0"` 만 PASS 로 집계하므로 리터럴
+> `PASS/FAIL` 전달 금지 — `r21=0/1` 산출 후 넘긴다. 스캔은 `rm -rf` 이전 격리 repo 의
+> 절대경로(`$TMP/PRD.md`·`$TMP/.specops/memory/*.md`)만 대상으로 하며(플러그인 repo 오염
+> 방지), 마커 공존 파일의 false-PASS 를 막기 위해 **라인 단위**(`grep -v`)로 제외한다.
+
 생성 후:
 
 ```bash
-bash scripts/session-progress-append.sh "$FID" "/init-project" "완료" "부트스트랩 V10~V13 (격리 repo)" "greet-cli E2E"
+bash scripts/session-progress-append.sh "$FID" "/init-project" "완료" "부트스트랩 V10~V13·V21 (격리 repo)" "greet-cli E2E"
 ```
 
 ---
@@ -854,7 +898,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [PRE] FID 생성 + mkdir + e2e_check/카운터 정의
     ↓
-[S0] init-project 부트스트랩 (격리 repo) → V10~V13   ← 진입부 (신규)
+[S0] init-project 부트스트랩 (격리 repo) → V10~V13·V21   ← 진입부 (신규)
     ↓
 [S1] spec.md + acceptance-criteria.md (AC-1, AC-2)
     ↓
@@ -872,7 +916,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S7] finishing HARD GATE 로직 단위검증 (격리 repo) → V14~V17   ← 꼬리부 (신규)
     ↓
-PASS=20 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥19 허용)
+PASS=21 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥20 허용)
 ```
 
 ## 실패 시 디버깅
