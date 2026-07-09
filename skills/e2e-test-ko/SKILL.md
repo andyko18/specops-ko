@@ -156,7 +156,9 @@ rm -rf "$TMP"
 V13 과 독립된 TMP 격리 repo 에 부트스트랩을 재실행한 뒤, **executor(Claude)가
 `commands/init-project.md` §Phase 11 을 `$TMP` 산출물 대상 자동수락으로 직접 수행**하고
 (순수 bash 아님 — e2e 무인 자동수락 계약 경로를 실증하는 LLM 스텝), 그 결과물에서 원시
-placeholder 잔존을 라인 단위로 스캔한다. `미확정 — 근거 필요` 마커 줄은 허용(제외).
+placeholder 잔존을 스캔한다. 제외 규칙(`미확정 — 근거 필요` 마커 줄 + `.specops/<FID>` 류
+규약 표기 토큰)의 SoT 는 `scripts/_internal/scan-enrich-placeholders.sh` — 규약 표기는 채움
+대상이 아니므로 정직 보강 후에도 잔존이 정상이다 (인라인 regex 재정의 금지 — 이원화 drift).
 
 > **V21 의 의미**: Phase 11 **무인 자동수락 경로 자체를 실증**한다 — 보강을 수행하지 않거나
 > 보강이 placeholder 를 못 지우면 원시 `<...>` 검출로 **정직하게 FAIL** 한다 (거짓 PASS 방지).
@@ -177,12 +179,12 @@ TMP="$(mktemp -d)"
 그룹①②③ 보강 + `가정:` 접두·`미확정 — 근거 필요` 마커 규약 적용. 보강 완료 후 아래 스캔:
 
 ```bash
-# 원시 placeholder(<...>) 라인 단위 검출 — 미확정 마커 줄 제외. 검출 0 줄이면 PASS.
+# 원시 placeholder(<...>) 검출 — 스캔·제외 규칙 SoT = scan-enrich-placeholders.sh
+# (마커 줄 + 규약 표기 토큰 제외). 검출 0 이면 PASS.
 # M1 가드: 대상 PRD.md 부재 시 FAIL (무증상 PASS 방지).
 if [ -f "$TMP/PRD.md" ]; then
-  ph=$(grep -rEn '<[A-Za-z가-힣][^>]{0,40}>' "$TMP/PRD.md" "$TMP"/.specops/memory/*.md 2>/dev/null \
-    | grep -v '미확정 — 근거 필요')
-  [ -z "$ph" ] && r21=0 || r21=1
+  if bash "$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh" \
+       "$TMP/PRD.md" "$TMP"/.specops/memory/*.md; then r21=0; else r21=1; fi
 else
   r21=1
 fi

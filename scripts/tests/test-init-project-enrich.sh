@@ -43,6 +43,51 @@ t T9.a "brainstorming skill 동기"   'Phase 11'                                
 t T9.b "brainstorming command 동기" 'Phase 11'                                        "$BM_CMD"
 # FR-8 e2e V21 배선 (nice-to-have)
 t T9.c "e2e V21 placeholder 스캔"   'V21'                                             "$E2E_SKILL"
+
+# T10 — V21 스캔 규약 표기 allowlist (scan-enrich-placeholders.sh 가 SoT)
+# 배경: V21 원 regex 가 `.specops/<FID>` 류 규약 표기를 검출 → 정직 보강 + 정직 스캔 = 항상 FAIL.
+SCAN="$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh"
+
+# T10.a 실 부트스트랩 산출물: 규약 표기 미검출 + 실 placeholder 검출 유지 (스캔 무력화 방지)
+T10DIR=$(mktemp -d) || exit 1
+(
+  cd "$T10DIR" && git init -q \
+    && git config user.email t@t && git config user.name t
+  printf '3\nskip\n1. CLI fixture\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\nN\n' \
+    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" t10 >/dev/null 2>&1
+)
+scan_out=$(bash "$SCAN" "$T10DIR/PRD.md" "$T10DIR"/.specops/memory/*.md 2>/dev/null)
+if [ -n "$scan_out" ] && ! printf '%s' "$scan_out" | grep -q '<FID>'; then
+  printf 'PASS %-6s %s\n' "T10.a" "부트스트랩 산출물: 실 placeholder 검출 + <FID> 규약 제외"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.a" "부트스트랩 산출물: 실 placeholder 검출 + <FID> 규약 제외"; FAIL=$((FAIL+1))
+fi
+rm -rf "$T10DIR"
+
+# T10.b 미확정 마커 줄 + 규약 표기만 → clean (exit 0)
+T10F=$(mktemp) || exit 1
+printf '항목: <미확정 — 근거 필요>\n참조: `.specops/<FID>/spec.md`\n상세: `screens/<name>.md`\n' > "$T10F"
+if bash "$SCAN" "$T10F" >/dev/null 2>&1; then
+  printf 'PASS %-6s %s\n' "T10.b" "마커 줄 + 규약 표기만 → clean exit 0"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.b" "마커 줄 + 규약 표기만 → clean exit 0"; FAIL=$((FAIL+1))
+fi
+rm -f "$T10F"
+
+# T10.c 혼재 줄 (규약 표기 + 실 placeholder 동일 줄) → token-level 로 검출 유지
+T10F=$(mktemp) || exit 1
+printf -- '- 종속 .specops/<FID> 디렉토리: <목록>\n' > "$T10F"
+if ! bash "$SCAN" "$T10F" >/dev/null 2>&1; then
+  printf 'PASS %-6s %s\n' "T10.c" "혼재 줄 token-level 검출 (<목록> 잔존 적발)"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.c" "혼재 줄 token-level 검출 (<목록> 잔존 적발)"; FAIL=$((FAIL+1))
+fi
+rm -f "$T10F"
+
+# T10.d e2e V21 블록이 스캔 스크립트 호출 (인라인 regex 이원화 방지)
+t T10.d "e2e V21 스캔 스크립트 배선"  'scan-enrich-placeholders\.sh'                    "$E2E_SKILL"
+# T10.e Phase 11 계약에 규약 표기 잔존 허용 명시
+t T10.e "규약 표기 잔존 허용 계약"    '규약 표기'                                        "$CMD"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
