@@ -4,7 +4,7 @@ description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops
 triggers:
   - "/brainstorming"
 mode: ask
-specops_version: 1.0.0
+specops_version: 1.36.0
 specops_layer: Lifecycle-PreBootstrap
 reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 ---
@@ -32,7 +32,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
     ↓
 .specops/memory/brainstorming-<날짜>-<시간>-<슬러그>.md 저장
     ↓ (탐색 완료 후 선택)
-/init-project          # 프로젝트 구조 부트스트랩 (메모 자동 참조)
+/init-project          # 프로젝트 구조 부트스트랩 (메모→PRD 초안 합성 + Phase 11 보강)
     ↓
 /start <첫 기능>         # Lifecycle 진입
 ```
@@ -83,4 +83,4 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-15 · garrytan/gstack office-hours/SKILL.md 참조*
+*specops-auto-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 참조*
