@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.36.0] — 2026-07-09
+
 ### Added
 - **init-project Phase 11 LLM 보강 패스** — bash 10 Phase 종료 후 LLM 이 13종 산출물을 개발 기준 문서 수준으로 보강 (그룹 3묶음 승인 + 사실성 계약 + 재커밋). 브레인스토밍 메모 존재 시 PRD 6필드 초안 합성. `--enrich` 소급 경로 (placeholder 잔존 문서만 — 멱등). e2e V21 placeholder 스캔. 계약 스캔 테스트 `test-init-project-enrich.sh` 신규. bash 레이어 0 diff. FID 20260709-init-project-llm-enrich
 
@@ -567,7 +569,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...HEAD
+[1.36.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...v1.36.0
 [1.35.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.1...v1.35.0
 [1.34.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.0...v1.34.1
 [1.34.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...v1.34.0
