@@ -1,5 +1,5 @@
 <!-- reference: https://github.com/VoltAgent/awesome-design-md -->
-<!-- layer: Template -->
+<!-- layer: Project-Document -->
 
 # DESIGN.md — [Project Name]
 

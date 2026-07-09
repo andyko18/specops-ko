@@ -30,12 +30,13 @@ progress_block=""
 target="$(pwd)/.specops/session-progress.md"
 if [ -f "$target" ]; then
   progress_block=$(awk '
-    /^## / {
+    /^## [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-/ {
       if (in_block) { exit }
       in_block = 1
       current = $0
       next
     }
+    in_block && /^## / { exit }
     in_block { current = current "\n" $0 }
     END { if (in_block && current != "") print current }
   ' "$target")

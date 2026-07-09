@@ -17,23 +17,16 @@
 
 ---
 
-## <FID-2> · <기능명 2>
+(아직 기록 없음 — 첫 lifecycle 커맨드 실행 시 FID 섹션이 여기 추가됨)
 
-- 2026-04-20 15:20 /specify 진행 중 — 열린 질문 Q2 확인 대기
-- 2026-04-20 15:00 /specify 시작 (FID: 20260420-example-2)
+<!-- 작성 예시 (포맷 참고 — 각 줄 들여쓰기: rehydrate 의 ^## 매칭 차단):
 
----
-
-## <FID-1> · <기능명 1>
-
-- 2026-04-20 13:20 /analyze PASS (analysis.md — 모든 AC 매핑 완료)
-- 2026-04-20 13:00 /plan 재실행 완료 (plan.md, data-model.md) — BLOCK-1 해소
-- 2026-04-20 12:00 /analyze BLOCK (analysis.md — AC-3 미매핑)
-- 2026-04-20 11:30 /tasks 완료 (tasks.md — 12 태스크)
-- 2026-04-20 11:10 /plan 완료 (plan.md)
-- 2026-04-20 10:30 /clarify 완료 (clarifications.md — 3 쟁점 해소)
-- 2026-04-20 10:00 /specify 완료 (spec.md, acceptance-criteria.md)
-- 2026-04-20 09:30 /specify 시작 (FID: 20260420-rss-cache)
+  ## 20260420-rss-cache · RSS 캐시
+  - 2026-04-20 12:00 /analyze BLOCK (analysis.md — AC-3 미매핑, /plan 재실행 필요)
+  - 2026-04-20 11:10 /plan 완료 (plan.md)
+  - 2026-04-20 10:30 /clarify 완료 (clarifications.md — 3 쟁점 해소)
+  - 2026-04-20 10:00 /specify 완료 (spec.md, acceptance-criteria.md)
+-->
 
 ---
 
