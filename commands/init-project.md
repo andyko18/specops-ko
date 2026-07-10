@@ -80,6 +80,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 1. ① **제품**(PRD.md·requirements.md) 보강 → 요약 제시 → 게이트
 2. ② **아키텍처**(architecture.md·frontend/backend-architecture.md·api-spec.md·data-model.md — 생성분만) → 게이트
 3. ③ **운영**(constitution.md·test-strategy.md·DESIGN.md·screens-overview.md·CLAUDE.md·README.md — 생성분만) → 게이트
+   - 그룹③ 승인 후 `screens/*.html` 존재 시: `bash` 로 각 html 에 `scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**Phase 7 스캐폴딩 원본(사용자 미편집) 상태에서만** — 편집본 덮어쓰기 금지)
 
 각 게이트 요약에 **`가정:` 전건 번호 목록** 을 출력하고 결정급(기술스택·아키텍처·데이터·보안)은 ★ 표시한다. 응답 규약: `[y/번호 수정]` — `y` 는 전체 승인, 번호 지정 시 해당 가정만 수정 후 재제시. 수정 요청 시 해당 그룹만 재보강 (루프 cap 없음 — 사용자 주권).
 

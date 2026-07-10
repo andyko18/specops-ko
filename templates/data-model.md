@@ -11,6 +11,7 @@
 ## §1. DB 종류
 
 - **유형**: <PostgreSQL / MySQL / SQLite / MongoDB / localStorage / IndexedDB>
+- **하이브리드**: 주 저장소 + 보조 복수 표기 허용 (예: `PostgreSQL + localStorage(캐시)`) — 기존 값 덮어쓰기 금지, `+` 로 병기
 - **버전**: <버전>
 - **호스팅**: <RDS / Cloud SQL / 자체 호스팅>
 

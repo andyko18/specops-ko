@@ -146,7 +146,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
    - **클라이언트 스토리지 도출**: 화면 영속화 Interaction(FR-9 류) → `data-model.md` 엔티티 자동 append (존재 시). 부재 시 무인은 신규 생성 안 함(기존 부재 가드 계승)
    - 존재 시 — 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 **append**(섹션 **덮어쓰기 금지** — `/start-all-auto` batch 의 다수 기능이 같은 마스터 문서를 순차 기록할 때 충돌·오염 방지):
-     1. `api-spec.md` 의 **채택된 정의방식 섹션**(§1 표 또는 OpenAPI/GraphQL/RPC 중 선택분)에 신규 행 **추가**
+     1. `api-spec.md` 의 **채택된 정의방식 섹션**(§1 표 또는 OpenAPI/GraphQL/RPC 중 선택분)에 신규 행 **추가** (동일 메서드+경로/테이블 행이 이미 있으면 신규 추가 대신 **해당 행 갱신** — 중복 행 금지)
      2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 **추가**
      3. spec.md §1 에 "**자동 결정 인터페이스**: {엔드포인트/테이블 요약}" 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
    - 반영 완료 후 Step 6 진행
@@ -155,9 +155,9 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - 이번 기능이 건드리는 인터페이스/스키마를 명시:
      > "이 기능은 다음 인터페이스를 추가/변경합니다: {POST /orders — 주문 생성}, {orders 테이블 — id·user_id·status ...}"
    - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
-     - `api-spec.md`: **채택된 정의방식 섹션**(§1 Markdown 표 또는 §2 OpenAPI/§3 GraphQL/§4 RPC 중 init 8f 에서 선택·보존된 것)에 엔드포인트·요청/응답 스키마·인증 반영
+     - `api-spec.md`: **채택된 정의방식 섹션**(§1 Markdown 표 또는 §2 OpenAPI/§3 GraphQL/§4 RPC 중 init 8f 에서 선택·보존된 것)에 엔드포인트·요청/응답 스키마·인증 반영 (동일 메서드+경로/테이블 행이 이미 있으면 신규 추가 대신 **해당 행 갱신** — 중복 행 금지)
      - `data-model.md`: §3 엔티티 표·§2 ERD·§4 인덱스 반영
-     - **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지(localStorage/IndexedDB)로 §3 엔티티·저장 키 반영 (HTTP api-spec 아님). 부재 시 생성 확인
+     - **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지(localStorage/IndexedDB)로 §3 엔티티·저장 키 반영 (기존 서버 DB 유형이 있으면 §1 에 `+` 복수 표기 — 덮어쓰기 금지) (HTTP api-spec 아님). 부재 시 생성 확인
    - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md`, 외부 소비면 `templates/api-spec-consumer.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋

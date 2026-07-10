@@ -46,7 +46,7 @@ reference_upstream: specops-auto-ko 독자 추가
 - **제공 API**: `.specops/memory/api-spec.md §0` 에서 **채택된 정의방식 섹션**(§1 Markdown 표 / §2 OpenAPI / §3 GraphQL / §4 RPC 중 선택분)에 신규 행 **append**
 - **외부 소비 API**: `.specops/memory/api-spec-consumer.md` 에 append (부재 시 `templates/api-spec-consumer.md` 로 생성 확인)
 - **DB 스키마 동반 시**: `data-model.md` §3 엔티티 표·§2 ERD 에 append
-- **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지 + §3 엔티티·저장 키 append (HTTP api-spec 아님 — 혼입 금지). IndexedDB 는 objectStore·keyPath·인덱스 수준까지만(트랜잭션·버전 상세는 구현 재량)
+- **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지 (기존 서버 DB 유형이 있으면 §1 에 `+` 복수 표기 — 덮어쓰기 금지) + §3 엔티티·저장 키 append (HTTP api-spec 아님 — 혼입 금지). IndexedDB 는 objectStore·keyPath·인덱스 수준까지만(트랜잭션·버전 상세는 구현 재량)
 - `api-spec.md` **부재** 시(UI-only init): 제공/소비 구분 물어 `templates/api-spec.md`(제공)·`templates/api-spec-consumer.md`(소비) 로 생성 여부 확인
 
 ### Step 4: 커밋 (마스터 변경 확정)
