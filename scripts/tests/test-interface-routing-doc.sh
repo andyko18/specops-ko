@@ -58,5 +58,9 @@ grep -qE 'localStorage / IndexedDB|localStorage·IndexedDB' "$PLUGIN/templates/d
 # AC-R-1: Step5.6 기존 로직 보존
 awk '/^5\.6\./,/^6\. /' "$SP" | grep -q '채택된 정의방식' && ok "AC-R-1 Step5.6 로직 보존" || nope "AC-R-1" "기존 로직 소실"
 
+# AC-14: verify 역방향 안전망 클라이언트 스토리지 커버 (P1-4 audit 20260710)
+grep -qE 'localStorage|objectStore' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
+  && ok "AC-14 verify net 클라이언트 스토리지" || nope "AC-14" "verify 추출 대상에 localStorage/objectStore 없음"
+
 echo "── test-interface-routing-doc: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

@@ -141,6 +141,12 @@ count=$(grep -c '| dup |' .specops/memory/screens-overview.md 2>/dev/null || ech
   && ok  "T8.a 동일 이름 중복 → overview 1행만 (중복 없음)" \
   || nope "T8.a 중복 방어" "dup 행 수=$count (기대 1)"
 
+
+# T9: DESIGN.md 템플릿 §1 에 Border 행 존재 (9색 헬퍼 매핑 정합 — P1-1 audit 20260710)
+grep -q '| Border |' "$PLUGIN/templates/DESIGN.md" \
+  && ok  "T9.a 템플릿 DESIGN.md Border 행 존재 (9색 매핑 정합)" \
+  || nope "T9.a 템플릿 Border 행" "lib.sh 9매핑 vs 템플릿 8행 — Border 주입 영구 no-op"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

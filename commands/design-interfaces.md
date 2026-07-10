@@ -29,3 +29,7 @@ reference_upstream: specops-auto-ko 독자 추가
 ## 참조
 - `commands/design-interface.md` — 단수(분업표 단일출처)
 - `templates/api-spec.md`·`api-spec-consumer.md`·`data-model.md`
+
+---
+
+*specops-auto-ko v1.37.0 · 2026-07-10 · 복수 인터페이스 일괄 설계 오케스트레이터*

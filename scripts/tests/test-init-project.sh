@@ -513,6 +513,21 @@ teardown_fixture
 
 # ── 결과 ──────────────────────────────────────
 echo ""
+
+# ── T22: Phase 7 html 토큰 치환 완결 — {{화면 제목}} 잔존 금지 (P1-2 audit 20260710) ──
+setup_fixture
+{
+  printf "1\np1\np2\np3\np4\np5\n"
+  printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "1\nhome\nn\nn\n"
+} | bash "$SCRIPT" >/dev/null 2>&1
+if [ -f screens/home.html ] && ! grep -q '{{화면 제목}}' screens/home.html; then
+  ok "T22.a Phase 7 html {{화면 제목}} 치환됨"
+else
+  nope "T22.a Phase 7 html 토큰" "{{화면 제목}} 리터럴 잔존 (design-screen.sh 와 비대칭)"
+fi
+teardown_fixture
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

@@ -66,3 +66,7 @@ git commit -m "design(if): <name> 인터페이스 설계 반영"
 - `commands/design-interfaces.md` — 복수 일괄
 - `skills/specifying-ko/SKILL.md` Step 5.6 — lifecycle 인라인 동일 로직
 - `templates/api-spec.md`·`api-spec-consumer.md`·`data-model.md`
+
+---
+
+*specops-auto-ko v1.37.0 · 2026-07-10 · 화면 대칭 인터페이스 설계 (무스크립트·마스터 append)*

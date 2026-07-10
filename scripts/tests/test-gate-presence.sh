@@ -67,4 +67,14 @@ for pair in "${SIG[@]}"; do
   fi
 done
 
+# ── 가정 다이제스트 "자동 결정 인터페이스" 수집 3-소비처 (P1-3 audit 20260710) ──
+# specifying §auto Step 5.6 이 spec.md 에 기록하는 라벨을 다이제스트 소비처가 실제 수집하는지.
+for f in skills/performance-test-ko/SKILL.md commands/start-auto.md commands/start-all-auto.md; do
+  if grep -q '자동 결정 인터페이스' "$f"; then
+    ok "다이제스트 인터페이스 수집 존재 ($f)"
+  else
+    nope "다이제스트 인터페이스 수집 ($f)" "'자동 결정 인터페이스' 미수집 — 무인 API 가정이 PR 게이트에 안 보임"
+  fi
+done
+
 finish

@@ -120,3 +120,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 - `scripts/_internal/design-screen.sh` — 스캐폴딩 백엔드 (CLI: `<name> [--force]`, name regex `^[A-Za-z0-9_-]{1,64}$`)
 - `templates/screen.html` — HTML 기반 템플릿
 - `screens/` — 화면 산출물 저장 디렉터리
+
+---
+
+*specops-auto-ko v1.0.0 · 2026-06-19 · 복수 화면 일괄 디자인 오케스트레이터*

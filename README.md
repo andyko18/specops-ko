@@ -22,6 +22,7 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 | **신규 기능 (무인)** | `/start-auto "<기능>"` | — |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
 | **(선택) 아이디어 탐색** | `/brainstorming` | — |
+| **화면·인터페이스 개별 설계** (lifecycle 밖) | `/design-screens` · `/design-interfaces` | — |
 
 **어느 진입로를 고를까 — 결정 트리:**
 
@@ -131,7 +132,7 @@ specops-auto-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (19건)
+├── commands/                                 ← 슬래시 진입로 (21건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
@@ -139,6 +140,8 @@ specops-auto-ko/
 │   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen
 │   ├── design-screens.md                     ← 일괄 화면 설계 /design-screens
+│   ├── design-interface.md                   ← 인터페이스 설계 /design-interface (화면 대칭)
+│   ├── design-interfaces.md                  ← 일괄 인터페이스 설계 /design-interfaces
 │   ├── e2e-test.md                           ← E2E lifecycle 자동 테스트 (9단계)
 │   ├── gbrain.md                             ← 세션 인사이트 조회 /gbrain
 │   ├── log.md                                ← 자유작업 인사이트 즉석 기록 /log

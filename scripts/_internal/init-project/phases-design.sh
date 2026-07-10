@@ -149,6 +149,7 @@ phase_7_screens() {
     _replace_token "screens/${n}.md" "{{created}}" "$today"
     _replace_token "screens/${n}.md" "{{updated}}" "$today"
     _replace_token "screens/${n}.html" "{{title}}" "$n"
+    _replace_token "screens/${n}.html" "{{화면 제목}}" "$n"
     # DESIGN.md 팔레트 주입 (Phase 6 시점 Primary 확정분 + 재실행 시 전체) — design-screen.sh 와 공유
     _inject_design_palette "screens/${n}.html"
   done

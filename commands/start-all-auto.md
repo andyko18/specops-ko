@@ -41,6 +41,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계
    - 전 FID spec.md "자동 결정 화면" 목록
+   - 전 FID spec.md "자동 결정 인터페이스" 목록 (Step 5.6 — 엔드포인트/테이블)
    - 제시 후: **"위 가정 위에 N개 FR 구현됨. batch PR 생성? [y/n]"** — 단일 [y/n] 확인.
 
 ## §auto 모드 동작 (batch)

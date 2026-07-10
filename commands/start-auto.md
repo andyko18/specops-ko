@@ -48,6 +48,7 @@ PR 생성 직전 자동 수집·제시:
 - clarifications.md의 `status: ASSUMED` 항목 전체
 - handoffs/*.md의 Decided 필드 집계
 - spec.md "자동 결정 화면" 목록 (Step 5.5 auto-generated)
+- spec.md "자동 결정 인터페이스" 목록 (Step 5.6 auto-generated — 엔드포인트/테이블)
 - auto-state.md escalations (있으면)
 
 위 가정 목록 제시 후: **"위 가정 위에 구현됨. PR 생성? [y/n]"**
