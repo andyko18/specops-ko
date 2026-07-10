@@ -140,6 +140,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    > **적용 조건**: 이번 기능이 **API 엔드포인트**(제공) 또는 **DB 스키마**(테이블·필드)를 신설·변경한다. 해당 없으면(순수 UI·CLI 로직 등) 본 스텝 skip.
    > **대상 산출물**: `.specops/memory/api-spec.md`(IF 설계서) · `.specops/memory/data-model.md`(테이블 설계서) — 영향받는 것만. 화면이 `screens/`(화면별 파일)을 생성하듯, 인터페이스는 이 **마스터 문서의 해당 섹션을 갱신**한다.
    > **원칙**: 구현이 이 설계를 따른다(design-first). 구현 중 불가피하게 벗어나면 `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 감지한다.
+   > lifecycle 밖에서 개별/일괄 인터페이스를 따로 손보려면 `/design-interface`(단수)·`/design-interfaces`(복수). 본 Step 5.6 은 lifecycle 내 자동 처리다. (분업 기준: `commands/design-interface.md` §인터페이스 설계 3경로 분업)
 
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
