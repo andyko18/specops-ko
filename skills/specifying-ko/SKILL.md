@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.29.0
+specops_version: 1.37.0
 used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
 ---
 
@@ -137,13 +137,14 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - 모든 화면 완료 후 Step 5.6 진행
 5.6. **[API/스키마 기능인 경우] 인라인 인터페이스 설계** — 설계 승인 직후 실행 (화면 Step 5.5 와 **대칭** — 인터페이스도 design-first):
 
-   > **적용 조건**: 이번 기능이 **API 엔드포인트**(제공) 또는 **DB 스키마**(테이블·필드)를 신설·변경한다. 해당 없으면(순수 UI·CLI 로직 등) 본 스텝 skip.
+   > **적용 조건**: 이번 기능이 **API 엔드포인트**(제공) · **DB 스키마**(테이블·필드) · **클라이언트 영속 데이터**(localStorage·IndexedDB) 중 하나를 신설·변경한다. 순수 UI·CLI 로직만이면 본 스텝 skip.
    > **대상 산출물**: `.specops/memory/api-spec.md`(IF 설계서) · `.specops/memory/data-model.md`(테이블 설계서) — 영향받는 것만. 화면이 `screens/`(화면별 파일)을 생성하듯, 인터페이스는 이 **마스터 문서의 해당 섹션을 갱신**한다.
    > **원칙**: 구현이 이 설계를 따른다(design-first). 구현 중 불가피하게 벗어나면 `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 감지한다.
    > lifecycle 밖에서 개별/일괄 인터페이스를 따로 손보려면 `/design-interface`(단수)·`/design-interfaces`(복수). 본 Step 5.6 은 lifecycle 내 자동 처리다. (분업 기준: `commands/design-interface.md` §인터페이스 설계 3경로 분업)
 
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
+   - **클라이언트 스토리지 도출**: 화면 영속화 Interaction(FR-9 류) → `data-model.md` 엔티티 자동 append (존재 시). 부재 시 무인은 신규 생성 안 함(기존 부재 가드 계승)
    - 존재 시 — 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 **append**(섹션 **덮어쓰기 금지** — `/start-all-auto` batch 의 다수 기능이 같은 마스터 문서를 순차 기록할 때 충돌·오염 방지):
      1. `api-spec.md` 의 **채택된 정의방식 섹션**(§1 표 또는 OpenAPI/GraphQL/RPC 중 선택분)에 신규 행 **추가**
      2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 **추가**
@@ -156,6 +157,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
      - `api-spec.md`: **채택된 정의방식 섹션**(§1 Markdown 표 또는 §2 OpenAPI/§3 GraphQL/§4 RPC 중 init 8f 에서 선택·보존된 것)에 엔드포인트·요청/응답 스키마·인증 반영
      - `data-model.md`: §3 엔티티 표·§2 ERD·§4 인덱스 반영
+     - **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지(localStorage/IndexedDB)로 §3 엔티티·저장 키 반영 (HTTP api-spec 아님). 부재 시 생성 확인
    - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md`, 외부 소비면 `templates/api-spec-consumer.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋

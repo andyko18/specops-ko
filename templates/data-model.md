@@ -10,7 +10,7 @@
 
 ## §1. DB 종류
 
-- **유형**: <PostgreSQL / MySQL / SQLite / MongoDB>
+- **유형**: <PostgreSQL / MySQL / SQLite / MongoDB / localStorage / IndexedDB>
 - **버전**: <버전>
 - **호스팅**: <RDS / Cloud SQL / 자체 호스팅>
 

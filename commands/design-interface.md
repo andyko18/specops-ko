@@ -39,13 +39,14 @@ reference_upstream: specops-auto-ko 독자 추가
 > 1. 엔드포인트 **경로·메서드**? (예: POST /orders) 또는 **테이블명·핵심 필드**?
 > 2. 요청/응답 **스키마**?
 > 3. **인증**? (세션/JWT/없음)
-> 4. 이건 **제공 API**(내가 만드는 서버)인가요, **외부 소비 API**(3rd party 호출)인가요?"
+> 4. 저장 방식? **제공 API**(내가 만드는 서버) / **외부 소비 API**(3rd party 호출) / **클라이언트 스토리지**(localStorage·IndexedDB — 서버 없는 프론트 영속 데이터)"
 
 ### Step 3: 마스터 문서 갱신 (append — 덮어쓰기 금지)
 
 - **제공 API**: `.specops/memory/api-spec.md §0` 에서 **채택된 정의방식 섹션**(§1 Markdown 표 / §2 OpenAPI / §3 GraphQL / §4 RPC 중 선택분)에 신규 행 **append**
 - **외부 소비 API**: `.specops/memory/api-spec-consumer.md` 에 append (부재 시 `templates/api-spec-consumer.md` 로 생성 확인)
 - **DB 스키마 동반 시**: `data-model.md` §3 엔티티 표·§2 ERD 에 append
+- **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지 + §3 엔티티·저장 키 append (HTTP api-spec 아님 — 혼입 금지). IndexedDB 는 objectStore·keyPath·인덱스 수준까지만(트랜잭션·버전 상세는 구현 재량)
 - `api-spec.md` **부재** 시(UI-only init): 제공/소비 구분 물어 `templates/api-spec.md`(제공)·`templates/api-spec-consumer.md`(소비) 로 생성 여부 확인
 
 ### Step 4: 커밋 (마스터 변경 확정)

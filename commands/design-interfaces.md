@@ -15,9 +15,10 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ## Step 1: 인터페이스 목록 자동 판단 + 승인 게이트
 
-목록 근거 **이중 소스**:
+**목록 근거**:
 1. **화면 Interactions** (1차): `screens/*.md` 의 `## Interactions` 스캔 → 필요 엔드포인트/테이블 도출
 2. **requirements.md FR 표** (보완): 화면에 안 드러난 백엔드 FR(배치·웹훅 등)도 포함
+3. **클라이언트 스토리지 앱**: 화면 영속화 Interaction(예: "저장 → localStorage") 이면 data-model 엔티티도 목록에 포함 (서버 없는 프론트)
 
 목록 제시 → `[y/수정]` 승인 게이트. `y` 시 Step 2 진행.
 

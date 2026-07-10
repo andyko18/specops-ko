@@ -39,6 +39,22 @@ grep -qiE 'Interactions' "$DIS" && grep -qiE 'requirements.md FR|FR 표' "$DIS" 
 grep -q '§인터페이스 설계 3경로 분업' "$DIS" \
   && ok "AC-9b 복수 고유 cross-ref" || nope "AC-9b" "고유 cross-ref 없음"
 
+# AC-10: Step 5.6 클라이언트 스토리지 축 (localStorage-only 앱 skip 방지) — Step5.6 블록 한정(AC-R-1 선례)
+awk '/^5\.6\./,/^6\. /' "$SP" | grep -qE '클라이언트 영속 데이터|localStorage·IndexedDB' \
+  && ok "AC-10 Step5.6 클라이언트 스토리지 축" || nope "AC-10" "클라이언트 스토리지 축 없음"
+# AC-11: design-interface Step3 클라이언트 스토리지 전용 data-model 분기 (plan-reviewer Minor: teeth 강화)
+grep -q '클라이언트 스토리지' "$DI" && grep -qE '클라이언트 스토리지.*data-model|저장 키.*append|objectStore·keyPath' "$DI" \
+  && ok "AC-11 design-interface Step3 클라이언트 스토리지 data-model" || nope "AC-11" "클라이언트 스토리지 분기 없음"
+# AC-11b: design-interface Step2 저장방식 3택 한 줄 (teeth 강화 — Phase C Important)
+grep -qE '제공 API.*외부 소비 API.*클라이언트 스토리지' "$DI" \
+  && ok "AC-11b Step2 저장방식 3택" || nope "AC-11b" "3택 한 줄 없음"
+# AC-12: 순수 UI·CLI skip 보존 (과확대 방지 — AC-R-2) — Step5.6 블록 한정(AC-R-1 선례)
+awk '/^5\.6\./,/^6\. /' "$SP" | grep -qE '순수 UI·CLI 로직만이면.*skip|순수 UI·CLI.*skip' \
+  && ok "AC-12 순수 UI·CLI skip 보존" || nope "AC-12" "skip 문구 소실"
+# AC-13: templates data-model 유형 확장
+grep -qE 'localStorage / IndexedDB|localStorage·IndexedDB' "$PLUGIN/templates/data-model.md" \
+  && ok "AC-13 data-model 유형 확장" || nope "AC-13" "localStorage 유형 없음"
+
 # AC-R-1: Step5.6 기존 로직 보존
 awk '/^5\.6\./,/^6\. /' "$SP" | grep -q '채택된 정의방식' && ok "AC-R-1 Step5.6 로직 보존" || nope "AC-R-1" "기존 로직 소실"
 
