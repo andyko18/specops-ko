@@ -50,6 +50,48 @@ grep -q '#123456' "screens/profile.html" 2>/dev/null \
   && ok  "T3.b DESIGN.md Primary 색상 추출 → HTML 반영" \
   || nope "T3.b DESIGN.md 색상 추출" "#123456 이 HTML 에 없음"
 
+# T3.c: 전체 팔레트(9색) 주입 — Primary 외 Background/Surface/Text 등도 반영 (half-fix 회귀 차단)
+# light 테마 DESIGN.md 로 부트스트랩 시 --color-bg 가 다크 기본값(#0F0F10)에서 실제값으로 바뀌어야 함.
+cat > "$TMP/DESIGN.md" <<'DEOF'
+## 1. Color System
+| Role | Value | Usage |
+|---|---|---|
+| Primary | `#000000` | 주요 버튼 |
+| Secondary | `#2383E2` | 보조 |
+| Background | `#FFFFFF` | 페이지 배경 |
+| Surface | `#F7F7F5` | 카드 |
+| Text Primary | `#37352F` | 본문 |
+| Text Secondary | `#787774` | 보조 텍스트 |
+| Border | `#E9E9E7` | 테두리 |
+| Error | `#EB5757` | 에러 |
+| Success | `#0F7B6C` | 성공 |
+DEOF
+bash "$SCRIPT" palette --force >/dev/null 2>&1
+if grep -q -- '--color-bg: #FFFFFF' "screens/palette.html" 2>/dev/null \
+   && grep -q -- '--color-surface: #F7F7F5' "screens/palette.html" 2>/dev/null \
+   && grep -q -- '--color-text: #37352F' "screens/palette.html" 2>/dev/null \
+   && ! grep -q -- '--color-bg: #0F0F10' "screens/palette.html" 2>/dev/null; then
+  ok  "T3.c 전체 팔레트 주입 (Background/Surface/Text — half-fix 차단)"
+else
+  nope "T3.c 전체 팔레트 주입" "--color-bg/surface/text 미반영 또는 다크 기본값 잔존"
+fi
+
+# T3.d: 미확정 색상(#______ placeholder)은 skip → 템플릿 기본값 유지 (Phase 6 단독 시점 안전)
+cat > "$TMP/DESIGN.md" <<'DEOF'
+## 1. Color System
+| Role | Value | Usage |
+|---|---|---|
+| Primary | `#000000` | 주요 버튼 |
+| Background | `#______` | 미확정 |
+DEOF
+bash "$SCRIPT" partial --force >/dev/null 2>&1
+if grep -q -- '--color-primary: #000000' "screens/partial.html" 2>/dev/null \
+   && grep -q -- '--color-bg: #0F0F10' "screens/partial.html" 2>/dev/null; then
+  ok  "T3.d 미확정 색상 skip → 템플릿 기본값 유지"
+else
+  nope "T3.d 미확정 색상 skip" "placeholder 를 잘못 주입했거나 primary 미반영"
+fi
+
 # T4: screens-overview.md 갱신
 mkdir -p .specops/memory
 cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md

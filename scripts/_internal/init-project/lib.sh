@@ -72,6 +72,39 @@ _replace_token() {
   sed -i.bak "s|${esc_token}|${esc}|g" "$file" && rm -f "${file}.bak"
 }
 
+# DESIGN.md 색상 표(9행) → screen.html :root CSS 변수 전체 주입
+# 사용: _inject_design_palette <html-file>
+# - DESIGN.md 부재 또는 대상 파일 부재 시 no-op (return 0)
+# - 색상별 hex 검증 — 미확정(`#______` placeholder)·비hex 는 skip → 템플릿 기본값 유지
+#   (Phase 6 단독 시점엔 Primary 만 확정, 나머지는 Phase 11 후 확정 — 부분 주입 안전)
+# - DESIGN.md 행 라벨 ≠ CSS 변수명 (Background→--color-bg, Text Primary→--color-text) — 명시 매핑
+# 공유: phases-design.sh Phase 7 + design-screen.sh 양쪽에서 호출 (DRY)
+_inject_design_palette() {
+  local html="$1"
+  [ -f "$html" ] || return 0
+  [ -f "DESIGN.md" ] || return 0
+  local map="Primary|--color-primary
+Secondary|--color-secondary
+Background|--color-bg
+Surface|--color-surface
+Text Primary|--color-text
+Text Secondary|--color-text-secondary
+Border|--color-border
+Error|--color-error
+Success|--color-success"
+  local label var hex
+  while IFS='|' read -r label var; do
+    [ -z "$label" ] && continue
+    # 행 앵커 `| <label> |` — "| Primary |" 가 "| Text Primary |" 오매치 안 함
+    hex=$(grep -m1 "| ${label} |" DESIGN.md 2>/dev/null \
+      | grep -Eo '`#[A-Fa-f0-9]{3,6}`' | tr -d '`' | head -1)
+    [ -z "$hex" ] && continue
+    # `${var}: ` 의 콜론+공백이 --color-text 와 --color-text-secondary 를 분리
+    sed -i.bak "s|${var}: #[A-Fa-f0-9]\{3,6\}|${var}: ${hex}|g" "$html" \
+      && rm -f "${html}.bak"
+  done <<< "$map"
+}
+
 # 라인 교체: prefix 가 일치하는 줄을 content 로 바꿈 (awk dynamic regex backslash 회피)
 # M4 주의: 같은 prefix 가 본문에 2회 이상 등장하면 **모두** 치환. 호출 사이트는
 # prefix 의 유일성을 보장해야 한다 (현재 모든 호출처는 1회만 등장하는 prefix 사용).

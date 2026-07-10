@@ -2,7 +2,7 @@
 # design-screen.sh — /design-screen 보일러플레이트 자동화
 # 사용: bash scripts/_internal/design-screen.sh <name> [--force]
 #   - screens/{name}.md + screens/{name}.html 스캐폴딩
-#   - DESIGN.md §1 Primary 색상 추출 → HTML --color-primary 주입
+#   - DESIGN.md §1 Color System 전체 팔레트(9색) 추출 → HTML :root 변수 주입
 #   - .specops/memory/screens-overview.md fence 갱신
 set -u
 
@@ -30,19 +30,14 @@ fi
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PLUGIN=$(dirname "$(dirname "$script_dir")")
 
+# 공유 팔레트 주입 헬퍼 (_inject_design_palette) — lib.sh 순수 함수 정의만 로드
+source "$PLUGIN/scripts/_internal/init-project/lib.sh"
+
 # 충돌 감지
 if [ -f "screens/${NAME}.md" ] && [ "$FORCE" -ne 1 ]; then
   echo "Error: screens/${NAME}.md 이미 존재합니다. 덮어쓰려면 --force 사용." >&2
   exit 1
 fi
-
-# DESIGN.md Primary 색상 추출 (없으면 Claude 기본값)
-primary=""
-if [ -f "DESIGN.md" ]; then
-  primary=$(grep -m1 '| Primary |' DESIGN.md 2>/dev/null \
-    | grep -Eo '`#[A-Fa-f0-9]{3,6}`' | tr -d '`' | head -1)
-fi
-primary="${primary:-#7C3AED}"
 
 today=$(date +%Y-%m-%d)
 mkdir -p screens
@@ -55,12 +50,12 @@ sed -i.bak "s/{{created}}/${today}/g"  "screens/${NAME}.md"
 sed -i.bak "s/{{updated}}/${today}/g"  "screens/${NAME}.md"
 rm -f "screens/${NAME}.md.bak"
 
-# screen.html 생성 (--color-primary CSS 변수 교체)
+# screen.html 생성 (DESIGN.md 전체 팔레트 주입 — 9색)
 cp "$PLUGIN/templates/screen.html" "screens/${NAME}.html"
 sed -i.bak "s/{{title}}/${NAME}/g"      "screens/${NAME}.html"
 sed -i.bak "s/{{화면 제목}}/${NAME}/g" "screens/${NAME}.html"
-sed -i.bak "s/--color-primary: #[A-Fa-f0-9]\{3,6\}/--color-primary: ${primary}/g" "screens/${NAME}.html"
 rm -f "screens/${NAME}.html.bak"
+_inject_design_palette "screens/${NAME}.html"
 
 # screens-overview.md 갱신 (fence 기반 — 존재 시만)
 overview=".specops/memory/screens-overview.md"
@@ -94,6 +89,6 @@ fi
 
 echo "→ screens/${NAME}.md"
 echo "→ screens/${NAME}.html"
-echo "→ Primary 색상: ${primary}"
+echo "→ DESIGN.md 팔레트 주입 (확정 색상만)"
 [ -f "$overview" ] && echo "→ screens-overview.md 갱신됨"
 exit 0
