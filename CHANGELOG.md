@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Added
+- **`/design-interface(s)` 인터페이스 설계 독립 슬래시** — 화면 `/design-screen(s)` 대칭. 무스크립트 대화 루프로 `api-spec.md`·`data-model.md` 마스터 섹션 갱신(덮어쓰기 금지), 화면 `Interactions`→API 도출(design-first 결합), 제공/소비 API 구분, 3경로 분업 cross-ref + `test-interface-routing-doc.sh` 정합 검증. FID 20260710-design-interface-slash (#176)
+- **Phase 11 v2 — 인터뷰·가정 다이제스트·깊이 기준** — 그룹별 사전 인터뷰(상한·결정급 우선·"모름/나중에"·질문 스킵)로 비약(미질문 가정) 차단, 가정 전건 번호 목록+★ 게이트·PRD 말미 다이제스트 기록으로 투명화, 최소 깊이 기준 v2(must 빈 셀 금지·M1 FR 분해 / should NFR 수치)로 허접 차단, 무인 degrade(e2e·§auto). enrich 스위트 44케이스. FID 20260710-init-p11-quality (#174)
+
+### Fixed
+- **init-project 화면 스캐폴딩 DESIGN.md 팔레트 미반영** — Phase 7·`design-screen.sh` 가 DESIGN.md 색상을 반영 안 하던 것(Phase 7=0색, design-screen=Primary만)을 공유 `_inject_design_palette` 9색 매핑 헬퍼로 해소(미확정 색은 skip→기본값 유지). FID 20260710-init-p11-quality 계열 (#175)
+- **session-progress 첫 append 오염** — 신규 프로젝트 첫 lifecycle 커맨드 시 rehydrate 블록에 템플릿 예시가 딸려 들어가던 잔여 결함(#172 후속)을 안내문·예시를 삽입 anchor 위로 이동해 해소. 회귀 테스트는 실 파이프라인으로 생성 (#173)
+- **V21 placeholder 스캔 규약 표기 allowlist** — `.specops/<FID>`·`screens/<name>` 류 규약 표기를 placeholder 로 오검출하던 것을 스캔 SoT(`scan-enrich-placeholders.sh`) allowlist 로 해소 — 정직 보강과 양립 (#171)
+
 ## [1.36.0] — 2026-07-09
 
 ### Added
