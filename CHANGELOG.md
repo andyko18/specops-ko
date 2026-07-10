@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+- **`scripts/batch-state.sh` — 첫 batch 인프라** — `/start-all` queue↔requirements parity read-only 감지(미완·드리프트·FR-ID 중복, 2-테이블 분할 queue 견딤). Phase 3 완료 하드 스캔 게이트 배선: exit 1 → "그래도 batch PR? [y/n]"(의도적 부분 진행 허용 — 주권), §auto 무인 정지점. 실물 batch 산출물에서 드리프트 5건+미완 3건 검출 실증. start-all 감사 F-4·F-5 해소. FID 20260710-p2-batch-state (#180)
+
+### Fixed
+- **전체 점검 P1 — 경계면 전파 누락 5건** — ① DESIGN.md 템플릿 Border 행(9색 헬퍼 no-op 해소) ② Phase 7 html `{{화면 제목}}` 치환 ③ 가정 다이제스트 "자동 결정 인터페이스" 3소비처 수집 ④ verify 역방향 안전망 클라이언트 스토리지 커버 ⑤ README `/design-interface(s)` 반영+footer 3커맨드 (#178)
+- **P2 규약 3건** — Phase 11 그룹③ 팔레트 재주입(미편집 단서) · data-model §1 하이브리드 복수 표기 · Step 5.6 인터페이스 dedup (#180)
+
 ## [1.38.0] — 2026-07-10
 
 ### Added
