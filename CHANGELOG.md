@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **인터페이스 설계 클라이언트 스토리지 축** — Step 5.6(=start-all batch·단일 /start 공용) + `/design-interface(s)` 독립 슬래시에 "클라이언트 영속 데이터(localStorage·IndexedDB)" 축 추가. 기존 2축(제공 HTTP API / 외부 소비 API)만으로 skip 되던 서버 없는 프론트 앱(예: weekflow)도 화면 Interactions·requirements FR 이중 근거로 `data-model.md` 자동 도출. HTTP api-spec 무변경(혼입 금지), 순수 UI·CLI 로직은 skip 유지(비확대). 라우팅 정합 15케이스. weekflow dogfooding 실결함 발견→수정. FID 20260710-if-client-storage-axis (#177)
+
 ## [1.37.0] — 2026-07-10
 
 ### Added
