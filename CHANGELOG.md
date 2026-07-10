@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.37.0] — 2026-07-10
+
 ### Added
 - **`/design-interface(s)` 인터페이스 설계 독립 슬래시** — 화면 `/design-screen(s)` 대칭. 무스크립트 대화 루프로 `api-spec.md`·`data-model.md` 마스터 섹션 갱신(덮어쓰기 금지), 화면 `Interactions`→API 도출(design-first 결합), 제공/소비 API 구분, 3경로 분업 cross-ref + `test-interface-routing-doc.sh` 정합 검증. FID 20260710-design-interface-slash (#176)
 - **Phase 11 v2 — 인터뷰·가정 다이제스트·깊이 기준** — 그룹별 사전 인터뷰(상한·결정급 우선·"모름/나중에"·질문 스킵)로 비약(미질문 가정) 차단, 가정 전건 번호 목록+★ 게이트·PRD 말미 다이제스트 기록으로 투명화, 최소 깊이 기준 v2(must 빈 셀 금지·M1 FR 분해 / should NFR 수치)로 허접 차단, 무인 degrade(e2e·§auto). enrich 스위트 44케이스. FID 20260710-init-p11-quality (#174)
@@ -578,7 +580,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.37.0...HEAD
+[1.37.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...v1.37.0
 [1.36.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...v1.36.0
 [1.35.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.1...v1.35.0
 [1.34.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.0...v1.34.1
