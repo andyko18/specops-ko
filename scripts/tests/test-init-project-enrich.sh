@@ -26,12 +26,12 @@ t T1.e "보강분 재커밋"              'chore\(init\): Phase 11 LLM 보강'  
 t T2.a "PRD 6필드 초안 합성"        '6필드 초안'                                       "$CMD"
 t T2.b "메모 부재 fallback"         '메모 부재.*(수동|현행)'                            "$CMD"
 # AC-3 사실성·상세성 계약 (Karpathy)
-t T3.a "근거 3원"                  '근거 3원'                                         "$CMD"
+t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
 t T3.b "boilerplate 금지"          '(일반론|boilerplate).*금지'                        "$CMD"
 t T3.c "미확정 마커"                '미확정 — 근거 필요'                               "$CMD"
 t T3.d "가정: 접두"                '`가정:` 접두'                                     "$CMD"
 t T3.e "개발 기준 문서 용도"        '개발 기준 문서'                                    "$CMD"
-t T3.f "문서별 최소 채움 기준"      '최소 채움 기준'                                    "$CMD"
+t T3.f "문서별 최소 채움/깊이 기준" '최소 (채움|깊이) 기준'                            "$CMD"
 # AC-4 --enrich
 t T4.a "--enrich 분기"             '\-\-enrich'                                      "$CMD"
 t T4.b "멱등 — 잔존 문서만"         '잔존 문서만'                                      "$CMD"
@@ -43,6 +43,37 @@ t T9.a "brainstorming skill 동기"   'Phase 11'                                
 t T9.b "brainstorming command 동기" 'Phase 11'                                        "$BM_CMD"
 # FR-8 e2e V21 배선 (nice-to-have)
 t T9.c "e2e V21 placeholder 스캔"   'V21'                                             "$E2E_SKILL"
+
+# T11 — Phase 11 v2 품질 계약 (FID 20260710-init-p11-quality · AC-1~AC-7)
+# AC-1 인터뷰 스텝
+t T11.a "Phase 11.5 인터뷰 스텝"     'Phase 11\.5'                                    "$CMD"
+t T11.b "인터뷰 상한 (그룹5·총15)"   '그룹당 최대 5.*총 최대 15|그룹당 5문항.*총 15문항' "$CMD"
+t T11.c "모름/나중에 선택지 의무"    '모름/나중에'                                     "$CMD"
+t T11.d "근거 4원 — 인터뷰 응답 편입" '④.*인터뷰 응답|인터뷰 응답.*④'                  "$CMD"
+# AC-7 질문 선정 우선순위
+t T11.e "결정급 우선 선정"           '결정급.*우선'                                    "$CMD"
+# AC-2 가정 다이제스트 게이트
+t T11.f "가정 전건 번호 목록"        '가정.*전건.*번호 목록|번호 목록.*가정'            "$CMD"
+t T11.g "결정급 ★ 표시"             '결정급.*★'                                      "$CMD"
+t T11.h "y/번호 수정 응답 규약"      '\[y/번호 수정\]'                                 "$CMD"
+# AC-3 다이제스트 기록 (대화형·무인 공통, PRD 단일 출처)
+t T11.i "§보강 가정 다이제스트 섹션" '§보강 가정 다이제스트'                            "$CMD"
+t T11.j "무인에서도 다이제스트 기록" '무인에서도.*다이제스트|다이제스트.*무인에서도 수행' "$CMD"
+# AC-4 깊이 기준 v2
+t T11.k "must 빈 셀 금지"           '빈 셀 금지'                                      "$CMD"
+t T11.l  "should NFR 정량화"          'NFR 정량화'                                     "$CMD"
+t T11.l2 "should M2/M3 사전 분해"     'M2/M3 사전 분해'                                "$CMD"
+# AC-5 무인 degrade — 양쪽 파일 동기 (전파 누락 차단)
+t T11.m "무인 degrade (command)"    '인터뷰.*건별 승인.*생략|건별 승인을 생략'          "$CMD"
+t T11.n "무인 degrade (e2e 동기)"   'Phase 11\.5.*생략|인터뷰.*생략'                   "$E2E_SKILL"
+# AC-6 질문 스킵 주권
+t T11.o "질문 스킵 주권"            '질문 스킵'                                       "$CMD"
+# AC-4 must ① — M1 FR 분해 (plan-reviewer Minor 반영: 무경보 탈락 방지)
+t T11.p "M1 FR 분해 필수"           '첫 마일스톤.*FR 분해|M1.*FR 분해|M1 시드를 세부 FR' "$CMD"
+# AC (리뷰 fix 1) — 다이제스트 재실행 멱등 규칙
+t T11.q "다이제스트 재실행 갱신 규칙"  '기존 섹션.*전건 갱신|중복 섹션 append 금지' "$CMD"
+# AC (리뷰 fix 2) — V21 판정에 다이제스트 존재 assertion 배선 (bash 블록 grep 명령만 매칭)
+t T11.r "V21 다이제스트 존재 검증 배선" 'grep.*§보강 가정 다이제스트' "$E2E_SKILL"
 
 # T10 — V21 스캔 규약 표기 allowlist (scan-enrich-placeholders.sh 가 SoT)
 # 배경: V21 원 regex 가 `.specops/<FID>` 류 규약 표기를 검출 → 정직 보강 + 정직 스캔 = 항상 FAIL.

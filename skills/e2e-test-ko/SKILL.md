@@ -176,15 +176,18 @@ TMP="$(mktemp -d)"
 
 **여기서 executor(Claude)는 `commands/init-project.md` §Phase 11 절차를 `$TMP` 산출물
 (`$TMP/PRD.md`·`$TMP/.specops/memory/*.md`) 대상으로 자동수락(§auto 무인) 수행한다** —
-그룹①②③ 보강 + `가정:` 접두·`미확정 — 근거 필요` 마커 규약 적용. 보강 완료 후 아래 스캔:
+무인 degrade: Phase 11.5 인터뷰·가정 건별 승인은 **생략**(§무인 계약)하고, 그룹①②③ 보강 +
+`가정:` 접두·`미확정 — 근거 필요` 마커 규약 + **가정 다이제스트를 PRD.md 말미에 기록**한다. 보강 완료 후 아래 스캔:
 
 ```bash
 # 원시 placeholder(<...>) 검출 — 스캔·제외 규칙 SoT = scan-enrich-placeholders.sh
-# (마커 줄 + 규약 표기 토큰 제외). 검출 0 이면 PASS.
+# (마커 줄 + 규약 표기 토큰 제외). 검출 0 이면서 다이제스트 섹션이 기록됐으면 PASS.
 # M1 가드: 대상 PRD.md 부재 시 FAIL (무증상 PASS 방지).
+# 다이제스트 미기록 시 정직 FAIL (무인 계약 실증 범위 — 보강 수행 사후 감사 경로가 비면 거짓 PASS).
 if [ -f "$TMP/PRD.md" ]; then
   if bash "$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh" \
-       "$TMP/PRD.md" "$TMP"/.specops/memory/*.md; then r21=0; else r21=1; fi
+       "$TMP/PRD.md" "$TMP"/.specops/memory/*.md \
+     && grep -q '## §보강 가정 다이제스트' "$TMP/PRD.md"; then r21=0; else r21=1; fi
 else
   r21=1
 fi
@@ -197,6 +200,7 @@ rm -rf "$TMP"
 > `PASS/FAIL` 전달 금지 — `r21=0/1` 산출 후 넘긴다. 스캔은 `rm -rf` 이전 격리 repo 의
 > 절대경로(`$TMP/PRD.md`·`$TMP/.specops/memory/*.md`)만 대상으로 하며(플러그인 repo 오염
 > 방지), 마커 공존 파일의 false-PASS 를 막기 위해 **라인 단위**(`grep -v`)로 제외한다.
+> r21=0 은 placeholder 스캔 clean **AND** `## §보강 가정 다이제스트` 섹션 존재 둘 다 충족 시에만 성립 (다이제스트 미기록 = 정직 FAIL).
 
 생성 후:
 
