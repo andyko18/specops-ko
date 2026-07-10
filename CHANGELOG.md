@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.39.0] — 2026-07-11
+
 ### Added
 - **`scripts/batch-state.sh` — 첫 batch 인프라** — `/start-all` queue↔requirements parity read-only 감지(미완·드리프트·FR-ID 중복, 2-테이블 분할 queue 견딤). Phase 3 완료 하드 스캔 게이트 배선: exit 1 → "그래도 batch PR? [y/n]"(의도적 부분 진행 허용 — 주권), §auto 무인 정지점. 실물 batch 산출물에서 드리프트 5건+미완 3건 검출 실증. start-all 감사 F-4·F-5 해소. FID 20260710-p2-batch-state (#180)
 
@@ -592,7 +594,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...HEAD
+[1.39.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...v1.39.0
 [1.38.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.37.0...v1.38.0
 [1.37.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...v1.37.0
 [1.36.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...v1.36.0
