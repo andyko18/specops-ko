@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Added
+- **batch 오케스트레이터 런타임 커버리지 (G0 해소)** — `/start-all` batch 상태기계를 2층으로 검증: ① 무료·상시 결정적 시뮬 `scripts/tests/test-batch-orchestration.sh`(queue 초기화·PLAN_DONE 전이·재진입 보존·batch-state 게이트 통합, start-all.md 근거 라인 주석 의무) ② 유료·수동 e2e `[S8] BATCH`(격리 repo Phase 0~1 실주행·§batch halt·완료 게이트 실증, V22~V24). e2e V 개수 21→24 동기. start-all 감사 G0 해소. FID 20260711-g0-batch-e2e (#182)
+
+### Fixed
+- **TDD RED 증거 규약 강화 (감사 P1 3건)** — TDD 3각도 감사에서 RED 관찰이 카운트 요약 주장에만 의존(실증 7 FID 중 raw 출력 인용 0, GREEN 과 비대칭)함을 확인. 앵커 규약 `RED 실측 출력`·`FAIL 라인 ≤10줄` 을 5소비처(tdd-ko 합리화 차단표·implementer-ko·verifying-evidence·dispatch-context 의무표·tasks.md 스텝2)에 배선하고 문구 계약 테스트 `test-tdd-red-evidence.sh`(15케이스)로 상시 잠금. templates/tasks.md test_command "optional" 모순 정정(emit-context 게이트 SSOT) + implementer-ko 죽은 "git log 증명" self-check 교체. FID 20260711-tdd-red-evidence (#183)
+
 ## [1.39.1] — 2026-07-11
 
 ### Fixed
