@@ -11,7 +11,7 @@ used_by: /e2e-test
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
-9단계를 HARD GATE 없이 완주하고 21개 검증 항목(V1~V21)을 점검한다.
+9단계를 HARD GATE 없이 완주하고 24개 검증 항목(V1~V24)을 점검한다.
 
 > **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
 > **repo ROOT 를 변경**하므로 (init-project 가 PRD/CLAUDE/README 작성 + `git commit`,
@@ -35,7 +35,8 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-c
 8. **[S6] VERIFY** — 9개 검증 항목(V1~V9) 실행
 9. **[S6.5] SECURITY/INTEGRATION/PERFORMANCE SKIP** — security-review-ko·integration-test-ko·performance-test-ko SKIP 경로 검증 → V18~V20
 10. **[S7] FINISH** — finishing HARD GATE 로직 단위검증 (격리 repo, 꼬리부) → V14~V17
-11. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
+11. **[S8] BATCH** — start-all 오케스트레이션 실주행 (격리 repo) → V22~V24
+12. **[REPORT]** — PASS/FAIL 결과 출력 + session-progress append
 
 ---
 
@@ -887,6 +888,57 @@ bash scripts/session-progress-append.sh "$FID" "/finishing" "완료" "정리 GAT
 
 ---
 
+## [S8] BATCH — start-all 오케스트레이션 실주행 (격리 repo)
+
+batch 오케스트레이션(Phase 0~1 + 완료 게이트)을 미니 fixture 로 실증한다. **Phase 3 구현 실주행은 비용상 제외** — 단일 구현은 [S5] 가 커버, 완료 게이트는 batch-state.sh 로 시뮬.
+
+```bash
+TMP="$(mktemp -d)"
+(
+  cd "$TMP" && git init -q \
+    && git config user.email e2e@test.local && git config user.name e2e
+  mkdir -p .specops/memory
+  cat > .specops/memory/requirements.md <<'REQEOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 |
+|---|---|---|---|
+| FR-1 | echo-a: 인사 한 줄 출력 CLI | M1 | must |
+| FR-2 | echo-b: 현재 날짜 출력 CLI | M1 | must |
+REQEOF
+) >/dev/null 2>&1
+```
+
+**여기서 executor(Claude)는 `commands/start-all.md` Phase 0~1 을 `$TMP` 대상으로 수행한다** — BATCH_ID 결정·`feat/<BATCH_ID>` 브랜치·queue.md 초기화(Phase 0), 이어 FR 2개 각각 specifying-ko 를 batch 3줄 prepend(`<!-- entry: batch -->`·`<!-- batch-id: ... -->`·`<!-- auto: true -->` — 무인 게이트 자동통과)로 호출해 spec→clarify→plan→decompose 완주, 각 `BATCH-PHASE1-DONE: <FID>` 후 queue PLAN_DONE 갱신(Phase 1). **decomposing halt 후 implementing 을 호출하지 않는다** (§batch 계약 실증).
+
+```bash
+# 확정 경로 캡처 — 미인용 글롭 셸 의존 회피 (plan-reviewer Important)
+qf=$(ls "$TMP"/.specops/batch-*/queue.md 2>/dev/null | head -1)
+
+# V22: queue 상태기계 — FR 2행 전부 PLAN_DONE + FID 컬럼 실FID(TBD 아님)
+# 주의: grep -c 는 미매칭 시 "0" 출력+exit 1 — || echo 0 금지(이중 출력 → integer error, plan-reviewer Critical)
+pd=$(grep -cE '^\| FR-[0-9]+ \|.*PLAN_DONE' "$qf" 2>/dev/null); pd=${pd:-0}
+tbd=$(grep -cE '\| TBD \|' "$qf" 2>/dev/null); tbd=${tbd:-0}
+{ [ "$pd" -eq 2 ] && [ "$tbd" -eq 0 ]; } && r22=0 || r22=1
+e2e_check V22 "batch queue 상태기계 (PLAN_DONE 2·TBD 0)" "$r22"
+
+# V23: §batch halt 실증 — 각 FID tasks.md 존재(decompose 도달) + IMPL_DONE 0
+tn=$(ls "$TMP"/.specops/*/tasks.md 2>/dev/null | wc -l | tr -d ' ')
+impl=$(grep -cE 'IMPL_DONE' "$qf" 2>/dev/null); impl=${impl:-0}
+{ [ "$tn" -eq 2 ] && [ "$impl" -eq 0 ]; } && r23=0 || r23=1
+e2e_check V23 "§batch halt 2회 (tasks.md 2·IMPL_DONE 0)" "$r23"
+
+# V24: 완료 게이트 — 미완(PLAN_DONE) 상태에서 batch-state exit 1, IMPL_DONE 시뮬 후 exit 0
+bdir=$(dirname "$qf")
+bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c1=$?
+sed -i.bak -E 's/\| PLAN_DONE \|$/| IMPL_DONE |/' "$qf" && rm -f "$qf.bak"
+bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c2=$?
+{ [ "$c1" -eq 1 ] && [ "$c2" -eq 0 ]; } && r24=0 || r24=1
+e2e_check V24 "batch-state 완료 게이트 (미완 1→완료 0)" "$r24"
+
+rm -rf "$TMP"
+```
+
+---
+
 ## [REPORT] 결과 출력 + session-progress append
 
 ```bash
@@ -922,7 +974,9 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S7] finishing HARD GATE 로직 단위검증 (격리 repo) → V14~V17   ← 꼬리부 (신규)
     ↓
-PASS=21 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥20 허용)
+[S8] start-all batch 오케스트레이션 실주행 (격리 repo) → V22~V24   ← batch (신규)
+    ↓
+PASS=24 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥23 허용)
 ```
 
 ## 실패 시 디버깅

@@ -15,7 +15,7 @@ reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
 
 specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없이 내장 `greet-cli` fixture를 사용해
 `(init-project 부트스트랩) → specifying → clarifying → planning → decomposing → implementing → verifying-evidence → (integration/performance SKIP) → (finishing 정리)`
-9단계를 완주하고 21개 검증 항목(V1~V21)을 점검한다.
+9단계를 완주하고 24개 검증 항목(V1~V24)을 점검한다.
 
 ## Process
 
@@ -29,8 +29,8 @@ specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없�
 /e2e-test
 
 → greet-cli fixture 기반 lifecycle 자동 실행 (9단계)
-→ 21개 검증 항목 점검 (V1~V21)
-→ PASS=19 FAIL=0 또는 실패 항목 리포트 (python3+pyyaml 미설치 시 V8 SKIP — PASS≥18 허용)
+→ 24개 검증 항목 점검 (V1~V24)
+→ PASS=24 FAIL=0 또는 실패 항목 리포트 (python3+pyyaml 미설치 시 V8 SKIP — PASS≥23 허용)
 ```
 
 ## 주의
