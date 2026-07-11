@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.40.0] — 2026-07-11
+
 ### Added
 - **batch 오케스트레이터 런타임 커버리지 (G0 해소)** — `/start-all` batch 상태기계를 2층으로 검증: ① 무료·상시 결정적 시뮬 `scripts/tests/test-batch-orchestration.sh`(queue 초기화·PLAN_DONE 전이·재진입 보존·batch-state 게이트 통합, start-all.md 근거 라인 주석 의무) ② 유료·수동 e2e `[S8] BATCH`(격리 repo Phase 0~1 실주행·§batch halt·완료 게이트 실증, V22~V24). e2e V 개수 21→24 동기. start-all 감사 G0 해소. FID 20260711-g0-batch-e2e (#182)
 
@@ -605,7 +607,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.1...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.40.0...HEAD
+[1.40.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.1...v1.40.0
 [1.39.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...v1.39.1
 [1.39.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...v1.39.0
 [1.38.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.37.0...v1.38.0
