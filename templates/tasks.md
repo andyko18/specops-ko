@@ -34,6 +34,8 @@ def test_<행동>():
 실행: `pytest tests/test_<경로>.py::test_<행동> -v`
 기대: FAIL — `<함수>` 정의되지 않음
 
+> FAIL 출력 원문을 기록한다 — RED 실측 출력 증거(요약행+FAIL 라인 ≤10줄), 구현 보고·evidence 인용용
+
 - [ ] **스텝 3: 최소 구현**
 
 ```python
@@ -115,17 +117,19 @@ graph TD
 ```yaml
 tasks:
   - id: T1
-    test_command: "bash scripts/tests/test-<file1>.sh"   # Wave 2 U2 — 신규 필드 (optional). 부재 시 extract-test-commands.sh 가 Step 4 라인 fallback.
+    test_command: "bash scripts/tests/test-<file1>.sh"   # 필수 — emit-context.sh 게이트 (미기재 시 exit 1). plain bash 단일 명령, compound(연쇄·파이프) 금지 — run-verification whitelist. verify 계층 fallback 은 과거 산출물 하위호환용
     depends_on: []
     inputs: []
     outputs: [src/<file1>.sh, scripts/tests/test-<file1>.sh]
     ac: [AC-1]
   - id: T2
+    test_command: "bash scripts/tests/test-<file2>.sh"
     depends_on: []
     inputs: []
     outputs: [src/<file2>.sh, scripts/tests/test-<file2>.sh]
     ac: [AC-2]
   - id: T3
+    test_command: "bash scripts/tests/test-<file3>.sh"
     depends_on: [T1, T2]
     inputs: [src/<file1>.sh, src/<file2>.sh]
     outputs: [src/<file3>.sh, scripts/tests/test-<file3>.sh]

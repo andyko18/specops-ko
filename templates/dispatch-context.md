@@ -67,7 +67,7 @@ bash scripts/tests/test-<feature>.sh
 |---|---|
 | 1 투명성 | 5 컨텍스트 누락 시 즉시 NEEDS_CONTEXT 반환, 추측 금지 |
 | 2 문지기 | whitelist 외 파일 수정 시도 시 즉시 중단 + NEEDS_CONTEXT |
-| 3 깊이 | 테스트 명령 실제 실행 후에만 PASS 주장 |
+| 3 깊이 | 테스트 명령 실제 실행 후에만 PASS 주장. RED 실측 출력(요약행+FAIL 라인 ≤10줄) 원문 캡처·보고 |
 | 4 주권 | git commit 권한 박탈 — 부모만 commit (R8 보강) |
 | 5 한계 고백 | 자체검토 보고를 최종 결과로 주장 금지, 부모 검증 의무 |
 
