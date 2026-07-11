@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **전체 점검 P3 Low 10건** — 분석 단계 advisor 계약 실배선(impact-analysis §4 신설 + R-5 죽은 타깃 impact-analysis.md 교체) · init 종료 안내 이음새(/start-foundation·/design-screens·/design-interfaces·/status) · Phase 8e 클라이언트 스토리지 안내 · design-interfaces 커밋 참조 · agents drift 3건 · generator-evaluator 잔재 · start-all 문서 3건 · README R-6 정정 (#181)
+
 ## [1.39.0] — 2026-07-11
 
 ### Added
