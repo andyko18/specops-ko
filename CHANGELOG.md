@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.39.1] — 2026-07-11
+
 ### Fixed
 - **전체 점검 P3 Low 10건** — 분석 단계 advisor 계약 실배선(impact-analysis §4 신설 + R-5 죽은 타깃 impact-analysis.md 교체) · init 종료 안내 이음새(/start-foundation·/design-screens·/design-interfaces·/status) · Phase 8e 클라이언트 스토리지 안내 · design-interfaces 커밋 참조 · agents drift 3건 · generator-evaluator 잔재 · start-all 문서 3건 · README R-6 정정 (#181)
 
@@ -597,7 +599,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.1...HEAD
+[1.39.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...v1.39.1
 [1.39.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...v1.39.0
 [1.38.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.37.0...v1.38.0
 [1.37.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...v1.37.0
