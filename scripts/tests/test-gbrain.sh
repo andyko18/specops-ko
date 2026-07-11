@@ -33,8 +33,9 @@ run "T2.a JSONL 레코드 추가" T2_a
 run "T2.b JSONL insight 값 round-trip" bash -c '
   tmp=$(mktemp)
   GBRAIN_FILE="$tmp" bash "'"$PLUGIN"'"/scripts/gbrain-append.sh "라운드트립인사이트"
-  grep -q "\"insight\":\"라운드트립인사이트\"" "$tmp"
+  if grep -q "\"insight\":\"라운드트립인사이트\"" "$tmp"; then rc=0; else rc=1; fi
   rm -f "$tmp"
+  exit $rc
 '
 
 # T2.c: 큰따옴표 포함 insight JSONL 유효 (C-1 검증)
@@ -42,8 +43,9 @@ run "T2.c insight 큰따옴표 포함 JSONL 유효" bash -c '
   tmp=$(mktemp)
   GBRAIN_FILE="$tmp" bash "'"$PLUGIN"'"/scripts/gbrain-append.sh '"'"'he said \"hello\"'"'"'
   line=$(tail -1 "$tmp")
-  echo "$line" | grep -q '"'"'"insight"'"'"'
+  if echo "$line" | grep -q '"'"'"insight"'"'"'; then rc=0; else rc=1; fi
   rm -f "$tmp"
+  exit $rc
 '
 
 # T2.d: 큰따옴표 포함 insight python3 json 파싱 round-trip

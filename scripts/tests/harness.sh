@@ -2,7 +2,7 @@
 # specops-auto-ko 공통 테스트 하네스 — PASS/FAIL 카운터 표준 헬퍼 (통일 출력 포맷)
 #
 # 사용: 호출 측 PLUGIN 변수 정의 후
-#   source "$PLUGIN/scripts/tests/test-harness.sh"
+#   source "$PLUGIN/scripts/tests/harness.sh"
 #
 # 카운터는 `: "${PASS:=0}"` 로 초기화 — 호출 측이 `PASS=0; FAIL=0` 을 source 전에
 # 선언했어도 보존(0), 미선언이면 0 시작. 집계는 호출 측이 유지하거나 finish 사용.
