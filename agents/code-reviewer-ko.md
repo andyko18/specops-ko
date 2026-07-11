@@ -143,7 +143,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 사용 가능 도구
 
-`Read`, `Grep`, `Bash` (git diff/log, test 실행만 — 수정 도구 금지).
+`Read`, `Grep`, `Glob`, `Bash` (git diff/log, test 실행만 — 수정 도구 금지).
 
 ## 5원칙 주입 (본 에이전트 자체)
 

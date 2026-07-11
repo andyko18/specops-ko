@@ -215,6 +215,10 @@ git log --oneline --grep="<symbol>" -n 5
 
 ---
 
+**§4 — Advisor 협의 기록 (advisor-ko 계약)**: impact 5 항목 작성 중 외부 영향 범위·롤백 전략이 애매하면 `advisor()` 호출 후 §4 표에 기록. 불확실 지점 없으면 "해당 없음 — 본 분석 중 불확실 지점 없음" 1줄 (R-5 거버넌스가 impact-analysis.md 수정 시 본 섹션을 검사).
+
+---
+
 ### Step 7: ★ HARD GATE (AC-7, AC-8)
 
 두 산출물 경로를 명시하고 사용자 응답 대기:

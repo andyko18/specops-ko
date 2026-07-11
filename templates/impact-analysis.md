@@ -29,6 +29,14 @@
 - **관련 PR**: <gh pr list 또는 git log --merges --grep='Merge pull' 결과 요약 (최근 5 건)>
 - **관련 이슈**: <gh issue list 결과 요약 — gh 미가용 시 "git log 만 사용 — 이슈 추적 미수행" 명시>
 
+## 4. Advisor 협의 기록
+
+analyzing 중 애매한 지점(외부 영향 범위·롤백 전략 등)에서 `advisor()` 를 호출했다면 기록. 없으면 "해당 없음 — 본 분석 중 불확실 지점 없음".
+
+| 일시 | 질의 요지 | advisor 권고 | 채택 여부 | 반영 위치 |
+|---|---|---|---|---|
+| <YYYY-MM-DD HH:MM> | <1~2 문장> | <요지> | 채택 / 부분 채택 / 기각 | §<섹션> |
+
 ---
 
 *작성: analyzing-ko (Phase C) · <날짜> · FID: <FID>*

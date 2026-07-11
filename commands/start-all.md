@@ -4,7 +4,7 @@ description: "[전체·대화형] specops-auto-ko 한국어 자율 Lifecycle —
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 1.16.0
+specops_version: 1.34.0
 specops_layer: Lifecycle
 reference_upstream: specops-auto-ko 독자 추가
 ---
@@ -84,7 +84,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
 2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출
 3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출
 4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출
-5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR integration/performance/PR 차단. chain 자동 진행
+5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR security/integration/performance/PR 차단. chain 자동 진행
 6. queue.md 해당 FR → `IMPL_DONE` 갱신
 7. 다음 PLAN_DONE FR 반복
 
@@ -172,4 +172,4 @@ EOF
 
 ---
 
-*specops-auto-ko v1.16.0 · 2026-06-19 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-auto-ko v1.34.0 · 2026-07-03 · 3-Phase 일괄 구현 오케스트레이터*

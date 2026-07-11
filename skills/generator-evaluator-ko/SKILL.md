@@ -36,9 +36,8 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
 
 ## 체크리스트 (커맨드 구현 시)
 
-- [ ] 커맨드 frontmatter `specops_generator_or_evaluator` 필드가 올바른가?
-- [ ] Generator 커맨드는 `specops_artifact_out`에 **새 파일**을 명시하는가?
-- [ ] Evaluator 커맨드는 `specops_artifact_out`에 **판정 파일**만 명시하는가?
+- [ ] Evaluator 에이전트 frontmatter 에 `role: evaluator` marker 가 있는가? (validate-structure `agent_tools` 가 Write/Edit 박탈을 하드 검사)
+- [ ] Generator 는 산출 **파일**을 만들고, Evaluator 는 **판정 보고**만 반환하는가? (판정 파일 저장은 부모 소관 — file-based-communication)
 - [ ] 서브에이전트 호출 시 역할 선언 헤더를 포함하는가?
 - [ ] Evaluator가 BLOCK 판정 시, 수정은 Generator 재호출로 이뤄지는가? (Evaluator가 직접 고치지 않음)
 

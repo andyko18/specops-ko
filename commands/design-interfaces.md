@@ -24,7 +24,7 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ## Step 2: 인터페이스별 순차 대화 루프
 
-각 인터페이스에 대해 `/design-interface {name}` 의 Step 2~3(대화 → 마스터 append)을 순차 수행한다. 채택 섹션 덮어쓰기 금지·별도 산출물 금지 규약 동일.
+각 인터페이스에 대해 `/design-interface {name}` 의 Step 2~4(대화 → 마스터 append → 커밋)를 순차 수행한다 (커밋은 인터페이스별 또는 루프 종료 후 1회 일괄 — 재량). 채택 섹션 덮어쓰기 금지·별도 산출물 금지 규약 동일.
 
 ## 참조
 - `commands/design-interface.md` — 단수(분업표 단일출처)

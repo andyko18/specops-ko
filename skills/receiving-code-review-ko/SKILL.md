@@ -222,7 +222,7 @@ bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N
 grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SINGLE"
 ```
 
-- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-REVIEW-DONE: <FID>` 출력 + **halt**. integration-test-ko 미호출. `/start-all` 오케스트레이터가 다음 단계를 제어한다
+- **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-REVIEW-DONE: <FID>` 출력 + **halt**. security-review-ko(및 하위 chain) 미호출. `/start-all` 오케스트레이터가 다음 단계를 제어한다
 
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) — **리뷰 이슈가 모두 해결된 상태** → 즉시 호출:
 

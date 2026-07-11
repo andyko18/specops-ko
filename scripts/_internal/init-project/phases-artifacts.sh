@@ -67,7 +67,7 @@ _phase_8e_data_model() {
   # _should_skip 선검사 (다른 phase 와 정합) — resume·재실행 시 기존 파일 보존 + 불필요 프롬프트 회피
   local target=".specops/memory/data-model.md"
   _should_skip "$target" && { echo "→ data-model.md 보존 (skip 정책)"; return; }
-  printf "[Phase 8e] DB (Postgres/MySQL/MongoDB 등) 사용? [y/N/skip]: "
+  printf "[Phase 8e] DB 사용? — 서버 DB(Postgres/MySQL/MongoDB) 또는 클라이언트 영속(localStorage/IndexedDB)도 y [y/N/skip]: "
   local ans=""
   read -r ans || true
   case "$ans" in y|Y) ;; *) echo "→ data-model.md skip (8e ${ans:-N})"; return ;; esac
@@ -221,4 +221,5 @@ EOF
   echo ""
   echo "초기화 완료. 활성 산출물 ${active}종."
   echo "이제 /start \"<첫 기능>\" 으로 lifecycle 진입하세요."
+  echo "  (공통 인프라 먼저면 /start-foundation · 화면 채우기 /design-screens · 인터페이스 /design-interfaces · 현황 /status)"
 }

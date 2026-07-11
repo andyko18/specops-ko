@@ -74,7 +74,7 @@ claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
 슬래시 1회 진입 후 **메타 스킬이 단계·스킬을 자동 chain**하는 한국어 자율 Lifecycle 플러그인.
 
 - **자율 체인**: Conductor 에이전트 없이 각 스킬 본문 `## 다음 skill`이 다음 단계를 강제
-- **거버넌스**: R-1~R-6 규칙 엔진이 매 도구 호출 후 원칙 위반을 자동 감지
+- **거버넌스**: R-1~R-5 규칙 엔진이 매 도구 호출 후 원칙 위반을 자동 감지 (R-6 은 manual-only 비활성)
 - **AC 계약**: `acceptance-criteria.md`를 스프린트 계약서로 취급 — 평가자는 이것만 기준으로 판정
 - **Generator/Evaluator 분리**: Phase B(스펙 준수)와 Phase C(코드 품질)를 별도 서브에이전트가 담당
 

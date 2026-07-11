@@ -102,7 +102,7 @@ tools: Read, Write, Edit, Grep, Glob, Bash
 ## 사용 가능 도구 (v0.4a W4: leaf 권한 박탈 명시)
 
 - `Read` — 모든 파일 읽기 가능
-- `Write`, `Edit`, `MultiEdit` — **whitelist (5 컨텍스트 #4) 파일만**. 외 파일 시도 → NEEDS_CONTEXT 반환
+- `Write`, `Edit` — **whitelist (5 컨텍스트 #4) 파일만**. 외 파일 시도 → NEEDS_CONTEXT 반환. dispatch 컨텍스트에 §6 설계 계약(api-spec·data-model·screens) 있으면 준수
 - `Bash` — 다음 카테고리만:
   - **허용**: test runner (`bash scripts/tests/test-*.sh`, `pytest`, `npm test` 등), `git add <whitelist 파일>`, `git status`, `git diff`, `git log`, `cat`, `ls`, `grep`, `find` 등 read-only 조회
   - ⛔ **금지**: `git commit`, `git push`, `git tag`, `git rebase`, `git merge`, `git reset`, `git checkout <branch>`, 파괴적 시스템 명령 (`rm -rf`, `DROP TABLE` 등)
