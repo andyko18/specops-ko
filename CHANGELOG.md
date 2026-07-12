@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.41.0] — 2026-07-12
+
 ### Fixed
 - **테스트 인프라 false-PASS/silent-skip 봉쇄 (테스트 영역 감사 P1·P2)** — 3각도 테스트 감사가 되돌려-관찰로 실증한 "조용한 거짓 통과" 표면 3건 근본 봉쇄:
   - **gbrain tautology + harness canary (P1, #185)** — `test-gbrain.sh` T2.b·T2.c 가 `bash -c` 블록 마지막 `rm`(항상 exit 0)에 grep 판정을 삼켜 프로덕션을 망가뜨려도 통과하던 tautology 를 판정-캡처(rc→rm→exit rc)로 정정. `harness.sh:5` 오파일명 canary(복붙 시 source-실패 false-PASS 유발) 정정. FID 20260711-test-gbrain-tautology
@@ -613,7 +615,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.40.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.41.0...HEAD
+[1.41.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.40.0...v1.41.0
 [1.40.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.1...v1.40.0
 [1.39.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...v1.39.1
 [1.39.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...v1.39.0
