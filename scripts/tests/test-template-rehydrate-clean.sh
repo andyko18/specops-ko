@@ -6,6 +6,7 @@ set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 TPL="$PLUGIN/templates/session-progress.md"
 
 # 아래 awk 는 hooks/session-start.sh 의 "2) session-progress.md 상위 1 블록" 추출 로직 복제본.

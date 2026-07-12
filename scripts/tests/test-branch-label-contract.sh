@@ -4,6 +4,7 @@ set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SK="$PLUGIN/skills"
 
 # 역방향 소비처 자동 수집 (하드코딩 제거 — label_consumer backlog 해소)

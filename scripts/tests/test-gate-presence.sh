@@ -9,6 +9,7 @@
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd) || exit 1
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 cd "$PLUGIN" || exit 1
 
 # has <file> <regex...> — 모든 패턴이 파일에 존재하면 0

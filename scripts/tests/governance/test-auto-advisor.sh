@@ -5,6 +5,7 @@ set -u
 PASS=0; FAIL=0
 PLUGIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 
 # T1: clarifying §auto advisor + fallback + 주권
 C="$PLUGIN/skills/clarifying-ko/SKILL.md"

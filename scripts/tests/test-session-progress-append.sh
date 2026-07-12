@@ -4,6 +4,7 @@ set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SCRIPT="$PLUGIN/scripts/session-progress-append.sh"
 
 

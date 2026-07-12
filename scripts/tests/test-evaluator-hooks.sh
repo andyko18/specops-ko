@@ -7,6 +7,7 @@ ROTATE="$PLUGIN/hooks/rotate-evaluator-artifact.sh"
 INJECT="$PLUGIN/hooks/inject-evaluator-timestamp.sh"
 
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 
 setup_file() {
   local f="$1"

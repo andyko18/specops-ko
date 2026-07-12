@@ -4,6 +4,7 @@
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 PASS=0; FAIL=0
 
 TDD="$PLUGIN/skills/tdd-ko/SKILL.md"

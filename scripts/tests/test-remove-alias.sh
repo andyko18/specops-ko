@@ -4,6 +4,7 @@ set -u
 PASS=0; FAIL=0
 P=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$P/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 
 # AC-1: alias 2파일 부재
 [ ! -f "$P/commands/start-project.md" ] && [ ! -f "$P/commands/start-batch.md" ] \

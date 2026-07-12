@@ -13,6 +13,8 @@
 #   nope "<desc>" [<detail>] → FAIL++ , "FAIL <desc> — <detail>"  (detail 없으면 "FAIL <desc>")
 #   run  "<desc>" <cmd...>   → cmd 성공 시 ok, 실패 시 fail (stderr 억제)
 #   finish                   → "PASS=N FAIL=M" 출력 + FAIL==0 이면 exit 0, 아니면 1
+#
+# ⚠️ source 직후 로드 가드 필수: `command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }`
 
 : "${PASS:=0}"
 : "${FAIL:=0}"

@@ -4,6 +4,7 @@ set -u
 PASS=0; FAIL=0
 P=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$P/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 DS="$P/scripts/dast-scan.sh"
 
 [ -f "$DS" ] && [ -x "$DS" ] || nope "존재" "dast-scan.sh 부재/비실행"
