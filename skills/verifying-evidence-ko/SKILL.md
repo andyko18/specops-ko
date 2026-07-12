@@ -156,11 +156,12 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 - [ ] 회귀 테스트 Red-Green 사이클 검증 (버그 픽스 태스크인 경우)
 - [ ] **RED 실측 출력 원문 인용** — evidence.md 의 RED 관찰 기록은 카운트 요약 주장이 아니라 실측 출력 원문(요약행+FAIL 라인 ≤10줄) 인용 (GREEN 인용과 대칭)
 - [ ] 서브에이전트 위임 태스크면 `git diff` 확인 (변경이 실제로 일어남)
-- [ ] **memory 설계 동기화 점검 (역방향 안전망 — design-first 보조)**: `.specops/memory/api-spec.md`·`data-model.md` 가 존재할 때만 (없으면 graceful skip — CLI 등).
+- [ ] **memory 설계 동기화 점검 (역방향 안전망 — design-first 보조)**: `.specops/memory/api-spec.md`·`data-model.md` 또는 **프로젝트 루트 `screens/`**(`.specops/memory/` 하위가 **아닌** 저장소 루트 `screens/` — M-1 오독 방지) 가 하나라도 존재할 때만 (없으면 graceful skip — CLI 등).
   - **inspect-first**(코드를 진실원천으로): 이번 FID 의 **브랜치 누적 변경**에서 추출한다 — `git diff "$(git show-ref -q --verify refs/heads/main && echo main || echo master)"...HEAD` (base=main/master 자동). **주의**: `/implement` 가 태스크별로 **커밋**하므로 verify 시점엔 working-tree 가 클린 → bare `git diff`(unstaged)는 **빈 출력**이라 무탐지로 항상 통과한다(안전망 무력화). 반드시 `base...HEAD` 커밋분을 본다(R-2 거버넌스 `_detect_base_branch` 와 동일 패턴).
-  - 추출 대상: 새/변경 **제공 엔드포인트**(라우트 정의 — 내부 함수 시그니처는 제외, 정방향 Step 5.6 "제공" 기준과 통일) · **스키마**(테이블·필드·마이그레이션) · **클라이언트 영속 데이터**(localStorage 키(`setItem` 신규 네임스페이스)·IndexedDB objectStore — Step 5.6 클라이언트 스토리지 축과 통일).
+  - 추출 대상: 새/변경 **제공 엔드포인트**(라우트 정의 — 내부 함수 시그니처는 제외, 정방향 Step 5.6 "제공" 기준과 통일) · **스키마**(테이블·필드·마이그레이션) · **클라이언트 영속 데이터**(localStorage 키(`setItem` 신규 네임스페이스)·IndexedDB objectStore — Step 5.6 클라이언트 스토리지 축과 통일) · **화면 계약**(screens/{name}.md ↔ 구현 산출물 — Step 5.5 design-first. screens-overview.md 화면목록 대비 구현 누락·드리프트).
   - 추출분이 `api-spec.md`·`data-model.md` 에 **반영돼 있는지 대조**. 통상 `specifying-ko` Step 5.6(정방향 인터페이스 설계)이 선반영했으면 일치한다.
   - **누락·괴리 발견 시**: evidence.md 에 `## memory 동기화 권고` 섹션 기록 — "코드의 `POST /orders` 가 api-spec 의 **채택된 정의방식 섹션**에 없음 → 반영 검토" 식으로 **무엇을 어디에** 명시 + 사용자에게 출력.
+    - 화면 괴리는 evidence.md 에 `## 화면 동기화 권고` 섹션으로 기록(chain 비차단, 자동 수정 금지 — DB 동기화와 동일). screens/ 부재(CLI·순수 로직) 시 graceful skip.
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.
   - **FAIL 조건**: 파일 부재 **또는** raw 템플릿 placeholder 잔존(`grep -q '<경로>' .specops/memory/foundation-manifest.md` — 미채움 간주) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단.

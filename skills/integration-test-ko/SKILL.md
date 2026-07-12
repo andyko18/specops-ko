@@ -31,6 +31,12 @@ used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모�
 - 2개 이상 서비스/모듈 간 호출 경계
 - 외부 API·메시지 큐·파일시스템 연동
 - 인증/인가 흐름 (JWT·세션·OAuth 토큰 검증)
+- **화면 렌더·사용자 흐름** (SPA·컴포넌트 렌더, 클릭·폼 제출·라우팅·브라우저 상호작용 — 순수 프론트 기능 포함)
+
+**UI 표면 검출 시 (화면 렌더·사용자 흐름 신호) — E2E 위임**:
+- 브라우저 E2E 는 **downstream 프로젝트 스택(Playwright/Cypress 등)으로 작성·실행**한다(플러그인은 브라우저 인프라 미보유 — execution 은 downstream). `e2e-runner` 에이전트가 있으면 선택적으로 활용(없어도 downstream 스택 직접 지시로 graceful — 하드 의존 금지).
+- 실행 환경은 **아래 Step 2 env-check 를 재사용**(별도 fallback 신설 금지) — 불가 시 `[환경 설정 후 재실행 / skip]` 질문.
+- **풀스택(UI+백엔드 동시 검출)**: API 통합(supertest/httpx 등)과 UI E2E 를 **각각 수행**(Q5 — 신호 OR, 둘 다 커버).
 
 **신호 없는 경우 (graceful skip)**:
 ```

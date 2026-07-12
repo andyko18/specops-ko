@@ -40,6 +40,10 @@ tools: Read, Grep, Glob, Bash
      - **제약**: FK `ON DELETE` 정책(CASCADE/RESTRICT/SET NULL) 명시 여부, NOT NULL/CHECK/UNIQUE 누락
      - **쿼리**: N+1 유발 구조, 정규화/비정규화 근거 부재
      - **정합**: `data-model.md` 의 ERD·엔티티표 ↔ 실제 DDL/마이그레이션 일치 (괴리 시 Important+)
+   - **[조건부] UI/화면 관점** (변경이 `screens/`·컴포넌트·라우팅·폼을 건드릴 때만 — 해당 표면 없으면 skip):
+     - **계약 준수**: `screens/{name}.md` 명세(레이아웃·인터랙션·상태) ↔ 구현 일치 (괴리 시 Important+)
+     - **접근성**: 시맨틱 태그·aria·키보드 포커스·색 대비(DESIGN.md 준수)
+     - **E2E 표면**: 핵심 사용자 흐름(클릭·폼 제출·라우팅)이 downstream E2E(Playwright/Cypress)로 커버되는지 — 미커버 시 integration-test 위임 권고
 4. **이슈 분류**:
    - 🔴 **Critical**: merge 전 반드시 수정
    - 🟡 **Important**: 권장 수정, 선택

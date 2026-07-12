@@ -30,6 +30,7 @@ used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구
 - 처리량 요구: "N RPS 이상", "N TPS 이상", "동시 N명 처리"
 - 동시성 요구: "N개 동시 연결", "N 동시 사용자"
 - 부하 민감 엔드포인트 명시: "대용량 처리", "고트래픽 API"
+- **Web Vitals (프론트 성능)**: "LCP < Xs", "CLS < X", "FCP < Xs", "번들 크기 < XKB" — 브라우저 렌더 성능 임계값 (측정: Lighthouse·web-vitals, downstream 스택)
 
 **신호 없는 경우 (graceful skip)**:
 ```
