@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **테스트 인프라 false-PASS/silent-skip 봉쇄 (테스트 영역 감사 P1·P2)** — 3각도 테스트 감사가 되돌려-관찰로 실증한 "조용한 거짓 통과" 표면 3건 근본 봉쇄:
+  - **gbrain tautology + harness canary (P1, #185)** — `test-gbrain.sh` T2.b·T2.c 가 `bash -c` 블록 마지막 `rm`(항상 exit 0)에 grep 판정을 삼켜 프로덕션을 망가뜨려도 통과하던 tautology 를 판정-캡처(rc→rm→exit rc)로 정정. `harness.sh:5` 오파일명 canary(복붙 시 source-실패 false-PASS 유발) 정정. FID 20260711-test-gbrain-tautology
+  - **harness 로드 가드 (P2-①, #186)** — harness source test 가 함수 로드 실패 시 카운터 미증가로 0 assertion 인데 조용히 exit 0 하던 구멍을, source 다음 줄 로드 가드(`command -v finish || exit 1`) 34개 삽입으로 봉쇄. finish 표준화(감사 원안) 대신 로드 가드 채택(advisor 협의 — tail 무접촉·계약 테스트 강제력). 계약 테스트 `test-harness-load-guard.sh`. FID 20260711-harness-load-guard
+  - **run-all glob 완결성 계약 (P2-②, #187)** — run-all aggregator 가 test 서브디렉토리를 for 루프에 하드코딩 편입해 미등록 subdir 에 test 추가 시 조용히 스킵하던 구멍을, 완결성 계약 테스트(find 실제집합 ⊆ run-all for-루프 grep 커버, run-all 단일 SoT)로 봉쇄. run-all 실행 경로 무접촉(advisor 협의 — 릴리즈 게이트 불안정화 방지) + L4 stale 주석 정정. `test-run-all-glob-completeness.sh`. FID 20260712-runall-glob-completeness
+
 ## [1.40.0] — 2026-07-11
 
 ### Added
