@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **화면(UI) E2E 검증 루프 폐합 — DB lifecycle 대칭 (감사 P1+P2)** — 화면(screens)이 design-first(Step 5.5)로 그려지고 구현자 전달까지만 닫히고 사후 검증(분해·리뷰·verify·게이트)이 비어 UI 웹앱이 브라우저 무검증으로 PR 통과하던 3중 비대칭을 DB lifecycle(#152) 패턴으로 대칭 복제해 폐합. verifying-evidence 역방향 net 에 screens/ 대조, code-reviewer UI/화면 관점(조건부), integration-test UI/사용자흐름 detection 신호(기존 백엔드 OR 유지), performance-test Web Vitals(LCP/CLS/FCP) 신호 추가. UI 표면 검출 시 downstream 스택(Playwright/Cypress) E2E 위임(e2e-runner 선택적·Step 2 env-check 재사용). **detection·delegation 은 플러그인 강제, 브라우저 E2E execution 은 downstream/manual**(플러그인 인프라 부재 — advisor: e2e-runner 하드 dispatch 기각, 사용자 전역 에이전트라 aspirational). 4 신호를 계약 테스트 `test-ui-e2e-signals.sh`(앵커 리터럴 + reverse-observe)로 잠금(aspirational 방지). FID 20260712-ui-e2e-loop-closure (#189)
+
 ## [1.41.0] — 2026-07-12
 
 ### Fixed
