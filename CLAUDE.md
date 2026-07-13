@@ -56,13 +56,15 @@ chain 의 primary edge 는 `hooks/chain.yaml` 이 단일 Source of Truth 다 —
 
 R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된다(면제·fail-open 시 posttool audit trail 보존). 그 외 위반은 `.specops/<FID>/friction-log.jsonl`에 Soft Warn으로 기록된다.
 
-### 서브에이전트 2단계 리뷰 패턴
+### 서브에이전트 리뷰 패턴 (Generator ↔ Evaluator 분리)
 
-`implementing-ko`가 태스크별 fresh 서브에이전트를 dispatch하며, 각 태스크 완료 후:
-- **Phase B** `spec-reviewer-ko` (스펙 준수만 판정) → PASS 후
-- **Phase C** `code-reviewer-ko` (코드 품질·보안·커버리지)
+Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한다. `agents/` 의 서브에이전트는 용도가 나뉜다:
 
-Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한다.
+- **구현 2단계** (`implementing-ko` 가 태스크별 fresh dispatch): **Phase B** `spec-reviewer-ko`(스펙 준수만) → PASS 후 **Phase C** `code-reviewer-ko`(코드 품질·보안·커버리지·DB 관점).
+- **설계 리뷰** (`planning-ko` 가 dispatch): `plan-reviewer-ko` — TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 + 실측 의무.
+- **self-config 적대감사** (`/security-scan --self-config`): `red-team-ko`(공격 표면 탐색) → `blue-team-ko`(기존 방어 유효성 평가) → `auditor-ko`(종합 risk 등급 A~F 리포트). 플러그인 자기 hooks·rules·settings 번들을 read-only 감사.
+
+Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하드 박탈한다 (validate-structure `agent_tools` 스캔 강제).
 
 ### 아티팩트 규약
 
@@ -78,6 +80,19 @@ Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한�
 ├── evidence.md                        ← /verify 산출
 └── friction-log.jsonl                 ← 거버넌스 위반 기록
 ```
+
+### design-first 대칭 (화면 Step 5.5 ↔ 인터페이스 Step 5.6)
+
+`specifying-ko` 설계 승인 직후, 구현 전에 두 design-first 루프가 대칭으로 돈다:
+
+- **Step 5.5 화면** — UI 기능이면 화면별로 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍 생성. lifecycle 밖 개별/일괄 수정은 `/design-screen(s)`.
+- **Step 5.6 인터페이스** — API/스키마 기능이면 마스터 문서 `.specops/memory/api-spec.md`(IF 설계) · `.specops/memory/data-model.md`(테이블 설계) 의 해당 섹션을 **먼저** 갱신. lifecycle 밖은 `/design-interface(s)`.
+
+`foundation` 분기는 Step 5.5 는 skip 하나 **Step 5.6 은 적용**(공통부 DB 스키마·공통 API 의 본진). 파괴적 스키마 변경은 `impact-analysis.md §2`(expand-contract) + 회귀 AC-R-2(데이터 보존)로 연계. verify 가 역방향 안전망으로 설계-구현 대칭을 검사한다.
+
+### 학습 루프 (gbrain / freelog)
+
+세션 인사이트는 `.specops/memory/learnings.jsonl` 에 축적된다 — `scripts/gbrain-append.sh` append, `/gbrain` 조회. 자유작업(lifecycle 밖 편집)은 Stop 훅 `freecomment-capture.sh` 가 pending 적재 → SessionStart 가 LLM 요약해 `.specops/freelog.md` 기록 + mini-FID 또는 진행 중 FID 귀속. `/log` 로 수동 즉석 기록.
 
 ## 주요 규약
 
