@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.29.0
+specops_version: 1.44.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
@@ -207,35 +207,19 @@ task 시작 시 `.specops/<FID>/dispatch-log.md` 부재면 `templates/dispatch-l
 
 footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱신. cap 초과 시 자동 진행 금지, 사용자 결정 대기.
 
-## 모델 티어 라우팅
+## 모델 라우팅 (역할별 고정)
 
-역할마다 **감당 가능한 가장 가벼운 모델** 사용. 비용·속도. (OMC `config/loader.ts` 티어 테이블 차용)
+서브에이전트 모델은 **각 `agents/<name>.md` frontmatter 의 `model:` 필드로 역할별 고정**된다 (커밋 97c672b — "서브에이전트 모델 라우팅 고정"). 부모가 dispatch 마다 티어를 동적 판단하지 않는다 — Generator/Evaluator 역할이 곧 모델을 결정한다.
 
-| 티어 | 모델 | 적용 태스크 | 신호 |
+| 역할 | 에이전트 | model | 근거 |
 |---|---|---|---|
-| LOW | haiku | 조회·단순 구현 | 파일 1-2개, 완전한 스펙, 격리 함수, 명확 I/O |
-| MEDIUM | sonnet | 구현·디버그·검증 | 다중 파일 조율, 패턴 매칭, 통합 관심사 |
-| HIGH | opus | 아키텍처·설계·보안 리뷰 | 광범위 코드베이스 이해, 설계 판단, 보안 분석 |
+| Generator (구현) | `implementer-ko` | opus | 구현 품질 우선 — 다운그레이드 금지 |
+| Evaluator (Phase B/C·설계) | `spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko` | fable | 평가 엄밀성 최우선 (최강 추론) |
+| self-config 감사 | `red-team-ko`·`blue-team-ko`·`auditor-ko` | inherit | 세션 최상위 모델 계승 |
 
-**tasks.md `tier:` 필드 (선택)**: decomposing-ko가 각 task에 `tier: low|medium|high` 부여 가능. 부재 시 위 신호로 자동 판단.
+**설계 원칙 — 품질 편향(비용 다운그레이드 아님)**: specops 는 "가장 가벼운 모델" 비용 절감 전략을 **의도적으로 채택하지 않는다**. 단순 태스크라도 haiku 로 낮추지 않고, 역할별로 품질에 필요한 모델을 고정한다. (Agent 도구 `model` 파라미터를 부모가 임의로 재정의하지 않는다 — 에이전트 frontmatter 가 단일 소스.)
 
-```yaml
-# tasks.md 예시
-tasks:
-  - id: T1
-    tier: low       # ← 선택 필드
-    depends_on: []
-    outputs: [src/foo.sh]
-```
-
-**dispatch 시 tier 적용**: implementing-ko(부모)가 tier를 판단해 dispatch 컨텍스트에 명시. `agents/implementer-ko.md`는 `model: inherit` 유지 — 부모가 tier 결정.
-
-**Agent 도구 model 파라미터 연결** (P2 O-4): 부모는 판단한 tier 를 dispatch 시 Agent 도구의 `model` 파라미터로 실제 전달한다 —
-- `low` → `model: "haiku"` · `medium` → `model: "sonnet"` · `high` → **생략** (inherit — 세션 최상위 모델 유지, 다운그레이드 방지)
-- tier 미부여·판단 불확실 시 **생략** (inherit) — 과소 모델로 인한 구현 품질 하락보다 보수적 기본 우선
-- **리뷰어 (Phase B/C) 는 본 매핑 비적용** — 평가 품질 보수 (항상 inherit)
-
-**재dispatch 시**: BLOCKED → 더 강한 모델 필요 판단 시 tier 상향 (low→medium, medium→high) 후 재dispatch.
+**재dispatch 시**: BLOCKED 는 모델 부족이 아니라 **컨텍스트·태스크 분해 문제**로 다룬다 (구현자는 이미 opus 고정). 컨텍스트 보강 또는 더 작은 태스크로 분할해 재dispatch — 모델 상향이 아님.
 
 ## 구현자 상태 처리
 
@@ -257,13 +241,13 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 부모 검증: dispatch 직전 `bash scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
 
-**BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가:
-1. 컨텍스트 문제 → 컨텍스트 더 주고 **같은 모델**로 재dispatch
-2. 더 강력한 추론 필요 → **더 강한 모델**로 재dispatch
+**BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가 (구현자 모델은 opus 고정 — 해법은 모델 상향이 아니라 컨텍스트·분해·에스컬레이션):
+1. 컨텍스트 문제 → 컨텍스트 더 주고 재dispatch
+2. 더 강력한 추론 필요 → 태스크를 더 작게 분해하거나 사람에게 에스컬레이션 (모델은 이미 최상 — 상향 불가)
 3. 태스크가 너무 큼 → 더 작게 쪼개기
 4. 플랜 자체가 잘못 → **사람에게 에스컬레이션**
 
-**절대 금지**: 에스컬레이션 무시, 변경 없이 같은 모델로 재시도. 구현자가 막혔다고 말하면 **무언가 바뀌어야 한다**.
+**절대 금지**: 에스컬레이션 무시, 변경 없이 재시도. 구현자가 막혔다고 말하면 **무언가 바뀌어야 한다** (컨텍스트·태스크 크기·플랜).
 
 ## 에이전트 정의 파일
 
