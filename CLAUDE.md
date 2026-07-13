@@ -14,6 +14,8 @@ bash scripts/tests/run-all.sh
 
 # LLM 동작 smoke eval (수동 전용 — 토큰 비용 발생, run-all 비포함)
 bash scripts/tests/llm-eval/run-evals.sh
+# LLM eval N-run 신뢰성 (수동 — flakiness 측정): LLM_EVAL_RUNS=10 bash scripts/tests/llm-eval/run-evals.sh
+#   fixture별 성공률·FLAKY(<80%) 리포트. 기본 N=1 은 기존 단발 동작.
 # 주간 자동 smoke: .github/workflows/llm-smoke.yml (ANTHROPIC_API_KEY secret 등록 시 활성 — 미등록 시 graceful skip)
 
 # lifecycle E2E 자동 검증 (수동 전용 — 토큰 비용 발생, run-all 비포함)

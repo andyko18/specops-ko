@@ -12,6 +12,15 @@ CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-120}"
 
+# N-run 신뢰성 모드 (LLM_EVAL_RUNS>1) — wshobson PluginEval Layer3 이식
+RUNS="${LLM_EVAL_RUNS:-1}"
+case "$RUNS" in
+  ''|*[!0-9]*|0*)   # 빈값·비숫자·선행0(0·01·10줄바꿈 등) → 폴백
+    [ "${LLM_EVAL_RUNS:-1}" != "1" ] && echo "경고: LLM_EVAL_RUNS='${LLM_EVAL_RUNS:-}' 비정수/0/음수 — 1로 폴백" >&2
+    RUNS=1 ;;
+esac
+FLAKY_THRESHOLD=80   # 성공률 % 하한 — 미만이면 FLAKY (AC-S-2, 관찰용·비차단)
+
 # I-1: fixtures 부재 시 false green 차단
 [ -f "$FIXTURES" ] || { echo "FAIL: fixtures 없음: $FIXTURES"; exit 1; }
 
@@ -23,6 +32,7 @@ if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
 fi
 
 PASS=0; FAIL=0; BORDER=0; COST=0
+FLAKY=0; NRUN_FIXTURES=0; NRUN_RATE_SUM=0   # N-run 집계 (AC-3, AC-4)
 
 # sandbox 격리 — headless lifecycle 부작용 (브랜치 생성·체크아웃·.specops 오염) 을 temp repo 에 가둠
 # fixture별 sandbox_seed 에 맞춰 재시드 (both=정상 specifying 진입 / none·specops-only=부트스트랩 안내 유도)
@@ -113,6 +123,36 @@ attempt() {  # $1=prompt → 전역 G_SKILL/G_L1/G_TIMEOUT/G_ERR1 설정 + COST 
   G_TEXTS=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="text")|.text' 2>/dev/null | paste -sd' ' -)
 }
 
+_fixture_nrun() {  # $1=id $2=prompt $3=want $4=flag $5=boot — retry 없이 N회, 성공률 집계 (AC-1·2·3·6)
+  local id="$1" prompt="$2" want="$3" flag="$4" boot="$5" i=0 pass=0 v rate
+  while [ "$i" -lt "$RUNS" ]; do
+    i=$((i+1))
+    attempt "$prompt"
+    v=$(judge "$want" "$flag" "$G_SKILL" "$G_L1" "$boot" "$G_TEXTS")
+    [ "$G_TIMEOUT" = "1" ] && v=TIMEOUT     # AC-6: TIMEOUT=실패 카운트
+    [ "$v" = "PASS" ] && pass=$((pass+1))
+  done
+  rate=$(( pass * 100 / RUNS ))
+  NRUN_FIXTURES=$((NRUN_FIXTURES+1)); NRUN_RATE_SUM=$((NRUN_RATE_SUM+rate))
+  if [ "$rate" -lt "$FLAKY_THRESHOLD" ]; then
+    FLAKY=$((FLAKY+1)); echo "FLAKY $id  $pass/$RUNS (${rate}%) ⚠️"
+  else
+    PASS=$((PASS+1)); echo "PASS $id  $pass/$RUNS (${rate}%)"
+  fi
+}
+
+_borderline_nrun() {  # $1=id $2=prompt $3=any — 성공률/FLAKY 미집계, 매칭 표기 (AC-7)
+  local id="$1" prompt="$2" any="$3" i=0 match=0 short
+  while [ "$i" -lt "$RUNS" ]; do
+    i=$((i+1))
+    attempt "$prompt"
+    [ "$G_TIMEOUT" = "1" ] && continue
+    short="${G_SKILL#specops-auto-ko:}"; [ -z "$G_SKILL" ] && short="none"
+    case ",$any," in *",$short,"*) match=$((match+1)) ;; esac
+  done
+  BORDER=$((BORDER+1)); echo "BORDERLINE $id  매칭 $match/$RUNS"
+}
+
 run_fixture() {  # $1=fixture json 1줄
   local fx="$1" id prompt want flag any short verdict retry=""
   id=$(printf '%s' "$fx" | jq -r '.id')
@@ -124,6 +164,12 @@ run_fixture() {  # $1=fixture json 1줄
   seed=$(printf '%s' "$fx" | jq -r '.sandbox_seed // "both"')
   boot=$(printf '%s' "$fx" | jq -r '.expect_bootstrap // ""')
   setup_sandbox "$seed"
+
+  if [ "$RUNS" -gt 1 ]; then                      # N-run 신뢰성 모드
+    if [ -n "$any" ]; then _borderline_nrun "$id" "$prompt" "$any"
+    else _fixture_nrun "$id" "$prompt" "$want" "$flag" "$boot"; fi
+    return
+  fi
 
   attempt "$prompt"
 
@@ -167,5 +213,12 @@ STAMP_DIR="${LLM_EVAL_STAMP_DIR:-$HERE/../../../.specops-cache}"
 mkdir -p "$STAMP_DIR" 2>/dev/null || true
 date -u +%Y-%m-%dT%H:%M:%SZ > "$STAMP_DIR/llm-eval-last-run" 2>/dev/null || true
 
-printf 'PASS=%d FAIL=%d SKIP=0 BORDERLINE=%d COST=$%.2f\n' "$PASS" "$FAIL" "$BORDER" "$COST"
-[ "$FAIL" -eq 0 ]
+if [ "$RUNS" -gt 1 ]; then
+  avg=0; [ "$NRUN_FIXTURES" -gt 0 ] && avg=$(( NRUN_RATE_SUM / NRUN_FIXTURES ))
+  printf 'PASS=%d FLAKY=%d BORDERLINE=%d 평균활성률=%d%% RUNS=%d COST=$%.2f\n' \
+    "$PASS" "$FLAKY" "$BORDER" "$avg" "$RUNS" "$COST"
+  # N-run 은 리포트 전용 — 비차단 (exit 0). 성공지표: FLAKY 관찰용
+else
+  printf 'PASS=%d FAIL=%d SKIP=0 BORDERLINE=%d COST=$%.2f\n' "$PASS" "$FAIL" "$BORDER" "$COST"
+  [ "$FAIL" -eq 0 ]
+fi

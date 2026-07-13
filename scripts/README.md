@@ -155,6 +155,8 @@ bash scripts/tests/llm-eval/run-evals.sh            # 실 eval (claude CLI 필�
 bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (stub, 토큰 0 — run-all 포함)
 ```
 
+- `LLM_EVAL_RUNS=N` (N>1): 각 fixture N회 반복 → 성공률/FLAKY 신뢰성 리포트 (비차단). 기본 1=단발.
+
 - `bash scripts/tests/llm-eval/run-pressure-evals.sh` — **압박 테스트** (HARD GATE 우회 거부 검증, 실 claude 비용·수동 전용). `test-pressure-evals.sh` 는 stub 단위 (토큰 0, run-all 포함).
 - `bash scripts/tests/llm-eval/run-pressure-evals.sh scripts/tests/llm-eval/verify-gate-fixtures.jsonl` — **verify-gate 압박** (R-1/R-2 commit·PR 전 verify 우회 거부 검증, bash-command 차원, sandbox 격리, 실 claude 비용·수동 전용).
 - `bash scripts/tests/llm-eval/run-plan-ab.sh` — **plan 리뷰 A/B 측정** (inline self-review vs 2중 dispatch 검출률·토큰, 실 claude 비용·수동·예비 측정). `test-plan-ab.sh` 는 stub 집계 단위 (토큰 0).
