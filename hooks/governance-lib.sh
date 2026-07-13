@@ -162,6 +162,75 @@ EOF
   return 0
 }
 
+# heredoc **본문**을 트리거 검사 입력에서 제거한다 (20260713-heredoc-false-block).
+#
+# 왜: Bash tool 의 command 는 흔히 멀티라인이고 `grep -E` 는 **줄 단위**로 검사한다 → 문서·테스트에 쓴
+#   heredoc 본문의 git 예시가 **실제 명령으로 오인**되어 정직한 작업이 차단됐다(false-block, 실전 적발).
+#   주석(`#`)·echo 는 선행자 클래스에 없어 안 걸리는데 heredoc 본문만 걸렸다. false-block 은 BYPASS 남발을
+#   유발해 게이트 신호 자체를 희석한다.
+# 범위: **입력만 전처리**한다. 트리거 정규식(rules.jsonl · pretool 인라인)은 무변경 — 정규식을 손대면
+#   evasion 방어(PR #84·#112)가 흔들린다.
+#
+# ★ 실행자 판정 (F-3 표면 불변의 핵심): 시작 줄이 셸 실행자(bash·sh·zsh·ksh·dash·eval·exec·source)면
+#   본문은 **실제로 셸에 실행되므로 제외하지 않는다**(passthrough). cat·tee·python3 등은 데이터로 보고 제외한다.
+#   python3 본문은 셸 명령이 아니다 — 그 안의 subprocess git 호출은 **이미 F-3 wrapper-class**(WON'T-FIX)라
+#   제외해도 표면이 넓어지지 않는다. 실측: 이 repo 는 `cat <<` 117건 · `python3 <<` 8건 · `bash <<` **0건**.
+# ★ fail-safe (fail-open 아님): 미종료 heredoc · 한 줄 다중 heredoc · delimiter 파싱 불가 · awk 실패 →
+#   **원본 반환** = 현재 동작(차단 우세)으로 후퇴. 제거 로직의 버그가 **차단을 뚫는 방향으로 작용하면 안 된다**.
+#   애매하면 strip 하지 않는다 (정당한 차단이 뚫리는 것 > false-block).
+# 지원 문법: `<<EOF` · `<<'EOF'` · `<<"EOF"` · `<<-EOF`(탭 들여쓰기 종료자). herestring(`<<<`)은 본문이 없어 무시.
+# 이식성: POSIX awk 만 사용 (GNU 확장 match() 3인자 금지 — macOS bash 3.2/BSD awk).
+_strip_heredoc_bodies() {
+  local cmd="$1" out
+  # 빠른 경로 — heredoc 연산자가 없으면 **바이트 동일** 반환 (기존 트리거 동작 완전 보존)
+  case "$cmd" in
+    *'<<'*) ;;
+    *) printf '%s' "$cmd"; return 0 ;;
+  esac
+  out=$(printf '%s\n' "$cmd" | awk '
+    BEGIN { inb=0; keep=0; dash=0; delim=""; bail=0; no=0; SQ=sprintf("%c",39); DQ=sprintf("%c",34) }
+    { orig[NR]=$0
+      if (bail) next
+      if (inb) {                      # heredoc 본문 안
+        t=$0
+        if (dash) sub(/^\t+/,"",t)    # <<- 는 종료자의 선행 탭 허용
+        if (t==delim) { inb=0; out[++no]=$0; next }   # 종료자 줄은 유지
+        if (keep) out[++no]=$0        # 실행자 본문 = 실제 실행 → 유지
+        next                          # 데이터 본문 → 제거
+      }
+      out[++no]=$0                    # 시작 줄은 항상 유지 (같은 줄의 `; git commit` 을 잡기 위해)
+      probe=$0
+      gsub(/<<</,"@@@",probe)         # herestring 마스킹 (길이 3 보존 → 위치 불변)
+      cp=probe; nops=gsub(/<</,"x",cp)   # 치환결과 미사용 — gsub 반환값(연산자 개수)만 쓴다
+      if (nops==0) next
+      if (nops>1) { bail=1; next }    # 한 줄 다중 heredoc → 판정 포기(원본)
+      if (!match(probe,/<<-?[ \t]*/)) { bail=1; next }
+      dash=(substr(probe,RSTART+2,1)=="-")
+      rest=substr(probe,RSTART+RLENGTH)
+      q=substr(rest,1,1)
+      if (q==SQ || q==DQ) {           # <<EOF 의 인용형: <<\047EOF\047 · <<"EOF"
+        r2=substr(rest,2); p=index(r2,q)
+        if (p<2) { bail=1; next }
+        delim=substr(r2,1,p-1)
+      } else if (match(rest,/^[A-Za-z_][A-Za-z0-9_]*/)) {
+        delim=substr(rest,RSTART,RLENGTH)
+      } else { bail=1; next }         # delimiter 파싱 불가 → 판정 포기(원본)
+      # 실행자 판정은 **시작 줄 1줄**만 본다. 한계: 실행자가 줄-연속(백슬래시 개행)으로 시작 줄과 분리되면
+      #   (bash 다음 줄에 <<EOF) 미탐지 → 본문 제외 → 통과. 실행자를 숨기려는 **의도적 난독화**이므로
+      #   기존 F-3 wrapper-class(sh -c 등, 의도적 WONT-FIX)로 수용한다 — honest-mistake 경로가 없다.
+      #   멀티라인 실행자 추적은 하지 않는다: 매 커밋에 도는 훅에 새 버그를 들이는 비용 > 그 표면의 값.
+      keep=($0 ~ /(^|[ \t;&|(){}`])(bash|sh|zsh|ksh|dash|eval|exec|source)([ \t]|$)/) ? 1 : 0
+      inb=1
+    }
+    END {
+      if (bail || inb) { for(i=1;i<=NR;i++) print orig[i] }   # 미종료·판정 포기 → 원본 (fail-safe)
+      else { for(i=1;i<=no;i++) print out[i] }
+    }
+  ' 2>/dev/null) || { printf '%s' "$cmd"; return 0; }   # awk 실패 → 원본 (fail-safe)
+  [ -n "$out" ] || { printf '%s' "$cmd"; return 0; }    # 빈 출력(비정상) → 원본 (fail-safe)
+  printf '%s' "$out"
+}
+
 # transcript JSONL 에서 최근 N 개 tool_use 이벤트를 추출
 # 출력: JSONL, 각 줄 { "index": <0-based>, "tool_name": "...", "input": {...} }
 #   index = 필터된 tool_use 이벤트 배열의 0-based 위치 (raw JSONL line 아님)
@@ -283,7 +352,11 @@ apply_lookback_rule() {
   trigger_tool=$(echo "$rule" | jq -r '.trigger_tool')
   [ "$tool_name" = "$trigger_tool" ] || return 0
   trigger_pattern=$(echo "$rule" | jq -r '.trigger_pattern')
-  printf '%s' "$tool_cmd" | grep -Eq "$trigger_pattern" || return 0
+  # heredoc 본문 제거 후 검사 (AC-7) — 정규식은 무변경, **입력만** 전처리한다.
+  #   $tool_cmd 원본은 보존한다: 아래 evidence_snippet 은 모델이 실제로 낸 명령 전문을 남겨야 감사 가치가 있다.
+  local _scan_cmd
+  _scan_cmd=$(_strip_heredoc_bodies "$tool_cmd")
+  printf '%s' "$_scan_cmd" | grep -Eq "$trigger_pattern" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
   # ★ 실행-근거 gate (20260713-verify-exec-gate): transcript 를 읽을 수 있으면, 어느 자기보고 신호가

@@ -32,7 +32,13 @@ transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 #   wrapper-class(sh -c·bash -c·eval·perl -e·python -c·xargs·find -exec…)는 미차단 — 정규식으로 무한확장 닫기 불가(두더지잡기).
 #   본 게이트는 적대적 경계가 아닌 Claude 자기정직 스캐폴드(공식 우회 SPECOPS_GOVERNANCE_BYPASS=1 제공). honest Claude 가
 #   자기 commit 을 wrapper 난독화할 동기 0 = honest-mistake 경로 부재. 보안 1차방어는 is_docs_only_change(git-authoritative, wrapper-agnostic).
-printf '%s' "$tool_cmd" | grep -Eq '(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*git[[:space:]]+((-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--exec-path|--config-env)[[:space:]]+[^[:space:]]+[[:space:]]+|((--no-pager|-p|--paginate|--bare|--no-replace-objects|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-advice|-P)|--[^[:space:]=]+=[^[:space:]]+)[[:space:]]+)*commit($|[^-[:alnum:]])|(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
+# heredoc 본문 제거 후 검사 (20260713-heredoc-false-block): grep -E 는 줄 단위라, 멀티라인 command 의
+#   heredoc **본문**에 쓴 git 예시(문서·테스트 작성)가 실제 명령으로 오인돼 정직한 작업을 차단했다.
+#   정규식은 그대로 두고 **입력만** 전처리한다 — 정규식을 손대면 evasion 방어(PR #84·#112)가 흔들린다.
+#   `bash <<EOF`(셸 실행자) 본문은 제외하지 않는다(실제 실행됨 → F-3 표면 불변). 실패 시 원본 = 차단 우세.
+#   $tool_cmd 원본은 아래 apply_lookback_rule·deny 메시지에서 그대로 쓴다 — 덮어쓰기 금지.
+tool_cmd_scan=$(_strip_heredoc_bodies "$tool_cmd")
+printf '%s' "$tool_cmd_scan" | grep -Eq '(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*git[[:space:]]+((-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--exec-path|--config-env)[[:space:]]+[^[:space:]]+[[:space:]]+|((--no-pager|-p|--paginate|--bare|--no-replace-objects|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-advice|-P)|--[^[:space:]=]+=[^[:space:]]+)[[:space:]]+)*commit($|[^-[:alnum:]])|(^|[;&|({`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+|env)[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create\b' || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
 printf '%s' "$tool_cmd" | grep -Eq '^[[:space:]]*SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]' && allow

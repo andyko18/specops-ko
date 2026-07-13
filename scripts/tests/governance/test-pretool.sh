@@ -216,5 +216,56 @@ else
   echo "PASS T-msg.d 틀린 해법 안내 제거됨"; pass=$((pass+1))
 fi
 
+# T-hd heredoc false-block (20260713-heredoc-false-block)
+#   grep -E 는 줄 단위 → 멀티라인 Bash command 의 heredoc **본문** 줄도 트리거에 매칭됐다.
+#   → 정직한 문서 작성(spec.md 에 git 예시)이 차단되고 BYPASS 를 남발하게 만들었다.
+#   전부 codesandbox(코드-staged + .specops) 로 격리한다: docs-only 면제가 발동하지 않으므로
+#   **allow 는 오직 트리거 미매칭(=strip 성공)에서만 나온다** (tautology 차단).
+hd_doc='cat > /tmp/spec.md <<EOF
+커밋 예시:
+git commit -m "feat: x"
+EOF'
+out=$(mkstdin "$hd_doc" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.a ★ heredoc 문서 본문의 git 예시 → allow (AC-1 false-block 해소)" '"continue":true' "$out"
+# T-hd.b (AC-3) heredoc 시작 줄에 결합된 진짜 명령은 유지 → deny
+hd_start='cat > /tmp/f.md <<EOF; git commit -m x
+본문
+EOF'
+out=$(mkstdin "$hd_start" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.b ★ heredoc 시작 줄 결합 commit → deny (AC-3)" '"permissionDecision":"deny"' "$out"
+# T-hd.c (AC-4) heredoc 종료 후의 진짜 명령은 유지 → deny
+hd_after='cat > /tmp/f.md <<EOF
+본문
+EOF
+git commit -m x'
+out=$(mkstdin "$hd_after" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.c ★ heredoc 종료 후 commit → deny (AC-4)" '"permissionDecision":"deny"' "$out"
+# T-hd.d (AC-5 ★ F-3 표면 불변) 셸 실행자 heredoc 은 본문이 **실제 실행**된다 → 제외 금지 → deny
+hd_bash='bash <<EOF
+git commit -m x
+EOF'
+out=$(mkstdin "$hd_bash" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.d ★★ bash <<EOF 본문 commit → deny (AC-5 F-3 표면 불변)" '"permissionDecision":"deny"' "$out"
+hd_sh='sh <<'"'"'EOF'"'"'
+git commit -m x
+EOF'
+out=$(mkstdin "$hd_sh" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.e ★ sh <<'EOF' 본문 commit → deny (AC-5)" '"permissionDecision":"deny"' "$out"
+# T-hd.f (AC-6) python3 본문은 셸 명령이 아니다(내부 subprocess 는 이미 F-3 클래스) → 제외 → allow
+hd_py='python3 <<EOF
+git commit -m x
+EOF'
+out=$(mkstdin "$hd_py" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.f python3 <<EOF 본문 → allow (AC-6)" '"continue":true' "$out"
+# T-hd.g (AC-8 fail-safe) 미종료 heredoc → 원본 유지 → 차단 보존 (제거 로직 버그가 차단을 뚫으면 안 된다)
+hd_unterm='cat > /tmp/f.md <<EOF
+git commit -m x'
+out=$(mkstdin "$hd_unterm" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.g ★ 미종료 heredoc → deny (AC-8 fail-safe: 원본 후퇴)" '"permissionDecision":"deny"' "$out"
+# T-hd.h <<-'EOF' (탭 들여쓰기 + 인용 delimiter) 문서 → allow
+hd_dash=$'cat > /tmp/f.md <<-\'EOF\'\n\tgit commit -m "예시"\n\tEOF'
+out=$(mkstdin "$hd_dash" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-hd.h <<-'EOF' 탭 들여쓰기 문서 → allow (AC-1 변형)" '"continue":true' "$out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

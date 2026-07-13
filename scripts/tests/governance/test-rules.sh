@@ -116,6 +116,23 @@ if [ "$offset" = "1" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.f (offset=$offset, expect 1, out=$out)"
 fi
+# T6.hd (AC-7) 감사 경로(apply_lookback_rule)에도 heredoc 전처리 적용 — pretool L35 는 이 경로 **앞**에서
+#   차단하므로 pretool 테스트로는 여기가 검증되지 않는다(assert-by-assumption 방지 — 독립 케이스로 잠근다).
+hd_doc=$'cat > spec.md <<EOF\ngit commit -m "예시"\nEOF'
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "$hd_doc")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.hd (AC-7) heredoc 문서 본문 → 감사 미매칭(오탐 제거)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.hd (AC-7) heredoc 본문 오탐 — out: $out"
+fi
+# T6.hd2 (AC-5) 감사 경로도 실행자 heredoc 본문은 유지 → 매칭 보존
+hd_bash=$'bash <<EOF\ngit commit -m x\nEOF'
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "$hd_bash")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.hd2 (AC-5) 감사 경로 bash <<EOF 본문 → 매칭 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.hd2 (AC-5) 실행자 heredoc 미매칭 — out: $out"
+fi
 # T6 격리 해제 — 원 repo cwd 복귀 (T7+ 는 자체 mktemp/subshell 격리)
 cd "$_t6_orig" || exit 1; rm -rf "$_t6_sb"
 

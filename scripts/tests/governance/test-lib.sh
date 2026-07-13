@@ -189,6 +189,58 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp" "$real"
 
+# T-hd _strip_heredoc_bodies 단위 (20260713-heredoc-false-block)
+#   문자열 in/out 대조 — heredoc **본문만** 제거되는가. 정규식은 무변경, **입력만 전처리**한다.
+cd "$PLUGIN" || exit 1
+source "$PLUGIN/hooks/governance-lib.sh"
+
+# T-hd.1 (AC-2) 본문만 제거 — 시작 줄·종료 줄·종료 후 명령은 유지
+_in=$'cat > f.md <<EOF\ngit commit -m x\nEOF\nls -la'
+_exp=$'cat > f.md <<EOF\nEOF\nls -la'
+_got=$(_strip_heredoc_bodies "$_in")
+if [ "$_got" = "$_exp" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hd.1 (AC-2) heredoc 본문만 제거"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hd.1 (AC-2) — got: $(printf '%s' "$_got" | tr '\n' '|')"
+fi
+
+# T-hd.2 (AC-R-1 identity) heredoc 없는 입력은 **바이트 동일** — 기존 51 케이스 보호의 근거
+_in='cd /tmp && git commit -m x'
+_got=$(_strip_heredoc_bodies "$_in")
+if [ "$_got" = "$_in" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hd.2 (AC-R-1) heredoc 부재 입력 무변경(identity)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hd.2 identity 깨짐 — got: $_got"
+fi
+
+# T-hd.3 (AC-5) 셸 실행자 heredoc → 본문 **제외 안 함**(passthrough). F-3 표면 불변.
+_in=$'bash <<EOF\ngit commit -m x\nEOF'
+_got=$(_strip_heredoc_bodies "$_in")
+if [ "$_got" = "$_in" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hd.3 (AC-5) bash <<EOF 본문 유지(passthrough)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hd.3 (AC-5) 실행자 본문이 제거됨 — got: $(printf '%s' "$_got" | tr '\n' '|')"
+fi
+
+# T-hd.4 (AC-8 fail-safe) 미종료 heredoc → **원본 반환**(차단 우세로 후퇴)
+_in=$'cat > f.md <<EOF\ngit commit -m x'
+_got=$(_strip_heredoc_bodies "$_in")
+if [ "$_got" = "$_in" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hd.4 (AC-8) 미종료 heredoc → 원본 반환(fail-safe)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hd.4 (AC-8) 미종료 heredoc 본문이 제거됨 — got: $(printf '%s' "$_got" | tr '\n' '|')"
+fi
+
+# T-hd.5 (AC-6) python3 heredoc → 본문 제외 (셸 명령 아님)
+_in=$'python3 <<EOF\ngit commit -m x\nEOF'
+_exp=$'python3 <<EOF\nEOF'
+_got=$(_strip_heredoc_bodies "$_in")
+if [ "$_got" = "$_exp" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hd.5 (AC-6) python3 본문 제외"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hd.5 (AC-6) — got: $(printf '%s' "$_got" | tr '\n' '|')"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
