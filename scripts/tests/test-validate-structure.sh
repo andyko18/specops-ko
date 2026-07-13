@@ -323,6 +323,34 @@ else
 fi
 rm -rf "$sb"
 
+# ── xref bare 토큰 (FID 20260713-ghost-agent-drift): prefix 없는 유령 에이전트 적발 ─────────
+# 배경: 기존 xref_resolve 는 `specops-auto-ko:` prefix 토큰만 수집 → bare 로 서술된 유령
+#       (analyzer-ko·planner-ko 등)이 검사망 밖이었다. 93 테스트 전부 통과하던 거짓.
+
+# T12.b bare 유령 토큰 (prefix 없음) → xref_resolve FAIL (AC-4)
+sb=$(mktemp -d) || exit 1; make_sandbox "$sb"; add_docs "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
+printf -- '---\nname: tdd-ko\n---\n판정은 analyzer-ko 가 수행한다.\n' > "$sb/skills/tdd-ko/SKILL.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $pre_rc -eq 0 ] && echo "$pre" | grep -q '✅ xref_resolve: OK' \
+   && [ $rc -eq 1 ] && echo "$err" | grep -q 'xref_resolve: FAIL' && echo "$err" | grep -q 'analyzer-ko'; then
+  PASS=$((PASS+1)); echo "PASS T12.b bare 유령 토큰 → xref_resolve FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.b (pre_rc=$pre_rc rc=$rc, out=$(echo "$err" | grep xref_resolve))"
+fi
+rm -rf "$sb"
+
+# T12.c allowlist (플러그인명·upstream 참조) → xref_resolve OK (AC-5 false-positive 차단)
+sb=$(mktemp -d) || exit 1; make_sandbox "$sb"; add_docs "$sb"
+printf -- '---\nname: tdd-ko\n---\nspecops-auto-ko 는 specops-ko 의 writing-plans-ko · subagent-driven-development-ko 를 참조한다.\n' > "$sb/skills/tdd-ko/SKILL.md"
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ xref_resolve: OK'; then
+  PASS=$((PASS+1)); echo "PASS T12.c allowlist 토큰 → xref_resolve OK (오탐 0)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.c (rc=$rc, out=$(echo "$out" | grep xref_resolve))"
+fi
+rm -rf "$sb"
+
 # T13 실제 repo — 신규 체크 4종 전부 ✅ (drift 0 상태 유지 보증)
 out=$(bash "$SCRIPT" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ version_sync: OK' \

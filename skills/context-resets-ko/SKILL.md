@@ -3,7 +3,7 @@ name: context-resets-ko
 description: 각 Lifecycle 커맨드 종료 시 세션 컨텍스트를 리셋하고 session-progress.md에서만 맥락을 재주입한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/context-resets/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.44.0
 used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 ---
 
@@ -24,7 +24,7 @@ used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 1. 커맨드 종료 시 `session-progress.md` FID 섹션 **상단에 한 줄 prepend**(최신=맨 위).
 2. 다음 커맨드 착수 시 `session-progress.md` **상단 10~20줄**만 읽어 "현재 FID", "직전 단계", "차단 요소"를 파악.
 3. 직전 단계 산출물이 필요하면 **파일로 다시 읽어라**. 대화에서 기억나는 내용으로 진행하지 마라 — 부정확하다.
-4. Generator/Evaluator 전환 시 반드시 리셋. 예: planner-ko 종료 → analyzer-ko 호출 시 대화 맥락 단절.
+4. Generator/Evaluator 전환 시 반드시 리셋. 예: `implementer-ko` 종료 → `spec-reviewer-ko` dispatch 시 대화 맥락 단절 (Evaluator 는 Generator 의 사고 과정이 아니라 산출 **파일**만 본다).
 5. 세션이 실제로 종료(Claude Code 재시작)되어도 `session-progress.md`만으로 복귀 가능해야 한다.
 
 ## session-progress.md 포맷

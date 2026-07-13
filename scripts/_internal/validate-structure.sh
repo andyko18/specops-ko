@@ -193,13 +193,21 @@ else
   if [ -n "$body" ]; then emit changelog_body OK "$latest"; else emit changelog_body FAIL "최신 릴리즈 ${latest} 본문 공백"; fi
 fi
 
-# 11) xref_resolve — skills/·commands/ 본문의 specops-auto-ko:<name> 토큰이 skills/·commands/·agents/ 에 실재
+# 11) xref_resolve — skills/·commands/ 본문의 skill/agent 참조 토큰이 skills/·commands/·agents/ 에 실재
+#     ① prefix 형: specops-auto-ko:<name>  ② bare 형: <name>-ko (FID 20260713-ghost-agent-drift)
+#     bare 확장 배경: prefix 토큰만 수집하던 탓에 bare 로 서술된 유령 에이전트(analyzer-ko·planner-ko 등)가
+#     검사망 밖이었다 — 문서가 존재하지 않는 에이전트를 서술해도 전 테스트가 통과했다.
+#     allowlist: 플러그인명 자체 · upstream(specops-ko) 프로젝트/파일 참조 — 본 repo 에 파일이 없는 게 정상.
+#     (두 grep 을 합집합 — 단일 alternation 은 BSD/GNU leftmost-longest 차이에 노출)
+XREF_ALLOW=" specops-auto-ko specops-ko writing-plans-ko subagent-driven-development-ko "
 xr=()
 while IFS= read -r tok; do
   [ -z "$tok" ] && continue
   short="${tok#specops-auto-ko:}"
+  case "$XREF_ALLOW" in *" $short "*) continue ;; esac
   [ -f "skills/$short/SKILL.md" ] || [ -f "commands/$short.md" ] || [ -f "agents/$short.md" ] || xr+=("$tok")
-done < <(grep -rhoE 'specops-auto-ko:[a-z0-9][a-z0-9-]*' skills commands --include='*.md' 2>/dev/null | sort -u)
+done < <({ grep -rhoE 'specops-auto-ko:[a-z0-9][a-z0-9-]*' skills commands templates --include='*.md' 2>/dev/null
+           grep -rhoE '[a-z][a-z0-9-]*-ko' skills commands templates --include='*.md' 2>/dev/null; } | sort -u)
 if [ ${#xr[@]} -eq 0 ]; then emit xref_resolve OK; else emit xref_resolve FAIL "미해석: ${xr[*]}"; fi
 
 # 12) used_by_fmt — skill used_by 는 short name 규약 (CLAUDE.md): skill 참조는 <name>-ko, command 는 /<name>.

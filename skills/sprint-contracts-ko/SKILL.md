@@ -3,7 +3,7 @@ name: sprint-contracts-ko
 description: acceptance-criteria.md를 스프린트 계약서로 취급하고, Evaluator는 오직 계약서와 산출물만 비교한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/sprint-contracts/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.44.0
 used_by: implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC 계약 검증), clarifying-ko (AC append)
 ---
 
@@ -60,7 +60,7 @@ used_by: implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC �
 ```json
 {
   "fid": "20260420-rss-cache",
-  "evaluator": "analyzer-ko",
+  "evaluator": "spec-reviewer-ko",
   "timestamp": "2026-04-20T12:00:00Z",
   "verdict": "PASS | BLOCK",
   "ac_results": [
@@ -91,5 +91,5 @@ used_by: implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC �
 - AC-7 (에러 로깅): `plan.md` §3에서 로깅 모듈 책임 미명시
 
 ### 권고
-planner-ko 재호출 필요. `/plan 20260420-rss-cache` 재실행.
+`planning-ko` 재실행 필요. `/plan 20260420-rss-cache` 재실행.
 ```

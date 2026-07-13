@@ -3,7 +3,7 @@ name: file-based-communication-ko
 description: 서브에이전트 호출 시 프롬프트에 파일 경로만 전달하고 본문 페이로드는 금지한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/file-based-communication/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.44.0
 used_by: implementing-ko (서브에이전트 dispatch 시 파일 경로 전달)
 ---
 
@@ -66,13 +66,14 @@ CONSTRAINTS:
 
 **GOOD**:
 ```
-You are analyzer-ko (Evaluator).
+You are plan-reviewer-ko (Evaluator).
 READ:
 1. /Users/mac/Project/foo/.specops/20260420-rss-cache/acceptance-criteria.md
 2. /Users/mac/Project/foo/.specops/20260420-rss-cache/plan.md
 TASK: 각 AC가 plan의 태스크에 1:1로 매핑되는지 확인하고, 미매핑 AC를 BLOCK 사유로 분류하세요.
-WRITE: /Users/mac/Project/foo/.specops/20260420-rss-cache/analysis.md
+REPORT: 판정(PASS/BLOCK)과 근거만 반환하세요. 읽은 산출물을 수정하지 마세요 — 판정 파일 저장은 호출자 소관입니다.
 ```
+> Evaluator 에이전트(`role: evaluator`)는 Write/Edit 가 **박탈**돼 있다. WRITE 경로 지시는 Generator(`implementer-ko`) dispatch 에만 쓴다.
 
 **BAD**:
 ```

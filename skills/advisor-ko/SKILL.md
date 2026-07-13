@@ -38,7 +38,7 @@ used_by: using-specops-auto-ko-ko (cross-cutting 상시 — 기획·분석·설�
 | **설계** | `planning-ko` | (이미 강제) bite-sized task 분해 중 의존 관계 모호 | **plan.md §8 Advisor 협의 기록** (의무) |
 | **개발** | `implementing-ko` | 서브에이전트 dispatch 전 task 의도 모호 / DAG 분기 결정 | dispatch-log.md 섹션 |
 | **검증** | `verifying-evidence-ko` | structural-only 검증의 circular 위험 감지 시 | evidence.md §advisor 외부 검증 |
-| **§auto 무인** | `clarifying/planning/verifying-ko` | best-guess 자동응답·cap 자동통과 시 고영향 가정 보조 자문 (결정 대행 아님 — 보조 입력) | 가정 근거·dispatch-log·escalations + **ASSUMED 유지(사용자 최종 확인)** |
+| **§auto 무인** | `clarifying-ko` · `planning-ko` · `verifying-evidence-ko` | best-guess 자동응답·cap 자동통과 시 고영향 가정 보조 자문 (결정 대행 아님 — 보조 입력) | 가정 근거·dispatch-log·escalations + **ASSUMED 유지(사용자 최종 확인)** |
 
 **specops-auto-ko 연결:** planning-ko §8 패턴을 다른 단계로 일반화
 

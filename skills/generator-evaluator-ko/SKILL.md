@@ -3,7 +3,7 @@ name: generator-evaluator-ko
 description: 생성 에이전트와 평가 에이전트를 엄격히 분리하여 자기평가 편향을 차단한다 (OMC 흡수)
 layer: 3
 reference_upstream: obra/omc@v1.0 skills/generator-evaluator/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.44.0
 used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
 ---
 
@@ -15,15 +15,16 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
 
 ## 페어 매트릭스
 
-| 단계 | Generator | 산출 | Evaluator | 검증 산출 |
-|---|---|---|---|---|
-| 명세 | specifier-ko | spec.md, acceptance-criteria.md | clarifier-ko | clarifications.md |
-| 설계 | planner-ko | plan.md, data-model.md, contracts/ | analyzer-ko | analysis.md (PASS/BLOCK) |
-| 분해 | task-decomposer-ko | tasks.md | analyzer-ko | analysis.md 보강 |
-| 구현 | implementer-ko | 코드 + session-progress 갱신 | code-reviewer-ko | review.md |
-| 검증 종합 | — | (앞 모든 산출물) | verifier-ko | verify.md (JSON) |
+분리가 **성립하는 곳은 서브에이전트 dispatch 지점뿐**이다. 명세·설계·분해·검증(`specifying-ko`·`planning-ko`·`decomposing-ko`·`verifying-evidence-ko`)은 서브에이전트가 아니라 **skill 이 메인 세션에서** 수행한다 — 그 단계에는 Gen/Eval 에이전트 페어가 존재하지 않는다.
 
-**Generator 4** (specifier, planner, task-decomposer, implementer) / **Evaluator 4** (clarifier, analyzer, code-reviewer, verifier).
+| 지점 | Generator | 산출 | Evaluator (서브에이전트) | 검증 산출 |
+|---|---|---|---|---|
+| 설계 리뷰 | `planning-ko` (메인 세션) | plan.md | `plan-reviewer-ko` | 판정 보고 (PASS/BLOCK) |
+| 구현 Phase B | `implementer-ko` | 코드 + 테스트 | `spec-reviewer-ko` | 스펙 준수 판정 |
+| 구현 Phase C | `implementer-ko` | (동일 산출) | `code-reviewer-ko` | 코드 품질·보안·커버리지·DB 판정 |
+| self-config 감사 | — | (플러그인 자기 번들) | `red-team-ko` → `blue-team-ko` → `auditor-ko` | risk 등급 리포트 |
+
+**실재 에이전트는 `agents/` 7종뿐**: Generator 1 (`implementer-ko`) / Evaluator 6 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
 
 ## 엄격 규칙
 
@@ -50,6 +51,6 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
 
 ## 예시
 
-**GOOD**: `/analyze` 실행 → analyzer-ko가 `plan.md`를 읽고 `analysis.md`에 "BLOCK: 태스크 3이 acceptance-criteria 2번을 충족하지 않음" 기록 → 사용자가 `/plan` 재실행 → planner-ko가 `analysis.md`의 BLOCK 사유를 읽고 `plan.md` 갱신.
+**GOOD**: `implementing-ko`가 태스크 구현을 `implementer-ko`에 dispatch → 완료 후 **fresh** `spec-reviewer-ko` dispatch → `spec-reviewer-ko`가 코드와 `acceptance-criteria.md`를 읽고 "BLOCK: AC-2 미충족" 판정만 반환 → `implementing-ko`가 BLOCK 사유를 담아 `implementer-ko`를 재dispatch 해 수정.
 
-**BAD**: `/analyze` 실행 중 analyzer-ko가 `plan.md`의 태스크 3을 직접 수정. → 계약 위반. planner-ko의 소유물을 건드림.
+**BAD**: `spec-reviewer-ko`가 "빠르니까 내가 고칠게요" 라며 코드를 직접 수정. → 계약 위반. Generator 의 소유물을 건드림 (`role: evaluator` frontmatter 가 Write/Edit 를 박탈해 도구 수준에서 차단된다).
