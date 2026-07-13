@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+- **LLM eval N-run 신뢰성 측정 (`LLM_EVAL_RUNS`)** — wshobson/agents PluginEval Layer3(Monte Carlo) 아이디어를 bash 로 이식. 기존 `run-evals.sh` 는 fixture별 1회 실행(+retry cap=1)이라 확률적 LLM 동작의 flakiness 를 못 잡고 retry 가 오히려 은폐했다. `LLM_EVAL_RUNS=N`(N>1) 시 retry 없이 N회 반복 → per-fixture 성공률·FLAKY(<80%)·총괄 평균활성률 리포트(비차단 exit 0). 기본 N=1 은 기존 단발 동작 완전 무변경, 경계 케이스(`expect_any`)는 집계 제외. FID 20260713-llm-eval-nrun (#192)
+- **SKILL.md 정적 밀도/bloat lint (T10)** — wshobson/agents PluginEval Layer1(BLOATED_SKILL·OVER_CONSTRAINED) 이식. `test-skill-conventions.sh` 에 (a) bloat(>800줄, specops "800 max" norm — e2e-test-ko 문서화 예외) 예외 밖 FAIL 회귀가드, (b) 디렉티브 밀도(`discipline: true` 제외, 임계 25) 초과 시 INFO(FAIL 아님) 추가. 임계를 현 최댓값(22) 위로 두어 현재 0건 flag·미래 폭증만 포착 — OVER_CONSTRAINED 판단은 `discipline: true` marker 를 통해 사용자에게 남긴다. FID 20260713-skill-density-lint (#193)
+
+### Changed
+- **CLAUDE.md 서브시스템 3영역 반영** — 최근 대형 서브시스템(self-config 적대감사 red/blue/auditor·design-first 대칭 Step 5.5/5.6·학습 루프 gbrain/freelog)을 CLAUDE.md 에 문서화 (#191)
+
 ## [1.42.0] — 2026-07-12
 
 ### Added
