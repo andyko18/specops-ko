@@ -478,6 +478,74 @@ if printf '%s' "$out" | grep -qE 'PASS t15  4/5 \(80%\)' && ! printf '%s' "$out"
 else FAIL=$((FAIL+1)); echo "FAIL T15 (out=$out)"; fi
 rm -rf "$TD"
 
+# ── T16 fixture ↔ sandbox 시드 정합 (AC-1·2·3·5) ──
+
+# T16.a [★ 재발 방지] 정적 정합 — prompt 가 참조하는 파일 경로가 seed_files 키에 있는가.
+#   대상 한정: lifecycle 행동을 기대하는 fixture (expect_skill != none, expect_any·expect_bootstrap 없음).
+#   none·경계·부트스트랩 fixture 는 파일 부재가 판정을 왜곡하지 않는다 (B-1 실측: 무시드로 PASS) — 의도적 범위.
+missing=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  fid=$(printf '%s' "$line" | jq -r '.id')
+  want=$(printf '%s' "$line" | jq -r '.expect_skill // "none"')
+  has_any=$(printf '%s' "$line" | jq -r 'if .expect_any then "y" else "" end')
+  has_boot=$(printf '%s' "$line" | jq -r '.expect_bootstrap // ""')
+  [ "$want" = "none" ] && continue
+  [ -n "$has_any" ] && continue
+  [ -n "$has_boot" ] && continue
+  refs=$(printf '%s' "$line" | jq -r '.prompt' | grep -oE '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*\.(sh|md|js|ts|py)' || true)
+  for p in $refs; do
+    printf '%s' "$line" | jq -e --arg p "$p" '(.seed_files // {}) | has($p)' >/dev/null 2>&1 \
+      || missing="$missing ${fid}:${p}"
+  done
+done < "$FIXTURES"
+if [ -z "$missing" ]; then
+  PASS=$((PASS+1)); echo "PASS T16.a fixture 참조 파일 전건 seed_files 등재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T16.a 미시드 참조 (sandbox 에 없는 파일을 prompt 가 참조):$missing"
+fi
+
+# T16.b seed_files → sandbox 생성(AC-1) + git tracked(AC-2). 가짜 claude 가 sandbox cwd 에서 실측 기록.
+TD=$(mktemp -d) || exit 1
+export SEEDCHK_F="$TD/seed-check"
+cat > "$TD/seed-claude.sh" <<'SEEDC'
+#!/usr/bin/env bash
+{ echo "tracked:$(git ls-files | tr '\n' ',')"
+  [ -f scripts/tool.sh ] && echo "EXISTS"
+  echo "content:$(cat scripts/tool.sh 2>/dev/null | tr '\n' ' ')"; } >> "$SEEDCHK_F"
+exit 0
+SEEDC
+chmod +x "$TD/seed-claude.sh"
+mk_fx "$TD/fx.jsonl" '{"id":"seed-1","prompt":"scripts/tool.sh 고쳐줘","expect_skill":"none","expect_flag":"none","seed_files":{"scripts/tool.sh":"#!/usr/bin/env bash\necho hi"}}'
+out=$(CLAUDE_BIN="$TD/seed-claude.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if grep -q '^EXISTS$' "$SEEDCHK_F" 2>/dev/null \
+   && grep -q '^tracked:.*scripts/tool\.sh' "$SEEDCHK_F" \
+   && grep -q '^content:.*echo hi' "$SEEDCHK_F"; then
+  PASS=$((PASS+1)); echo "PASS T16.b seed_files 생성 + git tracked + 내용 보존"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T16.b (rc=$rc chk=$(tr '\n' '|' < "$SEEDCHK_F" 2>/dev/null || echo 없음))"
+fi
+unset SEEDCHK_F; rm -rf "$TD"
+
+# T16.c AC-3/AC-R-1 — seed_files 미기재 fixture 는 현재 동작 그대로 (추적 파일 0 · 커밋 0)
+TD=$(mktemp -d) || exit 1
+export NOSEED_F="$TD/noseed-check"
+cat > "$TD/noseed-claude.sh" <<'NOSEED'
+#!/usr/bin/env bash
+{ echo "tracked=$(git ls-files | wc -l | tr -d ' ')"
+  echo "commits=$(git rev-list --count HEAD 2>/dev/null || echo 0)"; } >> "$NOSEED_F"
+exit 0
+NOSEED
+chmod +x "$TD/noseed-claude.sh"
+mk_fx "$TD/fx.jsonl" '{"id":"noseed-1","prompt":"질문","expect_skill":"none","expect_flag":"none"}'
+out=$(CLAUDE_BIN="$TD/noseed-claude.sh" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
+if [ $rc -eq 0 ] && grep -q '^tracked=0$' "$NOSEED_F" 2>/dev/null && grep -q '^commits=0$' "$NOSEED_F"; then
+  PASS=$((PASS+1)); echo "PASS T16.c seed_files 미기재 → 시드/커밋 없음 (기존 동작 무변경)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T16.c (rc=$rc chk=$(tr '\n' '|' < "$NOSEED_F" 2>/dev/null || echo 없음))"
+fi
+unset NOSEED_F; rm -rf "$TD"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

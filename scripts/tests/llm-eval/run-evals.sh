@@ -37,7 +37,7 @@ FLAKY=0; NRUN_FIXTURES=0; NRUN_RATE_SUM=0   # N-run 집계 (AC-3, AC-4)
 # sandbox 격리 — headless lifecycle 부작용 (브랜치 생성·체크아웃·.specops 오염) 을 temp repo 에 가둠
 # fixture별 sandbox_seed 에 맞춰 재시드 (both=정상 specifying 진입 / none·specops-only=부트스트랩 안내 유도)
 SANDBOX=""
-setup_sandbox() {  # $1=seed(both|none|specops-only) → 전역 SANDBOX 재구성 (fixture별 격리)
+setup_sandbox() {  # $1=seed(both|none|specops-only) $2=fixture json(선택) → 전역 SANDBOX 재구성 (fixture별 격리)
   [ -n "$SANDBOX" ] && rm -rf "$SANDBOX"
   SANDBOX=$(mktemp -d)
   git -C "$SANDBOX" init -q
@@ -46,6 +46,30 @@ setup_sandbox() {  # $1=seed(both|none|specops-only) → 전역 SANDBOX 재구�
     specops-only) mkdir -p "$SANDBOX/.specops" ;;     # .specops만 → 부분 안내
     *) mkdir -p "$SANDBOX/.specops"; printf '# sandbox\n' > "$SANDBOX/CLAUDE.md" ;;  # both(기본)
   esac
+  seed_fixture_files "${2:-}"
+}
+
+seed_fixture_files() {  # $1=fixture json → .seed_files(경로→내용 맵)를 sandbox 에 생성 + git tracked
+  # 유지보수 fixture 는 prompt 가 참조하는 대상 파일이 sandbox 에 실재해야 측정이 성립한다.
+  # 부재 시 모델은 "고칠 대상이 없다"고 정직하게 중단하고, eval 은 그걸 신호 미감지로 오판한다 (선재 결함).
+  # ★ git tracked 필수: 모델이 `git ls-files` 로 존재를 확인한다 (실측 — 무시드 sandbox 에 "추적 파일 0개" 라 답했다).
+  local fx="$1" n k
+  [ -z "$fx" ] && return 0
+  n=$(printf '%s' "$fx" | jq -r '(.seed_files // {}) | length' 2>/dev/null || echo 0)
+  [ "${n:-0}" -gt 0 ] || return 0   # AC-3: seed_files 미기재 fixture 는 현재 동작 그대로 (커밋조차 만들지 않음)
+  while IFS= read -r k; do
+    [ -z "$k" ] && continue
+    case "$k" in                    # sandbox 밖 경로 차단 (절대경로·상위참조)
+      /*|*..*) echo "경고: seed_files 경로 무시 (sandbox 이탈): $k" >&2; continue ;;
+    esac
+    mkdir -p "$SANDBOX/$(dirname "$k")"
+    printf '%s' "$fx" | jq -r --arg k "$k" '.seed_files[$k]' > "$SANDBOX/$k"
+    case "$k" in *.sh) chmod +x "$SANDBOX/$k" ;; esac
+  done < <(printf '%s' "$fx" | jq -r '(.seed_files // {}) | keys[]')
+  # sandbox 는 임시 디렉터리 — git identity 부재 가능 → 인라인 지정 (전역 config 미오염)
+  git -C "$SANDBOX" add -A >/dev/null 2>&1
+  git -C "$SANDBOX" -c user.email=eval@specops.invalid -c user.name=specops-eval \
+      commit -q -m "seed: fixture 참조 대상 파일" >/dev/null 2>&1
 }
 cleanup() {  # M-4: mktemp trap — sandbox + attempt 잔여 임시파일 정리
   rm -rf "$SANDBOX"
@@ -85,23 +109,26 @@ extract_cost() {  # stdin=stream-json → 비용 (없으면 0)
   jq -r 'select(.type=="result") | .total_cost_usd // 0' 2>/dev/null | head -1 | grep . || echo 0
 }
 
-judge() {  # $1=expect_skill $2=expect_flag $3=got_skill $4=got_args_l1 $5=expect_bootstrap $6=texts → PASS|FAIL
+# $1=expect_skill $2=expect_flag $3=got_skill $4=got_args_l1 $5=expect_bootstrap $6=texts
+# → PASS | FAIL:<사유>  (사유 구분 — 20260713: got 만 출력하면 skill 정답인데 flag 로 떨어진 경우를
+#   skill 오답처럼 보여줘 진단이 불가능했다. maint-1/maint-3 가 실제로 그 케이스였다.)
+judge() {
   local want="$1" flag="$2" got="$3" l1="$4" boot="$5" texts="$6"
   if [ -n "$boot" ]; then  # 부트스트랩 차원 — text 발화만 검사, Skill 차원 완전 분리 (early-return)
-    printf '%s' "$texts" | grep -Eq "$boot" && echo PASS || echo FAIL
+    printf '%s' "$texts" | grep -Eq "$boot" && echo PASS || echo "FAIL:boot"
     return
   fi
   if [ "$want" = "none" ]; then
-    [ -z "$got" ] && echo PASS || echo FAIL
+    [ -z "$got" ] && echo PASS || echo "FAIL:unexpected"
     return
   fi
   if [ "$got" != "specops-auto-ko:$want" ] && [ "$got" != "$want" ]; then
-    echo FAIL; return
+    echo "FAIL:skill"; return
   fi
   if [ "$flag" = "maintain" ]; then
     case "$l1" in
       *"<!-- entry: maintain -->"*) ;;
-      *) echo FAIL; return ;;
+      *) echo "FAIL:flag"; return ;;   # skill 은 정답 — args 첫 줄 약속어만 누락
     esac
   fi
   echo PASS
@@ -163,7 +190,7 @@ run_fixture() {  # $1=fixture json 1줄
   local seed boot
   seed=$(printf '%s' "$fx" | jq -r '.sandbox_seed // "both"')
   boot=$(printf '%s' "$fx" | jq -r '.expect_bootstrap // ""')
-  setup_sandbox "$seed"
+  setup_sandbox "$seed" "$fx"
 
   if [ "$RUNS" -gt 1 ]; then                      # N-run 신뢰성 모드
     if [ -n "$any" ]; then _borderline_nrun "$id" "$prompt" "$any"
@@ -198,7 +225,14 @@ run_fixture() {  # $1=fixture json 1줄
   elif [ "$verdict" = "TIMEOUT" ]; then
     FAIL=$((FAIL+1)); echo "FAIL $id$retry (TIMEOUT ${TIMEOUT_S}s)${G_ERR1:+ — stderr: $G_ERR1}"
   else
-    FAIL=$((FAIL+1)); echo "FAIL $id$retry (want=$want got=${G_SKILL:-none})${G_ERR1:+ — stderr: $G_ERR1}"
+    local why
+    case "$verdict" in
+      FAIL:flag)       why="skill 정답(${G_SKILL}) — args 첫 줄 '<!-- entry: maintain -->' 누락" ;;
+      FAIL:unexpected) why="want=none 인데 ${G_SKILL} 호출" ;;
+      FAIL:boot)       why="부트스트랩 안내 문구 미발화" ;;
+      *)               why="want=$want got=${G_SKILL:-none}" ;;
+    esac
+    FAIL=$((FAIL+1)); echo "FAIL $id$retry ($why)${G_ERR1:+ — stderr: $G_ERR1}"
   fi
 }
 
