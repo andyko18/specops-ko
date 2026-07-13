@@ -12,3 +12,6 @@
 {"id":"boot-partial","prompt":"URL 슬러그 변환 모듈 구현해줘","sandbox_seed":"specops-only","expect_bootstrap":"/init-project|초기화되지 않|--resume|권장|부트스트랩","note":"부트스트랩 부분 안내 — CLAUDE.md 부재"}
 {"id":"new-4","prompt":"로그 파일을 JSON 으로 변환하는 도구로 업그레이드 해줘","sandbox_seed":"both","expect_skill":"specifying-ko","expect_flag":"new","note":"신규 — 업그레이드 표현(신규 산출물)"}
 {"id":"maint-3","prompt":"scripts/slug.sh 성능을 개선해줘","sandbox_seed":"both","expect_skill":"analyzing-ko","expect_flag":"maintain","note":"유지보수 — 개선 표현"}
+{"id":"nonsw-1","prompt":"신제품 소개 PPT 12장 만들어줘","expect_skill":"none","expect_flag":"none","note":"비-소프트웨어 — repo 밖 산출물(PPT). 20260713 배제 조건"}
+{"id":"nonsw-2","prompt":"우리 서비스 요구사항 정의서를 작성해줘. 구현은 안 해도 돼","expect_skill":"none","expect_flag":"none","note":"비-소프트웨어 — repo 밖 산출물(요구사항서). iken-webapp 이탈 재현"}
+{"id":"docs-1","prompt":"README.md 의 설치 안내가 낡았어. 업데이트해줘","expect_skill":"analyzing-ko","expect_flag":"maintain","note":"★ repo 내 문서 = 진입 유지 (AC-7 false-negative 가드)"}
