@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.45.0] — 2026-07-14
+
 ### Added
 - **실행-근거 gate — 자기보고 면제 3경로 균일 조임** — R-1/R-2(commit·PR 전 verify) 게이트가 **자기보고만으로 열리던** 구멍을 막았다. 기존엔 session-progress 에 수기로 쓴 `/verify PASS` 줄 · evidence.md 스탬프 · Skill 호출 중 **하나만 있으면** 면제됐고, 셋 다 모델이 스스로 쓰는 텍스트라 사실상 자기발급 면제표였다. `governance-lib.sh` 에 `_verify_exec_evidence` 신설 — transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 **검증 러너가 실제 실행되어 `VERIFY: PASS` 를 출력했는지** 확인하고, 3경로 **전부** 이 실행 증거를 요구한다. `VERIFY: PARTIAL`·`FAIL`·`is_error` 결과와 command-only 위조(`echo pytest`)는 불인정. 판정 불가(transcript 부재·jq 실패)는 fail-open 으로 기존 동작 유지. FID 20260713-verify-exec-gate
 - **`run-verification.sh` 다언어 러너 확장** — 화이트리스트가 `bash scripts/*.sh` 만 실행하던 탓에 pytest·npm 프로젝트는 **항상 `VERIFY: PARTIAL`** 이었고, 실행-근거 gate 가 요구하는 PASS 증거를 구조적으로 낼 수 없었다. `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test` 를 **선두 앵커(`^`) 고정** 패턴으로 추가 — `echo pytest`·`foo && pytest`·`rm -rf / # pytest` 류 위장은 계속 SKIP. 한계 고백: `go test ./...`(`..` 가드) · `npm run test:unit`(`:`) 은 여전히 미지원. 실패 경로(`VERIFY: FAIL`)도 회귀 테스트로 영구 고정.
@@ -652,7 +654,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...HEAD
+[1.45.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.42.0...v1.43.0
 [1.42.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.41.0...v1.42.0
