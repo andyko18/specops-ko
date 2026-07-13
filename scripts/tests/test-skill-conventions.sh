@@ -173,5 +173,91 @@ if [ -z "${SPECOPS_T9_INNER:-}" ]; then
   rm -rf "$sb"
 fi
 
+# ── T10 정적 밀도/bloat lint (리포트/정보성 — wshobson PluginEval Layer1 이식) ──
+# outer+inner 모두 실행 (meta-test 가 inner 산출 라인을 grep)
+T10_BLOAT_MAX=800                 # specops coding-style "800 max" norm
+T10_BLOAT_EXCEPTIONS="e2e-test-ko"   # 문서화된 예외 (대규모 리팩터 별개)
+T10_DENSITY_MAX=25                # 현 최댓값(22) 위 — 현재 0건 flag, 미래 폭증만 포착
+# T10.a bloat: 예외 밖 >800 → FAIL (회귀 가드)
+t10_bloat_fail=""
+for f in "$PLUGIN"/skills/*/SKILL.md; do
+  [ -f "$f" ] || continue
+  name=$(basename "$(dirname "$f")")
+  lc=$(wc -l < "$f" | tr -d ' ')
+  if [ "$lc" -gt "$T10_BLOAT_MAX" ]; then
+    case " $T10_BLOAT_EXCEPTIONS " in
+      *" $name "*) echo "  INFO: T10.a bloat 예외 $name (${lc}줄 — 문서화 예외)" ;;
+      *) t10_bloat_fail="$t10_bloat_fail $name(${lc})" ;;
+    esac
+  fi
+done
+if [ -z "$t10_bloat_fail" ]; then
+  PASS=$((PASS+1)); echo "PASS: T10.a 예외 밖 >${T10_BLOAT_MAX}줄 bloat 없음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T10.a bloat 예외 밖 >${T10_BLOAT_MAX}줄:$t10_bloat_fail"
+fi
+# T10.b 밀도: discipline 제외, 임계 초과 → INFO (FAIL 아님 — OVER_CONSTRAINED 는 사용자 판단)
+t10_dense=""
+for f in "$PLUGIN"/skills/*/SKILL.md; do
+  [ -f "$f" ] || continue
+  grep -q '^discipline: true' "$f" && continue
+  name=$(basename "$(dirname "$f")")
+  dc=$(grep -oE "반드시|금지|의무|강제|MUST|NEVER|ALWAYS|절대" "$f" | wc -l | tr -d ' ')
+  [ "$dc" -gt "$T10_DENSITY_MAX" ] && t10_dense="$t10_dense $name($dc)"
+done
+[ -n "$t10_dense" ] && echo "  INFO: T10.b 밀도 임계(${T10_DENSITY_MAX}) 초과 — 검토 권고(단순화 또는 discipline:true):$t10_dense"
+PASS=$((PASS+1)); echo "PASS: T10.b 밀도 스캔 완료 (discipline 제외)"
+
+# ── T10 meta-tests (outer only — SPECOPS_T9_INNER 가드로 inner 재귀 차단) ──
+if [ -z "${SPECOPS_T9_INNER:-}" ]; then
+  # T10.a-red: bloat 예외 목록 밖 >800 skill → 적발(FAIL)
+  sb=$(mktemp -d) || exit 1
+  mkdir -p "$sb/skills/huge-ko"; yes '# line' | head -900 > "$sb/skills/huge-ko/SKILL.md"
+  out=$(SPECOPS_T9_INNER=1 SPECOPS_PLUGIN_ROOT="$sb" bash "$SELF" 2>&1)
+  if printf '%s' "$out" | grep -q 'FAIL: T10.a bloat'; then
+    PASS=$((PASS+1)); echo "PASS: T10.a-red 예외 밖 >800 적발"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T10.a-red 미적발"
+  fi
+  rm -rf "$sb"
+
+  # T10.a-green: 예외 목록(e2e-test-ko) >800 → 미적발
+  sb=$(mktemp -d) || exit 1
+  mkdir -p "$sb/skills/e2e-test-ko"; yes '# line' | head -900 > "$sb/skills/e2e-test-ko/SKILL.md"
+  out=$(SPECOPS_T9_INNER=1 SPECOPS_PLUGIN_ROOT="$sb" bash "$SELF" 2>&1)
+  # AC-2: FAIL 부재 AND INFO 출력 존재 (정보 출력 계약도 잠금)
+  if ! printf '%s' "$out" | grep -q 'FAIL: T10.a bloat' \
+     && printf '%s' "$out" | grep -q 'INFO: T10.a bloat 예외 e2e-test-ko'; then
+    PASS=$((PASS+1)); echo "PASS: T10.a-green 예외 목록 적용(INFO 출력)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T10.a-green 예외 미적용 또는 INFO 누락"
+  fi
+  rm -rf "$sb"
+
+  # T10.b-info: 비-discipline dense(>25) → INFO 출력
+  sb=$(mktemp -d) || exit 1
+  mkdir -p "$sb/skills/loud-ko"
+  { printf -- '---\nname: loud\n---\n'; for _ in $(seq 1 30); do echo '반드시 금지 의무'; done; } > "$sb/skills/loud-ko/SKILL.md"
+  out=$(SPECOPS_T9_INNER=1 SPECOPS_PLUGIN_ROOT="$sb" bash "$SELF" 2>&1)
+  if printf '%s' "$out" | grep -qE 'T10.b 밀도 임계.*loud-ko'; then
+    PASS=$((PASS+1)); echo "PASS: T10.b-info 비discipline dense INFO"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T10.b-info INFO 누락"
+  fi
+  rm -rf "$sb"
+
+  # T10.b-exempt: discipline:true dense → INFO 미출력(제외)
+  sb=$(mktemp -d) || exit 1
+  mkdir -p "$sb/skills/dense-ko"
+  { printf -- '---\ndiscipline: true\n---\n'; for _ in $(seq 1 30); do echo '반드시 금지 의무'; done; } > "$sb/skills/dense-ko/SKILL.md"
+  out=$(SPECOPS_T9_INNER=1 SPECOPS_PLUGIN_ROOT="$sb" bash "$SELF" 2>&1)
+  if printf '%s' "$out" | grep -qE 'T10.b 밀도 임계.*dense-ko'; then
+    FAIL=$((FAIL+1)); echo "FAIL: T10.b-exempt discipline 밀도 미제외"
+  else
+    PASS=$((PASS+1)); echo "PASS: T10.b-exempt discipline 밀도 제외"
+  fi
+  rm -rf "$sb"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
