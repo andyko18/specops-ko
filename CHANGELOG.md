@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.44.0] — 2026-07-13
+
 ### Changed
 - **implementing-ko 모델 라우팅 섹션 drift 화해** — 커밋 97c672b("서브에이전트 모델 라우팅 고정 — 리뷰=fable·개발=opus") 이후 stale 했던 `## 모델 티어 라우팅` 섹션(tasks.md `tier:` 필드→부모가 model 파라미터 동적 결정, 미배선 dead spec)을 실제 고정모델 현실로 화해. `## 모델 라우팅 (역할별 고정)` 로 재작성 — implementer=opus·evaluator=fable·self-config=inherit frontmatter 단일 소스, 품질 편향(비용 다운그레이드 미채택) 명시, L231 오기(implementer inherit↔실제 opus)·BLOCKED "더 강한 모델" 모순 제거. wshobson/agents PluginEval 흡수 분석의 model-tier 항목이 이미 완료(97c672b)였고 doc drift 만 잔여였음을 반영. (#194)
 
@@ -632,7 +634,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...HEAD
+[1.44.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.42.0...v1.43.0
 [1.42.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.41.0...v1.42.0
 [1.41.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.40.0...v1.41.0
