@@ -40,12 +40,21 @@ mkdir -p "$(dirname "$EVIDENCE")"
 all_pass=1
 executed=0
 skipped=0
-_WHITELIST_PAT='^bash[[:blank:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*$'
+# 러너별 선두 앵커 — 각 패턴이 ^ 로 고정되어 임의 명령 실행 차단 (AC-2).
+# bash: 기존 동작 보존(scripts/*.sh 한정). 그 외 러너는 표준 호출형만 허용.
+#
+# 한계 고백 (5원칙 5) — 아래는 의도된 미지원이지 버그가 아니다:
+#   1. `go test ./...` 는 실행되지 않는다. 아래 `*..*` path-traversal 가드가 `./...` 를 먼저 잡아 SKIP.
+#      go 의 사실상 표준 호출형이지만 미지원 — 개별 패키지 경로(`go test ./pkg/foo`)를 쓸 것.
+#   2. `npm run test:unit` 처럼 `:` 를 포함한 스크립트명도 인자 char-class 밖이라 SKIP.
+#   3. 성격: 보안 경계가 아니라 anti-footgun 이다. 화이트리스트를 통과하면서 아무것도 검증하지 않는
+#      exit-0 스푸핑(`pytest --collect-only` 류)은 차단하지 못한다 (spec §2 · F-3 클래스).
+_WHITELIST_PAT='^(bash[[:blank:]]+scripts/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+(run[[:blank:]]+)?test([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*)$'
 
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
   if [[ ! "$cmd" =~ $_WHITELIST_PAT ]] || [[ "$cmd" == *..* ]]; then
-    echo "WARN: SKIP '$cmd' — whitelist 미통과 (bash scripts/*.sh 만 허용)" >&2
+    echo "WARN: SKIP '$cmd' — whitelist 미통과 (bash scripts/*.sh · pytest · npm/pnpm/yarn test · go test · cargo test 만 허용). 힌트: '..' 포함 경로는 차단되므로 'go test ./...' 는 미지원 — 개별 패키지 경로를 쓸 것" >&2
     {
       echo "### \`$cmd\`"
       echo '> WARN: SKIP — whitelist 미통과'
@@ -60,7 +69,15 @@ while IFS= read -r cmd; do
   } >> "$EVIDENCE"
   executed=$((executed + 1))
   read -r -a _parts <<< "$cmd"
-  out=$(bash "${_parts[@]:1}" 2>&1)
+  # bash 러너는 기존대로 bash 로 실행(scripts/*.sh 한정). 그 외 러너는 첫 토큰을 그대로 실행(PATH 조회).
+  if [ "${_parts[0]}" = "bash" ]; then
+    out=$(bash "${_parts[@]:1}" 2>&1)
+  else
+    out=$("${_parts[@]}" 2>&1)
+  fi
+  # ⚠️ 위 if/fi 블록과 이 줄 사이에 어떤 명령도 삽입 금지 (주석은 무해).
+  #    명령을 넣으면 ec 가 그 명령의 status(0)를 캡처해 **실패한 테스트가 VERIFY: PASS 로 샌다**.
+  #    실증된 함정(plan I-4) — test-verifying-automation.sh 의 T-multi.e/f 가 이 회귀를 고정한다.
   ec=$?
   {
     echo "$out"

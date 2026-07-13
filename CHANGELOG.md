@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+- **실행-근거 gate — 자기보고 면제 3경로 균일 조임** — R-1/R-2(commit·PR 전 verify) 게이트가 **자기보고만으로 열리던** 구멍을 막았다. 기존엔 session-progress 에 수기로 쓴 `/verify PASS` 줄 · evidence.md 스탬프 · Skill 호출 중 **하나만 있으면** 면제됐고, 셋 다 모델이 스스로 쓰는 텍스트라 사실상 자기발급 면제표였다. `governance-lib.sh` 에 `_verify_exec_evidence` 신설 — transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 **검증 러너가 실제 실행되어 `VERIFY: PASS` 를 출력했는지** 확인하고, 3경로 **전부** 이 실행 증거를 요구한다. `VERIFY: PARTIAL`·`FAIL`·`is_error` 결과와 command-only 위조(`echo pytest`)는 불인정. 판정 불가(transcript 부재·jq 실패)는 fail-open 으로 기존 동작 유지. FID 20260713-verify-exec-gate
+- **`run-verification.sh` 다언어 러너 확장** — 화이트리스트가 `bash scripts/*.sh` 만 실행하던 탓에 pytest·npm 프로젝트는 **항상 `VERIFY: PARTIAL`** 이었고, 실행-근거 gate 가 요구하는 PASS 증거를 구조적으로 낼 수 없었다. `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test` 를 **선두 앵커(`^`) 고정** 패턴으로 추가 — `echo pytest`·`foo && pytest`·`rm -rf / # pytest` 류 위장은 계속 SKIP. 한계 고백: `go test ./...`(`..` 가드) · `npm run test:unit`(`:`) 은 여전히 미지원. 실패 경로(`VERIFY: FAIL`)도 회귀 테스트로 영구 고정.
+
+### Removed
+- **`§auto` 무조건 면제 제거 (⚠️ 행동 변경 — 거버넌스 조임)** — `pretool-governance.sh` 가 spec.md 의 `**§auto**: true` 라벨만 보고 실행-근거 검사에 **도달하기도 전에** allow 하던 블록을 삭제했다. 그 라벨은 모델이 spec.md 에 쓰는 것이라, 무인 진입(`/start-auto`·`/start-all-auto`)이면 게이트가 통째로 무효화됐다. `§auto` 의 의미는 "가역 게이트 자동 통과"(사용자 확인 생략)이지 "검증 면제"가 아니다. 무인 모드도 chain 에 `verifying-evidence-ko` 가 있어 verify 를 실제 실행하므로 **정직한 무인 흐름은 실행 증거를 남기고 그대로 통과**한다(e2e·batch 회귀 PASS). 남는 면제 4종: `SPECOPS_GOVERNANCE_BYPASS=1` · docs-only · `.specops/` 부재(관할 한정) · fail-open.
+
+### Changed
+- **문서 drift 화해 (3곳)** — (a) `CLAUDE.md` 거버넌스 엔진: 면제 서술을 4종으로 정정 + 실행-근거 gate 문단 신설. (b) `verifying-evidence-ko/SKILL.md`: "whitelist 미통과 (npm/pytest 등)" · "`bash scripts/...` 외 명령만 쓰면 **항상** PARTIAL" 이 다언어 확장 이후 **거짓**이 되어 실제 러너 목록·잔여 SKIP 형태·gate 연동으로 갱신. (c) `pretool-governance.sh` 근거 주석: `/implement` 의 **태스크별 중간 커밋은 verify 이전이라 실행 증거가 없어** 정직한 흐름이어도 deny→BYPASS 경로를 탄다는 설계된 비용을 명시(다음 독자 오도 방지).
+
 ## [1.44.0] — 2026-07-13
 
 ### Changed

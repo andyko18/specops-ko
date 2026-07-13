@@ -18,8 +18,13 @@ trap 'rm -rf "$codesandbox"' EXIT
 
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T1 commit no-verify → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | bash "$HOOK" 2>/dev/null)
-check "T2 commit with-verify → allow" '"continue":true' "$out"
+# T2: Skill 호출 + 실제 실행증거 = 정직한 경로 → allow
+#   (20260713-verify-exec-gate fixture 보강 — 조임 후 Skill 호출'만'으로는 부족. 구 fixture 는 T2b 로 이관)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T2 commit with-verify(+exec) → allow" '"continue":true' "$out"
+# T2b ★ 조임 — Skill 호출만(실행증거 없음) → deny (구 T2 가 allow 하던 것)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T2b ★ Skill 호출만(실행증거 없음) → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 bash "$HOOK" 2>/dev/null)
 check "T3 env bypass → allow" '"continue":true' "$out"
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
@@ -28,13 +33,30 @@ out=$(mkstdin "ls -la" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null
 check "T5 unmatched → allow" '"continue":true' "$out"
 out=$(printf 'NOT JSON' | bash "$HOOK" 2>/dev/null)
 check "T6 bad json → allow" '"continue":true' "$out"
+# T7 §auto — 실행증거 없으면 더 이상 면제되지 않는다 (AC-11 — 20260713-verify-exec-gate 조임).
+#   구 기대값은 "§auto exempt → allow" 였다. 근거: `§auto: true` 라벨은 모델이 spec.md 에 쓰는 자기발급
+#   면제표라, 무인 진입(/start-auto·/start-all-auto)이면 실행-근거 gate 가 통째로 무효화됐다.
+#   §auto 의 의미는 "가역 게이트 자동 통과"(사용자 확인 생략)이지 "검증 면제"가 아니다.
 tmproot=$(mktemp -d) || exit 1
+( cd "$tmproot" && git init -q && echo "echo x" > a.sh && git add a.sh )
 mkdir -p "$tmproot/.specops/20260101-auto-fixture"
 printf '## 20260101-auto-fixture\n' > "$tmproot/.specops/session-progress.md"
 printf '# spec\n**§auto**: true\n' > "$tmproot/.specops/20260101-auto-fixture/spec.md"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$tmproot" bash "$HOOK" 2>/dev/null)
-check "T7 §auto exempt → allow" '"continue":true' "$out"
+check "T7 ★ §auto + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
+# T7b §auto + 실행증거 있음 → allow (정직한 무인 흐름 무손상 — AC-12)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$tmproot" bash "$HOOK" 2>/dev/null)
+check "T7b §auto + 실행증거 → allow" '"continue":true' "$out"
 rm -rf "$tmproot"
+
+# T-auto-removed: §auto 무조건 면제 블록이 코드에서 제거됐는지 구조 검사 (AC-10)
+#   패턴은 **코드형**(`grep -qE '...§auto...spec.md'` 호출 라인)만 매치한다 — 단순 '§auto.*spec.md' 로
+#   하면 제거 자리에 남긴 근거 주석과도 매치되어 영원히 FAIL 한다.
+if grep -qE "grep -qE .*§auto.*spec\.md" "$PLUGIN/hooks/pretool-governance.sh" 2>/dev/null; then
+  echo "FAIL T-auto-removed — §auto 무조건 면제 블록 잔존"; fail=$((fail+1))
+else
+  echo "PASS T-auto-removed §auto 면제 블록 제거됨"; pass=$((pass+1))
+fi
 
 # T8~T12 evasion 우회 deny (no-verify fixture)
 out=$(mkstdin "cd /tmp && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
@@ -125,15 +147,18 @@ check "T36 inline bypass prefix → allow" '"continue":true' "$out"
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"
 
-# T38~T39 통합 wiring (F-1) — transcript 에 verify skill 부재(lookback 밖 시뮬)인데
-# session-progress 에 /verify PASS 가 최신이면 ALLOW (positive), /implement 가 더 최신이면 deny (negative).
+# T38~T39 통합 wiring (F-1) — transcript 에 verify skill 부재(lookback 밖 시뮬)인 상태에서
+# session-progress 의 /verify PASS 자기보고가 어떻게 취급되는지.
 # spgit: 코드(.sh) staged 로 docs-only 면제 차단 + .specops/session-progress.md FID 섹션 주입.
-# T38 positive: /verify PASS 가 /implement 보다 위(최신) → _verify_passed_in_progress=0 → allow
+# T38 ★ 기대값 뒤집기 (20260713-verify-exec-gate — 구 기대값 allow):
+#   session-progress 는 모델이 쓰는 self-report 라 실행증거 없이는 단독 면제 불가.
+#   /verify PASS 가 최신이어도(vp=0) 실행증거(rc=1)가 없으면 deny.
+#   정직한 경로(같은 session-progress + 실행증거 → allow)는 T-exec.b 가 커버한다.
 spgit=$(mktemp -d) || exit 1
 ( cd "$spgit" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir -p .specops )
 printf '## 20260626-wire\n- 2026-06-26 10:05 /verify PASS (evidence.md, AC 5/5)\n- 2026-06-26 10:00 /implement DONE (T1)\n' > "$spgit/.specops/session-progress.md"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
-check "T38 session-progress verify 최신 → allow (통합 positive)" '"continue":true' "$out"
+check "T38 ★ session-progress verify 최신 + 실행증거 없음 → deny (조임)" '"permissionDecision":"deny"' "$out"
 # T39 negative: /implement 가 /verify 보다 위(최신) → 무효 → transcript fallback(verify 없음) → deny
 printf '## 20260626-wire\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026-06-26 10:05 /verify PASS (AC 5/5)\n' > "$spgit/.specops/session-progress.md"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$spgit" bash "$HOOK" 2>/dev/null)
@@ -153,6 +178,43 @@ nosg=$(mktemp -d) || exit 1; ( cd "$nosg" && git init -q && echo "echo x" > a.sh
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$nosg" bash "$HOOK" 2>/dev/null)
 check "T40 .specops 부재 repo → allow (M2 관할 가드)" '"continue":true' "$out"
 rm -rf "$nosg"
+
+# T-exec 자기보고 3경로 균일 gate (20260713-verify-exec-gate — AC-5·AC-6·AC-R-2)
+#   자기보고 3경로(session-progress /verify PASS · evidence stamp · Skill 호출)는 전부 모델이 쓰는 것이라
+#   실행 증거(하네스 작성 tool_result)를 선행 조건으로 요구한다.
+execroot=$(mktemp -d) || exit 1
+( cd "$execroot" && git init -q && echo "echo x" > a.sh && git add a.sh )
+mkdir -p "$execroot/.specops/20260101-forge"
+# T-exec.a ★★ AC-R-2 (지배 경로 red): session-progress 에 수기 /verify PASS + 실행증거 없음 → deny
+printf '## 20260101-forge\n\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$execroot/.specops/session-progress.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-progress-forged.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+check "T-exec.a ★ session-progress 위조 + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
+# T-exec.b (AC-6): 같은 session-progress + 실행증거 있음 → allow (정직한 경로 무손상)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+check "T-exec.b session-progress + 실행증거 → allow" '"continue":true' "$out"
+# T-exec.c (AC-5): evidence stamp 위조 + 실행증거 없음 → deny
+printf '## 20260101-forge\n' > "$execroot/.specops/session-progress.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$execroot/.specops/20260101-forge/evidence.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-progress-forged.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+check "T-exec.c evidence stamp 위조 + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
+# T-exec.d (AC-6 stamp-positive): 같은 stamp + 실행증거 있음 → allow
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+check "T-exec.d evidence stamp + 실행증거 → allow" '"continue":true' "$out"
+rm -rf "$execroot"
+
+# T-msg deny 메시지 정확성 (T3 Phase C — false-block 표면)
+#   deny 는 의도된 동작이나, 메시지가 작동하지 않는 해법(Skill 호출)을 안내하면 사용자는 BYPASS 를 남발한다.
+#   실제로 게이트를 여는 유일한 행동 = run-verification.sh 재실행 → 메시지가 그것을 안내해야 한다.
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-msg.a ★ deny 메시지가 run-verification.sh 재실행을 안내" 'run-verification.sh' "$out"
+check "T-msg.b deny 메시지가 '실행 증거 부재'로 정확히 진술" '실행 증거' "$out"
+check "T-msg.c deny 메시지에 BYPASS 안내 유지" 'SPECOPS_GOVERNANCE_BYPASS=1' "$out"
+# T-msg.d 틀린 해법(Skill 선행) 안내 잔존 금지 — negative
+if printf '%s' "$out" | grep -q 'verifying-evidence-ko 선행'; then
+  echo "FAIL T-msg.d 틀린 해법(verifying-evidence-ko 선행) 잔존 — in: $out"; fail=$((fail+1))
+else
+  echo "PASS T-msg.d 틀린 해법 안내 제거됨"; pass=$((pass+1))
+fi
 
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

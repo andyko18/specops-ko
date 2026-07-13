@@ -211,7 +211,9 @@ else
 fi
 rm -rf "$TMPDIR"
 
-# ── T2.f run: 혼합(bash PASS + npm skip) → VERIFY:PARTIAL exit 1 (P0 거짓양성 방지) ──
+# ── T2.f run: 혼합(bash PASS + make skip) → VERIFY:PARTIAL exit 1 (P0 거짓양성 방지) ──
+#   20260713-verify-exec-gate: npm 이 화이트리스트에 편입되어 더 이상 skip 되지 않음 → skip 러너를 make 로 교체.
+#   (make/gradle/mvn 은 의도적 미포함 — clarify D-1 YAGNI)
 TMPDIR=$(mktemp -d)
 mkdir -p "$TMPDIR/.specops/fid-test" "$TMPDIR/scripts/tests"
 echo '#!/usr/bin/env bash
@@ -229,7 +231,7 @@ printf '%s\n' \
   '    outputs: []' \
   '    ac: [AC-1]' \
   '  - id: T2' \
-  '    test_command: "npm test"' \
+  '    test_command: "make test"' \
   '    depends_on: []' \
   '    inputs: []' \
   '    outputs: []' \
@@ -244,9 +246,116 @@ printf '%s\n' \
  fi) > "$TMPDIR/result"
 rm -f /tmp/t2f-out-$$ /tmp/t2f-err-$$
 if grep -q "^OK$" "$TMPDIR/result"; then
-  ok "T2.f run → 혼합(bash PASS+npm skip) VERIFY:PARTIAL exit 1 (P0 거짓양성 방지)"
+  ok "T2.f run → 혼합(bash PASS+make skip) VERIFY:PARTIAL exit 1 (P0 거짓양성 방지)"
 else
   nope "T2.f" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T-multi: 다언어 러너 화이트리스트 (20260713-verify-exec-gate AC-1·AC-2·AC-3) ──
+# 가짜 러너를 PATH 선점으로 주입 — 실제 pytest/npm 없이 exit 0 재현
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-multi" "$TMPDIR/bin"
+printf '#!/bin/sh\necho "3 passed"\nexit 0\n' > "$TMPDIR/bin/pytest"
+printf '#!/bin/sh\necho "ok"\nexit 0\n' > "$TMPDIR/bin/npm"
+chmod +x "$TMPDIR/bin/pytest" "$TMPDIR/bin/npm"
+
+# T-multi.a: pytest 실행 → VERIFY: PASS (AC-1·AC-3)
+printf '%s\n' \
+  '## 의존 그래프' \
+  '' \
+  '```yaml' \
+  'tasks:' \
+  '  - id: T1' \
+  '    test_command: "pytest tests/"' \
+  '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1)
+if printf '%s' "$out" | grep -q 'VERIFY: PASS'; then
+  ok "T-multi.a pytest 러너 실행 → VERIFY: PASS"
+else
+  nope "T-multi.a" "expected 'VERIFY: PASS', got: $out"
+fi
+
+# T-multi.b: npm test 실행 → VERIFY: PASS (AC-1 — 실행부 일반화가 bash 외 러너에도 동작하는지)
+rm -f "$TMPDIR/.specops/fid-multi/evidence.md"
+printf '%s\n' \
+  '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' \
+  '    test_command: "npm test"' '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1)
+if printf '%s' "$out" | grep -q 'VERIFY: PASS'; then
+  ok "T-multi.b npm test 실행 → VERIFY: PASS"
+else
+  nope "T-multi.b" "expected 'VERIFY: PASS', got: $out"
+fi
+
+# T-multi.c: 앵커 검증 — echo 위장 SKIP (AC-2)
+rm -f "$TMPDIR/.specops/fid-multi/evidence.md"
+printf '%s\n' \
+  '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' \
+  '    test_command: "echo pytest fake"' '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1)
+if printf '%s' "$out" | grep -q 'PARTIAL'; then
+  ok "T-multi.c echo 위장 → SKIP(PARTIAL)"
+else
+  nope "T-multi.c" "expected PARTIAL, got: $out"
+fi
+
+# T-multi.d: 앵커 검증 — 체이닝 위장 SKIP (AC-2)
+rm -f "$TMPDIR/.specops/fid-multi/evidence.md"
+printf '%s\n' \
+  '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' \
+  '    test_command: "pytest; rm -rf /tmp/x"' '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1)
+if printf '%s' "$out" | grep -q 'PARTIAL'; then
+  ok "T-multi.d 체이닝 위장 → SKIP(PARTIAL)"
+else
+  nope "T-multi.d" "expected PARTIAL, got: $out"
+fi
+
+# ── T-multi.e: 실패하는 non-bash 러너 → VERIFY: FAIL (else 분기 실패 경로 고정) ──
+#   왜 필요한가: T-multi.a/b 는 else 분기(비-bash 러너)의 성공 경로만 고정한다.
+#   run-verification.sh 의 `ec=$?` 가 실행 분기 밖 한 줄이라, 분기 안에 명령이 하나만 끼어들어도
+#   그 status(0)를 캡처해 **실패한 러너가 VERIFY: PASS 로 샌다** (plan I-4 — 출하 직전까지 간 실증 함정).
+#   후속 거버넌스 게이트가 'VERIFY: PASS' 문자열을 앵커하므로, 무증상 false green 은 실패 테스트를 통과로 연다.
+#   → stdout·exit code·evidence 3중 단언으로 고정한다 (하나만 보면 회귀를 놓친다).
+rm -f "$TMPDIR/.specops/fid-multi/evidence.md"
+printf '#!/bin/sh\necho "1 failed"\nexit 1\n' > "$TMPDIR/bin/pytest"   # a/b 완료 후이므로 덮어써도 안전
+chmod +x "$TMPDIR/bin/pytest"
+printf '%s\n' \
+  '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' \
+  '    test_command: "pytest tests/"' '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1); ec=$?
+if [ "$ec" -eq 1 ] \
+   && printf '%s' "$out" | grep -q 'VERIFY: FAIL' \
+   && grep -q 'RUN-VERIFICATION-RESULT: FAIL' "$TMPDIR/.specops/fid-multi/evidence.md" 2>/dev/null; then
+  ok "T-multi.e 실패 러너(pytest exit 1) → VERIFY: FAIL + exit 1 + evidence FAIL"
+else
+  nope "T-multi.e" "expected exit 1 + 'VERIFY: FAIL' + evidence 'RUN-VERIFICATION-RESULT: FAIL'; got ec=$ec out: $out"
+fi
+
+# ── T-multi.f: 러너 미설치(exit 127) → VERIFY: FAIL (exit code 원문 전달) ──
+#   한계 고백: 실제 미설치 대신 exit 127 을 내는 가짜 cargo 로 결정론적 재현.
+#   (PATH 에서 실 러너만 골라 지울 수 없고, PATH 를 비우면 스크립트가 쓰는 기본 유틸까지 사라져 환경 의존이 된다.
+#    bash 의 command-not-found 도 동일하게 ec=127 을 내므로 run-verification.sh 관점에서 두 경로는 같다.)
+rm -f "$TMPDIR/.specops/fid-multi/evidence.md"
+printf '#!/bin/sh\necho "cargo: command not found" >&2\nexit 127\n' > "$TMPDIR/bin/cargo"
+chmod +x "$TMPDIR/bin/cargo"
+printf '%s\n' \
+  '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' \
+  '    test_command: "cargo test"' '```' \
+  > "$TMPDIR/.specops/fid-multi/tasks.md"
+out=$(cd "$TMPDIR" && PATH="$TMPDIR/bin:$PATH" bash "$RUN" fid-multi 2>&1); ec=$?
+if [ "$ec" -eq 1 ] \
+   && printf '%s' "$out" | grep -q 'VERIFY: FAIL cargo test (exit=127)' \
+   && grep -q 'RUN-VERIFICATION-RESULT: FAIL' "$TMPDIR/.specops/fid-multi/evidence.md" 2>/dev/null; then
+  ok "T-multi.f 러너 미설치(exit 127) → VERIFY: FAIL (exit=127 원문)"
+else
+  nope "T-multi.f" "expected exit 1 + 'VERIFY: FAIL cargo test (exit=127)' + evidence FAIL; got ec=$ec out: $out"
 fi
 rm -rf "$TMPDIR"
 

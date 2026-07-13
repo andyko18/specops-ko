@@ -143,11 +143,13 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 태스크 종료 전 다음 명령을 **실제 실행**하고 출력 첨부:
 
-- [ ] **U3 자동화** (1순위): `bash scripts/_internal/run-verification.sh <FID>` — tasks.md 의 `bash scripts/...` 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append.
+- [ ] **U3 자동화** (1순위): `bash scripts/_internal/run-verification.sh <FID>` — tasks.md 의 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append.
   - `VERIFY: PASS` + exit 0: 모든 명령 실행됨 + 전부 PASS (skip 0건)
   - `VERIFY: FAIL <cmd> (exit=N)` (stderr) + exit 1: 1건이라도 FAIL
-  - `VERIFY: PARTIAL — N개 명령 whitelist 미통과` + exit 1: whitelist 미통과 명령 존재 (npm/pytest 등) — **수동 검증 필수**
-  - tasks.md 가 `bash scripts/...` 외 명령만 사용하면 항상 VERIFY: PARTIAL → 아래 수동 fallback 필수
+  - `VERIFY: PARTIAL — N개 명령 whitelist 미통과` + exit 1: whitelist 미통과 명령 존재 — **수동 검증 필수**
+  - **실행되는 러너** (v1.45.0 다언어 확장): `bash scripts/*.sh` · `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test`. 각 패턴은 선두 앵커(`^`)로 고정 — `echo pytest`·`foo && pytest` 류 위장은 SKIP 된다.
+  - **여전히 SKIP 되는 알려진 형태** (의도된 미지원): `go test ./...` (`..` path-traversal 가드에 먼저 걸림 — 개별 패키지 경로 `go test ./pkg/foo` 를 쓸 것) · `npm run test:unit` (`:` 가 인자 char-class 밖). 위 러너 밖의 명령(린터·빌드 등)도 SKIP → PARTIAL 이면 아래 수동 fallback 필수.
+  - ⚠️ **실행-근거 gate 와 직결**: R-1/R-2 커밋 게이트는 이제 이 러너의 `VERIFY: PASS` **실행 출력**(transcript `tool_result`)을 면제 조건으로 요구한다. PARTIAL/FAIL 은 실행 증거로 **불인정** — evidence.md 에 스탬프만 남기고 커밋하려 하면 deny 된다.
 - [ ] **수동 fallback** (`run-verification.sh` 미적용 시):
   - `npm test` / `pytest` / 해당 프로젝트의 테스트 명령 — exit 0
   - 린터 / 포매터 — exit 0

@@ -71,6 +71,59 @@ _verify_evidence_stamp() {
   grep -q '^RUN-VERIFICATION-RESULT: PASS' "$ev" && return 0 || return 1
 }
 
+# 실행 증거 판정 — transcript 의 tool_use(모델 작성 명령) ↔ tool_result(하네스 작성 출력)를
+# tool_use_id 로 join 해, 검증 러너가 실제로 실행되어 PASS 를 냈는지 확인한다.
+#
+# 왜 둘 다 필요한가: command-only 검사는 `echo pytest` 로, result-only 검사는 `echo "VERIFY: PASS"` 로
+#   뚫린다. 앵커된 러너 호출 + 그 호출의 하네스 출력을 함께 요구해야 위조 불가 바닥이 된다.
+# 범위 경계(A-1, WON'T-FIX): `bash run-all.sh; echo "VERIFY: PASS"` 결합 날조는 미차단 —
+#   F-3 wrapper-evasion 과 동일 클래스(의도적 날조). 본 게이트는 자기정직 스캐폴드이며
+#   대상은 환각(검증했다 착각한 모델이 선의로 PASS 를 쓰는 것)이다.
+# 반환: 0=실행증거 있음 / 1=없음 / 2=판정 불가(fail-open — 호출자가 기존 동작 유지)
+#
+# 판정 불가(2) 조건: transcript 부재 · jq 실패 · malformed JSONL(--slurpfile 전체 실패) ·
+#   **tool_use 이벤트 0건**. 마지막 것이 핵심 — 이벤트가 0건이면 "검증을 안 했다"와 "transcript 를
+#   제대로 못 읽었다"를 구별할 수 없다. fail-open 원칙상 판정 불가로 둔다 (C-3 설계 정정).
+_verify_exec_evidence() {
+  local transcript="$1"
+  [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
+  local out uses hits
+  out=$(jq -rn --slurpfile a "$transcript" '
+    # ★ C-A: $all 은 **전체 tool_use** 를 센다 (name 무관). $uses(Bash 한정)로 세면
+    #   Bash 가 없는 transcript(Edit-only·Skill-only = 위조 표현)가 0건이 되어 rc=2 fail-open 으로
+    #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
+    ($a | map(select(.type=="assistant")
+              | .message.content[]?
+              | select(.type=="tool_use")) | length) as $all
+    | ($a | map(select(.type=="assistant")
+              | .message.content[]?
+              | select(.type=="tool_use" and .name=="Bash")
+              | {id: .id, cmd: (.input.command // "")})) as $uses
+    | ($a | map(select(.type=="user")
+                | .message.content[]?
+                | select(.type=="tool_result" and (.is_error != true))   # 에러 결과는 증거 불인정
+                | {id: .tool_use_id,
+                   out: (.content | if type=="string" then . else tostring end)})) as $res
+    | ([ $uses[]
+         # 선행자 클래스의 \\n: Bash tool command 는 흔히 멀티라인이다(`cd <path>` 다음 줄에 러너).
+         #   줄바꿈이 없으면 2번째 줄의 러너가 ^ 에도 [;&|(] 에도 안 걸려 **정직한 실행을 미인식→deny**
+         #   하는 false-block 이 난다(실전 dogfooding 적발). 줄바꿈은 셸의 진짜 명령 구분자이므로
+         #   `;`·`&`·`|` 와 동급으로 클래스에 든다 — 앵커 의미(줄 첫 토큰이 러너여야 함)는 그대로:
+         #   `echo "ran pytest"`·`# bash run-verification.sh`(주석)는 여전히 불인정 (T12·T13 잠금).
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*run-verification\\.sh|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | . as $u
+         | ($res | map(select(.id == $u.id)) | .[0].out // "")
+         | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
+       ] | length) as $h
+    | "\($all) \($h)"
+  ' 2>/dev/null) || return 2
+  [ -z "$out" ] && return 2
+  uses=${out%% *}; hits=${out##* }
+  [ "$uses" -eq 0 ] 2>/dev/null && return 2   # tool_use 이벤트 0건 → 판정 불가 (증거 없음이 아님)
+  [ "$hits" -gt 0 ] 2>/dev/null && return 0
+  return 1
+}
+
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
 # git diff HEAD = working tree vs HEAD = staged + unstaged tracked 전부 포함 (commit -a 우회 차단).
 # base branch 자동감지 — main 우선, master 차선, 없으면 실패(안전측 차단).
@@ -233,23 +286,36 @@ apply_lookback_rule() {
   printf '%s' "$tool_cmd" | grep -Eq "$trigger_pattern" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
+  # ★ 실행-근거 gate (20260713-verify-exec-gate): transcript 를 읽을 수 있으면, 어느 자기보고 신호가
+  #   발화하든 실제 실행 증거를 요구한다. 자기보고 3경로(session-progress /verify PASS · evidence stamp ·
+  #   Skill 호출)는 전부 **모델이 쓰는 것**이라, 검증했다고 착각한 모델이 선의로 게이트를 연다.
+  #   #138 staleness 와 직교: staleness 는 "verify 가 충분히 최신인가", 본 gate 는 "verify 가 실제로 돌았나".
+  #   ★ emit 은 기존 경로로 흘려보낸다(early-return 금지) — offset 계산을 선점하면 T6.e/f 회귀.
+  local _exec_rc
+  _verify_exec_evidence "$transcript"; _exec_rc=$?
+
+  # rc=0(실행증거 있음)·rc=2(판정 불가 — fail-open) 일 때만 자기보고 면제를 인정한다.
   # F-1(5c): session-progress verify 우선 — transcript lookback false-block 회피
-  local _fid
-  _fid=$(detect_fid)
-  if [ -n "$_fid" ]; then
-    _verify_passed_in_progress "$_fid"; local _vp=$?
-    if [ "$_vp" -eq 0 ]; then
-      return 0   # 유효 → 면제
+  if [ "$_exec_rc" -ne 1 ]; then
+    local _fid
+    _fid=$(detect_fid)
+    if [ -n "$_fid" ]; then
+      _verify_passed_in_progress "$_fid"; local _vp=$?
+      if [ "$_vp" -eq 0 ]; then
+        return 0   # 유효 → 면제
+      fi
+      if [ "$_vp" -eq 1 ] && _verify_evidence_stamp "$_fid"; then
+        return 0   # inconclusive(verify 줄 부재) + evidence stamp → 면제
+      fi
+      # _vp=2 (affirmative-stale) → stamp 무시, 차단 진행 (T39/spec L21 보존)
     fi
-    if [ "$_vp" -eq 1 ] && _verify_evidence_stamp "$_fid"; then
-      return 0   # inconclusive(verify 줄 부재) + evidence stamp → 면제
-    fi
-    # _vp=2 (affirmative-stale) → stamp 무시, 차단 진행 (T39/spec L21 보존)
   fi
-  local found
-  found=$(read_recent_tool_events "$transcript" "$lookback" \
-    | jq -c --arg p "$neg_pattern" 'select(.tool_name == "Skill" and (.input.skill // "" | test($p)))' \
-    | head -1)
+  local found=""
+  if [ "$_exec_rc" -ne 1 ]; then
+    found=$(read_recent_tool_events "$transcript" "$lookback" \
+      | jq -c --arg p "$neg_pattern" 'select(.tool_name == "Skill" and (.input.skill // "" | test($p)))' \
+      | head -1)
+  fi
   if [ -z "$found" ]; then
     # triggering Bash tool_use 이벤트의 transcript 라인 번호 (0-based)
     # PostToolUse 는 현재 triggering 이벤트 직후 발화 → 마지막 매칭이 현재 이벤트
