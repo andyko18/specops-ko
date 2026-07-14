@@ -97,6 +97,25 @@ exit $FAIL
 
 **이유**: shebang 없이는 exec-bit 가 있어도 실행 실패. L2~ 패턴은 specops-auto-ko 내부 통일성을 위한 것이지 bash 테스트 표준 아님.
 
+## 5. grep 앵커 고유성 (tautology 방지)
+
+`grep -q '<앵커>' "$파일"` 로 문서·코드의 특정 문구 존재를 검사하는 테스트(예: `test-meta-skill.sh`, `test-validate-structure.sh`)는 **앵커가 검사 대상에만 있는 고유 문구**여야 한다.
+
+**규약**: 앵커 추가·수정 시 반드시 확인 —
+```bash
+grep -c '<앵커>' <검사대상파일>   # == 1 이어야 한다
+```
+
+**왜**: 앵커 문구가 파일의 **다른 곳에도 존재**하면, 검사 대상(그 기능의 핵심 줄)을 **통째로 지워도 테스트가 PASS** 한다 — 검증하지 않는 것을 보증한다고 주장하는 tautology(거짓 안심)다.
+
+**실측 함정** (2026-07-13, 3회 연속 발생):
+- `T6.b`: `/start`·`안내` 앵커가 SKILL.md 다른 곳에 이미 존재 → 구현 없이 PASS
+- `T6.c`: `공회전` 이 배제 조건 블록에도 존재 → 적색 플래그 행을 지워도 PASS
+- `T6.a`: Critical 수정이 앵커(`배제 조건`·`repo 밖`)를 오염 → **기능 본체를 지워도 PASS**
+- 함정: `PPT` 단독은 count=2(두 곳) → tautology 재건. `PPT·Excel` 이어야 count=1
+
+**한계 고백**: 이는 **리뷰 규율**이지 자동 게이트가 아니다. 정적 탐지는 앵커→파일 연결이 변수·동적이라 52개 테스트 파일에서 false-positive 늪이 된다(regex 두더지잡기). 대신 **mutation 으로 실증**하라 — 검사 대상 줄을 지워보고 테스트가 FAIL 하면 앵커가 실효 있다. `mutation-score.sh` 가 `mutation-targets.conf` 등재 `.sh` 타겟은 자동 커버(주간 cron, `MUTATION_MIN_SCORE`).
+
 ## 회귀 금지 체크리스트
 
 본 template 도입 시 다음이 불변해야 한다:

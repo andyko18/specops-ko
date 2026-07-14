@@ -52,3 +52,16 @@ jobs:
           \`\`\`"
           EXISTING=$(gh issue list --state open --search "in:title $TITLE" --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then gh issue comment "$EXISTING" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi
+
+  # mutation score 회귀 게이트 (20260714-mutation-ci-gate) — secret 불요라 항상 실행.
+  #   run-all 은 2분41초 부담으로 mutation 미포함(수동). 주간 cron 으로 강제화해
+  #   governance-lib 커버리지가 baseline(55%) 밑으로 떨어지면 감지한다.
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: governance mutation score gate (baseline 55%)
+        env:
+          MUTATION_MIN_SCORE: 55
+        run: bash scripts/tests/mutation-score.sh

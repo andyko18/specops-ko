@@ -61,5 +61,19 @@ out=$(MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::run_target "$tmpe/tgt.sh" "true" 2>/d
 if printf '%s' "$out" | grep -qE "equivalent=[0-9]+"; then echo "PASS T14 리포트 equivalent="; PASS=$((PASS+1)); else echo "FAIL T14 ($out)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmpe"
 
+# threshold + baseline sanity (20260714-mutation-ci-gate) — cron 게이트 로직 회귀 잠금
+tmpt=$(mktemp -d)
+printf '#!/bin/bash\necho hi\n' > "$tmpt/t.sh"
+printf '%s|true\n' "$tmpt/t.sh" > "$tmpt/c.conf"
+# T15 MUTATION_MIN_SCORE 미설정 → exit 0 (하위호환 — 측정만)
+( bash "$PLUGIN/scripts/tests/mutation-score.sh" "$tmpt/c.conf" >/dev/null 2>&1 ); ck "T15 threshold 미설정 → exit 0" "$?" "0"
+# T16 MIN=50, mutant 0 → score 0% < 50 → exit 1 (미달 차단)
+( MUTATION_MIN_SCORE=50 bash "$PLUGIN/scripts/tests/mutation-score.sh" "$tmpt/c.conf" >/dev/null 2>&1 ); ck "T16 MIN 미달 → exit 1" "$?" "1"
+# T17 ★ baseline sanity — 무변형에서 testcmd 파손(false)이면 MUT_BELOW_MIN=1 (score 거짓통과 차단)
+MUT_BELOW_MIN=0
+mut::run_target "$tmpt/t.sh" "false" >/dev/null 2>&1
+ck "T17 sanity 파손 testcmd → MUT_BELOW_MIN=1" "$MUT_BELOW_MIN" "1"
+rm -rf "$tmpt"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
