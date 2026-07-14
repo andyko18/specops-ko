@@ -165,15 +165,18 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - API/스키마 기능이면 §참조에 `.specops/memory/api-spec.md`·`data-model.md` 자동 포함 (Step 5.6 갱신분)
    - **§유형 라벨 자동 기재** (Phase A — 신규 추가): spec.md §1 개요 의 `**§유형**` 라벨을 다음 규칙으로 자동 부여 — 진입 신호 + current-state.md §1 라인 범위 메타 합산 기반:
 
-     | 진입 신호 | current-state.md §1 라인 범위 합산 | 라벨 |
+     | 진입 신호 | current-state.md §1 라인 범위 합산 / 예상 산출 규모 | 라벨 |
      |---|---|---|
-     | 신규 분기 | N/A | `**§유형**: 신규` |
+     | 신규 분기 (소규모 + 사용자 trivial 승인) | 예상 산출 ≤ 1 파일·소규모 (수 라인) | `**§유형**: trivial` (신규 단축 경로 — 아래 ★ 참조) |
+     | 신규 분기 (기본) | 위 조건 미충족 | `**§유형**: 신규` |
      | foundation 분기 | N/A | `**§유형**: foundation` |
      | 유지보수 분기 | ≤ 5 | `**§유형**: trivial` (사용자가 자기선언으로 거부 가능) |
      | 유지보수 분기 | > 5 또는 미산출 | `**§유형**: 유지보수` |
      | batch 분기 | N/A | `**§유형**: 신규` + `**§batch**: <batch-id>` (§batch 라벨이 decomposing-ko 정지점 신호로 사용됨) |
 
      **근거**: clarify Q-B 결정 — trivial 자동 판정 시점은 analyzing-ko current-state.md §1 메타 사전 추정. Phase A 단독 시점에는 specifying-ko Step 1 mini-checklist §1 라인 범위 메타로 대체. 라벨은 clarifying-ko 단계에서 갱신 가능.
+
+     **★ 신규 trivial 단축 경로 (완주율 개선 — 20260714-trivial-new-shortcut)**: 신규 분기에서 설계 승인 직후, 예상 산출이 **단일 파일·소규모(수 라인)** 라 판단되면 사용자에게 **명시적으로** 제안한다 — "이 작업은 소규모라 clarify·plan 단계를 생략(specify → decompose → implement → verify)할 수 있습니다. 축약할까요?". **사용자가 승인해야만** `§유형: trivial` 부여 (자기선언 우선 — 오분류 안전판). 이 경로는 **clarify·plan ceremony 만** 건너뛴다 — decompose·implement·**verify/TDD/security teeth 는 그대로 유지**되므로 오분류돼도 검증 게이트가 안전망이다. `batch`·`foundation` 분기는 이 축약 대상이 아니다 (요구 규모가 본질적으로 크므로).
 
      라벨이 `유지보수` 면 acceptance-criteria.md 의 "## 회귀 방지 AC (유지보수 FID 필수)" 섹션이 자동 활성 — sprint-contracts-ko evaluator 가 `AC-R-*` ≥ 1 강제.
 
@@ -407,8 +410,22 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 
 설계 승인 + 사용자 스펙 검토 통과 + handoff.md 기록 후 즉시 호출:
 
+**정상 경로 (§유형 ≠ trivial)**:
+
 ```
 Skill: specops-auto-ko:clarifying-ko
 ```
 
-본 specifying-ko는 **clarifying-ko 이외의 어떤 스킬도 호출하지 않는다**. 다른 경로는 금지.
+본 specifying-ko는 정상 경로에서 **clarifying-ko 이외의 어떤 스킬도 호출하지 않는다**. 다른 경로는 금지.
+
+**신규 trivial 단축 경로 (§유형 = trivial, 사용자 승인 완료 시에만)** — clarify·plan **ceremony 만** 건너뛰고 `specops-auto-ko:decomposing-ko` 로 **직행**한다 (인라인 호출 — 이 줄은 primary edge 가 아니라 조건 분기다):
+
+1. **정직한 SKIP 기록** (fake 아님 — 실행이 아니라 생략임을 명시):
+   ```bash
+   bash scripts/session-progress-append.sh <FID> /clarify SKIP "trivial 신규 — clarify ceremony 축약(사용자 승인)"
+   bash scripts/session-progress-append.sh <FID> /plan SKIP "trivial 신규 — plan ceremony 축약(사용자 승인)"
+   ```
+2. handoff.md 는 정상 경로와 동일하게 기록.
+3. 이후 `specops-auto-ko:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).
+
+> **teeth 불변**: 이 단축 경로는 decompose·implement·verify·security 를 **건너뛰지 않는다**. verify 실행-근거 게이트·TDD·security 스캔은 정상 경로와 동일하게 작동하므로, 사용자가 규모를 오판해 trivial 로 승인해도 검증 teeth 가 안전망이 된다. 축약되는 것은 오직 **설계 ceremony**(clarify·plan)뿐이다.

@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **신규 trivial 단축 경로 — 소작업 탈출구 신설 (완주율 레버)** — 2026-07-14 평가(6.7/10)가 지목한 **완주율 14%의 지배 원인**: `trivial` 축약이 유지보수 분기 전용이라, 1파일 소규모 **신규** 작업도 spec→clarify→plan→decompose→implement→verify 6단계 의식을 강제당했다(실측 이탈: CouponWake 1라인 픽스가 6분 의식 후 수동 커밋 · IKEN spec 15초 후 마찰 맞고 Excel 이탈). 이제 `specifying-ko` 가 신규 분기에서 설계 승인 직후 예상 산출이 **단일 파일·소규모**면 사용자에게 축약을 **명시 제안**하고, **사용자 승인 시에만** `§유형: trivial` 부여 → **clarify·plan ceremony 만** 건너뛰고 `decomposing-ko` 직행한다. `decomposing-ko` 는 `plan.md` 부재를 trivial 로 감지해 spec+AC 로 **단일 태스크 tasks.md** 를 경량 합성(implementing 무변경 — DAG 계약 유지). ★ **teeth 불변**: decompose·implement·**verify 실행-근거 게이트·TDD·security 는 정상과 동일** — 사용자가 규모를 오판해도 검증 teeth 가 안전망이다. 축약되는 것은 오직 설계 ceremony 뿐. **경제성-안전 설계**: 새 훅·게이트·chain edge·사용자 개념 0개 신설 — `specifying`/`decomposing` body 조건 분기 + 기존 R-5 trivial-skip·AC-R 면제 **재사용**(primary edge 불변이라 chain.yaml·메타목록 무변경). SKIP 은 session-progress 에 `완료` 위장 없이 정직 기록. 회귀: `test-trivial-new-shortcut.sh` 14건 — form 검사 + **실행 어서션 3건**(실제 파이프라인에서 clarify·plan provably SKIP · ceremony 산출물 실제 부재 · R-5 거버넌스 미발화). FID 20260714-trivial-new-shortcut
+
 ## [1.46.0] — 2026-07-14
 
 ### Fixed
