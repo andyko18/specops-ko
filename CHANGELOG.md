@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **LLM eval 이 유지보수 신호를 측정하도록 fixture 정확화** — `#198`(sandbox 파일 시드) 후에도 `maint-2`·`docs-1`·`new-4` 가 FAIL 이던 것을 stream-json 진단으로 원인 규명. `new-4`("기존 도구 업그레이드")는 모델이 `analyzing-ko`(유지보수)를 정확히 호출 — 구 `expect_skill`(specifying-ko)이 버그였다. `maint-2`(작으면 스킵/크면 timeout)·`docs-1`(자문 후 스킵)은 eval 로 안정적 PASS 가 어려운 **경계 케이스**로 `note` 에 정직히 기록(억지 green 안 만듦). 성과: `maint-1`·`maint-3`·`new-4` 가 `analyzing-ko` 감지 — 전엔 파일 부재로 **100% `none`**(측정 자체가 안 됐다). `judge()` FAIL 사유 구분(`FAIL:skill`/`FAIL:flag`)으로 "skill 정답·약속어 누락"이 드러난다. FID 20260713-eval-sandbox-seed
+
+### Added
+- **mutation 커버리지 게이트 강제화 + governance-lib 측정 정확화** — mutation testing 인프라(`mutation-score.sh`)가 있으나 (a) run-all 미포함=수동 (b) 타겟 명령이 stale 해 governance-lib 를 **32%** 로 오측정했다(`test-lib && test-rules` 만 돌려 `_verify_exec_evidence`·`_strip_heredoc_bodies` 미커버). 전체 governance 스위트로 정정 → **55%**(15개 false rot 제거). `MUTATION_MIN_SCORE` threshold 추가(미설정 시 기존 동작 — 하위호환)하고 `llm-smoke.yml` 주간 cron 에 mutation job 배선(secret 불요·항상 실행, MIN=55) — run-all 은 ~6분 부담이라 cron. `test-conventions-bash.md` §5 에 grep 앵커 tautology 규약(`grep -c '<앵커>' == 1`) + 실측 함정 3건 문서화(리뷰 규율, 자동 linter 는 정적 불가). ★ 리뷰가 이 게이트 자체의 hollow verification 2건 적발(testcmd 파손 시 100% 거짓 통과 → baseline sanity self-check, threshold 무테스트 → T15·16·17 추가). FID 20260714-mutation-ci-gate
+
 ## [1.45.0] — 2026-07-14
 
 ### Added
