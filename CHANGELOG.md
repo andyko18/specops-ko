@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.46.0] — 2026-07-14
+
 ### Fixed
 - **LLM eval 이 유지보수 신호를 측정하도록 fixture 정확화** — `#198`(sandbox 파일 시드) 후에도 `maint-2`·`docs-1`·`new-4` 가 FAIL 이던 것을 stream-json 진단으로 원인 규명. `new-4`("기존 도구 업그레이드")는 모델이 `analyzing-ko`(유지보수)를 정확히 호출 — 구 `expect_skill`(specifying-ko)이 버그였다. `maint-2`(작으면 스킵/크면 timeout)·`docs-1`(자문 후 스킵)은 eval 로 안정적 PASS 가 어려운 **경계 케이스**로 `note` 에 정직히 기록(억지 green 안 만듦). 성과: `maint-1`·`maint-3`·`new-4` 가 `analyzing-ko` 감지 — 전엔 파일 부재로 **100% `none`**(측정 자체가 안 됐다). `judge()` FAIL 사유 구분(`FAIL:skill`/`FAIL:flag`)으로 "skill 정답·약속어 누락"이 드러난다. FID 20260713-eval-sandbox-seed
 
@@ -660,7 +662,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...HEAD
+[1.46.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.42.0...v1.43.0
