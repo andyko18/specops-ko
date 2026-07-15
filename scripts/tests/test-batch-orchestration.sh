@@ -95,6 +95,26 @@ grep -q 'Phase 2.5' "$SAA" && grep -q 'ui-ux-pro-max' "$SAA" \
 grep -q '설계 계약' "$SA" && grep -qE 'implementing|screens/' "$SA" \
   && ok "T8.e 구현이 screens/ 설계계약 소비 명시" || nope "T8.e teeth" "구현 계약 연결 부재"
 
+# ── T9: Step B batch 통합·E2E 배선 계약 (FID 20260716-start-all-batch-e2e) ──
+# dogfood 발견: start-all Step B(integration)가 "통합 표면(API·DB)"만 스캔해
+# UI batch 인데도 E2E 가 흐름 밖으로 새어 사후 수동 보충(PR #3)됨.
+# fix = integration-test-ko 가 이미 가진 UI 표면 E2E 위임을 Step B 배선에 노출.
+# T9.a: Step B 가 UI 표면·E2E 위임 명시 (통합만이 아님)
+grep -q 'Step B: batch 레벨 통합·E2E' "$SA" && grep -qE 'UI 표면|E2E 위임' "$SA" \
+  && ok "T9.a Step B 통합·E2E 배선 (UI 표면 노출)" || nope "T9.a" "Step B E2E 미노출"
+# T9.b: E2E 는 downstream 위임 (플러그인 브라우저 인프라 미보유 — Playwright/Cypress)
+grep -qE 'Playwright|Cypress' "$SA" && grep -q '브라우저 인프라 미보유' "$SA" \
+  && ok "T9.b E2E downstream 위임 (브라우저 인프라 미보유 명시)" || nope "T9.b" "downstream 위임 부재"
+# T9.c: UI batch 는 E2E skip 금지 (두 표면 모두 부재 시에만 graceful skip)
+grep -q 'UI batch 인데 E2E 를 건너뛰면 안 된다' "$SA" \
+  && ok "T9.c UI batch E2E skip 금지 (두 표면 부재 시에만 skip)" || nope "T9.c" "E2E skip 금지 미명시"
+# T9.d: Phase 3 완료 헤더·PR test plan 정합 (통합·E2E·성능)
+grep -q '통합·E2E·성능' "$SA" && grep -qE 'E2E\) PASS 또는 SKIP' "$SA" \
+  && ok "T9.d 헤더·PR test plan E2E 정합" || nope "T9.d" "헤더/test plan 정합 누락"
+# T9.e: start-all-auto 가 Step B(E2E 포함) 상속 (Phase 0~3 동일 참조 — 인프라 전파)
+grep -q 'Phase 0~3.*동일' "$PLUGIN/commands/start-all-auto.md" \
+  && ok "T9.e start-all-auto Step B(E2E) 상속 (Phase 0~3 동일)" || nope "T9.e" "start-all-auto 상속 참조 소실"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

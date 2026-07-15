@@ -101,7 +101,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-auto-ko:systematic-debugging-ko`로 처리 후 재개.
 
-### Phase 3 완료 — batch 레벨 통합·성능 테스트 + batch PR 생성
+### Phase 3 완료 — batch 레벨 통합·E2E·성능 테스트 + batch PR 생성
 
 전 FID IMPL_DONE 확인 후 — **batch-state 하드 스캔** (prose 확인이 아닌 스크립트 판정):
 
@@ -121,10 +121,13 @@ bash scripts/batch-state.sh ".specops/$BATCH_ID"
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
    - Critical/High 검출 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
 
-**Step B: batch 레벨 통합 테스트**
+**Step B: batch 레벨 통합·E2E 테스트**
 
 2. `specops-auto-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
-   - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 통합 표면(API·DB·서비스 간 호출) 신호 부재 시 graceful skip
+   - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → **두 표면을 함께** 검출(integration-test-ko Q5 풀스택 — 신호 OR, 둘 다 커버):
+     - **통합 표면**(API·DB·서비스 간 호출) → downstream 스택 통합 테스트(supertest/httpx/pg 등)
+     - **UI 표면**(화면 렌더·사용자 흐름·클릭/폼/라우팅) → **E2E 위임**: 브라우저 E2E 를 downstream 프로젝트 스택(**Playwright/Cypress 등**)으로 작성·실행(플러그인은 브라우저 인프라 미보유 — execution 은 downstream). `e2e-runner` 에이전트 있으면 선택 활용(없어도 downstream 스택 직접 지시로 graceful — 하드 의존 금지).
+   - **두 표면 모두 부재**(순수 데이터 batch·CLI) 시에만 graceful skip. **UI batch 인데 E2E 를 건너뛰면 안 된다** — 화면 있는 batch 는 E2E 가 통합 검증의 본체다(dogfood 20260716: batch 가 API 통합만 보고 UI E2E 를 흐름 밖으로 흘려 사후 수동 보충됨).
    - `BATCH-INTEGRATION-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
    - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
 
@@ -157,7 +160,7 @@ queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 ## Test plan
 - [ ] 전 FR verifying-evidence-ko PASS 확인
 - [ ] batch 레벨 security-review PASS 또는 SKIP 확인
-- [ ] batch 레벨 integration-test PASS 또는 SKIP 확인
+- [ ] batch 레벨 integration-test (통합 + UI 표면 시 E2E) PASS 또는 SKIP 확인
 - [ ] batch 레벨 performance-test PASS 또는 SKIP 확인
 - [ ] validate-structure.sh 전 항목 ✅
 
