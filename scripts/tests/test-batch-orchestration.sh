@@ -72,6 +72,29 @@ r21=$(grep -c '21개 검증 항목' "$E2E" "$PLUGIN/commands/e2e-test.md" | awk 
 [ "$c1" -ge 1 ] && [ "$c2" -ge 1 ] && [ "$r21" -eq 0 ] \
   && ok "T7.a V 개수 24 동기·21 잔존 0" || nope "T7.a V 동기" "c1=$c1 c2=$c2 r21=$r21"
 
+# ── T8: Phase 2.5 batch 통합 화면 설계 계약 (FID 20260716-start-all-batch-screen-design) ──
+# dogfood 발견: start-all 이 화면 design-first 를 각 FR specify 에 못 끼워 화면설계가 몰림.
+# fix = 무거운 단계(security/integration/perf) 통합 패턴으로 구현 직전 1회 통합 화면설계 단계 명시.
+SA="$PLUGIN/commands/start-all.md"
+SAA="$PLUGIN/commands/start-all-auto.md"
+# T8.a: start-all 에 Phase 2.5 화면 설계 단계 존재 + ui-ux-pro-max 통합 호출
+grep -q 'Phase 2.5' "$SA" && grep -q 'ui-ux-pro-max' "$SA" \
+  && ok "T8.a start-all Phase 2.5 화면설계 + ui-ux-pro-max 배선" || nope "T8.a" "Phase 2.5/ui-ux-pro-max 부재"
+# T8.b: design-first 순서 — Phase 2.5 가 Phase 3(구현) 앞에 위치
+l25=$(grep -n 'Phase 2.5' "$SA" | head -1 | cut -d: -f1)
+l3=$(grep -n '^### Phase 3 ' "$SA" | head -1 | cut -d: -f1)
+{ [ -n "$l25" ] && [ -n "$l3" ] && [ "$l25" -lt "$l3" ]; } \
+  && ok "T8.b design-first 순서 (Phase 2.5 < Phase 3 구현)" || nope "T8.b 순서" "2.5=$l25 3=$l3"
+# T8.c: graceful skip (UI 없는 순수 API/CLI batch)
+grep -q 'SCREEN-DESIGN: SKIP' "$SA" \
+  && ok "T8.c UI 부재 graceful skip" || nope "T8.c skip" "graceful skip 부재"
+# T8.d: 인프라 전파 — start-all-auto 에도 Phase 2.5 §auto 자동 행 존재
+grep -q 'Phase 2.5' "$SAA" && grep -q 'ui-ux-pro-max' "$SAA" \
+  && ok "T8.d start-all-auto 전파 (Phase 2.5 §auto 자동)" || nope "T8.d 전파" "start-all-auto 누락"
+# T8.e: 구현이 화면 계약 소비 (implementing §6 설계 계약 — teeth 연결)
+grep -q '설계 계약' "$SA" && grep -qE 'implementing|screens/' "$SA" \
+  && ok "T8.e 구현이 screens/ 설계계약 소비 명시" || nope "T8.e teeth" "구현 계약 연결 부재"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

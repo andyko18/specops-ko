@@ -49,7 +49,8 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | 단계 | start-all-auto 동작 | 정지? |
 |---|---|---|
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
-| Phase 2 일괄 리뷰 게이트("전체 구현 진행?") | **자동 통과** → Phase 3 직행 | ❌ |
+| Phase 2 일괄 리뷰 게이트("전체 구현 진행?") | **자동 통과** → Phase 2.5 직행 | ❌ |
+| Phase 2.5 batch 통합 화면 설계 (UI 시) | ui-ux-pro-max 1회 통합 호출 → 화면별 대화형 승인 **없이** 자동 반영. UI 없으면 graceful skip. 생성 화면 목록은 PR 다이제스트 집계 | ❌ |
 | Phase 3 implement/verify cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | Phase 3 파괴적/덮어쓰기 task | mini HARD GATE 정지 (§auto 우회 불가) | 🛑 |
 | security-review-ko Critical/High | **차단 보존** — §auto여도 자동통과 금지 (systematic-debugging 후 재실행) | 🛑 |
