@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.47.2] — 2026-07-16
+
 ### Fixed
 - **감사 P2/P3 + dogfood 관찰 2건 + 빈틈2 일괄 종결** (7건):
   - **R-4 러너 패턴 downstream 확장 (#209 전파)** — `test_runner_pattern` 의 `scripts/tests/` 하드코딩 2형(bash·`./` 직접)이 외부 repo 의 `bash tests/test-x.sh` 실행을 러너로 미인식 → 정직한 성공 주장이 R-4 false-warn. `(scripts/tests|tests?)/` 확장 + `test-rules` T9.f 회귀(RED→GREEN). verifying-evidence 러너 목록 prose 도 동기 정정.
@@ -696,7 +698,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.1...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.2...HEAD
+[1.47.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.1...v1.47.2
 [1.47.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.0...v1.47.1
 [1.47.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...v1.46.0
