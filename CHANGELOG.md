@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.47.0] — 2026-07-16
+
 ### Fixed
 - **R-1/R-2 실행-근거 게이트 run-all.sh 미인식 false-block 해소** — 플러그인 자기 repo self-maintenance 의 정식 검증 러너는 전체 스위트 `run-all.sh` 인데, `_verify_exec_evidence` 러너 클래스가 `run-verification.sh`·pytest 류만 인식해 **run-all 95/95 통과 세션이 커밋·PR 에서 deny** 됐다(20260716 dogfooding 실전 적발 — false-block 은 BYPASS 남발을 유발해 게이트 신호 자체를 희석, heredoc false-block #199 와 동일 클래스). 해소(토큰 계약 단일 유지): ① `run-all.sh` 가 성공 시 `VERIFY: PASS`·실패 시 `VERIFY: FAIL` 을 마지막 줄로 출력(소비자 전부 exit-code 기반 + 기존 출력에 `VERIFY:` 혼입 0 실측 — 안전) ② 러너 클래스에 `bash \S*tests/run-all\.sh` 추가 — **좁은 앵커**(downstream 무관 `./run-all.sh` 불인정, 위조 표면은 기존 run-verification.sh 와 동일 클래스로 비확대) ③ pretool deny 메시지에 self-maintenance 대안 안내 1줄. 게이트 출력검사 로직(jq negative check) 무변경. 회귀: `test-exec-evidence.sh` T14(인식)·T15(좁은 앵커 잠금)·T16(FAIL 토큰 negative) + 신규 `test-run-all-verify-token.sh` 3건(sandbox 실행 기반 토큰 계약 + 앵커 배선 grep, `-c`=1 실측). advisor 미연결 — 자체검토만 명시(원칙 5).
 - **batch Phase 3 per-FR verify·code-review 뭉개짐 3층 해소 (개별 산출물 강제)** — `/start-all` Phase 3 는 FR 마다 verify·code-review 를 돌리지만 **개별 산출물이 뭉개졌다**. 3층 원인: **(1) 지시** — Phase 3 스텝 2~4 에 "(FID 기준)" 명시가 없어, 바로 아래 Step A/B/C 의 "batch 전체 대표 FID 로 **1회** 통합" 패턴을 verify·review 에까지 일반화(테스트는 suite-global 하게 느껴져 특히 유혹)하기 쉬웠다. **(2) 내용** — `requesting-code-review-ko` 의 `BASE_SHA=git log|grep "Task 1"|head -1` 이 공유 `feat/<BATCH_ID>` 브랜치에서 **가장 오래된** Task 1 커밋을 잡아, FR-2 의 `review.diff` 가 FR-1 변경까지 포함 → **이름만 per-FID, 내용은 blended**. **(3) teeth 부재** — `batch-state.sh` 가 queue Status parity(IMPL_DONE 토큰)만 검사하고 per-FID `evidence.md`·`review-request.md` **존재는 미검증** → 뭉개진 채 batch PR 통과. 해소: `start-all.md` Phase 3 에 **per-FR≠batch-level 경계 박스** + 스텝 1a(`git rev-parse HEAD > .specops/<FID>/review-base.sha` — 각 FR 구현 직전 base 고정) + 스텝 2~4 **(FID 기준)** 명시 + 스텝 6 산출물 존재 확인 후 IMPL_DONE. `requesting-code-review-ko` 에 **§batch base 격리 분기**(review.diff base = `review-base.sha`, 부재 시 `HEAD~1` fallback). **teeth(3층 대칭)**: `batch-state.sh` 가 IMPL_DONE FID 마다 `review-base.sha`(layer 2 내용 격리) **AND** `evidence.md` **AND** `review-request.md`(layer 3 존재) **3종** 존재를 하드 요구, 부재 시 `[산출물 누락]` + exit 1 로 batch PR 차단. ★ **layer 2 대칭화**(adversarial 적발): review-base.sha 를 teeth 에 안 걸면 step 1a 누락 시 `HEAD~1` silent fallback 인데 review-request.md 는 생성되니 존재-teeth 통과 → **내용 뭉개짐이 조용히 재발**. IMPL_DONE 한정(MERGED=타 사이클 shipped, batch 전용 review-base.sha 미보유 → legacy false-block 방지). 전파: `e2e-test-ko` V24·`test-batch-orchestration` T5 에 3종 시뮬 seed. 회귀: `test-batch-state.sh` T2.b(review-request 부재 차단·완전 FID 미보고)·T2.c(FID 디렉토리 부재)·**T2.d(review-base.sha 만 부재로 차단 — layer 2)**·**T2.e(§batch spec+review-base.sha → 문서화 BASE_SHA 스니펫이 파일 내용으로 resolve, HEAD~1 미사용 실행검증)** 신설. GNU/BSD(gawk·mawk·ggrep) 이식성 확인.
@@ -669,7 +671,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.0...HEAD
+[1.47.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...v1.44.0
