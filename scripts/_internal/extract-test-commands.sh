@@ -40,7 +40,9 @@ fi
 fid_hint=$(basename "$(dirname "$tasks")")
 echo "WARN: $fid_hint tasks.md YAML missing test_command — falling back to Step 4 line grep" >&2
 
-step4_cmds=$(grep -oE '`bash scripts/[^`]+`' "$tasks" \
+# (scripts|tests|test)/ — downstream 표준 테스트 배치 인정 (20260716 trivial dogfood 발견 #3:
+#   scripts/ 하드코딩은 플러그인 자기 repo 레이아웃 편향 — 외부 프로젝트 tests/ 가 추출 0건 → NO COMMANDS)
+step4_cmds=$(grep -oE '`bash (scripts|tests?)/[^`]+`' "$tasks" \
   | sed -E 's/^`(.+)`$/\1/' \
   | grep -v '<' \
   | sort -u)

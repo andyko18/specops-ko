@@ -67,7 +67,7 @@ PYEOF
 # 2단계 실제 작성
 mkdir -p "$DISPATCH"
 YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" python3 - << 'PYEOF'
-import os, re, yaml
+import os, re, sys, yaml
 ac_path = os.environ["AC_PATH"]
 fid = os.environ["FID"]
 disp = os.environ["DISPATCH_DIR"]
@@ -78,8 +78,18 @@ tasks = data.get("tasks", []) or []
 with open(ac_path, encoding="utf-8") as fh:
     ac_text = fh.read()
 def ac_summary(ac_id):
-    m = re.search(rf"###\s+{re.escape(ac_id)}:?\s*(.*)", ac_text)
-    return (m.group(1).strip() if m else "")[:120]
+    # 헤더(### AC-1: ...) 우선 — templates/acceptance-criteria.md 표준.
+    # bullet(- **AC-1**: ... / - AC-1: ...) 겸용 — LLM 이 템플릿 대신 bullet 로 쓰는 실수가 흔해
+    #   (20260716 trivial dogfood 발견 #2) 빈 summary 로 조용히 degrade 되던 것을 구제.
+    for pat in (rf"###\s+{re.escape(ac_id)}:?\s*(.*)",
+                rf"^-\s+\*\*{re.escape(ac_id)}\*\*:?\s*(.*)",
+                rf"^-\s+{re.escape(ac_id)}:?\s*(.*)"):
+        m = re.search(pat, ac_text, re.MULTILINE)
+        if m and m.group(1).strip():
+            return m.group(1).strip()[:120]
+    # 어느 포맷에도 없거나 빈 설명 — 조용한 품질 저하 방지 (dispatch §1 이 빈 AC 로 나가는 것 가시화)
+    print(f"WARN: {ac_id} 요약 추출 실패 — acceptance-criteria.md 포맷 확인 (### {ac_id}: 헤더 권장)", file=sys.stderr)
+    return ""
 
 count = 0
 for t in tasks:

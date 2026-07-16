@@ -151,6 +151,59 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c"
 fi
 
+# ── T2.g run: downstream 표준 배치 bash tests/*.sh → 실행 + VERIFY: PASS ──
+#   (20260716 trivial dogfood 발견 #3: whitelist 가 scripts/ 접두 하드코딩 — 플러그인 자기 repo
+#    레이아웃 편향. 외부 프로젝트 표준 tests/·test/ 가 PARTIAL 로 떨어져 실행-근거 게이트 불인정
+#    → 정직한 외부 완주가 커밋 deny → BYPASS 강요. 완주율 문(도달 14%)을 게이트가 직접 막던 결함)
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test" "$TMPDIR/tests"
+cat > "$TMPDIR/.specops/fid-test/tasks.md" <<'EOF'
+- [ ] **스텝 4**: 실행: `bash tests/test-downstream.sh`
+EOF
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPDIR/tests/test-downstream.sh"
+chmod +x "$TMPDIR/tests/test-downstream.sh"
+(cd "$TMPDIR" && out=$(bash "$RUN" fid-test 2>&1); ec=$?
+ if [ "$ec" -eq 0 ] && echo "$out" | grep -q "VERIFY: PASS"; then echo "OK"; else echo "FAIL ec=$ec out='$out'"; fi) > "$TMPDIR/result"
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.g run → downstream bash tests/*.sh 인정 (VERIFY: PASS)"
+else
+  nope "T2.g" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.h run: 앵커 잠금 — 절대경로·비테스트 디렉토리 bash 는 여전히 SKIP(PARTIAL) ──
+#   YAML test_command 로 주입 — Step 4 fallback 은 extract 층에서 걸러져 whitelist 층이 안 돌므로
+#   (T2.g 는 extract 층, 본 케이스는 whitelist 층을 각각 잠근다)
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test" "$TMPDIR/lib"
+cat > "$TMPDIR/.specops/fid-test/tasks.md" <<'EOF'
+## 의존 그래프
+
+```yaml
+tasks:
+  - id: T1
+    depends_on: []
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash /tmp/evil.sh
+  - id: T2
+    depends_on: [T1]
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash lib/helper.sh
+```
+EOF
+(cd "$TMPDIR" && out=$(bash "$RUN" fid-test 2>&1); ec=$?
+ if [ "$ec" -eq 1 ] && echo "$out" | grep -q "VERIFY: PARTIAL" && ! echo "$out" | grep -q "VERIFY: PASS"; then echo "OK"; else echo "FAIL ec=$ec out='$out'"; fi) > "$TMPDIR/result"
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.h run → 절대경로·lib/ bash 여전히 SKIP (앵커 잠금)"
+else
+  nope "T2.h" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
 # ── T2.d run: whitelist 거부 명령 → WARN stderr + skip + VERIFY:PARTIAL exit 1 ──
 TMPDIR=$(mktemp -d)
 mkdir -p "$TMPDIR/.specops/fid-test"

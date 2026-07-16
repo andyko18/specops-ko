@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.29.0
+specops_version: 1.47.2
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -39,7 +39,8 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
 4. **DAG** — 단일 태스크이므로 `## 의존 그래프` 는 leaf 1개 YAML (`depends_on: []`). Step 10 자체 검증·Step 10b `emit-context.sh` 는 정상 수행.
 5. 이후 `## 다음 skill` (implementing-ko) 로 정상 진행.
 
-> **오판 안전망**: trivial 은 사용자가 specifying 에서 명시 승인한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하다고 판단되면 (must AC ≥ 3 또는 파일 ≥ 2) — 사용자에게 "규모가 trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
+> **오판 안전망**: trivial 은 사용자가 specifying 에서 명시 승인한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하다고 판단되면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — 사용자에게 "규모가 trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
+> (기준 보정 근거 — 20260716 trivial dogfood 발견 #1: 구 기준 "AC ≥ 3 또는 파일 ≥ 2" 는 TDD 최소 구성(코드 1 + 테스트 1 = 2파일, 회귀 AC 포함 must 3건)에 **항상 걸리는 false-trigger** 였다 — 모든 trivial 이 재확인을 유발하면 단축 경로의 완주율 이득이 상쇄된다. 실질 복잡도 신호는 비테스트 구현 파일 2개↑ 또는 AC 4건↑.)
 
 ## 체크리스트
 

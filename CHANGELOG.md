@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **trivial 단축경로 외부 실주행 dogfood — 완주 차단 결함 3건 적발·해소** (완주율 레버, 평가 6.7 도달-14% 공략) — 외부 fixture repo(todo.sh CLI)에 신규 소형 기능(stats 명령)을 실제 lifecycle 로 진입시켜 spec→trivial 제안·승인→(clarify·plan SKIP)→decompose→implement(Phase B PASS·C READY_TO_MERGE)→verify **완주 실증**. 발견 3건 전부 fix:
+  - **★ 발견 #3 (핵심 — false-block 4호)**: `run-verification.sh` whitelist·`extract-test-commands.sh` fallback 정규식이 `bash scripts/` **접두 하드코딩** — 플러그인 자기 repo 레이아웃 편향. downstream 표준 `bash tests/test-x.sh` 가 추출 0건(NO COMMANDS) 또는 SKIP(PARTIAL) → **실행-근거 게이트 불인정 → 정직한 외부 완주가 커밋 deny → BYPASS 강요**. 외부 완주를 게이트가 직접 막던 문. 두 곳 `(scripts|tests?)/` 확장(anti-footgun 성격이라 상대경로 테스트 디렉토리 확장 안전 — 절대경로·`lib/` 여전히 차단). 회귀: `test-verifying-automation` T2.g(extract 층, RED→GREEN)·T2.h(whitelist 층 YAML 주입 잠금). **fixture red-green 실증**: fix 전 `VERIFY: PARTIAL` → fix 후 `VERIFY: PASS`.
+  - **발견 #1**: decomposing trivial 오판 안전망 기준 "AC ≥ 3 또는 파일 ≥ 2" 가 TDD 최소 구성(코드1+테스트1=2파일·회귀 AC 포함 must 3건)에 **항상 걸리는 false-trigger** — 전 trivial 재확인 유발로 단축 이득 상쇄. "must AC ≥ 4 또는 구현 파일 ≥ 2(테스트 제외)" 로 보정.
+  - **발견 #2**: acceptance-criteria.md 를 bullet(`- **AC-1**:`) 포맷으로 쓰면(템플릿은 `### AC-1:` 헤더 — LLM 흔한 위반, 실주행에서 재현) `emit-context` AC 요약이 **빈 문자열로 조용히 degrade** + validate-context 도 통과. bullet 겸용 파싱 + 추출 실패 시 stderr WARN. 회귀: `test-emit-context` T1.j(bullet 추출)·T1.k(WARN 발화).
+
 ## [1.47.1] — 2026-07-16
 
 ### Fixed
