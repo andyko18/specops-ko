@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **`/init-project` Phase 0 기존 기획 문서 auto-discovery (3단 탐색)** — 실무는 PRD·기획서가 **이미 파일로 존재**하는 게 보통인데, 종전 감지는 `.specops/memory/brainstorming-*.md`(플러그인 자기 관습 파일명)뿐이라 repo 에 `prd.md` 를 두는 자연스러운 흐름이 안 먹혔다(온보딩 마찰 — 사용자 실지적). 3단 우선순위 신설: **0-a** args 명시 경로(`/init-project 쇼핑몰 docs/기획서.md`) → **0-b** 브레인스토밍 메모(기존) → **0-c** auto-discovery(`PRD*.md·prd*.md·기획*.md·요구사항*.md·requirements*.md` + `docs/` 변형 — 발견 시 **사용자 확인 필수**, 자동 소비 금지). 확보 문서로 PRD 6필드 초안 합성(없는 필드는 창작 금지·질문). Phase 11 근거 4원의 ① 을 "사전 문서"로 동기 확장. FR 표 보유 requirements 는 Phase 8a 보존 정책과 연계. teeth: `test-init-project` T23.a.
+
 ## [1.47.3] — 2026-07-16
 
 ### Fixed

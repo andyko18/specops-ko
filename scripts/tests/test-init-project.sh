@@ -529,6 +529,18 @@ else
 fi
 teardown_fixture
 
+# ── T23: Phase 0 기존 기획 문서 3단 탐색 배선 (20260716 — prd.md auto-discovery) ──
+#   실무는 PRD 가 이미 파일로 존재 — brainstorming-*.md 만 감지하면 온보딩 마찰.
+CMD_DOC="$PLUGIN/commands/init-project.md"
+n=$(grep -c '0-c. 기존 기획 문서 auto-discovery' "$CMD_DOC")
+if [ "$n" -eq 1 ] && grep -q '0-a. 명시 경로' "$CMD_DOC" \
+   && grep -q 'PRD 초안 근거로 사용할까요' "$CMD_DOC" \
+   && grep -q '사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서)' "$CMD_DOC"; then
+  ok "T23.a Phase 0 3단 탐색 (명시경로·메모·discovery) + 사용자 확인 + 근거4원 동기"
+else
+  nope "T23.a Phase 0 discovery 배선" "n=$n 또는 구성요소 누락"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

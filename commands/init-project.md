@@ -4,12 +4,12 @@ description: specops-auto-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 1.36.0
+specops_version: 1.48.0
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
 
-# /init-project [<프로젝트명>]
+# /init-project [<프로젝트명>] [<기존 기획 문서 경로>]
 
 ## 목적
 
@@ -17,9 +17,18 @@ reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안
 
 ## Process
 
-0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어):
-   - `ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1` 존재 시: 메모를 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → 확정값을 Phase 4 stdin numbered list 로 공급.
-   - **메모 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
+0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 3단 우선순위:
+   - **0-a. 명시 경로** — args 에 파일 경로가 포함되면(`/init-project 쇼핑몰 docs/기획서.md`) 그 문서가 최우선 근거.
+   - **0-b. 브레인스토밍 메모** — `ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1` 존재 시 사용.
+   - **0-c. 기존 기획 문서 auto-discovery** (20260716 신설 — 온보딩 마찰 해소: 실무는 PRD 가 이미 파일로 존재하는 게 보통):
+     ```bash
+     ls PRD*.md prd*.md docs/PRD*.md docs/prd*.md 기획*.md 요구사항*.md REQUIREMENTS*.md requirements*.md docs/기획*.md docs/요구사항*.md docs/requirements*.md 2>/dev/null
+     ```
+     - 발견 시 **사용자 확인 필수**(주권 — 자동 소비 금지): "기존 문서 `<경로>` 를 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시.
+     - 복수 발견 시 목록 제시 → 사용자 선택 (전체·일부·없음).
+     - `requirements*.md` 가 이미 **FR 표를 포함**하면 Phase 8a 에서 해당 파일 보존(`_should_skip` 정책)되도록 안내 — 초안 근거와 산출물 보존은 별개.
+   - 위 어느 경로든 문서 확보 시: 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → 확정값을 Phase 4 stdin numbered list 로 공급. 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
+   - **셋 다 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
 1. `bash scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
@@ -50,7 +59,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - **질문 스킵 주권**: 사용자가 "질문 스킵" 응답 시 인터뷰 없이 아래 현행 흐름(가정:/마커)으로 진행.
 
 **사실성 계약 (Karpathy 원칙 — karpathy-ko)**:
-- 서술 근거는 **근거 4원**만: ① 브레인스토밍 메모 ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.
+- 서술 근거는 **근거 4원**만: ① 사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서) ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.
 - **일반론 boilerplate 금지** — 어느 프로젝트에나 맞는 문장 대신 프로젝트 특화 구체값(이름·수치·결정)으로 작성.
 - 불확실 항목은 `<미확정 — 근거 필요>` 마커로 남긴다 (원시 placeholder `<...>` 잔존 금지 — 미확정 마커만 허용).
 - **규약 표기는 채움 대상 아님·잔존 허용** — `.specops/<FID>`·`screens/<name>` 류 문서 본문 서술은 placeholder 가 아니다 (allowlist SoT: `scripts/_internal/scan-enrich-placeholders.sh`). 스캔 통과 목적으로 규약 표기를 지우는 과보강 금지.
@@ -106,6 +115,8 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 
 ```
 /init-project mychat
+# 기존 기획서가 있으면: /init-project mychat docs/기획서.md (0-a)
+# 또는 repo 에 prd.md 만 두면 0-c 가 자동 발견 → 사용 확인 [y/n]
 → Phase 2 종류 선택 (4 = 풀스택)
 → Phase 3 헌법 5원칙
 → Phase 4 PRD 6필드 (numbered list)
@@ -134,4 +145,4 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 
 ---
 
-*specops-auto-ko v1.36.0 · 2026-07-09 · 한국 SI 13종 부트스트랩 + Phase 11 LLM 보강*
+*specops-auto-ko v1.48.0 · 2026-07-16 · 한국 SI 13종 부트스트랩 + Phase 11 LLM 보강 + Phase 0 기존 문서 discovery*

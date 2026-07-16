@@ -24,7 +24,7 @@ t T1.d "그룹③ 운영"                '운영.*(test-strategy|CLAUDE|README)'
 t T1.e "보강분 재커밋"              'chore\(init\): Phase 11 LLM 보강'                 "$CMD"
 # AC-2 PRD 초안 합성
 t T2.a "PRD 6필드 초안 합성"        '6필드 초안'                                       "$CMD"
-t T2.b "메모 부재 fallback"         '메모 부재.*(수동|현행)'                            "$CMD"
+t T2.b "근거문서 부재 fallback"     '(메모 부재|셋 다 부재).*(수동|현행)'               "$CMD"   # 20260716 3단 탐색 진화 수용
 # AC-3 사실성·상세성 계약 (Karpathy)
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
 t T3.b "boilerplate 금지"          '(일반론|boilerplate).*금지'                        "$CMD"
