@@ -25,6 +25,12 @@ check "T2 commit with-verify(+exec) → allow" '"continue":true' "$out"
 # T2b ★ 조임 — Skill 호출만(실행증거 없음) → deny (구 T2 가 allow 하던 것)
 out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T2b ★ Skill 호출만(실행증거 없음) → deny" '"permissionDecision":"deny"' "$out"
+# T2c·T2d 심층 필터 통합 잠금 (verify-exec-gate 잔여 backlog — 단위 T9·T10 은 인라인 fixture 라
+#   pretool 통합 경로(훅 전체 파이프)의 is_error·negative guard 배선은 별도 파일 fixture 로 잠근다)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-error.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T2c 러너 is_error 결과(PASS 문자열) → deny (에러 실행 불인정)" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-partial-mixed.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T2d PASS/PARTIAL 혼재 출력 → deny (negative guard)" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 bash "$HOOK" 2>/dev/null)
 check "T3 env bypass → allow" '"continue":true' "$out"
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)

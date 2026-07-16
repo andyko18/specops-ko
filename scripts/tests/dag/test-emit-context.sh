@@ -98,5 +98,35 @@ else
 fi
 rm -rf "$tmp"
 
+# T1.h: 스코프 이관 규약 배선 (verify-exec-gate 잔여 backlog) — implementing-ko 에
+#   tasks.md-SoT 이관 규약 + emit-context 재실행 + disjoint 재판정 + SCOPE-MOVED 기록이 명문화돼 있어야
+#   트리거 5(whitelist 외 파일) 처리가 dispatch 파일 수기 보강(→ R11 race)으로 새지 않는다.
+IMPL_SKILL="$PLUGIN/skills/implementing-ko/SKILL.md"
+n=$(grep -c "스코프 이관 규약" "$IMPL_SKILL")
+if [ "$n" -eq 1 ] && grep -q "SCOPE-MOVED" "$IMPL_SKILL" \
+   && grep -q "outputs-disjoint 재판정" "$IMPL_SKILL" \
+   && grep -A8 "스코프 이관 규약" "$IMPL_SKILL" | grep -q "emit-context.sh"; then
+  PASS=$((PASS+1)); echo "PASS T1.h 스코프 이관 규약 배선 (SoT+재emit+재판정+기록)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.h 스코프 이관 규약 배선 (n=$n)"
+fi
+
+# T1.i: 재실행 멱등 — 같은 FID 로 2회 실행 시 context 재생성 (이관 규약 스텝 2 의 전제)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/ok-fid"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/ok-fid/"
+(cd "$tmp" && bash "$EMIT" ok-fid >/dev/null 2>&1)
+ctx="$tmp/.specops/ok-fid/dispatch/T1-context.md"
+sum1=$(cksum < "$ctx")
+echo "manual edit" >> "$ctx"
+(cd "$tmp" && bash "$EMIT" ok-fid >/dev/null 2>&1)
+sum2=$(cksum < "$ctx")
+if [ "$sum1" = "$sum2" ] && ! grep -q "manual edit" "$ctx"; then
+  PASS=$((PASS+1)); echo "PASS T1.i 재실행 멱등 — 수기 편집 증발(덮어쓰기) 실증"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.i 재실행 멱등"
+fi
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **verify-exec-gate 잔여 backlog 4건 일괄 종결** (PR #195 알려진 잔여 — [`project_verify_exec_gate`] §잔여):
+  - **B4 inject-evaluator-timestamp 개행 융합 fix** — BSD sed `a\` 가 삽입 텍스트 뒤 개행을 안 붙여 `**timestamp**: ...Zbody` 로 다음 줄이 흡수됐다(실측 재현 — 기존 T2.e 는 status 가 마지막 줄이라 미검출). awk print 전환(BSD/GNU 무차이) + 회귀 T2.e2(중간 삽입 융합) 신설.
+  - **B2 심층 필터 통합 잠금** — is_error·PASS/PARTIAL 혼재는 단위(T9·T10 인라인)만 있었고 pretool 훅 전체 파이프는 미잠금. 파일 fixture 2종(`pretool-verify-exec-error`·`-partial-mixed`) + test-pretool T2c·T2d 신설 — 둘 다 deny 실증.
+  - **B1 스코프 이관 규약 명문화** — NEEDS_CONTEXT 트리거 5(whitelist 외 파일) 처리가 dispatch context 수기 보강으로 새면 ① tasks.md(SoT) drift ② emit-context 재실행 시 증발 ③ 후속 wave outputs-disjoint 판정이 낡은 outputs 로 계산 → R11 git race. implementing-ko 에 4스텝 규약(tasks.md 먼저 갱신 → emit-context 재실행+worktree 라인 재갱신 → 미완 wave disjoint 재판정 → `SCOPE-MOVED:` 기록) 신설. teeth: test-emit-context T1.h(규약 배선 grep, `-c`=1)·T1.i(재실행 멱등 — 수기 편집 증발 cksum 실증).
+  - **B3 roadmap §auto stale 서술 정정** — V1 의 "§auto 차단 면제" 서술에 후속 정정 인용(무조건 면제는 v1.45.0 에서 제거 — 자기발급 면제표, 실행-근거 동반 시에만 통과) 각주.
+
 ## [1.47.0] — 2026-07-16
 
 ### Fixed

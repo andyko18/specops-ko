@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.44.0
+specops_version: 1.47.1
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
@@ -240,6 +240,12 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 6. worktree 경로 존재 안 함 또는 git worktree 가 아님
 
 부모 검증: dispatch 직전 `bash scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
+
+> **[스코프 이관 규약]** (트리거 5 = whitelist 외 파일 수정 필요 — verify-exec-gate 잔여 backlog): 이관은 **tasks.md 가 SoT** 다. dispatch context 파일만 수기 보강하는 것을 **금지**한다 — ① tasks.md 와 drift ② emit-context 재실행 시 수기 보강 증발 ③ 후속 wave 의 outputs-disjoint 병렬 판정이 **낡은 outputs 로 계산**되어 두 leaf 가 같은 파일을 병렬 편집(R11 git race). 처리 순서:
+> 1. `.specops/<FID>/tasks.md` YAML 의 해당 task `outputs`(필요시 `inputs`)를 먼저 갱신 — 이관 사유 1줄 주석
+> 2. `bash scripts/dag/emit-context.sh <FID>` 재실행 (dispatch context 재생성 — 수기 편집 금지) + §5 worktree 라인 sed 재갱신 (재생성으로 리셋됨)
+> 3. **미완 wave 의 outputs-disjoint 재판정** — 이관으로 두 task 의 outputs 가 겹치게 되면 해당 쌍은 병렬 금지 → 순차 강등
+> 4. dispatch-log 에 `SCOPE-MOVED: <task-id> +<file> (<사유>)` 1줄 기록 후 재dispatch
 
 **BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가 (구현자 모델은 opus 고정 — 해법은 모델 상향이 아니라 컨텍스트·분해·에스컬레이션):
 1. 컨텍스트 문제 → 컨텍스트 더 주고 재dispatch

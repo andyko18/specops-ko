@@ -48,7 +48,8 @@
   - R-1 (commit 전 verify 누락) → Hard block 후보
   - R-2 (PR 전 verify 누락) → Hard block 후보
   - **단 무인 흐름 보존**: `§auto` 모드·명시 우회 경로는 차단 면제 (전면 차단 시 lifecycle 정지 위험)
-- **AC 개요**: 치명 규칙 위반 시 exit≠0 + 우회 경로(§auto) 통과 + 비치명 규칙은 Soft Warn 유지 + 회귀(run-all).
+    > ⚠️ **후속 정정 (v1.45.0, 20260713-verify-exec-gate)**: `§auto` **무조건 면제는 제거됐다** — 모델이 spec.md 에 스스로 쓰는 자기발급 면제표였기 때문. §auto 의 의미는 "가역 게이트 자동 통과"(사용자 확인 생략)이지 검증 면제가 아니다. 무인 흐름도 chain 에 verify 가 있어 실제 실행하므로 **실행-근거(transcript tool_result)가 있으면 통과** — 정직한 무인은 무손상 (test-pretool T7/T7b).
+- **AC 개요**: 치명 규칙 위반 시 exit≠0 + 우회 경로(§auto) 통과 + 비치명 규칙은 Soft Warn 유지 + 회귀(run-all). *(§auto 통과 AC 는 위 후속 정정으로 대체 — 실행증거 동반 시에만 통과)*
 - **위험**: 무인 흐름 깨짐 → 우회 게이트 설계 신중. **모드 분기 4종 테스트 필수**.
 - **선행**: 없음.
 

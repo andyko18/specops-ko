@@ -83,6 +83,13 @@ bash "$INJECT" "$tmp/no-ts.md" >/dev/null 2>&1
 grep -q '^\*\*timestamp\*\*:' "$tmp/no-ts.md" \
   && ok "T2.e inject timestamp 없는 파일 → 주입" || fail "T2.e inject timestamp 없는 파일 → 주입"
 
+# T2.e2: status 뒤에 본문 줄이 있는 파일 — 삽입 텍스트 뒤 개행 보존 (BSD sed a\ 융합 회귀)
+#   기존 T2.e 는 status 가 마지막 줄이라 "**timestamp**: ...Zbody" 융합을 못 잡았다 (dogfood 실측).
+printf '**status**: RESOLVED\nbody-line\n' > "$tmp/mid-ts.md"
+bash "$INJECT" "$tmp/mid-ts.md" >/dev/null 2>&1
+grep -q '^\*\*timestamp\*\*: [0-9T:Z-]*$' "$tmp/mid-ts.md" && grep -qx 'body-line' "$tmp/mid-ts.md" \
+  && ok "T2.e2 inject 중간 삽입 — 다음 줄 융합 없음" || fail "T2.e2 inject 중간 삽입 — 다음 줄 융합 없음"
+
 # T2.f: 반복 호출 → timestamp 행 1개만 유지
 bash "$INJECT" "$tmp/clarifications.md" >/dev/null 2>&1
 bash "$INJECT" "$tmp/clarifications.md" >/dev/null 2>&1
