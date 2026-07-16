@@ -27,6 +27,7 @@
 | 단위 | <Jest / Vitest / pytest / JUnit> | <부가 옵션> |
 | 통합 | <Supertest / pytest+TestContainers> | DB 격리 정책 |
 | E2E | <Playwright / Cypress / Selenium> | <헤드리스 / 헤드풀> |
+| 마이그레이션 | <마이그레이션 도구 자체 + TestContainers/일회용 DB> | data-model §6 도구와 동일 — 아래 §4.5 정책 |
 | 부하 | <k6 / Locust / JMeter> | NFR-1 검증 |
 | 보안 | <Snyk / OWASP ZAP / Trivy> | NFR-3 검증 |
 
@@ -45,6 +46,16 @@ specops-auto-ko sprint-contracts-ko 와 연동:
 - **유지보수 FID** (`/maintain` 진입): `acceptance-criteria.md` 의 `## 회귀 방지 AC (유지보수 FID 필수)` 섹션에 `AC-R-N` ≥ 1 강제
 - 회귀 AC 미작성 시 sprint-contracts evaluator 가 `verdict = BLOCK`
 - 회귀 테스트는 기존 동작 보존 검증 + 변경 후 동일 입력에 동일 출력 보장
+
+## 4.5. 마이그레이션 테스트 정책 (DB 스키마 변경 시)
+
+decomposing-ko "마이그레이션 태스크 분해"(forward+reverse 쌍)와 연동 — 스키마 변경 FID 는 다음을 테스트로 고정:
+
+- **멱등·역가역성**: up → down → up 이 에러 없이 수렴 (일회용 DB/TestContainers 에서)
+- **제약 위반 경로**: NOT NULL / CHECK / UNIQUE / FK 각 제약의 위반 입력이 실제로 거부되는지
+- **인덱스 존재**: forward 후 계획된 인덱스가 실제 생성됐는지 (`data-model.md §4` 대조)
+- **데이터 보존** (파괴적 변경 시): expand-contract 각 단계에서 기존 행 손실 0 — 회귀 AC-R 과 연계
+- down 으로 복구 불가한 변경(DROP 류)은 테스트가 아니라 **격리·승인**(decomposing 비가역 격리)으로 다룬다
 
 ## 5. CI 통합
 

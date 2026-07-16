@@ -74,5 +74,22 @@ grep -q 'api-spec-consumer' "$PLUGIN/skills/implementing-ko/SKILL.md" \
   && grep -q 'api-spec-consumer' "$PLUGIN/scripts/dag/emit-context.sh" \
   && ok "AC-16 소비 IF 계약 대칭 (implementing + emit-context)" || nope "AC-16" "consumer 계약 미대칭"
 
+# ── DB lifecycle gap3/5/6 배선 (20260716 — #152 잔여 종결) ──
+# AC-17 (gap3): test-strategy 마이그레이션 테스트 정책 + tdd-ko DDL TDD 힌트
+grep -q '4.5. 마이그레이션 테스트 정책' "$PLUGIN/templates/test-strategy.md" \
+  && grep -q 'up → down → up' "$PLUGIN/templates/test-strategy.md" \
+  && grep -q '마이그레이션(DDL)도 TDD' "$PLUGIN/skills/tdd-ko/SKILL.md" \
+  && ok "AC-17 gap3 마이그레이션 테스트 정책 (test-strategy §4.5 + tdd-ko)" || nope "AC-17" "gap3 배선 누락"
+# AC-18 (gap5): verify 스키마 추출 heuristic 도구별 명세 + ERD 수기 한계 고백
+grep -q '스키마 추출 heuristic' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
+  && grep -q 'alembic/versions' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
+  && grep -q '§3 엔티티 표' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
+  && ok "AC-18 gap5 verify 스키마 추출 명세 (+ERD 한계)" || nope "AC-18" "gap5 배선 누락"
+# AC-19 (gap6): data-model 비-PG 주의 노트 (MySQL/SQLite/MongoDB 치환 + document 모델)
+grep -q '비-PostgreSQL 주의' "$PLUGIN/templates/data-model.md" \
+  && grep -q 'FTS5' "$PLUGIN/templates/data-model.md" \
+  && grep -q 'jsonSchema' "$PLUGIN/templates/data-model.md" \
+  && ok "AC-19 gap6 data-model 비-PG 조건부화" || nope "AC-19" "gap6 배선 누락"
+
 echo "── test-interface-routing-doc: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

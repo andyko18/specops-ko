@@ -15,6 +15,8 @@
 - **버전**: <버전>
 - **호스팅**: <RDS / Cloud SQL / 자체 호스팅>
 
+> **비-PostgreSQL 주의** (gap6): 본 템플릿의 일부 예시는 PostgreSQL 기준이다 — §4 `GIN trigram`(PG 전용 — MySQL 은 `FULLTEXT`, SQLite 는 `FTS5`), §5 PK 생성 함수, §8 암호화 방식. §1 유형이 PostgreSQL 이 아니면 해당 예시를 그 DB 관용구로 **치환**해서 채운다. **MongoDB**: §2 ERD·§3 정규화 표는 document 모델에 그대로 안 맞는다 — §3 을 컬렉션·embed/reference 결정 표로 대체하고 §5 제약은 스키마 검증($jsonSchema)으로 읽는다. localStorage/IndexedDB: §4~§8 대부분 해당 없음(키 네임스페이스·용량 한도만 §5 에 기재).
+
 ## §2. ERD (Entity-Relationship Diagram)
 
 ```mermaid
@@ -89,7 +91,7 @@ erDiagram
 
 ## §5. 제약사항
 
-- **PK**: 모든 테이블 `uuid` (gen_random_uuid 또는 ULID)
+- **PK**: 모든 테이블 `uuid` (PostgreSQL: `gen_random_uuid()` / MySQL 8+: `UUID()` / SQLite: 앱 레벨 생성 / 또는 ULID — §1 유형에 맞게 선택)
 - **FK**: ON DELETE 정책 명시 (CASCADE / RESTRICT / SET NULL)
 - **UNIQUE**: `users.email`, 비즈니스 키
 - **CHECK**: `orders.total_amount >= 0`, `products.stock >= 0`, `order_items.quantity > 0`
@@ -110,7 +112,7 @@ erDiagram
 
 ## §8. 데이터 보호
 
-- **암호화 at-rest**: DB 레벨 (TDE) + 디스크 암호화
+- **암호화 at-rest**: DB 레벨 (PostgreSQL/MySQL: TDE 또는 클라우드 관리형 암호화 / SQLite: SQLCipher / MongoDB: WiredTiger 암호화) + 디스크 암호화
 - **암호화 in-transit**: TLS 1.2+
 - **민감 컬럼**: `password_hash` (bcrypt cost 12+), PII 는 별도 암호화 (KMS)
 - **GDPR / 개인정보보호법**: 사용자 삭제 요청 시 cascade + 30 일 후 hard delete

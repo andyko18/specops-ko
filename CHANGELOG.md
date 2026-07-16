@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **DB lifecycle 잔여 gap 3건 종결** (#152 보류분 — 코드 backlog 제로화): **gap3** 마이그레이션 테스트 정책 — `test-strategy.md` §4.5 신설(up→down→up 멱등·제약 위반 경로·인덱스 존재·expand-contract 데이터 보존, 도구 표 행 추가) + `tdd-ko` "마이그레이션(DDL)도 TDD"(멱등 테스트 먼저 RED). **gap5** verify 스키마 추출 heuristic 명세 — 도구별 위치(prisma/alembic/db/supabase migrations·ORM 스키마·raw DDL grep) + **ERD(mermaid) 수기 한계 고백**(자동 대조 기준은 §3 엔티티 표, ERD 는 권고만). **gap6** `data-model.md` PostgreSQL 편향 조건부화 — §1 에 비-PG 주의 노트(GIN→FULLTEXT/FTS5 치환·MongoDB document 모델 §3 대체·localStorage 축소 적용) + PK 생성 함수·at-rest 암호화 DB별 병기. teeth: `test-interface-routing-doc` AC-17~19.
+
 ## [1.47.2] — 2026-07-16
 
 ### Fixed
