@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.47.1] — 2026-07-16
+
 ### Fixed
 - **소비 IF(api-spec-consumer) 정·역 쌍 복원 + advisor 연결 진단 신설** — ① **C2 소비 축**: 재실측 결과 memory 의 "빈틈1" 은 대부분 stale(8g consumer 생성·frontend-architecture 참조 정정 기완료, 8f KIND 2·4 한정은 정당 — UI/Mobile 은 제공 API 없음)이었고, 진짜 잔여는 **소비 IF 축만 정방향(Step 5.6·design-interface) 설계뿐 역방향·계약 미배선** — verify 역방향 안전망 추출 대상에 외부 API 소비 호출 없음 · emit-context §6 계약 · implementing 계약 목록 전부 consumer 0건. UI/Mobile 프로젝트에서 신규 외부 API 호출이 추가돼도 `api-spec-consumer.md` 대조 없이 통과하는 반쪽 안전망이었다. verify(추출 대상 "외부 API 소비 호출" + 대조 대상 consumer)·emit-context contract·implementing 계약 3곳 대칭 복원. teeth: `test-interface-routing-doc` AC-15(verify 소비 축, grep `-c`≥2)·AC-16(계약 대칭) + `test-emit-context` T1.f2(consumer §6 emit, RED→GREEN). ② **C3 advisor 연결 진단**: advisor() 미연결이 2세션 연속 "자체검토만" 무음 fallback — 협의 의무 체계가 도구 부재로 조용히 공회전. 공식 문서 조사(advisor=서버사이드 도구) 기반으로 `advisor-ko` 에 **연결 진단 §**(4원인: pairing 무효(advisor 는 main 과 동급 이상 — main 상향 시 조용히 깨지는 함정)·main 미지원·비-Anthropic API·`CLAUDE_CODE_DISABLE_ADVISOR_TOOL`) + 사용자 재연결 안내 1회 의무 신설. teeth: `test-auto-advisor` AC-6.
 - **verify-exec-gate 잔여 backlog 4건 일괄 종결** (PR #195 알려진 잔여 — [`project_verify_exec_gate`] §잔여):
@@ -679,7 +681,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.1...HEAD
+[1.47.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.0...v1.47.1
 [1.47.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...v1.45.0
