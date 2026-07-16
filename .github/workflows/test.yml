@@ -18,12 +18,12 @@ jobs:
       - name: Governance hook performance gate
         run: BENCH_THRESHOLD_MS=800 BENCH_STOP_THRESHOLD_MS=3000 bash scripts/tests/governance/bench-hook.sh
 
-  # macOS/BSD 경로 검증 (release.sh _sed_i Darwin 분기·bash 3.2 호환). 첫 실측이라 비차단 —
-  # 결과 관찰 후 차단 승격. timing 게이트(bench)는 플랫폼 무관 로직이 아니라 ubuntu 전담.
+  # macOS/BSD 경로 검증 (release.sh _sed_i Darwin 분기·bash 3.2 호환).
+  # 차단 승격 (20260716 — 테스트영역 감사 P3): 관찰 기간 동안 macOS 러너 green + 로컬(darwin) 이
+  # 주 개발 환경이라 실패는 실결함 신호. timing 게이트(bench)는 플랫폼 무관 로직이 아니라 ubuntu 전담.
   run-all-macos:
     runs-on: macos-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Install pyyaml

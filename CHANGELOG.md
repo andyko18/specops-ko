@@ -5,6 +5,15 @@
 ## [Unreleased]
 
 ### Fixed
+- **감사 P2/P3 + dogfood 관찰 2건 + 빈틈2 일괄 종결** (7건):
+  - **R-4 러너 패턴 downstream 확장 (#209 전파)** — `test_runner_pattern` 의 `scripts/tests/` 하드코딩 2형(bash·`./` 직접)이 외부 repo 의 `bash tests/test-x.sh` 실행을 러너로 미인식 → 정직한 성공 주장이 R-4 false-warn. `(scripts/tests|tests?)/` 확장 + `test-rules` T9.f 회귀(RED→GREEN). verifying-evidence 러너 목록 prose 도 동기 정정.
+  - **dogfood 관찰 A — trivial 스펙승인 중복 게이트 통합** — 설계승인+축약승인 직후 동일 내용 스펙의 3번째 승인 요구는 중복(4연속 게이트 실측). specifying-ko 에 [trivial 게이트 통합]: 내용 동일 시 1줄 고지 통과, 신규 논점·범위 변화 시 게이트 유지(주권 불변). teeth: `test-trivial-new-shortcut` AC-GATE-MERGE.
+  - **dogfood 관찰 B — Phase B/C 판정 file-based 감사 추적** — PASS 가 부모 선언으로만 흘러 Phase C 가 B 통과 자격을 검증 불가(file-based-communication 위반, Phase C 리뷰어 실지적). implementing-ko 에 `reviews/<task-id>-B(-C)-report.md` 저장 + C dispatch 에 경로 포함 규약. teeth: AC-B-REPORT.
+  - **TDD 감사 P2-① — plan-reviewer TDD 렌즈 오조준 정정** — "RED 스텝 누락=Critical" 은 tasks.md 기준인데 리뷰 대상 plan.md §5 는 설계상 카테고리만 담음 → 모든 정상 plan 이 Critical 나는 렌즈. "TDD 가능성"(§2 테스트 파일 계획·§5 테스트 가능 단위) 기준으로 재정의.
+  - **TDD 감사 P2-② — 5스텝↔Red-Green-Refactor 명칭 관계 명문화** — tdd-ko 에 "5스텝=RGR 의 태스크 실행형, REFACTOR 는 별도 리팩터링 태스크로 분해가 의도" 주석 (drift 가 아니라 단위 차이임을 고정).
+  - **테스트영역 감사 P3 — macOS CI 차단 승격** — `test.yml` run-all-macos 의 `continue-on-error: true` 제거 (관찰 기간 green + darwin 이 주 개발 환경).
+  - **빈틈2 — verify 테스트=spec 커버 점검** — api-spec 에 추가·변경된 제공 엔드포인트별 테스트 케이스 존재 대조, 미커버는 evidence.md `## 미커버 엔드포인트` 권고(비차단·graceful).
+  - 기각 기록: TDD P3-① whitelist 협소(=#195·#209 로 기해소, memory stale)·R-4 무관 러너 면제(F-3 self-report 클래스 WON'T-FIX 정합)·e2e staleness stamp·init-project phases 직접 유닛(e2e 가 커버, 투자 대비 낮음).
 - **trivial 단축경로 외부 실주행 dogfood — 완주 차단 결함 3건 적발·해소** (완주율 레버, 평가 6.7 도달-14% 공략) — 외부 fixture repo(todo.sh CLI)에 신규 소형 기능(stats 명령)을 실제 lifecycle 로 진입시켜 spec→trivial 제안·승인→(clarify·plan SKIP)→decompose→implement(Phase B PASS·C READY_TO_MERGE)→verify **완주 실증**. 발견 3건 전부 fix:
   - **★ 발견 #3 (핵심 — false-block 4호)**: `run-verification.sh` whitelist·`extract-test-commands.sh` fallback 정규식이 `bash scripts/` **접두 하드코딩** — 플러그인 자기 repo 레이아웃 편향. downstream 표준 `bash tests/test-x.sh` 가 추출 0건(NO COMMANDS) 또는 SKIP(PARTIAL) → **실행-근거 게이트 불인정 → 정직한 외부 완주가 커밋 deny → BYPASS 강요**. 외부 완주를 게이트가 직접 막던 문. 두 곳 `(scripts|tests?)/` 확장(anti-footgun 성격이라 상대경로 테스트 디렉토리 확장 안전 — 절대경로·`lib/` 여전히 차단). 회귀: `test-verifying-automation` T2.g(extract 층, RED→GREEN)·T2.h(whitelist 층 YAML 주입 잠금). **fixture red-green 실증**: fix 전 `VERIFY: PARTIAL` → fix 후 `VERIFY: PASS`.
   - **발견 #1**: decomposing trivial 오판 안전망 기준 "AC ≥ 3 또는 파일 ≥ 2" 가 TDD 최소 구성(코드1+테스트1=2파일·회귀 AC 포함 must 3건)에 **항상 걸리는 false-trigger** — 전 trivial 재확인 유발로 단축 이득 상쇄. "must AC ≥ 4 또는 구현 파일 ≥ 2(테스트 제외)" 로 보정.

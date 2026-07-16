@@ -230,6 +230,21 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T9.e (out=$out)"
 fi
 
+# T9.f (20260716 #209 전파) R-4 downstream 표준 배치 bash tests/*.sh 실행 → 미매칭
+#   runner pattern 이 scripts/tests/ 하드코딩이면 외부 repo 의 정직한 러너 실행이 false-warn.
+r4ds=$(mktemp)
+printf '%s\n' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"검증 완료. 테스트 통과 확인."}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"bash tests/test-todo.sh"}}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"PASS=4 FAIL=0"}]}}' > "$r4ds"
+out=$(apply_assertion_without_test_rule "$rule_r4" "$r4ds")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T9.f R-4 downstream bash tests/*.sh 미매칭 (#209 전파)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.f downstream 러너 false-warn (out=$out)"
+fi
+rm -f "$r4ds"
+
 # R-5 용 transcript fixture 치환 헬퍼 (Edit — 기존 파일 수정)
 make_r5_transcript() {
   local spec_path="$1"

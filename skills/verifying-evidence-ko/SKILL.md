@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
-specops_version: 1.29.0
+specops_version: 1.47.2
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 ---
 
@@ -147,7 +147,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - `VERIFY: PASS` + exit 0: 모든 명령 실행됨 + 전부 PASS (skip 0건)
   - `VERIFY: FAIL <cmd> (exit=N)` (stderr) + exit 1: 1건이라도 FAIL
   - `VERIFY: PARTIAL — N개 명령 whitelist 미통과` + exit 1: whitelist 미통과 명령 존재 — **수동 검증 필수**
-  - **실행되는 러너** (v1.45.0 다언어 확장): `bash scripts/*.sh` · `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test`. 각 패턴은 선두 앵커(`^`)로 고정 — `echo pytest`·`foo && pytest` 류 위장은 SKIP 된다.
+  - **실행되는 러너** (v1.45.0 다언어 확장 + #209 downstream 배치): `bash scripts/*.sh`·`bash tests/*.sh`·`bash test/*.sh` · `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test`. 각 패턴은 선두 앵커(`^`)로 고정 — `echo pytest`·`foo && pytest` 류 위장은 SKIP 된다. 절대경로·`lib/` 등 비테스트 디렉토리 bash 는 여전히 SKIP.
   - **여전히 SKIP 되는 알려진 형태** (의도된 미지원): `go test ./...` (`..` path-traversal 가드에 먼저 걸림 — 개별 패키지 경로 `go test ./pkg/foo` 를 쓸 것) · `npm run test:unit` (`:` 가 인자 char-class 밖). 위 러너 밖의 명령(린터·빌드 등)도 SKIP → PARTIAL 이면 아래 수동 fallback 필수.
   - ⚠️ **실행-근거 gate 와 직결**: R-1/R-2 커밋 게이트는 이제 이 러너의 `VERIFY: PASS` **실행 출력**(transcript `tool_result`)을 면제 조건으로 요구한다. PARTIAL/FAIL 은 실행 증거로 **불인정** — evidence.md 에 스탬프만 남기고 커밋하려 하면 deny 된다.
 - [ ] **수동 fallback** (`run-verification.sh` 미적용 시):
@@ -164,6 +164,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - 추출분이 `api-spec.md`·`api-spec-consumer.md`(소비 호출↔소비 계약)·`data-model.md` 에 **반영돼 있는지 대조**. 통상 `specifying-ko` Step 5.6(정방향 인터페이스 설계)이 선반영했으면 일치한다.
   - **누락·괴리 발견 시**: evidence.md 에 `## memory 동기화 권고` 섹션 기록 — "코드의 `POST /orders` 가 api-spec 의 **채택된 정의방식 섹션**에 없음 → 반영 검토" 식으로 **무엇을 어디에** 명시 + 사용자에게 출력.
     - 화면 괴리는 evidence.md 에 `## 화면 동기화 권고` 섹션으로 기록(chain 비차단, 자동 수정 금지 — DB 동기화와 동일). screens/ 부재(CLI·순수 로직) 시 graceful skip.
+  - **테스트=spec 커버 점검** (ecc inspect-first 교훈 2 — 빈틈2 해소): 이번 FID 가 **api-spec.md 에 추가·변경한 제공 엔드포인트** 각각에 대해, 브랜치 누적 변경의 테스트 파일에서 해당 라우트를 호출·검증하는 케이스가 존재하는지 대조. 미커버 엔드포인트는 evidence.md `## 미커버 엔드포인트` 섹션에 나열 (감지·권고만 — AC 매핑 커버리지는 decomposing 몫이므로 여기서는 **설계문서↔테스트의 잔여 괴리**만 잡는다. 부재 시 graceful skip).
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.
   - **FAIL 조건**: 파일 부재 **또는** raw 템플릿 placeholder 잔존(`grep -q '<경로>' .specops/memory/foundation-manifest.md` — 미채움 간주) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단.

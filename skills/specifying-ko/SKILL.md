@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.37.0
+specops_version: 1.47.2
 used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
 ---
 
@@ -349,7 +349,9 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 clarifying-ko 직행. handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
 
-**[§auto 이외 모드]** (기존 동작):
+**[trivial 게이트 통합]** (`§유형: trivial` + 신규 trivial 단축 경로 — 20260716 dogfood 관찰 A): 사용자는 직전에 **설계 승인 + trivial 축약 승인** 2회를 이미 응답했다. spec.md 가 승인된 설계와 **내용 동일**하면(자체 검토에서 신규 논점·범위 변화 없음 확인) 본 게이트를 **통합 통과** — 별도 스펙 승인 응답을 요구하지 않고 "스펙 저장 완료(설계 승인 내용과 동일) — decomposing 진행" 1줄 고지 후 진행한다. **단** spec 작성 중 설계 제시에 없던 결정·범위 변화가 생겼으면 게이트를 **유지**한다(동일 내용일 때만 통합 — 주권 불변). trivial 4연속 게이트(포맷Q·설계승인·축약승인·스펙승인)의 마지막 중복 1개를 제거해 단축 경로의 완주율 이득을 보전한다.
+
+**[§auto·trivial 이외 모드]** (기존 동작):
 
 자체 검토 후 사용자에게:
 

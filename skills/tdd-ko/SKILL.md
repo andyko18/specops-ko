@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL
   - obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow
   - specops-ko skills/engine/tdd-ko.md
-specops_version: 1.0.0
+specops_version: 1.47.2
 used_by: implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
 ---
 
@@ -68,6 +68,8 @@ REFACTOR (정리)
     ↓ (green 유지)
 다음 → RED
 ```
+
+> **명칭 관계** (P2-② drift 정리 — TDD 감사 20260711): decomposing-ko 의 태스크 **"5스텝"**(RED 작성→FAIL 검증→GREEN 구현→PASS 검증→**COMMIT**)은 본 Red-Green-**Refactor** 사이클의 **태스크 실행형**이다 — RED/GREEN 을 각각 "작성+검증" 2스텝으로 쪼개고 커밋을 스텝으로 명시한 것. REFACTOR 는 5스텝 안에 없는 게 **의도**다: 2~5분 태스크 안에서는 GREEN 후 즉시 커밋하고, 정리가 필요하면 **별도 리팩터링 태스크**(green 유지 확인 포함)로 분해한다. "5스텝에 REFACTOR 가 빠졌다"는 결함이 아니라 단위 차이다.
 
 ### RED — 실패 테스트 작성
 

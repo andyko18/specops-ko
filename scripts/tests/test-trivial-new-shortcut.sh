@@ -102,5 +102,22 @@ else
   ok "AC-EXEC-3 SKIP (governance-lib/jq 미가용 — 한계 고백)"
 fi
 
+# ── AC-GATE-MERGE: trivial 스펙승인 게이트 통합 배선 (20260716 dogfood 관찰 A) ──
+#   설계승인+축약승인 직후 동일 내용 스펙의 별도 승인 응답 요구는 중복 게이트 — 통합 규약이
+#   specifying-ko 사용자 검토 게이트 절에 명문화돼 있어야 한다 (내용 변화 시 게이트 유지 조건 포함).
+SP="$PLUGIN/skills/specifying-ko/SKILL.md"
+n=$(grep -c 'trivial 게이트 통합' "$SP")
+if [ "$n" -eq 1 ] && grep -q '통합 통과' "$SP" && grep -q '게이트를 \*\*유지\*\*' "$SP"; then
+  ok "AC-GATE-MERGE trivial 스펙승인 통합 배선 (동일내용 통과 + 변화시 유지)"
+else
+  nope "AC-GATE-MERGE" "통합 규약=$n 또는 유지 조건 누락"
+fi
+
+# ── AC-B-REPORT: Phase B/C 판정 file-based 감사 추적 (20260716 dogfood 관찰 B) ──
+IM="$PLUGIN/skills/implementing-ko/SKILL.md"
+grep -q -- '-B-report.md' "$IM" && grep -q 'PASS 여도' "$IM" \
+  && ok "AC-B-REPORT Phase B/C PASS report file-based 규약 배선" \
+  || nope "AC-B-REPORT" "B-report 규약 없음"
+
 echo "── test-trivial-new-shortcut: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]
