@@ -4,7 +4,7 @@ description: "[전체·대화형] specops-auto-ko 한국어 자율 Lifecycle —
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 1.34.0
+specops_version: 1.47.0
 specops_layer: Lifecycle
 reference_upstream: specops-auto-ko 독자 추가
 ---
@@ -89,14 +89,21 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ### Phase 3 — per FR 순차 구현 (무중단)
 
-queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip):
+> **[per-FR ≠ batch-level — 뭉개짐 방지 경계]** 아래 스텝 1~6 은 **FR 마다 개별** 실행이다 — verify·code-review 는 FID 당 **각각 1개**의 산출물(`evidence.md` · `review-request.md`)을 남긴다. **한 번에 뭉쳐 돌리지 않는다.** (대조: 아래 "Phase 3 완료" 의 Step A/B/C security·integration·performance 는 batch 전체를 대표 FID 로 **1회** 통합 실행 — 성격이 반대다. 이 문서 후반부의 batch-level 패턴을 verify·review 에 일반화하지 말 것.) verify 는 `run-verification.sh <FID>` 로 그 FR 의 tasks.md 명령만 뽑아 자연히 격리되지만, review.diff 는 공유 batch 브랜치에서 **base 를 명시 기록**하지 않으면 직전 FR 변경까지 끌어들여 내용이 뭉개진다(스텝 1a).
 
-1. `specops-auto-ko:implementing-ko` 호출 (FID 기준)
-2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출
-3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출
-4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출
+queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각 FR(=FID)에 대해:
+
+1a. **per-FR review base 기록** — implementing-ko 호출 **직전** 현재 HEAD 를 그 FID 의 review base 로 고정 (이 파일이 없으면 requesting-code-review-ko 가 `HEAD~1` 로 falling back → batch 에서 FR 격리 실패):
+   ```bash
+   git rev-parse HEAD > ".specops/<FID>/review-base.sha"   # 이 FR 구현 시작점 — review.diff 격리 base
+   ```
+   (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
+1. `specops-auto-ko:implementing-ko` 호출 (**FID 기준**)
+2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성)
+3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출 (**FID 기준** — review.diff base = `.specops/<FID>/review-base.sha`, → `.specops/<FID>/review-request.md` 개별 생성)
+4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출 (**FID 기준**)
 5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR security/integration/performance/PR 차단. chain 자동 진행
-6. queue.md 해당 FR → `IMPL_DONE` 갱신
+6. `.specops/<FID>/review-base.sha` · `evidence.md` · `review-request.md` **3종 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 이 3종을 하드 재검한다 — 부재 시 `[산출물 누락]` + exit 1)
 7. 다음 PLAN_DONE FR 반복
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-auto-ko:systematic-debugging-ko`로 처리 후 재개.
@@ -186,4 +193,4 @@ EOF
 
 ---
 
-*specops-auto-ko v1.34.0 · 2026-07-03 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-auto-ko v1.47.0 · 2026-07-16 · 3-Phase 일괄 구현 오케스트레이터*

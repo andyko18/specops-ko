@@ -930,6 +930,11 @@ e2e_check V23 "§batch halt 2회 (tasks.md 2·IMPL_DONE 0)" "$r23"
 bdir=$(dirname "$qf")
 bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c1=$?
 sed -i.bak -E 's/\| PLAN_DONE \|$/| IMPL_DONE |/' "$qf" && rm -f "$qf.bak"
+# batch-state teeth: IMPL_DONE FID 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md) 필수 — 시뮬 생성
+for _fid_dir in "$TMP"/.specops/*/; do
+  case "$_fid_dir" in */memory/|*/batch-*/) continue ;; esac
+  : > "${_fid_dir}review-base.sha"; : > "${_fid_dir}evidence.md"; : > "${_fid_dir}review-request.md"
+done
 bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c2=$?
 { [ "$c1" -eq 1 ] && [ "$c2" -eq 0 ]; } && r24=0 || r24=1
 e2e_check V24 "batch-state 완료 게이트 (미완 1→완료 0)" "$r24"

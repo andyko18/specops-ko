@@ -3,7 +3,7 @@ name: requesting-code-review-ko
 description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결과물이 요구를 충족하는지 외부 리뷰어에게 검증 요청
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.47.0
 used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain 출구)
 ---
 
@@ -33,6 +33,14 @@ used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain �
 BASE_SHA=$(git rev-parse HEAD~1)  # 또는 origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
+
+> **[batch 모드 — per-FR base 격리]** `.specops/<FID>/spec.md` 에 `**§batch**` 라벨이면, 위 `HEAD~1` 은 **쓰지 않는다**. batch 는 공유 `feat/<BATCH_ID>` 브랜치에 여러 FR 커밋이 누적되므로, `HEAD~1`·`git log|grep "Task 1"|head -1` 은 **직전 FR 의 변경까지 diff 에 끌어들여** review.diff 를 뭉갠다(이름만 per-FID, 내용은 blended). 오케스트레이터(`/start-all` Phase 3)가 각 FR 구현 **직전** 기록한 base 를 읽는다:
+> ```bash
+> if grep -qE '^\*\*§batch\*\*:' ".specops/$FID/spec.md" 2>/dev/null && [ -f ".specops/$FID/review-base.sha" ]; then
+>   BASE_SHA=$(cat ".specops/$FID/review-base.sha")   # 이 FR 구현 시작 시점 HEAD — per-FR 격리
+> fi
+> ```
+> `review-base.sha` 부재 시(단일 모드·파일 미기록)는 위 기본 `HEAD~1` 로 fallback.
 
 ### 외부 모델 의견 병행 (advisory — multimodel-critic)
 
@@ -70,7 +78,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 당신: 진행 전 코드 리뷰를 요청합니다.
 
-BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')
+BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')  # 단일 모드 예시 — batch 는 §1 [batch 모드] 분기(review-base.sha) 사용
 HEAD_SHA=$(git rev-parse HEAD)
 
 [code-reviewer 서브에이전트 dispatch]

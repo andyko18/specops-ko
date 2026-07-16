@@ -68,8 +68,47 @@ if [ -n "$incomplete" ]; then
   fail=1
 fi
 
+# 4) 산출물 뭉개짐 방지 teeth — IMPL_DONE FID 마다 per-FR 검증·리뷰 산출물 3종 필수
+#    Phase 3 는 FR 당:
+#      - review-base.sha    : review.diff 격리 base (부재→requesting-code-review 가 HEAD~1 로 silent
+#                             fallback → 직전 FR 변경까지 끌어들여 내용 뭉개짐. layer 2 강제)
+#      - evidence.md        : per-FR verify 산출 (layer 3 존재)
+#      - review-request.md  : per-FR code-review 산출 (layer 3 존재)
+#    를 개별 생성해야 한다. 하나라도 없으면 verify/review 가 뭉개졌거나 미실행 → batch PR 전 차단.
+#    MERGED(타 사이클서 이미 shipped)는 batch 전용 review-base.sha 미보유 가능 → 제외(IMPL_DONE 한정).
+#    FID = 첫 두 비어있지 않은 필드 중 둘째.
+SPECOPS_ROOT=$(dirname "$BATCH_DIR")
+done_pairs=""
+if [ -n "$queue_rows" ]; then
+  done_pairs=$(printf '%s\n' "$queue_rows" | awk -F'|' '{
+    gsub(/\r$/, "")
+    n = 0; delete a
+    for (i = 1; i <= NF; i++) { gsub(/^ +| +$/, "", $i); if ($i != "") a[++n] = $i }
+    if (n >= 2 && a[n] ~ /^IMPL_DONE/) print a[1] "|" a[2]
+  }')
+fi
+missing_artifacts=""
+if [ -n "$done_pairs" ]; then
+  while IFS='|' read -r fr_id fid; do
+    [ -z "$fr_id" ] && continue
+    # FID 미확정 placeholder 는 미완 검사(3)가 이미 잡음 — 여기선 skip
+    case "$fid" in ''|'—'|'-'|'TBD'|'tbd') continue ;; esac
+    for art in review-base.sha evidence.md review-request.md; do
+      [ -f "$SPECOPS_ROOT/$fid/$art" ] || \
+        missing_artifacts="${missing_artifacts}  - ${fr_id} (${fid}): ${art} 없음"$'\n'
+    done
+  done <<EOF
+$done_pairs
+EOF
+fi
+if [ -n "$missing_artifacts" ]; then
+  echo "[산출물 누락] IMPL_DONE FID 의 per-FR 검증·리뷰 산출물 부재 (뭉개짐 방지 teeth):"
+  printf '%s' "$missing_artifacts"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
-  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0)"
+  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물 완비)"
   exit 0
 fi
 echo "BATCH-STATE: MISMATCH — batch PR 전 확인 필요" >&2

@@ -43,17 +43,93 @@ else
   nope "T1.a 실물 fixture" "exit=$code out=$(echo "$out" | head -3 | tr '\n' ' ')"
 fi
 
-# ── fixture B: clean (전 행 IMPL_DONE, parity 일치) ──
-mkdir -p "$TMP/b/.specops/batch-y"
+# ── fixture B: clean (전 행 IMPL_DONE, parity 일치 + per-FID 산출물 존재) ──
+mkdir -p "$TMP/b/.specops/batch-y" "$TMP/b/.specops/20260101-a" "$TMP/b/.specops/20260101-b"
 cat > "$TMP/b/.specops/batch-y/queue.md" <<'EOF'
 | FR-ID | FID | FR 설명(1줄) | Status |
 |---|---|---|---|
 | FR-1 | 20260101-a | one | IMPL_DONE |
 | FR-2 | 20260101-b | two | MERGED |
 EOF
+# per-FR 산출물 (뭉개짐 방지 teeth 전제) — review-base.sha + evidence.md + review-request.md 3종
+# 단, 20260101-b 는 MERGED → teeth 제외 대상이므로 seed 불요(IMPL_DONE 한정 검증도 겸함)
+: > "$TMP/b/.specops/20260101-a/review-base.sha"
+: > "$TMP/b/.specops/20260101-a/evidence.md"; : > "$TMP/b/.specops/20260101-a/review-request.md"
 printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > "$TMP/b/req.md"
 bash "$SCRIPT" "$TMP/b/.specops/batch-y" "$TMP/b/req.md" >/dev/null 2>&1; code=$?
-[ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0" || nope "T2.a clean" "exit=$code (기대 0)"
+[ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0 (산출물 존재)" || nope "T2.a clean" "exit=$code (기대 0)"
+
+# ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
+mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
+cat > "$TMP/b2/.specops/batch-y2/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-c | one | IMPL_DONE |
+| FR-2 | 20260101-d | two | IMPL_DONE |
+EOF
+# FR-1(-c): 3종 완전 / FR-2(-d): evidence.md만 (review-base.sha·review-request.md 부재 → 뭉개짐)
+: > "$TMP/b2/.specops/20260101-c/review-base.sha"
+: > "$TMP/b2/.specops/20260101-c/evidence.md"; : > "$TMP/b2/.specops/20260101-c/review-request.md"
+: > "$TMP/b2/.specops/20260101-d/evidence.md"
+printf '| FR-1 | c | M1 | must | s | f |\n| FR-2 | d | M1 | must | s | f |\n' > "$TMP/b2/req.md"
+out=$(bash "$SCRIPT" "$TMP/b2/.specops/batch-y2" "$TMP/b2/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "산출물 누락" \
+   && echo "$out" | grep -q "FR-2" && echo "$out" | grep -q "review-request.md" \
+   && ! echo "$out" | grep -q "FR-1.*evidence"; then
+  ok "T2.b 산출물 누락 teeth — review-request.md 부재 FID 차단 (FR-1 완전은 미보고)"
+else
+  nope "T2.b 산출물 teeth" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B3: IMPL_DONE 이나 FID 디렉토리 자체 부재 → 양쪽 누락 ──
+mkdir -p "$TMP/b3/.specops/batch-y3"
+cat > "$TMP/b3/.specops/batch-y3/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-e | one | IMPL_DONE |
+EOF
+printf '| FR-1 | e | M1 | must | s | f |\n' > "$TMP/b3/req.md"
+out=$(bash "$SCRIPT" "$TMP/b3/.specops/batch-y3" "$TMP/b3/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "산출물 누락" \
+   && echo "$out" | grep -q "evidence.md" && echo "$out" | grep -q "review-request.md"; then
+  ok "T2.c 산출물 누락 teeth — FID 디렉토리 부재 시 양쪽 보고"
+else
+  nope "T2.c FID 부재" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B4: layer 2 — review-base.sha 만 부재 (evidence·review-request 는 존재) → 내용 뭉개짐 차단 ──
+#    step 1a(review base 기록) 누락 시나리오. 존재 teeth 는 통과하나 내용 격리 base 가 없어 차단돼야 함.
+mkdir -p "$TMP/b4/.specops/batch-y4" "$TMP/b4/.specops/20260101-f"
+cat > "$TMP/b4/.specops/batch-y4/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-f | one | IMPL_DONE |
+EOF
+: > "$TMP/b4/.specops/20260101-f/evidence.md"; : > "$TMP/b4/.specops/20260101-f/review-request.md"
+printf '| FR-1 | f | M1 | must | s | f |\n' > "$TMP/b4/req.md"
+out=$(bash "$SCRIPT" "$TMP/b4/.specops/batch-y4" "$TMP/b4/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-base.sha" \
+   && ! echo "$out" | grep -q "evidence.md 없음" && ! echo "$out" | grep -q "review-request.md 없음"; then
+  ok "T2.d layer 2 teeth — review-base.sha 부재만으로 차단 (내용 뭉개짐 방지)"
+else
+  nope "T2.d review-base teeth" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B5: layer 2 read-path — §batch spec + review-base.sha → 문서화 BASE_SHA 스니펫 resolve ──
+#    requesting-code-review-ko §1 [batch 모드] 분기의 실제 bash 로직을 재현해 격리 base 가 파일 내용으로
+#    resolve 되는지(HEAD~1 falling back 아님) 실행 검증.
+mkdir -p "$TMP/b5/.specops/20260101-g"
+printf '**§batch**: true\n' > "$TMP/b5/.specops/20260101-g/spec.md"
+printf 'cafef00d\n' > "$TMP/b5/.specops/20260101-g/review-base.sha"
+( cd "$TMP/b5"
+  FID=20260101-g
+  BASE_SHA=HEAD~1  # 단일 모드 기본 (스니펫 시작값)
+  if grep -qE '^\*\*§batch\*\*:' ".specops/$FID/spec.md" 2>/dev/null && [ -f ".specops/$FID/review-base.sha" ]; then
+    BASE_SHA=$(cat ".specops/$FID/review-base.sha")
+  fi
+  [ "$BASE_SHA" = "cafef00d" ] )
+[ "$?" -eq 0 ] && ok "T2.e layer 2 read-path — §batch BASE_SHA = review-base.sha 내용 (HEAD~1 미사용)" \
+  || nope "T2.e §batch resolve" "BASE_SHA 가 review-base.sha 로 resolve 안 됨"
 
 # ── fixture C: FR-ID 중복 + read-only 검증 ──
 mkdir -p "$TMP/c/.specops/batch-z"

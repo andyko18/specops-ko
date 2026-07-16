@@ -56,6 +56,10 @@ out=$(bash "$PLUGIN/scripts/batch-state.sh" "$TMP/.specops/batch-t" "$TMP/req.md
 
 # ── T5: 전체 IMPL_DONE → 게이트 clean (start-all.md:88 전이 후) ──
 sed -i.bak -E 's/\| (PENDING|PLAN_DONE) \|$/| IMPL_DONE |/' "$Q" && rm -f "$Q.bak"
+# batch-state teeth: 실 FID(≠TBD) 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md) 필수 — 시뮬 생성
+mkdir -p "$TMP/.specops/20260711-a"
+: > "$TMP/.specops/20260711-a/review-base.sha"
+: > "$TMP/.specops/20260711-a/evidence.md"; : > "$TMP/.specops/20260711-a/review-request.md"
 # NFR 드리프트 잔여 방지 — req 는 FR 3행뿐이므로 drift 0 기대... (req 에 NFR-1 은 FR_RE 미매칭)
 bash "$PLUGIN/scripts/batch-state.sh" "$TMP/.specops/batch-t" "$TMP/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] \
