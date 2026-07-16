@@ -43,8 +43,12 @@ done
 
 echo ""
 echo "==== run-all: suites PASS=$PASS FAIL=$FAIL (total=${#SUITES[@]}) ===="
+# VERIFY 토큰 — R-1/R-2 실행-근거 게이트(governance-lib _verify_exec_evidence)가 transcript 에서
+# 이 토큰으로 실행증거를 판정한다 (러너 계약: PASS 만 인정, FAIL/PARTIAL 불인정). 20260716 false-block fix.
 if [ $FAIL -gt 0 ]; then
   printf 'FAILED: %s\n' "${FAILED_SUITES[@]}"
+  echo "VERIFY: FAIL"
   exit 1
 fi
+echo "VERIFY: PASS"
 exit 0

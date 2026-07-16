@@ -110,7 +110,10 @@ _verify_exec_evidence() {
          #   하는 false-block 이 난다(실전 dogfooding 적발). 줄바꿈은 셸의 진짜 명령 구분자이므로
          #   `;`·`&`·`|` 와 동급으로 클래스에 든다 — 앵커 의미(줄 첫 토큰이 러너여야 함)는 그대로:
          #   `echo "ran pytest"`·`# bash run-verification.sh`(주석)는 여전히 불인정 (T12·T13 잠금).
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*run-verification\\.sh|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         #   run-all.sh 인식 (20260716 false-block): self-maintenance 의 정식 러너는 전체 스위트
+         #   run-all.sh 다 — 성공 시 스스로 `VERIFY: PASS` 토큰을 출력해 기존 토큰 계약으로 판정된다.
+         #   앵커는 `tests/run-all\.sh` 로 좁힌다(downstream 의 무관한 ./run-all.sh 불인정 — T15 잠금).
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))

@@ -101,6 +101,7 @@ if [ -n "$violation" ]; then
   # $fid 는 L44 에서 bind 됨(빈 값 가능 — session-progress 부재 시) → ${fid:-<FID>} 로 dangling 방지.
   reason="$act 차단 — 이 세션에 verify 실행 증거가 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
 해법: bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행한 뒤 재시도하세요.
+(플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
 Skill 호출·evidence.md 스탬프만으로는 열리지 않습니다 — 모델 자기보고라 위조 가능, 하네스가 남긴 실행 기록만 인정합니다.
 우회: SPECOPS_GOVERNANCE_BYPASS=1"
   jq -nc --arg r "$reason" \

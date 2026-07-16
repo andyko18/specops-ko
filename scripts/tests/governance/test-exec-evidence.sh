@@ -95,5 +95,38 @@ printf '%s\n' \
 _verify_exec_evidence "$mlcmt"; ck "T13 멀티라인 주석 처리된 러너 → 1 (미실행)" 1 $?
 rm -f "$mlcmt"
 
+# ── run-all.sh 인식 (20260716 false-block — self-maintenance dogfooding 적발) ──
+# 플러그인 자기 repo 작업에서 정식 검증 러너는 run-all.sh(전체 스위트)인데, 러너 클래스가
+# run-verification.sh·pytest 류만 인식해 run-all 95/95 세션이 deny 됐다(BYPASS 강요 = 신호 희석).
+# fix: 러너 클래스에 `bash \S*tests/run-all\.sh` 추가 + run-all.sh 가 성공 시 `VERIFY: PASS`
+# (실패 시 `VERIFY: FAIL`) 토큰을 출력해 기존 토큰 계약으로 판정 (게이트 출력검사 로직 무변경).
+#   T14 = RED 드라이버 / T15 = 좁은 앵커 잠금(tests/ 경로 밖 run-all 불인정) / T16 = 실패 토큰 대칭
+
+# T14: run-all 실행 + FAIL=0 + PASS 토큰 → 0 (실행증거 인정)
+rarun=$(mktemp) || exit 1
+printf '%s\n' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_RA1","name":"Bash","input":{"command":"bash scripts/tests/run-all.sh 2>&1 | tail -3"}}]}}' \
+  '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_RA1","is_error":false,"content":"==== run-all: suites PASS=95 FAIL=0 (total=95) ====\nVERIFY: PASS"}]}}' > "$rarun"
+_verify_exec_evidence "$rarun"; ck "T14 run-all.sh 실행 + PASS 토큰 → 0 (false-block 해소)" 0 $?
+rm -f "$rarun"
+
+# T15: tests/ 경로 밖 run-all.sh — 러너 클래스는 \S*tests/run-all\.sh 로 좁힌다.
+#      downstream repo 의 무관한 ./run-all.sh(배포 스크립트 등)가 우연히 토큰을 출력해도 불인정.
+raout=$(mktemp) || exit 1
+printf '%s\n' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_RA2","name":"Bash","input":{"command":"bash ./run-all.sh"}}]}}' \
+  '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_RA2","is_error":false,"content":"VERIFY: PASS"}]}}' > "$raout"
+_verify_exec_evidence "$raout"; ck "T15 tests/ 밖 run-all.sh → 1 (좁은 앵커)" 1 $?
+rm -f "$raout"
+
+# T16: run-all 실패 — suite FAIL>0 이면 run-all.sh 가 VERIFY: FAIL 을 출력한다. 출력에
+#      PASS 문자열이 섞여 있어도(suite 케이스명 등) negative check 가 전체 불인정해야 한다.
+rafail=$(mktemp) || exit 1
+printf '%s\n' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_RA3","name":"Bash","input":{"command":"bash scripts/tests/run-all.sh"}}]}}' \
+  '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_RA3","is_error":false,"content":"PASS T1.a something\n==== run-all: suites PASS=94 FAIL=1 (total=95) ====\nVERIFY: FAIL"}]}}' > "$rafail"
+_verify_exec_evidence "$rafail"; ck "T16 run-all 실패(FAIL 토큰) → 1 (negative check)" 1 $?
+rm -f "$rafail"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]
