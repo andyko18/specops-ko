@@ -63,5 +63,16 @@ awk '/^5\.6\./,/^6\. /' "$SP" | grep -q '채택된 정의방식' && ok "AC-R-1 S
 grep -qE 'localStorage|objectStore' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
   && ok "AC-14 verify net 클라이언트 스토리지" || nope "AC-14" "verify 추출 대상에 localStorage/objectStore 없음"
 
+# AC-15: verify 역방향 안전망 소비 IF 축 (C2 20260716 — 소비 IF 만 정방향뿐인 반쪽 안전망 복원)
+#   추출 대상(외부 API 소비 호출)과 대조 대상(api-spec-consumer.md) 둘 다 있어야 한다.
+n=$(grep -c 'api-spec-consumer' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md")
+[ "$n" -ge 2 ] && grep -q '외부 API 소비 호출' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
+  && ok "AC-15 verify net 소비 IF 축 (consumer ${n}곳 + 추출 대상)" || nope "AC-15" "consumer=$n (기대 ≥2) 또는 추출 대상 없음"
+
+# AC-16: implementing §설계 계약 + emit-context §6 에 consumer 대칭 (C2)
+grep -q 'api-spec-consumer' "$PLUGIN/skills/implementing-ko/SKILL.md" \
+  && grep -q 'api-spec-consumer' "$PLUGIN/scripts/dag/emit-context.sh" \
+  && ok "AC-16 소비 IF 계약 대칭 (implementing + emit-context)" || nope "AC-16" "consumer 계약 미대칭"
+
 echo "── test-interface-routing-doc: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

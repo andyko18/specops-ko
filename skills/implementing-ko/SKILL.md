@@ -25,9 +25,9 @@ used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 사전 설계 산출물이 존재하면 구현은 이를 **계약**으로 준수한다 (specifying-ko 의 정방향 design-first 가 구현까지 이어지도록 — 화면·인터페이스 대칭):
 
 - `screens/{name}.md`·`.html` — 화면 기능의 **UI 계약** (Step 5.5 산출)
-- `.specops/memory/api-spec.md`·`data-model.md` — **인터페이스/스키마 계약** (Step 5.6 design-first 산출)
+- `.specops/memory/api-spec.md`·`api-spec-consumer.md`·`data-model.md` — **인터페이스(제공·소비)/스키마 계약** (Step 5.6 design-first · Phase 8g 산출)
 
-`emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
+`emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`api-spec-consumer.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
 
 ## 사용 시점
 

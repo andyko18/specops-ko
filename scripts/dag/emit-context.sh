@@ -94,7 +94,8 @@ for t in tasks:
     wl_lines = "\n".join(f"- `{p}`" for p in whitelist)
     # §6 설계 계약 (design-first 후진 teeth — implementing 계약 준수 실배선).
     #   존재하는 설계 산출물만 emit, 부재 시 §6 자체 생략(graceful — 순수 로직/CLI 무영향).
-    contract = [p for p in (".specops/memory/api-spec.md", ".specops/memory/data-model.md") if os.path.exists(p)]
+    # api-spec-consumer.md: 외부 API 소비 계약 (KIND 1·5 — Phase 8g/Step 5.6 산출). 제공 IF 와 대칭 (C2).
+    contract = [p for p in (".specops/memory/api-spec.md", ".specops/memory/api-spec-consumer.md", ".specops/memory/data-model.md") if os.path.exists(p)]
     if os.path.isdir("screens"):
         contract.append("screens/")
     contract_section = ""

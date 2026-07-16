@@ -85,6 +85,20 @@ else
 fi
 rm -rf "$tmp"
 
+# T1.f2: §6 설계 계약 — api-spec-consumer.md(소비 IF, KIND 1·5) 도 계약에 포함 (C2 — 소비 축 정·역 쌍 복원)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/ok-fid" "$tmp/.specops/memory"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/ok-fid/"
+echo "# consumer" > "$tmp/.specops/memory/api-spec-consumer.md"
+(cd "$tmp" && bash "$EMIT" ok-fid >/dev/null 2>&1)
+ctx="$tmp/.specops/ok-fid/dispatch/T1-context.md"
+if grep -q "6. 설계 계약" "$ctx" && grep -q "api-spec-consumer.md" "$ctx"; then
+  PASS=$((PASS+1)); echo "PASS T1.f2 §6 소비 IF 계약 (api-spec-consumer emit)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.f2 §6 api-spec-consumer 미포함"
+fi
+rm -rf "$tmp"
+
 # T1.g: memory 부재 시 §6 미생성 (graceful — 순수 로직/CLI 회귀 보호)
 tmp=$(mktemp -d)
 mkdir -p "$tmp/.specops/ok-fid"

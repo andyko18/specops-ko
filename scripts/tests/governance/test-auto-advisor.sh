@@ -28,5 +28,12 @@ A="$PLUGIN/skills/advisor-ko/SKILL.md"
 grep -q '§auto 무인' "$A" && ok "AC-5 advisor §auto 행" || nope "AC-5" "§auto 행 미존재"
 grep -q '결정 대행 아님' "$A" && ok "AC-R-3b advisor 주권명시" || nope "AC-R-3b" "주권 미존재"
 
+# T5: 연결 진단 § (C3 20260716) — 도구 미노출 시 4원인 진단 + 사용자 안내 의무.
+#   pairing(advisor ≥ main) 이 대표 원인 — main 상향 시 advisor 가 조용히 깨지는 함정 명문화.
+n=$(grep -c '연결 진단' "$A")
+[ "$n" -ge 1 ] && grep -q 'pairing 무효' "$A" && grep -q 'CLAUDE_CODE_DISABLE_ADVISOR_TOOL' "$A" \
+  && grep -q '동급 이상' "$A" \
+  && ok "AC-6 advisor 연결 진단 § (4원인+pairing)" || nope "AC-6" "진단 §=$n 또는 원인 누락"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

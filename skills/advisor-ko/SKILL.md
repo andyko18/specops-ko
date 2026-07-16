@@ -3,7 +3,7 @@ name: advisor-ko
 description: 기획·분석·설계·개발 중 애매한 부분/모르는 부분 발생 시 항상 적용 — advisor 도구로 외부 자문을 받아 단정·합리화·circular 검증을 차단
 layer: 2
 reference_upstream: specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
-specops_version: 1.28.0
+specops_version: 1.47.1
 used_by: using-specops-auto-ko-ko (cross-cutting 상시 — 기획·분석·설계·구현 중 애매성 발생 시 ambient 적용), planning-ko (advisor() 실호출)
 ---
 
@@ -99,6 +99,20 @@ advisor()
 | 4 **주권** | advisor 판단이 사용자 결정과 충돌 시 사용자 개입 요청 |
 | 5 **한계 고백** | "advisor 미호출 = 자체검토만" 상태 명시 |
 
+## 연결 진단 — advisor 도구가 안 보일 때 (미연결 fallback 전 필수 1회)
+
+advisor 는 **서버사이드 도구**다 (Anthropic 인프라 실행 — `/advisor <model>` 로 설정, 세션 도구 목록에 `advisor`/`Advising` 으로 노출). 호출 의무 시점인데 도구가 목록에 없으면, "자체검토만" fallback 으로 넘어가기 **전에** 아래 4원인을 진단하고 **사용자에게 재연결 방법을 1줄 안내**한다 (조용한 공회전 금지 — 협의 의무 체계가 도구 부재로 무음 무력화되는 것이 최악):
+
+| # | 원인 | 판별 | 사용자 안내 |
+|---|---|---|---|
+| 1 | **pairing 무효** — advisor 는 main 과 **동급 이상** 모델이어야 함 (예: main=Fable 5 + advisor=Opus 4.8 → 무효. main 을 상향하면 기존 advisor 설정이 조용히 깨진다) | 세션의 main 모델 ≥ advisor 모델? | `/advisor <main 과 동급 이상 모델>` 재설정 |
+| 2 | main 모델 미지원 (Opus 4.6+·Sonnet 4.6+·Haiku 4.5·Fable 5 요건) | main 모델 확인 | main 모델 변경 또는 advisor 포기 |
+| 3 | 비-Anthropic API (Bedrock·Vertex·게이트웨이 — server tool 미지원) | 실행 플랫폼 확인 | 플랫폼 제약 고지 (해법 없음) |
+| 4 | `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1` 환경변수 | env 확인 | 변수 해제 안내 |
+
+- 진단 결과와 무관하게 해당 단계 진행은 fallback(아래 critic-ask 또는 자체검토 + 원칙 5 "자체검토만" 명시)으로 계속한다 — 진단은 **차단이 아니라 안내**다.
+- 안내는 세션당 1회면 충분 (매 호출 시점마다 반복 금지 — 노이즈).
+
 ## 외부 모델 위탁 경로 (multimodel-critic)
 
 advisor disabled 환경 또는 동종 모델 편향 차단이 필요할 때, **파일 기반 산출물 검증** 은 외부 모델로 위탁 가능:
@@ -120,4 +134,4 @@ bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID
 
 ---
 
-*v1.27.0 · 2026-06-29 · specops-auto-ko 독자 추가 (advisor 도구 활용 패턴 + critic-ask 자동 fallback)*
+*v1.47.1 · 2026-07-16 · specops-auto-ko 독자 추가 (advisor 활용 패턴 + critic-ask fallback + 연결 진단 4원인)*
