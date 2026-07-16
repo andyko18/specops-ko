@@ -105,7 +105,7 @@ advisor 는 **서버사이드 도구**다 (Anthropic 인프라 실행 — `/advi
 
 | # | 원인 | 판별 | 사용자 안내 |
 |---|---|---|---|
-| 1 | **pairing 무효** — advisor 는 main 과 **동급 이상** 모델이어야 함 (예: main=Fable 5 + advisor=Opus 4.8 → 무효. main 을 상향하면 기존 advisor 설정이 조용히 깨진다) | 세션의 main 모델 ≥ advisor 모델? | `/advisor <main 과 동급 이상 모델>` 재설정 |
+| 1 | **pairing 무효** — advisor 는 main 과 **동급 이상** 모델이어야 함 (예: main=Fable 5 + advisor=Opus 4.8 → 무효. main 을 상향하면 기존 advisor 설정이 조용히 깨진다) | 세션의 main 모델 ≥ advisor 모델? | 유효 advisor 는 **opus·sonnet·off 뿐**(20260716 실측 — fable 은 advisor 미지원). ∴ **main=Fable 5 면 advisor 는 구조적으로 불가** — `/advisor off` + critic-ask fallback(공식 대체) 또는 main 하향(`/model opus`) 중 사용자 선택 안내 |
 | 2 | main 모델 미지원 (Opus 4.6+·Sonnet 4.6+·Haiku 4.5·Fable 5 요건) | main 모델 확인 | main 모델 변경 또는 advisor 포기 |
 | 3 | 비-Anthropic API (Bedrock·Vertex·게이트웨이 — server tool 미지원) | 실행 플랫폼 확인 | 플랫폼 제약 고지 (해법 없음) |
 | 4 | `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1` 환경변수 | env 확인 | 변수 해제 안내 |
