@@ -111,6 +111,12 @@ out=$(mkstdin "FOO=bar git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_
 check "T21 bare VAR=val prefix commit 우회 → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "GH_TOKEN=t gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T22 bare VAR=val prefix gh pr create 우회 → deny" '"permissionDecision":"deny"' "$out"
+# T21b~T22b 인용 공백값 prefix 우회 차단 (20260716-batch-dogfood widening — `FOO='a b'` 가 prefix 체인을
+#   끊어 트리거를 통째로 비껴갔다. rules.jsonl R-1/R-2 도 동기 수정)
+out=$(mkstdin "FOO='a b' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T21b 인용(single) 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin 'FOO="a b" gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T22b 인용(double) 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
 # T23~T24 신규 false-positive 보존 (서브커맨드 인자 commit — trigger 미매칭 allow)
 out=$(mkstdin "git config commit.gpgsign true" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T23 git config commit.X → allow" '"continue":true' "$out"
@@ -146,9 +152,17 @@ check "T34 backtick commit → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "(gh pr create --fill)" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T35 subshell pr create → deny" '"permissionDecision":"deny"' "$out"
 
-# T36 inline prefix bypass → allow (F-2)
+# T36 ★ inline prefix bypass — 사유(SPECOPS_BYPASS_REASON) 없으면 면제 안 됨 (F-2 조임 — dogfood 20260716:
+#   첫 deny 후 모델이 무사유 BYPASS 를 커밋 3회+PR 생성에 관성 사용. 사유 없는 friction-log 는 무정보 감사 기록)
 out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
-check "T36 inline bypass prefix → allow" '"continue":true' "$out"
+check "T36 ★ inline bypass 무사유 → deny" '"permissionDecision":"deny"' "$out"
+check "T36-msg deny 메시지가 사유 병기 형식 안내" 'SPECOPS_BYPASS_REASON' "$out"
+# T36b 사유 병기 → allow (감사 가능한 우회 — 사유가 friction-log evidence_snippet 에 명령 원문으로 잔존)
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='design 커밋 — verify 선행 단계' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36b inline bypass + 사유 → allow" '"continue":true' "$out"
+# T36c REASON 선행 순서도 인정 (형식 순서 함정으로 false-deny 금지)
+out=$(mkstdin "SPECOPS_BYPASS_REASON='태스크 중간 커밋' SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36c REASON-선행 순서 + 사유 → allow" '"continue":true' "$out"
 # T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"

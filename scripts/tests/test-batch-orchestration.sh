@@ -60,6 +60,8 @@ sed -i.bak -E 's/\| (PENDING|PLAN_DONE) \|$/| IMPL_DONE |/' "$Q" && rm -f "$Q.ba
 mkdir -p "$TMP/.specops/20260711-a"
 : > "$TMP/.specops/20260711-a/review-base.sha"
 : > "$TMP/.specops/20260711-a/evidence.md"; : > "$TMP/.specops/20260711-a/review-request.md"
+# 진행기록 teeth (batch-state check 5): 실 FID 의 session-progress /verify PASS 줄 — verifying-evidence-ko 실호출 흔적
+printf '## 20260711-a\n- 2026-07-11 10:00 /verify PASS (evidence.md, AC 2/2)\n' > "$TMP/.specops/session-progress.md"
 # NFR 드리프트 잔여 방지 — req 는 FR 3행뿐이므로 drift 0 기대... (req 에 NFR-1 은 FR_RE 미매칭)
 bash "$PLUGIN/scripts/batch-state.sh" "$TMP/.specops/batch-t" "$TMP/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] \

@@ -107,8 +107,36 @@ if [ -n "$missing_artifacts" ]; then
   fail=1
 fi
 
+# 5) 진행기록 teeth — IMPL_DONE FID 마다 session-progress.md FID 섹션에 /verify PASS 줄 필수
+#    (dogfood 20260716: batch 가 skill 미호출 인라인 진행으로 session-progress 0줄 → R-1/R-2 면제 신호
+#     (_verify_passed_in_progress) 부재 → 게이트 차단 → BYPASS 관성 남발. 이 줄은 verifying-evidence-ko
+#     실호출의 흔적이자 세션 재개 맥락의 유일 경로. 앵커·섹션 추출은 governance-lib.sh
+#     _verify_passed_in_progress 와 동일 포맷 — 행 선두 `- YYYY-MM-DD HH:MM /verify PASS`, memo 언급 무매칭)
+PROGRESS="$SPECOPS_ROOT/session-progress.md"
+missing_progress=""
+if [ -n "$done_pairs" ]; then
+  while IFS='|' read -r fr_id fid; do
+    [ -z "$fr_id" ] && continue
+    case "$fid" in ''|'—'|'-'|'TBD'|'tbd') continue ;; esac
+    has_line=0
+    if [ -f "$PROGRESS" ]; then
+      awk -v f="## $fid" '$0 ~ "^"f"( |$)" {insec=1; next} insec && /^## / {exit} insec {print}' "$PROGRESS" \
+        | grep -Eq '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} /verify PASS' && has_line=1
+    fi
+    [ "$has_line" -eq 1 ] || \
+      missing_progress="${missing_progress}  - ${fr_id} (${fid}): session-progress /verify PASS 줄 없음"$'\n'
+  done <<EOF
+$done_pairs
+EOF
+fi
+if [ -n "$missing_progress" ]; then
+  echo "[진행기록 누락] IMPL_DONE FID 의 session-progress /verify PASS 줄 부재 (verifying-evidence-ko 실호출 흔적·R-1/R-2 면제 신호):"
+  printf '%s' "$missing_progress"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
-  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물 완비)"
+  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 완비)"
   exit 0
 fi
 echo "BATCH-STATE: MISMATCH — batch PR 전 확인 필요" >&2

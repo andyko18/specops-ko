@@ -4,7 +4,7 @@ description: "[전체·대화형] specops-auto-ko 한국어 자율 Lifecycle —
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 1.47.0
+specops_version: 1.49.0
 specops_layer: Lifecycle
 reference_upstream: specops-auto-ko 독자 추가
 ---
@@ -84,6 +84,7 @@ reference_upstream: specops-auto-ko 독자 추가
    - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거: 전 FID §참조에 화면 없음>` 를 `queue.md` 에 기록 후 **즉시 Phase 3 진입** (graceful skip).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출(개별 FR 인라인 호출 대신 통합 — 화면 간 시각 일관성 확보). **graceful 안전망**: ui-ux-pro-max 미감지(marketplace 미등록 등) 시 `DESIGN.md` 토큰 fallback + `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 안내. 우선순위: ui-ux-pro-max 결과 우선, DESIGN.md 후순위.
 3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍을 통합 design system 스타일로 생성. 해당 FID spec.md §참조에 경로가 이미 인용돼 있으면 재사용, 없으면 추가.
+3.5. **design 산출물 커밋** — `screens/*.md`·`screens/*.html`·`DESIGN.md`·`.specops/` **만** 담아 커밋한다(코드 파일 혼입 금지). 이 조합은 R-1 docs/design-only 면제로 verify 게이트를 그대로 통과한다 — **BYPASS 불요** (dogfood 20260716: `.html` 이 `.md` 한정 whitelist 에 걸려 false-block → 무사유 BYPASS 관성의 시작점이 됐다. 코드가 섞이면 차단되는 게 정상 동작이다).
 4. **[§auto 모드]** (`/start-all-auto` — 전 FID spec.md `**§auto**: true`): 화면별 대화형 승인 **없이** ui-ux-pro-max 결과를 자동 반영(가역 게이트 자동 통과). 생성된 화면 목록은 batch PR 게이트 다이제스트에 집계.
 5. 완료 → Phase 3 진입. Phase 3 `implementing-ko` 는 `screens/` 를 **§6 설계 계약**으로 소비하고, `verifying-evidence-ko` 의 memory 설계 동기화 점검이 역방향 안전망으로 검증한다(화면 Step 5.5 와 동일 teeth).
 
@@ -99,11 +100,11 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    ```
    (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
 1. `specops-auto-ko:implementing-ko` 호출 (**FID 기준**)
-2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성)
+2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
 3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출 (**FID 기준** — review.diff base = `.specops/<FID>/review-base.sha`, → `.specops/<FID>/review-request.md` 개별 생성)
 4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출 (**FID 기준**)
 5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR security/integration/performance/PR 차단. chain 자동 진행
-6. `.specops/<FID>/review-base.sha` · `evidence.md` · `review-request.md` **3종 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 이 3종을 하드 재검한다 — 부재 시 `[산출물 누락]` + exit 1)
+6. `.specops/<FID>/review-base.sha` · `evidence.md` · `review-request.md` **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 이 4항목을 하드 재검한다 — 부재 시 `[산출물 누락]`/`[진행기록 누락]` + exit 1)
 7. 다음 PLAN_DONE FR 반복
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-auto-ko:systematic-debugging-ko`로 처리 후 재개.
@@ -182,6 +183,8 @@ EOF
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
 - **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step D)만 생성
 - **Phase 2 건너뜀** — 일괄 리뷰 게이트는 필수. 사용자 확인 없이 Phase 3 진입 금지
+- **skill 미호출 인라인 뭉개기** — 오케스트레이터가 spec~verify 산출물을 heredoc 으로 직접 쓰는 것 금지 (R-3 스킬 선언 투명성 위반 + session-progress 줄 0 → `batch-state.sh` `[진행기록 누락]` 이 batch PR 직전 차단). 각 단계는 Skill 도구로 **실호출**한다 — dogfood 20260716: 4 FID spec→tasks 가 3분 만에 인라인 생성되어 진행 흔적이 전무했다
+- **deny 를 무사유 BYPASS 로 정면 돌파** — pretool deny 를 만나면 우선 `run-verification.sh <FID>` 를 실행해 정직하게 연다. 우회가 정당한 경우(verify 선행 단계의 중간 커밋 등)에도 인라인 BYPASS 는 `SPECOPS_BYPASS_REASON='<사유>'` 병기 필수 — 무사유는 pretool 이 deny 한다
 
 ## 참조
 
@@ -193,4 +196,4 @@ EOF
 
 ---
 
-*specops-auto-ko v1.47.0 · 2026-07-16 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-auto-ko v1.49.0 · 2026-07-16 · 3-Phase 일괄 구현 오케스트레이터*

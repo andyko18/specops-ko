@@ -157,6 +157,12 @@ is_docs_only_change() {
     [ -z "$f" ] && continue
     case "$f" in
       *.md|*.txt|*.rst) ;;
+      # design/아티팩트 면제 (20260716-batch-dogfood: Phase 2.5 design 커밋이 .md 한정 whitelist 에
+      #   걸려 false-block → BYPASS 남발 유발. 둘 다 실행 코드가 살 수 없는 경로다):
+      #   - screens/*.html : design-first 화면 미리보기(스펙 .md 와 쌍). repo 루트 screens/ 한정 —
+      #     src/ 등 경로의 .html(앱 코드 가능)은 비면제 유지.
+      #   - .specops/*     : lifecycle 아티팩트 도메인(review-base.sha·friction-log.jsonl 등 비 .md 포함).
+      screens/*.html|.specops/*) ;;
       *) return 1 ;;
     esac
   done <<EOF

@@ -930,10 +930,15 @@ e2e_check V23 "§batch halt 2회 (tasks.md 2·IMPL_DONE 0)" "$r23"
 bdir=$(dirname "$qf")
 bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c1=$?
 sed -i.bak -E 's/\| PLAN_DONE \|$/| IMPL_DONE |/' "$qf" && rm -f "$qf.bak"
-# batch-state teeth: IMPL_DONE FID 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md) 필수 — 시뮬 생성
+# batch-state teeth: IMPL_DONE FID 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md)
+# + session-progress /verify PASS 줄(진행기록 teeth — check 5) 필수 — 시뮬 생성
 for _fid_dir in "$TMP"/.specops/*/; do
   case "$_fid_dir" in */memory/|*/batch-*/) continue ;; esac
   : > "${_fid_dir}review-base.sha"; : > "${_fid_dir}evidence.md"; : > "${_fid_dir}review-request.md"
+  # append 헬퍼 사용 — 수기 `>> 파일 끝 ## 섹션` 은 Phase 1 이 이미 만든 동일 FID 섹션과 중복돼
+  # batch-state 의 첫-섹션 추출이 /verify 줄을 못 본다 (실 파이프라인 경로로 생성해야 회귀 fixture 가 유효)
+  _fid=$(basename "$_fid_dir")
+  ( cd "$TMP" && bash "$PLUGIN/scripts/session-progress-append.sh" "$_fid" /verify PASS "evidence.md, 시뮬" ) >/dev/null 2>&1
 done
 bash "$PLUGIN/scripts/batch-state.sh" "$bdir" "$TMP/.specops/memory/requirements.md" >/dev/null 2>&1; c2=$?
 { [ "$c1" -eq 1 ] && [ "$c2" -eq 0 ]; } && r24=0 || r24=1

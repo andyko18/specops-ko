@@ -706,16 +706,25 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.18 negative 매칭됨: $out"
 fi
 
-# T-H1 (single-source 정합): pretool L31 prefilter 정규식 == rules.jsonl R-1|R-2 trigger_pattern.
-# 한쪽만 수정 시 prefilter 통과해도 apply_lookback_rule deny 미발동(또는 반대) — 조용한 불일치 차단.
-h1_r1=$(jq -r 'select(.id=="R-1")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
-h1_r2=$(jq -r 'select(.id=="R-2")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
-h1_expected="$h1_r1|$h1_r2"
-h1_actual=$(grep -oE "grep -Eq '[^']*'" "$PLUGIN/hooks/pretool-governance.sh" | head -1 | sed "s/^grep -Eq '//;s/'$//")
-if [ "$h1_expected" = "$h1_actual" ]; then
-  PASS=$((PASS+1)); echo "PASS T-H1 pretool L31 prefilter ≡ rules.jsonl R-1|R-2 (single-source 정합)"
+# T-H1 (single-source 정합): pretool prefilter 는 rules.jsonl R-1/R-2 trigger_pattern 을 **동적 로드**한다 —
+# 하드코딩 literal 부재 검사 (T-R8 동형). 구버전은 literal 복제 + 문자열 비교였으나, VAR=val 인용값 클래스
+# 도입으로 literal 에 quote-splice 가 생겨 추출 비교 불가 → 참조 검사로 격상. 앵커 `--no-optional-locks` 는
+# trigger 정규식에만 존재하는 표식 — 잔존 시 literal 복제가 되살아난 것.
+if grep -q 'trigger_pattern' "$PLUGIN/hooks/pretool-governance.sh" \
+   && ! grep -q -- '--no-optional-locks' "$PLUGIN/hooks/pretool-governance.sh"; then
+  PASS=$((PASS+1)); echo "PASS T-H1 pretool prefilter ≡ rules.jsonl 동적 로드 (single-source, literal 복제 0)"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T-H1 prefilter≠rules — expected:[$h1_expected] actual:[$h1_actual]"
+  FAIL=$((FAIL+1)); echo "FAIL T-H1 prefilter literal 복제 잔존 또는 동적 참조 부재"
+fi
+# T-H1b 동적 로드 실효 canary — rules.jsonl 의 R-1 trigger 로 실제 deny 가 나오는지는 test-pretool T1 이
+# 행위로 검증한다(로드가 깨지면 fail-open allow → T1 FAIL). 여기서는 로드 표현식 자체의 산출값을 확인.
+h1_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|select(.!=null)]|join("|")' "$PLUGIN/hooks/rules.jsonl" 2>/dev/null)
+if [ -n "$h1_re" ] && printf '%s' "git commit -m x" | grep -Eq "$h1_re" \
+   && printf '%s' "gh pr create --fill" | grep -Eq "$h1_re" \
+   && ! printf '%s' "ls -la" | grep -Eq "$h1_re"; then
+  PASS=$((PASS+1)); echo "PASS T-H1b rules.jsonl trigger join 산출값 실효 (commit·pr 매칭, 무관 명령 미매칭)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-H1b trigger join 산출값 비정상: [$h1_re]"
 fi
 
 # T-R8 (single-source 정합): R-3 trigger 패턴은 rules.jsonl R-3.trigger_skill_pattern 단일소스.

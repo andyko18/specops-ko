@@ -148,6 +148,12 @@ _docs_case 1 "T-docs.j code→docs rename 차단(불변식)" 'git init -q; echo 
 _docs_case 0 "T-docs.k docs→docs rename 무회귀" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md b.md'
 _docs_case 1 "T-docs.l docs→code rename 유지" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md a.sh'
 _docs_case 1 "T-docs.m PR범위 code→docs rename 차단" 'git init -q; git checkout -q -b main 2>/dev/null; echo x>a.sh; git add a.sh; git "$C" -q -m i; git checkout -q -b feat; git mv a.sh a.md; git "$C" -q -m r'
+# T-docs.n~q: design/아티팩트 면제 확장 (dogfood 20260716 — Phase 2.5 design 커밋(screens/*.html)이
+#   .md 한정 whitelist 에 걸려 false-block → BYPASS 남발 유발. screens/ 미리보기·.specops/ 아티팩트는 실행 코드 아님)
+_docs_case 0 "T-docs.n screens/*.html 설계 미리보기 면제" 'git init -q; mkdir screens; echo x>screens/login.html; echo s>screens/login.md; git add screens'
+_docs_case 1 "T-docs.o screens/ 밖 .html 비면제(앱 코드 가능)" 'git init -q; mkdir src; echo x>src/index.html; git add src'
+_docs_case 1 "T-docs.p screens/*.html + 코드 혼합 차단(불변식)" 'git init -q; mkdir screens; echo x>screens/a.html; echo y>b.sh; git add screens b.sh'
+_docs_case 0 "T-docs.q .specops/ 아티팩트(비 .md 포함) 면제" 'git init -q; mkdir -p .specops/20260101-x; echo sha>.specops/20260101-x/review-base.sha; git add .specops'
 
 # T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
 _base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval

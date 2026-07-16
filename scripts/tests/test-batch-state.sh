@@ -55,9 +55,11 @@ EOF
 # 단, 20260101-b 는 MERGED → teeth 제외 대상이므로 seed 불요(IMPL_DONE 한정 검증도 겸함)
 : > "$TMP/b/.specops/20260101-a/review-base.sha"
 : > "$TMP/b/.specops/20260101-a/evidence.md"; : > "$TMP/b/.specops/20260101-a/review-request.md"
+# 진행기록 teeth 전제 — IMPL_DONE FID 의 session-progress /verify PASS 줄 (verifying-evidence-ko 실호출 흔적)
+printf '## 20260101-a\n- 2026-01-01 10:00 /verify PASS (evidence.md, AC 3/3)\n' > "$TMP/b/.specops/session-progress.md"
 printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > "$TMP/b/req.md"
 bash "$SCRIPT" "$TMP/b/.specops/batch-y" "$TMP/b/req.md" >/dev/null 2>&1; code=$?
-[ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0 (산출물 존재)" || nope "T2.a clean" "exit=$code (기대 0)"
+[ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0 (산출물·진행기록 존재)" || nope "T2.a clean" "exit=$code (기대 0)"
 
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
@@ -130,6 +132,42 @@ printf 'cafef00d\n' > "$TMP/b5/.specops/20260101-g/review-base.sha"
   [ "$BASE_SHA" = "cafef00d" ] )
 [ "$?" -eq 0 ] && ok "T2.e layer 2 read-path — §batch BASE_SHA = review-base.sha 내용 (HEAD~1 미사용)" \
   || nope "T2.e §batch resolve" "BASE_SHA 가 review-base.sha 로 resolve 안 됨"
+
+# ── fixture B6: 3종 완비 + session-progress /verify PASS 줄 부재 → 진행기록 누락 차단 ──
+#    dogfood 20260716: batch 가 skill 미호출 인라인 진행으로 session-progress 0줄 → R-1/R-2 면제 신호
+#    (_verify_passed_in_progress) 부재 → 게이트 차단 → BYPASS 관성 남발. 줄 존재를 batch PR 전 하드 재검.
+mkdir -p "$TMP/b6/.specops/batch-y6" "$TMP/b6/.specops/20260101-h"
+cat > "$TMP/b6/.specops/batch-y6/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-h | one | IMPL_DONE |
+EOF
+: > "$TMP/b6/.specops/20260101-h/review-base.sha"
+: > "$TMP/b6/.specops/20260101-h/evidence.md"; : > "$TMP/b6/.specops/20260101-h/review-request.md"
+printf '| FR-1 | h | M1 | must | s | f |\n' > "$TMP/b6/req.md"
+out=$(bash "$SCRIPT" "$TMP/b6/.specops/batch-y6" "$TMP/b6/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "진행기록 누락" && echo "$out" | grep -q "20260101-h"; then
+  ok "T2.f 진행기록 teeth — /verify PASS 줄 부재 FID 차단"
+else
+  nope "T2.f 진행기록 teeth" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+# ── fixture B7: 섹션은 있으나 /verify 줄 없음(다른 커맨드 줄만) → 차단 · memo 언급은 매칭 금지 ──
+mkdir -p "$TMP/b7/.specops/batch-y7" "$TMP/b7/.specops/20260101-i"
+cat > "$TMP/b7/.specops/batch-y7/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-i | one | IMPL_DONE |
+EOF
+: > "$TMP/b7/.specops/20260101-i/review-base.sha"
+: > "$TMP/b7/.specops/20260101-i/evidence.md"; : > "$TMP/b7/.specops/20260101-i/review-request.md"
+printf '## 20260101-i\n- 2026-01-01 10:00 /implement DONE (memo 에 /verify PASS 언급)\n' > "$TMP/b7/.specops/session-progress.md"
+printf '| FR-1 | i | M1 | must | s | f |\n' > "$TMP/b7/req.md"
+out=$(bash "$SCRIPT" "$TMP/b7/.specops/batch-y7" "$TMP/b7/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "진행기록 누락"; then
+  ok "T2.g 진행기록 teeth — 행 선두 앵커(memo 언급 무매칭)"
+else
+  nope "T2.g 행 선두 앵커" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
 
 # ── fixture C: FR-ID 중복 + read-only 검증 ──
 mkdir -p "$TMP/c/.specops/batch-z"
