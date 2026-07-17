@@ -240,6 +240,61 @@ _strip_heredoc_bodies() {
   printf '%s' "$out"
 }
 
+# 인용 문자열 리터럴 본문을 트리거 검사 입력에서 제거한다 (20260717-quoted-falseblock).
+#
+# 왜: printf/echo 인자 등 **인용 문자열 안의 프로즈**("배포 후 (git commit 으로 기록)"·"build | git commit")에
+#   든 셸 메타문자 선행자((·|)가 트리거와 오매칭 → 정직한 문서·코드 텍스트 작성이 차단됐다
+#   (dogfood 20260717 test2 모델 backlog "R-1 블록주석 내부 오검출" — probe 로 실재 확정. heredoc 경로는
+#   _strip_heredoc_bodies 가 이미 처리, 인라인 인용 인자가 잔여 표면이었다).
+# 안전 불변식 (차단 우세 — heredoc strip 과 동일 철학):
+#   - 싱글쿼트 본문: bash 가 절대 실행하지 않음 → 무조건 제거. eval/sh -c '...' wrapper 는 오늘도
+#     트리거 미매칭(선행자 ' 는 클래스 밖 — F-3 WON'T-FIX 클래스)이라 제거해도 표면 불변.
+#   - 더블쿼트 본문: $( ) 또는 백틱 포함 시 **실제 실행됨** → 그 문자열은 제거하지 않고 보존(deny 보존).
+#   - 백슬래시: bash 인용 의미대로 처리(다음 1문자 verbatim — \" 가 인용 경계를 못 닫게). blanket-bail 로
+#     하면 printf "%s\n" 류(실전 false-block 의 주 형태)가 전부 bail 돼 본 fix 가 무력화된다.
+#   - bail(원본 반환): $'...' ANSI-C 인용 · 미종결 인용 · awk 실패 — 파싱 애매 시 현재
+#     동작(차단 우세)으로 후퇴. 제거 로직 버그가 차단을 뚫는 방향으로 작용하면 안 된다.
+# 이식성: POSIX awk (\x 이스케이프 금지 — SQ/DQ/BT 는 sprintf("%c",N), heredoc strip 선례).
+_strip_quoted_strings() {
+  local cmd="$1" out
+  case "$cmd" in
+    *"'"*|*'"'*) ;;
+    *) printf '%s' "$cmd"; return 0 ;;   # 빠른 경로 — 인용 없음 = 바이트 동일
+  esac
+  out=$(printf '%s\n' "$cmd" | awk '
+    BEGIN { SQ=sprintf("%c",39); DQ=sprintf("%c",34); BT=sprintf("%c",96); BS=sprintf("%c",92) }
+    { lines[NR]=$0 }
+    END {
+      buf=""
+      for(i=1;i<=NR;i++) buf = buf lines[i] (i<NR ? "\n" : "")
+      if (index(buf, "$" SQ) > 0) { printf "%s", buf; exit }   # $\047...\047 ANSI-C → bail
+      out=""; mode=0; dbuf=""; n=length(buf)
+      for(i=1;i<=n;i++){
+        ch=substr(buf,i,1)
+        if(mode==0){
+          if(ch==BS){ out=out ch; i++; if(i<=n) out=out substr(buf,i,1) }   # \x → 2문자 verbatim
+          else if(ch==SQ){mode=1; out=out ch}
+          else if(ch==DQ){mode=2; dbuf=""; out=out ch}
+          else out=out ch
+        } else if(mode==1){                       # 싱글쿼트 본문 — 제거 (bash: 내부 이스케이프 없음)
+          if(ch==SQ){mode=0; out=out ch}
+        } else {                                  # 더블쿼트 본문
+          if(ch==BS){ dbuf=dbuf ch; i++; if(i<=n) dbuf=dbuf substr(buf,i,1) }   # \" 경계 오닫힘 방지
+          else if(ch==DQ){
+            mode=0
+            if(index(dbuf,"$(")>0 || index(dbuf,BT)>0) out=out dbuf   # 실행 가능 → 보존
+            out=out ch
+          } else dbuf=dbuf ch
+        }
+      }
+      if(mode!=0){ printf "%s", buf; exit }       # 미종결 인용 → 원본 (fail-safe)
+      printf "%s", out
+    }
+  ' 2>/dev/null) || { printf '%s' "$cmd"; return 0; }
+  [ -n "$out" ] || { printf '%s' "$cmd"; return 0; }
+  printf '%s' "$out"
+}
+
 # transcript JSONL 에서 최근 N 개 tool_use 이벤트를 추출
 # 출력: JSONL, 각 줄 { "index": <0-based>, "tool_name": "...", "input": {...} }
 #   index = 필터된 tool_use 이벤트 배열의 0-based 위치 (raw JSONL line 아님)
@@ -365,6 +420,7 @@ apply_lookback_rule() {
   #   $tool_cmd 원본은 보존한다: 아래 evidence_snippet 은 모델이 실제로 낸 명령 전문을 남겨야 감사 가치가 있다.
   local _scan_cmd
   _scan_cmd=$(_strip_heredoc_bodies "$tool_cmd")
+  _scan_cmd=$(_strip_quoted_strings "$_scan_cmd")
   printf '%s' "$_scan_cmd" | grep -Eq "$trigger_pattern" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')

@@ -38,6 +38,7 @@ transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 #   `bash <<EOF`(셸 실행자) 본문은 제외하지 않는다(실제 실행됨 → F-3 표면 불변). 실패 시 원본 = 차단 우세.
 #   $tool_cmd 원본은 아래 apply_lookback_rule·deny 메시지에서 그대로 쓴다 — 덮어쓰기 금지.
 tool_cmd_scan=$(_strip_heredoc_bodies "$tool_cmd")
+tool_cmd_scan=$(_strip_quoted_strings "$tool_cmd_scan")
 # prefilter 정규식은 rules.jsonl R-1/R-2 trigger_pattern 동적 로드 (T-H1 single-source — 구버전은 literal
 #   복제 + 정합 테스트였으나, VAR=val 인용값 클래스 도입(20260716-batch-dogfood widening: `FOO='a b' git commit`
 #   이 prefix 체인을 끊어 트리거를 통째로 비껴감 — 인식 확대 = deny-superset = 차단 우세라 evasion 방어
@@ -59,6 +60,15 @@ printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 #   정직 병기한 우회가 false-deny 됐다. 단순 공백 선행(메시지 내 토큰 언급, T37)은 여전히 불인정.
 _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
 if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]"; then
+  # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
+  #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
+  if printf '%s' "$tool_cmd" | grep -Eq -- "-m[[:space:]]+[\"']?BYPASS"; then
+    reason="커밋 메시지에 BYPASS 표식을 넣지 마세요 — 우회 기록은 SPECOPS_BYPASS_REASON 과 friction-log 가 담당합니다.
+메시지는 conventional commit(fix:/feat:/test:/…)으로 정상 작성 후 재시도하세요."
+    jq -nc --arg r "$reason" \
+      '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+    exit 0
+  fi
   printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" && allow
   reason="SPECOPS_GOVERNANCE_BYPASS 인라인 우회에는 사유 병기가 필수입니다 (friction-log 감사 기록에 명령 원문째 남습니다).
 형식: SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>

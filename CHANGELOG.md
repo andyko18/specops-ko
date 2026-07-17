@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **인용 문자열 프로즈 false-block — `_strip_quoted_strings`** — printf/echo 인용 인자 속 프로즈("배포 후 (git commit 으로 기록)"·"build | git commit")의 `(`·`|` 선행자가 R-1/R-2 트리거와 오매칭돼 정직한 문서·코드 텍스트 작성이 차단됐다(dogfood 20260717 test2 모델 backlog "R-1 블록주석 내부 오검출" — probe 로 실재 확정. heredoc 경로는 기처리, 인라인 인용 인자가 잔여 표면). 인용 본문을 트리거 검사 입력에서 제거하되 **차단 우세 불변식** 유지: 더블쿼트 내 `$( )`·백틱은 실제 실행되므로 보존(deny 보존), 백슬래시는 bash 인용 의미대로 처리(blanket-bail 은 `printf "%s\n"` 주 형태를 전부 죽여 fix 무력화), `$'…'`·미종결 인용·awk 실패는 원본 후퇴. pretool prefilter + `apply_lookback_rule`(posttool 대칭) 양쪽 배선. teeth: test-pretool T-qs.1~6·4b.
+- **커밋 메시지 BYPASS 표식 오염 가드** — 우회 커밋 메시지를 `BYPASS fix: …` 로 시작하는 오염(dogfood test2 `61f9e0d` — conventional commit 훼손, 릴리즈 노트·검색 오염)이 실측됨. bypass 경로에서 `-m "BYPASS…"` 를 deny + 정상 메시지 재작성 안내(우회 기록은 `SPECOPS_BYPASS_REASON`+friction-log 담당). teeth: test-pretool T-mp.a~c.
+
 ## [1.49.0] — 2026-07-17
 
 ### Added

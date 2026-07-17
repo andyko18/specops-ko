@@ -244,6 +244,38 @@ else
   echo "PASS T-msg.d 틀린 해법 안내 제거됨"; pass=$((pass+1))
 fi
 
+# T-qs 인용 문자열 false-block (20260717-quoted-falseblock — dogfood test2 모델 backlog "R-1 블록주석
+#   내부 오검출" probe 실재 확정: printf/echo 인용 인자 속 프로즈의 (·| 선행자가 트리거와 오매칭)
+qs1='printf "%s\n" "/*" " * 배포 절차: build 후 (git commit 으로 기록)" " */" > note.js'
+out=$(mkstdin "$qs1" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.1 ★ 인용 인자 괄호 프로즈 → allow (false-block 해소)" '"continue":true' "$out"
+qs2='printf "%s\n" "// pipeline: build | git commit -m x" >> note.js'
+out=$(mkstdin "$qs2" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.2 ★ 인용 인자 파이프 주석 프로즈 → allow" '"continue":true' "$out"
+qs3='echo "$(git commit -m x)"'
+out=$(mkstdin "$qs3" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.3 ★★ 더블쿼트 내 \$() 실행 → deny (보안 불변식 — 제거 금지)" '"permissionDecision":"deny"' "$out"
+qs4='git commit -m "back\\slash \" 포함"'
+out=$(mkstdin "$qs4" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.4 이스케이프(\\\\·\\\") 포함 메시지의 진짜 commit → deny (트리거 보존)" '"permissionDecision":"deny"' "$out"
+qs4b='printf "%s\n" "escape 문서: build 후 (git commit 으로 기록)" > note.md'
+out=$(mkstdin "$qs4b" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.4b ★ \\n 포함 printf 프로즈 → allow (blanket-bail 무력화 방지)" '"continue":true' "$out"
+qs5='git commit -m "미종결 인용'
+out=$(mkstdin "$qs5" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.5 미종결 인용 bail → deny (fail-safe)" '"permissionDecision":"deny"' "$out"
+qs6="git commit -m 'fix: 정상 메시지'"
+out=$(mkstdin "$qs6" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-qs.6 인용 메시지의 진짜 commit → deny (트리거 보존)" '"permissionDecision":"deny"' "$out"
+
+# T-mp 커밋 메시지 BYPASS 표식 오염 가드 (dogfood test2 61f9e0d "BYPASS fix: ..." — 우회 표식이
+#   git 히스토리에 유입. 우회 기록은 REASON+friction-log 담당, conventional commit 훼손 금지)
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='중간 커밋' git commit -m \"BYPASS fix: x\"" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-mp.a ★ bypass + -m \"BYPASS...\" 메시지 오염 → deny" '"permissionDecision":"deny"' "$out"
+check "T-mp.b 오염 deny 메시지가 정상 메시지 재작성 안내" 'conventional commit' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='중간 커밋' git commit -m \"fix: 정상\"" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-mp.c bypass + 정상 메시지 → allow (오염 가드 오탐 0)" '"continue":true' "$out"
+
 # T-hd heredoc false-block (20260713-heredoc-false-block)
 #   grep -E 는 줄 단위 → 멀티라인 Bash command 의 heredoc **본문** 줄도 트리거에 매칭됐다.
 #   → 정직한 문서 작성(spec.md 에 git 예시)이 차단되고 BYPASS 를 남발하게 만들었다.
