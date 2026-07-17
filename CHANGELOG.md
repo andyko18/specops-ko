@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.49.0] — 2026-07-17
+
 ### Added
 - **batch 진행기록 teeth — batch-state check 5** (#214) — `/start-all` dogfood(specops-test1 재주행)에서 batch 가 skill 미호출 인라인 진행으로 session-progress 0줄 → R-1/R-2 면제 신호(`_verify_passed_in_progress`) 부재 → 게이트 차단 → 무사유 BYPASS 관성(커밋 3회+PR)이 실측됨. IMPL_DONE FID 마다 session-progress FID 섹션의 `- YYYY-MM-DD HH:MM /verify PASS` 줄(행 선두 앵커)을 batch PR 직전 하드 재검 — 부재 시 `[진행기록 누락]` + exit 1. start-all.md Phase 3 배선(재검 3종→4항목) + 안티패턴 2건(인라인 뭉개기·무사유 BYPASS 정면 돌파) 신설. teeth: test-batch-state T2.f/g.
 - **인라인 BYPASS 사유 강제 — `SPECOPS_BYPASS_REASON`** (#214) — `SPECOPS_GOVERNANCE_BYPASS=1` 인라인 prefix 는 사유 병기 필수(무사유 deny + 형식 안내). 사유가 friction-log evidence_snippet 에 명령 원문째 남아 감사 가능한 우회가 된다. 세션 env 탈출구(사용자 주권)는 불변. teeth: test-pretool T36 계약 뒤집기 + T36b/c.
@@ -719,7 +721,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...HEAD
+[1.49.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.3...v1.48.0
 [1.47.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.2...v1.47.3
 [1.47.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.1...v1.47.2
