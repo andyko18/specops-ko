@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+- **batch 진행기록 teeth — batch-state check 5** (#214) — `/start-all` dogfood(specops-test1 재주행)에서 batch 가 skill 미호출 인라인 진행으로 session-progress 0줄 → R-1/R-2 면제 신호(`_verify_passed_in_progress`) 부재 → 게이트 차단 → 무사유 BYPASS 관성(커밋 3회+PR)이 실측됨. IMPL_DONE FID 마다 session-progress FID 섹션의 `- YYYY-MM-DD HH:MM /verify PASS` 줄(행 선두 앵커)을 batch PR 직전 하드 재검 — 부재 시 `[진행기록 누락]` + exit 1. start-all.md Phase 3 배선(재검 3종→4항목) + 안티패턴 2건(인라인 뭉개기·무사유 BYPASS 정면 돌파) 신설. teeth: test-batch-state T2.f/g.
+- **인라인 BYPASS 사유 강제 — `SPECOPS_BYPASS_REASON`** (#214) — `SPECOPS_GOVERNANCE_BYPASS=1` 인라인 prefix 는 사유 병기 필수(무사유 deny + 형식 안내). 사유가 friction-log evidence_snippet 에 명령 원문째 남아 감사 가능한 우회가 된다. 세션 env 탈출구(사용자 주권)는 불변. teeth: test-pretool T36 계약 뒤집기 + T36b/c.
+- **critic provider preflight·cascade — `_usable`** (#215) — specops-test2 정주행에서 claude 감지(`command -v` 통과) 후 실행 rc=127(stale shim/PATH 클래스) → 외부 critic 전 구간 실효 0 이 `FAIL (provider rc=127)` 로 위장됐다. `--version` preflight 로 실행 불가 provider 를 부재로 강등 → 다음 provider cascade(claude→codex→gemini→ollama) 또는 정직한 SKIP + stderr 진단. `CRITIC_BIN`(사용자 강제)은 계약상 preflight 제외. teeth: test-critic-ask T1.h/i.
+
+### Fixed
+- **design 산출물 커밋 false-block 5호** (#214) — Phase 2.5 design 커밋(`screens/*.html`)이 `.md` 한정 docs-only whitelist 에 걸려 차단 → BYPASS 남발 유인. `is_docs_only_change` 에 `screens/*.html`(루트 screens/ 한정 — `src/**/*.html` 은 비면제 유지)·`.specops/*`(아티팩트 도메인) 면제 추가. teeth: test-lib T-docs.n~q.
+- **인용 공백값 prefix 트리거 우회 차단 + prefilter 동적 로드** (#214) — `FOO='a b' git commit` 처럼 인용 공백값이 VAR=val prefix 체인을 끊어 R-1/R-2 트리거를 통째로 비껴가던 기존 우회를 인용값 클래스 지원(deny-superset widening)으로 차단. 인용값 도입으로 pretool literal 에 quote-splice 가 생겨 T-H1(literal 복제 비교)이 구조적으로 깨짐 → prefilter 를 rules.jsonl `trigger_pattern` 동적 로드로 전환(T-R8 동형, drift 원천 제거). teeth: test-pretool T21b/T22b·test-rules T-H1/H1b.
+- **정직한 BYPASS false-deny — 선행자 클래스 비대칭** (#215) — 사유까지 병기한 compound(`git add x && BYPASS=1 REASON=... git commit`)·함수 wrapper(`B() { ... }`) 우회가 `^줄시작` 앵커에 걸려 deny 되던 것(specops-test2 실측, 재시도 2회+ 낭비)을 트리거와 동일 선행자 클래스 `(^|[;&|({\`])` 로 정합. 메시지 내 토큰 언급(공백 선행)은 여전히 불인정(T37 보존). teeth: test-pretool T36d/e/f.
+
 ## [1.48.0] — 2026-07-16
 
 ### Added
