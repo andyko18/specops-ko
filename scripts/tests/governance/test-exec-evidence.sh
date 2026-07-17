@@ -128,5 +128,26 @@ printf '%s\n' \
 _verify_exec_evidence "$rafail"; ck "T16 run-all 실패(FAIL 토큰) → 1 (negative check)" 1 $?
 rm -f "$rafail"
 
+# T-fresh: 신선도 게이트 (20260717-exec-evidence-staleness — dogfood test1 FR-3 실측: 세션 초반
+#   FR-2 의 VERIFY: PASS 가 윈도우·스코프 없이 세션 끝까지 만능 면제표가 되어, 이후 FID 의
+#   미검증 implement 커밋 전부(서브에이전트 포함)를 열었다. friction 무흔적의 실물 원인)
+#   규칙: 마지막 실행증거 **이후** 비-.specops Edit/Write/NotebookEdit 가 있으면 stale → 1.
+runner_ev='{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F1","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260101-x"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_F1","is_error":false,"content":"VERIFY: PASS"}]}}'
+fr=$(mktemp) || exit 1
+# T-fresh.a ★ 증거 후 코드 Edit → stale(1)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F2","name":"Edit","input":{"file_path":"src/app.ts","old_string":"a","new_string":"b"}}]}}' > "$fr"
+_verify_exec_evidence "$fr"; ck "T-fresh.a ★ 증거 후 코드 Edit → 1 (stale)" 1 $?
+# T-fresh.b 증거 후 .specops 아티팩트 Write 만 → 여전히 0 (정직 흐름: evidence.md 마무리)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F3","name":"Write","input":{"file_path":".specops/20260101-x/evidence.md","content":"x"}}]}}' > "$fr"
+_verify_exec_evidence "$fr"; ck "T-fresh.b 증거 후 .specops Write → 0 (아티팩트 제외)" 0 $?
+# T-fresh.c 코드 Edit 후 증거 (정상 순서: 수정→재검증) → 0
+printf '%s\n' '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F4","name":"Edit","input":{"file_path":"src/app.ts","old_string":"a","new_string":"b"}}]}}' "$runner_ev" > "$fr"
+_verify_exec_evidence "$fr"; ck "T-fresh.c Edit 후 증거(재검증 순서) → 0" 0 $?
+# T-fresh.d 증거 후 Write(코드) → stale, 이후 재검증 → 다시 0 (최신 증거가 이김)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F5","name":"Write","input":{"file_path":"src/new.ts","content":"x"}}]}}' '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F6","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260101-x"}}]}}' '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_F6","is_error":false,"content":"VERIFY: PASS"}]}}' > "$fr"
+_verify_exec_evidence "$fr"; ck "T-fresh.d 수정 후 재검증 → 0 (최신 증거 우선)" 0 $?
+rm -f "$fr"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

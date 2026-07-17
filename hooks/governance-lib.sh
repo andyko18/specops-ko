@@ -84,6 +84,15 @@ _verify_evidence_stamp() {
 # 판정 불가(2) 조건: transcript 부재 · jq 실패 · malformed JSONL(--slurpfile 전체 실패) ·
 #   **tool_use 이벤트 0건**. 마지막 것이 핵심 — 이벤트가 0건이면 "검증을 안 했다"와 "transcript 를
 #   제대로 못 읽었다"를 구별할 수 없다. fail-open 원칙상 판정 불가로 둔다 (C-3 설계 정정).
+#
+# ★ 신선도 게이트 (20260717-exec-evidence-staleness): 증거는 **마지막 실행증거 이후 코드 편집이
+#   없을 때만** 유효하다. 종전엔 윈도우·스코프 없이 transcript 전체를 스캔해, 세션 초반 다른 FID 의
+#   VERIFY: PASS 1회가 세션 끝까지 만능 면제표였다 (dogfood test1: FR-2 verify 가 FR-3 미검증
+#   implement 커밋 8+개를 전부 열어 friction 무흔적 — 서브에이전트 훅도 main transcript 로 평가되므로
+#   동일 적용). 코드 편집 = 비-.specops file_path 의 Edit/Write/NotebookEdit tool_use.
+#   .specops/ 아티팩트 Write(evidence.md 마무리 등)는 정직한 verify 후 흐름이라 제외.
+#   한계(F-1 동류 heuristic): Bash 경유 파일수정(sed -i·리다이렉트)은 미탐 — honest-mistake 의
+#   지배 경로는 Edit/Write 이고, 의도적 우회는 F-3 wrapper 클래스로 수용.
 _verify_exec_evidence() {
   local transcript="$1"
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
@@ -94,30 +103,38 @@ _verify_exec_evidence() {
     #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
     ($a | map(select(.type=="assistant")
               | .message.content[]?
-              | select(.type=="tool_use")) | length) as $all
-    | ($a | map(select(.type=="assistant")
-              | .message.content[]?
-              | select(.type=="tool_use" and .name=="Bash")
-              | {id: .id, cmd: (.input.command // "")})) as $uses
+              | select(.type=="tool_use"))) as $tus
+    | ($tus | length) as $all
     | ($a | map(select(.type=="user")
                 | .message.content[]?
                 | select(.type=="tool_result" and (.is_error != true))   # 에러 결과는 증거 불인정
                 | {id: .tool_use_id,
                    out: (.content | if type=="string" then . else tostring end)})) as $res
-    | ([ $uses[]
-         # 선행자 클래스의 \\n: Bash tool command 는 흔히 멀티라인이다(`cd <path>` 다음 줄에 러너).
-         #   줄바꿈이 없으면 2번째 줄의 러너가 ^ 에도 [;&|(] 에도 안 걸려 **정직한 실행을 미인식→deny**
-         #   하는 false-block 이 난다(실전 dogfooding 적발). 줄바꿈은 셸의 진짜 명령 구분자이므로
-         #   `;`·`&`·`|` 와 동급으로 클래스에 든다 — 앵커 의미(줄 첫 토큰이 러너여야 함)는 그대로:
-         #   `echo "ran pytest"`·`# bash run-verification.sh`(주석)는 여전히 불인정 (T12·T13 잠금).
-         #   run-all.sh 인식 (20260716 false-block): self-maintenance 의 정식 러너는 전체 스위트
-         #   run-all.sh 다 — 성공 시 스스로 `VERIFY: PASS` 토큰을 출력해 기존 토큰 계약으로 판정된다.
-         #   앵커는 `tests/run-all\.sh` 로 좁힌다(downstream 의 무관한 ./run-all.sh 불인정 — T15 잠금).
+    # 마지막 유효 실행증거의 전역 tool_use 인덱스 (없으면 -1)
+    # 선행자 클래스의 \\n: Bash tool command 는 흔히 멀티라인이다(`cd <path>` 다음 줄에 러너).
+    #   줄바꿈이 없으면 2번째 줄의 러너가 ^ 에도 [;&|(] 에도 안 걸려 **정직한 실행을 미인식→deny**
+    #   하는 false-block 이 난다(실전 dogfooding 적발). 줄바꿈은 셸의 진짜 명령 구분자이므로
+    #   `;`·`&`·`|` 와 동급으로 클래스에 든다 — 앵커 의미(줄 첫 토큰이 러너여야 함)는 그대로:
+    #   `echo "ran pytest"`·`# bash run-verification.sh`(주석)는 여전히 불인정 (T12·T13 잠금).
+    #   run-all.sh 인식 (20260716 false-block): self-maintenance 의 정식 러너는 전체 스위트
+    #   run-all.sh 다 — 성공 시 스스로 `VERIFY: PASS` 토큰을 출력해 기존 토큰 계약으로 판정된다.
+    #   앵커는 `tests/run-all\.sh` 로 좁힌다(downstream 의 무관한 ./run-all.sh 불인정 — T15 잠금).
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Bash")
+         | {id: .id, cmd: (.input.command // "")}
          | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
-       ] | length) as $h
+         | $i ] | max // -1) as $lasthit
+    # 마지막 코드 편집(비-.specops Edit/Write/NotebookEdit)의 전역 인덱스 (없으면 -1)
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit")
+         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | $i ] | max // -1) as $lastedit
+    | (if $lasthit >= 0 and $lasthit > $lastedit then 1 else 0 end) as $h
     | "\($all) \($h)"
   ' 2>/dev/null) || return 2
   [ -z "$out" ] && return 2

@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **실행증거 신선도 게이트 — 세션 전역 만능 면제표 봉합** — `_verify_exec_evidence` 가 윈도우·FID 스코프 없이 transcript 전체를 스캔해, 세션 초반 **다른 FID 의** `VERIFY: PASS` 1회가 세션 끝까지 모든 커밋을 여는 만능 면제표였다(dogfood test1 실측: FR-2 verify 가 FR-3 미검증 implement 커밋 8+개를 전부 면제 → friction 무흔적. 계측 probe 로 서브에이전트 훅도 main transcript 로 평가됨을 확정 — "서브에이전트 게이트 갭" 가설은 기각, 실물은 staleness). 규칙: **마지막 실행증거 이후 비-`.specops` Edit/Write/NotebookEdit 가 있으면 stale**(수정→재검증 후 커밋이 정직 순서 — `_verify_passed_in_progress` vts>cts 와 동형). `.specops/` 아티팩트 Write(evidence.md 마무리)는 제외. 한계: Bash 경유 파일수정(sed -i)은 미탐(F-1 동류 heuristic). teeth: test-exec-evidence T-fresh.a~d.
 - **인용 문자열 프로즈 false-block — `_strip_quoted_strings`** — printf/echo 인용 인자 속 프로즈("배포 후 (git commit 으로 기록)"·"build | git commit")의 `(`·`|` 선행자가 R-1/R-2 트리거와 오매칭돼 정직한 문서·코드 텍스트 작성이 차단됐다(dogfood 20260717 test2 모델 backlog "R-1 블록주석 내부 오검출" — probe 로 실재 확정. heredoc 경로는 기처리, 인라인 인용 인자가 잔여 표면). 인용 본문을 트리거 검사 입력에서 제거하되 **차단 우세 불변식** 유지: 더블쿼트 내 `$( )`·백틱은 실제 실행되므로 보존(deny 보존), 백슬래시는 bash 인용 의미대로 처리(blanket-bail 은 `printf "%s\n"` 주 형태를 전부 죽여 fix 무력화), `$'…'`·미종결 인용·awk 실패는 원본 후퇴. pretool prefilter + `apply_lookback_rule`(posttool 대칭) 양쪽 배선. teeth: test-pretool T-qs.1~6·4b.
 - **커밋 메시지 BYPASS 표식 오염 가드** — 우회 커밋 메시지를 `BYPASS fix: …` 로 시작하는 오염(dogfood test2 `61f9e0d` — conventional commit 훼손, 릴리즈 노트·검색 오염)이 실측됨. bypass 경로에서 `-m "BYPASS…"` 를 deny + 정상 메시지 재작성 안내(우회 기록은 `SPECOPS_BYPASS_REASON`+friction-log 담당). teeth: test-pretool T-mp.a~c.
 
