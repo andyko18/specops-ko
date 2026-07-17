@@ -163,6 +163,14 @@ check "T36b inline bypass + 사유 → allow" '"continue":true' "$out"
 # T36c REASON 선행 순서도 인정 (형식 순서 함정으로 false-deny 금지)
 out=$(mkstdin "SPECOPS_BYPASS_REASON='태스크 중간 커밋' SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T36c REASON-선행 순서 + 사유 → allow" '"continue":true' "$out"
+# T36d~f 선행자 클래스 정합 (dogfood 20260717 test2: 사유까지 정직 병기한 compound·함수 wrapper BYPASS 가
+#   ^줄시작 앵커에 걸려 false-deny — 트리거는 [;&|({`] 선행자를 인식하는데 bypass 인정만 좁던 비대칭 해소)
+out=$(mkstdin "git add a.sh && SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='T4 14/14 PASS 실측' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36d compound(&&) bypass + 사유 → allow" '"continue":true' "$out"
+out=$(mkstdin 'B() { SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON="$1" git commit -m "$2"; }; B "사유" "msg"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36e 함수 wrapper bypass + 사유 → allow" '"continue":true' "$out"
+out=$(mkstdin "git add a.sh && SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36f compound bypass 무사유 → deny (사유 강제 보존)" 'SPECOPS_BYPASS_REASON' "$out"
 # T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"

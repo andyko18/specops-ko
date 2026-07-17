@@ -54,8 +54,11 @@ printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 #   무사유 BYPASS 를 커밋 3회+PR 생성에 관성 사용 — 사유 없는 friction-log 는 우회 횟수만 남는 무정보 감사
 #   기록이 된다. 사유는 명령 원문째 friction-log evidence_snippet 에 남는다). 세션 env(위 줄)는 사용자 전용
 #   탈출구라 사유 불요(주권). REASON 선행/후행 순서 모두 인정 — 형식 함정 false-deny 금지.
+#   선행자는 트리거와 동일 클래스([;&|({`] + 줄시작) — dogfood 20260717 test2: `git add x && BYPASS=1
+#   REASON='...' git commit`(compound)·`B() { BYPASS=1 ...; }`(wrapper) 가 ^줄시작 앵커에 걸려 사유까지
+#   정직 병기한 우회가 false-deny 됐다. 단순 공백 선행(메시지 내 토큰 언급, T37)은 여전히 불인정.
 _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
-if printf '%s' "$tool_cmd" | grep -Eq "^[[:space:]]*(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]"; then
+if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]"; then
   printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" && allow
   reason="SPECOPS_GOVERNANCE_BYPASS 인라인 우회에는 사유 병기가 필수입니다 (friction-log 감사 기록에 명령 원문째 남습니다).
 형식: SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>

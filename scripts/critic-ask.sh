@@ -28,13 +28,23 @@ MAX_BYTES=204800
 provider=""; bin=""
 CLAUDE_MODEL="${CRITIC_CLAUDE_MODEL:-fable}"
 CLAUDE_FALLBACK="${CRITIC_CLAUDE_FALLBACK:-opus}"
+# preflight — command -v 는 PATH 의 stale shim(파일은 있으나 실행 불가·rc=127)을 못 걸러낸다
+#   (dogfood 20260717 test2: claude 감지 후 실행 rc=127 → 외부 critic 실효 0 이 FAIL 로 위장).
+#   --version 1회로 실행 가능성을 확인하고, 실패 시 그 provider 를 부재로 강등해 다음 후보로 cascade.
+#   stale shim 은 즉시 실패하므로 hang 위험 낮음(</dev/null 로 stdin 대기 차단). CRITIC_BIN 은
+#   사용자 강제 지정이라 preflight 제외(계약: stdin/stdout 만 요구 — --version 미보장).
+_usable() {
+  "$1" --version </dev/null >/dev/null 2>&1 && return 0
+  echo "CRITIC: $1 감지됐으나 실행 불가(--version rc≠0) — stale shim/PATH 의심, 다음 후보 시도" >&2
+  return 1
+}
 if [ -n "${CRITIC_BIN:-}" ]; then
   provider="custom"; bin="$CRITIC_BIN"
-elif command -v claude >/dev/null 2>&1; then
+elif command -v claude >/dev/null 2>&1 && _usable claude; then
   provider="claude"; bin="claude"
-elif command -v codex >/dev/null 2>&1; then
+elif command -v codex >/dev/null 2>&1 && _usable codex; then
   provider="codex"; bin="codex"
-elif command -v gemini >/dev/null 2>&1; then
+elif command -v gemini >/dev/null 2>&1 && _usable gemini; then
   provider="gemini"; bin="gemini"
 elif command -v ollama >/dev/null 2>&1 && curl -sf -m 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
   provider="ollama"; bin="ollama"   # 로컬 — 외부 송신 0

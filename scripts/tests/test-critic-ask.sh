@@ -34,6 +34,29 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b (rc=$rc out=$out)"
 fi
 
+# T1.h stale shim — claude 가 PATH 에 존재하나 실행 불가(rc=127) → FAIL(provider rc=127) 아닌 SKIP
+#   (dogfood 20260717 test2: command -v 통과 후 실행 127 → 외부 critic 실효 0 이 FAIL 로 위장됨.
+#    preflight(_usable --version)가 부재로 강등해 cascade/SKIP 으로 정직하게 강등돼야 한다)
+mkdir -p "$TD/shim"
+printf '#!/usr/bin/env bash\nexit 127\n' > "$TD/shim/claude"; chmod +x "$TD/shim/claude"
+out=$(env -i PATH="$TD/shim:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^CRITIC: SKIP (외부 CLI 부재)' && ! echo "$out" | grep -q 'rc=127'; then
+  PASS=$((PASS+1)); echo "PASS T1.h stale shim → SKIP 강등 (FAIL rc=127 위장 차단)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.h (rc=$rc out=$out)"
+fi
+
+# T1.i cascade — 깨진 claude shim + 정상 codex → 다음 provider 로 넘어가 실효 유지
+printf '#!/usr/bin/env bash\n[ "$1" = "--version" ] 2>/dev/null && { echo 0.1; exit 0; }\ncat >/dev/null\necho "코덱스 의견"\n' > "$TD/shim/codex"
+chmod +x "$TD/shim/codex"
+out=$(env -i PATH="$TD/shim:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" 2>/dev/null); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^CRITIC\[codex\]:' && echo "$out" | grep -q '코덱스 의견'; then
+  PASS=$((PASS+1)); echo "PASS T1.i 깨진 shim → codex cascade"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.i (rc=$rc out=$out)"
+fi
+rm -rf "$TD/shim"
+
 # T1.c timeout → CRITIC: FAIL + exit 0 (AC-3 — advisory 비차단)
 cat > "$TD/hang.sh" <<'HANG'
 #!/usr/bin/env bash
