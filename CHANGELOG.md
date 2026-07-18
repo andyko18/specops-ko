@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.50.0] — 2026-07-18
+
 ### Fixed
 - **posttool R-1/R-2 감사 침묵 봉합 — 감사 스코프를 "방금 액션의 범위"로** — posttool 이 working-tree 기준 `is_docs_only_change` 를 쓰는데, 커밋 직후 잔여 dirty 는 거의 항상 tracked `.specops/session-progress.md` 뿐이라 `.specops/*` 면제(#214)에 걸려 **감사가 통째로 skip** — #214 이후 R-1 posttool warn 이 전 repo 0건이던 실물 원인(pretool block 만 남는 절반 가시성. 기존 T8.a 는 git repo 부재 fixture 라 빈 diff fail-safe 로 위장 통과). 신설 `is_docs_only_audit_scope`: R-1 = `HEAD~1..HEAD`(방금 커밋), R-2 = `base...HEAD`(PR 범위) — whitelist 는 `_files_all_docs` 로 공유(drift 방지). pretool(액션 前 = working-tree 가 곧 커밋 범위)은 무변경. range 실패(최초 커밋·base 미검출)는 비면제 fail-safe(감사는 기록이라 과잉 방향이 안전). teeth: test-hooks T8.e/f·test-lib T-scope.a~d.
 - **실행증거 신선도 게이트 — 세션 전역 만능 면제표 봉합** — `_verify_exec_evidence` 가 윈도우·FID 스코프 없이 transcript 전체를 스캔해, 세션 초반 **다른 FID 의** `VERIFY: PASS` 1회가 세션 끝까지 모든 커밋을 여는 만능 면제표였다(dogfood test1 실측: FR-2 verify 가 FR-3 미검증 implement 커밋 8+개를 전부 면제 → friction 무흔적. 계측 probe 로 서브에이전트 훅도 main transcript 로 평가됨을 확정 — "서브에이전트 게이트 갭" 가설은 기각, 실물은 staleness). 규칙: **마지막 실행증거 이후 비-`.specops` Edit/Write/NotebookEdit 가 있으면 stale**(수정→재검증 후 커밋이 정직 순서 — `_verify_passed_in_progress` vts>cts 와 동형). `.specops/` 아티팩트 Write(evidence.md 마무리)는 제외. 한계: Bash 경유 파일수정(sed -i)은 미탐(F-1 동류 heuristic). teeth: test-exec-evidence T-fresh.a~d.
@@ -727,7 +729,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...HEAD
+[1.50.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.3...v1.48.0
 [1.47.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.2...v1.47.3
