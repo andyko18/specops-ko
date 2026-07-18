@@ -62,6 +62,44 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5 (rc=$rc out='$out')"
 fi
 
+# T6 — reconcile: session-progress 는 /tasks 인데 dispatch-log(implement) + evidence.md(verify)
+#   증거 존재 → DESYNC 경고 + 진짜 frontier 보고 (20260718-status-reconcile, dogfood test1 FR-3)
+T6_FID="20260104-stalled"
+mkdir -p "$TMPDIR_TEST/.specops/$T6_FID"
+printf '## %s · stalled feature\n\n- 2026-01-04T00:00:00Z /tasks 완료 (tasks.md)\n' "$T6_FID" >> "$T3_PROGRESS"
+touch "$TMPDIR_TEST/.specops/$T6_FID/spec.md" "$TMPDIR_TEST/.specops/$T6_FID/plan.md" "$TMPDIR_TEST/.specops/$T6_FID/tasks.md"
+printf '| 1 | ts | A:T1 | implementer-ko | DONE | x |\n' > "$TMPDIR_TEST/.specops/$T6_FID/dispatch-log.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$TMPDIR_TEST/.specops/$T6_FID/evidence.md"
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$T6_FID" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qiE 'DESYNC|불일치|과소보고' \
+   && printf '%s' "$out" | grep -qi 'verify' && printf '%s' "$out" | grep -qi 'tasks'; then
+  PASS=$((PASS+1)); echo "PASS T6 reconcile-desync 경고 (기록<증거)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6 (rc=$rc out='$out')"
+fi
+
+# T7 — reconcile: 기록 frontier == 증거 frontier → DESYNC 경고 없음 (오탐 0)
+T7_FID="20260105-aligned"
+mkdir -p "$TMPDIR_TEST/.specops/$T7_FID"
+printf '## %s · aligned\n\n- 2026-01-05T00:00:00Z /verify PASS (evidence.md)\n- 2026-01-05T00:00:00Z /implement DONE\n' "$T7_FID" >> "$T3_PROGRESS"
+touch "$TMPDIR_TEST/.specops/$T7_FID/spec.md" "$TMPDIR_TEST/.specops/$T7_FID/plan.md" "$TMPDIR_TEST/.specops/$T7_FID/tasks.md"
+printf '| 1 | ts | A:T1 | implementer-ko | DONE | x |\n' > "$TMPDIR_TEST/.specops/$T7_FID/dispatch-log.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$TMPDIR_TEST/.specops/$T7_FID/evidence.md"
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$T7_FID" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -qiE 'DESYNC|불일치|과소보고'; then
+  PASS=$((PASS+1)); echo "PASS T7 reconcile-정합 (경고 없음)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7 (rc=$rc out='$out')"
+fi
+
+# T8 — reconcile: 재개 힌트(다음 단계) 제시
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$T6_FID" 2>&1)
+if printf '%s' "$out" | grep -qiE '재개|다음|resume|권장'; then
+  PASS=$((PASS+1)); echo "PASS T8 reconcile-재개 힌트"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8 (out='$out')"
+fi
+
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
