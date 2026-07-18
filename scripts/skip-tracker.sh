@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
 # specops-auto-ko SKIP 추적 관측 도구 (읽기 전용)
 # 사용: bash scripts/skip-tracker.sh [.specops 경로]
-# 소스 가능 — 함수만 정의, main 은 가드. integration/performance 게이트 SKIP 비율 집계.
+# 소스 가능 — 함수만 정의, main 은 가드. integration/performance/security 게이트 SKIP 비율 집계.
 # 환경: SKIP_TRACKER_THRESHOLD (기본 70) — SKIP 비율 advisory 경고 임계
 set -uo pipefail
 
-skip::verdicts() {  # <file> <gate: integration|performance>
+# 게이트 short 이름 → evidence.md 섹션 헤더 토큰 매핑.
+#   integration/performance 는 '-test' 접미, security 는 '-review' 접미(헤더 불일치) — 하드코딩 '-test'
+#   패턴은 security 를 못 잡았다(버그1: security-review-ko L42 관측 死문). 매핑으로 3게이트 정합.
+skip::header() {  # <gate short> → 헤더 토큰
+  case "$1" in
+    integration) echo integration-test ;;
+    performance) echo performance-test ;;
+    security)    echo security-review ;;
+    *)           echo "${1}-test" ;;   # 미지 게이트 하위호환(구 동작)
+  esac
+}
+
+skip::verdicts() {  # <file> <gate: integration|performance|security>
   local file="$1" gate="$2"
   [ -f "$file" ] || return 0
-  awk -v hdr="^## /${gate}-test" '
+  awk -v hdr="^## /$(skip::header "$gate")" '
     $0 ~ hdr {
       if ($0 ~ /SKIP/)      { print "SKIP"; pending=0 }
       else if ($0 ~ /PASS/) { print "PASS"; pending=0 }
@@ -29,7 +41,7 @@ skip::verdicts() {  # <file> <gate: integration|performance>
 skip::cite_status() {  # <file> <gate> → CITED|BARE per SKIP (라인인용 §...L<n> 또는 L<n> 유무)
   local file="$1" gate="$2"
   [ -f "$file" ] || return 0
-  awk -v hdr="^## /${gate}-test" -v cite='L[0-9]|§[^ ]*[0-9]' '
+  awk -v hdr="^## /$(skip::header "$gate")" -v cite='L[0-9]|§[^ ]*[0-9]' '
     $0 ~ hdr {
       if (skipwait) { print "BARE"; skipwait=0 }
       if ($0 ~ /SKIP/) { print ($0 ~ cite) ? "CITED" : "BARE"; pending=0; skipwait=0 }
@@ -72,7 +84,7 @@ skip::report() {  # <dir>
   for file in "$dir"/*/evidence.md; do [ -f "$file" ] && { any=1; break; }; done
   [ "$any" -eq 0 ] && { echo "SKIP-TRACKER: evidence 없음 ($dir)"; return 0; }
   local g p s f total rate bare v
-  for g in integration performance; do
+  for g in integration performance security; do
     read -r p s f <<EOF
 $(skip::count "$dir" "$g")
 EOF

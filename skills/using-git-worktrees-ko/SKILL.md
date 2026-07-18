@@ -118,7 +118,7 @@ case $LOCATION in
     path="$LOCATION/$BRANCH_NAME"
     ;;
   ~/.config/specops-auto-ko/worktrees/*)
-    path="~/.config/specops-auto-ko/worktrees/$project/$BRANCH_NAME"
+    path="$HOME/.config/specops-auto-ko/worktrees/$project/$BRANCH_NAME"
     ;;
 esac
 

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **전수 감사 구체 버그 4건** (커맨드·스킬·에이전트 58 유닛 평가 산출):
+  - **skip-tracker.sh security 게이트 死문** — `skip-tracker.sh` 는 헤더 `^## /${gate}-test` 하드코딩이라 security(헤더 `## /security-review`)를 못 잡아, `security-review-ko` 의 SKIP 관측 지시가 死문이었다. 게이트→헤더 매핑(`skip::header`) 추가로 integration/performance/security 3게이트 정합(하위호환 유지). 신규 테스트 T17~T20 + mutation 검증.
+  - **`dispatching-parallel-agents-ko` used_by 허위 역참조** — `systematic-debugging-ko` 를 호출자로 주장하나 실측 grep=0 → 제거.
+  - **`using-git-worktrees-ko` `~` 따옴표 내 미확장** — `path="~/.config/..."` 는 리터럴 `~` 디렉토리 생성 → `"$HOME/.config/..."` 수정.
+  - **`finishing-a-development-branch-ko` used_by 과소기재** — 실제 호출자 `performance-test-ko`·`e2e-test-ko` 추가.
+
 ## [1.52.0] — 2026-07-19
 
 ### Added

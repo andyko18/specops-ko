@@ -57,5 +57,17 @@ outz=$(skip::report "$tmpz" 2>/dev/null)
 if printf '%s' "$outz" | grep -q "근거 없는 SKIP"; then echo "FAIL T16 cited인데 경고 ($outz)"; FAIL=$((FAIL+1)); else echo "PASS T16 cited→경고0"; PASS=$((PASS+1)); fi
 rm -rf "$tmpz"
 
+# T17~T19: security 게이트 커버 (버그1 fix — security 헤더 '## /security-review' 는 skip-tracker
+#   '-test' 하드코딩 패턴에 안 걸려 security bare SKIP 이 관측 死문이었다. security-review-ko L42 계약 정합)
+tmps=$(mktemp -d); mkdir -p "$tmps/fid-s1" "$tmps/fid-s2"
+printf '## /security-review — 2026-07-19\n**결과**: SKIP\n**근거**: §범위 L10\n' > "$tmps/fid-s1/evidence.md"
+printf '## /security-review — SKIP (표면 없음)\n' > "$tmps/fid-s2/evidence.md"
+ck "T17 security count (SKIP 2건)" "$(skip::count "$tmps" security)" "0 2 0"
+ck "T18 security verdicts 구조형" "$(skip::verdicts "$tmps/fid-s1/evidence.md" security)" "SKIP"
+ck "T19 security cite BARE(근거없음)" "$(skip::cite_status "$tmps/fid-s2/evidence.md" security)" "BARE"
+outs=$(skip::report "$tmps" 2>/dev/null)
+if printf '%s' "$outs" | grep -qE "security: total=2"; then echo "PASS T20 report 에 security 게이트"; PASS=$((PASS+1)); else echo "FAIL T20 ($outs)"; FAIL=$((FAIL+1)); fi
+rm -rf "$tmps"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

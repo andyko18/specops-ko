@@ -4,7 +4,7 @@ description: 독립 태스크 2개 이상이 공유 상태·순차 의존 없이
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md
 specops_version: 1.0.0
-used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기), systematic-debugging-ko (독립 도메인 다중 실패 시)
+used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기)
 integrates_with: specops-auto-ko:file-based-communication-ko, specops-auto-ko:context-resets-ko
 ---
 
