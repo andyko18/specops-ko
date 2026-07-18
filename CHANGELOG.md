@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **재개 desync 자동표면화 (SessionStart)** — 완주율 레버: 정체 후 재개 시 session-progress breadcrumb 이 git·dispatch 보다 뒤처져 재개 모델이 "미구현" 오판·방치(dogfood test1 FR-3, 24h 정체). `/status` reconcile(#220)은 탐지하나 수동 실행 필요였다. SessionStart 훅이 진행 중 FID 에 `reconcile-check.sh --hook` 을 자동 실행 → 증거 frontier > 기록 frontier 일 때만 DESYNC 경고+재개점을 `<session-progress-reconcile>` 로 주입(정합 시 무출력, 노이즈 0). session-progress 자동 덮어쓰기는 하지 않음(표면화만 — breadcrumb 오염 방지). frontier 사다리·reconcile 로직을 `scripts/_internal/reconcile-check.sh` 로 추출해 show-fid-status·SessionStart 단일 SoT(drift 방지). 신규 테스트 9건(reconcile-check 6 + session-start-reconcile 3), mutation 검증.
+
 ### Fixed
 - **외부 신규진입 블로커 — 번들 스크립트 상대경로 → `${CLAUDE_PLUGIN_ROOT}` 정식형** (funnel dogfood 적발): 26개 커맨드/스킬 본문이 `bash scripts/...` **상대경로**로 번들 스크립트를 호출해, 사용자 프로젝트 cwd(≠plugin)에서 `No such file or directory` 로 lifecycle 전 단계가 깨졌다. 모든 dogfood/e2e 가 plugin repo 내부(cwd=plugin)서 돌아 상대경로가 우연 해소돼 여태 미적발(자기repo 편향). 공식 docs 확인: Skill·agent 본문의 `${CLAUDE_PLUGIN_ROOT}` 는 로드 시점 절대경로 치환 → 정식형 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/...` 로 전면 전환. 예외: 자기유지보수 전용(release·e2e-test-ko, cwd=plugin) + 라이브 호출 아닌 산문·PR템플릿.
 
