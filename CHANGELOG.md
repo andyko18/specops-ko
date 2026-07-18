@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`/status` reconcile — 유지보수 흐름 `/analyze` 단계 누락 (#220 자기결함)** — reconcile 단계 사다리가 `specify` 부터 시작해 유지보수 진입 단계 `/analyze` 를 몰랐다. `/analyze 완료` 가 기록돼도 recorded=0 오라벨 + current-state.md·impact-analysis.md 가 증거 사다리에 부재 → 모든 유지보수 FID 를 오판(cry-wolf 리스크). dogfood 로 test2 `scanner-blockcomment-fix`(유지보수 FID) 를 실제 조회하다 발견 — "shipped 도구를 실사용 중 나온 자기결함" 이라는 개선 명분 기준의 실례. 사다리에 `analyze`(rank 5, specify 앞) + analyze 산출물 증거 추가, 비균일 간격 위해 `_stage_next` 명시 매핑. teeth: test-show-fid-status T9(정합)·T10(analyze→specify desync). ★ T9/T10 초안이 상단 이력 echo 의 `analyze` 로 tautology-PASS → reconcile 섹션 스코프로 정정(grep 앵커 교훈 자체적용).
+
 ### Added
 - **FID 크기 규약 — per-FID 태스크 수 완성율 소프트 신호 (`decomposing-ko`)** — per-태스크 크기(2~5분)는 있었으나 **per-FID 크기(총 태스크 수)** 가이드가 전무했다. dogfood 실측: test2 3-태스크 FID **6/6 완주** vs test1 10-태스크 FID **24h+ 정체**(태스크 각각은 정상, FID 전체가 7.5h 마라톤 → 세션 경계 이탈). 권장 스코프 ≤6 태스크, 7+ 이면 `⚠️ FID-SIZE` 소프트 신호 + 예방(다음 FID 는 수직 슬라이스로 작게)·완화(태스크별 checkpoint→`/status` reconcile 재개) 택1. 하드 게이트 아님(리스크 인지용). teeth: test-gate-presence(silent drift 방어). #220 reconcile(정체 복구)의 짝 — 이건 정체 예방.
 - **`/status` reconcile — 기록↔증거 frontier 대조로 정체 재개점 제시** — session-progress 단독은 정체 후 현실을 **과소보고**한다(dogfood test1 FR-3 실측: `/tasks` 기록 상태에서 12커밋+dispatch T7까지 존재했으나 주 breadcrumb 만 읽어 "구현 안 됨"으로 오판 → **24h+ 방치, 실제 잔여 작업은 5분**. 완성율 킬러의 실물). `show-fid-status.sh` 가 **기록 frontier(session-progress 최고 단계) ↔ 증거 frontier(spec/plan/tasks·dispatch-log DONE·feat/<FID> 브랜치 커밋·evidence.md·reviews/)**를 8단계 rank 로 대조 — 증거가 앞서면 `⚠️ DESYNC` + **진짜 재개점**(증거+1 단계) + **기록 보정 구간**(recorded+1~evidence) 제시. 정합 시 경고 0(오탐 방지). 실 FR-3 정체 상태 재현 검증: "재개점 review 부터, implement~verify 기록 보정" 정확 산출. teeth: test-show-fid-status T6~T8.

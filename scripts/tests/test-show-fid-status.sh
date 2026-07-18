@@ -100,6 +100,38 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T8 (out='$out')"
 fi
 
+# T9 — 유지보수 흐름: /analyze 단계 인식 (20260718 실측 결함 — dogfood test2 scanner-blockcomment-fix)
+#   analyze 완료 + current-state/impact-analysis 산출물만 있는 상태 = 정합(경고 없음).
+#   구버전은 사다리에 analyze 부재 → recorded=0·evidence=0 우연정합 + '기록: -' 오라벨.
+T9_FID="20260106-maint-analyze"
+mkdir -p "$TMPDIR_TEST/.specops/$T9_FID"
+printf '## %s · maint\n\n- 2026-01-06T00:00:00Z /analyze 완료 (current-state.md, impact-analysis.md)\n' "$T9_FID" >> "$T3_PROGRESS"
+touch "$TMPDIR_TEST/.specops/$T9_FID/current-state.md" "$TMPDIR_TEST/.specops/$T9_FID/impact-analysis.md"
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$T9_FID" 2>&1); rc=$?
+# reconcile 섹션만 스코프 (상단 이력 echo 의 analyze 로 인한 tautology 차단)
+recon=$(printf '%s' "$out" | sed -n '/reconcile/,$p')
+if [ "$rc" -eq 0 ] && ! printf '%s' "$recon" | grep -qiE 'DESYNC|과소보고' \
+   && printf '%s' "$recon" | grep -qi 'analyze'; then
+  PASS=$((PASS+1)); echo "PASS T9 analyze 단계 인식 (유지보수 정합·경고 0)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9 (rc=$rc recon='$recon')"
+fi
+
+# T10 — 유지보수 흐름 desync: analyze 기록인데 spec.md 존재(specify 미기록) → DESYNC + 재개 specify
+T10_FID="20260107-maint-desync"
+mkdir -p "$TMPDIR_TEST/.specops/$T10_FID"
+printf '## %s · maint2\n\n- 2026-01-07T00:00:00Z /analyze 완료 (current-state.md)\n' "$T10_FID" >> "$T3_PROGRESS"
+touch "$TMPDIR_TEST/.specops/$T10_FID/current-state.md" "$TMPDIR_TEST/.specops/$T10_FID/impact-analysis.md" "$TMPDIR_TEST/.specops/$T10_FID/spec.md"
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$T10_FID" 2>&1); rc=$?
+recon=$(printf '%s' "$out" | sed -n '/reconcile/,$p')
+# 기록 frontier 가 analyze 로 라벨돼야 함 ('기록 frontier: analyze' — 구버전은 '-')
+if [ "$rc" -eq 0 ] && printf '%s' "$recon" | grep -qiE 'DESYNC|과소보고' \
+   && printf '%s' "$recon" | grep -qiE '기록 frontier: analyze'; then
+  PASS=$((PASS+1)); echo "PASS T10 analyze→specify 미기록 desync + 기록 frontier=analyze"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10 (rc=$rc recon='$recon')"
+fi
+
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
