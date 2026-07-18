@@ -94,6 +94,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
+       - **★ 유지보수 오분류 백스톱** (soft — 하드강제 아님, 5원칙4 주권): [신규 분기]로 왔으나 요청이 **이미 구현된 코드·동작의 수정**(버그 수정·리팩터·기존 기능 변경)이면, 메타스킬 유지보수 분류나 `<!-- entry: maintain -->` 라벨이 누락됐을 수 있다(라벨은 모델-prepend 프로즈라 훅 강제 없음). 신규로 계속하기 전 사용자에게 **1회 확인**: "이 요청이 기존 코드 수정이면 `analyzing-ko` 선행이 회귀 안전망(current-state·impact-analysis + 회귀 AC-R 데이터/동작 보존)을 켭니다 — [신규 진행 / 유지보수 전환]?". `유지보수 전환` 응답 시 `analyzing-ko` 부터(★ HARD GATE) 재진입. **오탐 방지 계약**: 순수 신규 창작이 "개선·변경" 어휘를 포함하는 건 흔하므로, **기존 산출물(코드·스키마·API)을 실제로 건드리는 경우에만** 확인한다 — 신규 창작이면 묻지 말 것. 근거: 라벨 누락 시 analyzing HARD GATE 통째 skip → 유지보수가 신규로 처리돼 회귀 AC 미적용(커맨드 감사 20260719 [MED] — 관찰 실패 0의 백스톱).
 
    **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
      - `analyzing-ko` 가 이미 호출되어 `.specops/<FID>/current-state.md` + `.specops/<FID>/impact-analysis.md` 가 산출되어 있어야 함
