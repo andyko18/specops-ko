@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.53.0] — 2026-07-19
+
 ### Fixed
 - **전수 감사 구체 버그 4건** (커맨드·스킬·에이전트 58 유닛 평가 산출):
   - **skip-tracker.sh security 게이트 死문** — `skip-tracker.sh` 는 헤더 `^## /${gate}-test` 하드코딩이라 security(헤더 `## /security-review`)를 못 잡아, `security-review-ko` 의 SKIP 관측 지시가 死문이었다. 게이트→헤더 매핑(`skip::header`) 추가로 integration/performance/security 3게이트 정합(하위호환 유지). 신규 테스트 T17~T20 + mutation 검증.
@@ -769,7 +771,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.52.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.53.0...HEAD
+[1.53.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...v1.51.0
 [1.50.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...v1.50.0
