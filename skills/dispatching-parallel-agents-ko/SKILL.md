@@ -158,10 +158,10 @@ src/agents/agent-tool-abort.test.ts의 실패 테스트 3개 수정:
 ### 모드 2: DAG-aware 자동 (implementing-ko 호출, v0.4a 표준 경로)
 `implementing-ko` 가 다음 절차로 본 스킬 호출:
 
-1. **DAG 파싱**: `bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 호출 — `tasks.md` 의 `## 의존 그래프` YAML 분석
+1. **DAG 파싱**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 호출 — `tasks.md` 의 `## 의존 그래프` YAML 분석
 2. **batch 발견 시 (≥2 leaf)**: 각 leaf에 대해:
    - `.specops/<FID>/dispatch/<task-id>-context.md` 작성 (5 컨텍스트 — `templates/dispatch-context.md`)
-   - `bash scripts/dag/validate-context.sh <path>` 실행 — exit 0 확인
+   - `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path>` 실행 — exit 0 확인
    - `bash skills/using-git-worktrees-ko` 호출 — leaf별 worktree 생성 (`.worktrees/<FID>-<task-id>/`)
 3. **본 스킬 호출**: leaf id 배열 + context md path 배열 전달
 4. **본 스킬 동작**:

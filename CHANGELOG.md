@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **외부 신규진입 블로커 — 번들 스크립트 상대경로 → `${CLAUDE_PLUGIN_ROOT}` 정식형** (funnel dogfood 적발): 26개 커맨드/스킬 본문이 `bash scripts/...` **상대경로**로 번들 스크립트를 호출해, 사용자 프로젝트 cwd(≠plugin)에서 `No such file or directory` 로 lifecycle 전 단계가 깨졌다. 모든 dogfood/e2e 가 plugin repo 내부(cwd=plugin)서 돌아 상대경로가 우연 해소돼 여태 미적발(자기repo 편향). 공식 docs 확인: Skill·agent 본문의 `${CLAUDE_PLUGIN_ROOT}` 는 로드 시점 절대경로 치환 → 정식형 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/...` 로 전면 전환. 예외: 자기유지보수 전용(release·e2e-test-ko, cwd=plugin) + 라이브 호출 아닌 산문·PR템플릿.
+
+### Added
+- **`validate-structure.sh` `plugin_root_paths` 회귀 검사**: 사용자 프로젝트서 실행되는 커맨드/스킬 본문에 상대 `bash scripts/` 재발 시 FAIL (예외 allowlist 반영). red-green 검증.
+
 ## [1.51.0] — 2026-07-18
 
 ### Added

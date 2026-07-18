@@ -45,7 +45,7 @@ INTEGRATION: SKIP — <근거: spec.md §섹션명 Lxx-yy, 표현 예: "§범위
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## 다음 skill`로 chain** (나머지 절차 스킵).
 
 > **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-1 L52`). 근거 없는 SKIP 은 형식화 — 거부.
-> **관측**: `bash scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
+> **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
 
 > 한계 고백: spec.md가 없거나 §범위 섹션이 없는 경우 → 사용자에게 "spec.md §범위 미발견 — 통합 표면을 수동으로 알려주세요 [혹은 skip?]" 1줄 질문. 사용자 응답에 따라 진행 또는 SKIP 처리.
 
@@ -180,10 +180,10 @@ PASS·SKIP·FAIL 모든 경우에 `.specops/<FID>/evidence.md`에 결과를 appe
 
 evidence.md append 직후:
 ```bash
-bash scripts/session-progress-append.sh <FID> /integration-test DONE|SKIP|FAIL "<요약>"
-# 예: bash scripts/session-progress-append.sh 20260605-login /integration-test SKIP "§범위 L12-15 — CLI 단일 프로세스"
-# 예: bash scripts/session-progress-append.sh 20260605-login /integration-test DONE "12 tests passed"
-# 예: bash scripts/session-progress-append.sh 20260605-login /integration-test FAIL "2 failures — systematic-debugging-ko 호출"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /integration-test DONE|SKIP|FAIL "<요약>"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /integration-test SKIP "§범위 L12-15 — CLI 단일 프로세스"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /integration-test DONE "12 tests passed"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /integration-test FAIL "2 failures — systematic-debugging-ko 호출"
 ```
 
 ---

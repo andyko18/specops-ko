@@ -22,7 +22,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 
 **Python 테스트 파일 규약**: 생성되는 `test_*.py` 에 exec-bit 및 shebang 불필요. pytest가 직접 실행. 파일명은 `test_<subject>.py` (underscore, hyphen 아님). 상세: `templates/test-conventions-python.md`.
 
-**v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
+**v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
 
 **foundation 재사용 게이트**: spec.md §유형이 `foundation` 이 **아니고** `.specops/memory/foundation-manifest.md` 가 존재하면, 각 task 에 다음 중 하나가 **반드시** 기재되어야 한다 — 누락 시 `specops-auto-ko:implementing-ko` 호출 금지:
 - `**재사용 foundation**: <foundation-manifest.md 의 모듈명>` — foundation 모듈을 재사용하는 경우
@@ -79,14 +79,14 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
     - YAML 파싱 실패 또는 빈 leaf 시 → 본 스킬 재작성 의무 (HARD-GATE 차단)
     - **Step 10b. emit-context.sh 자동 산출 (Wave 2 U2 — 의무)** — Step 10 의 DAG 자체 검증 통과 후:
       ```bash
-      bash scripts/dag/emit-context.sh <FID>
+      bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/emit-context.sh <FID>
       ```
       - tasks.md YAML 의 모든 task 에 대해 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션 자동 산출
       - fail-fast atomic — 1건이라도 검증 실패 (test_command 미기재 / ac 배열 빈 값 / AC.md 매칭 AC-id 부재 / inputs·outputs 키 부재) 시 exit 1 + stderr 출력 + 부분 잔류 0
       - 성공 시 stdout `EMIT: N files`
       - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
       - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
-11. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
+11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-auto-ko:implementing-ko` 호출
 
 ## 태스크 크기 규약

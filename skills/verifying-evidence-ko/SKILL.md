@@ -143,7 +143,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 태스크 종료 전 다음 명령을 **실제 실행**하고 출력 첨부:
 
-- [ ] **U3 자동화** (1순위): `bash scripts/_internal/run-verification.sh <FID>` — tasks.md 의 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append.
+- [ ] **U3 자동화** (1순위): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/run-verification.sh <FID>` — tasks.md 의 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append.
   - `VERIFY: PASS` + exit 0: 모든 명령 실행됨 + 전부 PASS (skip 0건)
   - `VERIFY: FAIL <cmd> (exit=N)` (stderr) + exit 1: 1건이라도 FAIL
   - `VERIFY: PARTIAL — N개 명령 whitelist 미통과` + exit 1: whitelist 미통과 명령 존재 — **수동 검증 필수**
@@ -269,12 +269,12 @@ fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시�
 
 evidence.md 작성 + 모든 검증 PASS 직후, requesting-code-review-ko 호출 직전에:
 ```
-bash scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N"
 ```
 
 검증 실패 + fix_loop 상한 초과 시 (BLOCK):
 ```
-bash scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X 미충족), fix_loop=3/3 초과 — HARD GATE"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify BLOCK "evidence.md (AC-X 미충족), fix_loop=3/3 초과 — HARD GATE"
 ```
 
 ## 다음 skill

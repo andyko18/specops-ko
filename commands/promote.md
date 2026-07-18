@@ -17,7 +17,7 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ## Process
 
-1. **진입 검증** — `bash scripts/promote-validate.sh <FID>` 호출. 출력 분기:
+1. **진입 검증** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/promote-validate.sh <FID>` 호출. 출력 분기:
    - `REJECT:bad-format` → `"PROMOTE: <FID> 포맷 위배(YYYYMMDD-slug 아님)"`
    - `REJECT:usage` → `"Usage: /promote <mini-FID>"`
    - `REJECT:no-dir` → `"PROMOTE: <FID> 디렉토리 없음 — FID 확인 필요"`

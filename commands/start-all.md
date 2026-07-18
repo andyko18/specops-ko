@@ -114,7 +114,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 전 FID IMPL_DONE 확인 후 — **batch-state 하드 스캔** (prose 확인이 아닌 스크립트 판정):
 
 ```bash
-bash scripts/batch-state.sh ".specops/$BATCH_ID"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 ```
 - exit 0 → Step A 진행
 - exit 1 (미완·드리프트·중복 목록 출력) → 사용자 확인 게이트: **"미완/드리프트 N건 — 그래도 batch PR 진행? [y/n]"**. `y`=의도적 부분 진행 허용(주권 — queue 헤더에 사유 기록 권장), `n`=중단. **§auto 무인은 여기서 정지**(목록 출력 + 사용자 입력 대기 — silent 부분 PR 금지)
@@ -125,7 +125,7 @@ bash scripts/batch-state.sh ".specops/$BATCH_ID"
 
 1. `specops-auto-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 코드 변경 표면 신호 부재 시 graceful skip
-   - 또는 `bash scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
+   - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
    - Critical/High 검출 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
 

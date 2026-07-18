@@ -15,7 +15,7 @@ reference_upstream: specops-auto-ko 독자 추가
 
 실행:
 ```bash
-bash scripts/gbrain-append.sh "$ARGUMENTS" --tags freelog,manual
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "$ARGUMENTS" --tags freelog,manual
 ```
 기록 후 "기록함: <요약>" 1줄 보고.
 

@@ -22,7 +22,7 @@ used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phas
 ### Step 0: FID 생성 + 디렉토리 보장 (AC-1)
 
 **[promote-fid 분기]** (신규 — `/promote` 진입): args 둘째 줄이 `<!-- promote-fid: <FID> -->` 이면:
-- 해당 `<FID>` 를 그대로 사용 — **새 FID 슬러그 생성 skip**. `mkdir -p .specops/<FID>`·`bash scripts/git-branch-create.sh <FID>` 는 그대로(idempotent — FID 이미 존재).
+- 해당 `<FID>` 를 그대로 사용 — **새 FID 슬러그 생성 skip**. `mkdir -p .specops/<FID>`·`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh <FID>` 는 그대로(idempotent — FID 이미 존재).
 - current-state.md §1 변경 대상을 **`.specops/<FID>/freework.md` 의 `files`** + 실제 변경(`git diff HEAD` 미커밋 우선, 빈손이면 `git log` 최근 커밋 변경 fallback)으로 시드한다.
 - §4 관찰 동작은 freework.md 요약 + 위 변경 상태로 캡처.
 - **사용자 메시지**: promote-fid 분기는 `"FID: <FID> — mini-FID 승격 분석을 시작합니다."` 로 출력(아래 Step 0 기본 메시지 대신 — 승격 진입 명시, 투명성).
@@ -48,7 +48,7 @@ date +%Y%m%d  # 예: 20260515
 **FID 생성 후 즉시 디렉토리 보장:**
 ```bash
 mkdir -p .specops/<FID>
-bash scripts/git-branch-create.sh <FID>
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh <FID>
 ```
 
 **사용자에게 FID 명시**: `"FID: <FID> — 유지보수 분석을 시작합니다."`
@@ -249,7 +249,7 @@ git log --oneline --grep="<symbol>" -n 5
 ### Step 8: session-progress append + chain (AC-9, AC-10)
 
 ```bash
-bash scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
 ```
 
 이어서 즉시 `specops-auto-ko:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 첫 줄 유지 (AC-10).

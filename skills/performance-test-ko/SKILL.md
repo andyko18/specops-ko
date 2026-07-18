@@ -39,7 +39,7 @@ PERFORMANCE: SKIP — <근거: spec.md §NFR Lxx-yy, 표현 예: "§NFR L8-12 �
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## PR 생성 게이트`로 진행** (나머지 절차 스킵).
 
 > **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **§NFR 섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-3 L54`). 근거 없는 SKIP 은 형식화 — 거부.
-> **관측**: `bash scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
+> **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
 
 > 한계 고백: spec.md §NFR 섹션이 없거나 모호한 경우 → 사용자에게 "spec.md §NFR에서 성능 임계값을 찾을 수 없습니다. [임계값 명시 / skip]" 1줄 질문.
 
@@ -163,9 +163,9 @@ PASS·SKIP·FAIL 모든 경우에 `.specops/<FID>/evidence.md`에 결과를 appe
 
 evidence.md append 직후:
 ```bash
-bash scripts/session-progress-append.sh <FID> /performance-test DONE|SKIP|FAIL "<요약>"
-# 예: bash scripts/session-progress-append.sh 20260605-login /performance-test SKIP "§NFR L8-12 — 성능 임계값 없음"
-# 예: bash scripts/session-progress-append.sh 20260605-login /performance-test DONE "p95=120ms < 200ms 기준"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /performance-test DONE|SKIP|FAIL "<요약>"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /performance-test SKIP "§NFR L8-12 — 성능 임계값 없음"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /performance-test DONE "p95=120ms < 200ms 기준"
 ```
 
 ---
@@ -277,7 +277,7 @@ EOF
 ### 4. PR 생성 후 session-progress append
 
 ```bash
-bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
 ```
 
 ---
@@ -308,12 +308,12 @@ bash scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
 
 PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으므로) 다음을 수행한다:
 
-1. `bash scripts/gbrain-collect.sh <FID>` 실행 — handoffs Decided/Risks + evidence 결과 요약 수집
+1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-collect.sh <FID>` 실행 — handoffs Decided/Risks + evidence 결과 요약 수집
 1b. **성공지표 환류**: spec.md §1 `### 성공지표` 가 존재하면, 해당 measurable target과 evidence.md 실측 결과를 대조해 "목표 달성 여부"를 1줄로 gbrain-append 인사이트에 포함한다(가치 입증 환류). §성공지표 부재(trivial 등) 시 skip.
 2. 수집 출력에서 **차기 기능에 재사용 가능한 교훈만** 정제 — FID 당 ≤3건 (일회성 사실·당연한 절차는 제외)
 3. 각 건마다 호출:
    ```bash
-   bash scripts/gbrain-append.sh "<인사이트 1줄>" --fid <FID> --tags "<tag1,tag2>"
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "<인사이트 1줄>" --fid <FID> --tags "<tag1,tag2>"
    ```
    tags 는 **영문 소문자 kebab 2~4개** — gbrain-recall 토큰 매칭 안정성 (한국어 토큰화 한계 보완)
 4. `COLLECT: EMPTY` 면 추출 skip — 기록 없음도 정직한 결과 (억지 인사이트 금지)

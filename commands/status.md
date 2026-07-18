@@ -24,7 +24,7 @@ reference_upstream: specops-auto-ko 독자 추가
    - 인자가 없으면 `.specops/session-progress.md` 의 **최상단 `## <FID>` 헤더**(최신 진행 FID)를 추출해 사용.
 2. **현황 조회 실행**:
    ```bash
-   bash scripts/show-fid-status.sh <FID>
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/show-fid-status.sh <FID>
    ```
 3. 출력(Lifecycle 단계 진행 + 아티팩트 ✅/❌ 체크리스트)을 그대로 표시.
 

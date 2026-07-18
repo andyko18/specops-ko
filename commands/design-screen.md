@@ -32,12 +32,12 @@ reference_upstream: specops-auto-ko 독자 추가
 ### Step 1: 스크립트로 스캐폴딩
 
 ```bash
-bash scripts/_internal/design-screen.sh {name}
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 ```
 
 - **파일이 이미 존재하면**: exit 1 + 안내 출력. 덮어쓰려면:
   ```bash
-  bash scripts/_internal/design-screen.sh {name} --force
+  bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name} --force
   ```
 - **성공 시**: `screens/{name}.md` + `screens/{name}.html` 생성, `.specops/memory/screens-overview.md` 표 자동 갱신
 
@@ -120,7 +120,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ```
 /design-screen dashboard
-→ bash scripts/_internal/design-screen.sh dashboard
+→ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh dashboard
   → screens/dashboard.md + screens/dashboard.html 생성
   → DESIGN.md Primary 색상 추출 → --color-primary 주입
   → screens-overview.md 표 갱신
@@ -131,7 +131,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 → git commit
 
 /design-screen login  (기존 존재)
-→ bash scripts/_internal/design-screen.sh login
+→ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh login
   → Error: screens/login.md 이미 존재합니다. --force 사용.
 → 사용자에게 안내 후 중단 또는 --force 재시도
 ```

@@ -209,7 +209,7 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 
 리뷰 피드백 수용·구현 완료 직후:
 ```
-bash scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N건 / Important N건 / fix 라운드 N회"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /receive-review 완료 "Critical N건 / Important N건 / fix 라운드 N회"
 ```
 
 ## 다음 skill

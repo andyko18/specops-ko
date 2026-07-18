@@ -52,7 +52,7 @@ used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ```
 플랜 + tasks.md 1회 읽기 → TodoWrite 생성
     ↓
-DAG 초기화 (bash scripts/dag/parse-dag.sh)
+DAG 초기화 (bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
     done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
     ↓
@@ -82,7 +82,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
   각 batch leaf에 대해:
     - .specops/<FID>/dispatch/<task-id>-context.md 존재 확인
       (decomposing-ko Step 10b 에서 emit-context.sh 자동 산출)
-    - bash scripts/dag/validate-context.sh <path> — exit 0 확인
+    - bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path> — exit 0 확인
     - using-git-worktrees-ko 호출 — leaf별 worktree (.worktrees/<FID>-<task-id>/)
     ↓
   dispatching-parallel-agents-ko 호출 (DAG-aware 모드):
@@ -94,7 +94,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     - leaf NEEDS_CONTEXT 반환 시 → 컨텍스트 보강 후 재dispatch (R8)
     - leaf DONE 시 → proposed_commit_message 수집
 
-  **Wave 2 (FID 20260514) — emit-context 자동 산출**: decomposing-ko Step 10b 가 `bash scripts/dag/emit-context.sh <FID>` 로 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션을 자동 산출하므로, 본 skill 의 컨텍스트 작성 단계는 §5 worktree 라인 sed 갱신만으로 축약된다. 컨텍스트 파일 부재 시 → decomposing-ko 재진입 요청 (HARD GATE).
+  **Wave 2 (FID 20260514) — emit-context 자동 산출**: decomposing-ko Step 10b 가 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/emit-context.sh <FID>` 로 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션을 자동 산출하므로, 본 skill 의 컨텍스트 작성 단계는 §5 worktree 라인 sed 갱신만으로 축약된다. 컨텍스트 파일 부재 시 → decomposing-ko 재진입 요청 (HARD GATE).
     ↓
   Phase B (병렬): 각 leaf별 spec-reviewer-ko dispatch (병렬)
     ↓
@@ -259,11 +259,11 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 5. whitelist 외 파일을 수정해야 task 완수 가능 — 부모에 컨텍스트 보강 요청
 6. worktree 경로 존재 안 함 또는 git worktree 가 아님
 
-부모 검증: dispatch 직전 `bash scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
+부모 검증: dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
 
 > **[스코프 이관 규약]** (트리거 5 = whitelist 외 파일 수정 필요 — verify-exec-gate 잔여 backlog): 이관은 **tasks.md 가 SoT** 다. dispatch context 파일만 수기 보강하는 것을 **금지**한다 — ① tasks.md 와 drift ② emit-context 재실행 시 수기 보강 증발 ③ 후속 wave 의 outputs-disjoint 병렬 판정이 **낡은 outputs 로 계산**되어 두 leaf 가 같은 파일을 병렬 편집(R11 git race). 처리 순서:
 > 1. `.specops/<FID>/tasks.md` YAML 의 해당 task `outputs`(필요시 `inputs`)를 먼저 갱신 — 이관 사유 1줄 주석
-> 2. `bash scripts/dag/emit-context.sh <FID>` 재실행 (dispatch context 재생성 — 수기 편집 금지) + §5 worktree 라인 sed 재갱신 (재생성으로 리셋됨)
+> 2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/emit-context.sh <FID>` 재실행 (dispatch context 재생성 — 수기 편집 금지) + §5 worktree 라인 sed 재갱신 (재생성으로 리셋됨)
 > 3. **미완 wave 의 outputs-disjoint 재판정** — 이관으로 두 task 의 outputs 가 겹치게 되면 해당 쌍은 병렬 금지 → 순차 강등
 > 4. dispatch-log 에 `SCOPE-MOVED: <task-id> +<file> (<사유>)` 1줄 기록 후 재dispatch
 
@@ -386,7 +386,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 모든 태스크 완료 직후, verifying-evidence-ko 호출 직전에:
 ```
-bash scripts/session-progress-append.sh <FID> /implement DONE "Task 1~N 완료, PASS=N FAIL=0, 커밋 <SHA>..<SHA>"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /implement DONE "Task 1~N 완료, PASS=N FAIL=0, 커밋 <SHA>..<SHA>"
 ```
 
 ## 다음 skill

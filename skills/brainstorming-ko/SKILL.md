@@ -217,7 +217,7 @@ DATE=$(date +%Y%m%d)
 TIME=$(date +%H%M%S)
 # slug: 공통 헬퍼 사용 (국립국어원 로마자 표기법 — 한글 주제도 의미 있는 ASCII kebab).
 #       자체 tr 파이프라인 금지 (한글 전부 제거 → dash 쓰레기). FID slug 관례와 일치.
-SLUG=$(bash scripts/slug.sh "<주제>" | cut -c1-30)
+SLUG=$(bash "${CLAUDE_PLUGIN_ROOT}"/scripts/slug.sh "<주제>" | cut -c1-30)
 [ -z "$SLUG" ] && SLUG="idea"   # 빈 주제 방어 (파일명 trailing dash 방지)
 OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 ```

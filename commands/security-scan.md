@@ -21,7 +21,7 @@ reference_upstream: specops-auto-ko 독자 추가
 플러그인 자기 설정(hooks·skills·rules.jsonl·plugin.json·settings) 적대 보안감사. **on-demand 전용**.
 
 1. **토큰 경고**: `self-config 적대감사는 red/blue/auditor 3 서브에이전트를 dispatch합니다 — 토큰 비용이 큽니다. 진행? [y/N]`
-2. **번들**: `bash scripts/self-config-collect.sh . > .specops/<FID>/self-config-bundle.md` (collect 는 stdout 출력만 — redirect 로 번들 저장 필수. 이 파일이 red dispatch 입력)
+2. **번들**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/self-config-collect.sh . > .specops/<FID>/self-config-bundle.md` (collect 는 stdout 출력만 — redirect 로 번들 저장 필수. 이 파일이 red dispatch 입력)
 3. **red dispatch**: `agents/red-team-ko` (입력: 번들)
 4. **blue dispatch**: `agents/blue-team-ko` (입력: 번들 + red 발견)
 5. **auditor dispatch**: `agents/auditor-ko` (입력: red + blue) → `.specops/<FID>/self-config-audit-report.md`
@@ -38,14 +38,14 @@ reference_upstream: specops-auto-ko 독자 추가
 
 2. **SAST 실행** — 소스코드 정적 분석
    ```bash
-   bash scripts/security-scan.sh .
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .
    ```
    - 전체 소스 스캔 (대상 디렉터리 고정: 현재 경로)
    - 취약점 목록 + 심각도(critical/high/medium/low) 출력
 
 3. **DAST 실행** (URL 인자 있을 경우만)
    ```bash
-   bash scripts/dast-scan.sh <URL>
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dast-scan.sh <URL>
    ```
    - 배포 서버에 대한 동적 점검
    - nuclei > ZAP(docker) > nikto 우선순위로 도구 탐지

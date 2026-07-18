@@ -33,13 +33,13 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    #   추출 불가(빈값·특수문자만·이모지) 시 fallback `feature-<HHMM>` 사용 — trailing dash 금지
    FID="YYYYMMDD-<slug>"
    mkdir -p .specops/$FID
-   bash scripts/git-branch-create.sh $FID
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh $FID
    ```
 
    기존 `.specops/<FID>/` 디렉토리가 있으면 (유지보수 분기 재진입) 스킵.
    [유지보수 분기]는 analyzing-ko Step 0이 브랜치 생성을 담당하므로 본 스텝 적용 제외.
 
-   **[batch 분기]**: args 첫 줄이 `<!-- entry: batch -->` 이면 → `bash scripts/git-branch-create.sh` **호출 금지** (브랜치는 `/start-all` 오케스트레이터가 이미 생성). 둘째 줄 `<!-- batch-id: <id> -->` 에서 batch-id를 추출해 Step 6에서 `**§batch**: <id>` 라벨 기재에 사용.
+   **[batch 분기]**: args 첫 줄이 `<!-- entry: batch -->` 이면 → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh` **호출 금지** (브랜치는 `/start-all` 오케스트레이터가 이미 생성). 둘째 줄 `<!-- batch-id: <id> -->` 에서 batch-id를 추출해 Step 6에서 `**§batch**: <id>` 라벨 기재에 사용.
 
 1. **프로젝트 맥락 탐색** — 파일·문서·최근 커밋 확인
    - 프로젝트 루트 `DESIGN.md` 존재 확인 (`ls DESIGN.md`)
@@ -84,7 +84,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
      - `ls docs/adr/*.md 2>/dev/null | wc -l` — 0이면 graceful skip
      - N > 0이면: spec.md `§참조`에 `"아키텍처 결정 기록 — \`docs/adr/\` (N건)"` 인용
    - **gbrain 과거 인사이트 환류** (v2.3 신규 — learning-loop):
-     - `bash scripts/gbrain-recall.sh "<args 원문 — entry HTML 주석 줄 제외>"` 실행
+     - `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-recall.sh "<args 원문 — entry HTML 주석 줄 제외>"` 실행
      - learnings.jsonl 부재 또는 매칭 0건 → graceful skip (환류 블록 미출력)
      - 결과 있으면 (≤3건): spec.md `§참조` 에 각 건을 `- 과거 인사이트 (gbrain, <fid>): <insight>` bullet 로 인용
      - **회귀 보호 계약**: §참조에 인용만 추가 — 다른 섹션·내용 무변경 (memory 감지 표와 동일)
@@ -183,7 +183,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
    - **성공지표 작성 유도 (권장 — should)**: §유형이 `trivial`이 아니면 spec.md §1 개요 하위 `### 성공지표` 서브섹션에 measurable target을 작성한다(정량 우선, 불가 시 정성+검증방법). **권장 — 미작성이 evaluator FAIL은 아니나**, 기능 가치 입증·learning-loop 추적을 위해 작성 강력 권고. trivial FID는 면제.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
-9. **session-progress append** — `bash scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
+9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
 10. **구현으로 전환** — `specops-auto-ko:clarifying-ko` 스킬 호출
 
 ## 프로세스 흐름
@@ -424,8 +424,8 @@ Skill: specops-auto-ko:clarifying-ko
 
 1. **정직한 SKIP 기록** (fake 아님 — 실행이 아니라 생략임을 명시):
    ```bash
-   bash scripts/session-progress-append.sh <FID> /clarify SKIP "trivial 신규 — clarify ceremony 축약(사용자 승인)"
-   bash scripts/session-progress-append.sh <FID> /plan SKIP "trivial 신규 — plan ceremony 축약(사용자 승인)"
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify SKIP "trivial 신규 — clarify ceremony 축약(사용자 승인)"
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan SKIP "trivial 신규 — plan ceremony 축약(사용자 승인)"
    ```
 2. handoff.md 는 정상 경로와 동일하게 기록.
 3. 이후 `specops-auto-ko:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).

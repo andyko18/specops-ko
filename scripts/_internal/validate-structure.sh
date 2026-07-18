@@ -216,6 +216,23 @@ ubf=$(grep -rlE '^used_by:.*specops-auto-ko:' skills --include='SKILL.md' 2>/dev
   | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
 if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
 
+# 12.5) plugin_root_paths — 사용자 프로젝트 cwd(≠plugin)서 실행되는 커맨드/스킬 본문의 번들 스크립트 호출은
+#       상대 `bash scripts/` 금지 (외부 cwd 서 스크립트 부재 → No such file). 정식형 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/`
+#       (docs: Skill·agent 본문의 ${CLAUDE_PLUGIN_ROOT} 는 로드 시점 절대경로 치환). 예외 2종:
+#       ① 자기유지보수 전용 파일(cwd=plugin 서만 실행): release.md·release-ko·e2e-test-ko
+#       ② 라이브 호출 아닌 산문·PR템플릿: `scripts/*.sh` 러너 glob · `scripts/tests/test-*` · `scripts/_internal/validate-structure`
+prp=$(grep -rnE 'bash scripts/' commands/ skills/ 2>/dev/null \
+  | grep -vE '/(release\.md|release-ko/SKILL\.md|e2e-test-ko/SKILL\.md):' \
+  | grep -vE 'bash scripts/(\*\.sh|tests/test-\*|_internal/validate-structure)' \
+  || true)
+if [ -z "$prp" ]; then
+  emit plugin_root_paths OK
+else
+  cnt=$(printf '%s\n' "$prp" | grep -c .)
+  loc=$(printf '%s\n' "$prp" | head -3 | cut -d: -f1-2 | tr '\n' ' ')
+  emit plugin_root_paths FAIL "상대 bash scripts/ ${cnt}건(정식형 \${CLAUDE_PLUGIN_ROOT} 필요): ${loc}"
+fi
+
 # 13) agent_tools — role: evaluator 역방향 스캔 (Generator-Evaluator 도구 박탈 하드강제)
 #     ① 마킹 evaluator 전체: tools 명시 + Write/Edit 박탈 ② 파일명 *reviewer* 미마킹 FAIL (2차 방어)
 #     ③ 파일 존재 + 마킹 0건 FAIL (공회전 방지) ④ agents/*.md 0건(sandbox) SKIP

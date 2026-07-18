@@ -52,13 +52,13 @@ ui-ux-pro-max 는 plugin.json hard dependency(보장 동반)다. **첫 화면 �
 
 `screens/{name}.html` 이 이미 존재하는지 먼저 확인한다:
 > "화면 `{name}`이 이미 존재합니다(`screens/{name}.html`). 덮어쓸까요? [y/n(건너뜀)]"
-> - `y` → `bash scripts/_internal/design-screen.sh {name} --force` 실행
+> - `y` → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name} --force` 실행
 > - `n` → 해당 화면 건너뜀, 다음 화면 진행
 
 존재하지 않으면:
 
 ```bash
-bash scripts/_internal/design-screen.sh {name}
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 ```
 
 **Step 3-2: 목적·컴포넌트·다음화면 질문**

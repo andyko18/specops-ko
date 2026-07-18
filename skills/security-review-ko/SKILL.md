@@ -39,7 +39,7 @@ SECURITY: SKIP — <근거: spec.md §섹션명 Lxx-yy, 표현 예: "§범위 L1
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## 다음 skill`로 chain** (나머지 절차 스킵).
 
 > **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§범위 L12`). 근거 없는 SKIP 은 형식화 — 거부.
-> **관측**: `bash scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
+> **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호).
 
 > 한계 고백: spec.md가 없거나 §범위 섹션이 없는 경우 → 사용자에게 "spec.md §범위 미발견 — 보안 스캔 대상을 수동으로 알려주세요 [혹은 skip?]" 1줄 질문. 사용자 응답에 따라 진행 또는 SKIP 처리.
 
@@ -61,9 +61,9 @@ git diff --name-only main...HEAD
 `scripts/security-scan.sh`를 실행한다. 이 래퍼는 먼저 설치 필요 없는 self-check(bash 정규식 기반 secret·위험함수 룰)를 항상 실행하고, 그 후 `semgrep`·`gitleaks` 설치 여부를 `command -v`로 확인하여 설치된 스캐너만 실행한 뒤 심각도를 집계한다.
 
 ```bash
-bash scripts/security-scan.sh <스캔대상 디렉토리/파일>
-# 예: bash scripts/security-scan.sh src/
-# 예: bash scripts/security-scan.sh .
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <스캔대상 디렉토리/파일>
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh src/
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .
 ```
 
 출력 형식:
@@ -125,10 +125,10 @@ PASS·SKIP·FAIL 모든 경우에 `.specops/<FID>/evidence.md`에 결과를 appe
 
 evidence.md append 직후:
 ```bash
-bash scripts/session-progress-append.sh <FID> /security-review DONE|SKIP|FAIL "<요약>"
-# 예: bash scripts/session-progress-append.sh 20260605-login /security-review SKIP "§범위 L12-15 — 문서 전용 변경"
-# 예: bash scripts/session-progress-append.sh 20260605-login /security-review DONE "crit=0 high=0 med=2"
-# 예: bash scripts/session-progress-append.sh 20260605-login /security-review FAIL "crit=1 — systematic-debugging-ko 호출"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /security-review DONE|SKIP|FAIL "<요약>"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /security-review SKIP "§범위 L12-15 — 문서 전용 변경"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /security-review DONE "crit=0 high=0 med=2"
+# 예: bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh 20260605-login /security-review FAIL "crit=1 — systematic-debugging-ko 호출"
 ```
 
 ---
