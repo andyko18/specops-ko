@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **detection-proof — 테스트 전용 태스크의 RED 대체 (P5, test2 정주행 회고)** — RED-first 는 새 동작 구현을 가정하는데, **이미 정상 동작하는 로직에 테스트를 추가**하는 태스크(커버리지·스캐너 탐지 테스트·회귀 락인)는 자연 RED 가 없다. tdd-ko 의 "테스트가 통과? → 테스트 수정"은 이 경우 오처방(테스트가 옳다). `tdd-ko` 에 detection-proof 성문화: **변이(규칙 뒤집기·유령 주입)로 테스트가 FAIL 하는지 확인**해 탐지력 증명 — "변이해도 통과=tautology=RED 미충족". RED 의 본질은 "실패 테스트를 먼저"가 아니라 "**fail 할 수 있음을 관찰**"이라는 원칙 명문화(변이본 FAIL 원문 인용 = RED 인용 규약 대칭). test2 run 이 스스로 발명한 패턴을 성문화 — decomposing-ko 는 tdd-ko 준수라 자동 전파. teeth: test-gate-presence(섹션 삭제 mutation).
+
 ### Fixed
 - **Evaluator fable 하드고정이 크레딧 소진 시 Generator↔Evaluator 붕괴 (P1 — test2 정주행 회고)** — `plan-reviewer-ko`·`spec-reviewer-ko`·`code-reviewer-ko` 가 `model: fable` 고정이라, fable 크레딧 소진 시 **3 Evaluator 전부 dispatch 불가** → 부모(생성자) self-review 로 후퇴 = **Evaluator=Generator 편향**(specops 핵심 가치인 독립 리뷰 붕괴). test2 완결 run 의 실측 근거: 부모 self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 비-fable 리뷰어가 잡았다**(독립-약한 모델 ≫ 편향-강한 모델). fix: fable 불가 시 **같은 Evaluator 를 독립 서브에이전트로 가용 모델 override 재dispatch**(컨텍스트 분리로 불변식 보존), **부모 self-review 후퇴 명시 금지**, dispatch-log degradation 기록 + 고위험 FID 크레딧 복구 후 재리뷰 권고. fable 고정(강한 리뷰어 보장)은 가용 시 유지 — graceful floor. implementing-ko(B/C) + planning-ko(plan-reviewer) 배선. teeth: test-gate-presence(mutation 2/2, cross-ref 오매칭 조임 포함).
 

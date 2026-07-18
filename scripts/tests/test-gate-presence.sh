@@ -108,4 +108,11 @@ else
   nope "planning-ko plan-reviewer fallback 소실" "plan-reviewer 도 동일 붕괴 표면"
 fi
 
+# ── P5 detection-proof (테스트 전용 태스크 RED 대체, 20260718 test2 회고) ──
+if has skills/tdd-ko/SKILL.md 'detection-proof' '규칙 뒤집기|rule inversion' '유령 주입|ghost' '변이해도 통과.*tautology|tautology'; then
+  ok "tdd-ko detection-proof 존재 (RED 대체: 변이로 탐지력 증명)"
+else
+  nope "tdd-ko detection-proof 소실" "테스트 전용 태스크가 자연 RED 없어 가짜 RED/공회전"
+fi
+
 finish
