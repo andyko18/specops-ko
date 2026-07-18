@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **FID 크기 규약 — per-FID 태스크 수 완성율 소프트 신호 (`decomposing-ko`)** — per-태스크 크기(2~5분)는 있었으나 **per-FID 크기(총 태스크 수)** 가이드가 전무했다. dogfood 실측: test2 3-태스크 FID **6/6 완주** vs test1 10-태스크 FID **24h+ 정체**(태스크 각각은 정상, FID 전체가 7.5h 마라톤 → 세션 경계 이탈). 권장 스코프 ≤6 태스크, 7+ 이면 `⚠️ FID-SIZE` 소프트 신호 + 예방(다음 FID 는 수직 슬라이스로 작게)·완화(태스크별 checkpoint→`/status` reconcile 재개) 택1. 하드 게이트 아님(리스크 인지용). teeth: test-gate-presence(silent drift 방어). #220 reconcile(정체 복구)의 짝 — 이건 정체 예방.
 - **`/status` reconcile — 기록↔증거 frontier 대조로 정체 재개점 제시** — session-progress 단독은 정체 후 현실을 **과소보고**한다(dogfood test1 FR-3 실측: `/tasks` 기록 상태에서 12커밋+dispatch T7까지 존재했으나 주 breadcrumb 만 읽어 "구현 안 됨"으로 오판 → **24h+ 방치, 실제 잔여 작업은 5분**. 완성율 킬러의 실물). `show-fid-status.sh` 가 **기록 frontier(session-progress 최고 단계) ↔ 증거 frontier(spec/plan/tasks·dispatch-log DONE·feat/<FID> 브랜치 커밋·evidence.md·reviews/)**를 8단계 rank 로 대조 — 증거가 앞서면 `⚠️ DESYNC` + **진짜 재개점**(증거+1 단계) + **기록 보정 구간**(recorded+1~evidence) 제시. 정합 시 경고 0(오탐 방지). 실 FR-3 정체 상태 재현 검증: "재개점 review 부터, implement~verify 기록 보정" 정확 산출. teeth: test-show-fid-status T6~T8.
 
 ## [1.50.0] — 2026-07-18

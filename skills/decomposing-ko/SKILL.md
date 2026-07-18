@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.47.2
+specops_version: 1.51.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -99,6 +99,25 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
 - 스텝 간 의존 없음 (스텝 N+1이 스텝 N 산출 없이도 읽고 이해 가능)
 
 **태스크가 5분을 초과한다면**: 더 작은 태스크로 분할
+
+## FID 크기 규약 (완성율 레버)
+
+per-태스크 크기(2~5분)와 **별개로**, **FID 전체 태스크 수**가 완성율을 좌우한다 — dogfood 실측: test2 3-태스크 FID 는 **6/6 완주**, test1 10-태스크 FID 는 **24h+ 정체**(태스크 각각은 정상이었으나 FID 전체가 7.5시간 마라톤 → 세션 경계에서 중간 이탈). **큰 FID = 긴 세션 = 이탈 노출 ↑.**
+
+**권장 FID 스코프 = 태스크 ≤6.**
+
+**분해 결과 태스크가 7개 이상이면** — 분해 출력 끝에 소프트 신호 1줄을 남긴다:
+
+```
+⚠️ FID-SIZE: <N> 태스크 (권장 ≤6) — 다중 세션에 걸칠 수 있음. 중간 이탈 시 재개는 /status (reconcile) 로.
+```
+
+그리고 아래 중 하나를 택한다:
+
+- **선호 (예방)** — 다음 기능부터 `specifying-ko` 단계에서 **수직 슬라이스**(각자 독립 shippable 단위)로 FID 를 작게 스코프한다. 큰 기능 1 FID 보다 작은 기능 여러 FID 가 완주율이 높다.
+- **현 FID (완화)** — `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
+
+**하드 게이트 아님** — 큰 FID 도 진행 가능하다. 이 신호는 "완성율 리스크 인지 + 재개 대비"를 위한 것이지 차단이 아니다.
 
 ## 테스트 컨벤션 (bash)
 
