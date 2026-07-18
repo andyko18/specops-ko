@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.51.0] — 2026-07-18
+
 ### Added
 - **공유 유틸 창발 중복 경고 (P2) + implement 전환 선언 넛지 (P4) — test2 회고** — **P2**: foundation-manifest 는 사전 선언된 공통부 재사용만 게이트하지, 형제 FID 가 각자 만드는 유틸의 **창발 중복**은 못 잡는다(전방 계약≠후방 탐지). test2 실측: `mask_block_comments`·`PRUNE`/`ANALYZE_EXT` 가 4~5 FID 복제 → "sysprobe-lib 승격" backlog 반복. planning-ko 에 판별 가이드(재사용 유틸 → 공통 lib 배치·manifest 등재 후보, 애매 시 `공유후보:` 1줄+advisor) 추가 — 하드게이트 아님. **P4**: R-3 warn 12건이 전부 `implementing-ko`(자동 체인이 선언 없이 직접 호출). decomposing-ko 의 implement 전환에 "호출 직전 한 줄 선언" 넛지 추가(근본=전환 지점). teeth: test-gate-presence(mutation 2/2). ※ P4 는 guidance-level(자동 체인이라 완전 제거는 미보장)이고 R-3 은 audit-only 라 잔여 warn 은 benign.
 
@@ -748,7 +750,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...HEAD
+[1.51.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...v1.51.0
 [1.50.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.3...v1.48.0
