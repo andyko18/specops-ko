@@ -87,4 +87,12 @@ else
   nope "decomposing-ko FID 크기 규약 소실" "per-FID 태스크수 신호 부재 — 큰 FID 정체 리스크 무경고"
 fi
 
+# ── E2 최종 리뷰 right-size (경제성, 20260718) ──
+# implementing-ko 에 단일 태스크 최종 리뷰 skip(중복 제거) + 멀티태스크 B/C 축소 금지 가드 존재.
+if has skills/implementing-ko/SKILL.md '최종 리뷰 right-size|최종 리뷰 SKIP' '태스크 수 == 1' '멀티태스크 Phase B/C 를 줄이는 건 금지'; then
+  ok "implementing-ko E2 최종 리뷰 right-size 존재 (단일태스크 skip + 멀티 품질 가드)"
+else
+  nope "implementing-ko E2 최종 리뷰 right-size 소실" "중복 제거 게이트 또는 품질 가드 부재"
+fi
+
 finish

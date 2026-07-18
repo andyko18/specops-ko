@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **E2 최종 리뷰 right-size — 단일 태스크 중복 제거 (경제성)** — `implementing-ko` 의 wave-loop 후 "최종 코드 리뷰어(전체 구현)"는 태스크 간 통합을 보는 단계인데, **태스크가 1개**면 "전체 구현"="그 1 태스크"라 이미 Phase C 가 리뷰한 것과 **literal 중복**이었다. 태스크 수==1 일 때만 최종 리뷰 skip(기계적 게이트, 품질 손실 0 — 동일 산출물의 두 번째 리뷰 제거). **멀티태스크 Phase B/C 는 무변경** — 그 리뷰가 실 Critical(RBAC 권한상승 등)을 잡는 품질의 원천이라 명시적 축소 금지 가드 추가. dispatch-log 투명성 기록(F-12 규약). teeth: test-gate-presence(mutation 3/3). ※ 경제성의 대부분은 이런 코드 레버가 아니라 "자기수리 나선 중단"(행동)에 있음 — 본 변경은 안전한 중복 제거 한 건으로 한정.
+
 ### Fixed
 - **`/status` reconcile — 유지보수 흐름 `/analyze` 단계 누락 (#220 자기결함)** — reconcile 단계 사다리가 `specify` 부터 시작해 유지보수 진입 단계 `/analyze` 를 몰랐다. `/analyze 완료` 가 기록돼도 recorded=0 오라벨 + current-state.md·impact-analysis.md 가 증거 사다리에 부재 → 모든 유지보수 FID 를 오판(cry-wolf 리스크). dogfood 로 test2 `scanner-blockcomment-fix`(유지보수 FID) 를 실제 조회하다 발견 — "shipped 도구를 실사용 중 나온 자기결함" 이라는 개선 명분 기준의 실례. 사다리에 `analyze`(rank 5, specify 앞) + analyze 산출물 증거 추가, 비균일 간격 위해 `_stage_next` 명시 매핑. teeth: test-show-fid-status T9(정합)·T10(analyze→specify desync). ★ T9/T10 초안이 상단 이력 echo 의 `analyze` 로 tautology-PASS → reconcile 섹션 스코프로 정정(grep 앵커 교훈 자체적용).
 

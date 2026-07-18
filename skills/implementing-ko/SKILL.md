@@ -111,7 +111,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
 → WAVE LOOP 재진입 (find_ready(done) 로 다음 wave frontier)
     ─────────────────────────────────────────────────────────
     ↓ ready 비어 있으면 (전부 완료)
-최종 코드 리뷰어 (전체 구현)
+최종 코드 리뷰어 (전체 구현) — 단, 태스크 수==1 이면 SKIP (per-task C 중복, E2)
     ↓
 specops-auto-ko:verifying-evidence-ko 호출
 ```
@@ -139,6 +139,15 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 **근거**: dogfood FID `20260422-csv-lines` 실측 — 5 태스크 전부 `csv-lines` + `tests/test-csv-lines.sh` 만 수정 · 총 40 LOC. 규약대로 15 dispatch 대신 3 dispatch (구현자 1 + 리뷰어 2) 로 집약해 27.1k 토큰 절감, Phase B/C 리뷰는 유지. `dispatch-log.md` Phase A/B/C 기록이 5 원칙 4 (주권) · 1 (투명성) 충족 증거 (FRICTION-LOG F-12).
 
 **위 조건 불충족 시** 기본값 ("태스크별 fresh 서브에이전트 dispatch") 그대로 유지.
+
+## 최종 리뷰 right-size — 단일 태스크 중복 제거 (E2, 20260718 경제성)
+
+Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스크 간 통합**(경계·교차 영향)을 검토하는 단계다. 그런데 **FID 의 태스크가 1개**(§유형=trivial 단축, 또는 단일 태스크로 분해된 경우)면 "전체 구현" = "그 1 태스크"이고, 이미 Phase C(`code-reviewer-ko`)가 그 태스크의 전체 산출물을 리뷰했다 → **최종 리뷰는 literal 중복**이므로 skip 한다.
+
+- **게이트: 태스크 수 == 1 일 때만 skip** (기계적 — 판단 아님). **태스크 2개 이상이면 최종 리뷰 유지** — 태스크 간 통합·경계는 per-task C 가 못 보는 표면이라 중복이 아니다.
+- **품질 손실 0**: 제거 대상은 동일 산출물의 **두 번째 리뷰**지 새로운 검토가 아니다. Phase B/C 자체는 **무변경**(Generator↔Evaluator 분리·스펙/품질 분리 불변).
+- `dispatch-log.md` 에 `최종 리뷰 SKIP (단일 태스크 — Phase C 중복 제거, E2)` 기록 (F-12 와 동일 투명성 규약, 원칙 1).
+- **주의**: 이건 **안전한 유일한 리뷰 축소**다. 멀티태스크 Phase B/C 를 줄이는 건 금지 — 그 리뷰가 실제 Critical(RBAC 권한상승 등)을 잡는 품질의 원천이다. 경제성은 중복 제거로만 얻고 품질 표면은 건드리지 않는다.
 
 ## Phase B/C 자동 재dispatch 정책 (Wave 2 U5)
 
