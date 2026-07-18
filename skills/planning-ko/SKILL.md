@@ -163,6 +163,8 @@ git commit -m "feat: 특정 기능 추가"
 | `PLAN-REVIEW-RESULT: FAIL` (초기 시도) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
 | `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | `HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요` 출력 후 중단 |
 
+**Evaluator 모델 불가 fallback (P1 — 20260718)**: `plan-reviewer-ko` 도 `model: fable` 고정이라 fable 불가(크레딧 소진) 시 dispatch 가 실패한다. 이때 **부모 self-review 로 후퇴 금지** — 같은 `plan-reviewer-ko` 를 **독립 서브에이전트로 가용 모델 override 재dispatch**(Agent `model` 인자)해 Generator↔Evaluator 분리를 보존한다. dispatch-log 에 `plan-reviewer-ko (모델 fallback: fable 불가 → <모델>)` 기록. 상세 규약은 `skills/implementing-ko/SKILL.md` "Evaluator 모델 불가 fallback" 참조(동일 원칙).
+
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/review 단계가 검증). dispatch-log.md에 "plan-reviewer cap 초과 → §auto 자동통과" 기록. cap 초과 자동통과 **직전** `advisor()` 1회 자문 시도 → 권고 요지를 dispatch-log.md에 기록(보조 입력 — plan 판정 권한 없음, 가역 게이트라 자동 진행). `advisor()` 미연결 시 자문 없이 자동통과 진행(graceful fallback — 하드 의존 금지).
 

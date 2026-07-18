@@ -158,6 +158,15 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 **cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권).
 
+## Evaluator 모델 불가 fallback (P1 — 20260718 test2 정주행 회고)
+
+Phase B/C Evaluator(`spec-reviewer-ko`·`code-reviewer-ko`)는 `model: fable` 고정이다 — 리뷰어가 세션 모델과 무관하게 **강한 모델**을 쓰도록 보장하는 의도적 설계. 그런데 **fable 이 불가**(크레딧 소진·overload)해 Evaluator dispatch 가 실패하면 Generator↔Evaluator 분리가 위협받는다. **아래 순서를 강제**한다:
+
+1. **같은 Evaluator 를 독립 서브에이전트로 재dispatch** 하되 **가용 모델을 override**(Agent 도구 `model` 인자로 세션 모델 등 지정, fable 아님). fresh 서브에이전트 = **부모와 분리된 컨텍스트**라 Generator↔Evaluator 불변식이 보존된다 — 독립성은 **모델 차이가 아니라 컨텍스트 분리**에서 온다.
+2. **절대 부모 self-review 로 후퇴 금지** — 부모(생성자)가 자기 산출을 리뷰하면 Evaluator=Generator 편향(자기평가)이다. **test2 실측 근거**: 부모(opus) self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 비-fable 리뷰어가 잡았다**. 즉 **독립-약한 모델 ≫ 편향-강한 모델**.
+3. `dispatch-log.md` 에 degradation 명시: `Phase C: code-reviewer-ko (모델 fallback: fable 불가 → <모델>) PASS/FAIL` (원칙 1·5 — 투명성·한계 고백).
+4. 이건 **graceful floor** 지 fable 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 크레딧 복구 후 **보안·인증·DB 등 고위험 FID 는 fable 로 재리뷰 권고**(dispatch-log 에 재리뷰 필요 플래그).
+
 > **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다.
 
 **[§auto 모드] cap 초과 처리** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):

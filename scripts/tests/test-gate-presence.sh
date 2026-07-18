@@ -95,4 +95,17 @@ else
   nope "implementing-ko E2 최종 리뷰 right-size 소실" "중복 제거 게이트 또는 품질 가드 부재"
 fi
 
+# ── P1 Evaluator 모델 불가 fallback (20260718 test2 회고) ──
+# fable Evaluator 크레딧 소진 시 부모 self-review 붕괴 금지 + 독립 리뷰어 fallback 존재.
+if has skills/implementing-ko/SKILL.md 'Evaluator 모델 불가' '부모 self-review 로 후퇴 금지|부모 self-review.*금지' '독립 서브에이전트'; then
+  ok "implementing-ko Evaluator fallback 존재 (독립 리뷰어 + 부모 self-review 금지)"
+else
+  nope "implementing-ko Evaluator fallback 소실" "fable 불가 시 Generator↔Evaluator 붕괴 무방어"
+fi
+if grep -q '부모 self-review 로 후퇴 금지' skills/planning-ko/SKILL.md && grep -q 'plan-reviewer-ko .*독립 서브에이전트\|독립 서브에이전트로 가용 모델' skills/planning-ko/SKILL.md; then
+  ok "planning-ko plan-reviewer fallback 참조 존재"
+else
+  nope "planning-ko plan-reviewer fallback 소실" "plan-reviewer 도 동일 붕괴 표면"
+fi
+
 finish

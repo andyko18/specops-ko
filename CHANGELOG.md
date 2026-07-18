@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Evaluator fable 하드고정이 크레딧 소진 시 Generator↔Evaluator 붕괴 (P1 — test2 정주행 회고)** — `plan-reviewer-ko`·`spec-reviewer-ko`·`code-reviewer-ko` 가 `model: fable` 고정이라, fable 크레딧 소진 시 **3 Evaluator 전부 dispatch 불가** → 부모(생성자) self-review 로 후퇴 = **Evaluator=Generator 편향**(specops 핵심 가치인 독립 리뷰 붕괴). test2 완결 run 의 실측 근거: 부모 self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 비-fable 리뷰어가 잡았다**(독립-약한 모델 ≫ 편향-강한 모델). fix: fable 불가 시 **같은 Evaluator 를 독립 서브에이전트로 가용 모델 override 재dispatch**(컨텍스트 분리로 불변식 보존), **부모 self-review 후퇴 명시 금지**, dispatch-log degradation 기록 + 고위험 FID 크레딧 복구 후 재리뷰 권고. fable 고정(강한 리뷰어 보장)은 가용 시 유지 — graceful floor. implementing-ko(B/C) + planning-ko(plan-reviewer) 배선. teeth: test-gate-presence(mutation 2/2, cross-ref 오매칭 조임 포함).
+
+
 ### Changed
 - **E2 최종 리뷰 right-size — 단일 태스크 중복 제거 (경제성)** — `implementing-ko` 의 wave-loop 후 "최종 코드 리뷰어(전체 구현)"는 태스크 간 통합을 보는 단계인데, **태스크가 1개**면 "전체 구현"="그 1 태스크"라 이미 Phase C 가 리뷰한 것과 **literal 중복**이었다. 태스크 수==1 일 때만 최종 리뷰 skip(기계적 게이트, 품질 손실 0 — 동일 산출물의 두 번째 리뷰 제거). **멀티태스크 Phase B/C 는 무변경** — 그 리뷰가 실 Critical(RBAC 권한상승 등)을 잡는 품질의 원천이라 명시적 축소 금지 가드 추가. dispatch-log 투명성 기록(F-12 규약). teeth: test-gate-presence(mutation 3/3). ※ 경제성의 대부분은 이런 코드 레버가 아니라 "자기수리 나선 중단"(행동)에 있음 — 본 변경은 안전한 중복 제거 한 건으로 한정.
 
