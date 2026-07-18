@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- **공유 유틸 창발 중복 경고 (P2) + implement 전환 선언 넛지 (P4) — test2 회고** — **P2**: foundation-manifest 는 사전 선언된 공통부 재사용만 게이트하지, 형제 FID 가 각자 만드는 유틸의 **창발 중복**은 못 잡는다(전방 계약≠후방 탐지). test2 실측: `mask_block_comments`·`PRUNE`/`ANALYZE_EXT` 가 4~5 FID 복제 → "sysprobe-lib 승격" backlog 반복. planning-ko 에 판별 가이드(재사용 유틸 → 공통 lib 배치·manifest 등재 후보, 애매 시 `공유후보:` 1줄+advisor) 추가 — 하드게이트 아님. **P4**: R-3 warn 12건이 전부 `implementing-ko`(자동 체인이 선언 없이 직접 호출). decomposing-ko 의 implement 전환에 "호출 직전 한 줄 선언" 넛지 추가(근본=전환 지점). teeth: test-gate-presence(mutation 2/2). ※ P4 는 guidance-level(자동 체인이라 완전 제거는 미보장)이고 R-3 은 audit-only 라 잔여 warn 은 benign.
+
 - **detection-proof — 테스트 전용 태스크의 RED 대체 (P5, test2 정주행 회고)** — RED-first 는 새 동작 구현을 가정하는데, **이미 정상 동작하는 로직에 테스트를 추가**하는 태스크(커버리지·스캐너 탐지 테스트·회귀 락인)는 자연 RED 가 없다. tdd-ko 의 "테스트가 통과? → 테스트 수정"은 이 경우 오처방(테스트가 옳다). `tdd-ko` 에 detection-proof 성문화: **변이(규칙 뒤집기·유령 주입)로 테스트가 FAIL 하는지 확인**해 탐지력 증명 — "변이해도 통과=tautology=RED 미충족". RED 의 본질은 "실패 테스트를 먼저"가 아니라 "**fail 할 수 있음을 관찰**"이라는 원칙 명문화(변이본 FAIL 원문 인용 = RED 인용 규약 대칭). test2 run 이 스스로 발명한 패턴을 성문화 — decomposing-ko 는 tdd-ko 준수라 자동 전파. teeth: test-gate-presence(섹션 삭제 mutation).
 
 ### Fixed

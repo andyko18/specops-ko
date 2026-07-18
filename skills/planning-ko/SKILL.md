@@ -228,6 +228,17 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 - `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
+## 공유 유틸 창발 중복 경고 (P2 — 20260718 test2 회고)
+
+foundation-manifest 는 **사전 선언된** 공통부 재사용만 게이트한다 — 그런데 **여러 형제 FID 가 각자 만드는 유틸이 창발적으로 중복**되는 건 못 잡는다(전방 계약 ≠ 후방 탐지). test2 실측: `mask_block_comments`·`PRUNE`/`ANALYZE_EXT` 리터럴이 **4~5 FID 에 복제**돼 "sysprobe-lib 승격" backlog 가 반복 발생했다.
+
+**plan 작성 시 판별**: 이 플랜의 태스크가 **재사용 가능한 유틸리티**(파싱 헬퍼·공유 상수·전처리 함수 등 — 이 기능 고유 로직이 아니라 형제 기능도 쓸 만한 것)를 만드는가?
+
+- **그렇다** → 그 로직을 **공통 lib**(예: `<project>/lib` · foundation 모듈)에 배치하도록 플랜에 명시하고, `.specops/memory/foundation-manifest.md` 에 등재 후보로 기재한다. per-FID 인라인 복제 금지.
+- **판단 애매** → plan.md 에 `공유후보: <유틸명> (창발 중복 리스크)` 1줄 기록 → 리뷰·후속 FID 가 인지. **advisor 자문 권장**(조기 분리 가치 — test2 learning: advisor 가 '조합 vs 재구현' 조기 포착).
+
+**하드 게이트 아님** — 판단 도구다. 목적은 "3번째 복제가 생기기 전에 승격"이지 차단이 아니다.
+
 ## foundation 분기 — manifest 산출 지시
 
 spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마지막에 다음 태스크를 포함한다:

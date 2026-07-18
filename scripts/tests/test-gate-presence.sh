@@ -115,4 +115,16 @@ else
   nope "tdd-ko detection-proof 소실" "테스트 전용 태스크가 자연 RED 없어 가짜 RED/공회전"
 fi
 
+# ── P2 공유유틸 창발중복 경고 + P4 implement 선언 넛지 (20260718 test2 회고) ──
+if has skills/planning-ko/SKILL.md '공유 유틸 창발 중복' '공통 lib|공통lib' '창발 중복 리스크'; then
+  ok "planning-ko P2 창발중복 경고 존재"
+else
+  nope "planning-ko P2 창발중복 경고 소실" "형제-FID 유틸 복제 무경고 → 승격 backlog 반복"
+fi
+if grep -q '호출 직전 한 줄 선언' skills/decomposing-ko/SKILL.md && grep -q 'implementing-ko 를 호출합니다' skills/decomposing-ko/SKILL.md; then
+  ok "decomposing-ko P4 implement 선언 넛지 존재 (R-3 투명성)"
+else
+  nope "decomposing-ko P4 선언 넛지 소실" "implementing-ko 자동호출 R-3 warn 재발"
+fi
+
 finish

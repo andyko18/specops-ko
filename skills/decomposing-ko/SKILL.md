@@ -321,9 +321,10 @@ fi
 
 - **§batch (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-all` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
 - **§auto (auto 분기)** → implementing-ko 직행. §auto 라벨이 propagate되어 각 단계에서 가역 게이트 자동 통과가 계속됨.
-- **단일 분기** → 기존 동작:
+- **단일 분기** → 기존 동작. **호출 직전 한 줄 선언**(R-3 투명성 — 20260718 test2 회고: implementing-ko 만 선언 없이 자동 호출돼 R-3 warn 12건 누적. 자동 체인이라도 전환을 1줄 명시):
 
 ```
+구현 단계로 진행 — specops-auto-ko:implementing-ko 를 호출합니다.
 Skill: specops-auto-ko:implementing-ko
 ```
 
