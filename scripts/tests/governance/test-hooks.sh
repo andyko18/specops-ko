@@ -61,6 +61,47 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T8.e ★ 감사 스코프 회귀 (20260718-posttool-audit-silence): 커밋 직후 잔여 dirty 가
+#   tracked .specops/session-progress.md 뿐인 실전 상태에서, 방금 커밋(코드)의 감사가 침묵하면 안 된다.
+#   구버전은 is_docs_only_change(working-tree)가 .specops/* 면제에 걸려 R-1 감사를 통째로 skip —
+#   #214 이후 R-1 posttool warn 전 repo 0건의 실물 원인 (T8.a 는 git repo 부재 fixture 라 못 잡았다).
+tmp=$(mktemp -d); cd "$tmp"; git init -q
+mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+echo 'echo v1' > a.sh
+git add a.sh .specops/session-progress.md && git -c user.email=t@t -c user.name=t commit -qm init
+echo 'echo v2' > a.sh && git add a.sh && git -c user.email=t@t -c user.name=t commit -qm "feat: code"
+printf '\n- dirty line\n' >> .specops/session-progress.md   # tracked+modified — 실전 잔여 dirty
+cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
+out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
+log_path=".specops/20260424-newest-feature/friction-log.jsonl"
+if [ "$rc" -eq 0 ] && [ -f "$log_path" ] && jq -e '.rule_id == "R-1"' "$log_path" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T8.e ★ 코드 커밋 + .specops 잔여 dirty → 감사 실행 (침묵 봉합)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.e 감사 침묵 (rc=$rc log=$(ls $log_path 2>/dev/null))"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T8.f 방금 커밋이 docs-only → 감사 skip 유지 (스코프 의미론 — tree 에 코드 dirt 가 있어도 커밋 기준)
+tmp=$(mktemp -d); cd "$tmp"; git init -q
+mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+echo 'echo v1' > a.sh
+git add a.sh .specops/session-progress.md && git -c user.email=t@t -c user.name=t commit -qm init
+echo docs > README.md && git add README.md && git -c user.email=t@t -c user.name=t commit -qm "docs: readme"
+echo 'echo dirty' > b.sh   # untracked 코드 dirt — 커밋 스코프 판정엔 무관해야 함
+cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
+out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
+log_path=".specops/20260424-newest-feature/friction-log.jsonl"
+if [ "$rc" -eq 0 ] && [ ! -f "$log_path" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.f docs-only 커밋 → 감사 skip (커밋 기준 스코프)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.f (rc=$rc log=$(ls $log_path 2>/dev/null))"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 STOP_HOOK="$PLUGIN/hooks/stop-governance.sh"
 
 # T11.a stop_hook_active=true → 즉시 exit 0, append 없음

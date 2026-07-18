@@ -51,7 +51,9 @@ while IFS= read -r rule; do
   result=""
   case "$local_id" in
     R-1|R-2)
-      if ! is_docs_only_change; then
+      # 감사 스코프 = 방금 일어난 액션의 범위 (R-1: HEAD~1..HEAD, R-2: base...HEAD) —
+      # working-tree 기준(is_docs_only_change)은 커밋 직후 .specops 잔여 dirty 에 걸려 감사 침묵 (T8.e)
+      if ! is_docs_only_audit_scope "$local_id"; then
         result=$(apply_lookback_rule "$rule" "$transcript" "$tool_name" "$tool_cmd" 2>/dev/null || true)
       fi
       ;;

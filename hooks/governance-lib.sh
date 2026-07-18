@@ -169,7 +169,14 @@ is_docs_only_change() {
     files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
-  local f
+  _files_all_docs "$files"
+}
+
+# whitelist 매처 (is_docs_only_change ↔ is_docs_only_audit_scope 공유 — 면제 클래스 drift 방지)
+# 빈 목록 = 1 (fail-safe — 판정 불가 시 비면제).
+_files_all_docs() {
+  local files="$1" f
+  [ -z "$files" ] && return 1
   while IFS= read -r f; do
     [ -z "$f" ] && continue
     case "$f" in
@@ -186,6 +193,26 @@ is_docs_only_change() {
 $files
 EOF
   return 0
+}
+
+# posttool 감사 스코프 (20260718-posttool-audit-silence): 감사는 **방금 일어난 액션의 범위**를 본다 —
+#   R-1(commit) = HEAD~1..HEAD(방금 커밋), R-2(pr create) = base...HEAD(PR 범위).
+# 왜: working-tree 기준 is_docs_only_change 를 posttool 에 쓰면, 커밋 직후 잔여 dirty 가 거의 항상
+#   tracked `.specops/session-progress.md` 뿐이라 .specops/* 면제(#214)에 걸려 **감사가 통째로 침묵**한다
+#   (#214 이후 R-1 posttool warn 전 repo 0건의 실물 원인 — pretool block 만 남는 절반 가시성).
+#   pretool 은 액션 前이라 working-tree 가 곧 커밋 범위 = 기존 함수가 정확하다(무변경).
+# fail-safe: range diff 실패(최초 커밋 HEAD~1 부재·base 미검출) = 비면제(감사 실행 — 차단 아닌 기록이라
+#   과잉 방향이 안전).
+is_docs_only_audit_scope() {
+  local rule_id="$1" files
+  case "$rule_id" in
+    R-1) files=$(git diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || files="" ;;
+    R-2) local base
+         base=$(_detect_base_branch) || return 1
+         files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null) ;;
+    *) return 1 ;;
+  esac
+  _files_all_docs "$files"
 }
 
 # heredoc **본문**을 트리거 검사 입력에서 제거한다 (20260713-heredoc-false-block).

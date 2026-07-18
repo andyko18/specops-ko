@@ -155,6 +155,27 @@ _docs_case 1 "T-docs.o screens/ 밖 .html 비면제(앱 코드 가능)" 'git ini
 _docs_case 1 "T-docs.p screens/*.html + 코드 혼합 차단(불변식)" 'git init -q; mkdir screens; echo x>screens/a.html; echo y>b.sh; git add screens b.sh'
 _docs_case 0 "T-docs.q .specops/ 아티팩트(비 .md 포함) 면제" 'git init -q; mkdir -p .specops/20260101-x; echo sha>.specops/20260101-x/review-base.sha; git add .specops'
 
+# T-scope.a~d: is_docs_only_audit_scope — posttool 감사 스코프 (방금 액션 범위, 20260718-posttool-audit-silence)
+_scope_case() {  # $1 expect_rc $2 label $3 rule_id $4 setup-eval
+  local exp="$1" label="$2" rid="$3" setup="$4" rc
+  ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
+    sb=$(mktemp -d) || exit 3; cd "$sb" || exit 3
+    eval "$setup"
+    is_docs_only_audit_scope "$rid"; rc=$?
+    cd /; rm -rf "$sb"; exit $rc )
+  rc=$?
+  if [ "$rc" -eq "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (rc=$rc exp=$exp)"; fi
+}
+_scope_case 1 "T-scope.a R-1 코드 커밋 + .specops 잔여 dirty → 비면제(감사)" R-1 \
+  'git init -q; mkdir .specops; echo p>.specops/session-progress.md; echo x>a.sh; git add -A; git "$C" -q -m i; echo y>a.sh; git add a.sh; git "$C" -q -m c; echo d>>.specops/session-progress.md'
+_scope_case 0 "T-scope.b R-1 docs-only 커밋 + 코드 dirt → 면제(커밋 기준)" R-1 \
+  'git init -q; echo x>a.sh; git add -A; git "$C" -q -m i; echo d>R.md; git add R.md; git "$C" -q -m d; echo z>b.sh'
+_scope_case 1 "T-scope.c R-1 최초 커밋(HEAD~1 부재) → 비면제(fail-safe)" R-1 \
+  'git init -q; echo x>a.sh; git add -A; git "$C" -q -m i'
+_scope_case 1 "T-scope.d R-2 base...HEAD 코드 포함 → 비면제(감사)" R-2 \
+  'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>c.sh; git add c.sh; git "$C" -q -m f; echo d>>b.md'
+
 # T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
 _base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
   local exp="$1" label="$2" setup="$3" out
