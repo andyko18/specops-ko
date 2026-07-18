@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.52.0] — 2026-07-19
+
 ### Added
 - **유지보수 오분류 백스톱 (specifying-ko [신규 분기])** — 커맨드 감사 20260719 [MED]: entry 라벨(`<!-- entry: maintain -->`)은 모델-prepend 프로즈라 훅 강제가 없어, 메타스킬 유지보수 분류·라벨이 누락되면 유지보수 요청이 [신규 분기]로 새어 analyzing-ko HARD GATE(current-state·impact-analysis)를 통째 skip → 회귀 AC-R 미적용. specifying-ko [신규 분기] 진입점에 soft 백스톱 추가: 요청이 **기존 코드·동작 수정**이면 신규 진행 전 1회 확인(유지보수 전환 시 analyzing-ko 선행). 하드강제 아님(5원칙4 주권)·오탐 방지(신규 창작이 "개선/변경" 어휘 포함은 흔하므로 기존 산출물 실제 수정 시에만 확인). 관찰 실패 0의 백스톱 — 아키텍처상 라벨은 프로즈라 완전 기계강제는 불가.
 - **재개 desync 자동표면화 (SessionStart)** — 완주율 레버: 정체 후 재개 시 session-progress breadcrumb 이 git·dispatch 보다 뒤처져 재개 모델이 "미구현" 오판·방치(dogfood test1 FR-3, 24h 정체). `/status` reconcile(#220)은 탐지하나 수동 실행 필요였다. SessionStart 훅이 진행 중 FID 에 `reconcile-check.sh --hook` 을 자동 실행 → 증거 frontier > 기록 frontier 일 때만 DESYNC 경고+재개점을 `<session-progress-reconcile>` 로 주입(정합 시 무출력, 노이즈 0). session-progress 자동 덮어쓰기는 하지 않음(표면화만 — breadcrumb 오염 방지). frontier 사다리·reconcile 로직을 `scripts/_internal/reconcile-check.sh` 로 추출해 show-fid-status·SessionStart 단일 SoT(drift 방지). 신규 테스트 9건(reconcile-check 6 + session-start-reconcile 3), mutation 검증.
@@ -760,7 +762,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.52.0...HEAD
+[1.52.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...v1.51.0
 [1.50.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...v1.49.0
