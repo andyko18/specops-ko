@@ -51,6 +51,75 @@ trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|sele
 printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 
 [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
+
+# ── batch PR 뭉개짐 게이트 (20260721-batch-pr-teeth) ─────────────────────────
+# dogfood test1: 무인 batch 가 7개 per-FR FID 를 BATCH_ID 하나로 뭉갠 채 PR 을 냈다.
+#   teeth(scripts/batch-state.sh)는 commands/start-all.md:114 **산문**에만 있어 아무도 호출하지 않았고,
+#   R-2 훅은 verify 만 보므로 통과했다. 산문 teeth 를 훅으로 옮긴다.
+#
+# 배치 순서가 의미를 갖는다 — 세션 env BYPASS(위 줄) **뒤**, 인라인 BYPASS(아래) **앞**:
+#   · 세션 env = 사용자가 켠 것 = 주권(5원칙 4) → 인정
+#   · 인라인 = 모델 자기발급 → **불인정**. batch PR 은 비가역이고, 뭉개진 채 나가면 되돌리기 비싸다.
+#     security Critical/High 를 "§auto여도 자동통과 금지"로 둔 선례와 동급(start-all-auto.md:56).
+#     이 순서가 아니면 test1 이 한 그대로(#421) 사유 한 줄로 우회된다.
+#
+# 대상은 PR 뿐이다. **중간 커밋은 검사하지 않는다** — chain 상 verify 보다 앞서는 것이 정상이고
+#   (아래 L97-101 참조) 여기서 막으면 정직한 태스크별 커밋이 전부 걸린다.
+_batch_pr_gate() {
+  printf '%s' "$tool_cmd_scan" | grep -Eq "gh[[:space:]]+pr[[:space:]]+create" || return 0
+  # ★ 진행 중(ACTIVE 마커) batch 만 판정한다. glob-latest 는 쓰지 않는다.
+  #   `.specops/*` 는 gitignore 라 뭉개진 batch 디렉토리가 디스크에 무기한 남는다. 아무 batch 나
+  #   집으면 그것과 **무관한** 단일 FID 작업의 PR 이 과거 라벨 오염으로 차단된다 (실측 재현:
+  #   specops-test1 의 무관한 PR 이 batch-20260721b 의 `DONE` 때문에 deny 됐다). 이 게이트는
+  #   인라인 BYPASS 앞이라, 그런 false-block 의 탈출구는 "세션 전체 거버넌스 해제"뿐이 된다 —
+  #   보호를 끄는 것이 유일한 출구인 형태는 게이트를 의례로 만든다.
+  #   마커는 start-all Phase 0 이 queue.md 와 함께 만들고, batch PR 성공 후 지운다.
+  #
+  #   한계(5원칙 5): 마커는 오케스트레이터가 쓰는 것이라, 마커를 안 만들면 게이트도 안 열린다
+  #   (자기보고 의존). 그럼에도 이 설계를 택한 이유는 **놓치는 비용 < 오차단 비용** 이기 때문이다 —
+  #   false-block 은 사용자를 도구 밖으로 밀어내는 완주율 킬러이고, 미발화는 기존 상태로의 복귀일 뿐이다.
+  #
+  #   ★ 마커만으로는 부족하다. 마커는 "batch 가 진행 중인가"에 답할 뿐, 게이트가 필요한 답은
+  #   "**이 PR 이 그 batch 의 PR 인가**"다. 특히 중단된 batch 가 치명적이다 — 마커는 PR 성공
+  #   (Step D)에서만 지워지는데, 이 게이트의 목적이 뭉개진 batch 를 막는 것이라 막힌 batch 는
+  #   Step D 에 도달하지 못한다. 마커가 영구히 남아 이후 모든 무관한 PR 을 차단한다.
+  #   게이트가 잘 막을수록 오염 마커가 쌓이는 역설이다.
+  #   판별자는 브랜치다 — batch PR 은 feat/<BATCH_ID> 에서 난다(start-all.md Phase 0).
+  #   불일치·판정 불가(git 부재·detached)는 skip — false-block 회피가 옳은 오류 방향이다.
+  local queue m d branch
+  # symbolic-ref: 커밋 0건(unborn HEAD)에서도 브랜치명을 준다. rev-parse 는 unborn 에서 실패해
+  #   갓 만든 batch(첫 커밋 전) 가 통째로 skip 된다 — 게이트가 가장 필요한 시점에 침묵한다.
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null) || return 0
+  [ -n "$branch" ] || return 0
+  queue=""
+  for m in .specops/batch-*/ACTIVE; do
+    [ -f "$m" ] || continue
+    d=$(dirname "$m")
+    [ "$branch" = "feat/$(basename "$d")" ] || continue
+    [ -f "$d/queue.md" ] && queue="$d/queue.md" && break
+  done
+  [ -n "$queue" ] || return 0
+  is_docs_only_change && return 0
+  local gout grc
+  gout=$(bash "$plugin_root/scripts/batch-state.sh" --gate "$(dirname "$queue")" 2>&1); grc=$?
+  # 0=뭉개짐 없음 · 2=판정 불가(queue/requirements 파싱 실패) → fail-open. 1 만 차단.
+  [ "$grc" -eq 1 ] || return 0
+  local reason
+  reason="batch PR 차단 — per-FR 산출물·진행기록이 뭉개졌습니다 (BATCH-GATE).
+
+$gout
+
+batch 는 FR 마다 개별 FID 로 verify·review 를 남겨야 합니다 (commands/start-all.md:93).
+FR 하나를 BATCH_ID 디렉토리에 통합해 돌리면 per-FR 근거가 사라지고, 그 상태의 PR 은 되돌리기 비쌉니다.
+해법: 누락된 FID 의 verify·review 를 개별 실행한 뒤 queue.md Status 를 IMPL_DONE 으로 갱신하고 재시도하세요.
+이 차단은 인라인 SPECOPS_GOVERNANCE_BYPASS 로 열리지 않습니다 (비가역 불변식 — security Critical/High 와 동급).
+사용자가 의도적으로 넘기려면 세션 환경변수로 지정하세요: export SPECOPS_GOVERNANCE_BYPASS=1"
+  jq -nc --arg r "$reason" \
+    '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+  exit 0
+}
+_batch_pr_gate
+
 # 인라인 BYPASS 는 사유(SPECOPS_BYPASS_REASON) 병기 필수 (20260716-batch-dogfood: 첫 deny 후 모델이
 #   무사유 BYPASS 를 커밋 3회+PR 생성에 관성 사용 — 사유 없는 friction-log 는 우회 횟수만 남는 무정보 감사
 #   기록이 된다. 사유는 명령 원문째 friction-log evidence_snippet 에 남는다). 세션 env(위 줄)는 사용자 전용
@@ -134,10 +203,30 @@ if [ -n "$violation" ]; then
   #   따라서 메시지는 "verify 미실행"(단정·거짓 가능)이 아니라 "이 세션에 실행 증거 없음"으로 진술하고,
   #   실제로 게이트를 여는 유일한 행동(run-verification.sh 재실행)을 안내한다. Skill 호출 안내는 틀린 해법(T2b 가 차단).
   # $fid 는 L44 에서 bind 됨(빈 값 가능 — session-progress 부재 시) → ${fid:-<FID>} 로 dangling 방지.
-  reason="$act 차단 — 이 세션에 verify 실행 증거가 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
-해법: bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행한 뒤 재시도하세요.
-(플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
-Skill 호출·evidence.md 스탬프만으로는 열리지 않습니다 — 모델 자기보고라 위조 가능, 하네스가 남긴 실행 기록만 인정합니다.
+  # ★ 면제 조건은 **두 겹**이다 (governance-lib.sh apply_lookback_rule L481-500):
+  #     ① 실행 증거 — transcript 의 러너 tool_result 에 `VERIFY: PASS` (필요조건)
+  #     ② FID-scoped 앵커 — session-progress `## <FID>` 섹션의 `/verify PASS` 줄, 또는 해당 FID 의
+  #        evidence.md 스탬프, 또는 verify Skill 호출 이벤트 (①이 있어야 인정되는 보조 신호)
+  #   구 문안은 ①만 안내해, 지시대로 러너를 재실행하고도 ②가 없어 또 막힌 모델을 BYPASS 로 몰았다
+  #   (dogfood 20260721 test1 #418→#419→#420: 안내 이행 후 동일 메시지로 재차단 → #421 BYPASS).
+  #   $fid 가 비어 있으면 그 자체가 진단이다 — session-progress 에 FID 섹션이 없다는 뜻.
+  _anchor_hint=""   # 메인 흐름(함수 밖) — local 불가
+  if [ -z "${fid:-}" ]; then
+    _anchor_hint="② 진행 기록 앵커가 없습니다 — .specops/session-progress.md 에 \`## <FID>\` 섹션이 하나도 없습니다.
+   FID 는 YYYYMMDD-kebab-slug 형식이어야 합니다(batch-<날짜> 같은 BATCH_ID 는 인식되지 않습니다).
+   bash scripts/session-progress-append.sh <FID> /verify PASS 로 기록하세요."
+  else
+    _anchor_hint="② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
+   또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다."
+  fi
+  reason="$act 차단 — verify 면제 조건 2가지 중 최소 하나가 미충족입니다.
+
+① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
+   bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
+$_anchor_hint
+
+①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'

@@ -167,6 +167,8 @@ Phase B/C Evaluator(`spec-reviewer-ko`·`code-reviewer-ko`)는 `model: fable` �
 3. `dispatch-log.md` 에 degradation 명시: `Phase C: code-reviewer-ko (모델 fallback: fable 불가 → <모델>) PASS/FAIL` (원칙 1·5 — 투명성·한계 고백).
 4. 이건 **graceful floor** 지 fable 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 크레딧 복구 후 **보안·인증·DB 등 고위험 FID 는 fable 로 재리뷰 권고**(dispatch-log 에 재리뷰 필요 플래그).
 
+> **[기계 검사 — 미기록은 VERIFY 를 막는다]** (20260721 test1 dogfood): 위 3·4 항(degradation 기록)과 아래 감사 추적은 **프로즈가 아니다**. `scripts/_internal/check-review-audit.sh` 가 `reviews/<task-id>-[BC]-{report,feedback}.md` ↔ `dispatch-log.md` 행을 대조하고, `run-verification.sh` 가 이를 호출해 **미기록 리뷰가 있으면 `VERIFY: PASS` 를 거부**한다 (실행-근거 게이트 → 커밋도 안 열림). 실측 근거: test1 `20260717-approval-rbac` 이 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행을 누락했는데 아무도 못 잡았다. **한계**: 이 검사는 **누락 전용**이다 — 행은 썼는데 내용이 거짓인 경우(부모 인라인 판정을 서브에이전트로 기재)는 자기보고라 파일 대조로 못 잡는다. 그 층은 여전히 정직에 의존한다.
+
 > **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다.
 
 **[§auto 모드] cap 초과 처리** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):

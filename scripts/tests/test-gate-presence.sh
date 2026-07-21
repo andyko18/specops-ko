@@ -49,6 +49,19 @@ else
   nope "foundation-manifest 경로 drift" "verify↔decomposing 경로 불일치"
 fi
 
+# ── 입력 프로브 (fixture-외) 의무 — code-reviewer-ko 4단계 + 보고서 섹션 ────
+# 한계 (5원칙 5): 본 검사는 **문구 존재**만 본다 — 리뷰어가 실제로 프로브했는지는 검증하지 않는다.
+#   프로브는 행동이라 파일 대조로 검증 가능한 객관 신호가 없다(F1 의 누락 검사와 다른 지점).
+#   guidance-level 이라는 뜻이며, 그 천장을 알고 넣는다 (#226 P4 넛지와 같은 등급).
+CR=agents/code-reviewer-ko.md
+#   패턴 3종은 각각 다른 소실을 잡는다: ① 프로세스 단계(번호 앵커) ② fixture 수정 금지 계약
+#   ③ 보고서 섹션. ①·③ 중 하나만 검사하면 나머지 삭제가 mutation 생존한다 (실측).
+if has "$CR" '^4\. \*\*입력 프로브' 'fixture.*수정하지 않는다' '^## 입력 프로브'; then
+  ok "입력 프로브(fixture-외) 의무 + 보고서 섹션 존재 (code-reviewer-ko)"
+else
+  nope "입력 프로브 의무 소실" "code-reviewer-ko — 작성자 fixture 안에서만 판정하게 됨"
+fi
+
 # ── BATCH halt signal — 방출 skill 에 signal + halt 동시 존재 ────
 # (cross-skill 방출↔감시 정합은 ① contract_consistency; 여기선 방출측 halt 구조만)
 declare -a SIG=(

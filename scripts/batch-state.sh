@@ -8,6 +8,15 @@
 # 파싱: 행 단위 grep — 2-테이블 분할 queue 견딤. FR suffix 변형(FR-3b) 허용
 set -u
 
+# --gate (20260721-batch-pr-teeth): 훅이 batch PR 을 **차단할지** 판정하는 모드.
+#   기본 모드와 판정 기준이 다르다. 드리프트·중복·미완은 batch 운영 판단이다 —
+#   M1 batch → M2·M3 batch 로 나눠 진행하면 드리프트는 정상이고, 이것으로 PR 을 막으면
+#   정당한 부분 batch 를 차단하는 false-block 이 된다(dogfood 20260721 test1 이 정확히 이 형태였다).
+#   게이트가 보는 것은 **뭉개짐 신호**뿐이다: 산출물 부재 · 진행기록 부재 · 라벨 오염.
+#   운영 신호는 gate 모드에서도 참고 출력하되 exit code 에 반영하지 않는다.
+GATE=0
+if [ "${1:-}" = "--gate" ]; then GATE=1; shift; fi
+
 BATCH_DIR="${1:-}"
 if [ -z "$BATCH_DIR" ] || [ ! -d "$BATCH_DIR" ]; then
   echo "Usage: $0 <batch-dir> [requirements-path]" >&2; exit 2
@@ -29,7 +38,28 @@ queue_rows=$(grep -E "$FR_RE" "$QUEUE" || true)
 queue_ids=$(printf '%s\n' "$queue_rows" | sed -E 's/^\| *(FR-[0-9][0-9A-Za-z]*) *\|.*/\1/')
 req_ids=$(grep -E "$FR_RE" "$REQ" | sed -E 's/^\| *(FR-[0-9][0-9A-Za-z]*) *\|.*/\1/' || true)
 
-fail=0
+fail=0        # 전체(기본 모드 exit code)
+fail_gate=0   # 뭉개짐 신호만 (--gate exit code) — 운영 신호는 불포함
+
+# 0) 라벨 오염 (gate 전용) — Status 가 인식 라벨이 아니면 하류 teeth 가 통째로 vacuous 해진다.
+#    산출물·진행기록 검사는 IMPL_DONE 행만 수집하므로(아래 4·5), `DONE` 처럼 비슷하지만 다른 라벨을
+#    쓰면 **검사 대상 0건 → 조용히 통과**한다. dogfood 20260721 test1 이 정확히 그랬다(FR-4~8 전부 `DONE`).
+#    기본 모드에서는 검사하지 않는다 — 기존 호출자의 판정을 바꾸지 않기 위해서다(회귀 불변식).
+if [ "$GATE" -eq 1 ] && [ -n "$queue_rows" ]; then
+  bad_labels=$(printf '%s\n' "$queue_rows" | awk -F'|' '{
+    gsub(/\r$/, "")
+    st = ""
+    for (i = NF; i >= 1; i--) { gsub(/^ +| +$/, "", $i); if ($i != "") { st = $i; break } }
+    id = $2; gsub(/^ +| +$/, "", id)
+    if (st !~ /^(IMPL_DONE|MERGED|TODO|WIP|DOING|PENDING|HELD|SKIP|BLOCKED)([^A-Za-z0-9_]|$)/) print "  - " id ": " st
+  }')
+  if [ -n "$bad_labels" ]; then
+    echo "[라벨] queue.md Status 가 인식 라벨이 아님 — 완료 판정 teeth 가 무력화됩니다:"
+    printf '%s\n' "$bad_labels"
+    echo "  인식 라벨: IMPL_DONE | MERGED | TODO | WIP | DOING | PENDING | HELD | SKIP | BLOCKED"
+    fail=1; fail_gate=1
+  fi
+fi
 
 # 1) queue FR-ID 중복
 dups=$(printf '%s\n' "$queue_ids" | sort | uniq -d | grep -v '^$' || true)
@@ -104,7 +134,7 @@ fi
 if [ -n "$missing_artifacts" ]; then
   echo "[산출물 누락] IMPL_DONE FID 의 per-FR 검증·리뷰 산출물 부재 (뭉개짐 방지 teeth):"
   printf '%s' "$missing_artifacts"
-  fail=1
+  fail=1; fail_gate=1
 fi
 
 # 5) 진행기록 teeth — IMPL_DONE FID 마다 session-progress.md FID 섹션에 /verify PASS 줄 필수
@@ -132,7 +162,16 @@ fi
 if [ -n "$missing_progress" ]; then
   echo "[진행기록 누락] IMPL_DONE FID 의 session-progress /verify PASS 줄 부재 (verifying-evidence-ko 실호출 흔적·R-1/R-2 면제 신호):"
   printf '%s' "$missing_progress"
-  fail=1
+  fail=1; fail_gate=1
+fi
+
+if [ "$GATE" -eq 1 ]; then
+  if [ "$fail_gate" -eq 0 ]; then
+    echo "BATCH-GATE: OK (뭉개짐 신호 없음 — 드리프트·미완은 운영 판단이라 차단 대상 아님)"
+    exit 0
+  fi
+  echo "BATCH-GATE: BLOCK — per-FR 산출물·진행기록·라벨 결함 (위 목록 참조)" >&2
+  exit 1
 fi
 
 if [ "$fail" -eq 0 ]; then

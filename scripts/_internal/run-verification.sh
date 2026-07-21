@@ -24,8 +24,19 @@ fi
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 
+AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
+
 commands=$(bash "$EXTRACT" "$TASKS")
 if [ -z "$commands" ]; then
+  # 명령 0건이어도 리뷰 감사 추적은 검사한다 — 여기서 무조건 exit 0 하면 "테스트 명령을
+  #   안 쓰는 FID" 가 review-audit 을 통째로 비껴가는 구멍이 된다.
+  if [ -f "$AUDIT_SH" ]; then
+    audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1) || {
+      echo "VERIFY: FAIL review-audit" >&2
+      echo "$audit_out" >&2
+      exit 1
+    }
+  fi
   echo "VERIFY: NO COMMANDS"
   exit 0
 fi
@@ -94,6 +105,27 @@ while IFS= read -r cmd; do
     echo "VERIFY: FAIL $cmd (exit=$ec)" >&2
   fi
 done <<< "$commands"
+
+# 리뷰 감사 추적 대조 — Phase B/C 판정 리포트가 dispatch-log 에 기록됐는지 (F1 teeth).
+#   테스트 명령 결과와 별개 축이지만 여기에 배선한 이유: 실행-근거 게이트(R-1/R-2)가
+#   "VERIFY: PASS" 만 커밋 면제로 인정하므로, 이 축의 위반도 같은 관문을 통과해야 실효가 있다.
+#   누락 전용 검사이며 산출물 부재는 fail-open(SKIP) 이라 무관 repo·초기 FID 에 월권하지 않는다.
+if [ -f "$AUDIT_SH" ]; then
+  audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1)
+  audit_ec=$?
+  {
+    echo "### review-audit"
+    echo '```'
+    echo "$audit_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  if [ "$audit_ec" -ne 0 ]; then
+    all_pass=0
+    echo "VERIFY: FAIL review-audit (exit=$audit_ec)" >&2
+    echo "$audit_out" >&2
+  fi
+fi
 
 if [ "$skipped" -gt 0 ]; then
   echo "RUN-VERIFICATION-RESULT: PARTIAL" >> "$EVIDENCE"

@@ -201,6 +201,129 @@ grep -q '복수 표기' "$PLUGIN/templates/data-model.md" \
 grep -q '해당 행 갱신' "$PLUGIN/skills/specifying-ko/SKILL.md" \
   && ok "T5.d Step5.6 dedup" || nope "T5.d dedup" "없음"
 
+# ══════════════════════════════════════════════════════════════════════════
+# --gate 모드 (20260721-batch-pr-teeth) — 훅이 batch PR 을 차단할지 판정한다.
+#   기본 모드와 판정 기준이 다르다: 드리프트·중복·미완은 batch 운영 판단(부분 batch 는 정당)이라
+#   **차단하지 않는다**. 게이트가 보는 것은 뭉개짐 신호뿐 — 산출물 부재·진행기록 부재·라벨 오염.
+#   근거: .specops/20260721-batch-pr-teeth/plan.md §설계 판단 ②
+# ══════════════════════════════════════════════════════════════════════════
+
+# 공통 fixture 빌더 — per-FR 산출물 3종 + session-progress /verify PASS 줄
+_mk_fid_artifacts() {  # $1=root $2=fid
+  mkdir -p "$1/.specops/$2"
+  : > "$1/.specops/$2/review-base.sha"
+  : > "$1/.specops/$2/evidence.md"
+  : > "$1/.specops/$2/review-request.md"
+}
+_mk_progress() {  # $1=root $2=fid
+  printf '## %s\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n' "$2" \
+    >> "$1/.specops/session-progress.md"
+}
+
+# ── T-gate.a: 부분 batch(드리프트 O) + 산출물·진행기록 완비 → 통과 (false-block 금지) ──
+mkdir -p "$TMP/g1/.specops/batch-p"
+cat > "$TMP/g1/.specops/batch-p/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | 20260721-login | 로그인 | IMPL_DONE |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n| FR-9 | b | M2 | must | s | f |\n' > "$TMP/g1/req.md"
+_mk_fid_artifacts "$TMP/g1" 20260721-login
+_mk_progress "$TMP/g1" 20260721-login
+out=$(cd "$TMP/g1" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 0 ]; then
+  ok "T-gate.a 부분 batch 드리프트 → 게이트 통과 (운영 판단, 차단 아님)"
+else
+  nope "T-gate.a 부분 batch false-block" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.b: IMPL_DONE 인데 per-FR 산출물 3종 부재 → 차단 ──
+mkdir -p "$TMP/g2/.specops/batch-p" "$TMP/g2/.specops/20260721-login"
+cat > "$TMP/g2/.specops/batch-p/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | 20260721-login | 로그인 | IMPL_DONE |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n' > "$TMP/g2/req.md"
+_mk_progress "$TMP/g2" 20260721-login
+out=$(cd "$TMP/g2" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "산출물 누락"; then
+  ok "T-gate.b 산출물 3종 부재 → 차단"
+else
+  nope "T-gate.b 산출물 부재 미차단" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.c ★ test1 실물 케이스: 라벨이 DONE(화이트리스트 밖) → 차단 ──
+#   IMPL_DONE 만 수집하는 teeth 는 DONE 앞에서 검사 대상 0건이 되어 조용히 통과한다(MED-6).
+#   라벨 검증이 없으면 이 fixture 가 바로 test1 의 통과 경로다.
+mkdir -p "$TMP/g3/.specops/batch-p"
+cat > "$TMP/g3/.specops/batch-p/queue.md" <<'EOF'
+| 단계 | 대상 | Status |
+|---|---|---|
+| FR-4 | 로그인 | DONE |
+| FR-5 | 차량 목록 | DONE |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n| FR-5 | b | M1 | must | s | f |\n' > "$TMP/g3/req.md"
+out=$(cd "$TMP/g3" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "라벨"; then
+  ok "T-gate.c ★ 미인식 라벨(DONE) → 차단 (teeth vacuous 방지)"
+else
+  nope "T-gate.c 미인식 라벨 미차단" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.d: 산출물은 있으나 session-progress /verify PASS 줄 부재 → 차단 ──
+mkdir -p "$TMP/g4/.specops/batch-p"
+cat > "$TMP/g4/.specops/batch-p/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | 20260721-login | 로그인 | IMPL_DONE |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n' > "$TMP/g4/req.md"
+_mk_fid_artifacts "$TMP/g4" 20260721-login
+printf '# session progress\n' > "$TMP/g4/.specops/session-progress.md"
+out=$(cd "$TMP/g4" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "진행기록 누락"; then
+  ok "T-gate.d 진행기록 부재 → 차단"
+else
+  nope "T-gate.d 진행기록 부재 미차단" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.e: 화이트리스트 라벨(HELD·SKIP·TODO)은 라벨 사유로 차단하지 않는다 ──
+mkdir -p "$TMP/g5/.specops/batch-p"
+cat > "$TMP/g5/.specops/batch-p/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | — | 로그인 | HELD (자격증명 대기) |
+| FR-5 | — | 목록 | SKIP |
+| FR-6 | — | 예약 | TODO |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n' > "$TMP/g5/req.md"
+out=$(cd "$TMP/g5" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 0 ]; then
+  ok "T-gate.e 정상 라벨(HELD·SKIP·TODO) → 통과"
+else
+  nope "T-gate.e 정상 라벨 false-block" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.g/h: ACTIVE 마커 배선 (인프라 전파) ──
+#   훅은 마커가 있는 batch 만 판정한다. 마커를 **쓰는 쪽**(start-all Phase 0)과 **지우는 쪽**
+#   (Step D PR 성공 후)이 배선돼 있지 않으면, 게이트는 영영 발화하지 않거나(전자 누락)
+#   끝난 batch 가 무관한 PR 을 계속 막는다(후자 누락).
+grep -q 'ACTIVE"' "$PLUGIN/commands/start-all.md" \
+  && ok "T-gate.g start-all Phase 0 — ACTIVE 마커 생성 배선" \
+  || nope "T-gate.g 마커 생성 배선" "start-all.md 에 ACTIVE 생성 없음"
+grep -q 'rm -f ".specops/\$BATCH_ID/ACTIVE"' "$PLUGIN/commands/start-all.md" \
+  && ok "T-gate.h start-all Step D — PR 성공 후 마커 제거 배선" \
+  || nope "T-gate.h 마커 제거 배선" "start-all.md 에 ACTIVE 제거 없음"
+
+# ── T-gate.f: 기본 모드 회귀 — --gate 없으면 기존 판정 불변 ──
+out=$(bash "$SCRIPT" "$TMP/a/.specops/batch-x" "$TMP/a/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "드리프트"; then
+  ok "T-gate.f 기본 모드 회귀 — 드리프트 판정 불변"
+else
+  nope "T-gate.f 기본 모드 회귀" "exit=$code"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

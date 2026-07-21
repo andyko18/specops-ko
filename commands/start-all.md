@@ -40,7 +40,15 @@ reference_upstream: specops-auto-ko 독자 추가
      && git checkout "feat/$BATCH_ID" \
      || git checkout -b "feat/$BATCH_ID"
    ```
-5. **queue.md 초기화** — `.specops/$BATCH_ID/queue.md` 생성 (재진입 시 기존 파일 재사용):
+5. **queue.md 초기화 + ACTIVE 마커** — `.specops/$BATCH_ID/queue.md` 생성 (재진입 시 기존 파일 재사용).
+   queue.md 를 만들거나 재사용할 때 **반드시 함께** 진행 표시를 남긴다:
+   ```bash
+   : > ".specops/$BATCH_ID/ACTIVE"
+   ```
+   이 마커가 batch PR 게이트(`hooks/pretool-governance.sh`)의 판정 범위다 — **마커가 있는 batch 만** 검사한다.
+   `.specops/*` 는 gitignore 라 끝난 batch 디렉토리가 디스크에 계속 남는데, 마커 없이 아무 batch 나 집으면
+   그것과 무관한 후속 작업의 PR 이 과거 상태로 차단된다(false-block). 마커를 안 남기면 게이트도 발화하지 않는다.
+
    `.specops/$BATCH_ID/queue.md` 이미 존재하면 → **기존 파일 재사용** (초기화 스킵, PENDING/PLAN_DONE 상태 보존).
    없으면 신규 생성:
    ```
@@ -119,6 +127,14 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 - exit 0 → Step A 진행
 - exit 1 (미완·드리프트·중복 목록 출력) → 사용자 확인 게이트: **"미완/드리프트 N건 — 그래도 batch PR 진행? [y/n]"**. `y`=의도적 부분 진행 허용(주권 — queue 헤더에 사유 기록 권장), `n`=중단. **§auto 무인은 여기서 정지**(목록 출력 + 사용자 입력 대기 — silent 부분 PR 금지)
 
+> **이 스캔은 산문 지시일 뿐 아니라 훅으로도 강제된다** (20260721-batch-pr-teeth). `gh pr create` 시
+> `hooks/pretool-governance.sh` 가 최신 `.specops/batch-*/queue.md` 에 `batch-state.sh --gate` 를 자동 실행한다.
+> `--gate` 는 기본 모드와 판정 기준이 다르다 — **뭉개짐 신호만** 차단한다(per-FR 산출물 부재·진행기록 부재·라벨 오염).
+> 드리프트·미완·중복은 부분 batch 에서 정당하므로 훅은 차단하지 않는다(위 [y/n] 게이트 소관).
+> 훅 차단은 **인라인 `SPECOPS_GOVERNANCE_BYPASS` 로 열리지 않는다** — batch PR 은 비가역이라
+> security Critical/High 와 동급으로 다룬다. 사용자 주권 탈출구는 세션 env(`export SPECOPS_GOVERNANCE_BYPASS=1`)다.
+> 계기: dogfood 20260721 test1 — 이 스캔이 산문에만 있어 호출되지 않았고, 7 FR 이 BATCH_ID 하나로 뭉개진 채 PR 이 나갔다.
+
 > **batch-level 호출 규약**: Step A/B/C 의 skill 은 §batch 감지를 `grep .specops/<FID>/spec.md` 로 **FID-scoped** 수행한다. 오케스트레이터는 batch 의 **대표 FID**(queue.md 의 임의 IMPL_DONE FID — 전 FR spec 이 `**§batch**` 라벨 보유)의 spec.md 를 참조해 호출해야 batch 모드가 발동한다(§batch 부재 스코프로 호출 시 SINGLE 모드 falling back → 단일-batch-PR 불변식 위협). 따라서 아래 `-DONE` signal 의 suffix 는 그 대표 `<FID>` 다(스캔 범위는 batch 전체지만 라벨 판정 기준은 대표 FID).
 
 **Step A: batch 레벨 보안 리뷰 (SAST)**
@@ -175,6 +191,12 @@ queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 🤖 Generated with specops-auto-ko /start-all
 EOF
 )"
+```
+
+PR 생성이 **성공하면** 진행 표시를 지운다 — 이 batch 는 끝났고, 남겨두면 이후의 무관한 작업이
+끝난 batch 상태로 차단된다(false-block):
+```bash
+rm -f ".specops/$BATCH_ID/ACTIVE"
 ```
 
 ## 안티패턴

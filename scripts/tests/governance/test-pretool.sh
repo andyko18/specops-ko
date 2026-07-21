@@ -327,5 +327,116 @@ hd_dash=$'cat > /tmp/f.md <<-\'EOF\'\n\tgit commit -m "예시"\n\tEOF'
 out=$(mkstdin "$hd_dash" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T-hd.h <<-'EOF' 탭 들여쓰기 문서 → allow (AC-1 변형)" '"continue":true' "$out"
 
+# ══════════════════════════════════════════════════════════════════════════
+# batch PR 뭉개짐 게이트 (20260721-batch-pr-teeth)
+#   dogfood test1: 무인 batch 가 7개 per-FR FID 를 BATCH_ID 하나로 뭉갠 채 PR 을 냈고,
+#   teeth(batch-state.sh)는 start-all.md 산문에만 있어 아무도 호출하지 않았다.
+#   근거: .specops/audit/dogfood-test1-20260721.md HIGH-3
+# ══════════════════════════════════════════════════════════════════════════
+
+# batch sandbox 빌더 — $1=라벨, $2=산출물 생성 여부(1/0), $3=ACTIVE 마커 여부(기본 1)
+_mk_batch_sandbox() {
+  local label="$1" arts="$2" active="${3:-1}" root
+  root=$(mktemp -d) || return 1
+  ( cd "$root" && git init -q && echo "echo x" > a.sh && git add a.sh )
+  mkdir -p "$root/.specops/batch-p" "$root/.specops/memory"
+  cat > "$root/.specops/batch-p/queue.md" <<EOF
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | 20260721-login | 로그인 | $label |
+EOF
+  printf '| FR-4 | a | M1 | must | s | f |\n' > "$root/.specops/memory/requirements.md"
+  [ "$active" = "1" ] && : > "$root/.specops/batch-p/ACTIVE"
+  # batch PR 은 feat/<BATCH_ID> 에서 난다 (start-all.md Phase 0). 게이트 판정 조건이므로 기본값으로 맞춘다.
+  ( cd "$root" && git checkout -q -b "feat/batch-p" 2>/dev/null )
+  if [ "$arts" = "1" ]; then
+    mkdir -p "$root/.specops/20260721-login"
+    : > "$root/.specops/20260721-login/review-base.sha"
+    : > "$root/.specops/20260721-login/review-request.md"
+    printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$root/.specops/20260721-login/evidence.md"
+    printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n' \
+      > "$root/.specops/session-progress.md"
+  else
+    printf '# session progress\n' > "$root/.specops/session-progress.md"
+  fi
+  printf '%s' "$root"
+}
+
+# ── T-batch.a ★ test1 실물: 라벨 DONE + 산출물 부재 batch → PR deny ──
+bs_bad=$(_mk_batch_sandbox "DONE" 0)
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+check "T-batch.a ★ 뭉개진 batch PR → deny" '"permissionDecision":"deny"' "$out"
+check "T-batch.a2 deny 사유에 batch 게이트 명시" 'BATCH-GATE' "$out"
+
+# ── T-batch.b ★ 정직한 batch(per-FR 산출물·진행기록 완비) → allow (false-block 금지) ──
+#   이 케이스가 열리지 않으면 게이트는 BYPASS 를 강요하는 함정이 된다 — test1 이 겪은 바로 그것.
+bs_ok=$(_mk_batch_sandbox "IMPL_DONE" 1)
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_ok" bash "$HOOK" 2>/dev/null)
+check "T-batch.b ★ 정직한 batch PR → allow" '"continue":true' "$out"
+
+# ── T-batch.c ★ 인라인 BYPASS 로는 못 뚫는다 (비가역 불변식) ──
+#   security Critical/High 와 동급 — start-all-auto.md L56 선례. 없으면 test1 이 한 그대로 우회된다.
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='배치 PR 승인' gh pr create --fill" \
+  "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+check "T-batch.c ★ 인라인 BYPASS + 뭉개진 batch → deny (불인정)" '"permissionDecision":"deny"' "$out"
+
+# ── T-batch.d 세션 env BYPASS 는 인정 (사용자 주권 — 5원칙 4) ──
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+check "T-batch.d 세션 env BYPASS → allow (주권 보존)" '"continue":true' "$out"
+
+# ── T-batch.e batch 컨텍스트 아님 → 기존 동작 불변 (회귀) ──
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-batch.e 비-batch PR → 기존 deny 사유 유지(batch 무관)" '"permissionDecision":"deny"' "$out"
+if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
+  echo "FAIL T-batch.e2 — 비-batch PR 에 batch 게이트 오발화"; fail=$((fail+1))
+else
+  echo "PASS T-batch.e2 비-batch PR 에 batch 게이트 미발화"; pass=$((pass+1))
+fi
+
+# ── T-batch.f commit 은 batch 게이트 대상 아님 (PR 전용 — 중간 커밋은 설계된 비용) ──
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
+  echo "FAIL T-batch.f — commit 에 batch 게이트 오발화(PR 전용이어야)"; fail=$((fail+1))
+else
+  echo "PASS T-batch.f commit 에 batch 게이트 미발화 (PR 전용)"; pass=$((pass+1))
+fi
+# ── T-batch.g ★★ ghost-block 금지 — 진행 중이 아닌 과거 batch 는 무관한 PR 을 막지 않는다 ──
+#   .specops/* 는 gitignore 라 뭉개진 batch 디렉토리가 디스크에 무기한 남는다. glob-latest 로
+#   아무 batch 나 집으면, 그 batch 와 **아무 상관 없는** 단일 FID 작업의 PR 이 과거 라벨 오염으로
+#   차단된다. 실측 재현(specops-test1): 무관한 PR 이 batch-20260721b 의 `DONE` 때문에 deny.
+#   게다가 이 게이트는 인라인 BYPASS 앞이라, 탈출구가 "세션 전체 거버넌스 해제"뿐이 된다 —
+#   false-block 의 유일한 출구가 보호 장치 무력화라는 최악의 형태다.
+#   따라서 게이트는 **진행 중(ACTIVE 마커) batch 만** 판정한다.
+bs_stale=$(_mk_batch_sandbox "DONE" 0 0)
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_stale" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
+  echo "FAIL T-batch.g ★★ ghost-block — 진행 중 아닌 과거 batch 가 무관한 PR 차단"; fail=$((fail+1))
+else
+  echo "PASS T-batch.g ★★ ACTIVE 마커 없는 과거 batch → 게이트 미발화 (ghost-block 금지)"; pass=$((pass+1))
+fi
+# ── T-batch.h ★★ 마커가 있어도 이 PR 이 그 batch 의 PR 이 아니면 판정하지 않는다 ──
+#   마커는 "batch 가 진행 중인가"에만 답한다. 게이트가 필요한 답은 "이 PR 이 그 batch 의 PR 인가"다.
+#   특히 **중단된 batch**: 마커는 PR 성공(Step D)에서만 지워지는데, 게이트는 뭉개진 batch 를 막는 것이
+#   목적이라 막힌 batch 는 Step D 에 도달하지 못한다 → 마커가 영구히 남는다 → 이후 모든 무관한 PR 이
+#   영구 차단된다. 게이트가 잘 막을수록 오염 마커가 쌓이는 역설.
+#   판별자는 브랜치다 — batch PR 은 feat/<BATCH_ID> 에서 난다(start-all.md Phase 0).
+#   불일치는 skip(fail-open) — false-block 회피가 옳은 오류 방향이다.
+bs_other=$(_mk_batch_sandbox "DONE" 0)
+( cd "$bs_other" && git checkout -q -b "feat/20260721-unrelated" )
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_other" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
+  echo "FAIL T-batch.h ★★ 마커 있으나 무관한 브랜치 PR 차단 (중단 batch 영구 ghost-block)"; fail=$((fail+1))
+else
+  echo "PASS T-batch.h ★★ 무관한 브랜치 PR → 게이트 미발화 (batch PR 만 판정)"; pass=$((pass+1))
+fi
+rm -rf "$bs_bad" "$bs_ok" "$bs_stale" "$bs_other"
+
+# ── T-msg deny 메시지 정확성 (HIGH-1) ──
+#   기존 문안은 "러너를 실행한 뒤 재시도하세요"만 안내한다. 그런데 실행 증거는 **필요조건일 뿐**이고,
+#   FID-scoped 진행 기록 앵커가 없으면 여전히 열리지 않는다(governance-lib.sh:481-500).
+#   test1 은 안내대로 러너를 재실행하고도 같은 메시지로 또 막혀 BYPASS 로 갔다.
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-msg ★ deny 메시지가 진행 기록 앵커 요건도 안내" 'session-progress' "$out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
