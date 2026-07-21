@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.54.0] — 2026-07-21
+
 ### Fixed
 - **리뷰 감사 역방향 대조 — 리포트를 아예 안 남긴 경우 봉합 (dogfood 20260721 HIGH-4)** — 기존 `check-review-audit.sh` 는 `reviews/ → dispatch-log` **한 방향**만 봤다. 그래서 리뷰 판정을 **파일로 아예 안 남기면** `reviews/ 부재 = SKIP` 으로 통째로 비껴갔다 — Generator↔Evaluator 분리가 조용히 0 이 되는데 `VERIFY: PASS` 는 그대로 났다. 실물(전수 스캔 적발): `.specops/20260713-llm-eval-nrun/dispatch-log.md` 가 `reviews/all-B-report.md`·`all-C-report.md` 를 기록해 놓고 **그 파일이 없다** — 판정을 대화로만 흘린 것이다. dispatch-log 가 참조하는 `reviews/*.md` 의 실재를 대조하는 역방향 검사를 추가했다.
   - **판별자 = dispatch-log 존재** (false-block 회피). "tasks.md 있는데 reviews/ 없으면 FAIL" 은 **기각**했다 — 실측상 그 조건에 걸리는 기존 FID 가 16건 중 5건(31%)이고, 그중 4건은 e2e fixture·플러그인 self-maintenance 처럼 dispatch 루프를 돌지 않는 정당한 직접 작업이다(이 PR 을 만든 FID 자신도 포함). dispatch-log 가 있다 = 루프를 돌았다 = 판정 산출물이 있어야 한다. 로그 부재는 SKIP.
@@ -792,7 +794,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.53.0...HEAD
+[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.54.0...HEAD
+[1.54.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.53.0...v1.54.0
 [1.53.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...v1.51.0
