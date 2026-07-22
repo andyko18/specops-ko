@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko Wave 2 U2 (FID 20260514) — dispatch-context.md 자동 산출
+# specops-ko Wave 2 U2 (FID 20260514) — dispatch-context.md 자동 산출
 # Usage: emit-context.sh <FID>
 #
 # 동작:
@@ -117,7 +117,7 @@ for t in tasks:
             "어긋나야 하면 사용자 확인 필요 (verifying-evidence-ko memory 동기화 점검이 사후 검증).\n\n"
             f"{cp_lines}\n"
         )
-    body = f"""<!-- specops-auto-ko Wave 2 U2 — emit-context.sh 자동 산출 -->
+    body = f"""<!-- specops-ko Wave 2 U2 — emit-context.sh 자동 산출 -->
 <!-- FID: {fid} · task: {tid} -->
 
 # Dispatch Context: {tid} (FID {fid})

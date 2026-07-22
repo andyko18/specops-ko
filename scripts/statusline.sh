@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# specops-auto-ko HUD statusLine — Lifecycle 진행 상태 1줄 표시.
+# specops-ko HUD statusLine — Lifecycle 진행 상태 1줄 표시.
 # stdin: Claude Code statusLine JSON ({cwd,...}). stdout: 상태줄 1줄. 항상 exit 0.
 set -uo pipefail
 
-FALLBACK="◆ specops-auto-ko"
+FALLBACK="◆ specops-ko"
 
 command -v jq >/dev/null 2>&1 || { printf '%s\n' "$FALLBACK"; exit 0; }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko verdict-board — FID별 게이트 결과 매트릭스 (읽기전용 관측).
+# specops-ko verdict-board — FID별 게이트 결과 매트릭스 (읽기전용 관측).
 # 사용: bash scripts/verdict-board.sh [.specops 경로]
 # skip-tracker.sh source — skip::verdicts(integration/performance) 재활용. verify는 자체.
 set -uo pipefail

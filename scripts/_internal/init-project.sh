@@ -42,7 +42,7 @@ main() {
   if [ "${project_name}" = "--help" ]; then
     echo "Usage: $0 [--resume [<project-name>] | <project-name>]"
     echo ""
-    echo "specops-auto-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 13종 산출물 자동 생성"
+    echo "specops-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 13종 산출물 자동 생성"
     echo ""
     echo "Options:"
     echo "  --resume [<project-name>]    기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개; project-name 선택적)"

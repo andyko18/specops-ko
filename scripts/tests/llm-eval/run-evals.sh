@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko LLM eval runner — 메타 skill 신호 감지 + 체인 진입 smoke eval
+# specops-ko LLM eval runner — 메타 skill 신호 감지 + 체인 진입 smoke eval
 # 사용: bash scripts/tests/llm-eval/run-evals.sh [fixtures.jsonl]
 # 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 120초)
 # ⚠️ 실 claude 실행은 토큰 비용 발생 (~$0.5/fixture) — run-all/CI 비포함, 수동 전용
@@ -122,7 +122,7 @@ judge() {
     [ -z "$got" ] && echo PASS || echo "FAIL:unexpected"
     return
   fi
-  if [ "$got" != "specops-auto-ko:$want" ] && [ "$got" != "$want" ]; then
+  if [ "$got" != "specops-ko:$want" ] && [ "$got" != "$want" ]; then
     echo "FAIL:skill"; return
   fi
   if [ "$flag" = "maintain" ]; then
@@ -174,7 +174,7 @@ _borderline_nrun() {  # $1=id $2=prompt $3=any — 성공률/FLAKY 미집계, �
     i=$((i+1))
     attempt "$prompt"
     [ "$G_TIMEOUT" = "1" ] && continue
-    short="${G_SKILL#specops-auto-ko:}"; [ -z "$G_SKILL" ] && short="none"
+    short="${G_SKILL#specops-ko:}"; [ -z "$G_SKILL" ] && short="none"
     case ",$any," in *",$short,"*) match=$((match+1)) ;; esac
   done
   BORDER=$((BORDER+1)); echo "BORDERLINE $id  매칭 $match/$RUNS"
@@ -204,7 +204,7 @@ run_fixture() {  # $1=fixture json 1줄
     if [ "$G_TIMEOUT" = "1" ]; then  # I-2: timeout 빈 출력의 'none' 가양성 차단 (비차단 유지)
       BORDER=$((BORDER+1)); echo "BORDERLINE $id (TIMEOUT ${TIMEOUT_S}s)"; return
     fi
-    short="${G_SKILL#specops-auto-ko:}"; [ -z "$G_SKILL" ] && short="none"
+    short="${G_SKILL#specops-ko:}"; [ -z "$G_SKILL" ] && short="none"
     case ",$any," in
       *",$short,"*) PASS=$((PASS+1)); echo "PASS $id (borderline-allowed)" ;;
       *) BORDER=$((BORDER+1)); echo "BORDERLINE $id (got=$short allow=[$any])" ;;

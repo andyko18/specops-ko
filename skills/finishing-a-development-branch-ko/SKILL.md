@@ -15,7 +15,7 @@ feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/re
 
 **핵심 원칙**: 미머지 브랜치 강제 삭제 금지. remote 삭제는 반드시 사용자 확인 후.
 
-**시작 시 선언**: "specops-auto-ko:finishing-a-development-branch-ko 스킬로 브랜치 정리를 시작합니다."
+**시작 시 선언**: "specops-ko:finishing-a-development-branch-ko 스킬로 브랜치 정리를 시작합니다."
 
 ## 체크리스트
 
@@ -150,7 +150,7 @@ echo "=== 정리 완료 ==="
 
 feat/<FID> 브랜치와 관련 worktree가 목록에 없으면 정리 성공.
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|

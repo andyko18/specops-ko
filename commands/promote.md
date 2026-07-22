@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.23.0
 specops_layer: Lifecycle
-reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
 ---
 
 # /promote <mini-FID>
@@ -31,7 +31,7 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
    <!-- promote-fid: <FID> -->
    <freework.md 요약/prompt 를 변경 설명으로 전개> (자유작업 mini-FID 승격)
    ```
-   `specops-auto-ko:analyzing-ko` 호출. promote-fid 신호가 새 FID 생성 skip + mini-FID 재사용을 지시.
+   `specops-ko:analyzing-ko` 호출. promote-fid 신호가 새 FID 생성 skip + mini-FID 재사용을 지시.
 4. **이후 chain** — analyzing-ko → specifying-ko 유지보수 분기(freework 요약=시드) → clarify → … → PR. 본 command 는 진입만 책임.
 
 ## /maintain 과의 차이
@@ -44,4 +44,4 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ---
 
-*specops-auto-ko v1.23.0 · 2026-06-25 · mini-FID 승격 진입 슬래시*
+*specops-ko v1.23.0 · 2026-06-25 · mini-FID 승격 진입 슬래시*

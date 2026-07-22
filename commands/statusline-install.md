@@ -1,12 +1,12 @@
 ---
 name: statusline-install
-description: specops-auto-ko HUD statusLine을 프로젝트 .claude/settings.json에 등록 (Lifecycle 진행 상태 상시 표시)
+description: specops-ko HUD statusLine을 프로젝트 .claude/settings.json에 등록 (Lifecycle 진행 상태 상시 표시)
 triggers:
   - "/statusline-install"
 mode: auto
 specops_version: 1.16.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /statusline-install
@@ -26,7 +26,7 @@ reference_upstream: specops-auto-ko 독자 추가
 ```
 
 - 색상: PASS/완료/DONE 초록, FAIL/BLOCK 빨강.
-- session-progress.md 부재(비-specops 프로젝트) → `◆ specops-auto-ko` (graceful).
+- session-progress.md 부재(비-specops 프로젝트) → `◆ specops-ko` (graceful).
 
 ## 참조
 
@@ -36,4 +36,4 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ---
 
-*specops-auto-ko v1.16.0 · 2026-06-15 · /statusline-install command*
+*specops-ko v1.16.0 · 2026-06-15 · /statusline-install command*

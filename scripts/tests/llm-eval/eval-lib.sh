@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # library-only
-# specops-auto-ko llm-eval 공통 라이브러리 (promptfoo 방법론 bash 이식)
+# specops-ko llm-eval 공통 라이브러리 (promptfoo 방법론 bash 이식)
 # 소스 전용 — assertion 어휘 4종 + 매트릭스 평가 primitive. 실 모델 선택(stub fallback).
 
 eval::skip_guard() {  # <bin>

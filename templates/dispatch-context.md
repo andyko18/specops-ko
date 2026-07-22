@@ -1,4 +1,4 @@
-<!-- specops-auto-ko v0.4a W2 — AC injection contract 표준 포맷 -->
+<!-- specops-ko v0.4a W2 — AC injection contract 표준 포맷 -->
 <!-- 위치: .specops/<FID>/dispatch/<task-id>-context.md -->
 <!-- 작성: implementing-ko 컨트롤러가 leaf subagent dispatch 직전 -->
 <!-- 검증: scripts/dag/validate-context.sh (5 컨텍스트 키 존재 + whitelist 형식) -->

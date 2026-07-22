@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <PRD §1 한 줄 설명 자동 인용 — `/init-project` Phase 5 가 채움>
 
-## specops-auto-ko 사용
+## specops-ko 사용
 
-본 프로젝트는 specops-auto-ko 한국어 자율 Lifecycle 플러그인을 사용합니다.
+본 프로젝트는 specops-ko 한국어 자율 Lifecycle 플러그인을 사용합니다.
 
 - **신규 기능**: `/start "<기능 설명>"`
 - **유지보수**: `/maintain "<대상>"`

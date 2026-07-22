@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko · SKILL.md frontmatter + 섹션 규약 정적 검증
+# specops-ko · SKILL.md frontmatter + 섹션 규약 정적 검증
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -111,13 +111,13 @@ else
   FAIL=$((FAIL+1)); echo "FAIL: T6.b templates/SKILL.md 없어서 검사 불가"
 fi
 
-# T7: 메타 skill(using-specops-auto-ko-ko) — rationalization 차단 문구 존재
+# T7: 메타 skill(using-specops-ko) — rationalization 차단 문구 존재
 # discipline-class 핵심 skill 이 합리화 차단을 명시적으로 포함하는지 검증
-META_SKILL="$PLUGIN/skills/using-specops-auto-ko-ko/SKILL.md"
+META_SKILL="$PLUGIN/skills/using-specops-ko/SKILL.md"
 if [ -f "$META_SKILL" ] && grep -qE '합리화.*우회|rationalization|rationalize|우회.*금지' "$META_SKILL"; then
   PASS=$((PASS+1)); echo "PASS: T7 메타 skill 합리화 차단 문구 존재"
 else
-  FAIL=$((FAIL+1)); echo "FAIL: T7 메타 skill 합리화 차단 문구 없음 (using-specops-auto-ko-ko)"
+  FAIL=$((FAIL+1)); echo "FAIL: T7 메타 skill 합리화 차단 문구 없음 (using-specops-ko)"
 fi
 
 # T8: templates/SKILL.md — rationalization-table 섹션 양식 존재

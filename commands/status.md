@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.51.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /status [<FID>]
@@ -50,9 +50,9 @@ reference_upstream: specops-auto-ko 독자 추가
 ## 참조
 
 - `scripts/show-fid-status.sh` — 실행 스크립트(FR-1~FR-5 + reconcile FR-6)
-- `skills/using-specops-auto-ko-ko/SKILL.md` — "미완 lifecycle 재개 통보"(자동 통보와 짝)
+- `skills/using-specops-ko/SKILL.md` — "미완 lifecycle 재개 통보"(자동 통보와 짝)
 - `.specops/session-progress.md` — FID 진행 이력 저장소
 
 ---
 
-*specops-auto-ko v1.51.0 · 2026-07-18 · reconcile 대조(기록↔증거 frontier, 정체 재개점 제시)*
+*specops-ko v1.51.0 · 2026-07-18 · reconcile 대조(기록↔증거 frontier, 정체 재개점 제시)*

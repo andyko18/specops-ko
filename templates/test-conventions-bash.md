@@ -1,7 +1,7 @@
-<!-- reference_upstream: specops-auto-ko FID 20260424-decomposing-test-conventions -->
+<!-- reference_upstream: specops-ko FID 20260424-decomposing-test-conventions -->
 <!-- layer: Template -->
 
-# bash 테스트 컨벤션 — specops-auto-ko
+# bash 테스트 컨벤션 — specops-ko
 
 > decomposing-ko 가 bash 테스트 태스크를 분해할 때 따르는 컨벤션.
 > 본 문서는 bash 한정. 타 언어는 v0.3+ 에서 별도 템플릿 (예: `test-conventions-python.md`) 으로 확장.
@@ -11,7 +11,7 @@
 
 **규칙**: bash 테스트는 `scripts/tests/<feature>/test-*.sh` 에 배치. 플러그인 전역 테스트는 `scripts/tests/test-*.sh` (feature 하위 폴더 없이).
 
-**강도**: specops-auto-ko 내부 예시 — downstream 프로젝트가 다른 구조 (예: `tests/`, `spec/`) 를 쓰면 그 관례 우선.
+**강도**: specops-ko 내부 예시 — downstream 프로젝트가 다른 구조 (예: `tests/`, `spec/`) 를 쓰면 그 관례 우선.
 
 **예시**:
 - 전역: `scripts/tests/test-is-hook-enabled.sh`
@@ -23,7 +23,7 @@
 
 **규칙**: `test-<subject>.sh`. `<subject>` 는 대응 프로덕션 파일 basename (확장자 제거) 또는 domain 이름.
 
-**강도**: specops-auto-ko 내부 예시.
+**강도**: specops-ko 내부 예시.
 
 **예시**:
 - 프로덕션 `scripts/is-hook-enabled.sh` → 테스트 `scripts/tests/test-is-hook-enabled.sh`
@@ -35,7 +35,7 @@
 
 **규칙**: 모든 `test-*.sh` 는 `chmod +x` (mode 755) — 직접 실행 가능해야 한다.
 
-**강도**: ⚠️ **Universal 강제**. 실행권한 누락 시 decomposing-ko 의 `<HARD-GATE>` 가 발동하여 `specops-auto-ko:implementing-ko` 호출이 차단된다.
+**강도**: ⚠️ **Universal 강제**. 실행권한 누락 시 decomposing-ko 의 `<HARD-GATE>` 가 발동하여 `specops-ko:implementing-ko` 호출이 차단된다.
 
 **예외 — library-only 파일**: shebang 바로 다음 줄 (L2) 에 `# library-only` 주석 마커가 있는 파일은 sourced-only 전용으로 간주하여 exec-bit 검증 skip. 범위는 **첫 두 줄 내** (L1 shebang + L2 마커) 로 HARD-GATE 계약과 동일. shebang 자체는 library-only 파일에도 필수다.
 
@@ -73,7 +73,7 @@ common_func() {
 
 **강도**:
 - **L1 shebang**: ⚠️ **Universal 강제** — 누락 시 `<HARD-GATE>` 발동
-- **L2~ (카운터·PLUGIN·TEST ID)**: specops-auto-ko 내부 예시. downstream 프로젝트에서 bats·shellspec 같은 다른 runner 를 쓰면 그 관례 우선
+- **L2~ (카운터·PLUGIN·TEST ID)**: specops-ko 내부 예시. downstream 프로젝트에서 bats·shellspec 같은 다른 runner 를 쓰면 그 관례 우선
 
 **예시** (내부 예시 전체 블록):
 
@@ -95,7 +95,7 @@ echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL
 ```
 
-**이유**: shebang 없이는 exec-bit 가 있어도 실행 실패. L2~ 패턴은 specops-auto-ko 내부 통일성을 위한 것이지 bash 테스트 표준 아님.
+**이유**: shebang 없이는 exec-bit 가 있어도 실행 실패. L2~ 패턴은 specops-ko 내부 통일성을 위한 것이지 bash 테스트 표준 아님.
 
 ## 5. grep 앵커 고유성 (tautology 방지)
 

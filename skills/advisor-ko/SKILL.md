@@ -2,14 +2,14 @@
 name: advisor-ko
 description: 기획·분석·설계·개발 중 애매한 부분/모르는 부분 발생 시 항상 적용 — advisor 도구로 외부 자문을 받아 단정·합리화·circular 검증을 차단
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
+reference_upstream: specops-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
 specops_version: 1.47.1
-used_by: using-specops-auto-ko-ko (cross-cutting 상시 — 기획·분석·설계·구현 중 애매성 발생 시 ambient 적용), planning-ko (advisor() 실호출)
+used_by: using-specops-ko (cross-cutting 상시 — 기획·분석·설계·구현 중 애매성 발생 시 ambient 적용), planning-ko (advisor() 실호출)
 ---
 
 # Advisor 활용 원칙
 
-`advisor` 는 본 세션의 전체 conversation 을 자동 전송받는 외부 reviewer 모델. 단정·합리화·자기-편향 (self-confirmation bias) 을 차단해 specops-auto-ko 의 5 원칙 (특히 원칙 1 투명성 · 원칙 5 한계 고백) 을 강화한다.
+`advisor` 는 본 세션의 전체 conversation 을 자동 전송받는 외부 reviewer 모델. 단정·합리화·자기-편향 (self-confirmation bias) 을 차단해 specops-ko 의 5 원칙 (특히 원칙 1 투명성 · 원칙 5 한계 고백) 을 강화한다.
 
 **트레이드오프:** advisor 호출은 latency + 토큰 비용을 발생시킨다. 자명한 작업 (typo fix, 단순 rename, 1 줄 변경 등) 은 호출하지 않는다. **애매성 / 미확신 / 결정 갈래** 가 있을 때만 호출.
 
@@ -25,7 +25,7 @@ used_by: using-specops-auto-ko-ko (cross-cutting 상시 — 기획·분석·설�
 - **접근 변경 고려 시** — 다른 방향 검토 의도 발생 시
 - **circular 검증 위험** — 본 세션이 작성한 산출물을 본 세션이 검증하는 패턴 감지 시
 
-**specops-auto-ko 연결:** 원칙 5 한계 고백 + 단계별 HARD GATE 보강
+**specops-ko 연결:** 원칙 5 한계 고백 + 단계별 HARD GATE 보강
 
 ---
 
@@ -40,7 +40,7 @@ used_by: using-specops-auto-ko-ko (cross-cutting 상시 — 기획·분석·설�
 | **검증** | `verifying-evidence-ko` | structural-only 검증의 circular 위험 감지 시 | evidence.md §advisor 외부 검증 |
 | **§auto 무인** | `clarifying-ko` · `planning-ko` · `verifying-evidence-ko` | best-guess 자동응답·cap 자동통과 시 고영향 가정 보조 자문 (결정 대행 아님 — 보조 입력) | 가정 근거·dispatch-log·escalations + **ASSUMED 유지(사용자 최종 확인)** |
 
-**specops-auto-ko 연결:** planning-ko §8 패턴을 다른 단계로 일반화
+**specops-ko 연결:** planning-ko §8 패턴을 다른 단계로 일반화
 
 ---
 
@@ -59,7 +59,7 @@ advisor()
 - empirical 증거 (파일 내용 / 테스트 결과 / 1 차 출처) 가 advisor 와 충돌하면 한 번 더 advisor 호출 (reconcile call) — 단순 swap 금지
 - advisor 의 specific 주장을 검증할 때만 추가 도구 호출
 
-**specops-auto-ko 연결:** 원칙 4 주권 (사용자 명시 지시 우선) — advisor 도 1 의견, 사용자 결정 최우선
+**specops-ko 연결:** 원칙 4 주권 (사용자 명시 지시 우선) — advisor 도 1 의견, 사용자 결정 최우선
 
 ---
 
@@ -74,13 +74,13 @@ advisor()
 
 **호출 빈도:** 긴 작업에서 1 회 이상 (commit 전 + 종결 직전 권장). 짧은 reactive task 는 0~1 회.
 
-**specops-auto-ko 연결:** 원칙 2 문지기 (회색지대 만들지 말 것 — binary 결정)
+**specops-ko 연결:** 원칙 2 문지기 (회색지대 만들지 말 것 — binary 결정)
 
 ---
 
 ## 5 원칙 매핑 요약
 
-| advisor 원칙 | specops-auto-ko 5 원칙 |
+| advisor 원칙 | specops-ko 5 원칙 |
 |---|---|
 | 1 호출 시점 (When) | 원칙 5 한계 고백 (불확실 시 명시) |
 | 2 단계별 시점 (Where) | 원칙 1 투명성 (단계마다 외부 검증 흔적) |
@@ -89,7 +89,7 @@ advisor()
 
 ---
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 skill 적용 |
 |---|---|
@@ -130,8 +130,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-plan.
 
 - `skills/karpathy-ko/SKILL.md` — 동일한 cross-cutting skill 패턴
 - `skills/planning-ko/SKILL.md` — `## 8. Advisor 협의 기록` 섹션 (이미 강제)
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill cross-cutting 주입 위치
+- `skills/using-specops-ko/SKILL.md` — 메타 skill cross-cutting 주입 위치
 
 ---
 
-*v1.47.1 · 2026-07-16 · specops-auto-ko 독자 추가 (advisor 활용 패턴 + critic-ask fallback + 연결 진단 4원인)*
+*v1.47.1 · 2026-07-16 · specops-ko 독자 추가 (advisor 활용 패턴 + critic-ask fallback + 연결 진단 4원인)*

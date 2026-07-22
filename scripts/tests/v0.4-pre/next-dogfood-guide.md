@@ -56,7 +56,7 @@ bash scripts/tests/v0.4-pre/measure-false-positives.sh .specops/20260425-slug-cl
 
 새 conversation 첫 발화로:
 ```
-specops-auto-ko 메타 skill이 활성화 되어있어?
+specops-ko 메타 skill이 활성화 되어있어?
 ```
 
 **기대**: assistant가 메타 skill 본문 인용하며 응답 (5원칙 또는 자율 lifecycle 키워드 등장).
@@ -145,8 +145,8 @@ case-study에 포함될 항목:
 
 | 증상 | 진단 | 해결 |
 |---|---|---|
-| 메타 skill 미주입 | `cat ~/.claude/settings.json \| jq '.enabledPlugins'` | specops-auto-ko 활성 확인 |
-| `/start` 미인식 | `/help` 입력 → specops-auto-ko 슬래시 표시 | marketplace 경로 점검 |
+| 메타 skill 미주입 | `cat ~/.claude/settings.json \| jq '.enabledPlugins'` | specops-ko 활성 확인 |
+| `/start` 미인식 | `/help` 입력 → specops-ko 슬래시 표시 | marketplace 경로 점검 |
 | R-3 false positive ≥3건 | friction-log evidence_snippet 분석 | 미커버 동사 → W1 regex 추가 확장 plan |
 | R-4 false positive ≥3건 | evidence_snippet 분석 | 미커버 assertion 패턴 → W2 추가 plan |
 

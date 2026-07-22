@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko notify — Notification hook 데스크톱 알림 (idle_prompt·permission_prompt).
+# specops-ko notify — Notification hook 데스크톱 알림 (idle_prompt·permission_prompt).
 # stdin: Claude Code Notification JSON. 부수효과: 알림 발사. 항상 exit 0.
 # DRYRUN: SPECOPS_NOTIFY_DRYRUN=1 → 발사 대신 "<title>\t<msg>" stdout (테스트용).
 set -uo pipefail
@@ -41,7 +41,7 @@ if [ -n "$cwd" ] && [ -f "$cwd/.specops/session-progress.md" ]; then
 fi
 
 msg="$label$suffix"
-title="specops-auto-ko"
+title="specops-ko"
 
 if [ "${SPECOPS_NOTIFY_DRYRUN:-0}" = "1" ]; then
   printf '%s\t%s\n' "$title" "$msg"

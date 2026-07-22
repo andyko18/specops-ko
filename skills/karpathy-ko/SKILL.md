@@ -4,13 +4,13 @@ description: 코드 작성·검토·리팩터링 시 항상 적용 — Think·Si
 layer: 2
 reference_upstream: forrestchang/andrej-karpathy-skills@main skills/karpathy-guidelines/SKILL.md
 specops_version: 1.0.0
-used_by: using-specops-auto-ko-ko (cross-cutting), implementing-ko, tdd-ko
+used_by: using-specops-ko (cross-cutting), implementing-ko, tdd-ko
 ---
 
 # Karpathy 행동 원칙
 
 Andrej Karpathy의 LLM 코딩 함정 관찰에서 파생된 4가지 행동 지침.  
-specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하여 상호 강화한다.
+specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하여 상호 강화한다.
 
 **트레이드오프:** 이 원칙들은 속도보다 신중함에 치우친다. 자명한 작업은 판단하여 적용할 것.
 
@@ -26,7 +26,7 @@ specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직�
 - 더 단순한 접근이 있다면 말한다. 타당하다면 반론을 제기한다.
 - 무언가 불명확하면 멈춘다. 무엇이 혼란스러운지 이름 붙이고 묻는다.
 
-**specops-auto-ko 연결:** 원칙 1 투명성 + 원칙 5 한계 고백
+**specops-ko 연결:** 원칙 1 투명성 + 원칙 5 한계 고백
 
 ---
 
@@ -42,7 +42,7 @@ specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직�
 
 자문: "고급 엔지니어가 이것을 과도하게 복잡하다고 말할까?" → 그렇다면 단순화한다.
 
-**specops-auto-ko 연결:** spec.md YAGNI 제약, 원칙 4 주권 (요청 범위 준수)
+**specops-ko 연결:** spec.md YAGNI 제약, 원칙 4 주권 (요청 범위 준수)
 
 ---
 
@@ -62,7 +62,7 @@ specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직�
 
 **판정 기준:** 변경된 모든 줄이 사용자의 요청과 직접 연결되어야 한다.
 
-**specops-auto-ko 연결:** verifying-evidence-ko 범위 제어, sprint-contracts-ko (AC 범위 외 변경 금지)
+**specops-ko 연결:** verifying-evidence-ko 범위 제어, sprint-contracts-ko (AC 범위 외 변경 금지)
 
 ---
 
@@ -85,13 +85,13 @@ specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직�
 강한 성공 기준은 독립적인 반복을 가능하게 한다.  
 약한 기준("작동하게 만들기")은 지속적인 명확화를 요구한다.
 
-**specops-auto-ko 연결:** acceptance-criteria.md 스프린트 계약, tdd-ko Red-Green-Refactor 사이클
+**specops-ko 연결:** acceptance-criteria.md 스프린트 계약, tdd-ko Red-Green-Refactor 사이클
 
 ---
 
 ## 5원칙 매핑 요약
 
-| Karpathy 원칙 | specops-auto-ko 연결 |
+| Karpathy 원칙 | specops-ko 연결 |
 |---|---|
 | 1 코드 작성 전 사고 | 원칙 1 투명성 + 원칙 5 한계 고백 |
 | 2 단순성 우선 | YAGNI + 원칙 4 주권 |
@@ -109,4 +109,4 @@ specops-auto-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직�
 
 ---
 
-*v1.0.0 · 2026-05-03 · Karpathy Guidelines 한국어 재창작 + specops-auto-ko 5원칙 매핑*
+*v1.0.0 · 2026-05-03 · Karpathy Guidelines 한국어 재창작 + specops-ko 5원칙 매핑*

@@ -5,7 +5,7 @@ created: "{{created}}"
 updated: "{{updated}}"
 ---
 
-<!-- reference: specops-auto-ko templates/screen.md -->
+<!-- reference: specops-ko templates/screen.md -->
 <!-- layer: Project-Document -->
 
 # {{화면 제목}} 화면 스펙

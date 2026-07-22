@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md
 specops_version: 1.0.0
 used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기)
-integrates_with: specops-auto-ko:file-based-communication-ko, specops-auto-ko:context-resets-ko
+integrates_with: specops-ko:file-based-communication-ko, specops-ko:context-resets-ko
 ---
 
 # Engine 스킬 — 병렬 서브에이전트 dispatch
@@ -140,7 +140,7 @@ src/agents/agent-tool-abort.test.ts의 실패 테스트 3개 수정:
 
 ## implementing-ko와의 통합
 
-`specops-auto-ko:implementing-ko`는 기본적으로 **태스크별 fresh 서브에이전트 순차 dispatch**한다. 다음 조건 모두 충족 시 본 스킬로 분기:
+`specops-ko:implementing-ko`는 기본적으로 **태스크별 fresh 서브에이전트 순차 dispatch**한다. 다음 조건 모두 충족 시 본 스킬로 분기:
 
 1. **2개 이상 leaf 태스크가 독립** — `decomposing-ko`의 의존 그래프(DAG)에서 의존 edge 없는 태스크 2개+
 2. **공유 파일 없음** — 각 태스크가 다른 파일 집합 수정
@@ -187,12 +187,12 @@ implementing-ko 의 기본 순차 dispatch 경로 유지. 본 스킬 호출 안 
 ## 다음 skill
 
 병렬 dispatch 완료 후 결과 통합 및 다음 단계:
-- `specops-auto-ko:verifying-evidence-ko` — 통합 결과 증거 검증
-- `specops-auto-ko:implementing-ko`로 복귀 — 다음 태스크 또는 마무리
+- `specops-ko:verifying-evidence-ko` — 통합 결과 증거 검증
+- `specops-ko:implementing-ko`로 복귀 — 다음 태스크 또는 마무리
 
 ## 참조
 
-- 관련 스킬: `specops-auto-ko:implementing-ko` (caller), `specops-auto-ko:context-resets-ko` (fresh 세션 보장), `specops-auto-ko:file-based-communication-ko` (프롬프트는 파일 경로만)
+- 관련 스킬: `specops-ko:implementing-ko` (caller), `specops-ko:context-resets-ko` (fresh 세션 보장), `specops-ko:file-based-communication-ko` (프롬프트는 파일 경로만)
 
 ---
 

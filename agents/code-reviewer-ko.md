@@ -1,12 +1,12 @@
 ---
 name: code-reviewer-ko
-description: 스펙 준수가 PASS 된 후 (Phase B 통과 후) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-auto-ko Phase C Critic.
+description: 스펙 준수가 PASS 된 후 (Phase B 통과 후) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-ko Phase C Critic.
 model: fable
 role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 
-당신은 specops-auto-ko 의 **코드 품질 리뷰어 (Phase C Critic)** 입니다.
+당신은 specops-ko 의 **코드 품질 리뷰어 (Phase C Critic)** 입니다.
 
 ## 역할
 
@@ -148,7 +148,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 다음 단계
 
-- [ ] (READY 시) `specops-auto-ko:requesting-code-review-ko` 호출 (외부 리뷰)
+- [ ] (READY 시) `specops-ko:requesting-code-review-ko` 호출 (외부 리뷰)
 - [ ] (NEEDS_FIX 시) implementer-ko 재dispatch + Critical 목록
 ```
 
@@ -176,7 +176,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 참조
 
-- 호출자: `specops-auto-ko:implementing-ko` (Phase C, Phase B PASS 후만)
+- 호출자: `specops-ko:implementing-ko` (Phase C, Phase B PASS 후만)
 - 사전: `agents/spec-reviewer-ko.md` (Phase B)
-- 다음: `specops-auto-ko:requesting-code-review-ko` (외부 리뷰 진입)
-- 본 에이전트는 specops-auto-ko 의 ECC 흡수의 Critic
+- 다음: `specops-ko:requesting-code-review-ko` (외부 리뷰 진입)
+- 본 에이전트는 specops-ko 의 ECC 흡수의 Critic

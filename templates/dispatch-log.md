@@ -1,7 +1,7 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /implement -->
 <!-- MUTABLE_BY: /implement (각 시도마다 append) -->
-<!-- reference_upstream: specops-auto-ko 독자 추가 (Wave 2 U9) -->
+<!-- reference_upstream: specops-ko 독자 추가 (Wave 2 U9) -->
 <!-- layer: Lifecycle-Artifact -->
 
 # Dispatch Log — <FID>

@@ -2,7 +2,7 @@
 name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
+reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
@@ -133,7 +133,7 @@ PERFORMANCE: FAIL — thresholds 초과:
   - http_req_failed rate: 실측 2.3% > 기준 1%
 ```
 
-위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-auto-ko:systematic-debugging-ko` 호출.
+위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-ko:systematic-debugging-ko` 호출.
 
 systematic-debugging-ko가 성능 문제 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
@@ -269,7 +269,7 @@ gh pr create \
 - [ ] `bash scripts/tests/test-*.sh` 전 항목 PASS
 - [ ] `bash scripts/_internal/validate-structure.sh` 전 항목 ✅
 
-🤖 Generated with specops-auto-ko Lifecycle (FID: $FID)
+🤖 Generated with specops-ko Lifecycle (FID: $FID)
 EOF
 )"
 ```
@@ -282,7 +282,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /lifecycle
 
 ---
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -324,11 +324,11 @@ PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으�
 
 ## 다음 skill
 
-본 skill은 specops-auto-ko Lifecycle의 **최종 단계**다.
+본 skill은 specops-ko Lifecycle의 **최종 단계**다.
 
 - **단일 모드 PASS·SKIP** → PR 생성 게이트 진행 → Lifecycle 종료
 - **batch 모드 PASS·SKIP** → `BATCH-PERF-DONE: <FID>` 출력 → `/start-all` 오케스트레이터로 제어 반환 (PR 게이트 skip)
-- **FAIL** → `specops-auto-ko:systematic-debugging-ko` 호출 (수정 후 chain 복귀)
-- **PR 생성·머지 후** worktree/branch 정리가 필요하면 `specops-auto-ko:finishing-a-development-branch-ko` 스킬로 마무리 (PR `state==MERGED` HARD GATE이므로 **자동 chain하지 않음** — 머지 확인 후 수동 진입)
+- **FAIL** → `specops-ko:systematic-debugging-ko` 호출 (수정 후 chain 복귀)
+- **PR 생성·머지 후** worktree/branch 정리가 필요하면 `specops-ko:finishing-a-development-branch-ko` 스킬로 마무리 (PR `state==MERGED` HARD GATE이므로 **자동 chain하지 않음** — 머지 확인 후 수동 진입)
 
 본 performance-test-ko는 단일 모드에서 **PR 게이트 이후 어떤 스킬도 자동 chain하지 않는다**.

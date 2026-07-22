@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.18.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /security-scan [URL]
@@ -85,4 +85,4 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ---
 
-*specops-auto-ko v1.18.0 · 2026-06-20 · FID 20260620-security-scan-command*
+*specops-ko v1.18.0 · 2026-06-20 · FID 20260620-security-scan-command*

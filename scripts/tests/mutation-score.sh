@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko 간이 뮤테이션 하니스 (수동 측정 도구)
+# specops-ko 간이 뮤테이션 하니스 (수동 측정 도구)
 # 사용: bash scripts/tests/mutation-score.sh [config]
 # 소스 가능 — 함수만 정의, main 은 가드. run-all 미포함(test-*.sh 비매칭 명명).
 set -uo pipefail

@@ -1,4 +1,4 @@
-<!-- specops-auto-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
+<!-- specops-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
 <!-- 케이스: YAML test_command 우선 — Step 4 라인이 있어도 YAML 이 우선 -->
 
 # Tasks — yaml-primary fixture

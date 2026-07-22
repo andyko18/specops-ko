@@ -24,7 +24,7 @@ used_by: implementing-ko (서브에이전트 dispatch 시 파일 경로 전달)
 ## 프롬프트 템플릿
 
 ```
-You are <agent-name>, a <Generator|Evaluator> in the specops-auto-ko Lifecycle.
+You are <agent-name>, a <Generator|Evaluator> in the specops-ko Lifecycle.
 
 READ (in order):
 1. /path/to/.specops/<FID>/acceptance-criteria.md (contract)

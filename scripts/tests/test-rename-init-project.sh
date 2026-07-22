@@ -13,7 +13,7 @@ IP="$P/commands/init-project.md"
 # AC-2: start-project alias 제거됨 (deprecated stub → 부재)
 [ ! -f "$P/commands/start-project.md" ] && ok "AC-2 start-project alias 제거" || nope "AC-2" "alias 잔존"
 # AC-3: 메타skill /init-project 안내
-grep -q '/init-project' "$P/skills/using-specops-auto-ko-ko/SKILL.md" \
+grep -q '/init-project' "$P/skills/using-specops-ko/SKILL.md" \
   && ok "AC-3 메타skill /init-project" || nope "AC-3" "메타skill 미갱신"
 # AC-4: chain 안내 파일에 /init-project 등장 + 사용자노출 /start-project 잔존 0
 #   (deprecated stub·테스트·CHANGELOG·init-project.sh 참조 제외)

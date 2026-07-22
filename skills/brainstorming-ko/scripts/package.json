@@ -1,7 +1,7 @@
 {
   "name": "visual-companion-server",
   "version": "1.0.0",
-  "description": "Visual Companion WebSocket server for specops-auto-ko",
+  "description": "Visual Companion WebSocket server for specops-ko",
   "main": "server.cjs",
   "dependencies": {
     "ws": "^8.0.0"

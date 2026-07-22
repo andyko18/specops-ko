@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko governance-capture — AC-8 성능 벤치
+# specops-ko governance-capture — AC-8 성능 벤치
 # 1) PostToolUse hook 10회 — p95 < BENCH_THRESHOLD_MS (기본 200ms, NFR-1)
 # 2) Stop hook 워스트케이스 (2000줄 transcript + R-4 매칭 경로) 5회 — p95 < BENCH_STOP_THRESHOLD_MS (기본 1000ms)
 #    근거: 2026-06-11 줄단위 jq fork 루프 회귀 (8s) 재발 방지 게이트. CI 등 느린 러너는 env 로 완화.

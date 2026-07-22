@@ -41,4 +41,4 @@
 
 ---
 
-*산출: specops-auto-ko · planning-ko · FID: <FID> · 경로: `.specops/memory/foundation-manifest.md`*
+*산출: specops-ko · planning-ko · FID: <FID> · 경로: `.specops/memory/foundation-manifest.md`*

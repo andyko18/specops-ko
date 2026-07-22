@@ -156,7 +156,7 @@
     - ## Red Flags
     - ## Step 0: Detect Existing Isolation
   - 권고: 수동 검토 (한국어 재창작 업데이트 여부)
-- `skills/using-specops-auto-ko-ko/SKILL.md` vs `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md`
+- `skills/using-specops-ko/SKILL.md` vs `obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md`
   - 상류 헤더: 8, 로컬 헤더: 12, 공통: 0
   - 상류에만: 8, 로컬에만: 12
   - 상류 신규 섹션 (최대 5건):
@@ -179,32 +179,32 @@
 
 ### manual (수동 리뷰 대상)
 
-- `commands/brainstorming.md` — specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
-- `commands/design-screen.md` — specops-auto-ko 독자 추가
-- `commands/design-screens.md` — specops-auto-ko 독자 추가
-- `commands/e2e-test.md` — specops-auto-ko 독자 추가 (upstream 미존재)
-- `commands/gbrain.md` — specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
-- `commands/improve-arch.md` — specops-auto-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)
-- `commands/init-project.md` — specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안)
-- `commands/maintain.md` — specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
-- `commands/promote.md` — specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
-- `commands/security-scan.md` — specops-auto-ko 독자 추가
-- `commands/start-all-auto.md` — specops-auto-ko 독자 추가 (start-all + start-auto 결합)
-- `commands/start-all.md` — specops-auto-ko 독자 추가
-- `commands/start-auto.md` — specops-auto-ko 독자 추가 (commands/start.md § auto variant)
-- `commands/start-foundation.md` — specops-auto-ko 독자 추가
-- `commands/status.md` — specops-auto-ko 독자 추가
-- `commands/statusline-install.md` — specops-auto-ko 독자 추가
-- `skills/advisor-ko/SKILL.md` — specops-auto-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
-- `skills/analyzing-ko/SKILL.md` — specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패
-- `skills/brainstorming-ko/SKILL.md` — specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
-- `skills/e2e-test-ko/SKILL.md` — specops-auto-ko 독자 추가 (upstream 미존재)
-- `skills/gbrain-ko/SKILL.md` — specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
-- `skills/improve-codebase-architecture-ko/SKILL.md` — "specops-auto-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
-- `skills/integration-test-ko/SKILL.md` — specops-auto-ko 독자 추가 (test-master 패턴 번안)
-- `skills/performance-test-ko/SKILL.md` — specops-auto-ko 독자 추가 (test-master 패턴 번안)
-- `skills/release-ko/SKILL.md` — specops-auto-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills
-- `skills/security-review-ko/SKILL.md` — specops-auto-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
+- `commands/brainstorming.md` — specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+- `commands/design-screen.md` — specops-ko 독자 추가
+- `commands/design-screens.md` — specops-ko 독자 추가
+- `commands/e2e-test.md` — specops-ko 독자 추가 (upstream 미존재)
+- `commands/gbrain.md` — specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
+- `commands/improve-arch.md` — specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)
+- `commands/init-project.md` — specops-ko 독자 추가 (github/spec-kit 패턴 번안)
+- `commands/maintain.md` — specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+- `commands/promote.md` — specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+- `commands/security-scan.md` — specops-ko 독자 추가
+- `commands/start-all-auto.md` — specops-ko 독자 추가 (start-all + start-auto 결합)
+- `commands/start-all.md` — specops-ko 독자 추가
+- `commands/start-auto.md` — specops-ko 독자 추가 (commands/start.md § auto variant)
+- `commands/start-foundation.md` — specops-ko 독자 추가
+- `commands/status.md` — specops-ko 독자 추가
+- `commands/statusline-install.md` — specops-ko 독자 추가
+- `skills/advisor-ko/SKILL.md` — specops-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
+- `skills/analyzing-ko/SKILL.md` — specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패
+- `skills/brainstorming-ko/SKILL.md` — specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+- `skills/e2e-test-ko/SKILL.md` — specops-ko 독자 추가 (upstream 미존재)
+- `skills/gbrain-ko/SKILL.md` — specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
+- `skills/improve-codebase-architecture-ko/SKILL.md` — "specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
+- `skills/integration-test-ko/SKILL.md` — specops-ko 독자 추가 (test-master 패턴 번안)
+- `skills/performance-test-ko/SKILL.md` — specops-ko 독자 추가 (test-master 패턴 번안)
+- `skills/release-ko/SKILL.md` — specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills
+- `skills/security-review-ko/SKILL.md` — specops-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
 
 ---
 

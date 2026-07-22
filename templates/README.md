@@ -21,7 +21,7 @@
 
 ## 개발
 
-본 프로젝트는 [specops-auto-ko](https://github.com/...) 자율 lifecycle 플러그인으로 개발됩니다.
+본 프로젝트는 [specops-ko](https://github.com/...) 자율 lifecycle 플러그인으로 개발됩니다.
 
 - **새 기능 추가**: `/start "<기능 설명>"`
 - **유지보수**: `/maintain "<대상>"`

@@ -1,4 +1,4 @@
-# 기여 가이드 — specops-auto-ko
+# 기여 가이드 — specops-ko
 
 Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이드는 PR/skill 추가 시 최소 요건을 정의한다.
 
@@ -11,7 +11,7 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 
 ```bash
 claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill   # 의존성 선행 등록
-claude plugin marketplace add ~/Project/0.Claude/specops-auto-ko
+claude plugin marketplace add ~/Project/0.Claude/specops-ko
 ```
 
 ## 개발 워크플로
@@ -55,7 +55,7 @@ bash scripts/tests/run-all.sh
 name: <kebab-case-ko>
 description: <한 줄 — 언제 사용·무엇·결과>
 layer: 1 | 2 | 3
-reference_upstream: <owner/repo@version path> 또는 "specops-auto-ko 독자 추가"
+reference_upstream: <owner/repo@version path> 또는 "specops-ko 독자 추가"
 specops_version: <semver>
 used_by: <호출 skill 목록 (namespace 포함)>
 ---
@@ -65,7 +65,7 @@ used_by: <호출 skill 목록 (namespace 포함)>
 
 | layer | 용도 | 예시 |
 |---|---|---|
-| **1** | 메타 (SessionStart 자동 주입) | `using-specops-auto-ko-ko` |
+| **1** | 메타 (SessionStart 자동 주입) | `using-specops-ko` |
 | **2** | Engine — Lifecycle 단계·cross-cutting | `specifying-ko`, `karpathy-ko`, `advisor-ko` |
 | **3** | Harness — 아키텍처 원칙 강제 | `sprint-contracts-ko`, `context-resets-ko` |
 

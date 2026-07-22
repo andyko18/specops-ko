@@ -1,12 +1,12 @@
 ---
 name: release
-description: specops-auto-ko 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행
+description: specops-ko 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행
 triggers:
   - "/release"
 mode: ask
 specops_version: 1.10.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /release — 릴리즈 자동화
@@ -56,4 +56,4 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ---
 
-*specops-auto-ko v1.10.0 · 2026-06-08 · /release command*
+*specops-ko v1.10.0 · 2026-06-08 · /release command*

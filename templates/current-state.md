@@ -1,7 +1,7 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /specify (유지보수 분기) or /maintain -->
 <!-- MUTABLE_BY: /clarify (append only) -->
-<!-- reference_upstream: specops-auto-ko 독자 추가 -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # 현재 시스템 분석 (Current State) — <FID>

@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
+reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
 ---
 
 # /gbrain [--fid <FID>]
@@ -17,7 +17,7 @@ reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 
 
 ## Process
 
-1. **즉시 `specops-auto-ko:gbrain-ko` 호출** — `--fid` 인자를 그대로 전달
+1. **즉시 `specops-ko:gbrain-ko` 호출** — `--fid` 인자를 그대로 전달
 2. learnings.jsonl 읽기 → 전체 개수 + 최신 10건 출력
 3. `--fid FID` 지정 시 해당 FID 레코드만 추가 출력
 
@@ -57,4 +57,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fi
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-19 · garrytan/gstack office-hours gbrain 패턴 한국어 재창작*
+*specops-ko v1.0.0 · 2026-05-19 · garrytan/gstack office-hours gbrain 패턴 한국어 재창작*

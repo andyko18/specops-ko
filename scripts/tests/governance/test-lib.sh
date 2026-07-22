@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko governance-capture 공용 함수 라이브러리 테스트
+# specops-ko governance-capture 공용 함수 라이브러리 테스트
 # source hooks/governance-lib.sh 후 detect_fid / read_recent_tool_events / log_friction / load_rules 검증
 set -u
 PASS=0; FAIL=0

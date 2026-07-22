@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko governance — PreToolUse entrypoint (강제 차단)
+# specops-ko governance — PreToolUse entrypoint (강제 차단)
 # stdin: Claude Code PreToolUse JSON
 # stdout: allow={"continue":true} · deny=hookSpecificOutput permissionDecision:deny
 # 실패 내성: fail-open — 내부 오류 시 allow. 차단은 verify 누락 판정 시에만.

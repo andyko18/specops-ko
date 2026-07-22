@@ -1,31 +1,31 @@
 ---
 name: start-auto
-description: "[단일·무인] specops-auto-ko 완전자동 Lifecycle 단일 기능 진입 — 가역 게이트 자동 통과, PR 직전 단일 확인점만. specops-auto-ko:specifying-ko 호출"
+description: "[단일·무인] specops-ko 완전자동 Lifecycle 단일 기능 진입 — 가역 게이트 자동 통과, PR 직전 단일 확인점만. specops-ko:specifying-ko 호출"
 triggers:
   - "/start-auto"
 mode: ask
 specops_version: 1.10.0
 specops_layer: Lifecycle
-reference_upstream: specops-auto-ko 독자 추가 (commands/start.md § auto variant)
+reference_upstream: specops-ko 독자 추가 (commands/start.md § auto variant)
 ---
 
 # /start-auto [<기능 설명>]
 
 ## 목적
 
-specops-auto-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 진입하면 **spec 승인·plan 리뷰·구현 리뷰·검증 루프를 자동 통과**하고 PR 생성 직전 가정 다이제스트와 함께 1회만 확인.
+specops-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 진입하면 **spec 승인·plan 리뷰·구현 리뷰·검증 루프를 자동 통과**하고 PR 생성 직전 가정 다이제스트와 함께 1회만 확인.
 
 **가역 게이트는 자동 통과, 비가역 행동(PR 생성, 파괴적/덮어쓰기 task)에서만 정지.**
 
 ## Process
 
-1. **메타 skill 활성 확인** — `skills/using-specops-auto-ko-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함
+1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함
 2. **args 첫 줄에 `<!-- entry: auto -->` prepend** — 원본 args 앞에 자동 주입:
    ```
    <!-- entry: auto -->
    <원본 기능 설명>
    ```
-3. **즉시 `specops-auto-ko:specifying-ko` 스킬 호출** — prepend된 args를 초기 맥락으로 제공
+3. **즉시 `specops-ko:specifying-ko` 스킬 호출** — prepend된 args를 초기 맥락으로 제공
 4. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` + `§auto` 분기가 가역 게이트를 자동 통과 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR 게이트). 본 command는 **specifying-ko 진입만** 책임.
 
 ## §auto 모드 동작
@@ -59,7 +59,7 @@ PR 생성 직전 자동 수집·제시:
 /start-auto CSV 줄 수 세기 CLI 만들어줘
 
 → <!-- entry: auto --> prepend
-→ specops-auto-ko:specifying-ko 호출 (§auto 라벨 spec.md에 기록)
+→ specops-ko:specifying-ko 호출 (§auto 라벨 spec.md에 기록)
 → spec 승인 자동 통과 → clarifying-ko 자동 진행
 → BLOCKING 모호점 best-guess 자동 답변 → planning-ko 자동 진행
 → plan-reviewer 자동 통과 → decomposing-ko 자동 진행
@@ -76,11 +76,11 @@ PR 생성 직전 자동 수집·제시:
 
 ## 참조
 
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill (자동 활성)
+- `skills/using-specops-ko/SKILL.md` — 메타 skill (자동 활성)
 - `skills/specifying-ko/SKILL.md` — 첫 Lifecycle 단계 (§auto 분기)
 - `skills/structured-artifacts-ko/SKILL.md` — `.specops/<FID>/auto-state.md` + 무인 모드 술어
 - `commands/start.md` — 단일 모드 진입점 (구조 참조)
 
 ---
 
-*specops-auto-ko v1.10.0 · 2026-06-08 · 완전자동 Lifecycle 진입 (가역 게이트 자동통과, 비가역 정지)*
+*specops-ko v1.10.0 · 2026-06-08 · 완전자동 Lifecycle 진입 (가역 게이트 자동통과, 비가역 정지)*

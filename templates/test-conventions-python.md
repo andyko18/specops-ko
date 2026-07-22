@@ -1,4 +1,4 @@
-# Python 테스트 컨벤션 — specops-auto-ko
+# Python 테스트 컨벤션 — specops-ko
 
 ## 4항목 규약
 
@@ -35,4 +35,4 @@ pytest examples/tests/test_<subject>.py -v
 - bash 컨벤션: `templates/test-conventions-bash.md`
 - downstream 프로젝트에서 pytest 설정이 있으면 (`pyproject.toml`, `setup.cfg`) 그 설정 우선
 
-*v0.1.0 · 2026-04-27 · specops-auto-ko*
+*v0.1.0 · 2026-04-27 · specops-ko*

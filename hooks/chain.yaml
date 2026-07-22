@@ -1,4 +1,4 @@
-# specops-auto-ko lifecycle chain — 단일 Source of Truth
+# specops-ko lifecycle chain — 단일 Source of Truth
 # 대조 게이트: scripts/_internal/validate-structure.sh `chain_consistency`
 # 범위: primary edge 만 (SKILL.md `## 다음 skill` 코드블록 `Skill:` 라인).
 #       조건 분기 산문 참조(FAIL→systematic-debugging 등)는 xref_resolve 관할 — 여기 선언 금지.

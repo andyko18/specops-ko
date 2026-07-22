@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko · hooks/ensure-session-progress.sh 회귀 테스트
+# specops-ko · hooks/ensure-session-progress.sh 회귀 테스트
 # 검증 분기: 멱등성·is-hook-enabled disabled·template 부재·project 치환·mkdir -p
 set -u
 PASS=0; FAIL=0

@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
 specops_version: 1.47.2
-used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
+used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -185,7 +185,7 @@ used_by: using-specops-auto-ko-ko, /start, /start-auto, /start-foundation, /star
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
-10. **구현으로 전환** — `specops-auto-ko:clarifying-ko` 스킬 호출
+10. **구현으로 전환** — `specops-ko:clarifying-ko` 스킬 호출
 
 ## 프로세스 흐름
 
@@ -243,10 +243,10 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
                                    │              ↑
                                    │ 승인         │
                                    ↓              │
-                              specops-auto-ko:clarifying-ko 호출
+                              specops-ko:clarifying-ko 호출
 ```
 
-**종착점은 `specops-auto-ko:clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
+**종착점은 `specops-ko:clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
 
 ## 프로세스 세부
 
@@ -259,7 +259,7 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
 - **객관식이 가능하면 객관식**. 열린 질문도 OK
 - **한 메시지당 한 질문** — 한 주제에 탐색이 더 필요하면 여러 질문으로 쪼갠다
 - 목적·제약·성공 기준에 집중
-- **질문 상한**: 명확화 질문은 **최대 4 회 (Q1~Q4)** 까지 수집한 뒤 설계 초안을 제시한다. Q5 이상 추가 명확화가 필요하다고 판단되면 **그 질문을 spec.md §8(열린 질문)에 기재**해 `specops-auto-ko:clarifying-ko` 로 위임 — 본 skill 의 책임은 "구현 가능한 최소 초안" 까지 (FRICTION-LOG F-15). §8 기재가 곧 위임 메커니즘이다 — clarifying-ko 는 §8 카운트로 BLOCKING 존재 여부(경량/풀 모드)를 판정하므로(clarifying-ko L54), 구두 언급만으로는 위임이 성립하지 않는다.
+- **질문 상한**: 명확화 질문은 **최대 4 회 (Q1~Q4)** 까지 수집한 뒤 설계 초안을 제시한다. Q5 이상 추가 명확화가 필요하다고 판단되면 **그 질문을 spec.md §8(열린 질문)에 기재**해 `specops-ko:clarifying-ko` 로 위임 — 본 skill 의 책임은 "구현 가능한 최소 초안" 까지 (FRICTION-LOG F-15). §8 기재가 곧 위임 메커니즘이다 — clarifying-ko 는 §8 카운트로 BLOCKING 존재 여부(경량/풀 모드)를 판정하므로(clarifying-ko L54), 구두 언급만으로는 위임이 성립하지 않는다.
 
 ### 접근 탐색
 
@@ -356,11 +356,11 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 자체 검토 후 사용자에게:
 
-> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `specops-auto-ko:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
+> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `specops-ko:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
 
 **응답 대기**. 변경 요청 시 수정하고 자체 검토 루프 재실행. 승인 후에만 진행.
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 질문·제안·설계 제시·문서화 중 다음 원칙을 항상 적용:
 
@@ -416,12 +416,12 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 **정상 경로 (§유형 ≠ trivial)**:
 
 ```
-Skill: specops-auto-ko:clarifying-ko
+Skill: specops-ko:clarifying-ko
 ```
 
 본 specifying-ko는 정상 경로에서 **clarifying-ko 이외의 어떤 스킬도 호출하지 않는다**. 다른 경로는 금지.
 
-**신규 trivial 단축 경로 (§유형 = trivial, 사용자 승인 완료 시에만)** — clarify·plan **ceremony 만** 건너뛰고 `specops-auto-ko:decomposing-ko` 로 **직행**한다 (인라인 호출 — 이 줄은 primary edge 가 아니라 조건 분기다):
+**신규 trivial 단축 경로 (§유형 = trivial, 사용자 승인 완료 시에만)** — clarify·plan **ceremony 만** 건너뛰고 `specops-ko:decomposing-ko` 로 **직행**한다 (인라인 호출 — 이 줄은 primary edge 가 아니라 조건 분기다):
 
 1. **정직한 SKIP 기록** (fake 아님 — 실행이 아니라 생략임을 명시):
    ```bash
@@ -429,6 +429,6 @@ Skill: specops-auto-ko:clarifying-ko
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan SKIP "trivial 신규 — plan ceremony 축약(사용자 승인)"
    ```
 2. handoff.md 는 정상 경로와 동일하게 기록.
-3. 이후 `specops-auto-ko:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).
+3. 이후 `specops-ko:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).
 
 > **teeth 불변**: 이 단축 경로는 decompose·implement·verify·security 를 **건너뛰지 않는다**. verify 실행-근거 게이트·TDD·security 스캔은 정상 경로와 동일하게 작동하므로, 사용자가 규모를 오판해 trivial 로 승인해도 검증 teeth 가 안전망이 된다. 축약되는 것은 오직 **설계 ceremony**(clarify·plan)뿐이다.

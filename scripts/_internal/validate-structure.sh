@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
+# specops-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
 # 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
 # baseline: 실측 카운트의 단일 출처는 scripts/_internal/.structure-baseline (jsonl) — 본 주석에 수치 비기재(드리프트 방지).
@@ -78,7 +78,7 @@ else
 fi
 
 # 2b) 메타 skill SessionStart 주입 경로 필수 (P1 핵심 가설)
-meta="skills/using-specops-auto-ko-ko/SKILL.md"
+meta="skills/using-specops-ko/SKILL.md"
 hook="hooks/session-start.sh"
 miss_m=()
 [ -f "$meta" ] || miss_m+=("$meta")
@@ -118,7 +118,7 @@ else
 fi
 
 # 6) reference_upstream 포맷 정보성
-# 유효 포맷: (a) owner/repo@version path  (b) specops-auto-ko 독자 추가 (upstream 미존재 명시)
+# 유효 포맷: (a) owner/repo@version path  (b) specops-ko 독자 추가 (upstream 미존재 명시)
 total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
 struct_std=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
          commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
@@ -194,25 +194,26 @@ else
 fi
 
 # 11) xref_resolve — skills/·commands/ 본문의 skill/agent 참조 토큰이 skills/·commands/·agents/ 에 실재
-#     ① prefix 형: specops-auto-ko:<name>  ② bare 형: <name>-ko (FID 20260713-ghost-agent-drift)
+#     ① prefix 형: specops-ko:<name>  ② bare 형: <name>-ko (FID 20260713-ghost-agent-drift)
 #     bare 확장 배경: prefix 토큰만 수집하던 탓에 bare 로 서술된 유령 에이전트(analyzer-ko·planner-ko 등)가
 #     검사망 밖이었다 — 문서가 존재하지 않는 에이전트를 서술해도 전 테스트가 통과했다.
-#     allowlist: 플러그인명 자체 · upstream(specops-ko) 프로젝트/파일 참조 — 본 repo 에 파일이 없는 게 정상.
+#     allowlist: 플러그인명 자체(specops-ko) · 구 플러그인명(specops-auto-ko — 케이스 스터디 파일명 참조)
+#     · upstream 프로젝트/파일 참조 — 본 repo 에 파일이 없는 게 정상.
 #     (두 grep 을 합집합 — 단일 alternation 은 BSD/GNU leftmost-longest 차이에 노출)
-XREF_ALLOW=" specops-auto-ko specops-ko writing-plans-ko subagent-driven-development-ko "
+XREF_ALLOW=" specops-ko specops-auto-ko writing-plans-ko subagent-driven-development-ko "
 xr=()
 while IFS= read -r tok; do
   [ -z "$tok" ] && continue
-  short="${tok#specops-auto-ko:}"
+  short="${tok#specops-ko:}"
   case "$XREF_ALLOW" in *" $short "*) continue ;; esac
   [ -f "skills/$short/SKILL.md" ] || [ -f "commands/$short.md" ] || [ -f "agents/$short.md" ] || xr+=("$tok")
-done < <({ grep -rhoE 'specops-auto-ko:[a-z0-9][a-z0-9-]*' skills commands templates --include='*.md' 2>/dev/null
+done < <({ grep -rhoE 'specops-ko:[a-z0-9][a-z0-9-]*' skills commands templates --include='*.md' 2>/dev/null
            grep -rhoE '[a-z][a-z0-9-]*-ko' skills commands templates --include='*.md' 2>/dev/null; } | sort -u)
 if [ ${#xr[@]} -eq 0 ]; then emit xref_resolve OK; else emit xref_resolve FAIL "미해석: ${xr[*]}"; fi
 
 # 12) used_by_fmt — skill used_by 는 short name 규약 (CLAUDE.md): skill 참조는 <name>-ko, command 는 /<name>.
-#     full `specops-auto-ko:` prefix 금지 (used_by 역참조·기계 파싱 일관성). 본문 토큰(xref_resolve 대상)은 무관.
-ubf=$(grep -rlE '^used_by:.*specops-auto-ko:' skills --include='SKILL.md' 2>/dev/null \
+#     full `specops-ko:` prefix 금지 (used_by 역참조·기계 파싱 일관성). 본문 토큰(xref_resolve 대상)은 무관.
+ubf=$(grep -rlE '^used_by:.*specops-ko:' skills --include='SKILL.md' 2>/dev/null \
   | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
 if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
 
@@ -285,7 +286,7 @@ for path in glob.glob('skills/*/SKILL.md'):
             in_sec = True; continue
         if in_sec and line.startswith('## '):
             in_sec = False; continue  # 섹션 종료 리셋 — 후속 섹션 Skill: 라인 오수집 방지
-        m = re.match(r'^Skill: specops-auto-ko:([a-z-]+)\s*$', line)
+        m = re.match(r'^Skill: specops-ko:([a-z-]+)\s*$', line)
         if in_sec and m:
             actual.add((name, m.group(1)))
 
@@ -293,7 +294,7 @@ issues = [f"chain.yaml에만: {f} → {t}" for f, t in sorted(declared - actual)
 issues += [f"SKILL.md에만: {f} → {t}" for f, t in sorted(actual - declared)]
 
 # 메타 skill 화살표 목록: 인접 pair ⊆ declared (요약 목록이라 생략 허용 — 존재하지 않는 edge 주장만 FAIL)
-meta = open('skills/using-specops-auto-ko-ko/SKILL.md', encoding='utf-8').read()
+meta = open('skills/using-specops-ko/SKILL.md', encoding='utf-8').read()
 for line in meta.splitlines():
     if '→' not in line or '-ko' not in line:
         continue

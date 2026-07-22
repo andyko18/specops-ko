@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Changed
+- **플러그인명 `specops-auto-ko` → `specops-ko` (BREAKING)** — 플러그인 식별자·skill 네임스페이스·로컬 마켓플레이스명이 모두 바뀐다. Skill 호출은 `specops-auto-ko:<name>` → `specops-ko:<name>`, 마켓플레이스 키는 `specops-auto-ko-local` → `specops-ko-local`, 활성화 키는 `specops-ko@specops-ko-local`. 사용자는 `~/.claude/settings.json` 의 `enabledPlugins`·`extraKnownMarketplaces` 키를 갱신하고 Claude Code 를 재시작해야 한다.
+  - 메타 skill 디렉토리 `skills/using-specops-auto-ko-ko/` → `skills/using-specops-ko/` (기계적 치환 시 발생하는 `-ko` 중복 제거).
+  - 거버넌스 규칙(`hooks/rules.jsonl`)의 `negative_skill_pattern`·`trigger_skill_pattern` 도 새 네임스페이스로 갱신 — 구 네임스페이스로 호출된 skill 은 verify 크레딧을 받지 못한다.
+  - `validate-structure.sh` `XREF_ALLOW` 에 구 플러그인명(`specops-auto-ko`)을 케이스 스터디 파일명 참조용으로 유지.
+  - GitHub 저장소도 `andyko18/specops-ko` 로 rename (구 URL 은 GitHub 리다이렉트).
+
 ## [1.54.0] — 2026-07-21
 
 ### Fixed
@@ -161,7 +168,7 @@
 - **문서 drift 화해 (3곳)** — (a) `CLAUDE.md` 거버넌스 엔진: 면제 서술을 4종으로 정정 + 실행-근거 gate 문단 신설. (b) `verifying-evidence-ko/SKILL.md`: "whitelist 미통과 (npm/pytest 등)" · "`bash scripts/...` 외 명령만 쓰면 **항상** PARTIAL" 이 다언어 확장 이후 **거짓**이 되어 실제 러너 목록·잔여 SKIP 형태·gate 연동으로 갱신. (c) `pretool-governance.sh` 근거 주석: `/implement` 의 **태스크별 중간 커밋은 verify 이전이라 실행 증거가 없어** 정직한 흐름이어도 deny→BYPASS 경로를 탄다는 설계된 비용을 명시(다음 독자 오도 방지).
 
 ### Fixed
-- **유령 에이전트 서술 정정 + `xref_resolve` bare 토큰 확장** — harness skill 4종(`generator-evaluator-ko`·`sprint-contracts-ko`·`context-resets-ko`·`file-based-communication-ko`) + `advisor-ko` + `templates/` 가 **존재하지 않는 에이전트 6종**(`specifier`·`clarifier`·`planner`·`analyzer`·`task-decomposer`·`verifier`-ko)을 서술했다. `generator-evaluator-ko` 의 "Generator 4 / Evaluator 4" 는 **이름이 아니라 구조가 허구** — 명세·설계·분해·검증은 에이전트가 아니라 skill 이 메인 세션에서 수행한다. 실재 `agents/` 7종(Generator: `implementer-ko` / Evaluator: `spec-reviewer`·`code-reviewer`·`plan-reviewer` / self-config: `red-team`·`blue-team`·`auditor`)으로 교체. **근본 원인**: `xref_resolve` 가 `specops-auto-ko:` prefix 토큰만 수집한 탓에 bare 로 서술된 유령이 검사망 밖이었다(93개 테스트 전량 통과의 원인). bare `-ko` 토큰 + `templates/` 스캔으로 확장하고 플러그인명·upstream 참조 4종 allowlist 로 오탐 차단. 원칙(Gen↔Eval 분리 — `role: evaluator` Write/Edit 박탈)은 무변경. FID 20260713-ghost-agent-drift
+- **유령 에이전트 서술 정정 + `xref_resolve` bare 토큰 확장** — harness skill 4종(`generator-evaluator-ko`·`sprint-contracts-ko`·`context-resets-ko`·`file-based-communication-ko`) + `advisor-ko` + `templates/` 가 **존재하지 않는 에이전트 6종**(`specifier`·`clarifier`·`planner`·`analyzer`·`task-decomposer`·`verifier`-ko)을 서술했다. `generator-evaluator-ko` 의 "Generator 4 / Evaluator 4" 는 **이름이 아니라 구조가 허구** — 명세·설계·분해·검증은 에이전트가 아니라 skill 이 메인 세션에서 수행한다. 실재 `agents/` 7종(Generator: `implementer-ko` / Evaluator: `spec-reviewer`·`code-reviewer`·`plan-reviewer` / self-config: `red-team`·`blue-team`·`auditor`)으로 교체. **근본 원인**: `xref_resolve` 가 `specops-ko:` prefix 토큰만 수집한 탓에 bare 로 서술된 유령이 검사망 밖이었다(93개 테스트 전량 통과의 원인). bare `-ko` 토큰 + `templates/` 스캔으로 확장하고 플러그인명·upstream 참조 4종 allowlist 로 오탐 차단. 원칙(Gen↔Eval 분리 — `role: evaluator` Write/Edit 박탈)은 무변경. FID 20260713-ghost-agent-drift
 - **heredoc 본문의 git 예시를 실제 명령으로 오인하던 false-block 제거** — `grep -E` 가 줄 단위라 멀티라인 Bash command 의 heredoc 본문 줄(`cat > spec.md <<EOF ... git commit ... EOF`)도 R-1/R-2 트리거에 매칭됐다 → skill·plan·spec 에 git 예시를 쓰는 정직한 작업이 차단되고 BYPASS 남발을 유발해 실행-근거 gate 의 신호를 희석했다. `_strip_heredoc_bodies()` 로 트리거 검사 **입력만** 전처리(정규식 무변경 — evasion 방어 불변, 리터럴 바이트 동일). 셸 실행자(`bash`·`sh`·`eval`) heredoc 본문은 실제 실행되므로 제외하지 않아 **F-3 표면 불변**(우회 표면 19종 탐침·strip 이 진짜 커밋 숨긴 케이스 0건). 미종료·판정불가 시 원본 반환(fail-safe — 차단 우세). FID 20260713-heredoc-false-block
 
 ## [1.44.0] — 2026-07-13
@@ -377,18 +384,18 @@
 - **거버넌스 훅 한/영 메시지 불일치** — posttool·stop 의 영어 `stdin JSON parse failed` → 한국어 통일(pretool 과 정합). (PR #130, 심층감사 M5)
 
 ### Added
-- **미완 lifecycle 재개 통보 규칙** — `using-specops-auto-ko-ko` 메타skill 에 SessionStart rehydrate 데이터를 사용자에게 통보하는 규칙 신설. 미완 FID 의 최신 단계·다음 단계를 점검해, 새 신호 시 1줄 참고·신호 없을 시 능동 재개 제안(완료 FID 는 침묵). rehydrate 데이터는 있으나 통보 규칙이 없던 가시화 공백 해소. (심층감사 H2 — 5원칙 4 주권: 새 신호 우선)
+- **미완 lifecycle 재개 통보 규칙** — `using-specops-ko` 메타skill 에 SessionStart rehydrate 데이터를 사용자에게 통보하는 규칙 신설. 미완 FID 의 최신 단계·다음 단계를 점검해, 새 신호 시 1줄 참고·신호 없을 시 능동 재개 제안(완료 FID 는 침묵). rehydrate 데이터는 있으나 통보 규칙이 없던 가시화 공백 해소. (심층감사 H2 — 5원칙 4 주권: 새 신호 우선)
 
 ## [1.26.2] — 2026-06-27
 
 ### Fixed
 - **pretool 거버넌스 R-1/R-2 관할 한정 — `.specops` 부재 repo 월권 차단 제거** — 플러그인 훅이 전역 발화하므로 specops 미사용 repo(`.specops/` 디렉토리 부재)의 `git commit`·`gh pr create` 까지 verify 누락으로 하드차단하던 결함(5원칙 4 주권 위반). `[ -d .specops ] || allow` 가드 추가 — lifecycle 진행 중(`.specops` 존재) repo 는 그대로 강제(보호 손실 0). `test-pretool` deny sandbox 3종 `.specops` 보정 + T40 신규(red-green). (PR #129, 재감사 M2)
-- **`using-specops-auto-ko-ko` 유지보수 분기 ASCII 자기모순 정정** — 진입 다이어그램이 `analyzing-ko ★HARD GATE` 선행을 건너뛰고 `specifying-ko 직행`으로 표기(Phase A 잔재)해 권위 테이블과 모순. `analyzing-ko 먼저 → specifying-ko` 로 정합화. (PR #129, 재감사 M1)
+- **`using-specops-ko` 유지보수 분기 ASCII 자기모순 정정** — 진입 다이어그램이 `analyzing-ko ★HARD GATE` 선행을 건너뛰고 `specifying-ko 직행`으로 표기(Phase A 잔재)해 권위 테이블과 모순. `analyzing-ko 먼저 → specifying-ko` 로 정합화. (PR #129, 재감사 M1)
 - **`session-progress-append.sh` partial clobber 차단** — `awk > TMP` 후 `mv` 무조건 실행 → `&&` 결합(awk 중간실패 시 손상 TMP 가 TARGET 덮어쓰기 차단, 2곳). (PR #129)
 - **`freework-resolve-fid.sh` FID 포맷 가드** — 진입부 정규식 검증 추가로 메타문자 유입 시 awk 동적정규식 오판정·오귀속 방지(타 스크립트와 일관). (PR #129)
 
 ### Changed
-- **문서 정합 2건** — `using-specops-auto-ko-ko` 참조 섹션 폐기된 `engine/*·harness/*` 중첩구조 표기 → 플랫 구조 갱신, `analyzing-ko` `used_by` 에 `/promote` 누락 추가. (PR #129)
+- **문서 정합 2건** — `using-specops-ko` 참조 섹션 폐기된 `engine/*·harness/*` 중첩구조 표기 → 플랫 구조 갱신, `analyzing-ko` `used_by` 에 `/promote` 누락 추가. (PR #129)
 
 ## [1.26.1] — 2026-06-26
 
@@ -794,79 +801,79 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.54.0...HEAD
-[1.54.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.53.0...v1.54.0
-[1.53.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.52.0...v1.53.0
-[1.52.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.51.0...v1.52.0
-[1.51.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.50.0...v1.51.0
-[1.50.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.49.0...v1.50.0
-[1.49.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.48.0...v1.49.0
-[1.48.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.3...v1.48.0
-[1.47.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.2...v1.47.3
-[1.47.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.1...v1.47.2
-[1.47.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.47.0...v1.47.1
-[1.47.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.46.0...v1.47.0
-[1.46.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.45.0...v1.46.0
-[1.45.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.44.0...v1.45.0
-[1.44.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.43.0...v1.44.0
-[1.43.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.42.0...v1.43.0
-[1.42.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.41.0...v1.42.0
-[1.41.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.40.0...v1.41.0
-[1.40.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.1...v1.40.0
-[1.39.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.39.0...v1.39.1
-[1.39.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.38.0...v1.39.0
-[1.38.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.37.0...v1.38.0
-[1.37.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.36.0...v1.37.0
-[1.36.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.35.0...v1.36.0
-[1.35.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.1...v1.35.0
-[1.34.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.34.0...v1.34.1
-[1.34.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.33.0...v1.34.0
-[1.33.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.3...v1.33.0
-[1.32.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.2...v1.32.3
-[1.32.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.1...v1.32.2
-[1.32.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.32.0...v1.32.1
-[1.32.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.31.0...v1.32.0
-[1.31.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.30.0...v1.31.0
-[1.30.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.29.0...v1.30.0
-[1.29.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.28.0...v1.29.0
-[1.28.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.27.0...v1.28.0
-[1.27.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.5...v1.27.0
-[1.26.5]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.4...v1.26.5
-[1.26.4]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.3...v1.26.4
-[1.26.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.2...v1.26.3
-[1.26.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.1...v1.26.2
-[1.26.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.26.0...v1.26.1
-[1.26.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.25.0...v1.26.0
-[1.25.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.24.0...v1.25.0
-[1.24.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.23.0...v1.24.0
-[1.23.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.1...v1.23.0
-[1.22.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.22.0...v1.22.1
-[1.22.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.3...v1.22.0
-[1.21.3]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.2...v1.21.3
-[1.21.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.1...v1.21.2
-[1.21.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.21.0...v1.21.1
-[1.21.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.20.0...v1.21.0
-[1.20.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.2...v1.20.0
-[1.19.2]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.1...v1.19.2
-[1.19.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.19.0...v1.19.1
-[1.19.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.18.0...v1.19.0
-[1.18.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.17.0...v1.18.0
-[1.17.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.16.0...v1.17.0
-[1.16.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.15.1...v1.16.0
-[1.15.1]: https://github.com/kohaedong/specops-auto-ko/compare/v1.15.0...v1.15.1
-[1.15.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.14.0...v1.15.0
-[1.14.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.13.0...v1.14.0
-[1.13.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.12.0...v1.13.0
-[1.12.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.11.0...v1.12.0
-[1.11.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.10.0...v1.11.0
-[1.10.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.9.0...v1.10.0
-[1.9.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.8.0...v1.9.0
-[1.8.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.7.0...v1.8.0
-[1.7.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.6.0...v1.7.0
-[1.6.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.5.0...v1.6.0
-[1.5.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.4.0...v1.5.0
-[1.4.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/kohaedong/specops-auto-ko/releases/tag/v1.0.0
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.54.0...HEAD
+[1.54.0]: https://github.com/andyko18/specops-ko/compare/v1.53.0...v1.54.0
+[1.53.0]: https://github.com/andyko18/specops-ko/compare/v1.52.0...v1.53.0
+[1.52.0]: https://github.com/andyko18/specops-ko/compare/v1.51.0...v1.52.0
+[1.51.0]: https://github.com/andyko18/specops-ko/compare/v1.50.0...v1.51.0
+[1.50.0]: https://github.com/andyko18/specops-ko/compare/v1.49.0...v1.50.0
+[1.49.0]: https://github.com/andyko18/specops-ko/compare/v1.48.0...v1.49.0
+[1.48.0]: https://github.com/andyko18/specops-ko/compare/v1.47.3...v1.48.0
+[1.47.3]: https://github.com/andyko18/specops-ko/compare/v1.47.2...v1.47.3
+[1.47.2]: https://github.com/andyko18/specops-ko/compare/v1.47.1...v1.47.2
+[1.47.1]: https://github.com/andyko18/specops-ko/compare/v1.47.0...v1.47.1
+[1.47.0]: https://github.com/andyko18/specops-ko/compare/v1.46.0...v1.47.0
+[1.46.0]: https://github.com/andyko18/specops-ko/compare/v1.45.0...v1.46.0
+[1.45.0]: https://github.com/andyko18/specops-ko/compare/v1.44.0...v1.45.0
+[1.44.0]: https://github.com/andyko18/specops-ko/compare/v1.43.0...v1.44.0
+[1.43.0]: https://github.com/andyko18/specops-ko/compare/v1.42.0...v1.43.0
+[1.42.0]: https://github.com/andyko18/specops-ko/compare/v1.41.0...v1.42.0
+[1.41.0]: https://github.com/andyko18/specops-ko/compare/v1.40.0...v1.41.0
+[1.40.0]: https://github.com/andyko18/specops-ko/compare/v1.39.1...v1.40.0
+[1.39.1]: https://github.com/andyko18/specops-ko/compare/v1.39.0...v1.39.1
+[1.39.0]: https://github.com/andyko18/specops-ko/compare/v1.38.0...v1.39.0
+[1.38.0]: https://github.com/andyko18/specops-ko/compare/v1.37.0...v1.38.0
+[1.37.0]: https://github.com/andyko18/specops-ko/compare/v1.36.0...v1.37.0
+[1.36.0]: https://github.com/andyko18/specops-ko/compare/v1.35.0...v1.36.0
+[1.35.0]: https://github.com/andyko18/specops-ko/compare/v1.34.1...v1.35.0
+[1.34.1]: https://github.com/andyko18/specops-ko/compare/v1.34.0...v1.34.1
+[1.34.0]: https://github.com/andyko18/specops-ko/compare/v1.33.0...v1.34.0
+[1.33.0]: https://github.com/andyko18/specops-ko/compare/v1.32.3...v1.33.0
+[1.32.3]: https://github.com/andyko18/specops-ko/compare/v1.32.2...v1.32.3
+[1.32.2]: https://github.com/andyko18/specops-ko/compare/v1.32.1...v1.32.2
+[1.32.1]: https://github.com/andyko18/specops-ko/compare/v1.32.0...v1.32.1
+[1.32.0]: https://github.com/andyko18/specops-ko/compare/v1.31.0...v1.32.0
+[1.31.0]: https://github.com/andyko18/specops-ko/compare/v1.30.0...v1.31.0
+[1.30.0]: https://github.com/andyko18/specops-ko/compare/v1.29.0...v1.30.0
+[1.29.0]: https://github.com/andyko18/specops-ko/compare/v1.28.0...v1.29.0
+[1.28.0]: https://github.com/andyko18/specops-ko/compare/v1.27.0...v1.28.0
+[1.27.0]: https://github.com/andyko18/specops-ko/compare/v1.26.5...v1.27.0
+[1.26.5]: https://github.com/andyko18/specops-ko/compare/v1.26.4...v1.26.5
+[1.26.4]: https://github.com/andyko18/specops-ko/compare/v1.26.3...v1.26.4
+[1.26.3]: https://github.com/andyko18/specops-ko/compare/v1.26.2...v1.26.3
+[1.26.2]: https://github.com/andyko18/specops-ko/compare/v1.26.1...v1.26.2
+[1.26.1]: https://github.com/andyko18/specops-ko/compare/v1.26.0...v1.26.1
+[1.26.0]: https://github.com/andyko18/specops-ko/compare/v1.25.0...v1.26.0
+[1.25.0]: https://github.com/andyko18/specops-ko/compare/v1.24.0...v1.25.0
+[1.24.0]: https://github.com/andyko18/specops-ko/compare/v1.23.0...v1.24.0
+[1.23.0]: https://github.com/andyko18/specops-ko/compare/v1.22.1...v1.23.0
+[1.22.1]: https://github.com/andyko18/specops-ko/compare/v1.22.0...v1.22.1
+[1.22.0]: https://github.com/andyko18/specops-ko/compare/v1.21.3...v1.22.0
+[1.21.3]: https://github.com/andyko18/specops-ko/compare/v1.21.2...v1.21.3
+[1.21.2]: https://github.com/andyko18/specops-ko/compare/v1.21.1...v1.21.2
+[1.21.1]: https://github.com/andyko18/specops-ko/compare/v1.21.0...v1.21.1
+[1.21.0]: https://github.com/andyko18/specops-ko/compare/v1.20.0...v1.21.0
+[1.20.0]: https://github.com/andyko18/specops-ko/compare/v1.19.2...v1.20.0
+[1.19.2]: https://github.com/andyko18/specops-ko/compare/v1.19.1...v1.19.2
+[1.19.1]: https://github.com/andyko18/specops-ko/compare/v1.19.0...v1.19.1
+[1.19.0]: https://github.com/andyko18/specops-ko/compare/v1.18.0...v1.19.0
+[1.18.0]: https://github.com/andyko18/specops-ko/compare/v1.17.0...v1.18.0
+[1.17.0]: https://github.com/andyko18/specops-ko/compare/v1.16.0...v1.17.0
+[1.16.0]: https://github.com/andyko18/specops-ko/compare/v1.15.1...v1.16.0
+[1.15.1]: https://github.com/andyko18/specops-ko/compare/v1.15.0...v1.15.1
+[1.15.0]: https://github.com/andyko18/specops-ko/compare/v1.14.0...v1.15.0
+[1.14.0]: https://github.com/andyko18/specops-ko/compare/v1.13.0...v1.14.0
+[1.13.0]: https://github.com/andyko18/specops-ko/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/andyko18/specops-ko/compare/v1.11.0...v1.12.0
+[1.11.0]: https://github.com/andyko18/specops-ko/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/andyko18/specops-ko/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/andyko18/specops-ko/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/andyko18/specops-ko/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/andyko18/specops-ko/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/andyko18/specops-ko/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/andyko18/specops-ko/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/andyko18/specops-ko/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/andyko18/specops-ko/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/andyko18/specops-ko/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/andyko18/specops-ko/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/andyko18/specops-ko/releases/tag/v1.0.0

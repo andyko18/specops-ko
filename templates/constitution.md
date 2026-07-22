@@ -56,7 +56,7 @@
 ### 컴플라이언스 점검
 
 - spec/plan/code 작성 시 본 헌법의 원칙을 모두 만족하는지 자체 검토
-- specops-auto-ko Lifecycle 의 specifying-ko / planning-ko / receiving-code-review-ko 가 본 헌법을 자동 인용
+- specops-ko Lifecycle 의 specifying-ko / planning-ko / receiving-code-review-ko 가 본 헌법을 자동 인용
 
 ## 참조
 

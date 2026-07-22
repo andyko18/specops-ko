@@ -2,7 +2,7 @@
 name: brainstorming-ko
 description: 구현 전 아이디어 탐색·수요 검증 — Startup(YC 6 forcing questions) + Builder(창의 탐색) 모드 선택. pre-design 산출물 승인 게이트 (chain 비강제 — 명시 선택 진입). gstack office-hours 한국어 재창작.
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 specops_version: 1.36.0
 used_by: /brainstorming, 선택적 pre-init-project 진입
 ---
@@ -333,7 +333,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 ---
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 skill 적용 |
 |---|---|
@@ -346,7 +346,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 ## 참조
 
 - `commands/brainstorming.md` — 슬래시 진입점
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill
+- `skills/using-specops-ko/SKILL.md` — 메타 skill
 - `commands/init-project.md` — 다음 단계 (부트스트랩)
 - `commands/start.md` — Lifecycle 진입
 
@@ -354,11 +354,11 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 탐색 완료 + 산출물 저장 후 사용자 선택에 따라:
 
-- **프로젝트 초기화 필요** → `specops-auto-ko:init-project` 호출
-- **프로젝트 이미 초기화** → `specops-auto-ko:specifying-ko` 호출
+- **프로젝트 초기화 필요** → `specops-ko:init-project` 호출
+- **프로젝트 이미 초기화** → `specops-ko:specifying-ko` 호출
 
 강제 chain 없음. 본 brainstorming-ko는 **사용자가 명시적으로 선택하기 전까지 어떤 구현 스킬도 호출하지 않는다.**
 
 ---
 
-*specops-auto-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 한국어 재창작*
+*specops-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 한국어 재창작*

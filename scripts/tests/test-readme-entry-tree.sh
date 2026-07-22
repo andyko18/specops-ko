@@ -23,7 +23,7 @@ grep -qE '/init-project →.*/start-foundation →.*/start-all' "$R" && ok "AC-4
 grep -qiE '게이트.*자동|자동 통과|가역 게이트' "$R" && ok "AC-5 게이트 차이" || nope "AC-5" "게이트 차이 없음"
 # AC-R-1: 기존 자동체인 설명 보존
 grep -qE 'spec → clarify → plan' "$R" && ok "AC-R-1 자동체인 설명 보존" || nope "AC-R-1" "자동체인 설명 소실"
-grep -q 'using-specops-auto-ko-ko' "$R" && ok "AC-R-1b 라우팅 설명 보존" || nope "AC-R-1b" "라우팅 설명 소실"
+grep -q 'using-specops-ko' "$R" && ok "AC-R-1b 라우팅 설명 보존" || nope "AC-R-1b" "라우팅 설명 소실"
 
 echo "── test-readme-entry-tree: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

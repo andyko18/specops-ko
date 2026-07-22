@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-specops-auto-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/maintain`) 또는 자연어 진입 후 메타 스킬이 spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/maintain`) 또는 자연어 진입 후 메타 스킬이 spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
@@ -40,7 +40,7 @@ bash scripts/_internal/validate-structure.sh
 skills/<name>/SKILL.md   ← 플랫 구조, layer 필드로 계층 구분
 ```
 
-- **layer: 1** — 메타 스킬 (`using-specops-auto-ko-ko`): SessionStart 훅으로 자동 주입, 신호 감지 후 chain 진입
+- **layer: 1** — 메타 스킬 (`using-specops-ko`): SessionStart 훅으로 자동 주입, 신호 감지 후 chain 진입
 - **layer: 2** — Engine Skills: Lifecycle 체인의 각 단계 (specifying → clarifying → planning → decomposing → implementing → verifying → reviewing → security-review → integration-test → performance-test → PR)
 - **layer: 2** — `karpathy-ko`: cross-cutting 행동 원칙 (Think·Simplicity·Surgical·Goal), 구현 단계 자동 활성
 - **layer: 3** — Harness Skills: 아키텍처 원칙 강제 (sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication) + e2e-test-ko (lifecycle E2E 자동 검증)
@@ -107,7 +107,7 @@ Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하�
 name: <스킬명>
 description: <한 줄 설명>
 layer: <1|2|3>
-reference_upstream: <owner/repo@version path>  # 포맷 필수 (독자 추가 시 "specops-auto-ko 독자 추가" 허용)
+reference_upstream: <owner/repo@version path>  # 포맷 필수 (독자 추가 시 "specops-ko 독자 추가" 허용)
 specops_version: <semver>  # 본 skill 본문이 마지막으로 substantive 변경된 플러그인 버전 (자동 갱신 아님)
 used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 short name (<skill>-ko)
 ---
@@ -134,4 +134,4 @@ bash scripts/_internal/validate-structure.sh
 
 - `file_counts FAIL` → 파일 추가/삭제 시 스크립트 내 기대값(commands, skills, templates 개수) 업데이트
 - `frontmatter FAIL` → YAML `{{placeholder}}`는 따옴표로 감싸야 함
-- `ref_upstream_fmt` → `owner/repo@version path` 포맷 또는 `specops-auto-ko 독자 추가` 명시 필요
+- `ref_upstream_fmt` → `owner/repo@version path` 포맷 또는 `specops-ko 독자 추가` 명시 필요

@@ -16,15 +16,15 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 `plan.md`의 카테고리·순서를 **2~5분 단위 TDD 바이트사이즈 태스크**로 분해한다. 모든 `must` AC가 **최소 1 태스크**에 매핑되도록 보장.
 
 <HARD-GATE>
-**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `specops-auto-ko:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
+**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `specops-ko:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
 
-**bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-auto-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
+**bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `specops-ko:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
 
 **Python 테스트 파일 규약**: 생성되는 `test_*.py` 에 exec-bit 및 shebang 불필요. pytest가 직접 실행. 파일명은 `test_<subject>.py` (underscore, hyphen 아님). 상세: `templates/test-conventions-python.md`.
 
-**v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-auto-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
+**v0.4a 신규 — DAG 섹션 의무**: `tasks.md` 끝에 `## 의존 그래프` 섹션이 **YAML fenced block** 으로 작성되지 않은 채로 `specops-ko:implementing-ko` 호출 금지. YAML 파싱 실패 (`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 발화) 시도 차단. fallback 운영은 implementing-ko 의 sequential 분기 책임 (advisor 협의 13:00 — v0.4a 는 decomposing-ko 자동 생성은 100% YAML 정합 보장).
 
-**foundation 재사용 게이트**: spec.md §유형이 `foundation` 이 **아니고** `.specops/memory/foundation-manifest.md` 가 존재하면, 각 task 에 다음 중 하나가 **반드시** 기재되어야 한다 — 누락 시 `specops-auto-ko:implementing-ko` 호출 금지:
+**foundation 재사용 게이트**: spec.md §유형이 `foundation` 이 **아니고** `.specops/memory/foundation-manifest.md` 가 존재하면, 각 task 에 다음 중 하나가 **반드시** 기재되어야 한다 — 누락 시 `specops-ko:implementing-ko` 호출 금지:
 - `**재사용 foundation**: <foundation-manifest.md 의 모듈명>` — foundation 모듈을 재사용하는 경우
 - `**미재사용 근거**: <이유>` — 재사용하지 않는 경우 (예: 해당 task 가 foundation 범위 외)
 </HARD-GATE>
@@ -52,7 +52,7 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
    - 결과를 step 10 DAG 의존 그래프에 반영
 2. **AC 커버리지 매핑** — 각 `must` AC → 최소 1 태스크 할당. 커버리지 표 작성
 3. **파일 구조 확정** — plan.md §파일 구조의 Create/Modify/Delete 목록 고정
-4. **TDD 5스텝 작성** — `specops-auto-ko:tdd-ko` 준수:
+4. **TDD 5스텝 작성** — `specops-ko:tdd-ko` 준수:
    - Step 1 RED: 실패 테스트 (실제 코드)
    - Step 2 검증: FAIL 확인
    - Step 3 GREEN: 최소 구현 (실제 코드)
@@ -86,8 +86,8 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
       - 성공 시 stdout `EMIT: N files`
       - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
       - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
-11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-auto-ko:implementing-ko` 다음 단계 안내
-12. **전환** — `specops-auto-ko:implementing-ko` 호출
+11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
+12. **전환** — `specops-ko:implementing-ko` 호출
 
 ## 태스크 크기 규약
 
@@ -132,8 +132,8 @@ plan.md 가 bash 테스트 파일 생성 태스크를 포함하는 경우, 다�
 | 헤더 L2~ | `set -u`, `PASS=0; FAIL=0`, `PLUGIN=$(cd ... && pwd)`, `T<N>.<letter>` TEST ID | 내부 예시 |
 
 **강도 해석**:
-- **Universal 강제** — 위반 시 `<HARD-GATE>` 발동. `specops-auto-ko:implementing-ko` 호출 차단
-- **내부 예시** — specops-auto-ko 패턴. downstream 프로젝트 기존 패턴이 있으면 그것 우선
+- **Universal 강제** — 위반 시 `<HARD-GATE>` 발동. `specops-ko:implementing-ko` 호출 차단
+- **내부 예시** — specops-ko 패턴. downstream 프로젝트 기존 패턴이 있으면 그것 우선
 - **단일 예외** — 실행권한 강제는 파일 L2 에 `# library-only` 마커 선언 시 skip (library-only 파일). shebang 은 예외 없음
 
 상세 규약·예시 코드블록·회귀 금지 체크리스트: `templates/test-conventions-bash.md`.
@@ -270,7 +270,7 @@ tasks:
     ac: [AC-8]
 ```
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -324,8 +324,8 @@ fi
 - **단일 분기** → 기존 동작. **호출 직전 한 줄 선언**(R-3 투명성 — 20260718 test2 회고: implementing-ko 만 선언 없이 자동 호출돼 R-3 warn 12건 누적. 자동 체인이라도 전환을 1줄 명시):
 
 ```
-구현 단계로 진행 — specops-auto-ko:implementing-ko 를 호출합니다.
-Skill: specops-auto-ko:implementing-ko
+구현 단계로 진행 — specops-ko:implementing-ko 를 호출합니다.
+Skill: specops-ko:implementing-ko
 ```
 
 implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.

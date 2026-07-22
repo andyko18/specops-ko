@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko · session-progress-append.sh 검증
+# specops-ko · session-progress-append.sh 검증
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)

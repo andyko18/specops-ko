@@ -41,7 +41,7 @@ CI 가 PR 마다 커버리지 측정. 신규 코드 커버리지 ≥ 80% 강제.
 
 ## 4. 회귀 테스트 정책
 
-specops-auto-ko sprint-contracts-ko 와 연동:
+specops-ko sprint-contracts-ko 와 연동:
 
 - **유지보수 FID** (`/maintain` 진입): `acceptance-criteria.md` 의 `## 회귀 방지 AC (유지보수 FID 필수)` 섹션에 `AC-R-N` ≥ 1 강제
 - 회귀 AC 미작성 시 sprint-contracts evaluator 가 `verdict = BLOCK`

@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.37.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /design-interface [name]
@@ -69,4 +69,4 @@ git commit -m "design(if): <name> 인터페이스 설계 반영"
 
 ---
 
-*specops-auto-ko v1.37.0 · 2026-07-10 · 화면 대칭 인터페이스 설계 (무스크립트·마스터 append)*
+*specops-ko v1.37.0 · 2026-07-10 · 화면 대칭 인터페이스 설계 (무스크립트·마스터 append)*

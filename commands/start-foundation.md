@@ -1,25 +1,25 @@
 ---
 name: start-foundation
-description: "[공통부·대화형] specops-auto-ko 한국어 자율 Lifecycle — 공통부 우선 개발 진입. specifying-ko 를 foundation 분기로 호출"
+description: "[공통부·대화형] specops-ko 한국어 자율 Lifecycle — 공통부 우선 개발 진입. specifying-ko 를 foundation 분기로 호출"
 triggers:
   - "/start-foundation"
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /start-foundation [<공통부 설명>]
 
 ## 목적
 
-specops-auto-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 가능한 공통부 코드(라우팅·레이아웃·인증·공통 컴포넌트·DB 마이그레이션)를 생성하는 독립 커맨드.
+specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 가능한 공통부 코드(라우팅·레이아웃·인증·공통 컴포넌트·DB 마이그레이션)를 생성하는 독립 커맨드.
 
 한국 SI 표준 "공통부 먼저 개발" 단계를 지원한다. `/init-project`(doc-only) → **`/start-foundation`(공통 코드)** → `/start`(기능 단위) 순서로 진행.
 
 ## Process
 
-1. `specops-auto-ko:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
+1. `specops-ko:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
 2. specifying-ko 가 foundation 분기 감지 → Step 5.5 화면 루프 skip → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
 3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
 
@@ -53,4 +53,4 @@ specops-auto-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** �
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-06-04 · foundation 분기 진입 슬래시*
+*specops-ko v1.0.0 · 2026-06-04 · foundation 분기 진입 슬래시*

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T21 — using-specops-auto-ko-ko 메타 §프로젝트 최초 진입 감지 4분기 검증 (FID 20260507)
+# T21 — using-specops-ko 메타 §프로젝트 최초 진입 감지 4분기 검증 (FID 20260507)
 # 메타 skill 은 Claude 가 평가하는 분기라 bash 직접 실행 불가 →
 #   (a) 정적: SKILL.md 본문이 4분기 메시지 모두 명시 (clarifications.md Q5)
 #   (b) fixture: 4 분기 조건 ([ -d .specops ] x [ -f CLAUDE.md ]) 가 의도대로 평가
@@ -8,7 +8,7 @@ PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd ../.. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
-SKILL="$PLUGIN/skills/using-specops-auto-ko-ko/SKILL.md"
+SKILL="$PLUGIN/skills/using-specops-ko/SKILL.md"
 
 
 eval_branch() {

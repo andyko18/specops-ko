@@ -1,4 +1,4 @@
-<!-- specops-auto-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
+<!-- specops-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
 <!-- 케이스: YAML 안에 test_command 미기재 — Step 4 라인 fallback + stderr WARN -->
 
 # Tasks — fallback-step4 fixture

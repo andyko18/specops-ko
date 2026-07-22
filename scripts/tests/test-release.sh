@@ -17,16 +17,16 @@ _make_git_fixture() {
   mkdir -p "$dir/.claude-plugin"
   cat > "$dir/.claude-plugin/plugin.json" <<'JSON'
 {
-  "name": "specops-auto-ko",
+  "name": "specops-ko",
   "version": "1.9.0",
   "description": "test"
 }
 JSON
   cat > "$dir/.claude-plugin/marketplace.json" <<'JSON'
 {
-  "name": "specops-auto-ko",
+  "name": "specops-ko",
   "metadata": {
-    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.9.0 — test)"
+    "description": "specops-ko 로컬 마켓플레이스 (v1.9.0 — test)"
   },
   "version": "1.9.0"
 }
@@ -39,11 +39,11 @@ JSON
 ### Added
 - test entry
 
-[Unreleased]: https://github.com/kohaedong/specops-auto-ko/compare/v1.9.0...HEAD
-[1.9.0]: https://github.com/kohaedong/specops-auto-ko/compare/v1.8.0...v1.9.0
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/andyko18/specops-ko/compare/v1.8.0...v1.9.0
 CHANGELOG
   cat > "$dir/README.md" <<'README'
-# specops-auto-ko (v1.9.0)
+# specops-ko (v1.9.0)
 
 Test.
 
@@ -57,7 +57,7 @@ specops_version: 1.9.0
 
 Content
 
-*specops-auto-ko v1.8.0 · 2026-01-01 · test*
+*specops-ko v1.8.0 · 2026-01-01 · test*
 CMD
   git -C "$dir" add -A
   git -C "$dir" commit -m "init" -q
@@ -109,8 +109,8 @@ rm -rf "$TD"
 TD=$(mktemp -d); _make_git_fixture "$TD"
 RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0
 # frontmatter=1.9.0, footer는 1.8.0 → footer가 1.9.0으로 수정되어야 함
-grep -q "specops-auto-ko v1.9.0" "$TD/commands/cmd.md" \
-  && ! grep -q "specops-auto-ko v1.8.0" "$TD/commands/cmd.md" \
+grep -q "specops-ko v1.9.0" "$TD/commands/cmd.md" \
+  && ! grep -q "specops-ko v1.8.0" "$TD/commands/cmd.md" \
   && ok "T6.a footer 스탬프 불일치 수정" || fail "T6.a footer"
 rm -rf "$TD"
 

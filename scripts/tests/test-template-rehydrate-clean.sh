@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko · 템플릿 rehydrate 오염 회귀 테스트 (FID 20260709-tpl-session-progress-design)
+# specops-ko · 템플릿 rehydrate 오염 회귀 테스트 (FID 20260709-tpl-session-progress-design)
 # 불변식: templates/session-progress.md 에 FID 패턴(^## [0-9]{8}-) 섹션 0개
 #         → session-start.sh 1블록 추출이 빈 출력. 실 FID 섹션은 가이드 헤딩 전까지만 추출.
 set -u

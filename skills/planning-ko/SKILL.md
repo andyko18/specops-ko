@@ -55,7 +55,7 @@ used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구)
 ```markdown
 # [기능명] 구현 플랜
 
-> **에이전트 워커용**: 필수 하위 스킬 — `specops-auto-ko:implementing-ko` (권장) 또는 `specops-auto-ko:decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
+> **에이전트 워커용**: 필수 하위 스킬 — `specops-ko:implementing-ko` (권장) 또는 `specops-ko:decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
 
 **목표**: [한 문장 — 무엇을 만드는가]
 
@@ -148,9 +148,9 @@ git commit -m "feat: 특정 기능 추가"
 
 ## Eng 리뷰 (plan-reviewer 서브에이전트)
 
-자체 검토 통과 후 `specops-auto-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다.
+자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다.
 
-**dispatch:** `Agent` 도구, `subagent_type: "specops-auto-ko:plan-reviewer-ko"`
+**dispatch:** `Agent` 도구, `subagent_type: "specops-ko:plan-reviewer-ko"`
 입력: `.specops/<FID>/plan.md` 경로
 
 **판정 처리 (cap=2):**
@@ -182,7 +182,7 @@ plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로
 3. `CRITIC: SKIP/FAIL` → dispatch-log 1줄만 기록 (plan.md §8 미기재 — 잡음 방지)
 4. **advisory**: 외부 의견은 참고 입력 — PASS/FAIL **판정 권한 없음** (판정은 plan-reviewer 소관)
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -205,11 +205,11 @@ plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로
 > 어느 쪽으로 할까요?"
 
 **서브에이전트 주도 선택 시**:
-- 필수 하위 스킬: `specops-auto-ko:implementing-ko`
+- 필수 하위 스킬: `specops-ko:implementing-ko`
 - 태스크별 fresh 서브에이전트 + 2단계 리뷰
 
 **인라인 실행 선택 시**:
-- 하위 스킬: `specops-auto-ko:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
+- 하위 스킬: `specops-ko:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
 - 체크포인트마다 리뷰
 
 ## plan.md 필수 섹션
@@ -265,7 +265,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan 완�
 플랜 저장 + session-progress append + 실행 방식 결정 + handoff.md 기록 후 즉시 호출:
 
 ```
-Skill: specops-auto-ko:decomposing-ko
+Skill: specops-ko:decomposing-ko
 ```
 
-decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `specops-auto-ko:implementing-ko`로 전환.
+decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `specops-ko:implementing-ko`로 전환.

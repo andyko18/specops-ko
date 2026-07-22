@@ -1,22 +1,22 @@
 ---
-name: using-specops-auto-ko-ko
-description: 모든 대화 시작 시 활성 — specops-auto-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-auto-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
+name: using-specops-ko
+description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 1.26.3
 used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 ---
 
-# Harness 메타 스킬 — specops-auto-ko 자율 Lifecycle 진입
+# Harness 메타 스킬 — specops-ko 자율 Lifecycle 진입
 
 <SUBAGENT-STOP>
 서브에이전트로 dispatch되어 특정 task를 실행 중이라면 본 skill 건너뜀.
 </SUBAGENT-STOP>
 
 <EXTREMELY-IMPORTANT>
-1% 가능성이라도 specops-auto-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
+1% 가능성이라도 specops-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
 
-특히 사용자 입력이 다음 신호를 포함하면 즉시 `specops-auto-ko:specifying-ko` 호출:
+특히 사용자 입력이 다음 신호를 포함하면 즉시 `specops-ko:specifying-ko` 호출:
 
 **[신규 신호]** — `maintenance flag = false`:
 - "X 기능을 만들고 싶어"
@@ -46,10 +46,10 @@ used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 
 ## 우선순위
 
-specops-auto-ko skill은 기본 시스템 동작을 override하나 **사용자 명시 지시가 항상 최우선**:
+specops-ko skill은 기본 시스템 동작을 override하나 **사용자 명시 지시가 항상 최우선**:
 
 1. CLAUDE.md / 사용자 직접 지시 (최우선)
-2. specops-auto-ko skill (기본 시스템 override)
+2. specops-ko skill (기본 시스템 override)
 3. 기본 시스템 프롬프트 (최하위)
 
 CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용자 지시 따름.
@@ -73,7 +73,7 @@ spec.md + acceptance-criteria.md 작성
     ↓
 HARD GATE: "spec 검토. 다음 skill(clarifying-ko) 진행? [y/n]"
     ↓ y
-specops-auto-ko:clarifying-ko (skill 본문이 다음 chain 명시)
+specops-ko:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
 ... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
     ↓
@@ -137,7 +137,7 @@ SessionStart 가 `<session-progress-rehydrate>` 블록을 주입했으면, **데
 
 Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제시됨 — 그대로 따른다. skill 파일을 `Read` 도구로 직접 읽지 말 것.
 
-호출 형식: skill 이름은 `specops-auto-ko:specifying-ko` 같은 namespace 포함.
+호출 형식: skill 이름은 `specops-ko:specifying-ko` 같은 namespace 포함.
 
 ## 적색 플래그 — 중단
 
@@ -163,7 +163,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 
 ## Karpathy 행동 원칙 (cross-cutting)
 
-구현 단계 진입 시 아래 4원칙이 자동 활성된다. 세부 내용: `specops-auto-ko:karpathy-ko`.
+구현 단계 진입 시 아래 4원칙이 자동 활성된다. 세부 내용: `specops-ko:karpathy-ko`.
 
 | Karpathy 원칙 | 핵심 규칙 | specops 연결 |
 |---|---|---|
@@ -175,7 +175,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 
 ## Advisor 활용 (cross-cutting)
 
-기획·분석·설계·개발 중 **애매한 부분/모르는 부분 발생 시 advisor 호출 의무**. 단정·합리화·circular 검증 차단. 세부 내용: `specops-auto-ko:advisor-ko`.
+기획·분석·설계·개발 중 **애매한 부분/모르는 부분 발생 시 advisor 호출 의무**. 단정·합리화·circular 검증 차단. 세부 내용: `specops-ko:advisor-ko`.
 
 | 단계 | skill | advisor 호출 시점 |
 |---|---|---|
@@ -207,7 +207,7 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 ## 참조
 
-- specops-auto-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
+- specops-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
 - `skills/<name>/SKILL.md` (layer=2 engine·layer=3 harness 플랫 구조 — CLAUDE.md §Skill 계층 참조)
 - `commands/start.md` — 슬래시 진입점
 - `commands/brainstorming.md` — 선택적 pre-init-project 탐색 진입점
@@ -216,4 +216,4 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
+*specops-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*

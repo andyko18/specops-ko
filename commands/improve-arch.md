@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)
+reference_upstream: specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)
 ---
 
 # /improve-arch [<경로>]
@@ -17,7 +17,7 @@ reference_upstream: specops-auto-ko 독자 추가 (mattpocock improve-codebase-a
 
 ## Process
 
-1. **즉시 `specops-auto-ko:improve-codebase-architecture-ko` 호출** — 전달된 `<경로>`를 분석 대상으로 제공
+1. **즉시 `specops-ko:improve-codebase-architecture-ko` 호출** — 전달된 `<경로>`를 분석 대상으로 제공
 2. 4단계 정적 분석 진행 (find + wc + grep)
 3. 권고안 stdout 출력
 4. 필요 시 `/maintain <파일>` 진입 안내
@@ -49,4 +49,4 @@ reference_upstream: specops-auto-ko 독자 추가 (mattpocock improve-codebase-a
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-19 · mattpocock improve-codebase-architecture 한국어 재창작*
+*specops-ko v1.0.0 · 2026-05-19 · mattpocock improve-codebase-architecture 한국어 재창작*

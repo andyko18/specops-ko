@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# specops-auto-ko v0.0 PoC · scripts/_internal/validate-structure.sh 검증
+# specops-ko v0.0 PoC · scripts/_internal/validate-structure.sh 검증
 # baseline: P1 flat — commands=1, skills/<name>/SKILL.md=16, templates=6 (sandbox 격리)
 # U4 후: sandbox 가 .structure-baseline 자체 생성. agents/ 빈 디렉토리 OK.
-# (meta skill 필수: skills/using-specops-auto-ko-ko/SKILL.md + hooks/session-start.sh exec-bit)
+# (meta skill 필수: skills/using-specops-ko/SKILL.md + hooks/session-start.sh exec-bit)
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -28,7 +28,7 @@ fi
 # 샌드박스 공통: P1 flat baseline 미니 플러그인 복제
 # (commands=1, skills/<name>/SKILL.md=16, templates=6 + 메타 skill/hook 필수)
 SKILL_NAMES=(
-  using-specops-auto-ko-ko
+  using-specops-ko
   context-resets-ko file-based-communication-ko generator-evaluator-ko
   sprint-contracts-ko structured-artifacts-ko
   specifying-ko clarifying-ko planning-ko decomposing-ko implementing-ko
@@ -47,7 +47,7 @@ make_sandbox() {
   # chain fixture (FID 20260702-chain-single-source): 기존 skill 2개 재사용 — 신규 skill 생성 금지
   # (신규 skill 은 xref_resolve 미존재 FAIL + baseline 카운트 + add_docs README 하드코딩 3중 회귀)
   # s1=specifying-ko → s2=clarifying-ko (T12.a 가 변조하는 tdd-ko 회피)
-  printf -- '\n## 다음 skill\n\nSkill: specops-auto-ko:clarifying-ko\n' >> "$sb/skills/specifying-ko/SKILL.md"
+  printf -- '\n## 다음 skill\n\nSkill: specops-ko:clarifying-ko\n' >> "$sb/skills/specifying-ko/SKILL.md"
   cat > "$sb/hooks/chain.yaml" <<'EOF'
 edges:
   - {from: specifying-ko, to: clarifying-ko}
@@ -89,7 +89,7 @@ fi
 rm -rf "$sb"
 
 # T3c 메타 skill 누락 — FAIL (P1 핵심 가설 위반)
-sb=$(mktemp -d); make_sandbox "$sb"; rm -rf "$sb/skills/using-specops-auto-ko-ko"
+sb=$(mktemp -d); make_sandbox "$sb"; rm -rf "$sb/skills/using-specops-ko"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'meta_injection: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T3c 메타 skill 누락 FAIL"
@@ -314,7 +314,7 @@ rm -rf "$sb"
 
 # T12.a 미존재 skill 토큰 참조 → xref_resolve FAIL
 sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
-printf -- '---\nname: tdd-ko\n---\n다음은 specops-auto-ko:nonexistent-zz 호출.\n' > "$sb/skills/tdd-ko/SKILL.md"
+printf -- '---\nname: tdd-ko\n---\n다음은 specops-ko:nonexistent-zz 호출.\n' > "$sb/skills/tdd-ko/SKILL.md"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'xref_resolve: FAIL' && echo "$err" | grep -q 'nonexistent-zz'; then
   PASS=$((PASS+1)); echo "PASS T12.a 미존재 토큰 → xref_resolve FAIL"
@@ -324,7 +324,7 @@ fi
 rm -rf "$sb"
 
 # ── xref bare 토큰 (FID 20260713-ghost-agent-drift): prefix 없는 유령 에이전트 적발 ─────────
-# 배경: 기존 xref_resolve 는 `specops-auto-ko:` prefix 토큰만 수집 → bare 로 서술된 유령
+# 배경: 기존 xref_resolve 는 `specops-ko:` prefix 토큰만 수집 → bare 로 서술된 유령
 #       (analyzer-ko·planner-ko 등)이 검사망 밖이었다. 93 테스트 전부 통과하던 거짓.
 
 # T12.b bare 유령 토큰 (prefix 없음) → xref_resolve FAIL (AC-4)
@@ -342,7 +342,7 @@ rm -rf "$sb"
 
 # T12.c allowlist (플러그인명·upstream 참조) → xref_resolve OK (AC-5 false-positive 차단)
 sb=$(mktemp -d) || exit 1; make_sandbox "$sb"; add_docs "$sb"
-printf -- '---\nname: tdd-ko\n---\nspecops-auto-ko 는 specops-ko 의 writing-plans-ko · subagent-driven-development-ko 를 참조한다.\n' > "$sb/skills/tdd-ko/SKILL.md"
+printf -- '---\nname: tdd-ko\n---\nspecops-ko 는 specops-ko 의 writing-plans-ko · subagent-driven-development-ko 를 참조한다.\n' > "$sb/skills/tdd-ko/SKILL.md"
 out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ xref_resolve: OK'; then
   PASS=$((PASS+1)); echo "PASS T12.c allowlist 토큰 → xref_resolve OK (오탐 0)"
@@ -375,7 +375,7 @@ fi
 # T14.b SKILL.md 측 drift — s1 의 Skill: 라인 대상을 제3 skill 로 변경 (chain.yaml 미갱신) → FAIL + edge 명시 (AC-2)
 sb=$(mktemp -d); make_sandbox "$sb"
 pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
-sed -i.bak 's/^Skill: specops-auto-ko:clarifying-ko$/Skill: specops-auto-ko:planning-ko/' "$sb/skills/specifying-ko/SKILL.md"
+sed -i.bak 's/^Skill: specops-ko:clarifying-ko$/Skill: specops-ko:planning-ko/' "$sb/skills/specifying-ko/SKILL.md"
 rm -f "$sb/skills/specifying-ko/SKILL.md.bak"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
@@ -404,7 +404,7 @@ rm -rf "$sb"
 # T14.d 메타 fixture 미선언 edge — 화살표 라인 s2 → s1 추가 (chain.yaml 미변경) → FAIL (AC-4)
 sb=$(mktemp -d); make_sandbox "$sb"
 pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
-printf -- '\nclarifying-ko → specifying-ko\n' >> "$sb/skills/using-specops-auto-ko-ko/SKILL.md"
+printf -- '\nclarifying-ko → specifying-ko\n' >> "$sb/skills/using-specops-ko/SKILL.md"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \
    && [ $rc -ne 0 ] && printf '%s' "$err" | grep -q 'chain_consistency: FAIL' \

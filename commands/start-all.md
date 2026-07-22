@@ -1,12 +1,12 @@
 ---
 name: start-all
-description: "[전체·대화형] specops-auto-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현. 3-Phase 오케스트레이터"
+description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현. 3-Phase 오케스트레이터"
 triggers:
   - "/start-all"
 mode: ask
 specops_version: 1.49.0
 specops_layer: Lifecycle
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /start-all
@@ -64,7 +64,7 @@ reference_upstream: specops-auto-ko 독자 추가
 
 각 FR에 대해 **순서대로** 반복 (queue.md PENDING 항목):
 
-1. `specops-auto-ko:specifying-ko` 호출 — args 정확히 아래 형식:
+1. `specops-ko:specifying-ko` 호출 — args 정확히 아래 형식:
    ```
    <!-- entry: batch -->
    <!-- batch-id: <BATCH_ID> -->
@@ -107,15 +107,15 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    git rev-parse HEAD > ".specops/<FID>/review-base.sha"   # 이 FR 구현 시작점 — review.diff 격리 base
    ```
    (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
-1. `specops-auto-ko:implementing-ko` 호출 (**FID 기준**)
-2. 완료 → `specops-auto-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
-3. 완료 → `specops-auto-ko:requesting-code-review-ko` 호출 (**FID 기준** — review.diff base = `.specops/<FID>/review-base.sha`, → `.specops/<FID>/review-request.md` 개별 생성)
-4. 완료 → `specops-auto-ko:receiving-code-review-ko` 호출 (**FID 기준**)
+1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
+2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
+3. 완료 → `specops-ko:requesting-code-review-ko` 호출 (**FID 기준** — review.diff base = `.specops/<FID>/review-base.sha`, → `.specops/<FID>/review-request.md` 개별 생성)
+4. 완료 → `specops-ko:receiving-code-review-ko` 호출 (**FID 기준**)
 5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR security/integration/performance/PR 차단. chain 자동 진행
 6. `.specops/<FID>/review-base.sha` · `evidence.md` · `review-request.md` **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 이 4항목을 하드 재검한다 — 부재 시 `[산출물 누락]`/`[진행기록 누락]` + exit 1)
 7. 다음 PLAN_DONE FR 반복
 
-> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-auto-ko:systematic-debugging-ko`로 처리 후 재개.
+> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-ko:systematic-debugging-ko`로 처리 후 재개.
 
 ### Phase 3 완료 — batch 레벨 통합·E2E·성능 테스트 + batch PR 생성
 
@@ -139,28 +139,28 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 **Step A: batch 레벨 보안 리뷰 (SAST)**
 
-1. `specops-auto-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
+1. `specops-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 코드 변경 표면 신호 부재 시 graceful skip
    - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
-   - Critical/High 검출 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
+   - Critical/High 검출 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
 
 **Step B: batch 레벨 통합·E2E 테스트**
 
-2. `specops-auto-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
+2. `specops-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → **두 표면을 함께** 검출(integration-test-ko Q5 풀스택 — 신호 OR, 둘 다 커버):
      - **통합 표면**(API·DB·서비스 간 호출) → downstream 스택 통합 테스트(supertest/httpx/pg 등)
      - **UI 표면**(화면 렌더·사용자 흐름·클릭/폼/라우팅) → **E2E 위임**: 브라우저 E2E 를 downstream 프로젝트 스택(**Playwright/Cypress 등**)으로 작성·실행(플러그인은 브라우저 인프라 미보유 — execution 은 downstream). `e2e-runner` 에이전트 있으면 선택 활용(없어도 downstream 스택 직접 지시로 graceful — 하드 의존 금지).
    - **두 표면 모두 부재**(순수 데이터 batch·CLI) 시에만 graceful skip. **UI batch 인데 E2E 를 건너뛰면 안 된다** — 화면 있는 batch 는 E2E 가 통합 검증의 본체다(dogfood 20260716: batch 가 API 통합만 보고 UI E2E 를 흐름 밖으로 흘려 사후 수동 보충됨).
    - `BATCH-INTEGRATION-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
-   - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
+   - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
 
 **Step C: batch 레벨 성능 테스트**
 
-3. `specops-auto-ko:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
+3. `specops-ko:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
    - `.specops/memory/requirements.md` `## 3. 비기능 요구사항 (NFR)` + 각 FR spec.md `§NFR` 스캔
    - 성능 임계값 신호 부재 시 graceful skip
-   - FAIL 시 → `specops-auto-ko:systematic-debugging-ko` → 수정 후 재실행
+   - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
    - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환)
 
 **Step D: batch PR 생성**
@@ -188,7 +188,7 @@ queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 - [ ] batch 레벨 performance-test PASS 또는 SKIP 확인
 - [ ] validate-structure.sh 전 항목 ✅
 
-🤖 Generated with specops-auto-ko /start-all
+🤖 Generated with specops-ko /start-all
 EOF
 )"
 ```
@@ -218,4 +218,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-auto-ko v1.49.0 · 2026-07-16 · 3-Phase 일괄 구현 오케스트레이터*
+*specops-ko v1.49.0 · 2026-07-16 · 3-Phase 일괄 구현 오케스트레이터*

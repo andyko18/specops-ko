@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko statusLine 설치 — statusline.sh 절대경로를 .claude/settings.json statusLine 키에 주입.
+# specops-ko statusLine 설치 — statusline.sh 절대경로를 .claude/settings.json statusLine 키에 주입.
 # 플러그인 statusLine 번들 불가(claude-code-guide) → 본 스크립트가 수동 주입. 멱등.
 set -uo pipefail
 

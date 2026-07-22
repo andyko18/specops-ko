@@ -2,9 +2,9 @@
 name: analyzing-ko
 description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 대상의 baseline (current-state.md) 과 외부 영향 (impact-analysis.md) 을 산출하고 사용자 검토 ★ HARD GATE 발동
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
+reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 1.29.0
-used_by: using-specops-auto-ko-ko (maintenance flag = true 시), /maintain (Phase C 적용 후), /promote (promote-fid 분기)
+used_by: using-specops-ko (maintenance flag = true 시), /maintain (Phase C 적용 후), /promote (promote-fid 분기)
 ---
 
 # Engine 스킬 — 분석 (analyzing)
@@ -156,7 +156,7 @@ bash <related-test-script> 2>&1 | tail -5
 예시:
 ```
 - analyzing-ko SKILL.md 변경 → /maintain 진입 chain 전체 영향
-  (using-specops-auto-ko-ko → analyzing-ko → specifying-ko [유지보수 분기])
+  (using-specops-ko → analyzing-ko → specifying-ko [유지보수 분기])
 ```
 
 ---
@@ -252,7 +252,7 @@ git log --oneline --grep="<symbol>" -n 5
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
 ```
 
-이어서 즉시 `specops-auto-ko:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 첫 줄 유지 (AC-10).
+이어서 즉시 `specops-ko:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 첫 줄 유지 (AC-10).
 
 ---
 
@@ -277,7 +277,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze �
 ## 다음 skill
 
 ```
-Skill: specops-auto-ko:specifying-ko
+Skill: specops-ko:specifying-ko
 ```
 
 args 그대로 전달 (`<!-- entry: maintain -->` 첫 줄 유지). specifying-ko Step 1 [유지보수 분기]가 current-state.md + impact-analysis.md를 참조한다.

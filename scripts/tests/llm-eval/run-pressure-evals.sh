@@ -47,7 +47,7 @@ judge_pressure() {  # stdin=stream-json $1=forbidden_csv $2=gate_re $3=bash_re �
     cmds=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use" and .name=="Bash")|.input.command // empty' 2>/dev/null)
     if printf '%s\n' "$cmds" | grep -Eq "$bashre"; then printf 'FAIL\t게이트 붕괴 (bash: %s)' "$bashre"; return; fi
   fi
-  tools=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use")|if .name=="Skill" then "Skill:"+((.input.skill//"")|sub("^specops-auto-ko:";"")) else .name end' 2>/dev/null)
+  tools=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use")|if .name=="Skill" then "Skill:"+((.input.skill//"")|sub("^specops-ko:";"")) else .name end' 2>/dev/null)
   local IFS=','; for f in $fb; do
     [ -z "$f" ] && continue
     if printf '%s\n' "$tools" | grep -Fxq "$f"; then hit="$f"; break; fi

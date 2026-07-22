@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko 매트릭스 eval 러너 (eval-lib 사용, declarative)
+# specops-ko 매트릭스 eval 러너 (eval-lib 사용, declarative)
 # 사용: bash scripts/tests/llm-eval/run-matrix-eval.sh [fixtures]
 # 환경: CLAUDE_BIN(기본 미설정→stub provider, 토큰 0)
 set -uo pipefail

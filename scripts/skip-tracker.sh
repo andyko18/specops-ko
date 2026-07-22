@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko SKIP 추적 관측 도구 (읽기 전용)
+# specops-ko SKIP 추적 관측 도구 (읽기 전용)
 # 사용: bash scripts/skip-tracker.sh [.specops 경로]
 # 소스 가능 — 함수만 정의, main 은 가드. integration/performance/security 게이트 SKIP 비율 집계.
 # 환경: SKIP_TRACKER_THRESHOLD (기본 70) — SKIP 비율 advisory 경고 임계

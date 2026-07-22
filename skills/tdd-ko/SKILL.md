@@ -350,7 +350,7 @@ PASS
 
 스키마 변경도 예외 아님 — **up→down→up 멱등 테스트를 먼저** 작성(RED: 마이그레이션 파일 부재로 실패)하고 forward/reverse 를 구현한다. 제약(NOT NULL/CHECK/UNIQUE/FK) 위반 경로·인덱스 존재도 테스트 대상. 상세 정책: `templates/test-strategy.md §4.5` · 태스크 분해: `decomposing-ko` "마이그레이션 태스크 분해".
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -377,6 +377,6 @@ PASS
 
 ## 다음 skill
 
-본 스킬은 **서브루틴 스킬**. `specops-auto-ko:implementing-ko`가 각 태스크마다 서브에이전트에게 본 스킬을 따르도록 지시한다.
+본 스킬은 **서브루틴 스킬**. `specops-ko:implementing-ko`가 각 태스크마다 서브에이전트에게 본 스킬을 따르도록 지시한다.
 
 단독 호출 후에는 상위 호출자(`implementing-ko` 또는 사용자)가 다음 단계 결정. TDD 사이클 완료 후 명시적 다음 스킬은 없음.

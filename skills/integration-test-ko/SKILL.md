@@ -2,7 +2,7 @@
 name: integration-test-ko
 description: lifecycle chain에서 통합 표면(API 엔드포인트·DB·다중 모듈 경계) 검출 시 통합 테스트를 작성·실행·증거화. 표면 부재 시 graceful skip
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (test-master 패턴 번안)
+reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 1.8.0
 used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
 ---
@@ -148,7 +148,7 @@ INTEGRATION: FAIL — <N> failures:
   ...
 ```
 
-위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-auto-ko:systematic-debugging-ko` 호출.
+위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-ko:systematic-debugging-ko` 호출.
 
 systematic-debugging-ko가 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
@@ -188,7 +188,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /integrati
 
 ---
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -224,7 +224,7 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SIN
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) → 즉시 호출:
 
 ```
-Skill: specops-auto-ko:performance-test-ko
+Skill: specops-ko:performance-test-ko
 ```
 
 performance-test-ko가 성능 NFR 임계값 존재 여부를 판정하고 PR 게이트까지 진행한다. 본 integration-test-ko는 단일 모드에서 **performance-test-ko 이외의 다음 스킬을 호출하지 않는다** (batch halt·FAIL 시 systematic-debugging-ko 경유 후 chain 복귀 제외).

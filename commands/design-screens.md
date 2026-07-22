@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /design-screens [기능 설명]
@@ -123,4 +123,4 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-06-19 · 복수 화면 일괄 디자인 오케스트레이터*
+*specops-ko v1.0.0 · 2026-06-19 · 복수 화면 일괄 디자인 오케스트레이터*

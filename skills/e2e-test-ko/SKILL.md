@@ -2,14 +2,14 @@
 name: e2e-test-ko
 description: lifecycle chain 전체를 fixture 기반으로 자동 실행하고 산출물 구조를 검증 — HARD GATE 없이 (init-project 부트스트랩)→specify→clarify→plan→decompose→implement→verify→(security/integration/performance SKIP)→(finishing 정리) 9단계 완주
 layer: 3
-reference_upstream: specops-auto-ko 독자 추가 (upstream 미존재)
+reference_upstream: specops-ko 독자 추가 (upstream 미존재)
 specops_version: 1.36.0
 used_by: /e2e-test
 ---
 
 # Harness 스킬 — E2E 자동 테스트 (e2e-test-ko)
 
-specops-auto-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
+specops-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
 9단계를 HARD GATE 없이 완주하고 24개 검증 항목(V1~V24)을 점검한다.
 
@@ -230,7 +230,7 @@ bash scripts/session-progress-append.sh "$FID" "/init-project" "완료" "부트�
 
 **목적**: 이름을 CLI 인자로 받아 한국어 인사말을 출력하는 bash 함수를 제공한다.
 
-**배경**: E2E 테스트용 내장 fixture. specops-auto-ko lifecycle chain의 전체 동작을 검증하기 위한 최소 기능.
+**배경**: E2E 테스트용 내장 fixture. specops-ko lifecycle chain의 전체 동작을 검증하기 위한 최소 기능.
 
 **성공 판정**: greet-cli.sh가 이름을 인자로 받아 "안녕하세요, <name>!"을 출력하면 완성.
 
@@ -372,7 +372,7 @@ bash scripts/session-progress-append.sh "$FID" "/specify" "완료" "spec.md, AC.
 ```markdown
 <!-- FID: <FID> -->
 <!-- OWNER_COMMAND: /clarify -->
-<!-- reference_upstream: specops-auto-ko 독자 추가 -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # 명확화 기록 — <FID>
@@ -435,7 +435,7 @@ bash scripts/session-progress-append.sh "$FID" "/clarify" "완료" "clarificatio
 ```markdown
 <!-- FID: <FID> -->
 <!-- OWNER_COMMAND: /plan -->
-<!-- reference_upstream: specops-auto-ko 독자 추가 -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # greet-cli 구현 플랜 — <FID>
@@ -1015,4 +1015,4 @@ PASS=24 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥23 허용)
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-03 · E2E 자동 테스트 harness skill · specops-auto-ko 독자 추가*
+*specops-ko v1.0.0 · 2026-05-03 · E2E 자동 테스트 harness skill · specops-ko 독자 추가*

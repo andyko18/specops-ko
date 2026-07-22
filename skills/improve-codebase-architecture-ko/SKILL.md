@@ -2,7 +2,7 @@
 name: improve-codebase-architecture-ko
 description: 코드베이스 파일/모듈 경계 정적 분석 — deep module 원칙(단순한 인터페이스+복잡한 구현) 기준으로 책임 과부하(800줄+)·과잉 분해(50줄 미만 클러스터) 탐지 및 split/merge 권고안 제시
 layer: 2
-reference_upstream: "specops-auto-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
+reference_upstream: "specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
 specops_version: 1.0.0
 used_by: /improve-arch
 ---
@@ -128,7 +128,7 @@ ratio=$((lines / (symbols + 1)))
 현재 구조가 deep module 원칙을 잘 따르고 있습니다.
 ```
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 skill 적용 |
 |---|---|

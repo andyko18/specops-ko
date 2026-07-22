@@ -5,7 +5,7 @@ created: "2026-05-20"
 updated: "2026-05-20"
 ---
 
-<!-- reference: specops-auto-ko templates/screen.md -->
+<!-- reference: specops-ko templates/screen.md -->
 <!-- layer: Template -->
 
 # main 화면 스펙

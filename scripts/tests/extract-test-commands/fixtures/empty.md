@@ -1,4 +1,4 @@
-<!-- specops-auto-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
+<!-- specops-ko Wave 2 U2 — fixture for B4 (extract-test-commands.sh) -->
 <!-- 케이스: 의존 그래프 섹션 없음 + Step 4 라인 없음 → exit 1 -->
 
 # Tasks — empty fixture

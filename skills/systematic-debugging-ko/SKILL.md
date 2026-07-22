@@ -183,7 +183,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - 가능하면 자동 테스트
 - 프레임워크 없으면 일회성 스크립트
 - **픽스 전에 반드시**
-- `specops-auto-ko:tdd-ko`로 실패 테스트 작성
+- `specops-ko:tdd-ko`로 실패 테스트 작성
 
 **2. 단일 픽스 구현**
 - 식별된 근본 원인 처리
@@ -282,7 +282,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 **그러나**: "근본 원인 없음" 사례의 95%는 **조사 미완료**.
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -300,8 +300,8 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - **condition-based-waiting** — 임의 타임아웃을 조건 폴링으로 교체 (Phase 4 활용)
 
 **관련 스킬**:
-- `specops-auto-ko:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
-- `specops-auto-ko:verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
+- `specops-ko:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
+- `specops-ko:verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
 
 ## 실제 영향
 
@@ -320,9 +320,9 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 근본 원인 식별 + 단일 픽스 완료 후:
 
 - **Phase 4.1~4.3 완료 (테스트·픽스·검증)** → 상위 호출자 복귀
-  - `specops-auto-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
-  - `specops-auto-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
-  - `specops-auto-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
-  - `specops-auto-ko:integration-test-ko`에서 FAIL 분기로 호출된 경우 → integration-test-ko 재실행 (수정 후 통합 테스트 재검증)
-  - `specops-auto-ko:performance-test-ko`에서 FAIL 분기로 호출된 경우 → performance-test-ko 재실행 (수정 후 성능 테스트 재검증)
+  - `specops-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
+  - `specops-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
+  - `specops-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
+  - `specops-ko:integration-test-ko`에서 FAIL 분기로 호출된 경우 → integration-test-ko 재실행 (수정 후 통합 테스트 재검증)
+  - `specops-ko:performance-test-ko`에서 FAIL 분기로 호출된 경우 → performance-test-ko 재실행 (수정 후 성능 테스트 재검증)
 - **Phase 4.5 트리거 (3+ 픽스 실패)** → 사용자 파트너 에스컬레이션. chain 정지. 새 스펙 결정 필요

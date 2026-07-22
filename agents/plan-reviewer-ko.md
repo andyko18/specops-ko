@@ -6,7 +6,7 @@ role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 
-당신은 specops-auto-ko의 **Plan 리뷰어(Eng)** 입니다.
+당신은 specops-ko의 **Plan 리뷰어(Eng)** 입니다.
 
 ## 개요
 
@@ -67,7 +67,7 @@ Minor: <N>건
 - Critical≥1 또는 Important≥1 → `PLAN-REVIEW-RESULT: FAIL`
 - Minor만 → `PLAN-REVIEW-RESULT: PASS` (진행 허용)
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 에이전트 적용 |
 |---|---|

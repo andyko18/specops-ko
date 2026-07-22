@@ -1,12 +1,12 @@
 ---
 name: maintain
-description: specops-auto-ko 한국어 자율 Lifecycle 유지보수 진입 슬래시 — specifying-ko 유지보수 분기 호출 (Phase C 적용 후 analyzing-ko 선행)
+description: specops-ko 한국어 자율 Lifecycle 유지보수 진입 슬래시 — specifying-ko 유지보수 분기 호출 (Phase C 적용 후 analyzing-ko 선행)
 triggers:
   - "/maintain"
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle
-reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
 ---
 
 # /maintain [<대상 또는 변경 설명>]
@@ -17,7 +17,7 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ## Process
 
-1. **메타 skill 활성 확인** — `skills/using-specops-auto-ko-ko/SKILL.md` 가 세션 시작 시 활성
+1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md` 가 세션 시작 시 활성
 2. **analyzing-ko 호출** — args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend 후 원본 인자. analyzing-ko 가 current-state.md + impact-analysis.md 산출 + ★ HARD GATE
 3. **사용자 검토 통과 후 specifying-ko 호출** — analyzing-ko 가 동일 args 로 chain (args 첫 줄 약속어 유지). specifying-ko Step 1 [유지보수 분기] 가 두 산출물 참조
 4. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` 섹션이 자동 강제: clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR. 본 command는 **진입만** 책임
@@ -44,7 +44,7 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 ## 안티패턴
 
-- **인자 내용 2 차 판단** — `/maintain <아무 인자>` 는 인자가 "유지보수 신호처럼 보이지 않는다"는 이유로 `specops-auto-ko:analyzing-ko` 호출을 **보류하지 않는다**. 슬래시 진입 자체가 사용자 의도 확정 신호 (명시적 유지보수 진입). 인자 적합성은 specifying-ko Step 1 [유지보수 분기] 검증 문항이 처리. 메타 skill 의 자연어 신호 감지 로직을 command 레이어에 복제 금지 (`/start` 안티패턴 sister 항목과 의미적 동치)
+- **인자 내용 2 차 판단** — `/maintain <아무 인자>` 는 인자가 "유지보수 신호처럼 보이지 않는다"는 이유로 `specops-ko:analyzing-ko` 호출을 **보류하지 않는다**. 슬래시 진입 자체가 사용자 의도 확정 신호 (명시적 유지보수 진입). 인자 적합성은 specifying-ko Step 1 [유지보수 분기] 검증 문항이 처리. 메타 skill 의 자연어 신호 감지 로직을 command 레이어에 복제 금지 (`/start` 안티패턴 sister 항목과 의미적 동치)
 - **신규 기능을 `/maintain` 으로 진입** — specifying-ko Step 1 분기 검증 문항이 사용자에게 재분류 요청
 - **인자 없이 진입** — modally 되묻기 (`/start` 안티패턴 동일)
 
@@ -52,8 +52,8 @@ reference_upstream: specops-auto-ko 독자 추가 (본가 obra/superpowers@v5.0.
 
 - `commands/start.md` — 자매 진입로 (신규)
 - `skills/specifying-ko/SKILL.md` Step 1 — maintenance 분기
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill 신호 매칭
+- `skills/using-specops-ko/SKILL.md` — 메타 skill 신호 매칭
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*
+*specops-ko v1.0.0 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*

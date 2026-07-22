@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko — DAG 파서 (Sourced library)
+# specops-ko — DAG 파서 (Sourced library)
 #
 # 6 함수 namespace:
 #   dag::extract_yaml      <tasks.md>                        — `## 의존 그래프` 섹션의 YAML fenced block stdout

@@ -139,7 +139,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 - 성공의 암시
 - 완료·정확성을 시사하는 **어떤** 커뮤니케이션이든
 
-## 검증 체크리스트 (specops-auto-ko Lifecycle)
+## 검증 체크리스트 (specops-ko Lifecycle)
 
 태스크 종료 전 다음 명령을 **실제 실행**하고 출력 첨부:
 
@@ -173,7 +173,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - **근거**: 소비측 재사용 게이트(`decomposing-ko`)는 이 파일 **존재를 전제**로만 발동한다. 생산은 `planning-ko` 산문 지시뿐(강제 evaluator 부재)이라, verify 가 실제 산출물을 확인하지 않으면 manifest 누락 시 후속 `/start` 재사용 게이트가 **침묵 무발동(no-op)** 한다. 본 게이트가 **Mode1(manifest 태스크 누락)·Mode2(태스크 존재하나 파일 미작성)** 를 모두 차단 → implementing **후** 실제 파일을 검사하는 유일 지점이므로 소비 게이트를 무접촉으로 transitively 건전화한다.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -248,7 +248,7 @@ fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시�
            ├─ YES → auto_retry_count += 1 저장 + escalations 기록
            │        → verify-loop.md 초기화 (fix_count=0)
            │        → advisor() 1회 자문 시도(보조 입력 — 근본 원인 가설) + escalations 기록. 미연결 시 skip(graceful fallback)
-           │        → specops-auto-ko:systematic-debugging-ko 호출
+           │        → specops-ko:systematic-debugging-ko 호출
            │        → 복귀 후 VERIFY LOOP 재진입
            └─ NO  → HARD GATE (무인 종료):
                     "AUTO-HARD-GATE: <FID> verify fix_loop 전역 재시도 초과 (1/1)
@@ -283,9 +283,9 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify BL
 모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후 즉시 호출:
 
 ```
-Skill: specops-auto-ko:requesting-code-review-ko
+Skill: specops-ko:requesting-code-review-ko
 ```
 
 requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 아래 fix_loop 상한 초과 복구).
 
-fix_loop 상한(3회) 초과 시: `specops-auto-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).
+fix_loop 상한(3회) 초과 시: `specops-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

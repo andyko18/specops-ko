@@ -2,7 +2,7 @@
 name: release-ko
 description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer·manifest 동기화, git 태그, 원격 push·GitHub Release 발행까지 완료되는 릴리즈 자동화
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
+reference_upstream: specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
 specops_version: 1.10.0
 used_by: /release
 ---
@@ -58,7 +58,7 @@ bash scripts/release.sh <X.Y.Z> --dry-run
 | `scripts/tests/test-release.sh` | TDD 테스트 (T1~T10) |
 | `commands/release.md` | `/release` 슬래시 커맨드 진입점 |
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -76,4 +76,4 @@ bash scripts/release.sh <X.Y.Z> --dry-run
 
 ---
 
-*specops-auto-ko v1.10.0 · 2026-06-08 · release-ko skill*
+*specops-ko v1.10.0 · 2026-06-08 · release-ko skill*

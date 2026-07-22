@@ -15,7 +15,7 @@ used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
 `spec.md`의 모호성·열린 질문을 **사용자와 대화로 해소**하고 `clarifications.md`에 기록한다. 필요 시 `acceptance-criteria.md`를 append-only로 보강.
 
 <HARD-GATE>
-**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-auto-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
+**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
@@ -46,8 +46,8 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 6. **clarifications.md 작성** — 판정 JSON + 질문별 답변
 7. **acceptance-criteria.md append** — 신규 AC만 추가, 기존 AC 수정 금지
 8. **timestamp 주입** — `bash hooks/inject-evaluator-timestamp.sh .specops/<FID>/clarifications.md`
-9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-auto-ko:planning-ko` 다음 단계 안내
-10. **전환** — `specops-auto-ko:planning-ko` 호출
+9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-ko:planning-ko` 다음 단계 안내
+10. **전환** — `specops-ko:planning-ko` 호출
 
 ## 경량 모드 (lite) — BLOCKING 0 자동 탐지
 
@@ -138,7 +138,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 ## Q3 · ...
 ```
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -167,7 +167,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 모든 BLOCKING RESOLVED + clarifications.md 저장 + AC append 완료 후 즉시 호출:
 
 ```
-Skill: specops-auto-ko:planning-ko
+Skill: specops-ko:planning-ko
 ```
 
 BLOCKED 상태로 남으면 chain 정지. 사용자 개입 필요.

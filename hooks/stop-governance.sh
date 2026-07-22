@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko governance-capture — Stop entrypoint
+# specops-ko governance-capture — Stop entrypoint
 # stdin: Claude Code Stop JSON (stop_hook_active 필드 포함)
 # stdout: { "continue": true }  (Stop 은 additionalContext 미사용 — append only)
 # 실패 내성: 내부 오류 시 exit 0 + stderr. 멱등: stop_hook_active==true 즉시 투과.

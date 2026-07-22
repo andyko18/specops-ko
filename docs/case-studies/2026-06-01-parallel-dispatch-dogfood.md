@@ -51,4 +51,4 @@
 
 ---
 
-*specops-auto-ko · 2026-06-01 · G3 dogfood 실증 + 재실행 harness*
+*specops-ko · 2026-06-01 · G3 dogfood 실증 + 재실행 harness*

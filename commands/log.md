@@ -6,7 +6,7 @@ triggers:
 mode: auto
 specops_version: 1.31.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /log "<요약>"
@@ -21,4 +21,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "$ARGUMENTS" --tags freelo
 
 ---
 
-*specops-auto-ko v1.31.0 · 2026-06-25 · /log command*
+*specops-ko v1.31.0 · 2026-06-25 · /log command*

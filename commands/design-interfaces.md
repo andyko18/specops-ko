@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.37.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /design-interfaces [기능 설명]
@@ -32,4 +32,4 @@ reference_upstream: specops-auto-ko 독자 추가
 
 ---
 
-*specops-auto-ko v1.37.0 · 2026-07-10 · 복수 인터페이스 일괄 설계 오케스트레이터*
+*specops-ko v1.37.0 · 2026-07-10 · 복수 인터페이스 일괄 설계 오케스트레이터*

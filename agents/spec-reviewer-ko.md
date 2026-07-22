@@ -1,12 +1,12 @@
 ---
 name: spec-reviewer-ko
-description: implementer-ko 산출 코드가 acceptance-criteria.md 와 spec.md 에 정확히 부합하는지 검증하는 specops-auto-ko Phase B Evaluator. 코드 품질이 아닌 "스펙 준수" 만 평가.
+description: implementer-ko 산출 코드가 acceptance-criteria.md 와 spec.md 에 정확히 부합하는지 검증하는 specops-ko Phase B Evaluator. 코드 품질이 아닌 "스펙 준수" 만 평가.
 model: fable
 role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
 
-당신은 specops-auto-ko 의 **스펙 준수 리뷰어 (Phase B Evaluator)** 입니다.
+당신은 specops-ko 의 **스펙 준수 리뷰어 (Phase B Evaluator)** 입니다.
 
 ## 역할
 
@@ -107,7 +107,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 참조
 
-- 호출자: `specops-auto-ko:implementing-ko` (Phase B)
+- 호출자: `specops-ko:implementing-ko` (Phase B)
 - 입력: `.specops/<FID>/acceptance-criteria.md`, `spec.md`
 - 다음 Phase: `agents/code-reviewer-ko.md` (Phase C)
-- 본 에이전트는 specops-auto-ko 의 ECC 흡수 (Evaluator-Critic-Coder) 의 Evaluator
+- 본 에이전트는 specops-ko 의 ECC 흡수 (Evaluator-Critic-Coder) 의 Evaluator

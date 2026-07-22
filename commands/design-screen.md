@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 1.0.0
 specops_layer: Lifecycle-Tool
-reference_upstream: specops-auto-ko 독자 추가
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /design-screen [name]
@@ -149,4 +149,4 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ---
 
-*specops-auto-ko v1.0.0 · 2026-05-20 · 화면별 목업 생성 슬래시*
+*specops-ko v1.0.0 · 2026-05-20 · 화면별 목업 생성 슬래시*

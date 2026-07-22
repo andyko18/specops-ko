@@ -2,7 +2,7 @@
 name: security-review-ko
 description: lifecycle chain에서 코드 변경 표면 검출 시 SAST(semgrep+gitleaks) 보안 스캔을 실행·판정·증거화. Critical/High 발견 시 chain 차단, 표면 부재·도구 미설치 시 graceful skip
 layer: 2
-reference_upstream: specops-auto-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
+reference_upstream: specops-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
 specops_version: 1.18.0
 used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), integration-test-ko (chain 출구)
 ---
@@ -93,7 +93,7 @@ SECURITY: FAIL — crit=<N> high=<N>:
   ...
 ```
 
-위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-auto-ko:systematic-debugging-ko` 호출.
+위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-ko:systematic-debugging-ko` 호출.
 
 systematic-debugging-ko가 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
@@ -144,7 +144,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /security-
 
 ---
 
-## 5원칙 주입 (specops-auto-ko 고유)
+## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
@@ -182,7 +182,7 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SIN
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) — **Critical/High 0건 (PASS) 또는 표면 없음(SKIP)** → 즉시 호출:
 
 ```
-Skill: specops-auto-ko:integration-test-ko
+Skill: specops-ko:integration-test-ko
 ```
 
 integration-test-ko가 통합 표면을 판정하고 → performance-test-ko → PR 생성 게이트로 chain한다.

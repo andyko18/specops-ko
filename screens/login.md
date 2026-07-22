@@ -5,7 +5,7 @@ created: 2026-04-27
 updated: 2026-04-27
 ---
 
-<!-- specops-auto-ko 웹 대시보드 — 가상 로그인 화면 (dogfood) -->
+<!-- specops-ko 웹 대시보드 — 가상 로그인 화면 (dogfood) -->
 
 # 로그인 화면 스펙
 
@@ -13,13 +13,13 @@ updated: 2026-04-27
 
 ## 목적
 
-specops-auto-ko 웹 대시보드 진입 전 사용자 인증을 처리한다.
+specops-ko 웹 대시보드 진입 전 사용자 인증을 처리한다.
 이메일과 비밀번호를 입력받아 로그인하고, 성공 시 대시보드로 이동한다.
 
 ## Layout
 
 ```
-[로고]   specops-auto-ko  (중앙 정렬)
+[로고]   specops-ko  (중앙 정렬)
 [카드]
   [제목]  로그인
   [폼]

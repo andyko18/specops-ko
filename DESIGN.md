@@ -1,7 +1,7 @@
 <!-- reference: https://github.com/VoltAgent/awesome-design-md -->
 <!-- brand: Claude (AI-native, dark-first) -->
 
-# DESIGN.md — specops-auto-ko
+# DESIGN.md — specops-ko
 
 > AI 에이전트용 디자인 시스템 문서. Claude 브랜드 스타일 기반.
 > UI 컴포넌트 생성 시 이 파일을 읽고 일관된 스타일을 유지한다.
@@ -99,7 +99,7 @@ Error:     bg=#EF4444/20, text=#F87171
 
 ## 6. AI Usage Guidelines
 
-> specops-auto-ko UI 컴포넌트 생성 시 이 지침을 따른다.
+> specops-ko UI 컴포넌트 생성 시 이 지침을 따른다.
 
 **컬러 사용**:
 - Primary(`#7C3AED`)는 interactive 요소(버튼, 링크, 포커스 링)에만. 배경 전체 금지.

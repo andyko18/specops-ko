@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko 전체 테스트 aggregator
+# specops-ko 전체 테스트 aggregator
 # 사용: bash scripts/tests/run-all.sh [--quiet]
 # 대상: scripts/tests/{,dag/,governance/,llm-eval/,test-convention/,freecomment/,promote/}test-*.sh + validate-structure.sh
 # 제외: bench-hook.sh(벤치마크), v0.4-pre/·v0.4a/(측정·가이드), fixtures/, dogfood-parallel-harness.sh

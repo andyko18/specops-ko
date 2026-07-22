@@ -1,12 +1,12 @@
 ---
 name: brainstorming
-description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops-auto-ko:brainstorming-ko 호출. pre-init-project 선택 진입점.
+description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops-ko:brainstorming-ko 호출. pre-init-project 선택 진입점.
 triggers:
   - "/brainstorming"
 mode: ask
 specops_version: 1.36.0
 specops_layer: Lifecycle-PreBootstrap
-reference_upstream: specops-auto-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 ---
 
 # /brainstorming [<주제>]
@@ -19,7 +19,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ## Process
 
-1. **즉시 `specops-auto-ko:brainstorming-ko` 호출** — 전달된 `<주제>`를 초기 맥락으로 제공
+1. **즉시 `specops-ko:brainstorming-ko` 호출** — 전달된 `<주제>`를 초기 맥락으로 제공
 2. 모드 선택 GATE (Startup / Builder)
 3. 질문 기반 탐색 진행
 4. 산출물 저장: `.specops/memory/brainstorming-<날짜>-<시간>-<슬러그>.md`
@@ -79,8 +79,8 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 - `skills/brainstorming-ko/SKILL.md` — 본 슬래시의 실행 skill
 - `commands/init-project.md` — 다음 단계 (부트스트랩)
 - `commands/start.md` — Lifecycle 진입점
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 메타 skill (선택 진입점 언급)
+- `skills/using-specops-ko/SKILL.md` — 메타 skill (선택 진입점 언급)
 
 ---
 
-*specops-auto-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 참조*
+*specops-ko v1.36.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 참조*

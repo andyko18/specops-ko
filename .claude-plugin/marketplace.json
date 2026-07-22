@@ -1,8 +1,8 @@
 {
-  "name": "specops-auto-ko-local",
+  "name": "specops-ko-local",
   "allowCrossMarketplaceDependenciesOn": ["ui-ux-pro-max-skill"],
   "metadata": {
-    "description": "specops-auto-ko 로컬 마켓플레이스 (v1.54.0 — Claude Code 전용)"
+    "description": "specops-ko 로컬 마켓플레이스 (v1.54.0 — Claude Code 전용)"
   },
   "owner": {
     "name": "andyko18",
@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "specops-auto-ko",
+      "name": "specops-ko",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반 (로컬 PoC)",
       "version": "1.54.0",
       "source": "./",

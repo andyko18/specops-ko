@@ -188,7 +188,7 @@ phase_10_commit() {
   mkdir -p .specops
   # .gitignore: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
   cat > .specops/.gitignore <<'EOF'
-# specops-auto-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+# specops-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
 # FID 컨벤션: YYYYMMDD-slug (8자리 날짜 + dash). 일반 디렉토리 false positive 차단.
 [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/
 EOF

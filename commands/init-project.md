@@ -1,12 +1,12 @@
 ---
 name: init-project
-description: specops-auto-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 13종 산출물 자동 부트스트랩
+description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 13종 산출물 자동 부트스트랩
 triggers:
   - "/init-project"
 mode: ask
 specops_version: 1.48.0
 specops_layer: Lifecycle-Bootstrap
-reference_upstream: specops-auto-ko 독자 추가 (github/spec-kit 패턴 번안)
+reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
 
 # /init-project [<프로젝트명>] [<기존 기획 문서 경로>]
@@ -140,9 +140,9 @@ git add <보강된 파일들> && git commit -m "chore(init): Phase 11 LLM 보강
 
 - `scripts/_internal/init-project.sh` — 본 슬래시의 오케스트레이터
 - `templates/{constitution,PRD,CLAUDE,README,DESIGN,...}.md` — 13종 템플릿
-- `skills/using-specops-auto-ko-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
+- `skills/using-specops-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)
 
 ---
 
-*specops-auto-ko v1.48.0 · 2026-07-16 · 한국 SI 13종 부트스트랩 + Phase 11 LLM 보강 + Phase 0 기존 문서 discovery*
+*specops-ko v1.48.0 · 2026-07-16 · 한국 SI 13종 부트스트랩 + Phase 11 LLM 보강 + Phase 0 기존 문서 discovery*

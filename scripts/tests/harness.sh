@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-auto-ko 공통 테스트 하네스 — PASS/FAIL 카운터 표준 헬퍼 (통일 출력 포맷)
+# specops-ko 공통 테스트 하네스 — PASS/FAIL 카운터 표준 헬퍼 (통일 출력 포맷)
 #
 # 사용: 호출 측 PLUGIN 변수 정의 후
 #   source "$PLUGIN/scripts/tests/harness.sh"

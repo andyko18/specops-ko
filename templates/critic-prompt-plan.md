@@ -1,4 +1,4 @@
-<!-- reference_upstream: specops-auto-ko 독자 추가 (multimodel-critic) -->
+<!-- reference_upstream: specops-ko 독자 추가 (multimodel-critic) -->
 <!-- layer: Template -->
 
 당신은 이 프로젝트와 무관한 독립 시니어 엔지니어 리뷰어입니다. 아래 구현 플랜 (plan.md) 을 비판적으로 검토하세요.

@@ -1,4 +1,4 @@
-# specops-auto-ko
+# specops-ko
 
 **Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.54.0)
 
@@ -7,7 +7,7 @@
 ### 1. 플러그인 설치 (1회)
 
 ```bash
-claude plugin marketplace add ~/path/to/specops-auto-ko
+claude plugin marketplace add ~/path/to/specops-ko
 ```
 
 ### 2. 작업 진입 (슬래시 1회 또는 자연어 1회)
@@ -51,13 +51,13 @@ claude plugin marketplace add ~/path/to/specops-auto-ko
 
 진입 1회로 **spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR** 전 단계가 자동 체인됩니다. 각 단계를 수동으로 호출할 필요 없습니다.
 
-> 자연어 진입은 SessionStart 시 자동 주입되는 메타 스킬 (`using-specops-auto-ko-ko`) 이 신호를 감지해 `specifying-ko` (신규) 또는 `analyzing-ko` (유지보수) 로 라우팅합니다.
+> 자연어 진입은 SessionStart 시 자동 주입되는 메타 스킬 (`using-specops-ko`) 이 신호를 감지해 `specifying-ko` (신규) 또는 `analyzing-ko` (유지보수) 로 라우팅합니다.
 
 ---
 
 ## 의존성 (ui-ux-pro-max)
 
-specops-auto-ko 는 화면 설계 시 `ui-ux-pro-max`(MIT, marketplace `ui-ux-pro-max-skill`)를 **cross-marketplace hard dependency**로 사용한다.
+specops-ko 는 화면 설계 시 `ui-ux-pro-max`(MIT, marketplace `ui-ux-pro-max-skill`)를 **cross-marketplace hard dependency**로 사용한다.
 
 **설치 전 marketplace 선행 등록 필수** — 미등록 시 설치가 `cross-marketplace` 에러로 **실패**한다:
 
@@ -65,7 +65,7 @@ specops-auto-ko 는 화면 설계 시 `ui-ux-pro-max`(MIT, marketplace `ui-ux-pr
 claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
 ```
 
-등록 후 specops-auto-ko 설치 시 ui-ux-pro-max 가 자동 동반 설치된다. (미해결 환경에서도 화면 설계는 DESIGN.md fallback 으로 graceful 동작)
+등록 후 specops-ko 설치 시 ui-ux-pro-max 가 자동 동반 설치된다. (미해결 환경에서도 화면 설계는 DESIGN.md fallback 으로 graceful 동작)
 
 ---
 
@@ -85,40 +85,40 @@ claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
 ```
 /start <기능>  또는  /maintain <대상>  또는  자연어
     ↓
-specops-auto-ko:using-specops-auto-ko-ko  (메타 · SessionStart · 신호 분류 → maintenance flag)
+specops-ko:using-specops-ko  (메타 · SessionStart · 신호 분류 → maintenance flag)
     ↓
    [신규]  ─── args 그대로 ───────────  [유지보수]
     │                                    ↓
     │                       args = "<!-- entry: maintain -->\n<원본>"
     │                                    ↓
-    │                       specops-auto-ko:analyzing-ko  ★ HARD GATE
+    │                       specops-ko:analyzing-ko  ★ HARD GATE
     │                       (current-state.md + impact-analysis.md)
     │                                    ↓
-    └─→ specops-auto-ko:specifying-ko ←──┘     — spec.md (§유형 자동 라벨) + acceptance-criteria.md (회귀 AC 강제)
+    └─→ specops-ko:specifying-ko ←──┘     — spec.md (§유형 자동 라벨) + acceptance-criteria.md (회귀 AC 강제)
     ↓ HARD GATE (사용자 승인)
-specops-auto-ko:clarifying-ko     — clarifications.md
+specops-ko:clarifying-ko     — clarifications.md
     ↓ HARD GATE
-specops-auto-ko:planning-ko       — plan.md
+specops-ko:planning-ko       — plan.md
     ↓
-specops-auto-ko:decomposing-ko    — tasks.md + DAG
+specops-ko:decomposing-ko    — tasks.md + DAG
     ↓
-specops-auto-ko:implementing-ko   ←── (분기) systematic-debugging-ko
+specops-ko:implementing-ko   ←── (분기) systematic-debugging-ko
     │ · 태스크별 fresh 서브에이전트 dispatch
     │ · DAG-aware 병렬 실행 (독립 태스크 자동 식별)
     │ · Phase B: spec-reviewer-ko (스펙 준수)
     │ · Phase C: code-reviewer-ko (코드 품질)
     ↓
-specops-auto-ko:verifying-evidence-ko     — evidence.md
+specops-ko:verifying-evidence-ko     — evidence.md
     ↓
-specops-auto-ko:requesting-code-review-ko
+specops-ko:requesting-code-review-ko
     ↓
-specops-auto-ko:receiving-code-review-ko
+specops-ko:receiving-code-review-ko
     ↓
-specops-auto-ko:security-review-ko    (SAST — 코드 표면·도구 없으면 graceful skip)
+specops-ko:security-review-ko    (SAST — 코드 표면·도구 없으면 graceful skip)
     ↓
-specops-auto-ko:integration-test-ko   (통합 표면 없으면 graceful skip)
+specops-ko:integration-test-ko   (통합 표면 없으면 graceful skip)
     ↓
-specops-auto-ko:performance-test-ko   (성능 NFR 없으면 graceful skip)
+specops-ko:performance-test-ko   (성능 NFR 없으면 graceful skip)
     ↓
 "PR 생성? [y/n]"
 ```
@@ -128,7 +128,7 @@ specops-auto-ko:performance-test-ko   (성능 NFR 없으면 graceful skip)
 ## 자산 구조
 
 ```
-specops-auto-ko/
+specops-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
@@ -167,7 +167,7 @@ specops-auto-ko/
 ├── skills/                               ← flat: skills/<name>/SKILL.md × 30
 │   │
 │   │  Engine Skills (Lifecycle 체인)
-│   ├── using-specops-auto-ko-ko/         ← 메타 스킬 (SessionStart 자동 주입)
+│   ├── using-specops-ko/         ← 메타 스킬 (SessionStart 자동 주입)
 │   ├── brainstorming-ko/                 ← 아이디어 탐색·수요 검증 (pre-design)
 │   ├── analyzing-ko/                     ← 유지보수 baseline + impact 분석 (★ HARD GATE)
 │   ├── specifying-ko/                    ← spec.md + AC 작성
@@ -234,7 +234,7 @@ specops-auto-ko/
 |---|---|---|
 | R-1 | 5 (검증) | git commit 전 verifying-evidence-ko 미호출 |
 | R-2 | 5 (검증) | gh pr create 전 verifying-evidence-ko 미호출 |
-| R-3 | 1 (투명성) | specops-auto-ko 스킬 호출 전 "Using ..." 선언 부재 |
+| R-3 | 1 (투명성) | specops-ko 스킬 호출 전 "Using ..." 선언 부재 |
 | R-4 | 5 (검증) | 성공 주장 있으나 테스트 러너 미실행 |
 | R-5 | 1 (투명성) | plan.md 수정 시 Advisor 협의 기록 섹션 누락 |
 | R-6 | 1 (투명성) | `/verify` + evidence.md 후 gbrain-append 호출 부재 — **비활성** (gbrain-ko manual-only 설계, `enabled: false`) |

@@ -162,11 +162,11 @@ for cmd_file in "$PLUGIN_ROOT/commands/"*.md; do
   [ -f "$cmd_file" ] || continue
   fm_ver=$(awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2}' "$cmd_file")
   [ -z "$fm_ver" ] && continue
-  if grep -qE '^\*specops-auto-ko v[0-9]' "$cmd_file"; then
-    footer_ver=$(grep '^\*specops-auto-ko' "$cmd_file" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d 'v')
+  if grep -qE '^\*specops-ko v[0-9]' "$cmd_file"; then
+    footer_ver=$(grep '^\*specops-ko' "$cmd_file" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d 'v')
     if [ -n "$footer_ver" ] && [ "$footer_ver" != "$fm_ver" ]; then
       CHANGED_FILES+=("$cmd_file")
-      _sed_i "s|^\(\*specops-auto-ko v\)[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|\1${fm_ver}|" "$cmd_file"
+      _sed_i "s|^\(\*specops-ko v\)[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|\1${fm_ver}|" "$cmd_file"
     fi
   fi
 done
