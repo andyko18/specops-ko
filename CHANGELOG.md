@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.55.0] — 2026-07-22
+
 ### Changed
 - **플러그인명 `specops-auto-ko` → `specops-ko` (BREAKING)** — 플러그인 식별자·skill 네임스페이스·로컬 마켓플레이스명이 모두 바뀐다. Skill 호출은 `specops-auto-ko:<name>` → `specops-ko:<name>`, 마켓플레이스 키는 `specops-auto-ko-local` → `specops-ko-local`, 활성화 키는 `specops-ko@specops-ko-local`. 사용자는 `~/.claude/settings.json` 의 `enabledPlugins`·`extraKnownMarketplaces` 키를 갱신하고 Claude Code 를 재시작해야 한다.
   - 메타 skill 디렉토리 `skills/using-specops-auto-ko-ko/` → `skills/using-specops-ko/` (기계적 치환 시 발생하는 `-ko` 중복 제거).
@@ -801,7 +803,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.54.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.55.0...HEAD
+[1.55.0]: https://github.com/andyko18/specops-ko/compare/v1.54.0...v1.55.0
 [1.54.0]: https://github.com/andyko18/specops-ko/compare/v1.53.0...v1.54.0
 [1.53.0]: https://github.com/andyko18/specops-ko/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/andyko18/specops-ko/compare/v1.51.0...v1.52.0
