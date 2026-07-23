@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+- **plan-reviewer 단일화 — general-purpose Plan Document Reviewer 흡수 (#237)** — planning-ko 가 같은 plan.md 를 두 서브에이전트(general-purpose Plan Document Reviewer + plan-reviewer-ko)로 이중 검증하던 구조를 전용 Evaluator 로 단일화. 두 리뷰어는 순수 중복이 아니라 spec준수(Completeness·Spec Alignment) ↔ eng품질(TDD·타입·경계) 상보 관계였으므로, plan-reviewer-ko 를 4관점 → **6관점**(스펙 커버리지·스펙 정합 흡수)으로 확장하고 spec.md 도 읽도록 검증절차를 수정한 뒤 general dispatch 를 제거했다 — plan 단계 dispatch 1회↓ + **커버리지 무손실**. `plan-document-reviewer-prompt.md` 는 `run-plan-ab.sh` LLM A/B eval 픽스처로 유지(lifecycle 경로만 분리).
+
+### Removed
+- **규범문서 미구현 스캐폴딩 2건 제거 (#237)** — `file-based-communication-ko` 의 페이로드 로깅 절(`log-subagent-calls.sh` — 미구현 dangling)과 `structured-artifacts-ko` 의 session-start handoff 요약 주입 "구현 예정" 줄을 제거. 규범 문서에서 미완 로드맵 항목을 정리(session-start.sh 미구현 실측 확인 후).
+
 ## [1.57.0] — 2026-07-23
 
 ### Fixed
