@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.58.0] — 2026-07-23
+
 ### Changed
 - **plan-reviewer 단일화 — general-purpose Plan Document Reviewer 흡수 (#237)** — planning-ko 가 같은 plan.md 를 두 서브에이전트(general-purpose Plan Document Reviewer + plan-reviewer-ko)로 이중 검증하던 구조를 전용 Evaluator 로 단일화. 두 리뷰어는 순수 중복이 아니라 spec준수(Completeness·Spec Alignment) ↔ eng품질(TDD·타입·경계) 상보 관계였으므로, plan-reviewer-ko 를 4관점 → **6관점**(스펙 커버리지·스펙 정합 흡수)으로 확장하고 spec.md 도 읽도록 검증절차를 수정한 뒤 general dispatch 를 제거했다 — plan 단계 dispatch 1회↓ + **커버리지 무손실**. `plan-document-reviewer-prompt.md` 는 `run-plan-ab.sh` LLM A/B eval 픽스처로 유지(lifecycle 경로만 분리).
 
@@ -832,7 +834,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.57.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.58.0...HEAD
+[1.58.0]: https://github.com/andyko18/specops-ko/compare/v1.57.0...v1.58.0
 [1.57.0]: https://github.com/andyko18/specops-ko/compare/v1.56.0...v1.57.0
 [1.56.0]: https://github.com/andyko18/specops-ko/compare/v1.55.0...v1.56.0
 [1.55.0]: https://github.com/andyko18/specops-ko/compare/v1.54.0...v1.55.0
