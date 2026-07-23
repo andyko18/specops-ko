@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.56.0] — 2026-07-23
+
 ### Added
 - **화면설계 껍데기 방지 — 마커 계약 + 판정 헬퍼 (#235, FID 20260722-screen-design-quality)** — `/start-all` batch 경로에서 화면설계서가 템플릿 껍데기로 남던 문제를 기계적 판정으로 종결. `#203`·`#204` 가 산문 지시로 대응했다 2회 재발한 실패 클래스를 마커 1줄로 이진 판정한다.
   - **마커 단일 출처** — `templates/screen.md`·`screen.html` 에 공유 마커 주석 1줄, `scripts/_internal/design-screen.sh` 에 `SCREEN_PLACEHOLDER_MARKER` 상수 + `screen_is_placeholder()` 함수 + `--check` CLI 진입점. 판정은 템플릿 **본문 리터럴이 아니라 마커에만** 의존해 본문 drift 에 면역이다(뮤테이션 쌍 테스트로 리터럴 grep 회귀 상시 차단).
@@ -815,7 +817,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.55.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.56.0...HEAD
+[1.56.0]: https://github.com/andyko18/specops-ko/compare/v1.55.0...v1.56.0
 [1.55.0]: https://github.com/andyko18/specops-ko/compare/v1.54.0...v1.55.0
 [1.54.0]: https://github.com/andyko18/specops-ko/compare/v1.53.0...v1.54.0
 [1.53.0]: https://github.com/andyko18/specops-ko/compare/v1.52.0...v1.53.0
