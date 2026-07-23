@@ -6,6 +6,37 @@
 #   - .specops/memory/screens-overview.md fence 갱신
 set -u
 
+# ── 껍데기(placeholder) 판정 — 마커 단일 출처 ───────────────────────
+# templates/screen.md · templates/screen.html 이 이 토큰을 담은 주석 1줄을 갖고,
+# 화면을 실제 내용으로 채울 때 그 줄을 삭제한다. 판정은 템플릿 본문 문구를 보지 않는다
+# — 본문이 바뀌어도 판정이 살아남게 하기 위함 (clarify Q1, AC-12).
+SCREEN_PLACEHOLDER_MARKER="specops:screen-placeholder"
+
+# screen_is_placeholder <file> — 0=껍데기 1=정상 2=파일없음
+screen_is_placeholder() {
+  [ -f "$1" ] || return 2
+  grep -qF "$SCREEN_PLACEHOLDER_MARKER" "$1"
+}
+
+# --check 진입점 — 소비처(Phase 2.5 · Step 5.5 · verify backstop)가 호출.
+# 기존 `<name> [--force]` 경로보다 앞에서 즉시 exit 하므로 스캐폴딩 동작에 무접촉.
+if [ "${1:-}" = "--check" ]; then
+  shift
+  if [ $# -lt 1 ]; then
+    echo "Usage: $0 --check <path>..." >&2
+    exit 2
+  fi
+  _check_rc=1
+  for _f in "$@"; do
+    if screen_is_placeholder "$_f"; then
+      echo "PLACEHOLDER: $_f"
+      _check_rc=0
+    fi
+  done
+  [ "$_check_rc" -eq 0 ] || echo "FILLED"
+  exit "$_check_rc"
+fi
+
 FORCE=0
 NAME=""
 

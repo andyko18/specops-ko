@@ -91,7 +91,7 @@ Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므�
 **Step 3-4: 저장**
 
 승인 시 `screens/{name}.md` + `screens/{name}.html` 저장:
-- screen.md: 목적, Layout, Components, States, Interactions 섹션 완성 (단수 Step 4와 동일 요건)
+- screen.md: **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지) 완성 + 조건부 4섹션은 해당할 때만(미해당이면 섹션 자체를 넣지 않는다). 채운 뒤 껍데기 **마커 줄을 삭제**한다. (단수 Step 4와 동일 요건)
 - screen.html: Step 3-3에서 승인한 HTML로 교체
 - screens-overview.md 갱신은 Step 3-1 스크립트가 이미 완료
 

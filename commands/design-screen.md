@@ -91,7 +91,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 ### Step 4: 파일 저장
 
 승인 후 `screens/{name}.md` + `screens/{name}.html`에 실제 콘텐츠를 채워 저장:
-- screen.md: 목적, Layout, Components, States, Interactions 섹션 완성
+- screen.md: **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지) 완성. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 해당할 때만 남기고, 미해당이면 **섹션 자체를 넣지 않는다**(`—` 채우기 금지). 채운 뒤 껍데기 **마커 줄을 삭제**한다.
 - screen.html: Step 3에서 승인한 HTML로 교체
 - `screens-overview.md` 갱신은 Step 1 스크립트가 이미 완료
 

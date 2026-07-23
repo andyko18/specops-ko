@@ -120,6 +120,14 @@ used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /
 
    > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
 
+   **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용):
+   - 화면 파일이 **이미 있으면** 먼저 판정한다:
+     `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/{name}.md screens/{name}.html`
+     - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지).
+     - exit 0(껍데기) → 재사용 금지. 아래 생성 루프를 그대로 진행해 덮어쓴다.
+   - **`.md` 채움 요건**: `screens/{name}.md` 는 **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지)을 실제 내용으로 완성한다. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 **해당할 때만** 넣는다 — 미해당 섹션을 `—` 로 채우지 않는다. (`/design-screen(s)` 와 동일 요건 — lifecycle 안/밖 비대칭 해소)
+   - **저장 시 껍데기 마커 줄을 삭제**한다 (`.md`·`.html` 양쪽). 마커가 남으면 verify backstop 이 껍데기로 경고한다.
+
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - 화면 목록을 자동 판단하여 **즉시 생성·수락** (수정 루프 없음):
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성

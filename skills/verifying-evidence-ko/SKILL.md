@@ -166,6 +166,10 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - 추출분이 `api-spec.md`·`api-spec-consumer.md`(소비 호출↔소비 계약)·`data-model.md` 에 **반영돼 있는지 대조**. 통상 `specifying-ko` Step 5.6(정방향 인터페이스 설계)이 선반영했으면 일치한다.
   - **누락·괴리 발견 시**: evidence.md 에 `## memory 동기화 권고` 섹션 기록 — "코드의 `POST /orders` 가 api-spec 의 **채택된 정의방식 섹션**에 없음 → 반영 검토" 식으로 **무엇을 어디에** 명시 + 사용자에게 출력.
     - 화면 괴리는 evidence.md 에 `## 화면 동기화 권고` 섹션으로 기록(chain 비차단, 자동 수정 금지 — DB 동기화와 동일). screens/ 부재(CLI·순수 로직) 시 graceful skip.
+    - **화면 껍데기 점검 (기존 역방향 net 확장 — 새 스크립트·훅 신설 아님)**: 루트 `screens/` 존재 시 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/*.md screens/*.html` 로 판정(태스크 1 헬퍼 재사용). exit 0(껍데기 잔존)이면 evidence.md 에 `## 화면 껍데기 경고` 섹션으로 해당 경로를 나열하고 사용자에게 출력한다.
+      - **비차단**: 본 버전에서는 `VERIFY: FAIL` 로 승급하지 않는다 (사용자 결정 — 단계적 적용. 상류 Phase 2.5·Step 5.5 자동 재생성이 실질 공백을 메운다).
+      - **차단 승급 조건 (차기 버전 반영 대상 — 현 버전은 위 "비차단"이 우선)**: 이 경고가 실제로 관찰되면 상류 교정 실패의 증거이므로 차단으로 승급 대상이다 (차기 유지보수에서 `VERIFY: FAIL` 승급) — 상류가 정상 동작하면 신규 생성 화면에 마커가 남을 수 없기 때문이다. **현 버전에서는 관찰돼도 승급하지 말 것** (L170 비차단 준수).
+      - `screens/` 부재(CLI·순수 로직) 시 graceful skip.
   - **테스트=spec 커버 점검** (ecc inspect-first 교훈 2 — 빈틈2 해소): 이번 FID 가 **api-spec.md 에 추가·변경한 제공 엔드포인트** 각각에 대해, 브랜치 누적 변경의 테스트 파일에서 해당 라우트를 호출·검증하는 케이스가 존재하는지 대조. 미커버 엔드포인트는 evidence.md `## 미커버 엔드포인트` 섹션에 나열 (감지·권고만 — AC 매핑 커버리지는 decomposing 몫이므로 여기서는 **설계문서↔테스트의 잔여 괴리**만 잡는다. 부재 시 graceful skip).
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.

@@ -91,7 +91,13 @@ reference_upstream: specops-ko 독자 추가
 1. **UI 표면 검출** — 전 FID `.specops/<FID>/spec.md` §참조·§범위에서 화면 신호(`screens/<name>` 목록·화면 렌더·사용자 흐름)를 취합한다.
    - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거: 전 FID §참조에 화면 없음>` 를 `queue.md` 에 기록 후 **즉시 Phase 3 진입** (graceful skip).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출(개별 FR 인라인 호출 대신 통합 — 화면 간 시각 일관성 확보). **graceful 안전망**: ui-ux-pro-max 미감지(marketplace 미등록 등) 시 `DESIGN.md` 토큰 fallback + `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 안내. 우선순위: ui-ux-pro-max 결과 우선, DESIGN.md 후순위.
-3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍을 통합 design system 스타일로 생성. 해당 FID spec.md §참조에 경로가 이미 인용돼 있으면 재사용, 없으면 추가.
+3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍을 통합 design system 스타일로 생성한다.
+   - **파일이 아직 없으면 생성한다** — `screens/<name>.md`·`.html` 이 부재면 step 2 design system 으로 새로 만든다. 아래 재사용 판정은 **파일이 이미 있을 때만** 적용한다 (`--check` 는 부재 파일을 "정상"으로 집계하므로, 판정만으로는 "부재"와 "완성된 화면"을 구분하지 못한다 — 존재 확인을 선행하지 않으면 미생성 화면이 "재사용"으로 오판돼 영영 안 만들어진다).
+   - **이미 있으면 재사용 판정 — 경로 존재 ≠ 재사용 가능** (`/init-project` 가 깔아둔 껍데기를 완성품으로 오인하던 경로. 20260722 실측: test1 화면 5쌍 전부 껍데기):
+     `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html`
+     - **exit 1 (정상 — 껍데기 마커 부재)** → **재사용**. 재생성하지 않는다 (false-trigger 금지 — 이미 채워진 화면 보호).
+     - **exit 0 (껍데기 — 마커 잔존)** → **재사용 금지**. 출력의 `PLACEHOLDER: <경로>` 로 **지목된 껍데기 파일만** step 2 통합 design system 으로 `.md`(필수 8섹션 완성)·`.html`(프로젝트 팔레트 반영) 을 채워 덮어쓰고 **껍데기 마커 줄을 삭제**한다 — 짝 중 이미 채워진 파일은 보존한다(혼합 상태 데이터 손실 방지).
+   - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
 3.5. **design 산출물 커밋** — `screens/*.md`·`screens/*.html`·`DESIGN.md`·`.specops/` **만** 담아 커밋한다(코드 파일 혼입 금지). 이 조합은 R-1 docs/design-only 면제로 verify 게이트를 그대로 통과한다 — **BYPASS 불요** (dogfood 20260716: `.html` 이 `.md` 한정 whitelist 에 걸려 false-block → 무사유 BYPASS 관성의 시작점이 됐다. 코드가 섞이면 차단되는 게 정상 동작이다).
 4. **[§auto 모드]** (`/start-all-auto` — 전 FID spec.md `**§auto**: true`): 화면별 대화형 승인 **없이** ui-ux-pro-max 결과를 자동 반영(가역 게이트 자동 통과). 생성된 화면 목록은 batch PR 게이트 다이제스트에 집계.
 5. 완료 → Phase 3 진입. Phase 3 `implementing-ko` 는 `screens/` 를 **§6 설계 계약**으로 소비하고, `verifying-evidence-ko` 의 memory 설계 동기화 점검이 역방향 안전망으로 검증한다(화면 Step 5.5 와 동일 teeth).
