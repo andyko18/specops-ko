@@ -139,19 +139,12 @@ git commit -m "feat: 특정 기능 추가"
 
 이슈 발견 시 인라인 수정. 자체 체크리스트는 재실행 불필요 — 수정 후 아래 독립 검증으로 진행. 스펙 요구에 태스크가 없으면 **태스크 추가**.
 
-### Plan Document Reviewer (독립 서브에이전트 검증)
+## 독립 리뷰 (plan-reviewer 서브에이전트)
 
-자체 체크리스트 완료 후, `Agent` 도구로 **general-purpose 서브에이전트를 dispatch**한다. 프롬프트에 `skills/planning-ko/plan-document-reviewer-prompt.md` 전문을 포함하고, `.specops/<FID>/spec.md`와 `.specops/<FID>/plan.md` 경로를 명시하면 신선한 컨텍스트로 대조 검증한다.
-
-- **APPROVED**: decomposing-ko 진입 허용
-- **ISSUES FOUND: \<상세\>**: plan.md에 이슈를 반영한 후 session-progress append로 진행. 심각한 갭(스펙 커버리지 누락·전면 재설계 필요)이면 사용자에게 알리고 확인 후 진행.
-
-## Eng 리뷰 (plan-reviewer 서브에이전트)
-
-자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다.
+자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 
 **dispatch:** `Agent` 도구, `subagent_type: "specops-ko:plan-reviewer-ko"`
-입력: `.specops/<FID>/plan.md` 경로
+입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) 경로
 
 **판정 처리 (cap=2):**
 

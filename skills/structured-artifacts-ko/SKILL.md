@@ -73,7 +73,6 @@ used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 **규칙**:
 - 항목 없는 섹션은 `- (없음)` 기재 (섹션 생략 금지)
 - 파일 부재 시 다음 skill이 해당 섹션 없이 진행 가능 (graceful skip). 단 handoff 존재 시 첫 단계에서 반드시 읽음.
-- `session-start.sh` rehydrate 시 최신 handoff 요약 주입 (구현 예정).
 
 `.specops/`는 프로젝트 루트의 `.gitignore`에 반드시 포함. 플러그인 레포가 아닌 **사용 프로젝트**의 `.gitignore`다.
 

@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer-ko
-description: planning-ko가 dispatch하는 plan.md Eng 리뷰 — TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 4관점 + 실측 의무 검증. 추측 판정 금지.
+description: planning-ko가 dispatch하는 plan.md 종합 리뷰 — 스펙 커버리지·스펙 정합(spec 대조) + TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 6관점 + 실측 의무 검증. 추측 판정 금지.
 model: fable
 role: evaluator
 tools: Read, Grep, Glob, Bash
@@ -15,8 +15,8 @@ fresh 시각으로 4관점 엔지니어링 검증을 수행하고 판정 결과�
 
 ## 검증 절차
 
-1. `.specops/<FID>/plan.md` 읽기
-2. 4관점 항목별 스캔 (Critical → Important → Minor 순)
+1. `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) 읽기 — spec 대조 2관점(스펙 커버리지·스펙 정합)은 원본 없이는 판정 불가
+2. 6관점 항목별 스캔 (Critical → Important → Minor 순)
 3. 이슈 수집 및 분류
 4. 판정 결과 출력
 
@@ -35,12 +35,16 @@ fresh 시각으로 4관점 엔지니어링 검증을 수행하고 판정 결과�
 
 > 근거: bash IFS 동작을 추측으로 Critical 판정한 false-positive 사례 — 실측(실제 실행)했으면 IFS=value command 가 command-scoped 임을 확인해 오판 방지. 4관점 각각에 실측 적용(특히 타입일관성·파일경계는 grep 친화).
 
-## 4관점 검증 기준
+## 6관점 검증 기준
+
+앞 2관점(스펙 커버리지·스펙 정합)은 **spec 대조**(spec.md ↔ plan.md), 뒤 4관점은 **엔지니어링 품질**(plan.md 자체)이다. spec 대조는 FR 이 plan 에 빠짐없이·모순 없이 반영됐는지를 fresh 시각으로 확인한다(구 general-purpose Plan Document Reviewer 흡수 — 20260723).
 
 > **TDD 렌즈 조준 정정** (P2-① — TDD 감사 20260711 오조준): 리뷰 대상은 **plan.md** 이고, 그 §5 는 설계상 "카테고리와 순서만" 담는다(RED/GREEN 스텝 상세는 decomposing 의 tasks.md 몫). 따라서 "RED 스텝 누락"을 plan.md 에 요구하면 **모든 정상 plan 이 Critical** 이 된다 — 여기서 볼 것은 **TDD 가능성**: 테스트 파일이 계획됐는가(§2), 각 카테고리가 테스트 가능한 단위인가(§5).
 
 | 관점 | Critical | Important | Minor |
 |---|---|---|---|
+| 스펙 커버리지(FR) | spec.md 의 FR 중 대응 태스크·카테고리가 전무 | FR 이 부분만 커버(일부 AC 누락) | 커버되나 근거 태그 미흡 |
+| 스펙 정합 | 태스크가 spec 범위·제약과 정면 모순 | 태스크가 spec 밖 scope 확장(추측 기능) | 표현 불일치(기능 동일) |
 | TDD 커버리지 | §2 파일 구조에 테스트 파일 계획 전무 | §5 카테고리가 테스트 불가 덩어리(검증 명령 짝 지을 수 없음) | 테스트 경로 컨벤션 불일치 |
 | 플레이스홀더 | 미정의 함수·타입 참조 | TBD·TODO·"similar to N" | 주석 스타일 불일치 |
 | 파일 경계 | 단일 태스크 > 3 파일 수정 | 태스크 크기 5분 초과 추정 | 파일명 컨벤션 |
