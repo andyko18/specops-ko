@@ -133,6 +133,48 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.hd2 (AC-5) 실행자 heredoc 미매칭 — out: $out"
 fi
+# ── FID 20260723-lifecycle-robustness (B) — R-1 implement 단계 실행증거 면제 ──
+# implement 단계(tasks.md 존재·evidence.md 부재)에서 실행증거(exec_rc=0)만으로 R-1 커밋 면제.
+#   session-progress 에 /verify PASS 앵커가 구조적으로 없어도(verify 는 후속 단계) 통과.
+# 격리: 각 케이스 자체 sandbox 에 .specops/session-progress.md(## fid + /implement 줄) + tasks.md 구성.
+_bfid="20260101-x"
+_b_setup() {  # $1=sandbox dir, $2=evidence?(yes/no)
+  mkdir -p "$1/.specops/$_bfid"
+  printf '## %s\n\n- 2026-01-01 10:00 /implement DONE (T1)\n' "$_bfid" > "$1/.specops/session-progress.md"
+  echo "tasks" > "$1/.specops/$_bfid/tasks.md"
+  [ "$2" = "yes" ] && echo "# evidence (no stamp)" > "$1/.specops/$_bfid/evidence.md"
+}
+
+# T6.B1 (AC-1): 실행증거 있음 + tasks.md 존재 + evidence.md 부재 → 면제(미매칭, out 빈값)
+_sb1=$(mktemp -d); _b_setup "$_sb1" no
+out=$(cd "$_sb1" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-pass.jsonl" "Bash" 'git commit -m "feat: T1"')
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.B1 (AC-1) implement 단계 실행증거 → 면제(BYPASS 불요)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.B1 (AC-1) 면제 안 됨 — out: $out"
+fi
+rm -rf "$_sb1"
+
+# T6.B2 (AC-2): 실행증거 없음(exec_rc≠0) + tasks.md·evidence 부재 → implement 경로 미발동 → 매칭(deny)
+_sb2=$(mktemp -d); _b_setup "$_sb2" no
+out=$(cd "$_sb2" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-absent.jsonl" "Bash" 'git commit -m "feat: T1"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.B2 (AC-2) 실행증거 없으면 implement 면제 안 됨(위조 방지)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.B2 (AC-2) 실행증거 없이 면제됨 — out: $out"
+fi
+rm -rf "$_sb2"
+
+# T6.B3 (AC-3): 실행증거 있음 + tasks.md 존재 + evidence.md **존재** → implement 경로 닫힘 → 매칭(deny)
+_sb3=$(mktemp -d); _b_setup "$_sb3" yes
+out=$(cd "$_sb3" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-pass.jsonl" "Bash" 'git commit -m "feat: T1"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.B3 (AC-3) evidence.md 존재 시 implement 면제 경로 닫힘"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.B3 (AC-3) evidence 존재해도 implement 경로가 면제 — out: $out"
+fi
+rm -rf "$_sb3"
+
 # T6 격리 해제 — 원 repo cwd 복귀 (T7+ 는 자체 mktemp/subshell 격리)
 cd "$_t6_orig" || exit 1; rm -rf "$_t6_sb"
 

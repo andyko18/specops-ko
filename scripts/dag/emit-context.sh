@@ -79,17 +79,35 @@ with open(ac_path, encoding="utf-8") as fh:
     ac_text = fh.read()
 def ac_summary(ac_id):
     # 헤더(### AC-1: ...) 우선 — templates/acceptance-criteria.md 표준.
-    # bullet(- **AC-1**: ... / - AC-1: ...) 겸용 — LLM 이 템플릿 대신 bullet 로 쓰는 실수가 흔해
-    #   (20260716 trivial dogfood 발견 #2) 빈 summary 로 조용히 degrade 되던 것을 구제.
-    for pat in (rf"###\s+{re.escape(ac_id)}:?\s*(.*)",
+    # #{2,3} 로 ## (h2) 도 겸용 — LLM 이 h2 로 쓰는 drift 가 흔해(20260722 screen-design 실측:
+    #   ## AC-N 이 추출 밖 → 빈 요약 17건 조용히 통과) 구제. #209 bullet 겸용 완화 철학 연장.
+    # bullet(- **AC-1**: ... / - AC-1: ...) 겸용.
+    for pat in (rf"#{{2,3}}\s+{re.escape(ac_id)}:?\s*(.*)",
                 rf"^-\s+\*\*{re.escape(ac_id)}\*\*:?\s*(.*)",
                 rf"^-\s+{re.escape(ac_id)}:?\s*(.*)"):
         m = re.search(pat, ac_text, re.MULTILINE)
         if m and m.group(1).strip():
             return m.group(1).strip()[:120]
-    # 어느 포맷에도 없거나 빈 설명 — 조용한 품질 저하 방지 (dispatch §1 이 빈 AC 로 나가는 것 가시화)
+    # 어느 포맷에도 없거나 빈 설명 — id 는 1차 게이트를 통과했으므로(AC.md 에 토큰 존재) 이는
+    #   "id 존재 but 헤더/불릿 전무" = 진짜 drift 다. 빈 AC 로 dispatch 되면 서브에이전트가 담당 AC 를
+    #   못 읽으므로 fail-closed 로 차단한다 (20260723-lifecycle-robustness C).
     print(f"WARN: {ac_id} 요약 추출 실패 — acceptance-criteria.md 포맷 확인 (### {ac_id}: 헤더 권장)", file=sys.stderr)
     return ""
+
+# 사전 계산 + 원자적 fail-closed (부분 잔류 0) — write 루프 전에 전 AC 요약을 뽑고,
+#   추출 실패(빈 요약)가 1건이라도 있으면 파일을 쓰지 않고 exit 1 (missing-tc·bad-ac 게이트와 동일 원자성).
+summaries = {}
+extract_failed = False
+for t in tasks:
+    for a in (t.get("ac", []) or []):
+        if a not in summaries:
+            s = ac_summary(a)   # 실패 시 stderr WARN
+            summaries[a] = s
+            if not s:
+                extract_failed = True
+if extract_failed:
+    print("emit-context: AC 요약 추출 실패 — fail-closed (빈 AC dispatch 차단)", file=sys.stderr)
+    sys.exit(1)
 
 count = 0
 for t in tasks:
@@ -98,7 +116,7 @@ for t in tasks:
     inputs = t.get("inputs", []) or []
     outputs = t.get("outputs", []) or []
     acs = t.get("ac", []) or []
-    ac_lines = "\n".join(f"- {a}: {ac_summary(a)}" for a in acs)
+    ac_lines = "\n".join(f"- {a}: {summaries[a]}" for a in acs)
     inputs_lines = "\n".join(f"- `{p}`" for p in inputs) or "- (없음)"
     whitelist = sorted(set(inputs) | set(outputs))
     wl_lines = "\n".join(f"- `{p}`" for p in whitelist)

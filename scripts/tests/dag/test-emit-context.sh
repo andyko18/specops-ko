@@ -173,5 +173,33 @@ else
 fi
 rm -rf "$tmp"
 
+# ── FID 20260723-lifecycle-robustness (C) — h2 헤더 구제 + fail-closed ──
+
+# T2.a (AC-4): ## (h2) 헤더 AC.md → 요약 정상 추출 (관찰된 drift 구제, 빈 요약 아님)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/h2-header"
+cp "$FIXTURES/h2-header"/*.md "$tmp/.specops/h2-header/"
+rc=$(cd "$tmp" && bash "$EMIT" h2-header >/dev/null 2>&1; echo $?)
+ctx="$tmp/.specops/h2-header/dispatch/T1-context.md"
+if [ "$rc" = "0" ] && [ -f "$ctx" ] && grep -qE '^- AC-1: parser 추출' "$ctx"; then
+  PASS=$((PASS+1)); echo "PASS T2.a h2 헤더 → 요약 정상 추출 + exit 0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.a h2 요약 추출 실패 (rc=$rc)"
+fi
+rm -rf "$tmp"
+
+# T2.b (AC-5): AC-id 토큰 존재하나 헤더/불릿 전무(진짜 drift) → exit 1 + dispatch 비어있음 (fail-closed atomic)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/ac-no-header"
+cp "$FIXTURES/ac-no-header"/*.md "$tmp/.specops/ac-no-header/"
+rc=$(cd "$tmp" && bash "$EMIT" ac-no-header 2>/tmp/emit-drift.err >/dev/null; echo $?)
+empty=$([ -z "$(ls "$tmp/.specops/ac-no-header/dispatch/" 2>/dev/null)" ] && echo yes || echo no)
+if [ "$rc" = "1" ] && [ "$empty" = "yes" ] && grep -q "요약 추출 실패" /tmp/emit-drift.err; then
+  PASS=$((PASS+1)); echo "PASS T2.b 추출 실패 drift → exit 1 + 부분잔류 0 (fail-closed)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.b fail-closed 미작동 (rc=$rc empty=$empty)"
+fi
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

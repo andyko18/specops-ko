@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **R-1 거버넌스가 implement 단계 커밋을 구조적으로 차단하던 문제 (FID 20260723-lifecycle-robustness)** — implement 단계의 태스크별 TDD 커밋은 R-1 면제 조건 ②(`/verify PASS` 앵커 · evidence stamp)를 **구조적으로 충족할 수 없다** — `/verify` 는 후속 단계라 커밋 시점엔 앵커가 존재하지 않는다. 그래서 정직한 흐름도 매 커밋 `SPECOPS_GOVERNANCE_BYPASS` 로 몰렸다(20260722 screen-design FID 실측 5+회 — BYPASS 관성의 시작점). `hooks/governance-lib.sh` `apply_lookback_rule` 에 R-1 한정 면제 경로 신설: transcript 에 러너 `VERIFY: PASS` **실행증거**(`_exec_rc=0`, 엄격 — fail-open `rc=2` 불인정)가 있고 FID 가 implement 창(`tasks.md` 존재 ∧ `evidence.md` 부재)에 있으면 커밋을 면제한다.
+  - **자기보고 아닌 실행증거 기반** — 위조 불가. `_verify_exec_evidence` 의 `lasthit > lastedit`(마지막 편집 이후 실행 요구)가 "run-all 통과 후 임의 코드 편집→커밋" 우회를 봉쇄한다(편집 시 `exec_rc=1` 로 무효화).
+  - **evidence.md 생기는 즉시 경로 닫힘** — post-verify 는 기존 앵커로 판정. R-2(PR)는 verify 이후라 미대상.
+  - 회귀 테스트 3건: T6.B1(면제) · T6.B2(실행증거 없으면 deny — 위조방지) · T6.B3(evidence.md 존재 시 닫힘).
+- **emit-context 소프트 실패가 exit 0 으로 통과하던 문제 (FID 20260723-lifecycle-robustness)** — `scripts/dag/emit-context.sh` 의 `ac_summary()` 가 AC 요약 텍스트 추출에 실패해도 WARN 만 내고 빈 요약으로 `EMIT: N files` exit 0 통과했다(20260722 실측: `## AC-N` h2 헤더가 추출 패턴 밖 → 빈 요약 17건, 무인 모드면 빈 컨텍스트로 dispatch). ① `ac_summary` 패턴을 `###` → `#{2,3}` 로 넓혀 `##`(h2) 헤더도 추출(#209 bullet 겸용 완화 철학 연장). ② 그래도 추출 실패(AC-id 토큰은 존재하나 헤더/불릿 전무 = 진짜 drift)면 write **전** 원자적 `exit 1`(부분 잔류 0) — 빈 AC dispatch 차단. 회귀 테스트 2건(h2 구제 · fail-closed).
+
 ## [1.56.0] — 2026-07-23
 
 ### Added

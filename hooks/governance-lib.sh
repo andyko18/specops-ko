@@ -476,6 +476,21 @@ apply_lookback_rule() {
   local _exec_rc
   _verify_exec_evidence "$transcript"; _exec_rc=$?
 
+  # ★ implement 단계 면제 (20260723-lifecycle-robustness B): implement 단계 태스크별 TDD 커밋은
+  #   /verify PASS 앵커·evidence stamp 가 **구조적으로 존재할 수 없다**(verify 는 후속 단계). 그래서
+  #   정직한 흐름도 매 커밋 BYPASS 로 몰렸다(20260722 screen-design 5+회). transcript 에 실제 러너
+  #   VERIFY: PASS 실행증거(exec_rc=0, 엄격 — fail-open rc=2 불인정)가 있고, FID 가 implement 창
+  #   (tasks.md 존재 ∧ evidence.md 부재)에 있으면 R-1 커밋을 면제한다. 자기보고 아닌 실행증거 기반
+  #   이라 위조 불가. **evidence.md 생기는 즉시 이 경로가 닫히고** post-verify 는 기존 앵커로 판정된다.
+  #   R-1 한정 — R-2(PR)는 verify 이후라 evidence.md 존재, 대상 아님.
+  if [ "$rule_id" = "R-1" ] && [ "$_exec_rc" -eq 0 ]; then
+    local _ifid
+    _ifid=$(detect_fid)
+    if [ -n "$_ifid" ] && [ -f ".specops/$_ifid/tasks.md" ] && [ ! -f ".specops/$_ifid/evidence.md" ]; then
+      return 0   # implement 단계 + 실행증거 → 면제
+    fi
+  fi
+
   # rc=0(실행증거 있음)·rc=2(판정 불가 — fail-open) 일 때만 자기보고 면제를 인정한다.
   # F-1(5c): session-progress verify 우선 — transcript lookback false-block 회피
   if [ "$_exec_rc" -ne 1 ]; then
