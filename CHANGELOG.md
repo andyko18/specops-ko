@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.57.0] — 2026-07-23
+
 ### Fixed
 - **R-1 거버넌스가 implement 단계 커밋을 구조적으로 차단하던 문제 (FID 20260723-lifecycle-robustness)** — implement 단계의 태스크별 TDD 커밋은 R-1 면제 조건 ②(`/verify PASS` 앵커 · evidence stamp)를 **구조적으로 충족할 수 없다** — `/verify` 는 후속 단계라 커밋 시점엔 앵커가 존재하지 않는다. 그래서 정직한 흐름도 매 커밋 `SPECOPS_GOVERNANCE_BYPASS` 로 몰렸다(20260722 screen-design FID 실측 5+회 — BYPASS 관성의 시작점). `hooks/governance-lib.sh` `apply_lookback_rule` 에 R-1 한정 면제 경로 신설: transcript 에 러너 `VERIFY: PASS` **실행증거**(`_exec_rc=0`, 엄격 — fail-open `rc=2` 불인정)가 있고 FID 가 implement 창(`tasks.md` 존재 ∧ `evidence.md` 부재)에 있으면 커밋을 면제한다.
   - **자기보고 아닌 실행증거 기반** — 위조 불가. `_verify_exec_evidence` 의 `lasthit > lastedit`(마지막 편집 이후 실행 요구)가 "run-all 통과 후 임의 코드 편집→커밋" 우회를 봉쇄한다(편집 시 `exec_rc=1` 로 무효화).
@@ -824,7 +826,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.56.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.57.0...HEAD
+[1.57.0]: https://github.com/andyko18/specops-ko/compare/v1.56.0...v1.57.0
 [1.56.0]: https://github.com/andyko18/specops-ko/compare/v1.55.0...v1.56.0
 [1.55.0]: https://github.com/andyko18/specops-ko/compare/v1.54.0...v1.55.0
 [1.54.0]: https://github.com/andyko18/specops-ko/compare/v1.53.0...v1.54.0
