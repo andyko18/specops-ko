@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+- **화면설계 껍데기 방지 — 마커 계약 + 판정 헬퍼 (#235, FID 20260722-screen-design-quality)** — `/start-all` batch 경로에서 화면설계서가 템플릿 껍데기로 남던 문제를 기계적 판정으로 종결. `#203`·`#204` 가 산문 지시로 대응했다 2회 재발한 실패 클래스를 마커 1줄로 이진 판정한다.
+  - **마커 단일 출처** — `templates/screen.md`·`screen.html` 에 공유 마커 주석 1줄, `scripts/_internal/design-screen.sh` 에 `SCREEN_PLACEHOLDER_MARKER` 상수 + `screen_is_placeholder()` 함수 + `--check` CLI 진입점. 판정은 템플릿 **본문 리터럴이 아니라 마커에만** 의존해 본문 drift 에 면역이다(뮤테이션 쌍 테스트로 리터럴 grep 회귀 상시 차단).
+  - **템플릿 상세화** — `templates/screen.md` 필수 코어 5→8섹션(필드 정의표·데이터 소스·에러 메시지 신설) + 조건부 4섹션(RBAC·반응형·접근성·진입/이탈, 미해당 시 섹션 자체 생략 — `—` 채우기 금지로 batch 토큰 선형 유지). 데이터 소스는 `api-spec.md`·`data-model.md`(Step 5.6) 참조로 연계.
+  - 신규 bash 회귀 4스위트 47단언 + `run-all` baseline 99→103.
+
+### Changed
+- **화면 생성 3경로 껍데기 판정 대칭화 (#235)** — `commands/start-all.md` Phase 2.5 · `skills/specifying-ko/SKILL.md` Step 5.5 의 재사용 판정을 "경로 존재" → "마커 부재"로 교정하고, `.md` 필수 8섹션 완성 요건을 `design-screen(s).md` 와 대칭화(lifecycle 안/밖 비대칭 해소). `skills/verifying-evidence-ko/SKILL.md` 역방향 net 에 화면 껍데기 backstop(비차단 경고 + 차기 버전 승급 조건) 추가.
+
+### Fixed
+- **Phase 2.5 부재 파일 오판 + 혼합 상태 데이터 손실 (#235, 외부 critic 3중 수렴)** — `start-all.md` 재사용 판정이 무조건 적용돼, 실파일 없는 화면이 `--check` exit 1(FILLED)로 "재사용, 재생성 안 함"으로 오판돼 **영영 생성 안 되던** 침묵 버그. `specifying-ko` 와 동일한 "파일이 없으면 생성" 존재 가드를 미러링. 아울러 껍데기 짝 덮어쓰기 시 `PLACEHOLDER:` 로 지목된 파일만 선별 덮어쓰고 이미 채워진 짝은 보존(혼합 상태 손실 방지).
+
 ## [1.55.0] — 2026-07-22
 
 ### Changed
