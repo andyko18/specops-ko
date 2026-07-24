@@ -50,7 +50,16 @@ trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|sele
 [ -n "$trigger_re" ] || safe_exit "trigger_pattern 로드 실패"
 printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 
-[ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ] && allow
+# 세션-env 우회 = 사용자 주권(막지 않음). 단 무기록 우회는 감사 공백(상한 3호) → 기록 후 allow.
+#   .specops 有일 때만 기록 — 부재(비-specops repo)면 log_friction 이 .specops 를 생성해 월권(M2 관할 가드 철학).
+#   principle=1(숫자, 5원칙 1 투명성)·offset=0(숫자) 은 log_friction 이 --argjson 으로 소비 → 유효 JSON 필수.
+if [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ]; then
+  if [ -d ".specops" ]; then
+    _bypass_fid=$(detect_fid 2>/dev/null || echo "")
+    log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 2>/dev/null || true
+  fi
+  allow
+fi
 
 # ── batch PR 뭉개짐 게이트 (20260721-batch-pr-teeth) ─────────────────────────
 # dogfood test1: 무인 batch 가 7개 per-FR FID 를 BATCH_ID 하나로 뭉갠 채 PR 을 냈다.

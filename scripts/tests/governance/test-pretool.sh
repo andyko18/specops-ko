@@ -16,6 +16,13 @@ codesandbox=$(mktemp -d) || exit 1
 ( cd "$codesandbox" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir .specops )
 trap 'rm -rf "$codesandbox"' EXIT
 
+# 자기오염 회귀 락 — 어떤 케이스도 실제 repo 의 active-FID friction-log 에 BYPASS-ENV 를 쓰면 안 된다.
+#   세션-env BYPASS 케이스가 CLAUDE_PROJECT_DIR 격리를 빠뜨리면 run-all(cd $PLUGIN) 실행 시 실제
+#   .specops/<FID>/friction-log.jsonl 을 오염시킨다(감사 무결성 훼손). suite 시작 count 를 기록해 끝에서 대조.
+_repo_fl=$(ls "$PLUGIN/.specops"/*/friction-log.jsonl 2>/dev/null)
+_repo_bypass_before=0
+[ -n "$_repo_fl" ] && _repo_bypass_before=$(cat $_repo_fl 2>/dev/null | grep -c 'BYPASS-ENV')
+
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T1 commit no-verify → deny" '"permissionDecision":"deny"' "$out"
 # T2: Skill 호출 + 실제 실행증거 = 정직한 경로 → allow
@@ -31,8 +38,13 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-error.jsonl" | CLAUDE_
 check "T2c 러너 is_error 결과(PASS 문자열) → deny (에러 실행 불인정)" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-partial-mixed.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T2d PASS/PARTIAL 혼재 출력 → deny (negative guard)" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 bash "$HOOK" 2>/dev/null)
+# T3 는 CLAUDE_PROJECT_DIR 격리 필수 — repo 루트서 실행(run-all cd $PLUGIN)하면
+#   세션-env BYPASS 가 실제 active-FID friction-log 에 BYPASS-ENV 를 기록해 자기오염(감사 무결성 훼손).
+#   T-bypass-log.a 와 동일 격리 패턴(mktemp -d + .specops + CLAUDE_PROJECT_DIR override) 적용. 훅 로직은 불변.
+bs_t3=$(mktemp -d); mkdir -p "$bs_t3/.specops"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bs_t3" bash "$HOOK" 2>/dev/null)
 check "T3 env bypass → allow" '"continue":true' "$out"
+rm -rf "$bs_t3"
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T4 pr no-verify → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "ls -la" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
@@ -437,6 +449,32 @@ rm -rf "$bs_bad" "$bs_ok" "$bs_stale" "$bs_other"
 #   test1 은 안내대로 러너를 재실행하고도 같은 메시지로 또 막혀 BYPASS 로 갔다.
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T-msg ★ deny 메시지가 진행 기록 앵커 요건도 안내" 'session-progress' "$out"
+
+# ── T-bypass-log: 세션-env BYPASS friction-log 기록 (감사 상한 3호) ──
+bslog=$(mktemp -d); mkdir -p "$bslog/.specops"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bslog" bash "$HOOK" 2>/dev/null)
+check "T-bypass-log.a 세션-env BYPASS → allow" '"continue":true' "$out"
+if [ -f "$bslog/.specops/friction-log.jsonl" ] && grep -q "BYPASS-ENV" "$bslog/.specops/friction-log.jsonl"; then
+  echo "PASS T-bypass-log.b friction-log BYPASS-ENV 기록 생성"; pass=$((pass+1))
+else echo "FAIL T-bypass-log.b — 기록 없음"; fail=$((fail+1)); fi
+rm -rf "$bslog"
+bsno=$(mktemp -d)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bsno" bash "$HOOK" 2>/dev/null)
+check "T-bypass-log.c 비-specops BYPASS → allow" '"continue":true' "$out"
+if [ ! -d "$bsno/.specops" ]; then echo "PASS T-bypass-log.d .specops 미생성(관할 한정)"; pass=$((pass+1))
+else echo "FAIL T-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
+rm -rf "$bsno"
+
+# ── T-no-selfcontam: suite 전체가 실제 repo friction-log 를 오염시키지 않았는지 최종 락 ──
+# 재-glob: suite 중간에 새로 생긴 friction-log 도 잡는다(baseline glob 은 부재 시 빈값 → 0 이므로 신규 오염이 여전히 count>0 로 검출됨).
+_repo_fl=$(ls "$PLUGIN/.specops"/*/friction-log.jsonl 2>/dev/null)
+_repo_bypass_after=0
+[ -n "$_repo_fl" ] && _repo_bypass_after=$(cat $_repo_fl 2>/dev/null | grep -c 'BYPASS-ENV')
+if [ "$_repo_bypass_after" -eq "$_repo_bypass_before" ]; then
+  echo "PASS T-no-selfcontam repo friction-log BYPASS-ENV 무변경 (${_repo_bypass_before}->${_repo_bypass_after})"; pass=$((pass+1))
+else
+  echo "FAIL T-no-selfcontam — repo friction-log 자기오염 (${_repo_bypass_before}->${_repo_bypass_after})"; fail=$((fail+1))
+fi
 
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
