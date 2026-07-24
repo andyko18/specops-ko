@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **false-block 9호 — run-verification whitelist subdir 러너 인식 (#238)** — `run-verification.sh` whitelist 가 monorepo 테스트 호출 `cd <subdir> && npx|pnpm|yarn exec <runner>` 형태를 미인식(→`PARTIAL`→실행-근거 게이트 불인정→커밋 deny)해, 외부 완주 1건이 `SPECOPS_GOVERNANCE_BYPASS` 를 9회(67% 동일 사유) 우회하던 실측 단일 병목을 봉합(감사 plugin-evaluation-20260723 처방 #1). `_WHITELIST_PAT` 에 선택적 `cd <상대subdir> &&` 접두 + `npx <bin>`·`pnpm|yarn exec <bin>` 러너형 편입(단일라인 단일따옴표 유지), exec 루프에 `( cd "$dir" && "${rest[@]}" )` 서브셸 직접-exec 분기(no-shell·부모 cwd 비오염·`ec=$?` 불변식 보존). 절대경로(`npx /abs`·`cd /abs`)·트래버설(`../`)·임의 `&&` 체인·옵션주입(`npx --yes`)·bare `pnpm vitest` 는 차단(bin 선두 문자 `[A-Za-z0-9_@]` 제한). 부가: subdir 명령이 PASS 되어 evidence `RUN-VERIFICATION-RESULT` PARTIAL→PASS → #236 implement-면제 경로 도달가능.
+- **세션-env BYPASS 감사추적 + fail-open rc=2 문서화 (#239)** — `pretool-governance.sh` 의 세션-env `SPECOPS_GOVERNANCE_BYPASS` 우회가 friction-log **무기록**으로 allow 되던 감사 공백(상한 3호)을 봉합: `log_friction "BYPASS-ENV" 1 <snippet> 0` 기록 후 allow — **막지 않고 기록만**(공식 탈출구 유지, 5원칙 4 주권), `.specops` 관할 가드로 비-specops repo 월권 방지, `|| true` 로 allow 불변식 보존(`principle`·`offset` 은 `--argjson` 유효 JSON 필수 — 숫자). `CLAUDE.md` fail-open 열거에 `tool_use 이벤트 0건(rc=2)` 케이스 추가(`governance-lib.sh:142 return 2` 실코드 정합, 상한 2호). 테스트 자기오염(기존 T3 가 격리 없이 세션-env BYPASS 실행 → run-all 시 실제 감사로그 오염) 격리 + suite-wide 무오염 회귀 락(`T-no-selfcontam`, flip-test 로 비-vacuous 실증).
+
 ## [1.58.0] — 2026-07-23
 
 ### Changed
