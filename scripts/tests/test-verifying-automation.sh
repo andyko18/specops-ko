@@ -412,6 +412,133 @@ else
 fi
 rm -rf "$TMPDIR"
 
+# ── T-subdir: cd <subdir> && <runner> whitelist + exec (false-block 9호) ──
+# 헬퍼: 임시 FID tasks.md(YAML test_command) 구성 → run-verification 실행 → evidence 검사
+_mk_fid() {  # $1=test_command  → echo FIDDIR
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.specops/FID"
+  # `## 의존 그래프` 헤더 + 행두 ```yaml 펜스 필수 — dag::extract_yaml 전제(리뷰 R2 Critical 대응).
+  #   헤더 없으면 extract_yaml 빈출력 → Step4 grep fallback → 명령 0건 → VERIFY: NO COMMANDS(whitelist 미도달).
+  cat > "$d/.specops/FID/tasks.md" <<YAML
+## 의존 그래프
+
+\`\`\`yaml
+tasks:
+  - id: T1
+    test_command: "$1"
+\`\`\`
+YAML
+  echo "$d"
+}
+# subdir 러너 픽스처(인용부 없음): $D/sub/tests/x.sh 에 exit 코드 스크립트 생성
+_mk_subrunner() {  # $1=FIDDIR $2=exitcode
+  mkdir -p "$1/sub/tests"; printf 'exit %s\n' "$2" > "$1/sub/tests/x.sh"
+}
+
+# T-subdir.a: cd sub && bash tests/x.sh (exit 0) → 실행 + PASS (AC-1, AC-2 정상경로)
+D=$(_mk_fid 'cd sub && bash tests/x.sh'); _mk_subrunner "$D" 0
+out=$(cd "$D" && bash "$RUN" FID 2>&1); ec=$?
+if echo "$out" | grep -q "VERIFY: PASS" && ! echo "$out" | grep -q "SKIP 'cd sub"; then
+  ok "T-subdir.a cd sub && bash 러너 → 실행·PASS"
+else nope "T-subdir.a" "ec=$ec out='$out'"; fi
+rm -rf "$D"
+
+# T-subdir.b: cd sub && bash tests/x.sh (exit 1) → 실행 + FAIL 정직포착 (AC-2 실패경로)
+D=$(_mk_fid 'cd sub && bash tests/x.sh'); _mk_subrunner "$D" 1
+out=$(cd "$D" && bash "$RUN" FID 2>&1); ec=$?
+if echo "$out" | grep -q "VERIFY: FAIL" && [ "$ec" -ne 0 ]; then
+  ok "T-subdir.b cd sub && 실패러너 → FAIL 정직포착"
+else nope "T-subdir.b" "ec=$ec out='$out'"; fi
+rm -rf "$D"
+
+# T-subdir.c: npx/exec 러너형 매칭 (AC-3) — 실제 스크립트의 단일라인 패턴 추출해 대조
+#   Step3 이 _WHITELIST_PAT 를 단일라인 단일따옴표로 유지하므로 sed 추출이 유효(리뷰 Critical#3 대응)
+source_pat() { grep -m1 "^_WHITELIST_PAT=" "$RUN" | sed -E "s/^_WHITELIST_PAT='(.*)'\$/\1/"; }
+PAT=$(source_pat)
+pass_c=1
+# FIX-B(#5): npx/exec 인자에 @ 허용 — bin 은 @scope/pkg 허용하면서 인자 --config=@scope/x 는
+#   SKIP 되던 비대칭 해소. "cd sub && npx vitest --config=@scope/x" 가 매칭돼야 함.
+for c in "cd apps/web && npx vitest run" "pnpm exec jest" "yarn exec mocha" "npx jest --ci" "cd sub && npx vitest --config=@scope/x"; do
+  [[ "$c" =~ $PAT ]] && [[ "$c" != *..* ]] || { pass_c=0; echo "  miss: $c"; }
+done
+[ "$pass_c" = 1 ] && ok "T-subdir.c npx/exec 러너형 5종 매칭(인자 @ 포함)" || nope "T-subdir.c" "PAT 매칭 실패"
+
+# T-subdir.d: 차단 유지 (AC-4) — 트래버설·절대경로·임의체인·비러너·bare
+#   FIX-A(#3+#4): npx/exec bin 토큰 선두 char 를 [A-Za-z0-9_@] 로 제한 →
+#     선두 '/'(절대경로 npx /abs/path)·선두 '-'(옵션주입 npx --yes pkg) 차단.
+pass_d=1
+for c in "cd ../evil && npx vitest" "cd /abs && npx vitest" "foo && bar" "cd sub && rm -rf x" "pnpm vitest" \
+         "npx /abs/path" "cd sub && npx /etc/x" "npx --yes pkg" "pnpm exec -c foo"; do
+  if [[ "$c" =~ $PAT ]] && [[ "$c" != *..* ]]; then pass_d=0; echo "  leak: $c"; fi
+done
+[ "$pass_d" = 1 ] && ok "T-subdir.d 트래버설/절대/임의체인/비러너/bare/npx선두char 차단" || nope "T-subdir.d" "차단 누출"
+
+# T-subdir.e: 기존 통과형 무손상 (AC-R-1)
+pass_e=1
+for c in "pnpm test" "bash scripts/tests/run-all.sh" "pytest tests/foo.py" "go test ./pkg"; do
+  [[ "$c" =~ $PAT ]] && [[ "$c" != *..* ]] || { pass_e=0; echo "  regress: $c"; }
+done
+[ "$pass_e" = 1 ] && ok "T-subdir.e 기존 통과형 무손상" || nope "T-subdir.e" "회귀"
+
+# T-subdir.f: run-verification 루프 내 cwd 비오염 (AC-2 ③) — FIX-C(#2) 재작성.
+#   구버전은 부모 셸 pwd 를 검사했으나 `bash "$RUN"` 은 자식 프로세스라 부모 pwd 는 어떤 구현이든
+#   불변 → 공허(vacuous). 실제 위험은 run-verification **자신의 while 루프 내** cwd 오염이다:
+#   한 명령의 `cd sub` 가 서브셸로 격리되지 않으면 후속 명령의 cwd 를 오염시킨다.
+#   → 2-command tasks.md 로 검증: T1(`cd sub`)이 먼저 실행(pollute 후보), T2 는 pwd 를 파일에 기록.
+#   ★ T2 를 `bash tests/probe.sh` 로 못 쓰는 이유: extract 의 `sort -u`(extract-test-commands.sh:31)가
+#     'bash…' < 'cd…' 로 정렬 → probe 가 cd 보다 **먼저** 실행되어 다시 공허해진다. 그래서 T2 를
+#     'cd' 뒤로 정렬되는 `pytest`(선두 'p')로 두고, PATH 주입 가짜 pytest 가 cwd 와 무관히 실행되며
+#     자신의 pwd 를 기록하게 한다 — 오염 시 pwd 가 $D/sub 로 바뀌어 포착된다.
+D=$(mktemp -d); mkdir -p "$D/.specops/FID" "$D/sub/tests" "$D/bin"
+cat > "$D/.specops/FID/tasks.md" <<YAML
+## 의존 그래프
+
+\`\`\`yaml
+tasks:
+  - id: T1
+    test_command: "cd sub && bash tests/x.sh"
+  - id: T2
+    test_command: "pytest"
+\`\`\`
+YAML
+printf 'exit 0\n' > "$D/sub/tests/x.sh"
+# 가짜 pytest: 실행 위치(pwd)를 파일로 남긴다 — run-verification 루프의 실제 cwd 를 드러냄.
+printf '#!/bin/sh\npwd > "%s/probe-out"\nexit 0\n' "$D" > "$D/bin/pytest"
+chmod +x "$D/bin/pytest"
+expected=$(cd "$D" && pwd)   # pwd 시맨틱 정규화(macOS 심링크 대비) — run-verification 도 동일 경로에서 시작
+(cd "$D" && PATH="$D/bin:$PATH" bash "$RUN" FID >/dev/null 2>&1)
+probe=$(cat "$D/probe-out" 2>/dev/null)
+if [ -n "$probe" ] && [ "$probe" = "$expected" ]; then
+  ok "T-subdir.f run-verification 루프 내 cwd 비오염 (서브셸 exec — 후속 명령 pwd 보존)"
+else
+  nope "T-subdir.f" "probe='$probe' expected='$expected' (cwd 오염 의심)"
+fi
+rm -rf "$D"
+
+# ── T-subdir.g: cd 실패(부재 subdir) 진단이 evidence 출력블록에 캡처됨 (Imp1 — L12 투명성) ──
+#   버그: `2>&1` 가 러너에만 결속되면 `cd` 실패 시 진단이 스크립트 stderr 로 유출 → evidence 출력블록이
+#   빈 채 exit 만 기록(투명성 위반). 그룹 `{ cd && runner; } 2>&1` 로 감싸야 cd 진단까지 캡처된다.
+#   ★ evidence 파일에 단언(테스트 out 아님) — out 은 러너 stderr 를 folding 하므로 버그에도 통과(vacuous).
+#     FIX-D(#6): 앵커를 로케일 불변 'cd:'(셸 빌트인명) 단독으로. 'No such file' 은 LANG 에 따라
+#     번역돼(예: ko_KR '그런 파일이나 디렉터리가 없습니다') non-C 로케일에서 헛디딜 수 있다.
+#     한계 고백: 'cd:' 는 셸 진단 접두라 로케일 불변이나, 셸 구현이 이 접두를 바꾸면 재검토 필요.
+D=$(_mk_fid 'cd nosuchdir && bash tests/x.sh')   # nosuchdir 미생성 → cd 실패
+out=$(cd "$D" && bash "$RUN" FID 2>&1); ec=$?
+ev="$D/.specops/FID/evidence.md"
+if grep -q "cd:" "$ev" 2>/dev/null; then
+  ok "T-subdir.g cd 실패 진단 evidence 캡처 (Imp1 투명성)"
+else nope "T-subdir.g" "ec=$ec evidence='$(cat "$ev" 2>/dev/null)'"; fi
+rm -rf "$D"
+
+# ── T-subdir.h: SKIP 힌트가 새 지원형 광고 (Imp2 — 힌트 불신→BYPASS 도피 차단) ──
+#   비동작 문자열 계약. 힌트가 npx·pnpm|yarn exec·cd subdir 접두·bare 미지원 안내를 담는지 grep 단언.
+hint=$(grep -m1 "WARN: SKIP '\$cmd'" "$RUN")
+pass_h=1
+for token in "npx" "exec" "cd " "bare"; do
+  echo "$hint" | grep -q "$token" || { pass_h=0; echo "  hint 누락: $token"; }
+done
+[ "$pass_h" = 1 ] && ok "T-subdir.h SKIP 힌트 새 지원형 광고 (Imp2)" || nope "T-subdir.h" "hint='$hint'"
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

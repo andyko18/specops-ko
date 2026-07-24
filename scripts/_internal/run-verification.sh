@@ -60,16 +60,24 @@ skipped=0
 #   2. `npm run test:unit` 처럼 `:` 를 포함한 스크립트명도 인자 char-class 밖이라 SKIP.
 #   3. 성격: 보안 경계가 아니라 anti-footgun 이다. 화이트리스트를 통과하면서 아무것도 검증하지 않는
 #      exit-0 스푸핑(`pytest --collect-only` 류)은 차단하지 못한다 (spec §2 · F-3 클래스).
+#   4. npx·(pnpm|yarn) exec 는 **임의 bin** 을 허용한다 — `npx cowsay` 류 비테스트 명령도 exit 0 이면
+#      통과한다(exit-0 스푸핑 = 위 #3 `pytest --collect-only` 동류의 수용 한계, 위협모델=환각이지 침입 아님).
+#      러너명 고정리스트(vitest·jest·ava·uvu·bun test…)로 제한하지 않는 이유: 러너명이 예측 불가라
+#      고정하면 정직한 외부 테스트가 false-block 되는 재발(본 FID 의 존재 이유)을 부른다. bin 선두 char 를
+#      [A-Za-z0-9_@] 로 조인 것(FIX-A)은 절대경로·옵션주입(파괴형)만 축소할 뿐 임의 bin 자체는 여전히 허용.
 # bash 접두: (scripts|tests|test)/ — downstream 표준 테스트 배치 인정 (20260716 trivial dogfood
 #   발견 #3: scripts/ 하드코딩 편향으로 외부 `bash tests/test-x.sh` 가 PARTIAL → 실행-근거 게이트
 #   불인정 → 정직한 외부 완주가 커밋 deny. anti-footgun 성격(L50)이라 상대경로 테스트 디렉토리
 #   확장은 안전 — 절대경로·lib/ 등은 여전히 차단 (T2.h 잠금).
-_WHITELIST_PAT='^(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+(run[[:blank:]]+)?test([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*)$'
+# subdir/러너형: 선택적 `cd <상대subdir> && ` 접두 + `npx <bin>`·`pnpm|yarn exec <bin>` 러너형 인정
+#   (false-block 9호 — monorepo `cd apps/web && npx vitest run`). subdir 첫 문자 '/' 불허(절대경로 차단)
+#   + `*..*` 가드로 트래버설 차단. bare `pnpm|yarn <bin>`(예 `pnpm vitest`)는 미지원 (clarify Q1=(2)).
+_WHITELIST_PAT='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+(run[[:blank:]]+)?test([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
 
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
   if [[ ! "$cmd" =~ $_WHITELIST_PAT ]] || [[ "$cmd" == *..* ]]; then
-    echo "WARN: SKIP '$cmd' — whitelist 미통과 (bash scripts/*.sh · pytest · npm/pnpm/yarn test · go test · cargo test 만 허용). 힌트: '..' 포함 경로는 차단되므로 'go test ./...' 는 미지원 — 개별 패키지 경로를 쓸 것" >&2
+    echo "WARN: SKIP '$cmd' — whitelist 미통과. 허용: bash (scripts|tests)/*.sh · pytest · npm/pnpm/yarn (run) test · go test · cargo test · npx <bin> · pnpm|yarn exec <bin>, 선택적 'cd <상대subdir> && ' 접두. 힌트: bare 'pnpm|yarn <러너>'(예 pnpm vitest)는 미지원 → 'pnpm exec <러너>' 를 쓸 것. '..' 포함 경로·절대경로는 차단(예 'go test ./...' 미지원 — 개별 패키지 경로를 쓸 것)" >&2
     {
       echo "### \`$cmd\`"
       echo '> WARN: SKIP — whitelist 미통과'
@@ -84,8 +92,15 @@ while IFS= read -r cmd; do
   } >> "$EVIDENCE"
   executed=$((executed + 1))
   read -r -a _parts <<< "$cmd"
+  # cd <subdir> && <rest> → 서브셸 직접-exec (no-shell 유지 · 부모 cwd 비오염 · false-block 9호)
+  #   서브셸 `$(…)` 의 exit 가 곧 마지막 명령(runner) 종료코드. subdir 부재면 cd 실패 → 비0 → FAIL 정직포착.
   # bash 러너는 기존대로 bash 로 실행(scripts/*.sh 한정). 그 외 러너는 첫 토큰을 그대로 실행(PATH 조회).
-  if [ "${_parts[0]}" = "bash" ]; then
+  if [[ "$cmd" =~ ^cd[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\&\&[[:blank:]]+(.*)$ ]]; then
+    _sub_dir="${BASH_REMATCH[1]}"; read -r -a _sub_parts <<< "${BASH_REMATCH[2]}"
+    # 그룹 `{ … }` 전체 stderr 캡처 — `2>&1` 를 러너에만 결속하면 cd 실패 진단이
+    #   스크립트 stderr 로 유출되어 evidence 출력블록이 빈 채 exit 만 기록됨(L12 투명성 위반, Imp1).
+    out=$( { cd "$_sub_dir" && "${_sub_parts[@]}"; } 2>&1 )
+  elif [ "${_parts[0]}" = "bash" ]; then
     out=$(bash "${_parts[@]:1}" 2>&1)
   else
     out=$("${_parts[@]}" 2>&1)
