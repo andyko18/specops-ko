@@ -4,7 +4,7 @@
 # 사용: scripts/validate-structure.sh [--json]
 # baseline: 실측 카운트의 단일 출처는 scripts/_internal/.structure-baseline (jsonl) — 본 주석에 수치 비기재(드리프트 방지).
 #           카테고리: skills/<name>/SKILL.md · commands · agents · templates (conductor 없이 chain)
-# 참조: README.md §현재 상태 · specops-ko docs/case-studies/2026-04-21-session-5-design.md §3.1
+# 참조: README.md §현재 상태
 set -u
 
 JSON_MODE=0

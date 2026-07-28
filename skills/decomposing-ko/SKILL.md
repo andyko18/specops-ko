@@ -144,7 +144,7 @@ plan.md 가 Python 테스트 파일 생성 태스크를 포함하는 경우, 다
 
 | 항목 | 규칙 | 강도 |
 |---|---|---|
-| 위치 | `examples/tests/` 또는 downstream 프로젝트 패턴 | 내부 예시 |
+| 위치 | downstream 프로젝트 기존 test 디렉토리 우선, 없으면 `tests/` | 권장 |
 | 명명 | `test_<subject>.py` — underscore | Universal 강제 |
 | exec-bit | 불필요 | Universal 규약 |
 | 헤더 | shebang 불필요 | Universal 규약 |

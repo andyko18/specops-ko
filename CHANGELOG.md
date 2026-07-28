@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Removed
+- **죽은 파일·디렉토리 30건 제거 (Tier 1)** — `examples/` 24 파일(실행 러너 0곳: `run-all.sh` glob 7개·CI shellcheck `find hooks scripts` 모두 밖. 6개는 `scripts/` 정본의 **바이트 동일 복제**, hex 테스트 3건은 부재 정본 `scripts/hexenc.sh` 참조로 `exit 127` **상시 FAIL** 방치 — 러너 밖이라 CI 가 여태 미검출) · `scripts/tests/v0.4-pre/`·`v0.4a/` 4 파일(`run-all.sh:5` 명시 제외, v0.4 시절 측정 스크립트·가이드) · `screens/main.{md,html}` 2 파일(자기참조 외 피참조 0 — `screens/login.*` 는 `test-login-screen.sh` 사용으로 존치). 동반 정리: `examples/` 를 지시하던 문서 3지점(`README.md` 구조 트리 · `templates/test-conventions-python.md` · `skills/decomposing-ko/SKILL.md`)을 `tests/` 기반 표현으로 교체, 저장소에 **존재하지 않는** case-study 파일을 가리키던 참조 5지점 제거(#126 dead-ref 정정의 잔여분), `scripts/tests/run-all.sh:5` 제외 주석에서 삭제된 v0.4 경로 언급 제거(glob 로직 무변경). 존치: `docs/case-studies/` 3건(`CONTRIBUTING.md` 설계 근거 지정) · `scripts/slug.sh`(`brainstorming-ko` 실호출) · dogfood CLI 5종과 그 테스트(Tier 2 — 범위 밖). 검증 스위트 103 suites PASS 무감소. FID 20260728-dead-file-cleanup
+
 ## [1.59.0] — 2026-07-24
 
 ### Fixed

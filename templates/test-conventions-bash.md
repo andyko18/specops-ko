@@ -130,7 +130,6 @@ grep -c '<앵커>' <검사대상파일>   # == 1 이어야 한다
 - `skills/decomposing-ko/SKILL.md` — 본 template 의 소비자 (§테스트 컨벤션 (bash) 섹션에서 참조)
 - `skills/tdd-ko/SKILL.md` — TDD 5 스텝 규약
 - 선례: `scripts/tests/governance/test-rules.sh` — 본 template 의 내부 예시 모델
-- 마찰 출처: `docs/case-studies/2026-04-24-governance-capture-dogfood.md` 외부 리뷰 MINOR 5
 
 ---
 

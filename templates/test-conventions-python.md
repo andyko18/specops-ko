@@ -4,7 +4,7 @@
 
 | 항목 | 규칙 | 강도 |
 |---|---|---|
-| 위치 | `examples/tests/` (예시용) 또는 downstream 프로젝트 기존 test 디렉토리 우선 | 내부 예시 |
+| 위치 | downstream 프로젝트 기존 test 디렉토리 우선, 없으면 `tests/` | 권장 |
 | 명명 | `test_<subject>.py` — underscore (Python 표준, hyphen 아님) | Universal 강제 |
 | exec-bit | 불필요 — pytest가 직접 실행 | Universal 규약 |
 | 헤더 | shebang 불필요 (pytest 직접 실행). `#!/usr/bin/env python3` 추가해도 무방 | Universal 규약 |
@@ -18,7 +18,7 @@
 ## 테스트 실행 명령
 
 ```bash
-pytest examples/tests/test_<subject>.py -v
+pytest tests/test_<subject>.py -v
 ```
 
 ## bash 컨벤션과의 차이점

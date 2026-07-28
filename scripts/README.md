@@ -170,7 +170,6 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 
 - `docs/OSS-ATTRIBUTION.md` — drift 관리 프로토콜
 - `docs/ARCHITECTURE.md` §7
-- `docs/case-studies/2026-04-21-session-5-design.md` §3.1 — validate-structure 상세 설계
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
 ## skip-tracker.sh — SKIP 비율 관측 (advisory)
