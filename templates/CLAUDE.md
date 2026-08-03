@@ -51,10 +51,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 테이블 설계서: `.specops/memory/data-model.md` (DB 사용 시)
 - 화면 목록: `.specops/memory/screens-overview.md` (UI/풀스택/모바일)
 - 테스트 전략: `.specops/memory/test-strategy.md`
+- 프로젝트 컨텍스트: `.specops/memory/project-context.md`
+- 결정 원장: `.specops/memory/decisions.md`
 
 UI 프로젝트인 경우:
 - 디자인 시스템: `DESIGN.md`
-- 화면별 설계: `screens/<name>.md` + `screens/<name>.html`
+- 화면 목록: `.specops/memory/screens-overview.md` (상세 `screens/` 는 `/start-all` Phase 2.5 또는 `/design-screen`)
 
 ## 작업 흐름
 

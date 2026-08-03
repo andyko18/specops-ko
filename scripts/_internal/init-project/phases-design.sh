@@ -88,7 +88,7 @@ _rebuild_screens_table() {
   shift
   local n rows=""
   for n in "$@"; do
-    rows="${rows}| ${n} | ${n} | TODO | [screens/${n}.md](../../screens/${n}.md) | [screens/${n}.html](../../screens/${n}.html) |
+    rows="${rows}| ${n} | ${n} | 예정 — /start-all Phase 2.5 | [screens/${n}.md](../../screens/${n}.md) | [screens/${n}.html](../../screens/${n}.html) |
 "
   done
   ROWS="$rows" awk '
@@ -111,7 +111,8 @@ _rebuild_screens_table() {
 phase_7_screens() {
   case "$PROJECT_KIND" in 1|4|5) ;; *) echo "[Phase 7] screens skip (KIND=${PROJECT_KIND})"; return ;; esac
   echo ""
-  echo "[Phase 7] 초기 화면 목록 (콤마/공백 구분, 비우면 skip):"
+  echo "[Phase 7] 초기 화면 이름 목록 (콤마/공백 구분, 비우면 skip):"
+  echo "  ※ screens/*.{md,html} 껍데기는 만들지 않음 — 본설계는 /start-all Phase 2.5 또는 /design-screen"
   printf "예) home, login, dashboard: "
   local input=""
   read -r input || true
@@ -122,10 +123,9 @@ phase_7_screens() {
     echo "→ 화면 입력 비움. screens-overview.md placeholder 유지."
     return
   fi
-  local IFS=', ' today
+  local IFS=', '
   local -a raw_names=($input) names=()
   IFS=$' \t\n'
-  today=$(date +%Y-%m-%d)
   # path traversal 방어: 영숫자/-/_ 1~64 만 허용
   local n
   for n in "${raw_names[@]}"; do
@@ -140,19 +140,6 @@ phase_7_screens() {
     echo "→ 유효한 화면명 0개. screens-overview.md placeholder 유지."
     return
   fi
-  mkdir -p screens
-  for n in "${names[@]}"; do
-    cp "$PLUGIN/templates/screen.md" "screens/${n}.md"
-    cp "$PLUGIN/templates/screen.html" "screens/${n}.html"
-    _replace_token "screens/${n}.md" "{{name}}" "$n"
-    _replace_token "screens/${n}.md" "{{화면 제목}}" "$n"
-    _replace_token "screens/${n}.md" "{{created}}" "$today"
-    _replace_token "screens/${n}.md" "{{updated}}" "$today"
-    _replace_token "screens/${n}.html" "{{title}}" "$n"
-    _replace_token "screens/${n}.html" "{{화면 제목}}" "$n"
-    # DESIGN.md 팔레트 주입 (Phase 6 시점 Primary 확정분 + 재실행 시 전체) — design-screen.sh 와 공유
-    _inject_design_palette "screens/${n}.html"
-  done
   _rebuild_screens_table .specops/memory/screens-overview.md "${names[@]}"
-  echo "→ screens/ ${#names[@]}개 + .specops/memory/screens-overview.md 작성"
+  echo "→ .specops/memory/screens-overview.md 목록 ${#names[@]}개 기록 (screens/ 파일 미생성 — Phase 2.5 예정)"
 }

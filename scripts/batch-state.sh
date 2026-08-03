@@ -103,7 +103,8 @@ fi
 #      - review-base.sha    : review.diff 격리 base (부재→requesting-code-review 가 HEAD~1 로 silent
 #                             fallback → 직전 FR 변경까지 끌어들여 내용 뭉개짐. layer 2 강제)
 #      - evidence.md        : per-FR verify 산출 (layer 3 존재)
-#      - review-request.md  : per-FR code-review 산출 (layer 3 존재)
+#      - review-request.md 또는 review-skip.md
+#           : per-FR code-review 산출 (layer 3) · lite+단일태스크 skip 시 review-skip.md 허용
 #    를 개별 생성해야 한다. 하나라도 없으면 verify/review 가 뭉개졌거나 미실행 → batch PR 전 차단.
 #    MERGED(타 사이클서 이미 shipped)는 batch 전용 review-base.sha 미보유 가능 → 제외(IMPL_DONE 한정).
 #    FID = 첫 두 비어있지 않은 필드 중 둘째.
@@ -123,10 +124,14 @@ if [ -n "$done_pairs" ]; then
     [ -z "$fr_id" ] && continue
     # FID 미확정 placeholder 는 미완 검사(3)가 이미 잡음 — 여기선 skip
     case "$fid" in ''|'—'|'-'|'TBD'|'tbd') continue ;; esac
-    for art in review-base.sha evidence.md review-request.md; do
+    for art in review-base.sha evidence.md; do
       [ -f "$SPECOPS_ROOT/$fid/$art" ] || \
         missing_artifacts="${missing_artifacts}  - ${fr_id} (${fid}): ${art} 없음"$'\n'
     done
+    # review-request.md 또는 lite skip 산출 review-skip.md 중 하나 필수
+    if [ ! -f "$SPECOPS_ROOT/$fid/review-request.md" ] && [ ! -f "$SPECOPS_ROOT/$fid/review-skip.md" ]; then
+      missing_artifacts="${missing_artifacts}  - ${fr_id} (${fid}): review-request.md|review-skip.md 없음"$'\n'
+    fi
   done <<EOF
 $done_pairs
 EOF

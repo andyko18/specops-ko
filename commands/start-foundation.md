@@ -19,9 +19,10 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 ## Process
 
+0. **init 원장 우선** — `.specops/memory/project-context.md`·`decisions.md`가 있으면 clarifying이 이미 확정된 스택·인증·배포를 **재질문하지 않는다**(clarifying-ko 결정 원장 HARD). init 없이 진입했고 architecture placeholder만 있으면 기존 BLOCKING 게이트 유지.
 1. `specops-ko:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
 2. specifying-ko 가 foundation 분기 감지 → Step 5.5 화면 루프 skip → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
-3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
+3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트 — 원장에 없으면) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
 
 ## 사용 예
 

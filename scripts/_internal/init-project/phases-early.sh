@@ -104,8 +104,24 @@ _phase_4_fallback_singleshot() {
   [ -z "$PRD_F6" ] && { printf "6. M3: "; read -r PRD_F6 </dev/tty || true; }
 }
 
-# PRD 6 필드 수집: numbered list 1차 → < 4 시 단답 fallback (M1: 3 함수 분리)
+# PRD 6 필드 수집: Phase 0 확정 파일 → numbered list stdin → < 4 시 단답 fallback
 _phase_4_collect() {
+  # Phase 0 확정값 강제 공급 (.specops/.init-prd-fields — 줄당 1필드, 6줄)
+  if [ -f .specops/.init-prd-fields ]; then
+    echo ""
+    echo "[Phase 4] Phase 0 확정 PRD 6필드 사용 (.specops/.init-prd-fields) — 재입력 생략"
+    PRD_F1=$(sed -n '1p' .specops/.init-prd-fields)
+    PRD_F2=$(sed -n '2p' .specops/.init-prd-fields)
+    PRD_F3=$(sed -n '3p' .specops/.init-prd-fields)
+    PRD_F4=$(sed -n '4p' .specops/.init-prd-fields)
+    PRD_F5=$(sed -n '5p' .specops/.init-prd-fields)
+    PRD_F6=$(sed -n '6p' .specops/.init-prd-fields)
+    rm -f .specops/.init-prd-fields
+    if [ "$(_phase_4_count_filled)" -ge 4 ]; then
+      return
+    fi
+    echo "→ Phase 0 파일 필드 부족 — stdin/수동으로 보완" >&2
+  fi
   echo ""
   echo "[Phase 4] PRD — 다음 6 필드를 numbered list 로 입력 (빈 줄로 종료):"
   echo "  1. 한 줄 설명: <텍스트>"
@@ -114,6 +130,7 @@ _phase_4_collect() {
   echo "  4. M1: <텍스트>"
   echo "  5. M2: <텍스트>"
   echo "  6. M3: <텍스트>"
+  echo "  (Phase 0 확정분이 stdin으로 오면 재입력 불필요)"
   _phase_4_parse_numbered_list
   [ "$(_phase_4_count_filled)" -lt 4 ] && _phase_4_fallback_singleshot
 }

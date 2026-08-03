@@ -202,6 +202,15 @@ EOF
   local active label
   active=$(_count_active)
   label=$(_kind_label "$PROJECT_KIND")
+  # 결정 원장 골격 (enrich가 채움 — bash에서 존재만 보장)
+  local ledger
+  for ledger in project-context.md decisions.md; do
+    if [ ! -f ".specops/memory/${ledger}" ]; then
+      cp "$PLUGIN/templates/${ledger}" ".specops/memory/${ledger}"
+      _replace_token ".specops/memory/${ledger}" "<PROJECT_NAME>" "$PROJECT_NAME"
+      echo "→ .specops/memory/${ledger} 골격 생성"
+    fi
+  done
   # git add — 활성 산출물 + screens + .specops/.gitignore + session-progress.md
   local f
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
@@ -216,10 +225,17 @@ EOF
     echo "→ commit 대상 없음 (skip 정책으로 모두 보존된 듯)"
     return
   fi
-  git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 13종 중 ${active}종)"
-  echo "→ git commit 완료 (${label} · ${active}/13)"
+  # 단일 커밋 계약: Phase 11 enrich 후 1회 커밋이 기본.
+  # SPECOPS_INIT_COMMIT_NOW=1 이면 bash 단계에서 즉시 커밋 (테스트·enrich 생략 경로).
+  if [ "${SPECOPS_INIT_COMMIT_NOW:-0}" = "1" ]; then
+    git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 13종 중 ${active}종)"
+    echo "→ git commit 완료 (${label} · ${active}/13) [SPECOPS_INIT_COMMIT_NOW=1]"
+  else
+    echo "→ 스테이징 완료 (${label} · ${active}/13). Phase 11 enrich 후 단일 커밋하세요."
+    echo "  (즉시 커밋: SPECOPS_INIT_COMMIT_NOW=1)"
+  fi
   echo ""
-  echo "초기화 완료. 활성 산출물 ${active}종."
-  echo "이제 /start \"<첫 기능>\" 으로 lifecycle 진입하세요."
-  echo "  (공통 인프라 먼저면 /start-foundation · 화면 채우기 /design-screens · 인터페이스 /design-interfaces · 현황 /status)"
+  echo "초기화(bash) 완료. 활성 산출물 ${active}종."
+  echo "이어서 Phase 11 LLM 보강 → 단일 커밋 후 /start \"<첫 기능>\" 으로 lifecycle 진입하세요."
+  echo "  (공통 인프라 먼저면 /start-foundation · 화면은 /start-all Phase 2.5 · 현황 /status)"
 }

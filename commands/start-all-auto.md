@@ -32,11 +32,11 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    <!-- auto: true -->
    <FR 원문>
    ```
-   - `entry: batch` → specifying-ko batch 분기 (git-branch-create skip, `**§batch**` 라벨)
+   - `entry: batch` → specifying-ko batch 분기 (git-branch-create skip, Step 5.5 SKIP, `**§batch**` 라벨). 화면은 Phase 2.5 통합.
    - `auto: true` (셋째 줄) → specifying-ko batch 분기가 **추가 감지** → spec.md §1 에 `**§auto**: true` 동시 기재
    - 결과: 각 spec.md §1 = `**§유형**` + `**§batch**: <id>` + `**§auto**: true` → 다운스트림 6개 skill 무변경으로 §auto 자동통과 전파
-4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). 사용자 정지 없음.
-5. **Phase 2 자동통과** — 일괄 리뷰 게이트("전체 구현 진행? [y/n]")를 자동 통과(start-all.md Phase 2 §auto 분기) → Phase 3 직행.
+4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). **단** `.specops/memory/decisions.md` 확정 주제는 ASSUMED 재질문도 금지(원장 우선). 사용자 정지 없음.
+5. **Phase 2 자동통과** — cross-FR 계약 요약은 수행하되 일괄 리뷰 게이트("전체 구현 진행? [y/n]")를 자동 통과(start-all.md Phase 2 §auto 분기) → Phase 2.5 직행.
 6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 자동 수집·제시:
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계

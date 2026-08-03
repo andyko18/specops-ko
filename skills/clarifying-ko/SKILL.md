@@ -64,14 +64,25 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 
 > 근거: 실측 최근 8 FID 중 7개 BLOCKING≈0 형식 통과. 경량 모드는 비용 절감하되 F-11(DESIRABLE 발굴) 보존.
 
+## 결정 원장 소비 (HARD — 재질문 금지)
+
+`.specops/memory/decisions.md` 가 존재하고 결정 표에 **확정값**이 있는 주제(스택·인증·배포·데이터 경계·UI 유무 등)는:
+
+- BLOCKING 재질문 **금지**
+- §열린질문으로 동일 주제를 다시 올리는 것 **금지**
+- `status: ASSUMED` 우회 재질문 **금지** (이미 확정된 값을 가정으로 덮지 않음)
+- **예외**: 현재 spec과 표의 확정값이 **충돌**할 때만 1회 재확인 → RESOLVED 후 표 행 upsert(`출처=clarify <FID>`)
+
+`.specops/memory/project-context.md` §2 스택·제약은 위 표의 요약이다 — 표에 행이 있으면 컨텍스트만으로 재묻지 않는다.
+
 ## 모호성 탐지 기준
 
 **BLOCKING** (해소 없이 plan 진행 불가):
 - 핵심 동작의 입출력이 결정 안 됨
-- 아키텍처 선택지가 미확정 (저장소·프레임워크·프로토콜)
+- 아키텍처 선택지가 미확정 (저장소·프레임워크·프로토콜) — **단** `decisions.md`에 동일 주제가 확정되어 있으면 본 항목에서 제외
 - AC Given/When/Then 중 필수 분기가 비어 있음
 - 스펙이 두 가지로 해석되어 **근본적으로 다른 구현**을 초래
-- **§유형=`foundation`** 이고 `.specops/memory/frontend-architecture.md` 또는 `.specops/memory/backend-architecture.md` 에 `<...>` 형태의 미해소 placeholder 가 있으면 **기술 프레임워크 확정을 BLOCKING 질문으로 강제** — RESOLVED 전 planning-ko 진입 차단
+- **§유형=`foundation`** 이고 `.specops/memory/frontend-architecture.md` 또는 `.specops/memory/backend-architecture.md` 에 `<...>` 형태의 미해소 placeholder 가 있으면 **기술 프레임워크 확정을 BLOCKING 질문으로 강제** — RESOLVED 전 planning-ko 진입 차단. **단** `decisions.md`에 프론트/백엔드 스택이 이미 확정되어 있으면 placeholder가 남아 있어도 BLOCKING 재질문 금지(원장 우선 — init이 채운 값을 신뢰). placeholder와 원장이 충돌할 때만 1회 재확인
 
 **DESIRABLE** (가정으로 진행 가능):
 - UI 세부 (색상·버튼 텍스트)
@@ -84,6 +95,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - **BLOCKING**: 한 번에 한 질문, **객관식 선호**. 답변 결과가 다음 질문에 영향을 주므로 묶지 않음
 - **DESIRABLE**: 주제가 동질·상호 독립이면 최대 3건 묶음 허용. 답변 간 의존 발생 시 즉시 개별 모드로 전환
 - 질문은 **코드·구현이 아니라 의도**를 물음. "어느 라이브러리?" 대신 "어느 조건에 최적화할까요?"
+- RESOLVED된 아키텍처·스택·인증·배포 결정은 `.specops/memory/decisions.md`에 행 upsert (후속 FR/foundation이 재묻지 않도록)
 
 ## 예시
 

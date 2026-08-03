@@ -18,10 +18,10 @@ t() { # $1=id $2=desc $3=ERE pattern $4=file
 }
 # AC-1 Phase 11 정의
 t T1.a "Phase 11 섹션 존재"        'Phase 11'                                        "$CMD"
-t T1.b "그룹① 제품"                '제품.*(PRD|requirements)'                         "$CMD"
-t T1.c "그룹② 아키텍처"            '아키텍처.*(architecture|api-spec)'                "$CMD"
-t T1.d "그룹③ 운영"                '운영.*(test-strategy|CLAUDE|README)'              "$CMD"
-t T1.e "보강분 재커밋"              'chore\(init\): Phase 11 LLM 보강'                 "$CMD"
+t T1.b "깊게 제품 requirements"    'requirements\.md.*M1|깊게.*(requirements)'         "$CMD"
+t T1.c "깊게 아키텍처 api/data"    'api-spec\.md.*data-model|깊게.*(api-spec)'         "$CMD"
+t T1.d "얕게 운영 skip"            '얕게/스킵|constitution\.md.*test-strategy'         "$CMD"
+t T1.e "단일 커밋"                  '부트스트랩\+enrich|단일 커밋'                       "$CMD"
 # AC-2 PRD 초안 합성
 t T2.a "PRD 6필드 초안 합성"        '6필드 초안'                                       "$CMD"
 t T2.b "근거문서 부재 fallback"     '(메모 부재|셋 다 부재).*(수동|현행)'               "$CMD"   # 20260716 3단 탐색 진화 수용
@@ -47,7 +47,7 @@ t T9.c "e2e V21 placeholder 스캔"   'V21'                                     
 # T11 — Phase 11 v2 품질 계약 (FID 20260710-init-p11-quality · AC-1~AC-7)
 # AC-1 인터뷰 스텝
 t T11.a "Phase 11.5 인터뷰 스텝"     'Phase 11\.5'                                    "$CMD"
-t T11.b "인터뷰 상한 (그룹5·총15)"   '그룹당 최대 5.*총 최대 15|그룹당 5문항.*총 15문항' "$CMD"
+t T11.b "인터뷰 상한 (총≤5)"         '총 최대 5문항|최대 5문항'                         "$CMD"
 t T11.c "모름/나중에 선택지 의무"    '모름/나중에'                                     "$CMD"
 t T11.d "근거 4원 — 인터뷰 응답 편입" '④.*인터뷰 응답|인터뷰 응답.*④'                  "$CMD"
 # AC-7 질문 선정 우선순위
@@ -74,6 +74,8 @@ t T11.p "M1 FR 분해 필수"           '첫 마일스톤.*FR 분해|M1.*FR 분�
 t T11.q "다이제스트 재실행 갱신 규칙"  '기존 섹션.*전건 갱신|중복 섹션 append 금지' "$CMD"
 # AC (리뷰 fix 2) — V21 판정에 다이제스트 존재 assertion 배선 (bash 블록 grep 명령만 매칭)
 t T11.r "V21 다이제스트 존재 검증 배선" 'grep.*§보강 가정 다이제스트' "$E2E_SKILL"
+t T11.s "결정 원장 기록"            'decisions\.md|project-context\.md'               "$CMD"
+t T11.t "단일 승인 게이트"          '단일 승인 게이트|1회.*요약 제시'                   "$CMD"
 
 # T10 — V21 스캔 규약 표기 allowlist (scan-enrich-placeholders.sh 가 SoT)
 # 배경: V21 원 regex 가 `.specops/<FID>` 류 규약 표기를 검출 → 정직 보강 + 정직 스캔 = 항상 FAIL.
