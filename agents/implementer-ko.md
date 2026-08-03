@@ -54,8 +54,9 @@ tools: Read, Write, Edit, Grep, Glob, Bash
    - 본 에이전트 작업: `git add <whitelist 파일>` 만 — 작업 트리·인덱스 준비
    - **부모(implementing-ko)에게 commit 메시지 제안만 반환**:
      ```
-     proposed_commit_message: feat(<scope>): <무엇을>
+     proposed_commit_message: feat(<scope>): <무엇을> (T# 또는 Task: T# 포함 필수 — R-1 receipt 추론)
      <왜>
+     Task: T#
      관련 AC: AC-N
      관련 FID: <FID>
      Constraint: <제약>

@@ -174,6 +174,23 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.c (out='$out' err_lines=$err_lines exit=$exit_code)"
 fi
 
+# --- T5.d: get_task_outputs (P0-2 task receipt) ---
+out=$(dag::get_task_outputs "$yaml" "T1" 2>/tmp/b1_stderr)
+err_lines=$(grep -c . /tmp/b1_stderr || true)
+if [ "$out" = "src/foo.sh" ] && [ "$err_lines" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.d get_task_outputs T1 → stdout 1줄"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.d (out='$out' err_lines=$err_lines)"
+fi
+out=$(dag::get_task_outputs "$yaml" "Tnoexist" 2>/tmp/b1_stderr)
+exit_code=$?
+err_lines=$(grep -c . /tmp/b1_stderr || true)
+if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.e get_task_outputs 미존재 → warn+exit0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.e (out='$out' err_lines=$err_lines exit=$exit_code)"
+fi
+
 # --- T6: find_ready (다단계 wave — find_ready 신설 함수) ---
 # 기반 fixture: 05-diamond (T1·T2 leaf, T3 depends T1, T4 depends T2)
 #              07-three-wave-chain (T1·T2 leaf, T3·T4 wave2, T5 wave3)

@@ -243,6 +243,11 @@ if [ -n "$violation" ]; then
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
 $_anchor_hint
 
+implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
+   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   로 receipt를 남기고, 커밋 메시지에 T#/Task: T# 를 넣으면 FID 전체 verify 없이 열릴 수 있습니다
+   (staged ⊆ task outputs, receipt 이후 코드 변경 없음).
+
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
   jq -nc --arg r "$reason" \

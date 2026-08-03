@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # specops-ko — DAG 파서 (Sourced library)
 #
-# 6 함수 namespace:
+# 7 함수 namespace:
 #   dag::extract_yaml      <tasks.md>                        — `## 의존 그래프` 섹션의 YAML fenced block stdout
 #   dag::list_leaves       <yaml-string>                     — depends_on=[] 인 task id (newline 구분)
 #   dag::outputs_disjoint  <yaml-string> <id1> <id2>         — id1·id2 outputs 교집합 0이면 exit 0
 #   dag::find_independent_batch <yaml-string>                — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
 #   dag::get_task_test_command  <yaml-string> <task-id>      — task 의 test_command 필드 (없으면 빈 + exit 0)  [Wave 2 U2]
+#   dag::get_task_outputs       <yaml-string> <task-id>      — task 의 outputs 필드 (newline 구분, 없으면 빈 + exit 0)
 #   dag::find_ready        <yaml-string> [done-id...]        — done 집합 기반 ready frontier (다단계 wave 지원)
 #
 # 의존성: python3 + pyyaml (기존 is-hook-enabled.sh, is-rule-enabled.sh와 동일 인프라)
@@ -193,6 +194,36 @@ try:
     sys.exit(0)
 except Exception as e:
     print(f"warn: dag::get_task_test_command 파싱 실패 ({e}) — fallback", file=sys.stderr)
+    sys.exit(0)
+PYEOF
+}
+
+# dag::get_task_outputs <yaml-string> <task-id>
+# task 의 outputs 목록을 newline 구분 stdout (P0-2 task receipt).
+# 미기재·미존재·파싱실패는 stderr warn 1줄 + 빈 stdout + exit 0.
+dag::get_task_outputs() {
+  local yaml="$1"
+  local task_id="$2"
+  __dag_check_python || return 1
+  YAML_IN="$yaml" python3 - "$task_id" << 'PYEOF'
+import os, sys, yaml
+task_id = sys.argv[1]
+try:
+    data = yaml.safe_load(os.environ.get("YAML_IN", ""))
+    for task in (data.get("tasks", []) if data else []):
+        if task.get("id") == task_id:
+            outs = task.get("outputs") or []
+            if isinstance(outs, list) and outs:
+                for p in outs:
+                    if isinstance(p, str) and p:
+                        print(p)
+            else:
+                print(f"warn: task {task_id} outputs 미기재 — fallback", file=sys.stderr)
+            sys.exit(0)
+    print(f"warn: task {task_id} 미존재 — fallback", file=sys.stderr)
+    sys.exit(0)
+except Exception as e:
+    print(f"warn: dag::get_task_outputs 파싱 실패 ({e}) — fallback", file=sys.stderr)
     sys.exit(0)
 PYEOF
 }
