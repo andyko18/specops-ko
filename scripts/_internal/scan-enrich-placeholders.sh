@@ -13,7 +13,10 @@
 set -u
 [ $# -ge 1 ] || { echo "Usage: $0 <file...>" >&2; exit 2; }
 
-out=$(grep -HnE '<[A-Za-z가-힣][^>]{0,40}>' "$@" 2>/dev/null \
+# 문자 클래스 가-힣 금지: GNU grep + LC_ALL=C 에서 "Invalid collation character"
+# → 파이프 전체가 비어 CI(T10.a/c) false-FAIL. ASCII·UTF-8 바이트 안전 패턴 사용.
+_PH='<([A-Za-z]|[^[:space:][:cntrl:]/<>])[^>]{0,40}>'
+out=$(grep -HnE "$_PH" "$@" 2>/dev/null \
   | grep -v '미확정 — 근거 필요' \
   | sed -e 's|\.specops/<FID>|.specops/FID|g' \
         -e 's|screens/<name>|screens/name|g' \
@@ -25,7 +28,7 @@ out=$(grep -HnE '<[A-Za-z가-힣][^>]{0,40}>' "$@" 2>/dev/null \
         -e 's|<feature>/|feature/|g' \
         -e 's|"<UI 기능>"|"UI-기능"|g' \
         -e 's|"<첫 기능>"|"첫-기능"|g' \
-  | grep -E '<[A-Za-z가-힣][^>]{0,40}>')
+  | grep -E "$_PH")
 
 [ -z "$out" ] && exit 0
 printf '%s\n' "$out"
