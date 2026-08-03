@@ -61,7 +61,7 @@ printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > 
 bash "$SCRIPT" "$TMP/b/.specops/batch-y" "$TMP/b/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0 (산출물·진행기록 존재)" || nope "T2.a clean" "exit=$code (기대 0)"
 
-# ── fixture B1b: review-skip.md 로 review-request 대체 (lite skip 경로) ──
+# ── fixture B1b: review-skip.md 로 review-request 대체 (lite+단일태스크 메타 완비) ──
 mkdir -p "$TMP/b1b/.specops/batch-y1b" "$TMP/b1b/.specops/20260101-skip"
 cat > "$TMP/b1b/.specops/batch-y1b/queue.md" <<'EOF'
 | FR-ID | FID | FR 설명(1줄) | Status |
@@ -71,10 +71,109 @@ EOF
 : > "$TMP/b1b/.specops/20260101-skip/review-base.sha"
 : > "$TMP/b1b/.specops/20260101-skip/evidence.md"
 echo "lite+단일태스크+Phase C PASS" > "$TMP/b1b/.specops/20260101-skip/review-skip.md"
+printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+  > "$TMP/b1b/.specops/20260101-skip/risk-profile.json"
+cat > "$TMP/b1b/.specops/20260101-skip/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+```
+EOF
 printf '## 20260101-skip\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1b/.specops/session-progress.md"
 printf '| FR-1 | skip | M1 | must | s | f |\n' > "$TMP/b1b/req.md"
 bash "$SCRIPT" "$TMP/b1b/.specops/batch-y1b" "$TMP/b1b/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && ok "T2.a2 review-skip.md 대체 — exit 0" || nope "T2.a2 review-skip" "exit=$code (기대 0)"
+
+# ── fixture B1c: review-skip + effective=standard → 무효 ──
+mkdir -p "$TMP/b1c/.specops/batch-y1c" "$TMP/b1c/.specops/20260101-std"
+cat > "$TMP/b1c/.specops/batch-y1c/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-std | one | IMPL_DONE |
+EOF
+: > "$TMP/b1c/.specops/20260101-std/review-base.sha"
+: > "$TMP/b1c/.specops/20260101-std/evidence.md"
+echo "lite+단일태스크+Phase C PASS" > "$TMP/b1c/.specops/20260101-std/review-skip.md"
+printf '{"effective":"standard","computed":"standard","mode":"shadow"}\n' \
+  > "$TMP/b1c/.specops/20260101-std/risk-profile.json"
+cat > "$TMP/b1c/.specops/20260101-std/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+```
+EOF
+printf '## 20260101-std\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1c/.specops/session-progress.md"
+printf '| FR-1 | std | M1 | must | s | f |\n' > "$TMP/b1c/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1c/.specops/batch-y1c" "$TMP/b1c/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -q "lite 아님"; then
+  ok "T2.a3 review-skip + standard — 차단"
+else
+  nope "T2.a3 standard skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B1d: review-skip + 태스크 2개 → 무효 ──
+mkdir -p "$TMP/b1d/.specops/batch-y1d" "$TMP/b1d/.specops/20260101-multi"
+cat > "$TMP/b1d/.specops/batch-y1d/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-multi | one | IMPL_DONE |
+EOF
+: > "$TMP/b1d/.specops/20260101-multi/review-base.sha"
+: > "$TMP/b1d/.specops/20260101-multi/evidence.md"
+echo "lite+단일태스크+Phase C PASS" > "$TMP/b1d/.specops/20260101-multi/review-skip.md"
+printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+  > "$TMP/b1d/.specops/20260101-multi/risk-profile.json"
+cat > "$TMP/b1d/.specops/20260101-multi/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+  - id: T2
+    deps: [T1]
+```
+EOF
+printf '## 20260101-multi\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1d/.specops/session-progress.md"
+printf '| FR-1 | multi | M1 | must | s | f |\n' > "$TMP/b1d/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1d/.specops/batch-y1d" "$TMP/b1d/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -q "태스크 수"; then
+  ok "T2.a4 review-skip + 멀티태스크 — 차단"
+else
+  nope "T2.a4 multi skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B1e: review-skip 사유 공백 → 무효 ──
+mkdir -p "$TMP/b1e/.specops/batch-y1e" "$TMP/b1e/.specops/20260101-empty"
+cat > "$TMP/b1e/.specops/batch-y1e/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-empty | one | IMPL_DONE |
+EOF
+: > "$TMP/b1e/.specops/20260101-empty/review-base.sha"
+: > "$TMP/b1e/.specops/20260101-empty/evidence.md"
+printf '   \n' > "$TMP/b1e/.specops/20260101-empty/review-skip.md"
+printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+  > "$TMP/b1e/.specops/20260101-empty/risk-profile.json"
+cat > "$TMP/b1e/.specops/20260101-empty/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+```
+EOF
+printf '## 20260101-empty\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1e/.specops/session-progress.md"
+printf '| FR-1 | empty | M1 | must | s | f |\n' > "$TMP/b1e/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1e/.specops/batch-y1e" "$TMP/b1e/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -q "사유 비어"; then
+  ok "T2.a5 review-skip 공백 사유 — 차단"
+else
+  nope "T2.a5 empty skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
 
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
@@ -266,6 +365,35 @@ if [ "$code" -eq 1 ] && echo "$out" | grep -q "산출물 누락"; then
   ok "T-gate.b 산출물 3종 부재 → 차단"
 else
   nope "T-gate.b 산출물 부재 미차단" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── T-gate.b2: review-skip 남용(standard) → --gate 차단 ──
+mkdir -p "$TMP/g2b/.specops/batch-p" "$TMP/g2b/.specops/20260721-skipbad"
+cat > "$TMP/g2b/.specops/batch-p/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-4 | 20260721-skipbad | 로그인 | IMPL_DONE |
+EOF
+printf '| FR-4 | a | M1 | must | s | f |\n' > "$TMP/g2b/req.md"
+: > "$TMP/g2b/.specops/20260721-skipbad/review-base.sha"
+: > "$TMP/g2b/.specops/20260721-skipbad/evidence.md"
+echo "claimed lite skip" > "$TMP/g2b/.specops/20260721-skipbad/review-skip.md"
+printf '{"effective":"standard","computed":"standard","mode":"shadow"}\n' \
+  > "$TMP/g2b/.specops/20260721-skipbad/risk-profile.json"
+cat > "$TMP/g2b/.specops/20260721-skipbad/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+```
+EOF
+_mk_progress "$TMP/g2b" 20260721-skipbad
+out=$(cd "$TMP/g2b" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효"; then
+  ok "T-gate.b2 review-skip 남용 → 게이트 차단"
+else
+  nope "T-gate.b2 skip 남용 미차단" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
 # ── T-gate.c ★ test1 실물 케이스: 라벨이 DONE(화이트리스트 밖) → 차단 ──
