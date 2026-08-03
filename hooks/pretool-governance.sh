@@ -254,4 +254,21 @@ implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
 fi
+
+# ── P0-3 RELEASE_READY warn-only (R-2 / gh pr create 전용) ──────────────────
+# hard deny 금지 — 미충족이어도 allow. stderr + friction-log 에만 남긴다.
+# R-1·docs-only·BYPASS·batch hard gate·verify lookback 은 위쪽에서 이미 처리됨.
+if printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
+  _rr_fid="${fid:-}"
+  [ -n "$_rr_fid" ] || _rr_fid=$(detect_fid 2>/dev/null || echo "")
+  if [ -n "$_rr_fid" ] && [ -f "$plugin_root/scripts/_internal/release-ready.sh" ]; then
+    _rr_out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$_rr_fid" 2>&1)
+    _rr_rc=$?
+    if [ "$_rr_rc" -eq 1 ]; then
+      echo "RELEASE_READY warn (PR 차단 아님): $_rr_out" >&2
+      log_friction "$_rr_fid" "RELEASE_READY" 1 "$(printf '%s' "$_rr_out" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+    fi
+  fi
+fi
+
 allow

@@ -213,6 +213,15 @@ bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --fa
 
 `run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
 
+## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3, warn-only)
+
+```bash
+bash scripts/_internal/release-ready.sh <FID>
+# 0=READY · 1=NOT_READY · 2=UNKNOWN(legacy/fail-open)
+```
+
+verify(`verification-state` PASS) · review-audit · security/integration/performance(evidence PASS|SKIP) · reconcile(DESYNC 없음) · Critical/High 휴리스틱을 AND로 합성합니다. `pretool-governance`는 `gh pr create` 시 미충족이어도 **hard deny 하지 않고** stderr + friction-log에만 `RELEASE_READY` 경고를 남깁니다.
+
 ## record-task-receipt.sh / check-task-receipt.sh — 태스크 단위 커밋 게이트 (P0-2)
 
 ```bash
