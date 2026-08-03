@@ -213,6 +213,15 @@ bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --fa
 
 `run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
 
+## risk-profile.sh — 위험 프로파일 shadow 분류 (P1)
+
+```bash
+bash scripts/_internal/risk-profile.sh compute <FID> [--floor standard|strict]
+bash scripts/_internal/risk-profile.sh show <FID>
+```
+
+`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다. strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·병렬 batch·cross-service)가 있으면 라인 수와 무관하게 strict입니다. `mode=shadow`에서는 절차를 축소하지 않으며, TDD·verify·receipt는 면제되지 않습니다. 사용자/ENV floor는 상향만 가능합니다.
+
 ## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3, warn-only)
 
 ```bash
