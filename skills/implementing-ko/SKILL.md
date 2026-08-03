@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.47.2
+specops_version: 1.59.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
