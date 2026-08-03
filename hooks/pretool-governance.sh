@@ -57,6 +57,7 @@ if [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ]; then
   if [ -d ".specops" ]; then
     _bypass_fid=$(detect_fid 2>/dev/null || echo "")
     log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 2>/dev/null || true
+    _record_bypass_metric "$_bypass_fid"
   fi
   allow
 fi
@@ -147,7 +148,14 @@ if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_
       '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
     exit 0
   fi
-  printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" && allow
+  if printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]"; then
+    # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
+    if [ -d ".specops" ]; then
+      _bypass_fid=$(detect_fid 2>/dev/null || echo "")
+      _record_bypass_metric "$_bypass_fid"
+    fi
+    allow
+  fi
   reason="SPECOPS_GOVERNANCE_BYPASS 인라인 우회에는 사유 병기가 필수입니다 (friction-log 감사 기록에 명령 원문째 남습니다).
 형식: SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>
 우회 전 정직한 해법 우선: bash scripts/_internal/run-verification.sh <FID> 를 이 세션에서 실행하면 우회 없이 열립니다."

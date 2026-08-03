@@ -105,20 +105,40 @@ else
 fi
 rm -rf "$TMPDIR"
 
-# ── T2.c run: 명령 추출 0건 → 'VERIFY: NO COMMANDS' exit 0 ──
+# ── T2.c run: 명령 추출 0건 → NOT_RUN + non-zero (PASS 금지) ──
 TMPDIR=$(mktemp -d)
-mkdir -p "$TMPDIR/.specops/fid-test"
-echo "no commands here" > "$TMPDIR/.specops/fid-test/tasks.md"
-(cd "$TMPDIR" && out=$(bash "$RUN" fid-test 2>&1); ec=$?
- if [ "$ec" -eq 0 ] && echo "$out" | grep -q "VERIFY: NO COMMANDS"; then
+mkdir -p "$TMPDIR/.specops/20260803-no-commands"
+echo "no commands here" > "$TMPDIR/.specops/20260803-no-commands/tasks.md"
+(cd "$TMPDIR" && out=$(bash "$RUN" 20260803-no-commands 2>&1); ec=$?
+ state=$(bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260803-no-commands)
+ if [ "$ec" -ne 0 ] && echo "$out" | grep -q "VERIFY: NOT_RUN" && [ "$state" = "NOT_RUN" ]; then
    echo "OK"
  else
-   echo "FAIL ec=$ec out='$out'"
+   echo "FAIL ec=$ec state=$state out='$out'"
  fi) > "$TMPDIR/result"
 if grep -q "^OK$" "$TMPDIR/result"; then
-  ok "T2.c run → 명령 0건 'VERIFY: NO COMMANDS' exit 0"
+  ok "T2.c run → 명령 0건 NOT_RUN + non-zero"
 else
   nope "T2.c" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.c2 PASS 실행은 상태 SoT와 verify 계측을 함께 남긴다 ──
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/20260803-instrumented" "$TMPDIR/scripts/tests"
+cat > "$TMPDIR/.specops/20260803-instrumented/tasks.md" <<'EOF'
+- [ ] **스텝 4**: 실행: `bash scripts/tests/dummy-pass.sh`
+EOF
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPDIR/scripts/tests/dummy-pass.sh"
+chmod +x "$TMPDIR/scripts/tests/dummy-pass.sh"
+(cd "$TMPDIR" && bash "$RUN" 20260803-instrumented >/dev/null 2>&1)
+state=$(cd "$TMPDIR" && bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260803-instrumented)
+if [ "$state" = "PASS" ] \
+   && jq -e 'select(.phase=="verify" and .verdict=="PASS" and .wall_ms >= 0)' \
+      "$TMPDIR/.specops/20260803-instrumented/metrics.jsonl" >/dev/null 2>&1; then
+  ok "T2.c2 PASS 상태·verify 계측 동시 기록"
+else
+  nope "T2.c2" "state=$state metric=$(cat "$TMPDIR/.specops/20260803-instrumented/metrics.jsonl" 2>/dev/null)"
 fi
 rm -rf "$TMPDIR"
 

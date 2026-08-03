@@ -15,6 +15,7 @@ set -u
 FID="${1:?usage: $0 <FID>}"
 TASKS=".specops/$FID/tasks.md"
 EVIDENCE=".specops/$FID/evidence.md"
+START_SECONDS=$(date +%s)
 
 if [ ! -f "$TASKS" ]; then
   echo "tasks.md not found: $TASKS" >&2
@@ -23,8 +24,33 @@ fi
 
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
-
 AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
+STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
+METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
+
+all_pass=1
+executed=0
+skipped=0
+failed=0
+
+# 단일 판정 기록: evidence 호환 stamp + 구조화 상태 SoT + 비용/수율 계측.
+# 구조화 기록 실패가 테스트 결과를 뒤집지는 않지만 stderr로 표면화한다.
+_record_result() { # <verdict>
+  local verdict="$1" now duration_ms
+  now=$(date +%s)
+  duration_ms=$(( (now - START_SECONDS) * 1000 ))
+  mkdir -p "$(dirname "$EVIDENCE")"
+  echo "RUN-VERIFICATION-RESULT: $verdict" >> "$EVIDENCE"
+  if ! bash "$STATE_SH" record "$FID" "$verdict" \
+      --executed "$executed" --skipped "$skipped" --failed "$failed" \
+      --duration-ms "$duration_ms" 2>/dev/null; then
+    echo "WARN: verification-state 기록 실패 (FID=$FID)" >&2
+  fi
+  if ! bash "$METRIC_SH" --fid "$FID" --phase verify --wall-ms "$duration_ms" \
+      --verdict "$verdict" 2>/dev/null; then
+    echo "WARN: verify metric 기록 실패 (FID=$FID)" >&2
+  fi
+}
 
 commands=$(bash "$EXTRACT" "$TASKS")
 if [ -z "$commands" ]; then
@@ -32,13 +58,16 @@ if [ -z "$commands" ]; then
   #   안 쓰는 FID" 가 review-audit 을 통째로 비껴가는 구멍이 된다.
   if [ -f "$AUDIT_SH" ]; then
     audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1) || {
+      failed=$((failed + 1))
+      _record_result FAIL
       echo "VERIFY: FAIL review-audit" >&2
       echo "$audit_out" >&2
       exit 1
     }
   fi
-  echo "VERIFY: NO COMMANDS"
-  exit 0
+  _record_result NOT_RUN
+  echo "VERIFY: NOT_RUN — 테스트 명령 0건" >&2
+  exit 1
 fi
 
 mkdir -p "$(dirname "$EVIDENCE")"
@@ -48,9 +77,6 @@ mkdir -p "$(dirname "$EVIDENCE")"
   echo ""
 } >> "$EVIDENCE"
 
-all_pass=1
-executed=0
-skipped=0
 # 러너별 선두 앵커 — 각 패턴이 ^ 로 고정되어 임의 명령 실행 차단 (AC-2).
 # bash: 기존 동작 보존(scripts/*.sh 한정). 그 외 러너는 표준 호출형만 허용.
 #
@@ -117,6 +143,7 @@ while IFS= read -r cmd; do
   } >> "$EVIDENCE"
   if [ "$ec" -ne 0 ]; then
     all_pass=0
+    failed=$((failed + 1))
     echo "VERIFY: FAIL $cmd (exit=$ec)" >&2
   fi
 done <<< "$commands"
@@ -137,24 +164,26 @@ if [ -f "$AUDIT_SH" ]; then
   } >> "$EVIDENCE"
   if [ "$audit_ec" -ne 0 ]; then
     all_pass=0
+    failed=$((failed + 1))
     echo "VERIFY: FAIL review-audit (exit=$audit_ec)" >&2
     echo "$audit_out" >&2
   fi
 fi
 
 if [ "$skipped" -gt 0 ]; then
-  echo "RUN-VERIFICATION-RESULT: PARTIAL" >> "$EVIDENCE"
+  _record_result PARTIAL
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"
   exit 1
 fi
 if [ "$executed" -eq 0 ]; then
-  echo "VERIFY: WARN — 실행된 명령 0건" >&2
-  exit 0
+  _record_result NOT_RUN
+  echo "VERIFY: NOT_RUN — 실행된 명령 0건" >&2
+  exit 1
 fi
 if [ "$all_pass" = "1" ]; then
-  echo "RUN-VERIFICATION-RESULT: PASS" >> "$EVIDENCE"
+  _record_result PASS
   echo "VERIFY: PASS"
   exit 0
 fi
-echo "RUN-VERIFICATION-RESULT: FAIL" >> "$EVIDENCE"
+_record_result FAIL
 exit 1

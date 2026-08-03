@@ -198,8 +198,28 @@ CRITIC_BIN=/path/to/cli bash scripts/critic-ask.sh ...   # provider 강제 (테�
 
 ## verdict-board.sh — FID별 게이트 결과 매트릭스 (advisory, 읽기 전용)
 
-`.specops/*/evidence.md` 의 게이트 판정(verify·integration·performance)을 FID별 매트릭스로 표시하는 **수동 관측 유틸** (lifecycle chain 에 자동 연결되지 않음 — 온디맨드 실행). `skip-tracker.sh` 의 `skip::verdicts` 를 source 재사용하며 verify 는 자체 집계.
+검증 단일 상태(`verification-state.json`)와 evidence의 integration·performance 판정을 FID별 매트릭스로 표시하는 **수동 관측 유틸**입니다. 검증 상태는 `NOT_RUN | PASS | PARTIAL | FAIL | WAIVED`이며, PASS 이후 코드가 바뀌면 조회 시 `STALE`로 계산됩니다. 구조화 상태가 없는 기존 FID만 evidence stamp를 읽습니다.
 
 ```bash
 bash scripts/verdict-board.sh [.specops 경로]
 ```
+
+## verification-state.sh — 검증 상태 단일 SoT
+
+```bash
+bash scripts/_internal/verification-state.sh current <FID>
+bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --failed 0
+```
+
+`run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
+
+## record-metric.sh — 비용·수율 메타데이터 기록
+
+```bash
+bash scripts/_internal/record-metric.sh \
+  --fid <FID> --task T1 --phase implement --model <model> \
+  --input-tokens 100 --output-tokens 20 --wall-ms 1200 \
+  --retry-count 0 --timeout false --fallback false --verdict PASS
+```
+
+`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김).

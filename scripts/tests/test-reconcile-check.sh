@@ -74,5 +74,18 @@ if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
   ok "R6 hook-missing-dir silent"
 else no "R6" "rc=$rc out=[$out]"; fi
 
+# R7 — evidence 파일 존재만으로 verify 완료로 보지 않는다. 구조화 FAIL이면 implement frontier 유지.
+fid="20260803-failed-verify"; root="$TMP/.specops"
+mkdir -p "$root/$fid"
+printf '## %s\n- 2026-08-03 10:00 /implement DONE\n' "$fid" >> "$root/session-progress.md"
+touch "$root/$fid/spec.md" "$root/$fid/tasks.md"
+printf 'RUN-VERIFICATION-RESULT: FAIL\n' > "$root/$fid/evidence.md"
+printf '| 1 | ts | A:T1 | implementer-ko | DONE | x |\n' > "$root/$fid/dispatch-log.md"
+SPECOPS_ROOT="$root" bash "$PLUGIN/scripts/_internal/verification-state.sh" record "$fid" FAIL
+out=$(SPECOPS_ROOT="$root" bash "$SCRIPT" "$fid" --hook 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  ok "R7 구조화 FAIL은 verify frontier 아님"
+else no "R7" "rc=$rc out=[$out]"; fi
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

@@ -4,6 +4,19 @@
 #
 # Sourced library — strict mode 는 caller 에 위임 (set -u/-e 생략).
 # Requires: jq 1.6+, bash 3.2+, coreutils (date, grep, sed, cut, mkdir).
+_GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
+_RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
+
+# BYPASS 수율 계측 — 사유·명령 원문은 friction-log에 남기고, metrics에는 식별자만 기록한다.
+# FID가 없거나 형식이 틀리면 no-op (비-specops·초기 세션에서 게이트를 막지 않음).
+_record_bypass_metric() {
+  local fid="${1:-}"
+  [ -n "$fid" ] || return 0
+  printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || return 0
+  [ -f "$_RECORD_METRIC_SH" ] || return 0
+  bash "$_RECORD_METRIC_SH" --fid "$fid" --phase governance-bypass --fallback true >/dev/null 2>&1 || true
+}
 
 detect_fid() {
   # U8: 다중 FID 환경에서 first-only 버그 회피
@@ -67,6 +80,12 @@ _verify_passed_in_progress() {
 _verify_evidence_stamp() {
   local fid="$1"
   local ev=".specops/$fid/evidence.md"
+  local state=".specops/$fid/verification-state.json"
+  if [ -f "$state" ] && [ -f "$_VERIFICATION_STATE_SH" ]; then
+    local verdict
+    verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+    [ "$verdict" = "PASS" ] && return 0 || return 1
+  fi
   [ -f "$ev" ] || return 1
   grep -q '^RUN-VERIFICATION-RESULT: PASS' "$ev" && return 0 || return 1
 }

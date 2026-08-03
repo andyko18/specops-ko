@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
-specops_version: 1.47.2
+specops_version: 1.59.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 ---
 
@@ -147,6 +147,9 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - `VERIFY: PASS` + exit 0: 모든 명령 실행됨 + 전부 PASS (skip 0건)
   - `VERIFY: FAIL <cmd> (exit=N)` (stderr) + exit 1: 1건이라도 FAIL
   - `VERIFY: PARTIAL — N개 명령 whitelist 미통과` + exit 1: whitelist 미통과 명령 존재 — **수동 검증 필수**
+  - `VERIFY: NOT_RUN` (stderr) + exit 1: 테스트 명령 0건 또는 실행된 명령 0건 — **PASS로 취급 금지**
+  - 판정 SoT: `.specops/<FID>/verification-state.json` (`NOT_RUN|PASS|PARTIAL|FAIL|WAIVED`, PASS 이후 코드 변경 시 조회값 `STALE`). evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프는 하위 호환용.
+  - 수율 계측: 동일 실행이 `.specops/<FID>/metrics.jsonl`에 `phase=verify` 메타데이터를 append (토큰·프롬프트 원문 없음).
   - **실행되는 러너** (v1.45.0 다언어 확장 + #209 downstream 배치): `bash scripts/*.sh`·`bash tests/*.sh`·`bash test/*.sh` · `pytest`(`python -m pytest` 포함) · `npm|pnpm|yarn (run) test` · `go test` · `cargo test`. 각 패턴은 선두 앵커(`^`)로 고정 — `echo pytest`·`foo && pytest` 류 위장은 SKIP 된다. 절대경로·`lib/` 등 비테스트 디렉토리 bash 는 여전히 SKIP.
   - **여전히 SKIP 되는 알려진 형태** (의도된 미지원): `go test ./...` (`..` path-traversal 가드에 먼저 걸림 — 개별 패키지 경로 `go test ./pkg/foo` 를 쓸 것) · `npm run test:unit` (`:` 가 인자 char-class 밖). 위 러너 밖의 명령(린터·빌드 등)도 SKIP → PARTIAL 이면 아래 수동 fallback 필수.
   - `VERIFY: FAIL review-audit` (stderr) + exit 1: Phase B/C 리뷰 리포트(`reviews/<task-id>-[BC]-*.md`)가 `dispatch-log.md` 에 **기록되지 않음**. 테스트가 전부 PASS 여도 감사 추적이 비면 통과시키지 않는다 (Generator↔Evaluator 분리는 기록으로만 검증 가능 — 20260721 test1 dogfood). 해당 task-id 행을 dispatch-log 에 추가하고 재실행할 것. 누락 전용 검사라 리뷰 산출물이 없으면 SKIP(fail-open).

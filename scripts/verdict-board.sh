@@ -7,9 +7,15 @@ set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=/dev/null
 source "$HERE/skip-tracker.sh"
+STATE_SH="$HERE/_internal/verification-state.sh"
 
-vb::verify_verdict() {  # <file>
-  local file="$1"
+vb::verify_verdict() {  # <file> <fid>
+  local file="$1" fid="$2" state
+  state="${file%/evidence.md}/verification-state.json"
+  if [ -f "$state" ] && [ -f "$STATE_SH" ]; then
+    SPECOPS_ROOT="$ROOT" bash "$STATE_SH" current "$fid" 2>/dev/null
+    return 0
+  fi
   [ -f "$file" ] || return 0
   awk '
     /^## \/verify/ {
@@ -31,7 +37,14 @@ vb::verify_verdict() {  # <file>
 
 vb::symbol() {  # <verdict> → 기호
   case "$1" in
-    PASS) printf '✅' ;; SKIP) printf '⏭' ;; FAIL) printf '❌' ;; *) printf '-' ;;
+    PASS) printf '✅' ;;
+    PARTIAL) printf '🟡' ;;
+    FAIL) printf '❌' ;;
+    STALE) printf '⚠️' ;;
+    WAIVED) printf '◻' ;;
+    SKIP) printf '⏭' ;;
+    NOT_RUN|"") printf '-' ;;
+    *) printf '?' ;;
   esac
 }
 
@@ -44,7 +57,7 @@ while IFS= read -r dir; do
   fid=$(basename "$dir")
   case "$fid" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*) ;; *) continue ;; esac
   ev="${dir%/}/evidence.md"
-  v=$(vb::verify_verdict "$ev" | tail -1)
+  v=$(vb::verify_verdict "$ev" "$fid" | tail -1)
   i=$(skip::verdicts "$ev" integration | tail -1)
   p=$(skip::verdicts "$ev" performance | tail -1)
   printf '%-30s %-8s %-8s %-8s\n' "${fid:0:28}" "$(vb::symbol "$v")" "$(vb::symbol "$i")" "$(vb::symbol "$p")"
