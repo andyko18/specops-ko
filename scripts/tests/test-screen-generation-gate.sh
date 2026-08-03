@@ -29,6 +29,12 @@ grep -qE 'Step 5\.5 SKIP' "$BATCH" && grep -qE 'Step 5\.5.*SKIP|5\.5 SKIP' "$SPE
   && ok  "T1.d batch Step 5.5 SKIP (start-all + specifying)" \
   || nope "T1.d batch 5.5 skip" "SKIP 앵커 부재"
 
+# T1.e: lite skip 조건은 risk-profile.json 경로 (디렉터리명 risk-profile 오표기 금지)
+grep -qF 'risk-profile.json' "$BATCH" \
+  && [ "$(grep -cE '\.specops/<FID>/risk-profile([^."]|$)' "$BATCH")" -eq 0 ] \
+  && ok  "T1.e start-all lite 조건 = risk-profile.json" \
+  || nope "T1.e risk-profile 경로" "json 경로 부재 또는 구 경로 잔존"
+
 # T2: Step 5.5 — 동일 판정 (AC-4 ①)
 [ "$(grep -cF 'design-screen.sh --check' "$SPECIFY")" -eq 1 ] \
   && ok  "T2.a specifying-ko 에 --check 판정 호출 정확히 1회" \
