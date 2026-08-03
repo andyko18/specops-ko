@@ -24,6 +24,11 @@ grep -qF '재사용 금지' "$BATCH" \
   && ok  "T1.c 껍데기 시 재사용 금지 + 재생성 경로 명시" \
   || nope "T1.c 재생성 경로" "'재사용 금지' 앵커 없음"
 
+# T1.d: batch Step 5.5 SKIP 계약 (프로세스 축소 — Phase 2.5 단일 화면 경로)
+grep -qE 'Step 5\.5 SKIP' "$BATCH" && grep -qE 'Step 5\.5.*SKIP|5\.5 SKIP' "$SPECIFY" \
+  && ok  "T1.d batch Step 5.5 SKIP (start-all + specifying)" \
+  || nope "T1.d batch 5.5 skip" "SKIP 앵커 부재"
+
 # T2: Step 5.5 — 동일 판정 (AC-4 ①)
 [ "$(grep -cF 'design-screen.sh --check' "$SPECIFY")" -eq 1 ] \
   && ok  "T2.a specifying-ko 에 --check 판정 호출 정확히 1회" \

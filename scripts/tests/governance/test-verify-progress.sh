@@ -66,6 +66,23 @@ _verify_evidence_stamp test-fid && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo 
 printf 'RUN-VERIFICATION-RESULT: FAIL\n' > .specops/test-fid/evidence.md
 _verify_evidence_stamp test-fid && { FAIL=$((FAIL+1)); echo "FAIL: AC-4 FAIL stamp 면제됨"; } || PASS=$((PASS+1))
 rm -rf .specops/test-fid
+
+# 구조화 상태가 있으면 이를 우선하고, 코드 변경으로 STALE이면 PASS stamp가 남아도 면제하지 않는다.
+STATE_GIT="$TMP/state-git"
+mkdir -p "$STATE_GIT"; git -C "$STATE_GIT" init -q
+printf 'base\n' > "$STATE_GIT/app.txt"
+git -C "$STATE_GIT" add app.txt
+git -C "$STATE_GIT" -c user.name=test -c user.email=test@example.com commit -qm init
+mkdir -p "$STATE_GIT/.specops/20260803-governance"
+(cd "$STATE_GIT" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-governance PASS)
+(cd "$STATE_GIT" && _verify_evidence_stamp 20260803-governance) \
+  && { PASS=$((PASS+1)); echo "PASS T-state 구조화 PASS 면제"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-state 구조화 PASS 불인정"; }
+printf 'changed\n' >> "$STATE_GIT/app.txt"
+(cd "$STATE_GIT" && _verify_evidence_stamp 20260803-governance) \
+  && { FAIL=$((FAIL+1)); echo "FAIL T-state STALE이 PASS로 면제됨"; } \
+  || { PASS=$((PASS+1)); echo "PASS T-state STALE 면제 거부"; }
+
 # === 3-state affirmative-stale 보존 (T39 정합) ===
 mkdir -p .specops/stale-fid
 printf '## stale-fid\n- 2026-06-26 10:10 /implement DONE (재구현)\n- 2026-06-26 10:05 /verify PASS (AC 5/5)\n' >> .specops/session-progress.md

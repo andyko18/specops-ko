@@ -465,6 +465,24 @@ if [ ! -d "$bsno/.specops" ]; then echo "PASS T-bypass-log.d .specops 미생성(
 else echo "FAIL T-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
 rm -rf "$bsno"
 
+# ── T-bypass-metric: BYPASS 시 metrics.jsonl에 식별자만 기록 (사유 원문 없음) ──
+bsm=$(mktemp -d)
+mkdir -p "$bsm/.specops/20260803-bypass-metric"
+printf '<!-- active-fid: 20260803-bypass-metric -->\n## 20260803-bypass-metric\n' \
+  > "$bsm/.specops/session-progress.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" \
+  | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bsm" bash "$HOOK" 2>/dev/null)
+check "T-bypass-metric.a 세션-env BYPASS → allow" '"continue":true' "$out"
+if [ -f "$bsm/.specops/20260803-bypass-metric/metrics.jsonl" ] \
+   && jq -e '.phase=="governance-bypass" and .fallback==true' \
+        "$bsm/.specops/20260803-bypass-metric/metrics.jsonl" >/dev/null; then
+  echo "PASS T-bypass-metric.b phase=governance-bypass 기록"; pass=$((pass+1))
+else
+  echo "FAIL T-bypass-metric.b — metric=$(cat "$bsm/.specops/20260803-bypass-metric/metrics.jsonl" 2>/dev/null)"
+  fail=$((fail+1))
+fi
+rm -rf "$bsm"
+
 # ── T-no-selfcontam: suite 전체가 실제 repo friction-log 를 오염시키지 않았는지 최종 락 ──
 # 재-glob: suite 중간에 새로 생긴 friction-log 도 잡는다(baseline glob 은 부재 시 빈값 → 0 이므로 신규 오염이 여전히 count>0 로 검출됨).
 _repo_fl=$(ls "$PLUGIN/.specops"/*/friction-log.jsonl 2>/dev/null)

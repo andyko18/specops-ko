@@ -57,6 +57,41 @@ if [ $rc -eq 0 ] && echo "$out2" | grep -q "FID"; then
 else FAIL=$((FAIL+1)); echo "FAIL T1.f (rc=$rc)"; fi
 rm -rf "$empty"
 
+# T2: 구조화 상태 SoT 우선 + 계산형 STALE/PARTIAL/WAIVED 표시
+PROJ=$(mktemp -d)
+git -C "$PROJ" init -q
+printf 'base\n' > "$PROJ/app.txt"
+git -C "$PROJ" add app.txt
+git -C "$PROJ" -c user.name=test -c user.email=test@example.com commit -qm init
+mkdir -p "$PROJ/.specops/20260803-structured"
+(cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured PASS)
+out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
+if printf '%s' "$out3" | grep "20260803-structured" | grep -q "✅"; then
+  PASS=$((PASS+1)); echo "PASS T2.a 구조화 PASS 표시"
+else FAIL=$((FAIL+1)); echo "FAIL T2.a ($out3)"; fi
+
+printf 'changed\n' >> "$PROJ/app.txt"
+out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
+if printf '%s' "$out3" | grep "20260803-structured" | grep -q "⚠"; then
+  PASS=$((PASS+1)); echo "PASS T2.b 코드 변경 → STALE 표시"
+else FAIL=$((FAIL+1)); echo "FAIL T2.b ($out3)"; fi
+git -C "$PROJ" restore app.txt
+
+(cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured PARTIAL)
+out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
+if printf '%s' "$out3" | grep "20260803-structured" | grep -q "🟡"; then
+  PASS=$((PASS+1)); echo "PASS T2.c PARTIAL 표시"
+else FAIL=$((FAIL+1)); echo "FAIL T2.c ($out3)"; fi
+
+(cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured WAIVED \
+  --waiver-reason "승인된 예외" --waiver-approved-by "owner@example.com" \
+  --waiver-expires-at "2026-08-10T00:00:00Z")
+out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
+if printf '%s' "$out3" | grep "20260803-structured" | grep -q "◻"; then
+  PASS=$((PASS+1)); echo "PASS T2.d WAIVED 표시"
+else FAIL=$((FAIL+1)); echo "FAIL T2.d ($out3)"; fi
+rm -rf "$PROJ"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

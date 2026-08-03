@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.51.0
+specops_version: 1.59.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -86,6 +86,13 @@ spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-
       - 성공 시 stdout `EMIT: N files`
       - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
       - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
+10c. **위험 프로파일 shadow 기록 (P1)** — tasks.md 확정 후:
+    ```bash
+    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/risk-profile.sh compute <FID>
+    ```
+    - `.specops/<FID>/risk-profile.json`에 `lite|standard|strict` 기록 (`mode=shadow`)
+    - **shadow에서는 절차를 축소하지 않는다** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지
+    - 사용자 상향만 허용: `--floor standard|strict` 또는 `SPECOPS_RISK_PROFILE_FLOOR`
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-ko:implementing-ko` 호출
 
@@ -144,7 +151,7 @@ plan.md 가 Python 테스트 파일 생성 태스크를 포함하는 경우, 다
 
 | 항목 | 규칙 | 강도 |
 |---|---|---|
-| 위치 | `examples/tests/` 또는 downstream 프로젝트 패턴 | 내부 예시 |
+| 위치 | downstream 프로젝트 기존 test 디렉토리 우선, 없으면 `tests/` | 권장 |
 | 명명 | `test_<subject>.py` — underscore | Universal 강제 |
 | exec-bit | 불필요 | Universal 규약 |
 | 헤더 | shebang 불필요 | Universal 규약 |

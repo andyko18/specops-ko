@@ -4,7 +4,6 @@
 # 상류 원본과 섹션 헤더 집합을 비교해 drift-log에 prepend.
 # 한국어 재창작 특성상 본문 line-diff는 수행하지 않음.
 # 사용: scripts/diff-upstream.sh [--cached] [--no-fetch] [--file <path>]
-# 참조: docs/case-studies/2026-04-22-session-5.5-design.md §3·§4
 set -u
 
 CACHED=0

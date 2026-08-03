@@ -177,8 +177,8 @@ TMP="$(mktemp -d)"
 
 **여기서 executor(Claude)는 `commands/init-project.md` §Phase 11 절차를 `$TMP` 산출물
 (`$TMP/PRD.md`·`$TMP/.specops/memory/*.md`) 대상으로 자동수락(§auto 무인) 수행한다** —
-무인 degrade: Phase 11.5 인터뷰·가정 건별 승인은 **생략**(§무인 계약)하고, 그룹①②③ 보강 +
-`가정:` 접두·`미확정 — 근거 필요` 마커 규약 + **가정 다이제스트를 PRD.md 말미에 기록**한다. 보강 완료 후 아래 스캔:
+무인 degrade: Phase 11.5 인터뷰·가정 건별 승인은 **생략**(§무인 계약)하고, Light enrich(깊게 대상) +
+`가정:` 접두·`미확정 — 근거 필요` 마커 규약 + **가정 다이제스트를 PRD.md 말미에 기록** + **decisions/project-context 원장 동기**한다. 보강 완료 후 아래 스캔:
 
 ```bash
 # 원시 placeholder(<...>) 검출 — 스캔·제외 규칙 SoT = scan-enrich-placeholders.sh

@@ -141,14 +141,8 @@ _check_brainstorming() {
   bm_files=$(ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -3)
   if [ -n "$bm_files" ]; then
     echo ""
-    echo "브레인스토밍 메모 발견:"
+    echo "브레인스토밍 메모 발견 (Phase 0에서 이미 확인했다고 가정 — 재질문 생략):"
     echo "$bm_files" | sed 's/^/  /'
-    printf "PRD 작성 시 참조할까요? [Y/n]: "
-    local ans=""
-    read -r ans || true
-    case "${ans:-Y}" in
-      [Nn]*) BM_REF="n" ;;
-      *) BM_REF="y" ;;
-    esac
+    BM_REF="y"
   fi
 }

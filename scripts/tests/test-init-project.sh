@@ -247,20 +247,21 @@ else
 fi
 teardown_fixture
 
-# ── T12.a 화면 목록 → screens/<name>.{md,html} + flow ──
+# ── T12.a 화면 이름 목록 → screens-overview 표만 (screens/* 껍데기 미생성) ──
 setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. x\n2. y\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
   printf "1\nhome, dashboard\nn\n"
 } | bash "$SCRIPT" >/dev/null 2>&1
-if [ -f screens/home.md ] && [ -f screens/home.html ] \
-   && [ -f screens/dashboard.md ] && [ -f screens/dashboard.html ] \
-   && grep -q '^| home |.*screens/home.md' .specops/memory/screens-overview.md \
+if [ ! -f screens/home.md ] && [ ! -f screens/home.html ] \
+   && [ ! -f screens/dashboard.md ] \
+   && grep -qE '^\| home \|.*예정' .specops/memory/screens-overview.md \
+   && grep -qE '^\| dashboard \|.*예정' .specops/memory/screens-overview.md \
    && grep -q 'stateDiagram' .specops/memory/screens-overview.md; then
-  ok "T12.a 화면 입력 → screens/<name>.{md,html} 쌍 + overview 동적 표 + flow"
+  ok "T12.a 화면 입력 → overview 목록만 (screens/* 미생성)"
 else
-  nope "T12.a screens" "screens/ 또는 overview 표 mismatch"
+  nope "T12.a screens" "overview 누락 또는 screens 껍데기 생성됨"
 fi
 teardown_fixture
 
@@ -397,7 +398,7 @@ setup_fixture
   printf "1\nproductlist\nn\n"
 } | bash "$SCRIPT" >/dev/null 2>&1
 # 새 화면 productlist 만 표에 존재 + 기존 예시 (home/login/dashboard) 행 부재
-if grep -q '^| productlist | productlist | TODO' .specops/memory/screens-overview.md \
+if grep -qE '^\| productlist \| productlist \| 예정' .specops/memory/screens-overview.md \
    && ! grep -E '^\| (home|login|dashboard) \| (홈|로그인|대시보드)' .specops/memory/screens-overview.md; then
   ok "T19.a (I2) screens-table fence → 사용자 입력 1건만 + 예시 행 제거"
 else
@@ -515,17 +516,35 @@ teardown_fixture
 # ── 결과 ──────────────────────────────────────
 echo ""
 
-# ── T22: Phase 7 html 토큰 치환 완결 — {{화면 제목}} 잔존 금지 (P1-2 audit 20260710) ──
+# ── T26: Phase 7 은 screens 껍데기 미생성 (본설계는 start-all 2.5) ──
 setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
   printf "1\nhome\nn\nn\n"
 } | bash "$SCRIPT" >/dev/null 2>&1
-if [ -f screens/home.html ] && ! grep -q '{{화면 제목}}' screens/home.html; then
-  ok "T22.a Phase 7 html {{화면 제목}} 치환됨"
+if [ ! -f screens/home.html ] && [ ! -f screens/home.md ] \
+   && grep -qE '^\| home \|.*예정' .specops/memory/screens-overview.md; then
+  ok "T26.a Phase 7 screens/* 미생성 + overview 목록만"
 else
-  nope "T22.a Phase 7 html 토큰" "{{화면 제목}} 리터럴 잔존 (design-screen.sh 와 비대칭)"
+  nope "T26.a Phase 7 껍데기 금지" "screens/home 생성됨 또는 overview 누락"
+fi
+teardown_fixture
+
+# ── T27: Phase 0 .init-prd-fields → Phase 4 재입력 생략 ──
+setup_fixture
+mkdir -p .specops
+printf '한 줄 from phase0\n페르소나P0\na, b, c\nm1p0\nm2p0\nm3p0\n' > .specops/.init-prd-fields
+{
+  printf "3\nskip\nN\n"
+} | bash "$SCRIPT" >/dev/null 2>&1
+if grep -q '한 줄 from phase0' PRD.md \
+   && [ ! -f .specops/.init-prd-fields ] \
+   && [ -f .specops/memory/project-context.md ] \
+   && [ -f .specops/memory/decisions.md ]; then
+  ok "T27.a Phase 0 .init-prd-fields → PRD 반영 + 원장 골격"
+else
+  nope "T27.a phase0 fields" "PRD/원장/필드파일 소비 실패"
 fi
 teardown_fixture
 

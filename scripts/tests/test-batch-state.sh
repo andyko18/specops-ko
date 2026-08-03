@@ -61,6 +61,21 @@ printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > 
 bash "$SCRIPT" "$TMP/b/.specops/batch-y" "$TMP/b/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && ok "T2.a clean fixture — exit 0 (산출물·진행기록 존재)" || nope "T2.a clean" "exit=$code (기대 0)"
 
+# ── fixture B1b: review-skip.md 로 review-request 대체 (lite skip 경로) ──
+mkdir -p "$TMP/b1b/.specops/batch-y1b" "$TMP/b1b/.specops/20260101-skip"
+cat > "$TMP/b1b/.specops/batch-y1b/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-skip | one | IMPL_DONE |
+EOF
+: > "$TMP/b1b/.specops/20260101-skip/review-base.sha"
+: > "$TMP/b1b/.specops/20260101-skip/evidence.md"
+echo "lite+단일태스크+Phase C PASS" > "$TMP/b1b/.specops/20260101-skip/review-skip.md"
+printf '## 20260101-skip\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1b/.specops/session-progress.md"
+printf '| FR-1 | skip | M1 | must | s | f |\n' > "$TMP/b1b/req.md"
+bash "$SCRIPT" "$TMP/b1b/.specops/batch-y1b" "$TMP/b1b/req.md" >/dev/null 2>&1; code=$?
+[ "$code" -eq 0 ] && ok "T2.a2 review-skip.md 대체 — exit 0" || nope "T2.a2 review-skip" "exit=$code (기대 0)"
+
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
 cat > "$TMP/b2/.specops/batch-y2/queue.md" <<'EOF'

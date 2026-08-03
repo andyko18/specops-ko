@@ -170,7 +170,6 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 
 - `docs/OSS-ATTRIBUTION.md` — drift 관리 프로토콜
 - `docs/ARCHITECTURE.md` §7
-- `docs/case-studies/2026-04-21-session-5-design.md` §3.1 — validate-structure 상세 설계
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
 ## skip-tracker.sh — SKIP 비율 관측 (advisory)
@@ -199,8 +198,55 @@ CRITIC_BIN=/path/to/cli bash scripts/critic-ask.sh ...   # provider 강제 (테�
 
 ## verdict-board.sh — FID별 게이트 결과 매트릭스 (advisory, 읽기 전용)
 
-`.specops/*/evidence.md` 의 게이트 판정(verify·integration·performance)을 FID별 매트릭스로 표시하는 **수동 관측 유틸** (lifecycle chain 에 자동 연결되지 않음 — 온디맨드 실행). `skip-tracker.sh` 의 `skip::verdicts` 를 source 재사용하며 verify 는 자체 집계.
+검증 단일 상태(`verification-state.json`)와 evidence의 integration·performance 판정을 FID별 매트릭스로 표시하는 **수동 관측 유틸**입니다. 검증 상태는 `NOT_RUN | PASS | PARTIAL | FAIL | WAIVED`이며, PASS 이후 코드가 바뀌면 조회 시 `STALE`로 계산됩니다. 구조화 상태가 없는 기존 FID만 evidence stamp를 읽습니다.
 
 ```bash
 bash scripts/verdict-board.sh [.specops 경로]
 ```
+
+## verification-state.sh — 검증 상태 단일 SoT
+
+```bash
+bash scripts/_internal/verification-state.sh current <FID>
+bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --failed 0
+```
+
+`run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
+
+## risk-profile.sh — 위험 프로파일 shadow 분류 (P1)
+
+```bash
+bash scripts/_internal/risk-profile.sh compute <FID> [--floor standard|strict]
+bash scripts/_internal/risk-profile.sh show <FID>
+```
+
+`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다. strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·병렬 batch·cross-service)가 있으면 라인 수와 무관하게 strict입니다. `mode=shadow`에서는 절차를 축소하지 않으며, TDD·verify·receipt는 면제되지 않습니다. 사용자/ENV floor는 상향만 가능합니다.
+
+## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3, warn-only)
+
+```bash
+bash scripts/_internal/release-ready.sh <FID>
+# 0=READY · 1=NOT_READY · 2=UNKNOWN(legacy/fail-open)
+```
+
+verify(`verification-state` PASS) · review-audit · security/integration/performance(evidence PASS|SKIP) · reconcile(DESYNC 없음) · Critical/High 휴리스틱을 AND로 합성합니다. `pretool-governance`는 `gh pr create` 시 미충족이어도 **hard deny 하지 않고** stderr + friction-log에만 `RELEASE_READY` 경고를 남깁니다.
+
+## record-task-receipt.sh / check-task-receipt.sh — 태스크 단위 커밋 게이트 (P0-2)
+
+```bash
+bash scripts/_internal/record-task-receipt.sh <FID> <task-id>   # test_command PASS 시 receipt 기록
+bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=무효 · 2=부재
+```
+
+`.specops/<FID>/receipts/<task>.json`에 `tree_hash`·`outputs`·`test_command_hash`를 저장합니다. R-1은 receipt가 유효하고 staged ⊆ outputs이며 커밋 메시지에 `T#`가 있으면 FID 전체 verify 없이 커밋을 허용합니다. R-2(PR)는 receipt로 열리지 않습니다. receipt 부재 FID는 기존 implement/verify 면제 경로를 유지합니다.
+
+## record-metric.sh — 비용·수율 메타데이터 기록
+
+```bash
+bash scripts/_internal/record-metric.sh \
+  --fid <FID> --task T1 --phase implement --model <model> \
+  --input-tokens 100 --output-tokens 20 --wall-ms 1200 \
+  --retry-count 0 --timeout false --fallback false --verdict PASS
+```
+
+`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김).

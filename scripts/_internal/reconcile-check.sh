@@ -13,6 +13,7 @@ MODE="${2:-}"
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 PROGRESS="$SPECOPS/session-progress.md"
 FID_DIR="$SPECOPS/$FID"
+STATE_SH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verification-state.sh"
 
 # --hook 은 훅 additionalContext 주입용 — 무효 FID/디렉토리 부재는 silent (훅 출력 오염 금지)
 if [ "$MODE" = "--hook" ]; then
@@ -56,7 +57,15 @@ if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; th
   fi
 fi
 [ "$impl_ev" -eq 1 ] && [ "$evidence" -lt 50 ] && evidence=50
-[ -s "$FID_DIR/evidence.md" ] && [ "$evidence" -lt 60 ] && evidence=60
+verify_complete=0
+if [ -f "$FID_DIR/verification-state.json" ] && [ -f "$STATE_SH" ]; then
+  verify_verdict=$(SPECOPS_ROOT="$SPECOPS" bash "$STATE_SH" current "$FID" 2>/dev/null || echo NOT_RUN)
+  case "$verify_verdict" in PASS|WAIVED) verify_complete=1 ;; esac
+elif [ -s "$FID_DIR/evidence.md" ]; then
+  # 기존 FID 읽기 호환: 구조화 상태가 없는 과거 evidence는 기존 frontier 의미를 유지한다.
+  verify_complete=1
+fi
+[ "$verify_complete" -eq 1 ] && [ "$evidence" -lt 60 ] && evidence=60
 { [ -f "$FID_DIR/review-request.md" ] || { [ -d "$FID_DIR/reviews" ] && [ -n "$(ls -A "$FID_DIR/reviews" 2>/dev/null)" ]; }; } && [ "$evidence" -lt 70 ] && evidence=70
 
 # ── --hook 모드: DESYNC 시에만 간결 1줄 (정합 시 무출력) ──

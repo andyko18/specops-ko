@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.47.2
+specops_version: 1.59.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
@@ -105,6 +105,8 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     - leaf staged diff 추출: `git -C .worktrees/<FID>-<task-id>/ diff --cached > /tmp/<task-id>.patch`
     - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
     - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
+    - **커밋 직전 receipt (P0-2)**: Phase C PASS 후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> <task-id>` 실행 → staged가 해당 task `outputs` 부분집합일 때 R-1이 FID 전체 verify 없이 열린다. 커밋 메시지에 `T#` 또는 `Task: T#` 포함(추론용). receipt 부재 시 기존 implement/verify 면제 경로로 fallthrough.
+    - **위험 프로파일 (P1 shadow)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=shadow`인 동안 Phase B 생략·critic skip·verify 면제는 **금지**(lite여도 TDD·verify·receipt 유지).
     ↓
   부모 머지 완료 → done에 batch task-id 추가
     ↓

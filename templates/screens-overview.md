@@ -3,8 +3,8 @@
 
 # <PROJECT_NAME> 화면 목록 마스터
 
-> 한국 SI 표준 "화면설계서" 의 마스터. `/init-project` Phase 8g (또는 Phase 7 화면 입력 시) 가 1회 생성.
-> 화면별 상세는 `screens/<name>.md` + `screens/<name>.html` 참조 (specifying-ko Step 5.5 또는 `/design-screen` 으로 갱신).
+> 한국 SI 표준 "화면설계서" 의 마스터. `/init-project` Phase 7 가 화면 **이름 목록만** 기록.
+> 화면별 상세 `screens/<name>.md` + `.html` 은 `/start-all` Phase 2.5 · specifying-ko Step 5.5(신규) · `/design-screen` 으로 생성.
 
 ## 1. 화면 목록
 
@@ -18,7 +18,7 @@
 | dashboard | 대시보드 | 인증 후 메인 — 사용자 데이터 요약 | [screens/dashboard.md](../../screens/dashboard.md) | [screens/dashboard.html](../../screens/dashboard.html) |
 <!-- screens-table:end -->
 
-> Phase 7 입력 비웠다면 본 표 placeholder. 추후 `/design-screen <name>` 또는 `/start "<UI 기능>"` 진입 시 specifying-ko Step 5.5 가 신규 화면 추가.
+> Phase 7 입력 비웠다면 본 표 placeholder. 추후 `/start-all` Phase 2.5 또는 `/design-screen <name>` 또는 `/start "<UI 기능>"` 진입 시 화면 파일 생성.
 
 ## 2. 화면 흐름 (Mermaid stateDiagram)
 

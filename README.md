@@ -198,7 +198,7 @@ specops-ko/
 │   ├── context-resets-ko/                ← 서브에이전트 컨텍스트 격리
 │   ├── file-based-communication-ko/      ← 파일 기반 dispatch 패턴
 │   └── e2e-test-ko/                      ← lifecycle chain fixture 자동 실행 (9단계)
-├── templates/                            ← 32건 (md 31 + html 1)
+├── templates/                            ← 34건 (md 33 + html 1)
 │   │  Lifecycle/공통 템플릿 (19건): spec, acceptance-criteria, plan, tasks, session-progress,
 │   │      dispatch-context, dispatch-log, current-state, impact-analysis, test-conventions-{bash,python},
 │   │      screen.{md,html}, DESIGN, SKILL, foundation-manifest, critic-prompt-{diff,plan}, freework
@@ -218,7 +218,6 @@ specops-ko/
 │       ├── is-hook-enabled.sh
 │       ├── validate-task-dependencies.sh
 │       └── init-project.sh              ← /init-project 오케스트레이터 (10 phase)
-├── examples/                             ← dogfood CLI 예시 (epoch/hex/b64/cvt/slug)
 └── README.md
 ```
 

@@ -4,6 +4,27 @@
 #
 # Sourced library — strict mode 는 caller 에 위임 (set -u/-e 생략).
 # Requires: jq 1.6+, bash 3.2+, coreutils (date, grep, sed, cut, mkdir).
+_GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
+_RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
+_CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
+
+# 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
+_infer_commit_task() {
+  local cmd="${1:-}" hit
+  hit=$(printf '%s' "$cmd" | grep -oE 'Task:[[:space:]]*T[0-9]+|T[0-9]+' | head -1 | grep -oE 'T[0-9]+' | head -1)
+  printf '%s' "${hit:-}"
+}
+
+# BYPASS 수율 계측 — 사유·명령 원문은 friction-log에 남기고, metrics에는 식별자만 기록한다.
+# FID가 없거나 형식이 틀리면 no-op (비-specops·초기 세션에서 게이트를 막지 않음).
+_record_bypass_metric() {
+  local fid="${1:-}"
+  [ -n "$fid" ] || return 0
+  printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || return 0
+  [ -f "$_RECORD_METRIC_SH" ] || return 0
+  bash "$_RECORD_METRIC_SH" --fid "$fid" --phase governance-bypass --fallback true >/dev/null 2>&1 || true
+}
 
 detect_fid() {
   # U8: 다중 FID 환경에서 first-only 버그 회피
@@ -67,6 +88,12 @@ _verify_passed_in_progress() {
 _verify_evidence_stamp() {
   local fid="$1"
   local ev=".specops/$fid/evidence.md"
+  local state=".specops/$fid/verification-state.json"
+  if [ -f "$state" ] && [ -f "$_VERIFICATION_STATE_SH" ]; then
+    local verdict
+    verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+    [ "$verdict" = "PASS" ] && return 0 || return 1
+  fi
   [ -f "$ev" ] || return 1
   grep -q '^RUN-VERIFICATION-RESULT: PASS' "$ev" && return 0 || return 1
 }
@@ -476,6 +503,37 @@ apply_lookback_rule() {
   local _exec_rc
   _verify_exec_evidence "$transcript"; _exec_rc=$?
 
+  # ★ P0-2 태스크 receipt 면제 (R-1 전용): 부모가 record-task-receipt 로 남긴 PASS receipt 가
+  #   staged⊆outputs · tree 신선 · test_command hash 일치면 커밋 허용. FID 전체 VERIFY: PASS 불필요.
+  #   receipt 부재(rc=2) → 아래 legacy implement/verify 경로. receipt 무효(rc=1) → 즉시 deny.
+  #   R-2 는 receipt 로 열지 않는다.
+  if [ "$rule_id" = "R-1" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
+    local _rfid _rtask _rrc
+    _rfid=$(detect_fid)
+    _rtask=$(_infer_commit_task "$tool_cmd")
+    if [ -n "$_rfid" ] && [ -n "$_rtask" ] && [ -f ".specops/$_rfid/receipts/$_rtask.json" ]; then
+      bash "$_CHECK_TASK_RECEIPT_SH" "$_rfid" "$_rtask" >/dev/null 2>&1
+      _rrc=$?
+      if [ "$_rrc" -eq 0 ]; then
+        return 0
+      fi
+      if [ "$_rrc" -eq 1 ]; then
+        local offset
+        offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
+          [inputs] as $all
+          | ([ $all | to_entries[]
+               | select(.value.type == "assistant")
+               | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
+               | .key ] | last) // ($all | length)
+        ' "$transcript" 2>/dev/null)
+        [ -z "$offset" ] && offset=0
+        jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
+          '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+        return 0
+      fi
+    fi
+  fi
+
   # ★ implement 단계 면제 (20260723-lifecycle-robustness B): implement 단계 태스크별 TDD 커밋은
   #   /verify PASS 앵커·evidence stamp 가 **구조적으로 존재할 수 없다**(verify 는 후속 단계). 그래서
   #   정직한 흐름도 매 커밋 BYPASS 로 몰렸다(20260722 screen-design 5+회). transcript 에 실제 러너
@@ -483,6 +541,7 @@ apply_lookback_rule() {
   #   (tasks.md 존재 ∧ evidence.md 부재)에 있으면 R-1 커밋을 면제한다. 자기보고 아닌 실행증거 기반
   #   이라 위조 불가. **evidence.md 생기는 즉시 이 경로가 닫히고** post-verify 는 기존 앵커로 판정된다.
   #   R-1 한정 — R-2(PR)는 verify 이후라 evidence.md 존재, 대상 아님.
+  #   receipt 보급 전 legacy 호환 경로(P0-2 경로 B). receipt 가 있는 커밋은 위에서 이미 처리됨.
   if [ "$rule_id" = "R-1" ] && [ "$_exec_rc" -eq 0 ]; then
     local _ifid
     _ifid=$(detect_fid)

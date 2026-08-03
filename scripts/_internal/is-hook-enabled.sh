@@ -4,7 +4,6 @@
 # Usage: is-hook-enabled.sh <hook-name>
 # Exit: 0 = 활성 또는 config 없음(default) / 1 = 비활성 / 2 = 사용법 오류
 # Env  : SPECOPS_CONFIG (기본 .specops/config.yaml), SPECOPS_YAML_WARNED (1회 경고 가드)
-# 참조 : docs/case-studies/2026-04-23-session-6-design.md §4.2
 set -u
 
 if [ "$#" -ne 1 ]; then

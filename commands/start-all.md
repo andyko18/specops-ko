@@ -71,36 +71,39 @@ reference_upstream: specops-ko 독자 추가
    <FR 원문 — FR-N 행의 설명 부분>
    ```
 2. specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 자동 진행 (FID는 specifying-ko Step 0이 결정)
+   - **HARD**: batch 분기에서 specifying **Step 5.5 SKIP** — 화면 상세는 Phase 2.5 전담. Step 5.6(API/data-model)은 FR별 적용.
+   - clarifying은 `.specops/memory/decisions.md` 확정 주제를 재묻지 않음 (init 원장 우선).
 3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status를 `PLAN_DONE`으로 갱신
 4. 다음 PENDING FR 반복
 
-> **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다.
+> **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다. (원장에 이미 확정된 주제는 BLOCKING에서 제외)
 
 ### Phase 2 — 일괄 리뷰 (단일 게이트)
 
 1. 전 FID의 `.specops/<FID>/spec.md`, `plan.md`, `tasks.md` 핵심 내용 요약 제시
-1.5. **[§auto 모드]** (`/start-all-auto` 진입 — 전 FID spec.md에 `**§auto**: true`): 본 일괄 리뷰 게이트를 **자동 통과** → Phase 3 직행. 사용자 응답 대기 없음. (가역 게이트 — 가정은 batch PR 게이트 다이제스트로 집계)
+1.5. **cross-FR 계약 리뷰** (서브에이전트 추가 금지 — 오케스트레이터 산문 1회):
+   - 전 FID가 갱신한 `.specops/memory/api-spec.md`·`data-model.md`에서 **충돌·중복 엔드포인트/테이블**을 한 표로 요약
+   - architecture 드리프트가 보이면 한 줄 경고만 (별도 critic 호출 금지)
+1.6. **[§auto 모드]** (`/start-all-auto` 진입 — 전 FID spec.md에 `**§auto**: true`): 본 일괄 리뷰 게이트를 **자동 통과** → Phase 2.5 직행. 사용자 응답 대기 없음. (가역 게이트 — 가정은 batch PR 게이트 다이제스트로 집계)
 2. 단일 게이트: **"전체 구현 진행? [y/n]"**
    - `n` → **중단**. 아티팩트 보존, `feat/<BATCH_ID>` 브랜치 보존. `/start-all` 재진입 시 Phase 3부터 재개 가능
    - `y` → Phase 2.5 진입
 
 ### Phase 2.5 — batch 통합 화면 설계 (UI 기능 시 · design-first)
 
-> **왜 여기 통합 단계인가**: 화면 design-first(specifying Step 5.5)는 **대화형·화면별 승인 루프**라, Phase 1 의 "전 FR 빠르게 → halt" 흐름에 각 FR 인라인으로 끼우면 batch 이점을 깨뜨린다. 그래서 무거운 단계(security·integration·performance 를 Phase 3-end 에 batch 통합하는 것)와 **동일 패턴**으로, 화면 설계도 **구현 직전 1회 통합**한다. 순서는 design-first 유지 — 구현(Phase 3)이 이 화면 계약을 소비한다.
+> **왜 여기 통합 단계인가**: specifying Step 5.5는 batch에서 **SKIP**한다. 화면 design-first를 FR마다 돌리면 batch 이점을 깨뜨리므로, security·integration과 같이 **구현 직전 1회 통합**한다. Phase 1은 예정 화면 이름만 §참조에 남긴다.
 
 1. **UI 표면 검출** — 전 FID `.specops/<FID>/spec.md` §참조·§범위에서 화면 신호(`screens/<name>` 목록·화면 렌더·사용자 흐름)를 취합한다.
    - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거: 전 FID §참조에 화면 없음>` 를 `queue.md` 에 기록 후 **즉시 Phase 3 진입** (graceful skip).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출(개별 FR 인라인 호출 대신 통합 — 화면 간 시각 일관성 확보). **graceful 안전망**: ui-ux-pro-max 미감지(marketplace 미등록 등) 시 `DESIGN.md` 토큰 fallback + `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 안내. 우선순위: ui-ux-pro-max 결과 우선, DESIGN.md 후순위.
 3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍을 통합 design system 스타일로 생성한다.
-   - **파일이 아직 없으면 생성한다** — `screens/<name>.md`·`.html` 이 부재면 step 2 design system 으로 새로 만든다. 아래 재사용 판정은 **파일이 이미 있을 때만** 적용한다 (`--check` 는 부재 파일을 "정상"으로 집계하므로, 판정만으로는 "부재"와 "완성된 화면"을 구분하지 못한다 — 존재 확인을 선행하지 않으면 미생성 화면이 "재사용"으로 오판돼 영영 안 만들어진다).
-   - **이미 있으면 재사용 판정 — 경로 존재 ≠ 재사용 가능** (`/init-project` 가 깔아둔 껍데기를 완성품으로 오인하던 경로. 20260722 실측: test1 화면 5쌍 전부 껍데기):
-     `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html`
-     - **exit 1 (정상 — 껍데기 마커 부재)** → **재사용**. 재생성하지 않는다 (false-trigger 금지 — 이미 채워진 화면 보호).
-     - **exit 0 (껍데기 — 마커 잔존)** → **재사용 금지**. 출력의 `PLACEHOLDER: <경로>` 로 **지목된 껍데기 파일만** step 2 통합 design system 으로 `.md`(필수 8섹션 완성)·`.html`(프로젝트 팔레트 반영) 을 채워 덮어쓰고 **껍데기 마커 줄을 삭제**한다 — 짝 중 이미 채워진 파일은 보존한다(혼합 상태 데이터 손실 방지).
+   - **파일이 없으면 생성**한다.
+   - **이미 있고** `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상·껍데기 마커 부재) → **재사용** (재생성 금지).
+   - **이미 있고** exit 0(껍데기) → **재사용 금지**. 통합 design system으로 덮어쓰고 **껍데기 마커 줄을 삭제**한다. (`/init-project`는 화면 껍데기를 만들지 않고 overview 목록만 남긴다 — 대부분 부재→생성 경로.)
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
-3.5. **design 산출물 커밋** — `screens/*.md`·`screens/*.html`·`DESIGN.md`·`.specops/` **만** 담아 커밋한다(코드 파일 혼입 금지). 이 조합은 R-1 docs/design-only 면제로 verify 게이트를 그대로 통과한다 — **BYPASS 불요** (dogfood 20260716: `.html` 이 `.md` 한정 whitelist 에 걸려 false-block → 무사유 BYPASS 관성의 시작점이 됐다. 코드가 섞이면 차단되는 게 정상 동작이다).
+3.5. **design 산출물 커밋** — `screens/*.md`·`screens/*.html`·`DESIGN.md`·`.specops/` **만** 담아 커밋한다(코드 파일 혼입 금지). 이 조합은 R-1 docs/design-only 면제로 verify 게이트를 그대로 통과한다 — **BYPASS 불요**.
 4. **[§auto 모드]** (`/start-all-auto` — 전 FID spec.md `**§auto**: true`): 화면별 대화형 승인 **없이** ui-ux-pro-max 결과를 자동 반영(가역 게이트 자동 통과). 생성된 화면 목록은 batch PR 게이트 다이제스트에 집계.
-5. 완료 → Phase 3 진입. Phase 3 `implementing-ko` 는 `screens/` 를 **§6 설계 계약**으로 소비하고, `verifying-evidence-ko` 의 memory 설계 동기화 점검이 역방향 안전망으로 검증한다(화면 Step 5.5 와 동일 teeth).
+5. 완료 → Phase 3 진입. Phase 3 `implementing-ko` 는 `screens/` 를 **§6 설계 계약**으로 소비하고, `verifying-evidence-ko` 의 memory 설계 동기화 점검이 역방향 안전망으로 검증한다.
 
 ### Phase 3 — per FR 순차 구현 (무중단)
 
@@ -115,11 +118,11 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
 1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
 2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
-3. 완료 → `specops-ko:requesting-code-review-ko` 호출 (**FID 기준** — review.diff base = `.specops/<FID>/review-base.sha`, → `.specops/<FID>/review-request.md` 개별 생성)
-4. 완료 → `specops-ko:receiving-code-review-ko` 호출 (**FID 기준**)
-5. receiving-code-review-ko 출력에서 `BATCH-REVIEW-DONE: <FID>` 감지 — per-FR security/integration/performance/PR 차단. chain 자동 진행
-6. `.specops/<FID>/review-base.sha` · `evidence.md` · `review-request.md` **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 이 4항목을 하드 재검한다 — 부재 시 `[산출물 누락]`/`[진행기록 누락]` + exit 1)
-7. 다음 PLAN_DONE FR 반복
+3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
+   - **축소(오케스트레이터 산문만 — 게이트 스크립트 hard skip 없음)**: 해당 FID가 **단일 태스크**이고 `.specops/<FID>/risk-profile` (또는 tasks/dispatch에 기록된 shadow 값)이 **`lite`** 이며 implementing Phase C PASS면, requesting/receiving-code-review를 **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄: lite+단일태스크+Phase C PASS)를 둔다. 멀티태스크·standard/strict·auth/DB/migration은 **skip 금지**.
+4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
+5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로면 `review-skip.md`도 인정하도록 오케스트레이터가 확인)
+6. 다음 PLAN_DONE FR 반복
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-ko:systematic-debugging-ko`로 처리 후 재개.
 

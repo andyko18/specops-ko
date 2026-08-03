@@ -57,6 +57,7 @@ if [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ]; then
   if [ -d ".specops" ]; then
     _bypass_fid=$(detect_fid 2>/dev/null || echo "")
     log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 2>/dev/null || true
+    _record_bypass_metric "$_bypass_fid"
   fi
   allow
 fi
@@ -147,7 +148,14 @@ if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_
       '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
     exit 0
   fi
-  printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" && allow
+  if printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]"; then
+    # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
+    if [ -d ".specops" ]; then
+      _bypass_fid=$(detect_fid 2>/dev/null || echo "")
+      _record_bypass_metric "$_bypass_fid"
+    fi
+    allow
+  fi
   reason="SPECOPS_GOVERNANCE_BYPASS 인라인 우회에는 사유 병기가 필수입니다 (friction-log 감사 기록에 명령 원문째 남습니다).
 형식: SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>
 우회 전 정직한 해법 우선: bash scripts/_internal/run-verification.sh <FID> 를 이 세션에서 실행하면 우회 없이 열립니다."
@@ -235,10 +243,32 @@ if [ -n "$violation" ]; then
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
 $_anchor_hint
 
+implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
+   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   로 receipt를 남기고, 커밋 메시지에 T#/Task: T# 를 넣으면 FID 전체 verify 없이 열릴 수 있습니다
+   (staged ⊆ task outputs, receipt 이후 코드 변경 없음).
+
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
 fi
+
+# ── P0-3 RELEASE_READY warn-only (R-2 / gh pr create 전용) ──────────────────
+# hard deny 금지 — 미충족이어도 allow. stderr + friction-log 에만 남긴다.
+# R-1·docs-only·BYPASS·batch hard gate·verify lookback 은 위쪽에서 이미 처리됨.
+if printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
+  _rr_fid="${fid:-}"
+  [ -n "$_rr_fid" ] || _rr_fid=$(detect_fid 2>/dev/null || echo "")
+  if [ -n "$_rr_fid" ] && [ -f "$plugin_root/scripts/_internal/release-ready.sh" ]; then
+    _rr_out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$_rr_fid" 2>&1)
+    _rr_rc=$?
+    if [ "$_rr_rc" -eq 1 ]; then
+      echo "RELEASE_READY warn (PR 차단 아님): $_rr_out" >&2
+      log_friction "$_rr_fid" "RELEASE_READY" 1 "$(printf '%s' "$_rr_out" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+    fi
+  fi
+fi
+
 allow
