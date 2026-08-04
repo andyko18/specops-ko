@@ -66,6 +66,7 @@ Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한�
 
 - **구현 2단계** (`implementing-ko` 가 태스크별 fresh dispatch): **Phase B** `spec-reviewer-ko`(스펙 준수만) → PASS 후 **Phase C** `code-reviewer-ko`(코드 품질·보안·커버리지·DB 관점).
 - **설계 리뷰** (`planning-ko` 가 dispatch): `plan-reviewer-ko` — TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 + 실측 의무.
+- **batch 화면·IF 리뷰** (`/start-all` Phase 2.5-D): `design-reviewer-ko` — Interactions↔api-spec·data-model 정합·껍데기·cross-FR + 실측 의무.
 - **self-config 적대감사** (`/security-scan --self-config`): `red-team-ko`(공격 표면 탐색) → `blue-team-ko`(기존 방어 유효성 평가) → `auditor-ko`(종합 risk 등급 A~F 리포트). 플러그인 자기 hooks·rules·settings 번들을 read-only 감사.
 
 Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하드 박탈한다 (validate-structure `agent_tools` 스캔 강제).
@@ -92,7 +93,7 @@ Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하�
 - **Step 5.5 화면** — UI 기능이면 화면별로 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍 생성. lifecycle 밖 개별/일괄 수정은 `/design-screen(s)`.
 - **Step 5.6 인터페이스** — API/스키마 기능이면 마스터 문서 `.specops/memory/api-spec.md`(IF 설계) · `.specops/memory/data-model.md`(테이블 설계) 의 해당 섹션을 **먼저** 갱신. lifecycle 밖은 `/design-interface(s)`.
 
-`foundation` 분기는 Step 5.5 는 skip 하나 **Step 5.6 은 적용**(공통부 DB 스키마·공통 API 의 본진). 파괴적 스키마 변경은 `impact-analysis.md §2`(expand-contract) + 회귀 AC-R-2(데이터 보존)로 연계. verify 가 역방향 안전망으로 설계-구현 대칭을 검사한다.
+`foundation` 분기는 Step 5.5 는 skip 하나 **Step 5.6 은 적용**(공통부 DB 스키마·공통 API 의 본진). `/start-all` **batch** 는 Step 5.5·5.6을 모두 skip 하고 Phase 2.5에서 **화면→인터페이스→`design-reviewer-ko` 무거운 리뷰** 순으로 1회 통합한다(화면 또는 IF 산출 시 리뷰 필수). 파괴적 스키마 변경은 `impact-analysis.md §2`(expand-contract) + 회귀 AC-R-2(데이터 보존)로 연계. verify 가 역방향 안전망으로 설계-구현 대칭을 검사한다.
 
 ### 학습 루프 (gbrain / freelog)
 

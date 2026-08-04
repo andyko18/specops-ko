@@ -4,7 +4,7 @@ description: "[전체·무인] specops-ko 한국어 자율 Lifecycle — require
 triggers:
   - "/start-all-auto"
 mode: ask
-specops_version: 1.19.2
+specops_version: 1.21.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 ---
@@ -32,16 +32,17 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    <!-- auto: true -->
    <FR 원문>
    ```
-   - `entry: batch` → specifying-ko batch 분기 (git-branch-create skip, Step 5.5 SKIP, `**§batch**` 라벨). 화면은 Phase 2.5 통합.
+   - `entry: batch` → specifying-ko batch 분기 (git-branch-create skip, Step 5.5·5.6 SKIP, `**§batch**` 라벨). 화면·인터페이스는 Phase 2.5 통합(화면→IF).
    - `auto: true` (셋째 줄) → specifying-ko batch 분기가 **추가 감지** → spec.md §1 에 `**§auto**: true` 동시 기재
    - 결과: 각 spec.md §1 = `**§유형**` + `**§batch**: <id>` + `**§auto**: true` → 다운스트림 6개 skill 무변경으로 §auto 자동통과 전파
 4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). **단** `.specops/memory/decisions.md` 확정 주제는 ASSUMED 재질문도 금지(원장 우선). 사용자 정지 없음.
-5. **Phase 2 자동통과** — cross-FR 계약 요약은 수행하되 일괄 리뷰 게이트("전체 구현 진행? [y/n]")를 자동 통과(start-all.md Phase 2 §auto 분기) → Phase 2.5 직행.
+5. **Phase 2 자동통과** — spec/plan/tasks 요약은 수행하되 일괄 리뷰 게이트("화면·인터페이스 설계 후 구현 진행? [y/n]")를 자동 통과(start-all.md Phase 2 §auto 분기) → Phase 2.5 직행. (api-spec cross-FR 검수는 Phase 2.5-C)
 6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 자동 수집·제시:
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계
    - 전 FID spec.md "자동 결정 화면" 목록
-   - 전 FID spec.md "자동 결정 인터페이스" 목록 (Step 5.6 — 엔드포인트/테이블)
+   - 전 FID spec.md "자동 결정 인터페이스" 목록 (Phase 2.5-B — 엔드포인트/테이블)
+   - `.specops/<BATCH_ID>/design-review.md` 판정 요약 (`DESIGN-REVIEW-RESULT` · cap 자동통과 여부)
    - 제시 후: **"위 가정 위에 N개 FR 구현됨. batch PR 생성? [y/n]"** — 단일 [y/n] 확인.
 
 ## §auto 모드 동작 (batch)
@@ -49,8 +50,10 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | 단계 | start-all-auto 동작 | 정지? |
 |---|---|---|
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
-| Phase 2 일괄 리뷰 게이트("전체 구현 진행?") | **자동 통과** → Phase 2.5 직행 | ❌ |
-| Phase 2.5 batch 통합 화면 설계 (UI 시) | ui-ux-pro-max 1회 통합 호출 → 화면별 대화형 승인 **없이** 자동 반영. UI 없으면 graceful skip. 생성 화면 목록은 PR 다이제스트 집계 | ❌ |
+| Phase 2 일괄 리뷰 게이트 | **자동 통과** → Phase 2.5 직행 | ❌ |
+| Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP | ❌ |
+| Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. cap 초과 시 자동통과+기록(가역) | ⚠️ cap |
+| Phase 2.5-E 설계 승인 | D PASS/cap 후 **자동 통과** · 다이제스트 집계 | ❌ |
 | Phase 3 implement/verify cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | Phase 3 파괴적/덮어쓰기 task | mini HARD GATE 정지 (§auto 우회 불가) | 🛑 |
 | security-review-ko Critical/High | **차단 보존** — §auto여도 자동통과 금지 (systematic-debugging 후 재실행) | 🛑 |

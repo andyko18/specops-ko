@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.47.2
+specops_version: 1.48.0
 used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /start-all-auto
 ---
 
@@ -46,9 +46,9 @@ used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /
      → **있으면**: 생성하는 `spec.md` §참조에 "`DESIGN.md` 디자인 시스템 준수" 포함
      → **없으면**: UI 컴포넌트 포함 기능이면 (HTML/CSS/React/Vue 등 시각 렌더링 포함) `/init-project` 실행 안내 (Phase 6 에서 DESIGN.md 생성 — `/start-design` 은 deprecated, `/init-project` 로 통합)
    - 프로젝트 루트 `screens/` 존재 확인 (`ls screens/ 2>/dev/null`)
-     → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (신규는 Step 5.5 · **batch는 Phase 2.5**에서 설계)
+     → **있으면 + UI 기능**: 기존 화면 목록 표시 — "현재 N개 화면: {name1}, {name2} ..." (신규는 Step 5.5 · **batch는 Phase 2.5-A**에서 설계)
      → **있으면 + 비UI 기능**: 무시 (screens/ 존재만 확인)
-     → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (신규: Step 5.5 · **batch: `/start-all` Phase 2.5**)
+     → **없으면 + UI 기능**: `screens/` 자동 생성 예정 (신규: Step 5.5 · **batch: `/start-all` Phase 2.5-A → 2.5-B IF**)
    - **`.specops/memory/*` 부트스트랩 산출물 자동 감지** (v2.0 신규 — `/init-project` 산출):
      - `.specops/memory/` 부재 → **graceful skip** (기존 dogfood 회귀 보호 — 부트스트랩되지 않은 프로젝트도 specifying-ko 정상 동작)
      - 존재 시: `ls .specops/memory/*.md 2>/dev/null` 결과를 spec.md `§참조` 에 자동 인용 (Step 6 작성 시):
@@ -93,7 +93,7 @@ used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /
    - **유지보수·foundation·batch 분기 진입 신호 검사** (Phase A):
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). **단 Step 5.6(인터페이스 설계)은 적용한다** — foundation 은 DB 스키마·공통 API 의 본진이므로 design-first 가 가장 중요: 공통부 DB 스키마는 `data-model.md`, 공통 제공 API 는 `api-spec.md` 에 **먼저 반영**. (**역할 분리**: §2 DAG 추출 = 구현 **태스크 분해** 단위 / Step 5.6 `data-model`·`api-spec` 갱신 = **설계 기준 계약** — 둘은 다른 산출물이며 **모두 수행**한다.) spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
-     - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. **Step 5.5 화면 루프 SKIP**(foundation과 동일 — 화면 본설계는 `/start-all` Phase 2.5 통합 1회). **Step 5.6(인터페이스 설계)은 적용**. UI 기능이면 §참조에 예정 화면 이름만 남기고(`screens-overview`·spec 목록), `screens/*.{md,html}` 상세 생성·승인 루프는 하지 않는다. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
+     - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. **Step 5.5·5.6 SKIP**(화면·인터페이스 본설계는 `/start-all` Phase 2.5에서 **화면→인터페이스** 순으로 통합 1회). UI면 §참조에 예정 화면 이름만, API/스키마면 예정 엔드포인트·테이블 이름만 남기고 상세 생성·승인 루프는 하지 않는다. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
        - **★ 유지보수 오분류 백스톱** (soft — 하드강제 아님, 5원칙4 주권): [신규 분기]로 왔으나 요청이 **이미 구현된 코드·동작의 수정**(버그 수정·리팩터·기존 기능 변경)이면, 메타스킬 유지보수 분류나 `<!-- entry: maintain -->` 라벨이 누락됐을 수 있다(라벨은 모델-prepend 프로즈라 훅 강제 없음). 신규로 계속하기 전 사용자에게 **1회 확인**: "이 요청이 기존 코드 수정이면 `analyzing-ko` 선행이 회귀 안전망(current-state·impact-analysis + 회귀 AC-R 데이터/동작 보존)을 켭니다 — [신규 진행 / 유지보수 전환]?". `유지보수 전환` 응답 시 `analyzing-ko` 부터(★ HARD GATE) 재진입. **오탐 방지 계약**: 순수 신규 창작이 "개선·변경" 어휘를 포함하는 건 흔하므로, **기존 산출물(코드·스키마·API)을 실제로 건드리는 경우에만** 확인한다 — 신규 창작이면 묻지 말 것. 근거: 라벨 누락 시 analyzing HARD GATE 통째 skip → 유지보수가 신규로 처리돼 회귀 AC 미적용(커맨드 감사 20260719 [MED] — 관찰 실패 0의 백스톱).
@@ -122,7 +122,7 @@ used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /
 
    > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
 
-   **[foundation · batch 분기]**: 본 Step **SKIP**. foundation은 화면 루프 없음. batch는 `/start-all` Phase 2.5가 전 FR 화면을 **1회 통합** 설계한다 — 여기서 `screens/*`를 만들거나 승인 루프를 돌리지 않는다. UI면 Step 6 §참조에 예정 화면 이름만 기재 후 **Step 5.6으로 진행**.
+   **[foundation · batch 분기]**: 본 Step **SKIP**. foundation은 화면 루프 없음. batch는 `/start-all` Phase 2.5-A가 전 FR 화면을 **1회 통합** 설계한다 — 여기서 `screens/*`를 만들거나 승인 루프를 돌리지 않는다. UI면 Step 6 §참조에 예정 화면 이름만 기재. foundation은 **Step 5.6으로 진행**, batch는 Step 5.6도 SKIP이므로 **Step 6으로 진행**.
 
    **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용 · foundation/batch 제외):
    - 화면 파일이 **이미 있으면** 먼저 판정한다:
@@ -153,7 +153,9 @@ used_by: using-specops-ko, /start, /start-auto, /start-foundation, /start-all, /
    > **적용 조건**: 이번 기능이 **API 엔드포인트**(제공) · **DB 스키마**(테이블·필드) · **클라이언트 영속 데이터**(localStorage·IndexedDB) 중 하나를 신설·변경한다. 순수 UI·CLI 로직만이면 본 스텝 skip.
    > **대상 산출물**: `.specops/memory/api-spec.md`(IF 설계서) · `.specops/memory/data-model.md`(테이블 설계서) — 영향받는 것만. 화면이 `screens/`(화면별 파일)을 생성하듯, 인터페이스는 이 **마스터 문서의 해당 섹션을 갱신**한다.
    > **원칙**: 구현이 이 설계를 따른다(design-first). 구현 중 불가피하게 벗어나면 `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 감지한다.
-   > lifecycle 밖에서 개별/일괄 인터페이스를 따로 손보려면 `/design-interface`(단수)·`/design-interfaces`(복수). 본 Step 5.6 은 lifecycle 내 자동 처리다. (분업 기준: `commands/design-interface.md` §인터페이스 설계 3경로 분업)
+   > lifecycle 밖에서 개별/일괄 인터페이스를 따로 손보려면 `/design-interface`(단수)·`/design-interfaces`(복수). 본 Step 5.6 은 lifecycle 내 자동 처리다. (분업 기준: `commands/design-interface.md` §인터페이스 설계 경로 분업)
+
+   **[batch 분기]**: 본 Step **SKIP**. `/start-all` Phase 2.5-B가 전 FR 인터페이스를 **화면 설계(A) 직후** 1회 통합한다 — 여기서 api-spec/data-model을 갱신하지 않는다. API/스키마면 Step 6 §참조에 예정 엔드포인트·테이블 이름만 기재 후 **Step 6으로 진행**.
 
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
@@ -208,7 +210,7 @@ args 첫 줄 = "<!-- entry: maintain -->"? ── yes ──▶ [유지보수 �
     │
     └── no ──▶ args 첫 줄 = "<!-- entry: foundation -->"? ── yes ──▶ **[foundation 분기]** Step 5.5 skip(화면) · **Step 5.6 적용**(공통 스키마·API design-first) → 공통부 spec 작성 (§유형=foundation) → Step 3
                     │
-                    └── no ──▶ args 첫 줄 = "<!-- entry: batch -->"? ── yes ──▶ **[batch 분기]** git-branch-create skip · **Step 5.5 skip(화면)** · **Step 5.6 적용** → spec.md §batch 라벨 (+ auto:true 시 §auto) → Step 3
+                    └── no ──▶ args 첫 줄 = "<!-- entry: batch -->"? ── yes ──▶ **[batch 분기]** git-branch-create skip · **Step 5.5·5.6 skip**(화면·IF → `/start-all` Phase 2.5) → spec.md §batch 라벨 (+ auto:true 시 §auto) → Step 3
                                     │
                                     └── no ──▶ [신규 분기] (현재 동작) ↓
     ↓

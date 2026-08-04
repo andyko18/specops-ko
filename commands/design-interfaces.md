@@ -11,7 +11,7 @@ reference_upstream: specops-ko 독자 추가
 
 # /design-interfaces [기능 설명]
 
-여러 인터페이스를 한 번에 설계하는 오케스트레이터. ① 필요 인터페이스 목록을 자동 판단하고 ② 승인 게이트를 거쳐 ③ 각 인터페이스를 `/design-interface` 대화 루프로 순차 설계한다. 분업 기준은 `§인터페이스 설계 3경로 분업`(단수 `commands/design-interface.md`) 참조.
+여러 인터페이스를 한 번에 설계하는 오케스트레이터. ① 필요 인터페이스 목록을 자동 판단하고 ② 승인 게이트를 거쳐 ③ 각 인터페이스를 `/design-interface` 대화 루프로 순차 설계한다. 분업 기준은 `§인터페이스 설계 경로 분업`(단수 `commands/design-interface.md`) 참조.
 
 ## Step 1: 인터페이스 목록 자동 판단 + 승인 게이트
 

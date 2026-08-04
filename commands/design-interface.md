@@ -15,15 +15,16 @@ reference_upstream: specops-ko 독자 추가
 
 `api-spec.md`(IF 설계서)의 채택 정의방식 섹션 + `data-model.md`(테이블 설계서)에 엔드포인트/테이블 1건을 설계 반영한다. 화면이 `screens/{name}.{md,html}` 파일을 만드는 것과 달리, 인터페이스는 **per-endpoint 파일 없이 마스터 문서 섹션을 대화로 갱신**한다 (무스크립트).
 
-## 인터페이스 설계 3경로 분업
+## 인터페이스 설계 경로 분업
 
 | 경로 | 진입 | 언제 쓰나 |
 |---|---|---|
-| **specifying Step 5.6** (인라인) | lifecycle 자동 (API/스키마 기능 spec 승인 직후) | `/start` 흐름 중 — 별도 호출 불필요 |
+| **specifying Step 5.6** (인라인) | lifecycle 자동 (API/스키마 기능 spec 승인 직후) | `/start`·`/start-foundation` — 별도 호출 불필요. **`/start-all` batch는 SKIP** |
+| **`/start-all` Phase 2.5-B** | batch 오케스트레이터 | FR별 5.6 대신 **화면(2.5-A) 직후** 전 FR 인터페이스 1회 통합. 이어서 **2.5-D `design-reviewer-ko`** 가 정합 리뷰 |
 | **`/design-interface [name]`** | 독립 슬래시 | lifecycle 밖에서 **인터페이스 1개** 신규/수정 |
 | **`/design-interfaces`** | 독립 슬래시 | lifecycle 밖에서 **여러 인터페이스 일괄** (목록 자동판단+승인게이트+순차루프) |
 
-> `/init-project` Phase 8f/8e 는 `api-spec.md`·`data-model.md` **골격**만 생성 — 위 3경로가 채운다.
+> `/init-project` Phase 8f/8e 는 `api-spec.md`·`data-model.md` **골격**만 생성 — 위 경로가 채운다.
 
 ## Process
 
