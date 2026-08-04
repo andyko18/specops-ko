@@ -12,11 +12,11 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 [ -f "$MATRIX" ] || { nope "P0" "matrix 부재"; finish; }
 [ -f "$CHK" ] || { nope "P0" "checker 부재"; finish; }
 
-# P1: 매트릭스 스키마 — 6 edge id + edges[].path/must_match
+# P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="batch-review-skip,design-critical-cap,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured"
+expected="batch-review-skip,design-critical-cap,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured"
 if [ "$ids" = "$expected" ]; then
-  ok "P1 matrix 6 id 정렬 일치"
+  ok "P1 matrix id 정렬 일치"
 else
   nope "P1" "ids=$ids expect=$expected"
 fi

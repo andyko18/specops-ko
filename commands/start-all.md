@@ -73,22 +73,42 @@ reference_upstream: specops-ko 독자 추가
 2. specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 자동 진행 (FID는 specifying-ko Step 0이 결정)
    - **HARD**: batch 분기에서 specifying **Step 5.5·5.6 SKIP** — 화면·인터페이스 상세는 Phase 2.5 전담(통상 순서: 화면 → 인터페이스). Phase 1은 예정 화면/엔드포인트·테이블 **이름만** §참조에 남긴다.
    - clarifying은 `.specops/memory/decisions.md` 확정 주제를 재묻지 않음 (init 원장 우선).
+   - **planning**: `**§batch**`이면 plan-reviewer·per-FR critic **DEFER** (Phase 2에서 1회). 스펙→플랜→쪼개기만 수행.
 3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status를 `PLAN_DONE`으로 갱신
 4. 다음 PENDING FR 반복
 
 > **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다. (원장에 이미 확정된 주제는 BLOCKING에서 제외)
 
-### Phase 2 — 일괄 리뷰 (단일 게이트)
+### Phase 2 — batch plan-review + 일괄 게이트
 
-1. 전 FID의 `.specops/<FID>/spec.md`, `plan.md`, `tasks.md` 핵심 내용 요약 제시
-   - 이 시점의 `api-spec`·`data-model` cross-FR 검수는 **하지 않는다**(인터페이스 본설계는 Phase 2.5-B). architecture 드리프트가 보이면 한 줄 경고만.
-1.5. **[§auto 모드]** (`/start-all-auto` 진입 — 전 FID spec.md에 `**§auto**: true`): 본 일괄 리뷰 게이트를 **자동 통과** → Phase 2.5 직행. 사용자 응답 대기 없음. (가역 게이트 — 가정은 batch PR 게이트 다이제스트로 집계)
-2. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**
-   - `n` → **중단**. 아티팩트 보존, `feat/<BATCH_ID>` 브랜치 보존. `/start-all` 재진입 시 Phase 2.5부터 재개 가능
+> **순서**: (1) batch plan-reviewer 1회 → (2) 짧은 digest → (3) [y/n] / §auto → Phase 2.5.  
+> Phase 1에서 §batch plan-reviewer는 **DEFERRED** — 여기서 해소한다(생략 아님).
+
+0. **전제**: queue.md의 추적 FR이 모두 `PLAN_DONE`(또는 이후 상태). 미완이면 Phase 1 복귀.
+
+1. **Batch plan-review (필수)** — `Agent` `subagent_type: "specops-ko:plan-reviewer-ko"` **1회**
+   - 컨텍스트: 전 PLAN_DONE FID의 `.specops/<FID>/spec.md` + `plan.md` **경로 목록**(본문 전문 붙여넣기 금지)
+   - 부모는 stdout을 `.specops/<BATCH_ID>/plan-review.md`에 저장
+   - 각 FID `dispatch-log.md`에 deferred 해소 행: `| … | plan-reviewer | plan-reviewer-ko | PASS|FAIL | batch Phase 2 |`
+   - **PASS** → 선택: 외부 critic 최대 1회(대표 plan 또는 전 경로) 또는 `CRITIC: SKIP (batch defer)` 기록 → 스텝 2
+   - **FAIL** (1회차): 이슈 목록으로 관련 FID `plan.md` 수정 → 필요 시 해당 FID만 `decomposing-ko` 재실행 → plan-reviewer **재dispatch 1회**
+   - **FAIL** (재시도 후): Critical≥1 또는 대화형 → `HARD-GATE: batch plan-reviewer cap — 사용자 개입`. **§auto**이고 Important-only면 기존 plan §auto와 같이 가역 자동통과 + queue/다이제스트 기록 가능
+   - **금지**: Phase 2 plan-review 생략 · 부모 self-review 대체 · FR마다 plan-reviewer 재실행
+
+2. **짧은 digest** — 전 plan 본문 덤프 금지. 스크립트:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/batch-plan-digest.sh ".specops/$BATCH_ID"
+   ```
+   출력(FR당 1줄): `FID | §유형 | 태스크수 | AC수 | plan/tasks 경로`. architecture 드리프트가 보이면 한 줄 경고만.  
+   이 시점의 `api-spec`·`data-model` cross-FR 검수는 **하지 않는다**(Phase 2.5-B).
+
+2.5. **[§auto 모드]**: digest 수행 후 일괄 리뷰 게이트 **자동 통과** → Phase 2.5 직행 (가역 — 가정은 batch PR 다이제스트 집계). plan-review FAIL Critical cap이면 자동통과 금지.
+
+3. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**
+   - `n` → **중단**. 아티팩트·`feat/<BATCH_ID>` 보존. 재진입 시 Phase 2.5부터 가능(plan-review.md PASS 있으면 digest/[y/n]만 재개 가능)
    - `y` → Phase 2.5 진입
 
 ### Phase 2.5 — batch 통합 design-first (화면 → 인터페이스)
-
 > **왜 여기 통합 단계인가**: specifying Step 5.5·5.6은 batch에서 **SKIP**한다. FR마다 화면·IF를 돌리면 batch 이점을 깨뜨리므로, 구현 직전 **1회 통합**한다. 통상 순서: **A 화면 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**.
 
 #### A. 통합 화면 설계 (UI 기능 시)
@@ -199,7 +219,7 @@ CODE_DONE 항목을 **순서대로** (IMPL_DONE skip):
    ```
    (또는 `end-loaded: batch B/C covered full batch diff` — `batch-state`가 둘 다 인정)  
    전 tid `reviews/<tid>-[BC]-report.md` 존재 필수(3-B 산출).  
-   lite+단일 `batch-review-skip` 경로는 보조(기존).  
+   lite+단일 `batch-review-skip` 경로는 보조(기존) — `.specops/<FID>/risk-profile.json`의 `effective`가 `lite`이고 단일 태스크일 때만(부재·standard/strict면 skip 금지).  
 3. 3종(`review-base.sha`·`evidence.md`·`review-skip|request`) + `/verify PASS` 확인 후 queue → **`IMPL_DONE`**. 하나라도 없으면 IMPL_DONE 금지.  
 4. verify FAIL → fix_loop ≤3(해당 FR) → 필요 시 그 FR diff만 3-B 재평가.  
 5. 다음 CODE_DONE FR 반복.
@@ -292,7 +312,10 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 - **requirements.md FR 표 없이 실행** — `/init-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-all` 진입
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
 - **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step D)만 생성
-- **Phase 2·2.5 건너뜀** — 일괄 리뷰 게이트와 화면→인터페이스 통합 design-first는 필수. 사용자 확인 없이 Phase 3 진입 금지
+- **Phase 2·2.5 건너뜀** — batch plan-review·일괄 게이트·화면→IF design-first 필수. 사용자 확인 없이 Phase 3 진입 금지
+- **Phase 1에서 §batch plan-reviewer 실행** — DEFER 계약 위반. Phase 2에서 1회만
+- **Phase 2 batch plan-review 생략** — Generator↔Evaluator 폐기. digest/[y/n]만으로 Phase 2.5 진입 금지
+- **Phase 2에서 전 FID plan 전문 덤프** — `batch-plan-digest.sh` 짧은 표만
 - **Phase 3에서 FR마다 B/C** — `batch-end-loaded`인데 FID 단위 end-loaded B/C를 돌리면 batch 절감 붕괴. 3-B batch 1회만
 - **Phase 3-B B/C 생략** — 코드만 만들고 리뷰 0회 금지. Generator↔Evaluator 유지
 - **CODE_DONE에서 verify 뭉개기** — 3-C는 FID마다 evidence·`/verify PASS` 필수

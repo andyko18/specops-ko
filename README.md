@@ -19,8 +19,10 @@ claude plugin marketplace add ~/path/to/specops-ko
 | **전체 기능 일괄 구현** | `/start-all` | — |
 | **전체 기능 일괄 구현 (무인)** | `/start-all-auto` | — |
 | **신규 기능** | `/start "CSV 파일 줄 수 세기 CLI"` | "CSV 파일 줄 수 세기 CLI 만들어줘" |
+| **신규 기능 (경량)** | `/start-lite "<기능>"` | — (NL 추론 금지) |
 | **신규 기능 (무인)** | `/start-auto "<기능>"` | — |
 | **유지보수** | `/maintain "auth.js 토큰 만료 처리"` | "auth.js 토큰 만료 처리 버그 고쳐줘" |
+| **유지보수 (경량)** | `/maintain-lite "<대상>"` | — (NL 추론 금지) |
 | **(선택) 아이디어 탐색** | `/brainstorming` | — |
 | **화면·인터페이스 개별 설계** (lifecycle 밖) | `/design-screens` · `/design-interfaces` | — |
 
@@ -40,8 +42,9 @@ claude plugin marketplace add ~/path/to/specops-ko
    작업이 기존 코드/화면을 수정·삭제하나?
    ├─ 아니오 (새 산출물) → /start "<기능>"
    │     · 매 게이트 확인(대화형)  |  무인 진행 원하면 → /start-auto (가역 게이트 자동 통과, PR만 확인)
+   │     · 경량(clarify·plan skip, 화면/IF·B/C 유지) → /start-lite
    └─ 예 (기존 수정·제거·확장) → /maintain "<대상>"
-         · analyzing 선행(영향 분석) + 회귀 AC 강제
+         · analyzing 선행(영향 분석) + 회귀 AC 강제  |  경량(analyze-mini) → /maintain-lite
 
 · 신규 프로젝트 순서: /init-project → /start-foundation → /start-all (또는 기능마다 /start)
 · 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
@@ -132,10 +135,12 @@ specops-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (21건)
+├── commands/                                 ← 슬래시 진입로 (23건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
+│   ├── start-lite.md                         ← 경량 신규 /start-lite (clarify·plan skip)
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
 │   ├── maintain.md                           ← 유지보수 진입 슬래시 /maintain
+│   ├── maintain-lite.md                      ← 경량 유지보수 /maintain-lite (analyze-mini)
 │   ├── init-project.md                       ← 프로젝트 초기화 /init-project
 │   ├── brainstorming.md                      ← 아이디어 탐색 /brainstorming (pre-start)
 │   ├── design-screen.md                      ← 화면 설계 /design-screen

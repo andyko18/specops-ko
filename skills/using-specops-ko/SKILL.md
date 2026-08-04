@@ -41,6 +41,8 @@ used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 
 > **경계**: `/start <인자>` 슬래시의 동작 정의는 `commands/start.md` 가 Source of Truth. 본 메타 skill 은 **자연어 입력** 의 신호 감지만 책임한다. `/start` 에 붙은 인자 내용이 "기능 설명으로 보이지 않는다"는 이유로 specifying-ko 호출을 보류하는 2차 판단은 `commands/start.md` 안티패턴 "인자 내용 2차 판단" 에 의해 금지 — 슬래시 진입은 무조건 specifying-ko 로 직행.
 
+> **lite 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 `/start-lite`·`/maintain-lite`를 **추론하지 않는다**. lite는 슬래시 전용(`commands/start-lite.md`·`maintain-lite.md` SoT). 자연어 신규/유지보수는 기존대로 `/start`·`/maintain` 경로(또는 풀 chain)만.
+
 이는 협상 사항이 아니다. 합리화로 우회 금지.
 </EXTREMELY-IMPORTANT>
 
@@ -209,7 +211,9 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 - specops-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
 - `skills/<name>/SKILL.md` (layer=2 engine·layer=3 harness 플랫 구조 — CLAUDE.md §Skill 계층 참조)
-- `commands/start.md` — 슬래시 진입점
+- `commands/start.md` — 슬래시 진입점 (풀 신규)
+- `commands/start-lite.md` · `commands/maintain-lite.md` — 경량 진입 (슬래시 전용, NL 추론 금지)
+- `commands/maintain.md` — 풀 유지보수 진입
 - `commands/brainstorming.md` — 선택적 pre-init-project 탐색 진입점
 - `skills/brainstorming-ko/SKILL.md` — 아이디어 탐색 skill
 - `hooks/hooks.json` — SessionStart·Stop hook 매니페스트

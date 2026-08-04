@@ -134,6 +134,18 @@ if has skills/planning-ko/SKILL.md '공유 유틸 창발 중복' '공통 lib|공
 else
   nope "planning-ko P2 창발중복 경고 소실" "형제-FID 유틸 복제 무경고 → 승격 backlog 반복"
 fi
+
+# ── batch plan-reviewer DEFER ──
+if has skills/planning-ko/SKILL.md 'plan-reviewer DEFER|DEFERRED → Phase 2 batch' '§batch' 'dispatch 하지 않음'; then
+  ok "planning-ko batch plan-reviewer DEFER 존재"
+else
+  nope "planning-ko batch DEFER 소실" "Phase 1 FR마다 reviewer 회귀 위험"
+fi
+if grep -q 'Batch plan-review' commands/start-all.md && grep -q 'batch-plan-digest.sh' commands/start-all.md; then
+  ok "start-all Phase 2 batch plan-review + digest 배선"
+else
+  nope "start-all Phase 2 plan-review 배선 소실" "DEFER 해소 경로 부재"
+fi
 if grep -q '호출 직전 한 줄 선언' skills/decomposing-ko/SKILL.md && grep -q 'implementing-ko 를 호출합니다' skills/decomposing-ko/SKILL.md; then
   ok "decomposing-ko P4 implement 선언 넛지 존재 (R-3 투명성)"
 else

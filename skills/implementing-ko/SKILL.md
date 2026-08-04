@@ -1,14 +1,9 @@
 ---
 name: implementing-ko
-description: 본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). §batch는 batch-end-loaded(A만·B/C는 start-all). 레거시 per-task는 review_mode: per-task
+description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). §batch는 batch-end-loaded(A만·B/C는 start-all). 레거시 per-task는 review_mode: per-task"
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
-  - obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
-  - obra/superpowers@v5.0.7 skills/subagent-driven-development/implementer-prompt.md
-  - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
-  - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
-  - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.61.0
+specops_version: 1.62.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (batch-end-loaded A-only 출구)
 ---
 
@@ -34,6 +29,8 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 | **`per-task`** (레거시) | 태스크마다 A→B→C. 고위험 FID에서만 명시 opt-in |
 
 `risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded·batch-end-loaded는 B·C를 **수행**(시점만 다름)하므로 allowlist 위반이 아니다.
+
+**§lite 불변** (`spec.md`에 `**§lite**: true` — `/start-lite`·`/maintain-lite`): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
 
 ## 설계 계약 준수 (design-first 후진 teeth)
 
@@ -97,7 +94,7 @@ SEQUENTIAL 분기 (1 태스크씩):                            │
 → WAVE LOOP 재진입                                        │
                                                           │
 DAG-AWARE PARALLEL 분기: ←────────────────────────────────┘
-  각 batch leaf: context 확인 · validate-context · worktree
+  각 batch leaf: context 확인 · validate-context · worktree (`.worktrees/<FID>-<task-id>/`)
   dispatching-parallel-agents-ko → 각 leaf implementer-ko (A only)
   결과 수집 (NEEDS_CONTEXT 재dispatch / DONE)
   **Wave 2**: emit-context.sh 산출물 사용. 부재 시 decomposing-ko 재진입 HARD GATE.

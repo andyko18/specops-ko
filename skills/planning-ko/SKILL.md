@@ -5,8 +5,8 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
-specops_version: 1.10.0
-used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구)
+specops_version: 1.61.0
+used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
 # Engine 스킬 — 구현 플랜 작성 (planning)
@@ -141,6 +141,29 @@ git commit -m "feat: 특정 기능 추가"
 
 ## 독립 리뷰 (plan-reviewer 서브에이전트)
 
+### [§batch 분기] plan-reviewer DEFER (Phase 2 batch 1회)
+
+```bash
+grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo BATCH || echo SINGLE
+```
+
+**`**§batch**` 감지 시** (`/start-all` Phase 1):
+
+1. 자체 검토(위 절)까지 완료 후 **`plan-reviewer-ko` dispatch 하지 않음**
+2. 외부 critic(`critic-ask.sh`) **per-FR 미호출**
+3. decomposing-ko 진입 **허용** — 아래 「FAIL 시 decomposing 차단」HARD GATE는 **본 경로에 적용하지 않음**(검사는 `/start-all` Phase 2)
+4. `.specops/<FID>/dispatch-log.md`에 기록:
+   `| <N> | <ISO-8601> | plan-reviewer | DEFERRED | — | Phase 2 batch |`
+5. session-progress: `/plan 완료 "plan.md (plan-reviewer DEFERRED → Phase 2 batch)"`
+6. handoff Remaining에 `plan-reviewer DEFERRED → Phase 2 batch` 명시
+7. 즉시 `## 실행 전환` / `## 다음 skill`(decomposing-ko)
+
+**금지**: §batch인데 Phase 1에서 plan-reviewer를 돌리는 것(비용·시점 계약 위반).
+
+**비-batch** (`/start`·foundation 등 §batch 부재): 아래 기존 독립 리뷰 절차 **그대로**.
+
+### 비-batch — plan-reviewer dispatch
+
 자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 
 **dispatch:** `Agent` 도구, `subagent_type: "specops-ko:plan-reviewer-ko"`
@@ -167,13 +190,15 @@ cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/rev
 
 ### 외부 critic 병행 (advisory — multimodel-critic)
 
-plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로 포함 — 자동통과도 진행 확정이므로 동일 호출. FAIL 루프 중에는 미호출):
+**비-batch만**: plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로 포함 — 자동통과도 진행 확정이므로 동일 호출. FAIL 루프 중에는 미호출):
 
 1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`
 2. 의견 출력 시 (`CRITIC[<provider>]:`): 요지 1~2문장을 plan.md §8 에 행 추가 —
    `| <ts> | 외부 critic (<provider>) | <요지> | 참고 | §N |`
 3. `CRITIC: SKIP/FAIL` → dispatch-log 1줄만 기록 (plan.md §8 미기재 — 잡음 방지)
 4. **advisory**: 외부 의견은 참고 입력 — PASS/FAIL **판정 권한 없음** (판정은 plan-reviewer 소관)
+
+**§batch**: per-FR critic **미호출**. `/start-all` Phase 2 batch plan-review **PASS 후** 오케스트레이터가 대표 plan 1개 또는 전 plan 경로로 critic **최대 1회**(또는 dispatch-log에 `CRITIC: SKIP (batch defer)`). 판정 권한 없음은 동일.
 
 ## 5원칙 주입 (specops-ko 고유)
 

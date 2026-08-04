@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/maintain`) 또는 자연어 진입 후 메타 스킬이 spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
@@ -127,7 +127,9 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다:
 
+- `<!-- entry: maintain-lite -->` — 경량 유지보수. `analyzing-ko` `[lite-mini 분기]` → `specifying-ko` `[maintain-lite 분기]`. `maintain`보다 **먼저** 매칭.
 - `<!-- entry: maintain -->` — 유지보수 진입. `specifying-ko`의 `[유지보수 분기]`가 감지.
+- `<!-- entry: lite -->` — 경량 신규. `specifying-ko` `[lite 분기]` — clarify/plan skip, §lite+trivial, 화면/IF·B/C 유지.
 - `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5(화면 루프) skip, §유형=`foundation` 자동 라벨.
 
 ## 구조 검증이 FAIL나면

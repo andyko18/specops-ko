@@ -152,6 +152,24 @@ grep -q 'spec-reviewer-ko' "$SA" && grep -q 'code-reviewer-ko' "$SA" \
 grep -q 'batch-end-loaded: batch B/C covered' "$SA" \
   && ok "T10.d review-skip 사유" || nope "T10.d" "skip 사유 부재"
 
+# ── T11: Phase 2 batch plan-review defer ──
+grep -q 'DEFERRED' "$SA" && grep -q 'plan-reviewer' "$SA" \
+  && ok "T11.a Phase 2 DEFERRED/plan-reviewer" || nope "T11.a" "DEFER 배선 부재"
+grep -q 'batch-plan-digest.sh' "$SA" \
+  && ok "T11.b digest 스크립트 배선" || nope "T11.b" "digest 미배선"
+# Phase 2 절(### Phase 2 — … ### Phase 2.5) 안에서만 순서 검증 — 본문 앞쪽 언급 제외
+phase2=$(awk '/^### Phase 2 —/{p=1} p; /^### Phase 2\.5/{if(p&&!seen++) exit}' "$SA")
+echo "$phase2" | grep -q 'Batch plan-review' \
+  && echo "$phase2" | grep -q 'batch-plan-digest' \
+  && l_pr=$(echo "$phase2" | grep -n 'Batch plan-review' | head -1 | cut -d: -f1) \
+  && l_dg=$(echo "$phase2" | grep -n 'batch-plan-digest' | head -1 | cut -d: -f1) \
+  && [ -n "$l_pr" ] && [ -n "$l_dg" ] && [ "$l_pr" -lt "$l_dg" ] \
+  && ok "T11.c 순서 plan-review < digest (Phase 2 절)" || nope "T11.c" "pr=$l_pr dg=$l_dg"
+grep -qE 'DEFERRED → Phase 2 batch|plan-reviewer DEFER' "$PLUGIN/skills/planning-ko/SKILL.md" \
+  && ok "T11.d planning-ko DEFER" || nope "T11.d" "planning DEFER 부재"
+grep -q 'Phase 1에서 §batch plan-reviewer 실행' "$SA" \
+  && ok "T11.e 안티패턴 Phase1 reviewer" || nope "T11.e" "안티패턴 부재"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

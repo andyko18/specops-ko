@@ -56,3 +56,16 @@ flowchart TD
 | FID end-loaded (`/start`) | **2** per FID |
 | batch-end-loaded (`/start-all`) | **2** per batch |
 | requesting (위 두 end-loaded) | skip |
+
+## `/start-all` Phase 1–2 plan-reviewer defer
+
+Phase 1 FR마다 ★플랜 검사관을 돌리지 않는다:
+
+```text
+FR: 스펙 → 플랜 → (★ DEFER) → 쪼개기 → PLAN_DONE
+…
+Phase 2: ★ plan-reviewer ×1 → batch-plan-digest.sh → [y/n] → Phase 2.5
+```
+
+- planning-ko: `**§batch**`이면 `DEFERRED → Phase 2 batch`
+- `/start`·foundation(비-batch): FID마다 plan-reviewer **유지**

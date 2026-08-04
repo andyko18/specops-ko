@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 1.61.0
+specops_version: 1.62.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -29,22 +29,25 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 - `**미재사용 근거**: <이유>` — 재사용하지 않는 경우 (예: 해당 task 가 foundation 범위 외)
 </HARD-GATE>
 
-## trivial 신규 단축 분기 (§유형 = trivial, plan.md 부재)
+## trivial / §lite 단축 분기 (plan.md 부재)
 
-spec.md §유형이 `trivial` 이고 `plan.md` 가 **부재**하면 (specifying-ko 신규 trivial 단축 경로로 clarify·plan 이 SKIP 된 경우) — 아래 경량 절차로 대체하고 정상 체크리스트를 건너뛴다:
+다음 중 하나이고 `plan.md` 가 **부재**하면 (clarify·plan SKIP — specifying trivial 또는 `/start-lite`·`/maintain-lite`) — 아래 경량 절차로 대체하고 정상 체크리스트를 건너뛴다:
 
-1. **입력 확인** — `.specops/<FID>/spec.md` + `acceptance-criteria.md` 존재 (plan.md·clarifications.md 부재는 **정상** — SKIP 됨). spec.md §유형=trivial 재확인 (아니면 정상 체크리스트로 복귀).
-2. **단일 태스크 합성** — spec.md 설계 섹션 + AC(`must`) 를 근거로 **TDD 5스텝 단일 태스크** 를 `templates/tasks.md` 구조로 작성. 모든 `must` AC 가 이 1 태스크에 매핑되도록 커버리지 표 기재. 파일 구조는 spec.md §참조·설계 섹션에서 확정 (plan.md §파일구조 대체).
-3. **teeth 불변 준수** — TDD 5스텝(RED→검증→GREEN→검증→COMMIT)·플레이스홀더 스캔·테스트 컨벤션(bash/Python)·DAG 섹션(단일 노드 YAML)은 **정상과 동일하게 필수**. 축약되는 것은 clarify·plan 뿐, decompose 의 품질 게이트는 그대로다.
-4. **DAG** — 단일 태스크이므로 `## 의존 그래프` 는 leaf 1개 YAML (`depends_on: []`). Step 10 자체 검증·Step 10b `emit-context.sh` 는 정상 수행.
+- `**§유형**: trivial`
+- 또는 `**§lite**: true` (§유형이 `유지보수`여도 §lite면 본 분기)
+
+1. **입력 확인** — `.specops/<FID>/spec.md` + `acceptance-criteria.md` 존재 (plan.md·clarifications.md 부재는 **정상** — SKIP 됨). 위 조건 재확인 (아니면 정상 체크리스트로 복귀).
+2. **단일 태스크 합성** — spec.md 설계 섹션 + AC(`must`, 유지보수면 AC-R-*) 를 근거로 **TDD 5스텝 단일 태스크** 를 `templates/tasks.md` 구조로 작성. 모든 `must` AC 가 이 1 태스크에 매핑. `review_mode: end-loaded` **필수**. 파일 구조는 spec.md §참조·설계 섹션에서 확정 (plan.md §파일구조 대체).
+3. **teeth 불변 준수** — TDD 5스텝·플레이스홀더 스캔·테스트 컨벤션·DAG 섹션(단일 노드 YAML)은 **정상과 동일하게 필수**. 축약되는 것은 clarify·plan 뿐.
+4. **DAG** — leaf 1개 YAML (`depends_on: []`). Step 10 자체 검증·Step 10b `emit-context.sh` 정상 수행.
 5. 이후 `## 다음 skill` (implementing-ko) 로 정상 진행.
 
-> **오판 안전망**: trivial 은 사용자가 specifying 에서 명시 승인한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하다고 판단되면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — 사용자에게 "규모가 trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
-> (기준 보정 근거 — 20260716 trivial dogfood 발견 #1: 구 기준 "AC ≥ 3 또는 파일 ≥ 2" 는 TDD 최소 구성(코드 1 + 테스트 1 = 2파일, 회귀 AC 포함 must 3건)에 **항상 걸리는 false-trigger** 였다 — 모든 trivial 이 재확인을 유발하면 단축 경로의 완주율 이득이 상쇄된다. 실질 복잡도 신호는 비테스트 구현 파일 2개↑ 또는 AC 4건↑.)
+> **오판 안전망**: trivial/§lite 는 사용자가 명시(슬래시·승인)한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — "규모가 lite/trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
+> (기준 보정 근거 — 20260716 trivial dogfood 발견 #1: 구 기준 "AC ≥ 3 또는 파일 ≥ 2" 는 TDD 최소 구성에 **항상 걸리는 false-trigger** 였다. 실질 복잡도 신호는 비테스트 구현 파일 2개↑ 또는 AC 4건↑.)
 
 ## 체크리스트
 
-1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**. **예외**: 위 `## trivial 신규 단축 분기` 조건(§유형=trivial + plan.md 부재)이면 그 경량 절차를 따르고 본 체크리스트는 건너뛴다
+1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**. **예외**: 위 `## trivial / §lite 단축 분기` 조건이면 그 경량 절차를 따르고 본 체크리스트는 건너뛴다
 1a. **DAG 힌트 추출 (v0.4b 신규)** — spec.md §2 포함 섹션에서 의존 구조 사전 파악:
    - `(독립 — 병렬 구현 가능)` 표기 항목 2개 이상 → DAG leaf 후보 목록 초기화
    - `(의존: X)` 표기 항목 → 해당 태스크의 `depends_on` 초기값으로 설정

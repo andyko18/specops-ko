@@ -36,7 +36,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    - `auto: true` (셋째 줄) → specifying-ko batch 분기가 **추가 감지** → spec.md §1 에 `**§auto**: true` 동시 기재
    - 결과: 각 spec.md §1 = `**§유형**` + `**§batch**: <id>` + `**§auto**: true` → 다운스트림 6개 skill 무변경으로 §auto 자동통과 전파
 4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). **단** `.specops/memory/decisions.md` 확정 주제는 ASSUMED 재질문도 금지(원장 우선). 사용자 정지 없음.
-5. **Phase 2 자동통과** — spec/plan/tasks 요약은 수행하되 일괄 리뷰 게이트("화면·인터페이스 설계 후 구현 진행? [y/n]")를 자동 통과(start-all.md Phase 2 §auto 분기) → Phase 2.5 직행. (api-spec cross-FR 검수는 Phase 2.5-C)
+5. **Phase 2** — 전 PLAN_DONE 후 **batch plan-reviewer 1회** → `batch-plan-digest.sh` → 일괄 리뷰 게이트 자동 통과 → Phase 2.5 (Critical plan-review cap은 정지).
 6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 자동 수집·제시:
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계
@@ -50,7 +50,8 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | 단계 | start-all-auto 동작 | 정지? |
 |---|---|---|
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
-| Phase 2 일괄 리뷰 게이트 | **자동 통과** → Phase 2.5 직행 | ❌ |
+| Phase 2 batch plan-review | 전 PLAN_DONE 후 **1회** (Phase 1 DEFER 해소). FAIL Critical → 정지 | 🛑 Critical |
+| Phase 2 일괄 리뷰 게이트 | digest 후 **자동 통과** → Phase 2.5 직행 | ❌ |
 | Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP | ❌ |
 | Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. **Critical≥1 cap → 정지**(§auto 자동통과 금지). Important-only cap → 자동통과+기록(가역) | 🛑 Critical / ⚠️ Important |
 | Phase 2.5-E 설계 승인 | D PASS/Important-only cap 후 **자동 통과** · Critical cap이면 미도달 · 다이제스트 집계 | ❌ |
