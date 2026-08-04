@@ -365,8 +365,22 @@ EOF
     mkdir -p "$root/.specops/20260721-login"
     : > "$root/.specops/20260721-login/review-base.sha"
     : > "$root/.specops/20260721-login/review-request.md"
-    printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$root/.specops/20260721-login/evidence.md"
-    printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n' \
+    # Wave B: ACTIVE batch PR 는 RELEASE_READY hard — 정직 fixture는 축 충족해야 false-block 금지
+    cat > "$root/.specops/20260721-login/evidence.md" <<'EOF'
+RUN-VERIFICATION-RESULT: PASS
+
+## /security-review PASS
+**결과**: PASS
+
+## /integration-test PASS
+**결과**: PASS
+
+## /performance-test SKIP
+**결과**: SKIP
+**근거**: NFR 없음
+EOF
+    # reconcile DESYNC 방지 — review-request 있으면 evidence=70, 기록도 review 이상
+    printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n- 2026-07-21 14:00 /request-review DONE\n' \
       > "$root/.specops/session-progress.md"
   else
     printf '# session progress\n' > "$root/.specops/session-progress.md"

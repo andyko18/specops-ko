@@ -255,20 +255,93 @@ implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
   exit 0
 fi
 
-# ── P0-3 RELEASE_READY warn-only (R-2 / gh pr create 전용) ──────────────────
-# hard deny 금지 — 미충족이어도 allow. stderr + friction-log 에만 남긴다.
-# R-1·docs-only·BYPASS·batch hard gate·verify lookback 은 위쪽에서 이미 처리됨.
-if printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
-  _rr_fid="${fid:-}"
+# ── P0-3 RELEASE_READY (R-2 / gh pr create 전용) — Wave B limited hard ──────
+# strict FID 또는 ACTIVE batch(브랜치 일치) PR: NOT_READY → hard deny.
+# 그 외: warn-only. UNKNOWN(rc=2)은 fail-open. R-1·docs-only·BYPASS·batch-state·verify lookback 은 위에서 처리됨.
+_release_ready_gate() {
+  printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create' || return 0
+  [ -f "$plugin_root/scripts/_internal/release-ready.sh" ] || return 0
+
+  local hard=0 hard_why="" fids="" f branch m d qdir qfile eff line
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null || true)
+
+  # batch 스코프 — ACTIVE + feat/<BATCH_ID> ( _batch_pr_gate 와 동일 판별 )
+  if [ -n "$branch" ]; then
+    for m in .specops/batch-*/ACTIVE; do
+      [ -f "$m" ] || continue
+      d=$(dirname "$m")
+      [ "$branch" = "feat/$(basename "$d")" ] || continue
+      qfile="$d/queue.md"
+      [ -f "$qfile" ] || continue
+      hard=1
+      hard_why=batch
+      qdir="$d"
+      # IMPL_DONE FID 전부
+      while IFS= read -r line; do
+        f=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}')
+        printf '%s' "$f" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || continue
+        fids="${fids}${fids:+ }$f"
+      done < <(grep -E '\|[[:space:]]*IMPL_DONE[[:space:]]*\|' "$qfile" 2>/dev/null || true)
+      break
+    done
+  fi
+
+  # detect_fid / active-fid fallback + strict 프로파일
+  local _rr_fid="${fid:-}"
   [ -n "$_rr_fid" ] || _rr_fid=$(detect_fid 2>/dev/null || echo "")
-  if [ -n "$_rr_fid" ] && [ -f "$plugin_root/scripts/_internal/release-ready.sh" ]; then
-    _rr_out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$_rr_fid" 2>&1)
-    _rr_rc=$?
-    if [ "$_rr_rc" -eq 1 ]; then
-      echo "RELEASE_READY warn (PR 차단 아님): $_rr_out" >&2
-      log_friction "$_rr_fid" "RELEASE_READY" 1 "$(printf '%s' "$_rr_out" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+  if [ -z "$fids" ] && [ -n "$_rr_fid" ]; then
+    fids="$_rr_fid"
+  fi
+  if [ -n "$_rr_fid" ] && [ -f ".specops/$_rr_fid/risk-profile.json" ]; then
+    eff=$(jq -r '.effective // empty' ".specops/$_rr_fid/risk-profile.json" 2>/dev/null || true)
+    if [ "$eff" = "strict" ]; then
+      hard=1
+      [ "$hard_why" = "batch" ] || hard_why=strict
+      case " $fids " in *" $_rr_fid "*) ;; *) fids="${fids}${fids:+ }$_rr_fid" ;; esac
     fi
   fi
-fi
+
+  [ -n "$fids" ] || return 0
+
+  local any_not_ready=0 agg="" rc out
+  for f in $fids; do
+    # || true 금지 — $? 가 항상 0 이 되어 NOT_READY 를 못 본다
+    out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$f" 2>&1)
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+      any_not_ready=1
+      if [ -n "$agg" ]; then
+        agg="$agg
+
+--- FID $f ---
+$out"
+      else
+        agg="--- FID $f ---
+$out"
+      fi
+    fi
+    # rc=2 UNKNOWN → 해당 FID는 무시(fail-open)
+  done
+
+  [ "$any_not_ready" -eq 1 ] || return 0
+
+  if [ "$hard" -eq 1 ]; then
+    local reason
+    reason="RELEASE_READY 차단 — PR 품질 축 미충족 (${hard_why}).
+
+$agg
+
+해법: 해당 FID에서 verify·review·security/integration/performance·reconcile 축을 충족한 뒤 재시도하세요.
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
+    log_friction_sev "${_rr_fid:-$f}" "RELEASE_READY" 1 "$(printf '%s' "$agg" | tr '\n' ' ' | cut -c1-200)" 0 block 2>/dev/null || true
+    jq -nc --arg r "$reason" \
+      '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+    exit 0
+  fi
+
+  echo "RELEASE_READY warn (PR 차단 아님): $agg" >&2
+  log_friction "${_rr_fid:-unknown}" "RELEASE_READY" 1 "$(printf '%s' "$agg" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+}
+_release_ready_gate
 
 allow

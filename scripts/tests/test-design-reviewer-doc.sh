@@ -34,4 +34,11 @@ grep -q 'specops-ko:design-reviewer-ko' "$SA" \
 grep -qE '하나라도 산출|항상' "$SA" \
   && ok "T6 항상 리뷰 계약" || nope "T6" "항상 조건 부재"
 
+# Wave B: Critical cap §auto 정지 + Important-only 자동통과 + Critical 집계줄 파싱
+grep -qE '\^Critical:|Critical:\[\[:space:\]\]' "$SA" \
+  && grep -q 'Important-only cap' "$SA" \
+  && grep -qE 'Critical cap|§auto 자동통과 금지' "$SA" \
+  && ok "T7 Critical 정지·Important auto-pass 산문" \
+  || nope "T7" "Wave B Critical/Important 계약 부재"
+
 finish

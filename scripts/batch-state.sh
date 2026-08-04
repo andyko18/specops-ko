@@ -151,6 +151,10 @@ if [ -n "$done_pairs" ]; then
         if [ "$eff" != "lite" ]; then
           invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 effective=${eff:-?} (lite 아님)"$'\n'
         fi
+        # Wave B: lite skip 은 reductions_allowed 에 batch-review-skip 이 있어야 함
+        if ! jq -e '.reductions_allowed | index("batch-review-skip")' "$rp_file" >/dev/null 2>&1; then
+          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 reductions_allowed에 batch-review-skip 없음"$'\n'
+        fi
       fi
       if [ ! -f "$tasks_file" ]; then
         invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 tasks.md 부재"$'\n'

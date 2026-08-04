@@ -107,12 +107,19 @@ grep -q '설계 계약' "$SA" && grep -qE 'screens/|api-spec' "$SA" \
 grep -q 'design-reviewer-ko' "$SA" && grep -q 'DESIGN-REVIEW-RESULT' "$SA" \
   && grep -q '이 설계로 구현 진행' "$SA" \
   && ok "T8.f Phase 2.5-D design-reviewer + E 게이트" || nope "T8.f" "D/E 배선 부재"
-# T8.g: FAIL 재시도 1회 + §auto cap
-grep -q '재dispatch 1회' "$SA" && grep -q 'design-reviewer cap 초과' "$SA" \
-  && ok "T8.g design-review FAIL 재시도·cap" || nope "T8.g" "재시도/cap 부재"
+# T8.g: FAIL 재시도 1회 + Critical/Important cap 분기 (Wave B)
+grep -q '재dispatch 1회' "$SA" \
+  && grep -qE 'Critical cap|Critical≥1|Critical>=1' "$SA" \
+  && grep -q 'Important-only cap' "$SA" \
+  && ok "T8.g design-review FAIL 재시도·Critical/Important cap" || nope "T8.g" "재시도/cap 분기 부재"
 # T8.h: start-all-auto에 D 단계 전파
 grep -q 'design-reviewer-ko' "$SAA" && grep -q 'design-review.md' "$SAA" \
   && ok "T8.h start-all-auto design-review 전파" || nope "T8.h" "auto 전파 누락"
+# T8.i: §auto Critical 정지 · Important-only 자동통과 (Wave B)
+grep -qE 'Critical.*정지|Critical cap.*정지' "$SAA" \
+  && grep -qE 'Important-only|Important.*자동통과' "$SAA" \
+  && ok "T8.i start-all-auto Critical 정지 / Important auto-pass" \
+  || nope "T8.i" "auto Critical/Important 계약 누락"
 
 # ── T9: Step B batch 통합·E2E 배선 계약 (FID 20260716-start-all-batch-e2e) ──
 # dogfood 발견: start-all Step B(integration)가 "통합 표면(API·DB)"만 스캔해

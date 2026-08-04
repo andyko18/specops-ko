@@ -42,7 +42,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    - 전 FID `handoffs/*.md` Decided 필드 집계
    - 전 FID spec.md "자동 결정 화면" 목록
    - 전 FID spec.md "자동 결정 인터페이스" 목록 (Phase 2.5-B — 엔드포인트/테이블)
-   - `.specops/<BATCH_ID>/design-review.md` 판정 요약 (`DESIGN-REVIEW-RESULT` · cap 자동통과 여부)
+   - `.specops/<BATCH_ID>/design-review.md` 판정 요약 (`DESIGN-REVIEW-RESULT` · Critical 정지 / Important-only cap 자동통과 여부)
    - 제시 후: **"위 가정 위에 N개 FR 구현됨. batch PR 생성? [y/n]"** — 단일 [y/n] 확인.
 
 ## §auto 모드 동작 (batch)
@@ -52,8 +52,8 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
 | Phase 2 일괄 리뷰 게이트 | **자동 통과** → Phase 2.5 직행 | ❌ |
 | Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP | ❌ |
-| Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. cap 초과 시 자동통과+기록(가역) | ⚠️ cap |
-| Phase 2.5-E 설계 승인 | D PASS/cap 후 **자동 통과** · 다이제스트 집계 | ❌ |
+| Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. **Critical≥1 cap → 정지**(§auto 자동통과 금지). Important-only cap → 자동통과+기록(가역) | 🛑 Critical / ⚠️ Important |
+| Phase 2.5-E 설계 승인 | D PASS/Important-only cap 후 **자동 통과** · Critical cap이면 미도달 · 다이제스트 집계 | ❌ |
 | Phase 3 implement/verify cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | Phase 3 파괴적/덮어쓰기 task | mini HARD GATE 정지 (§auto 우회 불가) | 🛑 |
 | security-review-ko Critical/High | **차단 보존** — §auto여도 자동통과 금지 (systematic-debugging 후 재실행) | 🛑 |

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# 위험 프로파일 분류기 (P1 shadow).
+# 위험 프로파일 분류기 (P1 → Wave B limited live).
 # Usage:
 #   risk-profile.sh compute <FID> [--floor standard|strict]
 #   risk-profile.sh show <FID>
-# lite/standard/strict 를 계산·기록한다. mode=shadow 에서는 절차 축소를 적용하지 않는다.
+# lite/standard/strict 를 계산·기록한다. mode=live 이며, effective=lite 일 때만
+# reductions_allowed=["batch-review-skip"] (requesting/receiving skip). Phase B·TDD·verify·receipt 축소 금지.
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -194,14 +195,17 @@ rp::compute() {
 
   mkdir -p "$fid_dir" || return 1
   local target="$fid_dir/risk-profile.json" tmp="$fid_dir/.risk-profile.$$.tmp"
+  local allowed_json='[]'
+  [ "$effective" = "lite" ] && allowed_json='["batch-review-skip"]'
   jq -n \
     --argjson schema_version 1 --arg fid "$fid" \
     --arg computed "$computed" --arg effective "$effective" \
-    --arg floor "${floor:-}" --arg mode shadow \
+    --arg floor "${floor:-}" --arg mode live \
     --argjson docs_only "$dj" --argjson impl_files "$impl_files" \
     --argjson parallel_batch "$pj" --argjson irreversible "$ij" \
     --argjson lite_eligible "$lj" \
     --argjson strict_signals "[$signals_json]" \
+    --argjson reductions_allowed "$allowed_json" \
     --arg recorded_at "$ts" --arg runner "risk-profile.sh" \
     '{schema_version:$schema_version,fid:$fid,computed:$computed,effective:$effective,
       user_floor:(if $floor=="" then null else $floor end),
@@ -210,7 +214,7 @@ rp::compute() {
                impl_files:$impl_files,parallel_batch:$parallel_batch,irreversible:$irreversible},
       sources:{spec:(".specops/"+$fid+"/spec.md"),
                tasks:(".specops/"+$fid+"/tasks.md"),diff_ref:"HEAD"},
-      reductions_allowed:[],reductions_applied:[],
+      reductions_allowed:$reductions_allowed,reductions_applied:[],
       recorded_at:$recorded_at,runner:$runner}' > "$tmp" || { rm -f "$tmp"; return 1; }
   mv "$tmp" "$target"
 
@@ -218,7 +222,7 @@ rp::compute() {
     bash "$METRIC_SH" --fid "$fid" --phase risk-profile --verdict PASS --finding-severity none 2>/dev/null || true
   fi
 
-  printf 'RISK_PROFILE: computed=%s effective=%s mode=shadow\n' "$computed" "$effective"
+  printf 'RISK_PROFILE: computed=%s effective=%s mode=live\n' "$computed" "$effective"
   printf '%s\n' "$effective"
 }
 

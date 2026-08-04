@@ -106,7 +106,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
     - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
     - **커밋 직전 receipt (P0-2, 필수)**: Phase C PASS 후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> <task-id>` 실행 → staged가 해당 task `outputs` 부분집합일 때 R-1이 FID 전체 verify 없이 열린다. 커밋 메시지에 `T#` 또는 `Task: T#` 포함(추론용). **implement 창에서 receipt 부재·무효는 R-1 deny** — 실행증거 fallthrough 없음. 예외는 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='…'` 병기 BYPASS만.
-    - **위험 프로파일 (P1 shadow)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=shadow`인 동안 Phase B 생략·critic skip·verify 면제는 **금지**(lite여도 TDD·verify·receipt 유지).
+    - **위험 프로파일 (P1 limited-live)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=live`여도 allowlist 외 축소는 **금지** — Phase B 생략·critic skip·TDD/verify/receipt 면제 불가. 유일하게 허용되는 축소는 `reductions_allowed`의 `batch-review-skip`(lite + 단일 태스크 + Phase C — requesting/receiving만, 오케스트레이터·batch-state 재검).
     ↓
   부모 머지 완료 → done에 batch task-id 추가
     ↓

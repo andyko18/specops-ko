@@ -130,7 +130,7 @@ reference_upstream: specops-ko 독자 추가
    |---|---|
    | `DESIGN-REVIEW-RESULT: PASS` | E로 진행 |
    | `DESIGN-REVIEW-RESULT: FAIL` (1회차) | 이슈 목록으로 A/B 수정 → **재dispatch 1회** |
-   | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 대화형: `HARD-GATE: design-reviewer cap 초과 — 사용자 결정` 후 중단. **§auto**: cap 초과 **자동 통과** + queue/다이제스트에 `design-reviewer cap 초과 → §auto 자동통과` 기록(가역 — Phase 3 verify가 하류 안전망) → E |
+   | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) |
    | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 |
 4. **Evaluator 모델 불가 fallback**: `model: fable` 실패 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: fable 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙).
 
@@ -140,7 +140,7 @@ reference_upstream: specops-ko 독자 추가
 2. 대화형: **"이 설계로 구현 진행? [y/n]"**
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
-3. **[§auto 모드]**: D가 PASS(또는 cap 자동통과)면 본 게이트 **자동 통과**. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
+3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
 
 #### F. design 산출물 커밋 → Phase 3
 
@@ -161,7 +161,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
 2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
 3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
-   - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 해당 FID가 **단일 태스크**이고 `.specops/<FID>/risk-profile.json`의 **`effective`가 `lite`** 이며 implementing Phase C PASS면, requesting/receiving-code-review를 **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄: lite+단일태스크+Phase C PASS)를 둔다. 멀티태스크·standard/strict·auth/DB/migration·`risk-profile.json` 부재는 **skip 금지**. `batch-state.sh`는 skip-only 경로에서 `effective=lite`·태스크 1개·사유 비어있지 않음을 재검한다(남용 차단 — Phase C PASS 자체는 산문).
+   - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 해당 FID가 **단일 태스크**이고 `.specops/<FID>/risk-profile.json`의 **`effective`가 `lite`** 이며 **`reductions_allowed`에 `batch-review-skip` 포함**이고 implementing Phase C PASS면, requesting/receiving-code-review를 **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄: lite+단일태스크+Phase C PASS)를 둔다. 멀티태스크·standard/strict·auth/DB/migration·`risk-profile.json` 부재·allowlist 부재는 **skip 금지**. `batch-state.sh`는 skip-only 경로에서 `effective=lite`·`batch-review-skip` allowlist·태스크 1개·사유 비어있지 않음을 재검한다(남용 차단 — Phase C PASS 자체는 산문).
 4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
 5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
 6. 다음 PLAN_DONE FR 반복
@@ -258,7 +258,7 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 - **Phase 2·2.5 건너뜀** — 일괄 리뷰 게이트와 화면→인터페이스 통합 design-first는 필수. 사용자 확인 없이 Phase 3 진입 금지
 - **Phase 1에서 batch Step 5.6 실행** — FR별 api-spec 선갱신 금지. 인터페이스는 Phase 2.5-B(화면 직후)
 - **Phase 2.5-D 생략** — 화면 또는 IF 산출이 있으면 `design-reviewer-ko` 필수. 부모 self-review로 대체 금지
-- **design-review FAIL을 무시하고 구현** — PASS(또는 §auto cap 기록) 없이 Phase 3 진입 금지
+- **design-review FAIL을 무시하고 구현** — PASS(또는 §auto Important-only cap 기록) 없이 Phase 3 진입 금지. **Critical cap은 §auto여도 정지**
 - **skill 미호출 인라인 뭉개기** — 오케스트레이터가 spec~verify 산출물을 heredoc 으로 직접 쓰는 것 금지 (R-3 스킬 선언 투명성 위반 + session-progress 줄 0 → `batch-state.sh` `[진행기록 누락]` 이 batch PR 직전 차단). 각 단계는 Skill 도구로 **실호출**한다 — dogfood 20260716: 4 FID spec→tasks 가 3분 만에 인라인 생성되어 진행 흔적이 전무했다
 - **deny 를 무사유 BYPASS 로 정면 돌파** — pretool deny 를 만나면 우선 `run-verification.sh <FID>` 를 실행해 정직하게 연다. 우회가 정당한 경우(verify 선행 단계의 중간 커밋 등)에도 인라인 BYPASS 는 `SPECOPS_BYPASS_REASON='<사유>'` 병기 필수 — 무사유는 pretool 이 deny 한다
 
