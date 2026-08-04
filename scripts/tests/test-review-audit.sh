@@ -130,6 +130,43 @@ else
 fi
 rm -rf "$TMPDIR"
 
+# ── T2.g 산문-only tid 위장 → FAIL (downstream-dogfood: T6·T9 산문 false-pass) ─────
+TMPDIR=$(mktemp -d) || exit 1
+_mkfid "$TMPDIR" F1
+echo "# T6 Phase B" > "$TMPDIR/.specops/F1/reviews/T6-B-report.md"
+cat > "$TMPDIR/.specops/F1/dispatch-log.md" <<'EOF'
+| 1 | ts | B:T9 | spec-reviewer-ko | PASS | reviews/T9-B-report.md |
+Note: blocked on T6 dependency (prose only — not an audit row)
+EOF
+echo "# T9 Phase B" > "$TMPDIR/.specops/F1/reviews/T9-B-report.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+if [ "$ec" -ne 0 ] && echo "$out" | grep -q "REVIEW-AUDIT: FAIL" && echo "$out" | grep -q "T6"; then
+  ok "T2.g 산문-only T6 → FAIL (구조화 행 필수)"
+else
+  nope "T2.g" "ec=$ec out='$out'"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.h 템플릿 섹션 스코프 (## task-T4: + Phase B 행) → PASS ─────
+TMPDIR=$(mktemp -d) || exit 1
+_mkfid "$TMPDIR" F1
+echo "# T4 Phase B" > "$TMPDIR/.specops/F1/reviews/T4-B-report.md"
+cat > "$TMPDIR/.specops/F1/dispatch-log.md" <<'EOF'
+## task-T4: component
+
+| # | 시각 | Phase | agent | 결과 | feedback 경로 |
+|---|---|---|---|---|---|
+| 1 | ts | A | implementer-ko | PASS | - |
+| 2 | ts | B | spec-reviewer-ko | PASS | - |
+EOF
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+if [ "$ec" -eq 0 ] && echo "$out" | grep -q "REVIEW-AUDIT: PASS"; then
+  ok "T2.h ## task-T4: 섹션 + Phase B 행 → PASS"
+else
+  nope "T2.h" "ec=$ec out='$out'"
+fi
+rm -rf "$TMPDIR"
+
 # ── T2.e 리뷰 외 파일(review.diff 등)은 대조 제외 ─────
 TMPDIR=$(mktemp -d) || exit 1
 _mkfid "$TMPDIR" F1

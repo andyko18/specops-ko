@@ -138,14 +138,18 @@ out=$(cd "$TD" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-absent.json
   "Bash" 'git commit -m "feat(T1): foo"')
 [ -z "$out" ] && ok "TR-8 receipt → R-1 면제(exec 불요)" || nope "TR-8" "out=$out"
 
-# TR-9: legacy implement 면제 회귀 (receipt 없는 다른 FID)
+# TR-9: Wave A — legacy 실행증거 implement 면제 폐지 (receipt 없으면 deny)
 LGD=$(mktemp -d)
 mkdir -p "$LGD/.specops/20260101-legacy"
 printf '<!-- active-fid: 20260101-legacy -->\n## 20260101-legacy\n' > "$LGD/.specops/session-progress.md"
 echo tasks > "$LGD/.specops/20260101-legacy/tasks.md"
 out=$(cd "$LGD" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" \
   "Bash" 'git commit -m "feat: T1"')
-[ -z "$out" ] && ok "TR-9 legacy implement 면제 유지" || nope "TR-9" "out=$out"
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id=="R-1"' >/dev/null; then
+  ok "TR-9 legacy exec 면제 폐지 → deny"
+else
+  nope "TR-9" "out=$out"
+fi
 rm -rf "$LGD"
 
 # TR-10: receipt 있어도 R-2는 열리지 않음

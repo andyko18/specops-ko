@@ -66,7 +66,10 @@ elif [ -s "$FID_DIR/evidence.md" ]; then
   verify_complete=1
 fi
 [ "$verify_complete" -eq 1 ] && [ "$evidence" -lt 60 ] && evidence=60
-{ [ -f "$FID_DIR/review-request.md" ] || { [ -d "$FID_DIR/reviews" ] && [ -n "$(ls -A "$FID_DIR/reviews" 2>/dev/null)" ]; }; } && [ "$evidence" -lt 70 ] && evidence=70
+# review=70: lifecycle request/receive(또는 lite skip)만. Phase B/C reviews/ 는 implement 산출물이라
+# 여기 올리면 finishing 과대보고(downstream-dogfood). 판정 불가 시 낮은 단계 유지.
+{ [ -f "$FID_DIR/review-request.md" ] || [ -f "$FID_DIR/review-skip.md" ]; } \
+  && [ "$evidence" -lt 70 ] && evidence=70
 
 # ── --hook 모드: DESYNC 시에만 간결 1줄 (정합 시 무출력) ──
 if [ "$MODE" = "--hook" ]; then

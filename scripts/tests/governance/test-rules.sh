@@ -133,10 +133,9 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.hd2 (AC-5) 실행자 heredoc 미매칭 — out: $out"
 fi
-# ── FID 20260723-lifecycle-robustness (B) — R-1 implement 단계 실행증거 면제 ──
-# implement 단계(tasks.md 존재·evidence.md 부재)에서 실행증거(exec_rc=0)만으로 R-1 커밋 면제.
-#   session-progress 에 /verify PASS 앵커가 구조적으로 없어도(verify 는 후속 단계) 통과.
-# 격리: 각 케이스 자체 sandbox 에 .specops/session-progress.md(## fid + /implement 줄) + tasks.md 구성.
+# ── Wave A — R-1 implement 창 = task receipt 필수 (실행증거 fallthrough 폐지) ──
+# implement 창(tasks.md 존재·evidence.md 부재)에서 receipt 없거나 무효면 deny.
+# 격리: 각 케이스 자체 sandbox 에 .specops/session-progress.md + tasks.md 구성.
 _bfid="20260101-x"
 _b_setup() {  # $1=sandbox dir, $2=evidence?(yes/no)
   mkdir -p "$1/.specops/$_bfid"
@@ -145,33 +144,66 @@ _b_setup() {  # $1=sandbox dir, $2=evidence?(yes/no)
   [ "$2" = "yes" ] && echo "# evidence (no stamp)" > "$1/.specops/$_bfid/evidence.md"
 }
 
-# T6.B1 (AC-1): 실행증거 있음 + tasks.md 존재 + evidence.md 부재 → 면제(미매칭, out 빈값)
+# T6.B1 (AC-1): 실행증거만으로는 더 이상 면제 아님 → R-1 매칭(deny)
 _sb1=$(mktemp -d); _b_setup "$_sb1" no
 out=$(cd "$_sb1" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-pass.jsonl" "Bash" 'git commit -m "feat: T1"')
-if [ -z "$out" ]; then
-  PASS=$((PASS+1)); echo "PASS T6.B1 (AC-1) implement 단계 실행증거 → 면제(BYPASS 불요)"
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T6.B1 (AC-1) implement 창 실행증거-only → deny (receipt 필수)"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T6.B1 (AC-1) 면제 안 됨 — out: $out"
+  FAIL=$((FAIL+1)); echo "FAIL T6.B1 (AC-1) 실행증거-only 면제 잔존 — out: $out"
 fi
 rm -rf "$_sb1"
 
-# T6.B2 (AC-2): 실행증거 없음(exec_rc≠0) + tasks.md·evidence 부재 → implement 경로 미발동 → 매칭(deny)
+# T6.B1b: 유효 receipt + staged⊆outputs → 면제 (exec 불요)
+_sb1b=$(mktemp -d)
+mkdir -p "$_sb1b/.specops/$_bfid" "$_sb1b/scripts/tests" "$_sb1b/src"
+printf '<!-- active-fid: %s -->\n## %s\n- 2026-01-01 10:00 /implement DONE (T1)\n' "$_bfid" "$_bfid" \
+  > "$_sb1b/.specops/session-progress.md"
+printf 'echo ok\n' > "$_sb1b/scripts/tests/test-foo.sh"; chmod +x "$_sb1b/scripts/tests/test-foo.sh"
+printf 'x\n' > "$_sb1b/src/foo.sh"
+cat > "$_sb1b/.specops/$_bfid/tasks.md" <<'EOF'
+# tasks
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash scripts/tests/test-foo.sh"
+    depends_on: []
+    inputs: []
+    outputs: [src/foo.sh, scripts/tests/test-foo.sh]
+    ac: [AC-1]
+```
+EOF
+(cd "$_sb1b" && git init -q && git add src scripts && git -c user.name=t -c user.email=t@e.com commit -qm init)
+printf 'updated\n' > "$_sb1b/src/foo.sh"
+(cd "$_sb1b" && bash "$PLUGIN/scripts/_internal/record-task-receipt.sh" "$_bfid" T1) >/dev/null
+(cd "$_sb1b" && git add src/foo.sh scripts/tests/test-foo.sh)
+out=$(cd "$_sb1b" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-absent.jsonl" \
+  "Bash" 'git commit -m "feat: T1"')
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T6.B1b 유효 receipt → R-1 면제"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.B1b receipt 면제 실패 — out: $out"
+fi
+rm -rf "$_sb1b"
+
+# T6.B2 (AC-2): receipt 없음 → 매칭(deny) — 실행증거 유무와 무관
 _sb2=$(mktemp -d); _b_setup "$_sb2" no
 out=$(cd "$_sb2" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-absent.jsonl" "Bash" 'git commit -m "feat: T1"')
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
-  PASS=$((PASS+1)); echo "PASS T6.B2 (AC-2) 실행증거 없으면 implement 면제 안 됨(위조 방지)"
+  PASS=$((PASS+1)); echo "PASS T6.B2 (AC-2) receipt 없으면 deny"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T6.B2 (AC-2) 실행증거 없이 면제됨 — out: $out"
+  FAIL=$((FAIL+1)); echo "FAIL T6.B2 (AC-2) receipt 없이 면제됨 — out: $out"
 fi
 rm -rf "$_sb2"
 
-# T6.B3 (AC-3): 실행증거 있음 + tasks.md 존재 + evidence.md **존재** → implement 경로 닫힘 → 매칭(deny)
+# T6.B3 (AC-3): evidence.md 존재 → implement 창 닫힘 → verify 앵커 없으면 매칭(deny)
 _sb3=$(mktemp -d); _b_setup "$_sb3" yes
 out=$(cd "$_sb3" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-pass.jsonl" "Bash" 'git commit -m "feat: T1"')
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
-  PASS=$((PASS+1)); echo "PASS T6.B3 (AC-3) evidence.md 존재 시 implement 면제 경로 닫힘"
+  PASS=$((PASS+1)); echo "PASS T6.B3 (AC-3) evidence.md 존재 시 implement receipt 경로 닫힘"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T6.B3 (AC-3) evidence 존재해도 implement 경로가 면제 — out: $out"
+  FAIL=$((FAIL+1)); echo "FAIL T6.B3 (AC-3) evidence 존재해도 면제 — out: $out"
 fi
 rm -rf "$_sb3"
 
