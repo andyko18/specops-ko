@@ -125,17 +125,18 @@ grep -qE "end-loaded" "$REQ" && grep -qE "review-skip" "$REQ" \
   && { PASS=$((PASS+1)); echo "PASS T3.f requesting end-loaded skip"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T3.f requesting end-loaded skip 부재"; }
 
-# T3.g: batch-end-loaded A-only 출구
-grep -qE "batch-end-loaded" "$F" \
-  && grep -qE "A-DONE awaiting batch B/C|BATCH-A-DONE" "$F" \
-  && grep -qE "다음 Skill 호출 금지|verifying-evidence-ko · requesting" "$F" \
-  && { PASS=$((PASS+1)); echo "PASS T3.g batch-end-loaded A-only"; } \
-  || { FAIL=$((FAIL+1)); echo "FAIL T3.g batch-end-loaded A-only 부재"; }
+# T3.g: batch-end-loaded 제거 — /start-all도 FID end-loaded
+! grep -qE "batch-end-loaded" "$F" \
+  && grep -qE "end-loaded" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.g batch-end-loaded 부재·end-loaded 유지"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.g batch-end-loaded 잔존 또는 end-loaded 부재"; }
 
-# T3.h: decomposing §batch → batch-end-loaded
-grep -qE "batch-end-loaded" "$DEC" \
-  && { PASS=$((PASS+1)); echo "PASS T3.h decomposing batch-end-loaded"; } \
-  || { FAIL=$((FAIL+1)); echo "FAIL T3.h decomposing batch-end-loaded 부재"; }
+# T3.h: decomposing §batch → end-loaded (FR마다 B/C)
+! grep -qE "batch-end-loaded" "$DEC" \
+  && grep -qE "§batch|/start-all" "$DEC" \
+  && grep -qE "end-loaded" "$DEC" \
+  && { PASS=$((PASS+1)); echo "PASS T3.h decomposing §batch end-loaded"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.h decomposing §batch end-loaded 부재"; }
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

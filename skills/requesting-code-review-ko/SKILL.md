@@ -13,7 +13,7 @@ used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain �
 
 **핵심 원칙**: **일찍 리뷰, 자주 리뷰.** (단, implementing이 이미 FID 전체 B·C를 끝낸 end-loaded면 **중복 리뷰 생략** — 아래 Step 0)
 
-## Step 0 — end-loaded / batch-end-loaded 중복 skip (필수 분기)
+## Step 0 — end-loaded 중복 skip (필수 분기)
 
 `verifying-evidence-ko` 직후 진입 시 **먼저** 판정:
 
@@ -24,19 +24,17 @@ grep -E '^review_mode:' ".specops/$FID/tasks.md" || true
 ```
 
 **SKIP 조건** (모두 충족):
-1. `review_mode`가 `per-task`가 **아님** (`end-loaded` · `batch-end-loaded` · 부재)
+1. `review_mode`가 `per-task`가 **아님** (부재·`end-loaded` 포함)
 2. tasks.md의 **모든** task id에 대해 `.specops/<FID>/reviews/<tid>-B-report.md` **와** `<tid>-C-report.md` 존재
 3. (권장) `dispatch-log.md`에 해당 tid의 B/C PASS 행이 있음
 
 **SKIP 시 동작**:
-1. `.specops/<FID>/review-skip.md` 작성 — 예:
-   - FID end-loaded: `end-loaded: Phase B/C already covered full FID diff`
-   - batch: `batch-end-loaded: batch B/C covered full batch diff` (또는 `end-loaded: batch B/C covered full batch diff`)
-2. session-progress: `/request-review 완료 "review-skip.md (end-loaded|batch-end-loaded)"`
+1. `.specops/<FID>/review-skip.md` 작성 — 첫 줄에 `end-loaded: Phase B/C already covered full FID diff` (사유 필수·비공백)
+2. session-progress: `/request-review 완료 "review-skip.md (end-loaded)"`
 3. **외부 code-reviewer Agent dispatch 하지 않음**
-4. 즉시 `receiving-code-review-ko` 호출 (receiving이 skip을 통과시켜 security로) — `/start-all` 오케스트레이터는 receiving 없이 skip만 남겨도 됨
+4. 즉시 `receiving-code-review-ko` 호출 (receiving이 skip을 통과시켜 security로)
 
-lite+단일태스크 `batch-review-skip` 경로와 **별개**다. end-loaded/batch-end-loaded skip은 risk-profile allowlist와 무관하며, `batch-state.sh`가 B/C report 존재로 검증한다.
+lite+단일태스크 `batch-review-skip` 경로와 **별개**다. end-loaded skip은 risk-profile allowlist와 무관하며, `batch-state.sh`가 B/C report 존재로 검증한다.
 
 조건 미충족 → 아래 정상 리뷰 요청 절차.
 

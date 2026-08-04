@@ -70,11 +70,8 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 9. **출력** — `templates/tasks.md` 구조로 `.specops/<FID>/tasks.md` 생성
 10. **DAG 의존 그래프 작성 (v0.4a 신규, 의무)** — `tasks.md` 끝에 `## 의존 그래프` 섹션 추가:
     - **Mermaid block** (사람용 시각화): `graph TD` + 노드·edge
-    - **YAML fenced block** (기계용 단일 소스 진실): 루트에 `review_mode` + `tasks:` 배열 — 각 task에 `id`·`depends_on`·`inputs`·`outputs`·`ac` 필드
-    - **`review_mode`**:
-      - 단일 `/start`: 기본 `end-loaded`(A만 wave → FID 말미 B·C 각 1회). 고위험만 `per-task` opt-in.
-      - **`**§batch**` FID** (`/start-all`): **`review_mode: batch-end-loaded` 필수** — A만 수행, B/C는 Phase 3-B batch 1회. `end-loaded`를 §batch에 쓰면 FR마다 B/C가 돌아가 batch 절감이 깨진다.
-      - 필드 부재 시 implementing은 end-loaded로 취급(§batch는 decomposing이 batch-end-loaded를 **명시 기록**할 것).
+    - **YAML fenced block** (기계용 단일 소스 진실): 루트에 `review_mode: end-loaded`(기본) + `tasks:` 배열 — 각 task에 `id`·`depends_on`·`inputs`·`outputs`·`ac` 필드
+    - **`review_mode`**: 기본 `end-loaded`(implementing이 A만 wave → FID 말미 B·C 각 1회). 고위험 FID만 `per-task` opt-in(태스크마다 A→B→C). §batch(`/start-all`)도 **FID end-loaded** — FR마다 implementing이 B/C까지 수행. 필드 부재 시 implementing은 end-loaded로 취급.
     - 형식 표준: `templates/tasks.md` 끝 placeholder + `scripts/tests/dag/fixtures/tasks-md/05-diamond.md` 예시 참조
     - **자체 검증**: 작성 직후 다음 명령으로 YAML 정합 + leaf 식별 확인
       ```bash
@@ -99,7 +96,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
     ```
     - `.specops/<FID>/risk-profile.json`에 `lite|standard|strict` 기록 (`mode=live`)
     - `effective=lite` → `reductions_allowed: ["batch-review-skip"]` (그 외는 `[]`)
-    - **allowlist 외 축소 금지** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지. `batch-review-skip`만 batch 오케스트레이터가 requesting/receiving에 적용 가능. **`review_mode: end-loaded`·`batch-end-loaded`는 Phase B/C 생략이 아님**(시점만 통합) — allowlist와 무관하게 동작
+    - **allowlist 외 축소 금지** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지. `batch-review-skip`만 batch 오케스트레이터가 requesting/receiving에 적용 가능. **`review_mode: end-loaded`는 Phase B/C 생략이 아님**(시점만 FID 말미로 통합) — allowlist와 무관하게 기본 동작
     - 사용자 상향만 허용: `--floor standard|strict` 또는 `SPECOPS_RISK_PROFILE_FLOOR`
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-ko:implementing-ko` 호출

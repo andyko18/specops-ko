@@ -8,9 +8,9 @@
 - **`/start-lite` · `/maintain-lite`** — clarify·plan ceremony만 생략하는 경량 Lifecycle 진입. 화면(Step 5.5)/IF(5.6)·Phase B/C·verify·AC-R-1은 풀과 동일. `/maintain-lite`는 analyzing-mini. strict 신호 시 `/start`·`/maintain` 승격. NL로 lite 추론 금지(슬래시 전용).
 
 ### Changed
+- **start-all Phase 3 복구 (per-FR)** — batch-end-loaded(전 FR A 후 B/C 1회)를 되돌림. Phase 3는 다시 FR마다 `implementing`(FID end-loaded B/C) → verify → request/receive(또는 end-loaded skip). Phase 2.5·plan-reviewer defer는 유지.
 - **start-all Phase 1 plan-reviewer batch defer** — FR마다 ★플랜 검사관을 빼고(`DEFERRED`), 전 `PLAN_DONE` 후 Phase 2에서 `plan-reviewer-ko` **1회** + `batch-plan-digest.sh` 짧은 표 → [y/n]. `/start`·foundation은 per-FID 리뷰 유지. per-FR 외부 critic도 batch로 이전/SKIP.
-- **start-all Phase 3 batch end-loaded** — 전 FR 코드(A) → **스펙리뷰 1 + 코드리뷰 1** → FR별 verify. `review_mode: batch-end-loaded`(§batch). queue `CODE_DONE` 중간 상태. B/C 산출은 FID/`tid`별 `reviews/` 분할·`review-skip`·`batch-state` 정합 유지. FR마다 B/C·B/C 생략 금지.
-- **implementing end-loaded 리뷰 (기본, `/start`)** — 태스크별 A→B→C를 **A만 wave → FID 말미 B 1회 + C 1회**로 전환(`review_mode: end-loaded`). 레거시 `per-task`. requesting은 B/C 산출 시 `review-skip.md` skip.
+- **implementing end-loaded 리뷰 (기본, `/start`·`/start-all` FR)** — 태스크별 A→B→C를 **A만 wave → FID 말미 B 1회 + C 1회**로 전환(`review_mode: end-loaded`). 레거시 `per-task`. requesting은 B/C 산출 시 `review-skip.md` skip.
 
 ## [1.60.0] — 2026-08-04
 

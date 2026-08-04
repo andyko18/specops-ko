@@ -268,7 +268,7 @@ else
   nope "T2.a8 end-loaded incomplete" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
-# ── fixture B1i: batch-end-loaded skip 사유 + B/C reports → 유효 ──
+# ── fixture B1i: end-loaded skip 사유 + B/C reports → 유효 (batch-end-loaded 제거 후) ──
 mkdir -p "$TMP/b1i/.specops/batch-y1i" \
   "$TMP/b1i/.specops/20260101-bel/reviews"
 cat > "$TMP/b1i/.specops/batch-y1i/queue.md" <<'EOF'
@@ -278,11 +278,11 @@ cat > "$TMP/b1i/.specops/batch-y1i/queue.md" <<'EOF'
 EOF
 : > "$TMP/b1i/.specops/20260101-bel/review-base.sha"
 : > "$TMP/b1i/.specops/20260101-bel/evidence.md"
-echo "batch-end-loaded: batch B/C covered full batch diff" > "$TMP/b1i/.specops/20260101-bel/review-skip.md"
+echo "end-loaded: Phase B/C already covered full FID diff" > "$TMP/b1i/.specops/20260101-bel/review-skip.md"
 cat > "$TMP/b1i/.specops/20260101-bel/tasks.md" <<'EOF'
 ## 의존 그래프
 ```yaml
-review_mode: batch-end-loaded
+review_mode: end-loaded
 tasks:
   - id: T1
     depends_on: []
@@ -293,8 +293,8 @@ EOF
 printf '## 20260101-bel\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1i/.specops/session-progress.md"
 printf '| FR-1 | bel | M1 | must | s | f |\n' > "$TMP/b1i/req.md"
 out=$(bash "$SCRIPT" "$TMP/b1i/.specops/batch-y1i" "$TMP/b1i/req.md" 2>&1); code=$?
-[ "$code" -eq 0 ] && ok "T2.a9 batch-end-loaded skip — exit 0" \
-  || nope "T2.a9 batch-end-loaded skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+[ "$code" -eq 0 ] && ok "T2.a9 end-loaded skip — exit 0" \
+  || nope "T2.a9 end-loaded skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
@@ -569,20 +569,20 @@ else
   nope "T-gate.e 정상 라벨 false-block" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
-# ── T-gate.e2: PLAN_DONE·CODE_DONE 화이트리스트 (batch end-loaded 중간 상태) ──
+# ── T-gate.e2: PLAN_DONE 화이트리스트 (Phase 1 중간 상태) ──
 mkdir -p "$TMP/g5b/.specops/batch-p"
 cat > "$TMP/g5b/.specops/batch-p/queue.md" <<'EOF'
 | FR-ID | FID | 설명 | Status |
 |---|---|---|---|
 | FR-1 | 20260101-a | plan | PLAN_DONE |
-| FR-2 | 20260101-b | code | CODE_DONE |
+| FR-2 | 20260101-b | held | HELD |
 EOF
 printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > "$TMP/g5b/req.md"
 out=$(cd "$TMP/g5b" && bash "$SCRIPT" --gate .specops/batch-p req.md 2>&1); code=$?
 if [ "$code" -eq 0 ] && ! echo "$out" | grep -q "라벨"; then
-  ok "T-gate.e2 PLAN_DONE·CODE_DONE → 라벨 통과"
+  ok "T-gate.e2 PLAN_DONE·HELD → 라벨 통과"
 else
-  nope "T-gate.e2 PLAN_DONE/CODE_DONE" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+  nope "T-gate.e2 PLAN_DONE/HELD" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
 # ── T-gate.g/h: ACTIVE 마커 배선 (인프라 전파) ──

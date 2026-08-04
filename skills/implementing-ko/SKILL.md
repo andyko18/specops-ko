@@ -1,19 +1,19 @@
 ---
 name: implementing-ko
-description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). §batch는 batch-end-loaded(A만·B/C는 start-all). 레거시 per-task는 review_mode: per-task"
+description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task"
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
 specops_version: 1.62.0
-used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (batch-end-loaded A-only 출구)
+used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
 ---
 
 # Engine 스킬 — 서브에이전트 주도 구현 (implementing)
 
-플랜을 태스크별 **fresh 서브에이전트**로 구현(A)한 뒤, 리뷰 모드에 따라 FID 또는 batch 단위로 **스펙 준수 리뷰(B) → 코드 품질 리뷰(C)**를 수행한다.
+플랜을 태스크별 **fresh 서브에이전트**로 구현(A)한 뒤, FID 전체 기준으로 **스펙 준수 리뷰(B) 1회 → 코드 품질 리뷰(C) 1회**를 수행한다 (**end-loaded**, 기본).
 
 **왜 서브에이전트**: 전문 에이전트에게 **격리된 컨텍스트**로 태스크를 위임. 지시와 컨텍스트를 **정확히** 조립해 집중·성공을 보장. 서브에이전트는 **당신 세션의 컨텍스트·히스토리를 절대 상속하지 않는다** — 필요한 것만 당신이 구성해 넘긴다. 이로써 당신의 컨텍스트도 코디네이션 용도로 보존된다.
 
-**핵심 원칙**: 태스크별 fresh 구현(A) + 말미 2단계 리뷰(B→C) = **고품질 + 리뷰 비용 O(1)**. Generator↔Evaluator 분리는 유지한다(리뷰 생략 아님 — **시점만** 뒤로 모음).
+**핵심 원칙**: 태스크별 fresh 구현(A) + FID 단위 2단계 리뷰(B→C) = **고품질 + 리뷰 비용 O(1)**. Generator↔Evaluator 분리는 유지한다(리뷰 생략 아님 — **시점만** 태스크 루프 뒤로 모음).
 
 ### 리뷰 모드 선택 (tasks.md YAML)
 
@@ -24,11 +24,10 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 
 | `review_mode` | 동작 |
 |---|---|
-| **`end-loaded`** (기본, 필드 부재 시 동일) | wave = **A만** → FID 말미 **B 1회 + C 1회** → verify |
-| **`batch-end-loaded`** (§batch /start-all) | wave = **A만** → receipt·커밋 → **B/C·verify 호출 금지** → 부모(`/start-all`)에 반환. B/C는 오케스트레이터 Phase 3-B가 batch 1회 |
-| **`per-task`** (레거시) | 태스크마다 A→B→C. 고위험 FID에서만 명시 opt-in |
+| **`end-loaded`** (기본, 필드 부재 시 동일) | wave = **A만** → 전부 완료 후 **B 1회 + C 1회** → verify |
+| **`per-task`** (레거시) | 태스크마다 A→B→C (구 기본). 고위험 FID에서만 명시 opt-in |
 
-`risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded·batch-end-loaded는 B·C를 **수행**(시점만 다름)하므로 allowlist 위반이 아니다.
+`risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded는 B·C를 **수행**하므로 allowlist 위반이 아니다.
 
 **§lite 불변** (`spec.md`에 `**§lite**: true` — `/start-lite`·`/maintain-lite`): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
 
@@ -68,13 +67,10 @@ DAG 초기화 (bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
     done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
     ↓
-[WAVE LOOP — Phase A only when end-loaded|batch-end-loaded] ──
+[WAVE LOOP — Phase A only when end-loaded] ──────────────────
 ready=$(dag::find_ready "$yaml" $done)
     ↓
-ready 비어 있음?
-    ├─ [batch-end-loaded] 전부 A 완료 → BATCH-A-DONE 출구 (B/C·verify 금지)
-    ├─ [end-loaded] 전부 A 완료 → END-LOADED REVIEW
-    └─ [per-task] 이미 B/C 끝 → verify
+ready 비어 있음? → 전부 구현 완료 → END-LOADED REVIEW (또는 per-task면 이미 B/C 끝)
     ↓
 ready 내 disjoint batch 선별 (dag::find_independent_batch 로직):
     batch ≥ 2 leaf + outputs disjoint?
@@ -85,7 +81,7 @@ SEQUENTIAL 분기 (1 태스크씩):                            │
   ready 중 1개 선택:                                      │
     ┌─ 구현자 dispatch (implementer-ko)  ← Phase A        │
     │     ↓                                                │
-    │  [end-loaded|batch-end-loaded] B/C 여기서 하지 않음  │
+    │  [end-loaded] B/C 여기서 하지 않음                   │
     │  [per-task] Phase B → Phase C (레거시)               │
     │     ↓                                                │
     │  receipt + 커밋 (아래 공통 규칙)                     │
@@ -100,27 +96,19 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
   **Wave 2**: emit-context.sh 산출물 사용. 부재 시 decomposing-ko 재진입 HARD GATE.
     ↓
   [per-task만] Phase B(병렬) → Phase C(병렬)
-  [end-loaded|batch-end-loaded] B/C 스킵 — 머지·receipt·커밋만
+  [end-loaded] B/C 스킵 — 머지·receipt·커밋만
     ↓
   부모 머지 (R11): output count 적은 leaf 먼저 · git apply --index · 부모 commit
     - **커밋 직전 receipt (필수)**: `record-task-receipt.sh <FID> <task-id>`
-      end-loaded|batch-end-loaded: **Phase A DONE + 태스크 테스트 통과 후** (B/C 전).
-      per-task: Phase C PASS 후.
+      end-loaded: **Phase A DONE + 태스크 테스트 통과 후** (B/C 전). per-task: Phase C PASS 후.
     - **커밋 분리**: `git add`와 `git commit` 별도 Bash (compound 금지)
     - **위험 프로파일**: effective를 dispatch-log 1줄. B/C **생략**·TDD/verify/receipt 면제 금지.
-      end-loaded·batch-end-loaded의 B/C 지연은 생략이 아님.
+      end-loaded의 B/C 지연은 생략이 아님.
     ↓
   done에 batch task-id 추가 → WAVE LOOP 재진입
     ─────────────────────────────────────────────────────────
     ↓ ready 비어 있음 (전부 A 완료)
-[BATCH-A-DONE] (review_mode=batch-end-loaded 일 때 필수)
-  handoff Remaining: "A-DONE awaiting batch B/C"
-  session-progress: /implement A-DONE "Task 1~N, awaiting batch B/C"
-  dispatch-log: `Batch-A-DONE | implementer-ko | PASS | awaiting start-all Phase 3-B`
-  **금지**: END-LOADED REVIEW · verifying-evidence-ko · requesting 호출
-  → 부모(/start-all)에 제어 반환 (다음 skill 없음)
-    ↓
-[END-LOADED REVIEW] (review_mode=end-loaded 또는 부재 시 필수)
+[END-LOADED REVIEW] (review_mode≠per-task 일 때 필수)
   Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
     → 부모가 **task마다** reviews/<tid>-B-report.md 저장 + dispatch-log에
       각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
@@ -136,15 +124,15 @@ specops-ko:verifying-evidence-ko 호출
 
 **DAG 파싱 실패 fallback (advisor 협의 13:00)**: `dag::find_independent_batch` 가 빈 출력 + stderr WARN 반환 → SEQUENTIAL 분기로 자동 fallback. 강제 차단 안 함 (v0.4a; v0.4b strict mode 옵션 검토).
 
-### end-loaded / batch-end-loaded B/C 산출물 규약 (review-audit 정합)
+### end-loaded B/C 산출물 규약 (review-audit 정합)
 
 한 번의 Evaluator dispatch여도 **감사 teeth는 per-task 파일**을 요구한다 (`check-review-audit.sh`):
 
-1. 리뷰어는 범위(FID 또는 batch) 전체를 보고, 부모는 응답을 **태스크별로 분할 저장**: 각 FID의 `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` (FAIL이면 `-feedback.md` 병기)
-2. 해당 FID `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
+1. 리뷰어는 FID 전체를 보고, 부모는 응답을 **태스크별로 분할 저장**: `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` (FAIL이면 `-feedback.md` 병기)
+2. `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
 3. 금지: `all-B-report.md`만 남기고 tid 파일 0건 (audit가 `all`을 tid로 오인하거나 SKIP/FAIL)
-4. dispatch-log 투명성: `| <ts> | End-loaded-B|Batch-B | spec-reviewer-ko | PASS|FAIL | reviews/<tid>-B-report.md |` 형태를 tid 루프에 기록
-5. **batch-end-loaded**: B/C dispatch는 `/start-all` Phase 3-B가 수행 — implementing은 A-only. 분할 저장 규약(1~4)은 오케스트레이터·동일.
+4. dispatch-log 투명성: `| <ts> | End-loaded-B | spec-reviewer-ko | PASS|FAIL | reviews/<tid>-B-report.md |` 형태를 tid 루프에 기록
+
 ## F-12 ESCAPE HATCH 재정의 (v0.4a — 동일 파일 쌍 집약 vs DAG 병렬)
 
 v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (advisor 협의 13:00):
@@ -172,10 +160,9 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스크 간 통합**(경계·교차 영향)을 검토하는 단계다.
 
 - **`review_mode: end-loaded`(기본)**: end-loaded Phase C가 이미 FID 전체를 보므로 **최종 리뷰 항상 SKIP**. `dispatch-log.md`에 `최종 리뷰 SKIP (end-loaded C — 전체 구현 이미 리뷰, E2)` 기록.
-- **`review_mode: batch-end-loaded`**: implementing 단계에서 최종 리뷰·B/C **해당 없음**(A-only 출구). batch Phase 3-B C가 전체 구현을 봄.
 - **`review_mode: per-task` + 태스크 수 == 1**: 동일하게 SKIP (`최종 리뷰 SKIP (단일 태스크 — Phase C 중복 제거, E2)`).
 - **`review_mode: per-task` + 태스크 2개 이상**: 최종 리뷰 **유지** — per-task C가 못 보는 교차 표면.
-- **금지**: Phase B/C **생략**(리뷰 0회). end-loaded·batch-end-loaded는 **시점 통합**이지 생략이 아니다. risk-profile allowlist의 「B/C 축소 금지」= 생략 금지.
+- **금지**: Phase B/C **생략**(리뷰 0회). end-loaded는 **시점 통합**이지 생략이 아니다. risk-profile allowlist의 「B/C 축소 금지」= 생략 금지.
 
 ## Phase B/C 자동 재dispatch 정책 (Wave 2 U5)
 
@@ -373,12 +360,11 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 스펙 준수로 과잉·부족 구축 방지
 - 코드 품질로 구현이 잘 만들어졌음 보장
 
-**비용** (`review_mode`):
-- **end-loaded**: 구현자 ≈ 태스크 수(A), 리뷰어 ≈ **2**(B+C) — FID당 O(1) 리뷰
-- **batch-end-loaded**: 구현자 ≈ 태스크 수(A), 이 skill 내 리뷰어 **0** — B/C는 start-all Phase 3-B가 batch당 **2**
-- **per-task**: 구현자+리뷰어 2명 / 태스크 (구 비용)
+**비용** (`review_mode: end-loaded` 기본):
+- 구현자 invoke ≈ 태스크 수(A), 리뷰어 ≈ **2**(B+C) — O(N)→O(1) 리뷰
+- `per-task` opt-in 시 구현자+리뷰어 2명 / 태스크 (구 비용)
 - 컨트롤러 사전 작업(컨텍스트 조립) + 리뷰 루프 이터레이션
-- end-loaded·batch-end-loaded는 태스크 중반 피드백이 늦어질 수 있음 — TDD·verify FAIL·fix_loop(≤3)가 안전망
+- end-loaded는 태스크 중반 피드백이 늦어질 수 있음 — verify FAIL·fix_loop(≤3)가 안전망
 
 ## 5원칙 주입 (specops-ko 고유)
 
@@ -412,33 +398,21 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`.specops/<FID>/handoffs/implementing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
-
-- **end-loaded / per-task**: verifying 직전. Remaining에 "검증이 필요한 AC story 목록".
-- **batch-end-loaded**: A-only 출구 직전. Remaining에 **`A-DONE awaiting batch B/C`** 필수. verifying·B/C는 부모가 수행.
+`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
 
 ## session-progress append (v0.4-pre P1 신설)
 
-**end-loaded / per-task** — 모든 태스크 + B/C 완료 직후, verifying-evidence-ko 호출 직전에:
+모든 태스크 완료 직후, verifying-evidence-ko 호출 직전에:
 ```
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /implement DONE "Task 1~N 완료, PASS=N FAIL=0, 커밋 <SHA>..<SHA>"
 ```
 
-**batch-end-loaded** — A만 완료 후 (B/C·verify 전):
-```
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /implement A-DONE "Task 1~N, awaiting batch B/C"
-```
-
 ## 다음 skill
 
-**[batch-end-loaded]** A 완료 + handoff(`A-DONE awaiting batch B/C`) + session-progress A-DONE 후:
-- **다음 Skill 호출 금지** (verifying-evidence-ko · requesting 포함).
-- 제어를 부모 `/start-all` Phase 3-A에 반환 → queue `CODE_DONE` → (전 FR 후) Phase 3-B batch B/C.
-
-**[end-loaded / per-task]** 모든 태스크 완료 + B/C 통과 + 최종 리뷰 정책 충족 + session-progress append 후 즉시 호출:
+모든 태스크 완료 + end-loaded(또는 per-task) B/C 통과 + 최종 리뷰 정책 충족 + session-progress append 후 즉시 호출:
 
 ```
 Skill: specops-ko:verifying-evidence-ko
 ```
 
-verifying-evidence-ko가 "증거 기반 완료 선언"을 강제한다. end-loaded/per-task에서 본 implementing-ko는 **verifying-evidence-ko 이외의 다음 스킬을 호출하지 않는다**.
+verifying-evidence-ko가 "증거 기반 완료 선언"을 강제한다. 본 implementing-ko는 **verifying-evidence-ko 이외의 다음 스킬을 호출하지 않는다**.
