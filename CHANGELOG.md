@@ -4,8 +4,25 @@
 
 ## [Unreleased]
 
+### Added
+- **검증 상태 머신 + 비용·수율 계측 (P0)** — `verification-state.sh`가 `NOT_RUN|PASS|PARTIAL|FAIL|WAIVED`(+조회 시 `STALE`)를 FID별 SoT로 기록한다. `record-metric.sh`가 `.specops/<FID>/metrics.jsonl`에 토큰·wall·retry·fallback·판정 식별자만 append(원문 거부). `run-verification`·BYPASS·risk-profile이 자동 계측한다.
+- **태스크 receipt R-1 게이트 (P0)** — implement 중간 커밋은 FID 전체 verify 대신 `record-task-receipt.sh`/`check-task-receipt.sh`(staged⊆outputs·tree 신선·test_command hash·커밋 메시지 T#)로 연다. R-2(PR)는 receipt로 열리지 않는다.
+- **RELEASE_READY 합성 판정 (P0→Wave B)** — verify·review-audit·security/integration/performance·reconcile·Critical/High를 AND 합성. Wave B에서 **strict FID 또는 ACTIVE batch 브랜치 PR**은 NOT_READY 시 hard deny, 그 외 warn-only. UNKNOWN(rc=2) fail-open.
+- **위험 프로파일 limited-live (P1→Wave B)** — `risk-profile.sh`가 lite/standard/strict를 기록(`mode=live`). lite만 `reductions_allowed: ["batch-review-skip"]`(requesting/receiving skip). Phase B·TDD·verify·receipt 축소는 금지. `batch-state`가 allowlist·단일 태스크·사유를 재검.
+- **Phase 2.5 화면→IF→design-reviewer (#243 계열)** — `/start-all` batch가 화면·인터페이스를 통합한 뒤 `design-reviewer-ko`(evaluator)로 무거운 설계 리뷰. Critical≥1은 §auto여도 정지, Important-only만 §auto 자동통과.
+- **Wave C 관측·DX** — (1) R-1 deny 시 `git add&&git commit` compound 분리 안내 (2) `propagation-matrix.jsonl`+`check-propagation.sh` 계약 드리프트 스캔(run-all) (3) `phase=evaluator-degradation` 메트릭 배선 + Phase 2.5 수동 dogfood 체크리스트.
+
+### Changed
+- **init-project·start-all 프로세스 축소 + 결정 원장** — 온보딩/batch 중복 질문·단계를 줄이고 `.specops/memory/project-context.md`·`decisions.md`로 확정 스택을 전달한다.
+- **review-skip lite 메타 검증** — skip 경로에 `risk-profile.json`·`batch-review-skip` allowlist·단일 태스크·비어 있지 않은 사유를 요구(남용 차단).
+
+### Fixed
+- **Wave A 거짓 안심 제거** — `check-review-audit`가 산문 tid만으로 PASS하던 구멍 봉쇄(경로·`B:tid`/`C:tid`·`## task-<tid>` 구조화만 인정). reconcile review=70은 `review-request.md`/`review-skip.md`만 인정(bare `reviews/` 제거). R-1 implement 창에서 FID-wide exec-evidence fallthrough 제거 → receipt 필수.
+- **enrich 스캔 LC_ALL=C 가-힣 collation false-FAIL** — locale 고정 환경에서 한글 클래스 오류로 placeholder 스캔이 깨지던 문제 수정.
+- **validate-structure evaluator 마킹 기대 6→7** — `design-reviewer-ko` 추가로 T15.a 기대값 정합.
+
 ### Removed
-- **죽은 파일·디렉토리 30건 제거 (Tier 1)** — `examples/` 24 파일(실행 러너 0곳: `run-all.sh` glob 7개·CI shellcheck `find hooks scripts` 모두 밖. 6개는 `scripts/` 정본의 **바이트 동일 복제**, hex 테스트 3건은 부재 정본 `scripts/hexenc.sh` 참조로 `exit 127` **상시 FAIL** 방치 — 러너 밖이라 CI 가 여태 미검출) · `scripts/tests/v0.4-pre/`·`v0.4a/` 4 파일(`run-all.sh:5` 명시 제외, v0.4 시절 측정 스크립트·가이드) · `screens/main.{md,html}` 2 파일(자기참조 외 피참조 0 — `screens/login.*` 는 `test-login-screen.sh` 사용으로 존치). 동반 정리: `examples/` 를 지시하던 문서 3지점(`README.md` 구조 트리 · `templates/test-conventions-python.md` · `skills/decomposing-ko/SKILL.md`)을 `tests/` 기반 표현으로 교체, 저장소에 **존재하지 않는** case-study 파일을 가리키던 참조 5지점 제거(#126 dead-ref 정정의 잔여분), `scripts/tests/run-all.sh:5` 제외 주석에서 삭제된 v0.4 경로 언급 제거(glob 로직 무변경). 존치: `docs/case-studies/` 3건(`CONTRIBUTING.md` 설계 근거 지정) · `scripts/slug.sh`(`brainstorming-ko` 실호출) · dogfood CLI 5종과 그 테스트(Tier 2 — 범위 밖). 검증 스위트 103 suites PASS 무감소. FID 20260728-dead-file-cleanup
+- **죽은 파일·디렉토리 30건 제거 (Tier 1)** — `examples/` 24 파일(실행 러너 0곳·바이트 동일 복제·상시 FAIL 방치) · `scripts/tests/v0.4-pre/`·`v0.4a/` · `screens/main.{md,html}`. 문서 dead-ref 정리. FID 20260728-dead-file-cleanup.
 
 ## [1.59.0] — 2026-07-24
 
