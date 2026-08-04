@@ -77,4 +77,4 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 
 ---
 
-*specops-ko v1.19.2 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*
+*specops-ko v1.21.0 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*

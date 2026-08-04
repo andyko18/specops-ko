@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.60.0] — 2026-08-04
+
 ### Added
 - **검증 상태 머신 + 비용·수율 계측 (P0)** — `verification-state.sh`가 `NOT_RUN|PASS|PARTIAL|FAIL|WAIVED`(+조회 시 `STALE`)를 FID별 SoT로 기록한다. `record-metric.sh`가 `.specops/<FID>/metrics.jsonl`에 토큰·wall·retry·fallback·판정 식별자만 append(원문 거부). `run-verification`·BYPASS·risk-profile이 자동 계측한다.
 - **태스크 receipt R-1 게이트 (P0)** — implement 중간 커밋은 FID 전체 verify 대신 `record-task-receipt.sh`/`check-task-receipt.sh`(staged⊆outputs·tree 신선·test_command hash·커밋 메시지 T#)로 연다. R-2(PR)는 receipt로 열리지 않는다.
@@ -860,7 +862,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.59.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.60.0...HEAD
+[1.60.0]: https://github.com/andyko18/specops-ko/compare/v1.59.0...v1.60.0
 [1.59.0]: https://github.com/andyko18/specops-ko/compare/v1.58.0...v1.59.0
 [1.58.0]: https://github.com/andyko18/specops-ko/compare/v1.57.0...v1.58.0
 [1.57.0]: https://github.com/andyko18/specops-ko/compare/v1.56.0...v1.57.0
