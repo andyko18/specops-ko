@@ -5,7 +5,8 @@
 ## [Unreleased]
 
 ### Changed
-- **implementing end-loaded 리뷰 (기본)** — `/start`·`/start-all` Phase 3의 태스크별 A→B→C를 **A만 wave → FID 말미 B 1회 + C 1회**로 전환(`review_mode: end-loaded`, 부재 시 동일). Generator↔Evaluator·`reviews/<tid>-[BC]-report.md`·dispatch-log 감사 규약은 유지(리뷰 생략 아님). 레거시는 `review_mode: per-task`. requesting/receiving은 end-loaded B/C 산출이 있으면 `review-skip.md`로 중복 리뷰 skip — `batch-state.sh`가 전 tid report 존재로 검증(멀티태스크·strict 허용). decomposing·`templates/tasks.md`·`commands/start.md`·`start-all.md` 동기.
+- **start-all Phase 3 batch end-loaded** — 전 FR 코드(A) → **스펙리뷰 1 + 코드리뷰 1** → FR별 verify. `review_mode: batch-end-loaded`(§batch). queue `CODE_DONE` 중간 상태. B/C 산출은 FID/`tid`별 `reviews/` 분할·`review-skip`·`batch-state` 정합 유지. FR마다 B/C·B/C 생략 금지.
+- **implementing end-loaded 리뷰 (기본, `/start`)** — 태스크별 A→B→C를 **A만 wave → FID 말미 B 1회 + C 1회**로 전환(`review_mode: end-loaded`). 레거시 `per-task`. requesting은 B/C 산출 시 `review-skip.md` skip.
 
 ## [1.60.0] — 2026-08-04
 

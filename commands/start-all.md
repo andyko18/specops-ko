@@ -147,32 +147,66 @@ reference_upstream: specops-ko 독자 추가
 1. `screens/*.md`·`screens/*.html`·`DESIGN.md`·`.specops/memory/api-spec.md`·`.specops/memory/data-model.md`·`.specops/<BATCH_ID>/design-review.md`·`.specops/` **만** 담아 커밋(코드 혼입 금지). R-1 docs/design-only 면제 — **BYPASS 불요**.
 2. 완료 → Phase 3. `implementing-ko`는 `screens/`·api-spec·data-model을 **§6 설계 계약**으로 소비하고, `verifying-evidence-ko` memory 동기화 점검이 역방향 안전망이다.
 
-### Phase 3 — per FR 순차 구현 (무중단)
+### Phase 3 — batch end-loaded 구현 (무중단)
 
-> **[per-FR ≠ batch-level — 뭉개짐 방지 경계]** 아래 스텝 1~6 은 **FR 마다 개별** 실행이다 — verify·code-review 는 FID 당 **각각 1개**의 산출물(`evidence.md` · `review-request.md`)을 남긴다. **한 번에 뭉쳐 돌리지 않는다.** (대조: 아래 "Phase 3 완료" 의 Step A/B/C security·integration·performance 는 batch 전체를 대표 FID 로 **1회** 통합 실행 — 성격이 반대다. 이 문서 후반부의 batch-level 패턴을 verify·review 에 일반화하지 말 것.) verify 는 `run-verification.sh <FID>` 로 그 FR 의 tasks.md 명령만 뽑아 자연히 격리되지만, review.diff 는 공유 batch 브랜치에서 **base 를 명시 기록**하지 않으면 직전 FR 변경까지 끌어들여 내용이 뭉개진다(스텝 1a).
+> **한 줄**: 전 FR **코드(A) 먼저** → **스펙리뷰 1 + 코드리뷰 1** → FR별 verify.  
+> B/C는 FR마다 돌리지 않는다(`review_mode: batch-end-loaded`). verify·`evidence.md`·`/verify PASS`는 **여전히 FID마다** — 뭉개기 금지.
 
-queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각 FR(=FID)에 대해:
+> **[per-FR ≠ batch-level — 뭉개짐 방지 경계]**  
+> - **3-A (코드)**: FR마다 `review-base.sha` + implementing A-only.  
+> - **3-B (리뷰)**: batch **1회** B+C — 결과만 FID/`tid`별 `reviews/`로 분할 저장.  
+> - **3-C (verify+skip)**: FR마다 `evidence.md` + `review-skip.md` + `/verify PASS`.  
+> - Step A/B/C(security·integration·performance)는 전 IMPL_DONE 후 batch **1회**(기존).  
+> review.diff 격리용 `review-base.sha`는 3-A에서 FR마다 기록(공유 브랜치 뭉개짐 방지).
 
-1a. **per-FR review base 기록** — implementing-ko 호출 **직전** 현재 HEAD 를 그 FID 의 review base 로 고정 (이 파일이 없으면 requesting-code-review-ko 가 `HEAD~1` 로 falling back → batch 에서 FR 격리 실패):
+#### 3-A — 코드 루프 (PLAN_DONE → CODE_DONE)
+
+queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE·CODE_DONE은 skip). 각 FR(=FID)에 대해:
+
+1a. **per-FR review base 기록** — implementing-ko 호출 **직전**:
    ```bash
-   git rev-parse HEAD > ".specops/<FID>/review-base.sha"   # 이 FR 구현 시작점 — review.diff 격리 base
+   git rev-parse HEAD > ".specops/<FID>/review-base.sha"
    ```
-   (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
-1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
-2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
-3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
-   - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 아래 중 하나면 requesting/receiving **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄)를 둔다.
-     1. **end-loaded**: `review-skip.md`에 `end-loaded:` 포함 + 전 tid `reviews/<tid>-[BC]-report.md` 존재 (멀티태스크·standard/strict 허용 — implementing이 이미 FID B·C 수행)
-     2. **lite+단일**: `effective=lite` · `reductions_allowed`에 `batch-review-skip` · 태스크 1개 · Phase C PASS (기존). 멀티태스크·standard/strict·auth/DB/migration·allowlist 부재는 이 경로 **금지**
-   - `batch-state.sh`가 skip-only 경로에서 위 메타를 재검한다.
-4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
-5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
-6. 다음 PLAN_DONE FR 반복
+   (재진입 시 해당 FID가 이미 IMPL_DONE 또는 CODE_DONE이면 이 FR의 3-A skip — 파일 재기록 금지. CODE_DONE만 있으면 3-B/3-C로.)
+1. `specops-ko:implementing-ko` 호출 (**FID 기준**, `tasks.md`의 `review_mode: batch-end-loaded`)
+   - A(구현·TDD·receipt·커밋)만 수행. **FID 단위 B/C·verifying 호출 금지**.
+   - handoff Remaining: `A-DONE awaiting batch B/C`
+2. queue.md 해당 FR → **`CODE_DONE`** 갱신
+3. 다음 PLAN_DONE FR 반복
 
-> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-ko:systematic-debugging-ko`로 처리 후 재개.
+> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입. 그 외 A 실패는 `systematic-debugging-ko` 후 재개.
+
+#### 3-B — batch 리뷰 1회 (전 CODE_DONE 후)
+
+전 FR이 CODE_DONE(또는 이미 IMPL_DONE)인지 확인한 뒤 **한 번만**:
+
+1. **Phase B**: `Agent` `subagent_type: "specops-ko:spec-reviewer-ko"` **1회**  
+   컨텍스트: 전 CODE_DONE FID의 `spec.md`·`acceptance-criteria.md`·`dispatch/*-context.md`·각 `review-base.sha..HEAD` diff(경로 목록).  
+2. 부모가 응답을 **FID·tid마다** `.specops/<FID>/reviews/<tid>-B-report.md`로 분할 저장 + 각 FID `dispatch-log.md`에 tid 행(`Batch-B` / 경로 포함).  
+3. **Phase C**: `specops-ko:code-reviewer-ko` **1회** — 동일 범위 + B-report 경로들 → `<tid>-C-report.md` + dispatch-log(`Batch-C`).  
+4. FAIL → 관련 FR만 implementer 재dispatch(cap=2 **batch 단위**) → 해당 tid report 갱신 → 필요 시 3-B 재실행(전체 강제 재실행은 cap으로 제한).  
+5. `.specops/<BATCH_ID>/batch-review.md`에 PASS/FAIL·범위 FID 목록 기록(감사 보조).  
+6. **금지**: FR마다 B/C 재dispatch · B/C 생략(0회) · 부모 self-review.
+
+#### 3-C — verify + review-skip 루프 (CODE_DONE → IMPL_DONE)
+
+CODE_DONE 항목을 **순서대로** (IMPL_DONE skip):
+
+1. `specops-ko:verifying-evidence-ko` (**FID 기준** — `run-verification.sh <FID>` → `evidence.md` + session-progress `/verify PASS`). suite-global 뭉개기 금지.  
+2. **request/receive skip (기본·HARD)**: Agent 미호출.  
+   ```bash
+   echo "batch-end-loaded: batch B/C covered full batch diff" > ".specops/<FID>/review-skip.md"
+   ```
+   (또는 `end-loaded: batch B/C covered full batch diff` — `batch-state`가 둘 다 인정)  
+   전 tid `reviews/<tid>-[BC]-report.md` 존재 필수(3-B 산출).  
+   lite+단일 `batch-review-skip` 경로는 보조(기존).  
+3. 3종(`review-base.sha`·`evidence.md`·`review-skip|request`) + `/verify PASS` 확인 후 queue → **`IMPL_DONE`**. 하나라도 없으면 IMPL_DONE 금지.  
+4. verify FAIL → fix_loop ≤3(해당 FR) → 필요 시 그 FR diff만 3-B 재평가.  
+5. 다음 CODE_DONE FR 반복.
+
+> receiving 스킬 경로를 타지 않아도 오케스트레이터가 `BATCH-REVIEW-DONE: <FID>`를 기록할 수 있다(투명성). per-FR security/integration/performance/PR 차단 — batch Step A/B/C/D만.
 
 ### Phase 3 완료 — batch 레벨 통합·E2E·성능 테스트 + batch PR 생성
-
 전 FID IMPL_DONE 확인 후 — **batch-state 하드 스캔** (prose 확인이 아닌 스크립트 판정):
 
 ```bash
@@ -233,7 +267,7 @@ gh pr create \
 - batch 레벨 통합·성능 테스트 완료 (또는 graceful skip)
 
 ## FR 목록
-queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
+queue.md 상태 전이 요약 (PENDING→PLAN_DONE→CODE_DONE→IMPL_DONE) 직접 기재
 
 ## Test plan
 - [ ] 전 FR verifying-evidence-ko PASS 확인
@@ -259,6 +293,9 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
 - **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step D)만 생성
 - **Phase 2·2.5 건너뜀** — 일괄 리뷰 게이트와 화면→인터페이스 통합 design-first는 필수. 사용자 확인 없이 Phase 3 진입 금지
+- **Phase 3에서 FR마다 B/C** — `batch-end-loaded`인데 FID 단위 end-loaded B/C를 돌리면 batch 절감 붕괴. 3-B batch 1회만
+- **Phase 3-B B/C 생략** — 코드만 만들고 리뷰 0회 금지. Generator↔Evaluator 유지
+- **CODE_DONE에서 verify 뭉개기** — 3-C는 FID마다 evidence·`/verify PASS` 필수
 - **Phase 1에서 batch Step 5.6 실행** — FR별 api-spec 선갱신 금지. 인터페이스는 Phase 2.5-B(화면 직후)
 - **Phase 2.5-D 생략** — 화면 또는 IF 산출이 있으면 `design-reviewer-ko` 필수. 부모 self-review로 대체 금지
 - **design-review FAIL을 무시하고 구현** — PASS(또는 §auto Important-only cap 기록) 없이 Phase 3 진입 금지. **Critical cap은 §auto여도 정지**

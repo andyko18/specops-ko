@@ -141,6 +141,17 @@ grep -q '통합·E2E·성능' "$SA" && grep -qE 'E2E\) PASS 또는 SKIP' "$SA" \
 grep -q 'Phase 0~3.*동일' "$PLUGIN/commands/start-all-auto.md" \
   && ok "T9.e start-all-auto Step B(E2E) 상속 (Phase 0~3 동일)" || nope "T9.e" "start-all-auto 상속 참조 소실"
 
+# ── T10: Phase 3 batch end-loaded (A → B/C×1 → verify) ──
+grep -q 'batch-end-loaded' "$SA" && grep -q 'CODE_DONE' "$SA" \
+  && ok "T10.a batch-end-loaded + CODE_DONE" || nope "T10.a" "모드/라벨 부재"
+grep -qE '3-A|코드 루프' "$SA" && grep -qE '3-B|batch 리뷰' "$SA" && grep -qE '3-C|verify \+ review-skip' "$SA" \
+  && ok "T10.b Phase 3-A/B/C 절" || nope "T10.b" "3-A/B/C 구조 부재"
+grep -q 'spec-reviewer-ko' "$SA" && grep -q 'code-reviewer-ko' "$SA" \
+  && grep -q 'FR마다 B/C' "$SA" \
+  && ok "T10.c batch B/C 1회 + FR마다 B/C 금지" || nope "T10.c" "B/C 규약 부재"
+grep -q 'batch-end-loaded: batch B/C covered' "$SA" \
+  && ok "T10.d review-skip 사유" || nope "T10.d" "skip 사유 부재"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

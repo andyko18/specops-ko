@@ -115,7 +115,7 @@ graph TD
 ```
 
 ```yaml
-review_mode: end-loaded   # 기본 — A만 wave 후 FID 단위 B·C 각 1회. 레거시: per-task
+review_mode: end-loaded   # 기본(/start). §batch:/start-all → batch-end-loaded. 레거시: per-task
 tasks:
   - id: T1
     test_command: "bash scripts/tests/test-<file1>.sh"   # 필수 — emit-context.sh 게이트 (미기재 시 exit 1). plain bash 단일 명령, compound(연쇄·파이프) 금지 — run-verification whitelist. verify 계층 fallback 은 과거 산출물 하위호환용
@@ -138,7 +138,7 @@ tasks:
 ```
 
 **필드 의미**:
-- `review_mode`: `end-loaded`(기본·부재 시 동일) | `per-task`(레거시 opt-in). implementing-ko가 소비
+- `review_mode`: `end-loaded`(기본·부재 시 동일) | `batch-end-loaded`(§batch — A만, B/C는 start-all Phase 3-B) | `per-task`(레거시 opt-in). implementing-ko가 소비
 - `id`: 태스크 식별자 (T1, T2, ...) — `## 태스크 N` 헤더와 일치
 - `depends_on`: 본 태스크 시작 전 완료 필요한 태스크 id 배열 ([] 면 절대 leaf)
 - `inputs`: 본 태스크가 **읽기**만 하는 파일 (다른 태스크 outputs 가능)

@@ -125,5 +125,17 @@ grep -qE "end-loaded" "$REQ" && grep -qE "review-skip" "$REQ" \
   && { PASS=$((PASS+1)); echo "PASS T3.f requesting end-loaded skip"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T3.f requesting end-loaded skip 부재"; }
 
+# T3.g: batch-end-loaded A-only 출구
+grep -qE "batch-end-loaded" "$F" \
+  && grep -qE "A-DONE awaiting batch B/C|BATCH-A-DONE" "$F" \
+  && grep -qE "다음 Skill 호출 금지|verifying-evidence-ko · requesting" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.g batch-end-loaded A-only"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.g batch-end-loaded A-only 부재"; }
+
+# T3.h: decomposing §batch → batch-end-loaded
+grep -qE "batch-end-loaded" "$DEC" \
+  && { PASS=$((PASS+1)); echo "PASS T3.h decomposing batch-end-loaded"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.h decomposing batch-end-loaded 부재"; }
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

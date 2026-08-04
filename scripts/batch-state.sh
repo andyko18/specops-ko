@@ -51,12 +51,12 @@ if [ "$GATE" -eq 1 ] && [ -n "$queue_rows" ]; then
     st = ""
     for (i = NF; i >= 1; i--) { gsub(/^ +| +$/, "", $i); if ($i != "") { st = $i; break } }
     id = $2; gsub(/^ +| +$/, "", id)
-    if (st !~ /^(IMPL_DONE|MERGED|TODO|WIP|DOING|PENDING|HELD|SKIP|BLOCKED)([^A-Za-z0-9_]|$)/) print "  - " id ": " st
+    if (st !~ /^(IMPL_DONE|MERGED|TODO|WIP|DOING|PENDING|HELD|SKIP|BLOCKED|PLAN_DONE|CODE_DONE)([^A-Za-z0-9_]|$)/) print "  - " id ": " st
   }')
   if [ -n "$bad_labels" ]; then
     echo "[라벨] queue.md Status 가 인식 라벨이 아님 — 완료 판정 teeth 가 무력화됩니다:"
     printf '%s\n' "$bad_labels"
-    echo "  인식 라벨: IMPL_DONE | MERGED | TODO | WIP | DOING | PENDING | HELD | SKIP | BLOCKED"
+    echo "  인식 라벨: IMPL_DONE | MERGED | TODO | WIP | DOING | PENDING | HELD | SKIP | BLOCKED | PLAN_DONE | CODE_DONE"
     fail=1; fail_gate=1
   fi
 fi
@@ -146,8 +146,8 @@ if [ -n "$done_pairs" ]; then
       reason=$(printf '%s' "$reason_raw" | tr -d ' \t\r\n')
       if [ -z "$reason" ]; then
         invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip.md 사유 비어 있음"$'\n'
-      elif printf '%s' "$reason_raw" | grep -qiE 'end-loaded'; then
-        # (b) end-loaded: implementing Phase B/C 가 FID 전체를 이미 커버 — requesting 중복 skip
+      elif printf '%s' "$reason_raw" | grep -qiE 'end-loaded|batch-end-loaded'; then
+        # (b) end-loaded / batch-end-loaded: Phase B/C 가 이미 커버 — requesting 중복 skip
         if [ ! -f "$tasks_file" ]; then
           invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 tasks.md 부재"$'\n'
         else
@@ -200,7 +200,7 @@ if [ -n "$missing_artifacts" ]; then
   fail=1; fail_gate=1
 fi
 if [ -n "$invalid_skip" ]; then
-  echo "[review-skip 무효] lite+단일태스크 또는 end-loaded+B/C reports 메타 미충족 (남용·오분류 차단):"
+  echo "[review-skip 무효] lite+단일태스크 또는 end-loaded|batch-end-loaded+B/C reports 메타 미충족 (남용·오분류 차단):"
   printf '%s' "$invalid_skip"
   fail=1; fail_gate=1
 fi
