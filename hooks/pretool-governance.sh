@@ -236,6 +236,15 @@ if [ -n "$violation" ]; then
     _anchor_hint="② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
    또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다."
   fi
+  # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
+  _compound_hint=""
+  if [ "$violation" = "R-1" ] \
+     && printf '%s' "$tool_cmd_scan" | grep -Eq '(^|[[:space:];&|({`])git[[:space:]]+add([[:space:]]|$)' ; then
+    _compound_hint="
+
+⚠️ compound 안내: 이 명령에 \`git add\` 와 \`git commit\` 이 함께 있습니다.
+   PreToolUse deny 시 add 도 함께 취소됩니다 — \`git add\` 와 \`git commit\` 을 **별도 Bash 호출**로 분리 실행하세요."
+  fi
   reason="$act 차단 — verify 면제 조건 2가지 중 최소 하나가 미충족입니다.
 
 ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
@@ -249,7 +258,7 @@ implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
    (staged ⊆ task outputs, receipt 이후 코드 변경 없음).
 
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
-우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0

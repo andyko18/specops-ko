@@ -479,6 +479,21 @@ if [ ! -d "$bsno/.specops" ]; then echo "PASS T-bypass-log.d .specops 미생성(
 else echo "FAIL T-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
 rm -rf "$bsno"
 
+# ── T-compound-split: Wave C — git add&&commit deny 사유에 분리 안내 포함 ──
+out=$(mkstdin "git add a.sh && git commit -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-compound-split.a compound add+commit → deny" '"permissionDecision":"deny"' "$out"
+check "T-compound-split.b deny 사유에 분리 안내" '별도 Bash 호출' "$out"
+# commit-only deny 에는 compound 안내가 없어야 한다 (오안내 방지)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q '"permissionDecision":"deny"' \
+   && ! printf '%s' "$out" | grep -q '별도 Bash 호출'; then
+  echo "PASS T-compound-split.c commit-only 에 compound 안내 없음"; pass=$((pass+1))
+else
+  echo "FAIL T-compound-split.c — unexpected compound hint or allow: $out"; fail=$((fail+1))
+fi
+
 # ── T-bypass-metric: BYPASS 시 metrics.jsonl에 식별자만 기록 (사유 원문 없음) ──
 bsm=$(mktemp -d)
 mkdir -p "$bsm/.specops/20260803-bypass-metric"

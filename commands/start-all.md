@@ -132,7 +132,7 @@ reference_upstream: specops-ko 독자 추가
    | `DESIGN-REVIEW-RESULT: FAIL` (1회차) | 이슈 목록으로 A/B 수정 → **재dispatch 1회** |
    | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) |
    | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 |
-4. **Evaluator 모델 불가 fallback**: `model: fable` 실패 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: fable 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙).
+4. **Evaluator 모델 불가 fallback**: `model: fable` 실패 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: fable 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙). 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <대표-FID-또는-BATCH_ID가-FID형식이면그값> --phase evaluator-degradation --fallback true --model <override-model>` 실행(식별자만; BATCH_ID가 FID 형식이 아니면 PLAN_DONE 중 대표 FID 1개 사용).
 
 #### E. 설계 승인 게이트
 

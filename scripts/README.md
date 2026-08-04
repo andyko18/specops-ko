@@ -249,4 +249,13 @@ bash scripts/_internal/record-metric.sh \
   --retry-count 0 --timeout false --fallback false --verdict PASS
 ```
 
-`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김).
+`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김). Evaluator `fable` 불가 재dispatch는 `phase=evaluator-degradation --fallback true --model <override>`를 남깁니다(`implementing-ko` · `start-all` Phase 2.5-D).
+
+## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
+
+```bash
+bash scripts/_internal/check-propagation.sh
+# 매트릭스: scripts/_internal/propagation-matrix.jsonl
+```
+
+신규 게이트·allowlist·Critical cap 등 **소비처가 있는 계약**을 추가·변경할 때 `propagation-matrix.jsonl`에 edge 행을 함께 갱신합니다. `scripts/tests/test-propagation.sh`가 run-all에 포함됩니다.
