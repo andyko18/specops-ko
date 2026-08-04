@@ -1,6 +1,6 @@
 ---
 name: implementing-ko
-description: 본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 서브에이전트 dispatch, 각 태스크마다 2단계 리뷰(스펙 준수 → 코드 품질)
+description: 본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
@@ -8,17 +8,31 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.60.0
+specops_version: 1.61.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
 # Engine 스킬 — 서브에이전트 주도 구현 (implementing)
 
-플랜을 태스크별 **fresh 서브에이전트** dispatch로 실행. 각 태스크 후 **2단계 리뷰**: 스펙 준수 리뷰 먼저, 그다음 코드 품질 리뷰.
+플랜을 태스크별 **fresh 서브에이전트**로 구현(A)한 뒤, FID 전체 기준으로 **스펙 준수 리뷰(B) 1회 → 코드 품질 리뷰(C) 1회**를 수행한다 (**end-loaded**, 기본).
 
 **왜 서브에이전트**: 전문 에이전트에게 **격리된 컨텍스트**로 태스크를 위임. 지시와 컨텍스트를 **정확히** 조립해 집중·성공을 보장. 서브에이전트는 **당신 세션의 컨텍스트·히스토리를 절대 상속하지 않는다** — 필요한 것만 당신이 구성해 넘긴다. 이로써 당신의 컨텍스트도 코디네이션 용도로 보존된다.
 
-**핵심 원칙**: 태스크별 fresh 서브에이전트 + 2단계 리뷰(스펙 → 품질) = **고품질 + 빠른 반복**.
+**핵심 원칙**: 태스크별 fresh 구현(A) + FID 단위 2단계 리뷰(B→C) = **고품질 + 리뷰 비용 O(1)**. Generator↔Evaluator 분리는 유지한다(리뷰 생략 아님 — **시점만** 태스크 루프 뒤로 모음).
+
+### 리뷰 모드 선택 (tasks.md YAML)
+
+```bash
+# tasks.md ## 의존 그래프 YAML 루트
+grep -E '^review_mode:' .specops/<FID>/tasks.md
+```
+
+| `review_mode` | 동작 |
+|---|---|
+| **`end-loaded`** (기본, 필드 부재 시 동일) | wave = **A만** → 전부 완료 후 **B 1회 + C 1회** → verify |
+| **`per-task`** (레거시) | 태스크마다 A→B→C (구 기본). 고위험 FID에서만 명시 opt-in |
+
+`risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded는 B·C를 **수행**하므로 allowlist 위반이 아니다.
 
 ## 설계 계약 준수 (design-first 후진 teeth)
 
@@ -47,19 +61,19 @@ used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 
 태스크가 밀접하게 결합돼 있으면 → decomposing-ko 복귀해 재분해.
 
-## 프로세스 (다단계 wave — dag::find_ready 기반)
+## 프로세스 (다단계 wave — dag::find_ready 기반 · end-loaded 기본)
 
 ```
-플랜 + tasks.md 1회 읽기 → TodoWrite 생성
+플랜 + tasks.md 1회 읽기 → review_mode 판정 (부재=end-loaded) → TodoWrite 생성
     ↓
 DAG 초기화 (bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
     done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
     ↓
-[WAVE LOOP] ─────────────────────────────────────────────────
+[WAVE LOOP — Phase A only when end-loaded] ──────────────────
 ready=$(dag::find_ready "$yaml" $done)
     ↓
-ready 비어 있음? → 전부 완료 → loop 종료
+ready 비어 있음? → 전부 구현 완료 → END-LOADED REVIEW (또는 per-task면 이미 B/C 끝)
     ↓
 ready 내 disjoint batch 선별 (dag::find_independent_batch 로직):
     batch ≥ 2 leaf + outputs disjoint?
@@ -68,58 +82,59 @@ ready 내 disjoint batch 선별 (dag::find_independent_batch 로직):
                                                           │
 SEQUENTIAL 분기 (1 태스크씩):                            │
   ready 중 1개 선택:                                      │
-    ┌─ 구현자 dispatch (implementer-ko)                   │
+    ┌─ 구현자 dispatch (implementer-ko)  ← Phase A        │
     │     ↓                                                │
-    │  Phase B: spec-reviewer-ko dispatch                 │
+    │  [end-loaded] B/C 여기서 하지 않음                   │
+    │  [per-task] Phase B → Phase C (레거시)               │
     │     ↓                                                │
-    │  Phase C: code-reviewer-ko dispatch                 │
-    │     ↓                                                │
+    │  receipt + 커밋 (아래 공통 규칙)                     │
     └─ TodoWrite 완료 → done에 task-id 추가              │
     ↓                                                      │
-→ WAVE LOOP 재진입 (find_ready(done) 로 다음 frontier)   │
+→ WAVE LOOP 재진입                                        │
                                                           │
 DAG-AWARE PARALLEL 분기: ←────────────────────────────────┘
-  각 batch leaf에 대해:
-    - .specops/<FID>/dispatch/<task-id>-context.md 존재 확인
-      (decomposing-ko Step 10b 에서 emit-context.sh 자동 산출)
-    - bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path> — exit 0 확인
-    - using-git-worktrees-ko 호출 — leaf별 worktree (.worktrees/<FID>-<task-id>/)
+  각 batch leaf: context 확인 · validate-context · worktree
+  dispatching-parallel-agents-ko → 각 leaf implementer-ko (A only)
+  결과 수집 (NEEDS_CONTEXT 재dispatch / DONE)
+  **Wave 2**: emit-context.sh 산출물 사용. 부재 시 decomposing-ko 재진입 HARD GATE.
     ↓
-  dispatching-parallel-agents-ko 호출 (DAG-aware 모드):
-    - batch leaf id 배열 + context md path 배열 전달
-    - 각 leaf Task 도구 병렬 호출 (단일 메시지 다중 tool_use)
-    - 각 leaf: implementer-ko in worktree
+  [per-task만] Phase B(병렬) → Phase C(병렬)
+  [end-loaded] B/C 스킵 — 머지·receipt·커밋만
     ↓
-  결과 수집:
-    - leaf NEEDS_CONTEXT 반환 시 → 컨텍스트 보강 후 재dispatch (R8)
-    - leaf DONE 시 → proposed_commit_message 수집
-
-  **Wave 2 (FID 20260514) — emit-context 자동 산출**: decomposing-ko Step 10b 가 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/emit-context.sh <FID>` 로 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션을 자동 산출하므로, 본 skill 의 컨텍스트 작성 단계는 §5 worktree 라인 sed 갱신만으로 축약된다. 컨텍스트 파일 부재 시 → decomposing-ko 재진입 요청 (HARD GATE).
+  부모 머지 (R11): output count 적은 leaf 먼저 · git apply --index · 부모 commit
+    - **커밋 직전 receipt (필수)**: `record-task-receipt.sh <FID> <task-id>`
+      end-loaded: **Phase A DONE + 태스크 테스트 통과 후** (B/C 전). per-task: Phase C PASS 후.
+    - **커밋 분리**: `git add`와 `git commit` 별도 Bash (compound 금지)
+    - **위험 프로파일**: effective를 dispatch-log 1줄. B/C **생략**·TDD/verify/receipt 면제 금지.
+      end-loaded의 B/C 지연은 생략이 아님.
     ↓
-  Phase B (병렬): 각 leaf별 spec-reviewer-ko dispatch (병렬)
-    ↓
-  Phase C (병렬): 각 leaf별 code-reviewer-ko dispatch (Phase B PASS 후)
-    ↓
-  부모 머지 (R11 git race 차단):
-    - 머지 순서: output count 적은 leaf 먼저
-    - leaf staged diff 추출: `git -C .worktrees/<FID>-<task-id>/ diff --cached > /tmp/<task-id>.patch`
-    - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
-    - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
-    - **커밋 직전 receipt (P0-2, 필수)**: Phase C PASS 후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> <task-id>` 실행 → staged가 해당 task `outputs` 부분집합일 때 R-1이 FID 전체 verify 없이 열린다. 커밋 메시지에 `T#` 또는 `Task: T#` 포함(추론용). **implement 창에서 receipt 부재·무효는 R-1 deny** — 실행증거 fallthrough 없음. 예외는 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='…'` 병기 BYPASS만.
-    - **커밋 분리 (Wave C, 필수)**: `git add … && git commit …` 한 줄 compound 금지. R-1 PreToolUse deny 시 add도 함께 취소되어 빈/부분 커밋·amend 루프가 난다 — `git add`와 `git commit`을 **별도 Bash 호출**로 실행한다.
-    - **위험 프로파일 (P1 limited-live)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=live`여도 allowlist 외 축소는 **금지** — Phase B 생략·critic skip·TDD/verify/receipt 면제 불가. 유일하게 허용되는 축소는 `reductions_allowed`의 `batch-review-skip`(lite + 단일 태스크 + Phase C — requesting/receiving만, 오케스트레이터·batch-state 재검).
-    ↓
-  부모 머지 완료 → done에 batch task-id 추가
-    ↓
-→ WAVE LOOP 재진입 (find_ready(done) 로 다음 wave frontier)
+  done에 batch task-id 추가 → WAVE LOOP 재진입
     ─────────────────────────────────────────────────────────
-    ↓ ready 비어 있으면 (전부 완료)
-최종 코드 리뷰어 (전체 구현) — 단, 태스크 수==1 이면 SKIP (per-task C 중복, E2)
+    ↓ ready 비어 있음 (전부 A 완료)
+[END-LOADED REVIEW] (review_mode≠per-task 일 때 필수)
+  Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
+    → 부모가 **task마다** reviews/<tid>-B-report.md 저장 + dispatch-log에
+      각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
+    → FAIL 시 feedback → 관련 implementer 재dispatch(cap=2 FID 단위) → B 재실행
+  Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들
+    → reviews/<tid>-C-report.md (또는 -C-feedback) 동일 규약
+  최종 통합 code-reviewer: **SKIP** (end-loaded C가 전체 구현을 이미 봄 — E2와 동형)
+    ↓
+[per-task만] 최종 코드 리뷰어 — 태스크 수==1 이면 SKIP (E2)
     ↓
 specops-ko:verifying-evidence-ko 호출
 ```
 
 **DAG 파싱 실패 fallback (advisor 협의 13:00)**: `dag::find_independent_batch` 가 빈 출력 + stderr WARN 반환 → SEQUENTIAL 분기로 자동 fallback. 강제 차단 안 함 (v0.4a; v0.4b strict mode 옵션 검토).
+
+### end-loaded B/C 산출물 규약 (review-audit 정합)
+
+한 번의 Evaluator dispatch여도 **감사 teeth는 per-task 파일**을 요구한다 (`check-review-audit.sh`):
+
+1. 리뷰어는 FID 전체를 보고, 부모는 응답을 **태스크별로 분할 저장**: `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` (FAIL이면 `-feedback.md` 병기)
+2. `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
+3. 금지: `all-B-report.md`만 남기고 tid 파일 0건 (audit가 `all`을 tid로 오인하거나 SKIP/FAIL)
+4. dispatch-log 투명성: `| <ts> | End-loaded-B | spec-reviewer-ko | PASS|FAIL | reviews/<tid>-B-report.md |` 형태를 tid 루프에 기록
 
 ## F-12 ESCAPE HATCH 재정의 (v0.4a — 동일 파일 쌍 집약 vs DAG 병렬)
 
@@ -127,7 +142,7 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 
 | 시나리오 | 처리 방식 | 근거 |
 |---|---|---|
-| **동일 파일 쌍 TDD 체인** (예: T1·T2 모두 `src/X.sh` + `tests/test-X.sh` 수정) | 구현자 1 dispatch 집약 (Phase A) + 별도 Phase B/C — **순차** | 동일 파일 = outputs overlap → DAG 가 자동으로 batch 형성 안 함 |
+| **동일 파일 쌍 TDD 체인** (예: T1·T2 모두 `src/X.sh` + `tests/test-X.sh` 수정) | 구현자 1 dispatch 집약 (Phase A) + **end-loaded면 FID B/C 1회**, per-task면 별도 B/C — **순차** | 동일 파일 = outputs overlap → DAG 가 자동으로 batch 형성 안 함 |
 | **독립 leaf 2+** (출력 disjoint) | DAG-AWARE PARALLEL 분기 (v0.4a 신규) — **병렬** | dag::find_independent_batch 가 자동 식별 |
 | **1 leaf + chain** | 기본 SEQUENTIAL 분기 — **순차** | 일반 케이스 |
 
@@ -136,30 +151,30 @@ v0.4a DAG 자동 라우팅 도입 후 F-12 ESCAPE HATCH 의미가 정정됐다 (
 태스크 2 개 이상이 **동일 파일 쌍** (예: `src/X.sh` + `tests/test-X.sh`) 을 **순차 수정하는 TDD 체인** 이면 구현자 dispatch 를 **1 회로 집약**할 수 있다. 조건:
 
 1. 각 태스크의 TDD 5 스텝 (RED → FAIL → GREEN → PASS → COMMIT) 을 **태스크 내부 embedded cycle** 로 구현자가 준수
-2. 2 단계 리뷰 (Phase B 스펙 · Phase C 코드 품질) 는 **별도 리뷰어 dispatch 로 유지** — 집약 대상 아님
+2. 2 단계 리뷰 (Phase B 스펙 · Phase C 코드 품질) 는 **생략 금지** — end-loaded면 FID 말미 1회, per-task면 태스크별. **구현자 집약 대상이 아님**
 3. `dispatch-log.md` 에 집약 근거 (동일 파일 쌍 판정 · 태스크 LOC · TDD 사이클 구조) 명시 의무 (원칙 1 투명성)
 
-**근거**: dogfood FID `20260422-csv-lines` 실측 — 5 태스크 전부 `csv-lines` + `tests/test-csv-lines.sh` 만 수정 · 총 40 LOC. 규약대로 15 dispatch 대신 3 dispatch (구현자 1 + 리뷰어 2) 로 집약해 27.1k 토큰 절감, Phase B/C 리뷰는 유지. `dispatch-log.md` Phase A/B/C 기록이 5 원칙 4 (주권) · 1 (투명성) 충족 증거 (FRICTION-LOG F-12).
+**근거**: dogfood FID `20260422-csv-lines` 실측 — 5 태스크 전부 `csv-lines` + `tests/test-csv-lines.sh` 만 수정 · 총 40 LOC. 규약대로 15 dispatch 대신 3 dispatch (구현자 1 + 리뷰어 2) 로 집약해 27.1k 토큰 절감, Phase B/C 리뷰는 유지. `dispatch-log.md` Phase A/B/C 기록이 5 원칙 4 (주권) · 1 (투명성) 충족 증거 (FRICTION-LOG F-12). end-loaded 기본은 이 패턴을 **모든 FID**에 일반화한다(A=N, B=1, C=1).
 
-**위 조건 불충족 시** 기본값 ("태스크별 fresh 서브에이전트 dispatch") 그대로 유지.
+**위 조건 불충족 시** 기본값 ("태스크별 fresh 구현자 dispatch") 그대로 유지 — B/C는 여전히 end-loaded(기본) 또는 per-task.
 
-## 최종 리뷰 right-size — 단일 태스크 중복 제거 (E2, 20260718 경제성)
+## 최종 리뷰 right-size — 중복 제거 (E2 + end-loaded)
 
-Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스크 간 통합**(경계·교차 영향)을 검토하는 단계다. 그런데 **FID 의 태스크가 1개**(§유형=trivial 단축, 또는 단일 태스크로 분해된 경우)면 "전체 구현" = "그 1 태스크"이고, 이미 Phase C(`code-reviewer-ko`)가 그 태스크의 전체 산출물을 리뷰했다 → **최종 리뷰는 literal 중복**이므로 skip 한다.
+Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스크 간 통합**(경계·교차 영향)을 검토하는 단계다.
 
-- **게이트: 태스크 수 == 1 일 때만 skip** (기계적 — 판단 아님). **태스크 2개 이상이면 최종 리뷰 유지** — 태스크 간 통합·경계는 per-task C 가 못 보는 표면이라 중복이 아니다.
-- **품질 손실 0**: 제거 대상은 동일 산출물의 **두 번째 리뷰**지 새로운 검토가 아니다. Phase B/C 자체는 **무변경**(Generator↔Evaluator 분리·스펙/품질 분리 불변).
-- `dispatch-log.md` 에 `최종 리뷰 SKIP (단일 태스크 — Phase C 중복 제거, E2)` 기록 (F-12 와 동일 투명성 규약, 원칙 1).
-- **주의**: 이건 **안전한 유일한 리뷰 축소**다. 멀티태스크 Phase B/C 를 줄이는 건 금지 — 그 리뷰가 실제 Critical(RBAC 권한상승 등)을 잡는 품질의 원천이다. 경제성은 중복 제거로만 얻고 품질 표면은 건드리지 않는다.
+- **`review_mode: end-loaded`(기본)**: end-loaded Phase C가 이미 FID 전체를 보므로 **최종 리뷰 항상 SKIP**. `dispatch-log.md`에 `최종 리뷰 SKIP (end-loaded C — 전체 구현 이미 리뷰, E2)` 기록.
+- **`review_mode: per-task` + 태스크 수 == 1**: 동일하게 SKIP (`최종 리뷰 SKIP (단일 태스크 — Phase C 중복 제거, E2)`).
+- **`review_mode: per-task` + 태스크 2개 이상**: 최종 리뷰 **유지** — per-task C가 못 보는 교차 표면.
+- **금지**: Phase B/C **생략**(리뷰 0회). end-loaded는 **시점 통합**이지 생략이 아니다. risk-profile allowlist의 「B/C 축소 금지」= 생략 금지.
 
 ## Phase B/C 자동 재dispatch 정책 (Wave 2 U5)
 
 | Phase | FAIL 시 동작 | 재dispatch subagent_type | cap | cap 초과 시 |
 |---|---|---|---|---|
-| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | task 당 1회 (B=1/2) | HARD GATE: `HARD-GATE: <task-id> Phase B cap 초과 — 사용자 결정 필요` |
-| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | task 당 1회 (C=1/2) | HARD GATE: `HARD-GATE: <task-id> Phase C cap 초과 — 사용자 결정 필요` |
+| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | HARD GATE: `HARD-GATE: <task-id> Phase B cap 초과 — 사용자 개입 필요` |
+| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | HARD GATE: `HARD-GATE: <task-id> Phase C cap 초과 — 사용자 개입 필요` |
 
-**cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권).
+**cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권). end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
 
 ## Evaluator 모델 불가 fallback (P1 — 20260718 test2 정주행 회고)
 
@@ -348,11 +363,11 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 스펙 준수로 과잉·부족 구축 방지
 - 코드 품질로 구현이 잘 만들어졌음 보장
 
-**비용**:
-- 서브에이전트 invoke 수 증가 (구현자 + 리뷰어 2명 / 태스크)
-- 컨트롤러 사전 작업 증가 (모든 태스크 전체 추출)
-- 리뷰 루프로 이터레이션 추가
-- 그러나 **일찍 이슈 잡음** (나중에 디버깅보다 쌈)
+**비용** (`review_mode: end-loaded` 기본):
+- 구현자 invoke ≈ 태스크 수(A), 리뷰어 ≈ **2**(B+C) — O(N)→O(1) 리뷰
+- `per-task` opt-in 시 구현자+리뷰어 2명 / 태스크 (구 비용)
+- 컨트롤러 사전 작업(컨텍스트 조립) + 리뷰 루프 이터레이션
+- end-loaded는 태스크 중반 피드백이 늦어질 수 있음 — verify FAIL·fix_loop(≤3)가 안전망
 
 ## 5원칙 주입 (specops-ko 고유)
 
@@ -397,7 +412,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /implement
 
 ## 다음 skill
 
-모든 태스크 완료 + 최종 코드 리뷰 통과 + session-progress append 후 즉시 호출:
+모든 태스크 완료 + end-loaded(또는 per-task) B/C 통과 + 최종 리뷰 정책 충족 + session-progress append 후 즉시 호출:
 
 ```
 Skill: specops-ko:verifying-evidence-ko

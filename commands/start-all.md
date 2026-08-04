@@ -161,7 +161,10 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
 2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
 3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
-   - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 해당 FID가 **단일 태스크**이고 `.specops/<FID>/risk-profile.json`의 **`effective`가 `lite`** 이며 **`reductions_allowed`에 `batch-review-skip` 포함**이고 implementing Phase C PASS면, requesting/receiving-code-review를 **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄: lite+단일태스크+Phase C PASS)를 둔다. 멀티태스크·standard/strict·auth/DB/migration·`risk-profile.json` 부재·allowlist 부재는 **skip 금지**. `batch-state.sh`는 skip-only 경로에서 `effective=lite`·`batch-review-skip` allowlist·태스크 1개·사유 비어있지 않음을 재검한다(남용 차단 — Phase C PASS 자체는 산문).
+   - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 아래 중 하나면 requesting/receiving **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄)를 둔다.
+     1. **end-loaded**: `review-skip.md`에 `end-loaded:` 포함 + 전 tid `reviews/<tid>-[BC]-report.md` 존재 (멀티태스크·standard/strict 허용 — implementing이 이미 FID B·C 수행)
+     2. **lite+단일**: `effective=lite` · `reductions_allowed`에 `batch-review-skip` · 태스크 1개 · Phase C PASS (기존). 멀티태스크·standard/strict·auth/DB/migration·allowlist 부재는 이 경로 **금지**
+   - `batch-state.sh`가 skip-only 경로에서 위 메타를 재검한다.
 4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
 5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
 6. 다음 PLAN_DONE FR 반복

@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - specops-ko skills/engine/receiving-code-review-ko.md
-specops_version: 1.8.0
+specops_version: 1.61.0
 used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
 ---
 
@@ -215,6 +215,12 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /receive-r
 ## 다음 skill
 
 피드백 구현 완료 + session-progress append 후:
+
+**[review-skip 통과]** `.specops/<FID>/review-skip.md`가 있고 `review-request.md`가 없으면(end-loaded 또는 lite batch-review-skip):
+- 피드백 루프 **없음** — Critical/Important 수정 단계 skip
+- session-progress: `/receive-review 완료 "review-skip 통과 (<사유 1줄>)"`
+- **batch** → `BATCH-REVIEW-DONE: <FID>` + halt
+- **단일** → 즉시 `security-review-ko`
 
 **[batch 모드 분기]** 먼저 spec.md `**§batch**` 라벨 감지 확인:
 

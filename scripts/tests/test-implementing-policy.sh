@@ -90,5 +90,40 @@ grep -qE "output count 적은|머지 순서" "$F" \
   && { PASS=$((PASS+1)); echo "PASS T2.c (M2) 부모 머지 순서 정책 명시"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T2.c (M2) 머지 순서 정책 부재"; }
 
+# ── T3 end-loaded 리뷰 모드 (기본) ──
+# T3.a: review_mode / end-loaded 기본 명시
+grep -qE "end-loaded" "$F" \
+  && grep -qE "review_mode" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.a end-loaded + review_mode"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.a end-loaded/review_mode 부재"; }
+
+# T3.b: per-task 레거시 opt-in
+grep -qE "per-task" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.b per-task 레거시"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.b per-task 부재"; }
+
+# T3.c: end-loaded B/C 산출물 per-tid 규약 (audit 정합)
+grep -qE "reviews/<tid>-B-report|reviews/<tid>-C-report" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.c per-tid B/C report 규약"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.c per-tid report 규약 부재"; }
+
+# T3.d: 생략 금지 vs 시점 통합 구분
+grep -qE "시점만|시점 통합" "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T3.d 시점 통합(생략 아님)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.d 시점 통합 문구 부재"; }
+
+# T3.e: decomposing/templates 에 review_mode 배선
+DEC="$PLUGIN/skills/decomposing-ko/SKILL.md"
+TPL="$PLUGIN/templates/tasks.md"
+grep -qE "review_mode" "$DEC" && grep -qE "review_mode: end-loaded" "$TPL" \
+  && { PASS=$((PASS+1)); echo "PASS T3.e decomposing+template review_mode"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.e decomposing/template review_mode 부재"; }
+
+# T3.f: requesting Step 0 end-loaded skip
+REQ="$PLUGIN/skills/requesting-code-review-ko/SKILL.md"
+grep -qE "end-loaded" "$REQ" && grep -qE "review-skip" "$REQ" \
+  && { PASS=$((PASS+1)); echo "PASS T3.f requesting end-loaded skip"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T3.f requesting end-loaded skip 부재"; }
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -204,6 +204,70 @@ else
   nope "T2.a6 no allowlist" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
+# ── fixture B1g: end-loaded skip + 멀티태스크 + B/C reports → 유효 ──
+mkdir -p "$TMP/b1g/.specops/batch-y1g" \
+  "$TMP/b1g/.specops/20260101-el/reviews"
+cat > "$TMP/b1g/.specops/batch-y1g/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-el | one | IMPL_DONE |
+EOF
+: > "$TMP/b1g/.specops/20260101-el/review-base.sha"
+: > "$TMP/b1g/.specops/20260101-el/evidence.md"
+echo "end-loaded: Phase B/C already covered full FID diff" > "$TMP/b1g/.specops/20260101-el/review-skip.md"
+printf '{"effective":"strict","computed":"strict","mode":"live","reductions_allowed":[]}\n' \
+  > "$TMP/b1g/.specops/20260101-el/risk-profile.json"
+cat > "$TMP/b1g/.specops/20260101-el/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+review_mode: end-loaded
+tasks:
+  - id: T1
+    depends_on: []
+  - id: T2
+    depends_on: [T1]
+```
+EOF
+: > "$TMP/b1g/.specops/20260101-el/reviews/T1-B-report.md"
+: > "$TMP/b1g/.specops/20260101-el/reviews/T1-C-report.md"
+: > "$TMP/b1g/.specops/20260101-el/reviews/T2-B-report.md"
+: > "$TMP/b1g/.specops/20260101-el/reviews/T2-C-report.md"
+printf '## 20260101-el\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1g/.specops/session-progress.md"
+printf '| FR-1 | el | M1 | must | s | f |\n' > "$TMP/b1g/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1g/.specops/batch-y1g" "$TMP/b1g/req.md" 2>&1); code=$?
+[ "$code" -eq 0 ] && ok "T2.a7 end-loaded skip + 멀티태스크 + B/C — exit 0" \
+  || nope "T2.a7 end-loaded skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+
+# ── fixture B1h: end-loaded skip but C report 누락 → 무효 ──
+mkdir -p "$TMP/b1h/.specops/batch-y1h" \
+  "$TMP/b1h/.specops/20260101-elmiss/reviews"
+cat > "$TMP/b1h/.specops/batch-y1h/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-elmiss | one | IMPL_DONE |
+EOF
+: > "$TMP/b1h/.specops/20260101-elmiss/review-base.sha"
+: > "$TMP/b1h/.specops/20260101-elmiss/evidence.md"
+echo "end-loaded: claimed but incomplete" > "$TMP/b1h/.specops/20260101-elmiss/review-skip.md"
+cat > "$TMP/b1h/.specops/20260101-elmiss/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    depends_on: []
+```
+EOF
+: > "$TMP/b1h/.specops/20260101-elmiss/reviews/T1-B-report.md"
+# T1-C-report.md 의도적 누락
+printf '## 20260101-elmiss\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1h/.specops/session-progress.md"
+printf '| FR-1 | elmiss | M1 | must | s | f |\n' > "$TMP/b1h/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1h/.specops/batch-y1h" "$TMP/b1h/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -qE "end-loaded|reviews 누락"; then
+  ok "T2.a8 end-loaded skip + C 누락 — 차단"
+else
+  nope "T2.a8 end-loaded incomplete" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
 cat > "$TMP/b2/.specops/batch-y2/queue.md" <<'EOF'

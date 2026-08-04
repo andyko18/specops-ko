@@ -5,6 +5,7 @@
 #   risk-profile.sh show <FID>
 # lite/standard/strict 를 계산·기록한다. mode=live 이며, effective=lite 일 때만
 # reductions_allowed=["batch-review-skip"] (requesting/receiving skip). Phase B·TDD·verify·receipt 축소 금지.
+# 참고: review_mode:end-loaded 는 B/C 생략이 아니라 FID 말미 1회 수행 — reductions_allowed 와 무관.
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"

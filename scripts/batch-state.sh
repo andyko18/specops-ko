@@ -104,8 +104,10 @@ fi
 #                             fallback → 직전 FR 변경까지 끌어들여 내용 뭉개짐. layer 2 강제)
 #      - evidence.md        : per-FR verify 산출 (layer 3 존재)
 #      - review-request.md 또는 review-skip.md
-#           : per-FR code-review 산출 (layer 3) · lite+단일태스크 skip 시 review-skip.md 허용
-#             (skip-only 시 risk-profile.json effective=lite · tasks.md 태스크 1 · 사유 비공백 재검)
+#           : per-FR code-review 산출 (layer 3). review-skip.md 허용 조건 둘 중 하나:
+#             (a) lite+단일태스크+batch-review-skip allowlist (기존)
+#             (b) 사유에 end-loaded: + 전 tid 의 reviews/<tid>-[BC]-report.md 존재
+#             (skip-only 시 사유 비공백 필수)
 #    를 개별 생성해야 한다. 하나라도 없으면 verify/review 가 뭉개졌거나 미실행 → batch PR 전 차단.
 #    MERGED(타 사이클서 이미 shipped)는 batch 전용 review-base.sha 미보유 가능 → 제외(IMPL_DONE 한정).
 #    FID = 첫 두 비어있지 않은 필드 중 둘째.
@@ -134,34 +136,57 @@ if [ -n "$done_pairs" ]; then
     if [ ! -f "$SPECOPS_ROOT/$fid/review-request.md" ] && [ ! -f "$SPECOPS_ROOT/$fid/review-skip.md" ]; then
       missing_artifacts="${missing_artifacts}  - ${fr_id} (${fid}): review-request.md|review-skip.md 없음"$'\n'
     fi
-    # review-skip.md only — lite+단일태스크 메타 최소 검증 (남용 차단)
+    # review-skip.md only — (a) lite+단일태스크 또는 (b) end-loaded+B/C reports (남용 차단)
     # review-request.md 가 있으면 정식 리뷰 경로로 보고 skip 메타는 검사하지 않는다.
     if [ -f "$SPECOPS_ROOT/$fid/review-skip.md" ] && [ ! -f "$SPECOPS_ROOT/$fid/review-request.md" ]; then
       skip_file="$SPECOPS_ROOT/$fid/review-skip.md"
       rp_file="$SPECOPS_ROOT/$fid/risk-profile.json"
       tasks_file="$SPECOPS_ROOT/$fid/tasks.md"
-      reason=$(tr -d ' \t\r\n' < "$skip_file" 2>/dev/null || true)
+      reason_raw=$(cat "$skip_file" 2>/dev/null || true)
+      reason=$(printf '%s' "$reason_raw" | tr -d ' \t\r\n')
       if [ -z "$reason" ]; then
         invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip.md 사유 비어 있음"$'\n'
-      fi
-      if [ ! -f "$rp_file" ]; then
-        invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 risk-profile.json 부재"$'\n'
-      else
-        eff=$(jq -r '.effective // empty' "$rp_file" 2>/dev/null || true)
-        if [ "$eff" != "lite" ]; then
-          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 effective=${eff:-?} (lite 아님)"$'\n'
+      elif printf '%s' "$reason_raw" | grep -qiE 'end-loaded'; then
+        # (b) end-loaded: implementing Phase B/C 가 FID 전체를 이미 커버 — requesting 중복 skip
+        if [ ! -f "$tasks_file" ]; then
+          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 tasks.md 부재"$'\n'
+        else
+          missing_bc=""
+          while IFS= read -r tid; do
+            [ -z "$tid" ] && continue
+            [ -f "$SPECOPS_ROOT/$fid/reviews/${tid}-B-report.md" ] || \
+              missing_bc="${missing_bc}${tid}-B "
+            [ -f "$SPECOPS_ROOT/$fid/reviews/${tid}-C-report.md" ] || \
+              missing_bc="${missing_bc}${tid}-C "
+          done <<TIDS
+$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null | sed -E 's/^[[:space:]]*-[[:space:]]*id:[[:space:]]*//;s/[[:space:]]*$//' || true)
+TIDS
+          if [ -z "$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null || true)" ]; then
+            invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 tasks.md 에 task id 없음"$'\n'
+          elif [ -n "$missing_bc" ]; then
+            invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 reviews 누락 (${missing_bc% })"$'\n'
+          fi
         fi
-        # Wave B: lite skip 은 reductions_allowed 에 batch-review-skip 이 있어야 함
-        if ! jq -e '.reductions_allowed | index("batch-review-skip")' "$rp_file" >/dev/null 2>&1; then
-          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 reductions_allowed에 batch-review-skip 없음"$'\n'
-        fi
-      fi
-      if [ ! -f "$tasks_file" ]; then
-        invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 tasks.md 부재"$'\n'
       else
-        task_n=$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null | wc -l | tr -d ' ')
-        if [ "${task_n:-0}" -ne 1 ]; then
-          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 태스크 수=${task_n:-0} (단일 태스크만 허용)"$'\n'
+        # (a) lite+단일태스크+batch-review-skip
+        if [ ! -f "$rp_file" ]; then
+          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 risk-profile.json 부재"$'\n'
+        else
+          eff=$(jq -r '.effective // empty' "$rp_file" 2>/dev/null || true)
+          if [ "$eff" != "lite" ]; then
+            invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 effective=${eff:-?} (lite 아님)"$'\n'
+          fi
+          if ! jq -e '.reductions_allowed | index("batch-review-skip")' "$rp_file" >/dev/null 2>&1; then
+            invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 reductions_allowed에 batch-review-skip 없음"$'\n'
+          fi
+        fi
+        if [ ! -f "$tasks_file" ]; then
+          invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 tasks.md 부재"$'\n'
+        else
+          task_n=$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null | wc -l | tr -d ' ')
+          if [ "${task_n:-0}" -ne 1 ]; then
+            invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 태스크 수=${task_n:-0} (단일 태스크만 허용)"$'\n'
+          fi
         fi
       fi
     fi
@@ -175,7 +200,7 @@ if [ -n "$missing_artifacts" ]; then
   fail=1; fail_gate=1
 fi
 if [ -n "$invalid_skip" ]; then
-  echo "[review-skip 무효] lite+단일태스크 메타 미충족 (남용·오분류 차단):"
+  echo "[review-skip 무효] lite+단일태스크 또는 end-loaded+B/C reports 메타 미충족 (남용·오분류 차단):"
   printf '%s' "$invalid_skip"
   fail=1; fail_gate=1
 fi

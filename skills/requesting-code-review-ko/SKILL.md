@@ -3,7 +3,7 @@ name: requesting-code-review-ko
 description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결과물이 요구를 충족하는지 외부 리뷰어에게 검증 요청
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
-specops_version: 1.47.0
+specops_version: 1.61.0
 used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain 출구)
 ---
 
@@ -11,7 +11,32 @@ used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain �
 
 코드 리뷰어 서브에이전트를 **이슈가 누적되기 전에** dispatch. 리뷰어는 당신의 세션 히스토리가 아니라 **정확히 조립된 평가용 컨텍스트**를 받는다. 리뷰어를 결과물에 집중시키고, 당신 자신의 컨텍스트도 계속된 작업용으로 보존한다.
 
-**핵심 원칙**: **일찍 리뷰, 자주 리뷰.**
+**핵심 원칙**: **일찍 리뷰, 자주 리뷰.** (단, implementing이 이미 FID 전체 B·C를 끝낸 end-loaded면 **중복 리뷰 생략** — 아래 Step 0)
+
+## Step 0 — end-loaded 중복 skip (필수 분기)
+
+`verifying-evidence-ko` 직후 진입 시 **먼저** 판정:
+
+```bash
+FID=...   # 활성 FID
+# tasks.md YAML 루트 review_mode (부재=end-loaded)
+grep -E '^review_mode:' ".specops/$FID/tasks.md" || true
+```
+
+**SKIP 조건** (모두 충족):
+1. `review_mode`가 `per-task`가 **아님** (부재·`end-loaded` 포함)
+2. tasks.md의 **모든** task id에 대해 `.specops/<FID>/reviews/<tid>-B-report.md` **와** `<tid>-C-report.md` 존재
+3. (권장) `dispatch-log.md`에 해당 tid의 B/C PASS 행이 있음
+
+**SKIP 시 동작**:
+1. `.specops/<FID>/review-skip.md` 작성 — 첫 줄에 `end-loaded: Phase B/C already covered full FID diff` (사유 필수·비공백)
+2. session-progress: `/request-review 완료 "review-skip.md (end-loaded)"`
+3. **외부 code-reviewer Agent dispatch 하지 않음**
+4. 즉시 `receiving-code-review-ko` 호출 (receiving이 skip을 통과시켜 security로)
+
+lite+단일태스크 `batch-review-skip` 경로와 **별개**다. end-loaded skip은 risk-profile allowlist와 무관하며, `batch-state.sh`가 B/C report 존재로 검증한다.
+
+조건 미충족 → 아래 정상 리뷰 요청 절차.
 
 ## 리뷰 요청 시점
 
@@ -131,10 +156,10 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 | 원칙 | 본 스킬 적용 |
 |---|---|
-| 1 **투명성** | 리뷰 요청 payload 전문을 `.specops/<FID>/review-request.md`에 보존 |
-| 2 **문지기** | Critical 미해결 상태로 머지 불가. 리뷰 생략도 불가 |
-| 3 **깊이** | "간단해서 리뷰 불필요"는 거부 신호. 작은 PR도 리뷰 |
-| 4 **주권 존중** | 사용자가 리뷰 생략을 명시 지시하지 않는 한 항상 리뷰 요청 |
+| 1 **투명성** | 리뷰 요청 payload 전문을 `.specops/<FID>/review-request.md`에 보존(skip 시 `review-skip.md`) |
+| 2 **문지기** | Critical 미해결 상태로 머지 불가. **무단** 리뷰 생략 불가 — end-loaded/lite skip만 산출물·메타로 허용 |
+| 3 **깊이** | "간단해서 리뷰 불필요"는 거부 신호. 작은 PR도 리뷰(단 Step 0 end-loaded는 이미 B·C 완료) |
+| 4 **주권 존중** | 사용자가 리뷰 생략을 명시 지시하지 않는 한 항상 리뷰 요청(단 Step 0 end-loaded·batch lite skip 예외) |
 | 5 **한계 고백** | 리뷰어 컨텍스트 부족 감지 시 "이 부분은 리뷰 범위 밖" 기록 |
 
 ## 참조
@@ -144,9 +169,12 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ## session-progress append (v0.4-pre P1 신설)
 
-review-request 작성 + 외부 리뷰어 dispatch 후, receiving-code-review-ko 호출 직전에:
+review-request 작성 + 외부 리뷰어 dispatch 후(또는 Step 0 skip 후), receiving-code-review-ko 호출 직전에:
 ```
+# 정상
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /request-review 완료 "review-request.md, 외부 reviewer dispatch"
+# Step 0 end-loaded skip
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /request-review 완료 "review-skip.md (end-loaded)"
 ```
 
 ## 다음 skill
