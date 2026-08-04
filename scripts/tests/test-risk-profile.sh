@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P1 위험 프로파일 shadow 분류기
+# P1 위험 프로파일 limited-live 분류기 (Wave B)
 set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -13,26 +13,28 @@ _setup() {  # $1=dir $2=fid
     && git -c user.name=t -c user.email=t@e.com commit -qm init)
 }
 
-# T1: docs-only → lite
+# T1: docs-only → lite (mode=live + batch-review-skip allowlist)
 TD=$(mktemp -d); FID=20260803-rp-lite
 _setup "$TD" "$FID"
 printf '# note\n' > "$TD/docs/note.md"
 (cd "$TD" && git add docs/note.md)
 printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
-[ "$out" = "lite" ] && jq -e '.mode=="shadow" and .reductions_applied==[]' \
+[ "$out" = "lite" ] && jq -e '.mode=="live" and .reductions_applied==[] and (.reductions_allowed|index("batch-review-skip"))' \
   "$TD/.specops/$FID/risk-profile.json" >/dev/null \
-  && ok "T1 docs-only → lite(shadow)" || nope "T1" "out=$out"
+  && ok "T1 docs-only → lite(live+allowlist)" || nope "T1" "out=$out"
 rm -rf "$TD"
 
-# T2: 코드 2파일 → standard
+# T2: 코드 2파일 → standard (live, allowlist 빈 배열)
 TD=$(mktemp -d); FID=20260803-rp-std
 _setup "$TD" "$FID"
 printf 'x\n' > "$TD/src/a.sh"; printf 'y\n' > "$TD/src/b.sh"
 (cd "$TD" && git add src)
 printf '**§유형**: 신규\n일반 기능\n' > "$TD/.specops/$FID/spec.md"
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
-[ "$out" = "standard" ] && ok "T2 코드 2파일 → standard" || nope "T2" "out=$out"
+[ "$out" = "standard" ] && jq -e '.mode=="live" and .reductions_allowed==[]' \
+  "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T2 코드 2파일 → standard(live·빈 allowlist)" || nope "T2" "out=$out"
 rm -rf "$TD"
 
 # T3: auth 키워드 1줄 → strict
@@ -42,9 +44,9 @@ printf 'x\n' > "$TD/src/rbac.sh"
 (cd "$TD" && git add src)
 printf '**§유형**: 신규\n인증 RBAC 조건 1줄 변경\n' > "$TD/.specops/$FID/spec.md"
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
-[ "$out" = "strict" ] && jq -e '.signals.strict|index("auth")' \
+[ "$out" = "strict" ] && jq -e '.mode=="live" and .reductions_allowed==[] and (.signals.strict|index("auth"))' \
   "$TD/.specops/$FID/risk-profile.json" >/dev/null \
-  && ok "T3 auth → strict" || nope "T3" "out=$out"
+  && ok "T3 auth → strict(live·빈 allowlist)" || nope "T3" "out=$out"
 rm -rf "$TD"
 
 # T4: migration → strict

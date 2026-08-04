@@ -25,9 +25,24 @@ grep -qF '재사용 금지' "$BATCH" \
   || nope "T1.c 재생성 경로" "'재사용 금지' 앵커 없음"
 
 # T1.d: batch Step 5.5 SKIP 계약 (프로세스 축소 — Phase 2.5 단일 화면 경로)
-grep -qE 'Step 5\.5 SKIP' "$BATCH" && grep -qE 'Step 5\.5.*SKIP|5\.5 SKIP' "$SPECIFY" \
+grep -qE 'Step 5\.5' "$BATCH" && grep -qE '5\.5.*SKIP|SKIP' "$BATCH" \
+  && grep -qE 'Step 5\.5.*SKIP|5\.5 SKIP|5\.5·5\.6 SKIP' "$SPECIFY" \
   && ok  "T1.d batch Step 5.5 SKIP (start-all + specifying)" \
   || nope "T1.d batch 5.5 skip" "SKIP 앵커 부재"
+
+# T1.d2: batch Step 5.6도 SKIP — 인터페이스는 Phase 2.5-B (화면 직후)
+grep -qE '5\.5·5\.6 SKIP|5\.6 SKIP' "$BATCH" \
+  && grep -qE '\[batch 분기\].*SKIP|batch 분기\].*본 Step \*\*SKIP\*\*' "$SPECIFY" \
+  && grep -qE 'Phase 2\.5-B|2\.5-B' "$BATCH" \
+  && ok  "T1.d2 batch Step 5.6 SKIP + Phase 2.5-B IF" \
+  || nope "T1.d2 batch 5.6→2.5-B" "5.6 SKIP 또는 2.5-B 부재"
+
+# T1.d3: Phase 2.5 순서 — 화면(A) 후 인터페이스(B)
+lA=$(grep -n '#### A\. 통합 화면' "$BATCH" | head -1 | cut -d: -f1)
+lB=$(grep -n '#### B\. 통합 인터페이스' "$BATCH" | head -1 | cut -d: -f1)
+{ [ -n "$lA" ] && [ -n "$lB" ] && [ "$lA" -lt "$lB" ]; } \
+  && ok  "T1.d3 Phase 2.5 화면→인터페이스 순서" \
+  || nope "T1.d3 순서" "A=$lA B=$lB"
 
 # T1.e: lite skip 조건은 risk-profile.json 경로 (디렉터리명 risk-profile 오표기 금지)
 grep -qF 'risk-profile.json' "$BATCH" \

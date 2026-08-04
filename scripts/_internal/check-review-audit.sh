@@ -13,12 +13,46 @@
 #   명문화했는데, T10 은 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행이 없었다.
 #   규칙은 본문에만 있고 산출물을 보는 층이 없어 위반이 조용히 통과했다.
 #
-# 스코프 한계 (5원칙 5 — 정직): **누락(omission) 전용**이다.
-#   dispatch-log 행이 있으나 내용이 거짓인 falsification(부모 인라인 판정을 서브에이전트로
-#   기재)은 자기보고라 파일 대조로 판별 불가하다. transcript join(_verify_exec_evidence 패턴)은
-#   context-resets-ko 의 implement↔verify 리셋 경계 때문에 대부분 fail-open 이라 실효가 낮다
-#   (#120 자기보고 구조적 한계와 동일 클래스). 본 검사는 "기록조차 안 한" 층만 막는다.
+# 스코프 한계 (5원칙 5 — 정직): **누락(omission) + 산문위장** 방지.
+#   인정: (1) reviews/<basename> 경로 (2) Phase 셀 B:tid/C:tid (3) ## task-<tid> 섹션 내 B/C 행.
+#   tid 문자열이 산문에만 있으면 FAIL. 행은 있으나 내용이 거짓인 falsification 은 자기보고라
+#   파일 대조로 판별 불가 (#120 동일 클래스).
 set -u
+
+# usage: _has_audit_row <log> <tid> <basename>
+# 구조화 감사 행/경로가 있으면 0, 없으면 1.
+_has_audit_row() {
+  local log="$1" tid="$2" base="$3" phase
+  case "$base" in
+    *-B-report.md|*-B-feedback.md) phase=B ;;
+    *-C-report.md|*-C-feedback.md) phase=C ;;
+    *) return 1 ;;
+  esac
+  # 1) 경로 리터럴
+  grep -Fq "reviews/$base" "$log" && return 0
+  # 2) 컴팩트 Phase 셀: B:tid / C:tid / B (재):tid / C (재):tid
+  if grep -Eq "^[[:space:]]*\|[^|]*\|[^|]*\|[[:space:]]*${phase}([[:space:]]*\\(재\\))?:${tid}[[:space:]]*\|" "$log"; then
+    return 0
+  fi
+  # 3) 섹션 스코프: ## task-<tid> 블록 안의 Phase 셀 B/C/(재)
+  #   END 가 exit 상태를 덮어쓰므로 found 플래그로 판정한다.
+  awk -v tid="$tid" -v phase="$phase" '
+    BEGIN { insec=0; found=0 }
+    /^##[[:space:]]+task-/ {
+      insec = ($0 ~ ("^##[[:space:]]+task-" tid "(:|[[:space:]]|$)"))
+      next
+    }
+    /^##[[:space:]]/ { insec=0; next }
+    insec && /^\|/ {
+      n = split($0, a, "|")
+      if (n >= 4) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", a[4])
+        if (a[4] == phase || a[4] == (phase " (재)")) { found=1; exit }
+      }
+    }
+    END { exit (found ? 0 : 1) }
+  ' "$log"
+}
 
 FID="${1:?usage: $0 <FID>}"
 REVIEWS=".specops/$FID/reviews"
@@ -67,8 +101,8 @@ for f in "$REVIEWS"/*-[BC]-report.md "$REVIEWS"/*-[BC]-feedback.md; do
   tid="${tid%-[BC]-feedback.md}"
   [ -n "$tid" ] || continue
   checked=$((checked + 1))
-  # 경계 매칭 — T1 행이 T10 리포트를 덮지 않도록 앞뒤를 비-영숫자로 고정.
-  if ! grep -Eq "(^|[^A-Za-z0-9])${tid}([^A-Za-z0-9]|$)" "$LOG"; then
+  # 구조화 행/경로만 인정 — 산문 tid·부분문자열 위장 거부 (T1⊂T10 경계 포함).
+  if ! _has_audit_row "$LOG" "$tid" "$base"; then
     missing="${missing}${missing:+ }${tid}"
   fi
 done

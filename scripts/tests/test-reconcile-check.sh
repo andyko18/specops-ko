@@ -87,5 +87,36 @@ if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
   ok "R7 구조화 FAIL은 verify frontier 아님"
 else no "R7" "rc=$rc out=[$out]"; fi
 
+# R8 — Phase B/C reviews/ 만으로는 review=70(finishing) 과대보고 금지
+fid="20260804-reviews-only"; root="$TMP/.specops"
+mkdir -p "$root/$fid/reviews"
+printf '## %s\n- 2026-08-04 10:00 /verify PASS (evidence.md)\n- 2026-08-04 09:00 /implement DONE\n' "$fid" >> "$root/session-progress.md"
+touch "$root/$fid/spec.md" "$root/$fid/tasks.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$root/$fid/evidence.md"
+printf '| 1 | ts | A:T1 | implementer-ko | DONE | x |\n' > "$root/$fid/dispatch-log.md"
+echo "# T1 Phase B" > "$root/$fid/reviews/T1-B-report.md"
+out=$(SPECOPS_ROOT="$root" bash "$SCRIPT" "$fid" --hook 2>&1); rc=$?
+out_def=$(SPECOPS_ROOT="$root" bash "$SCRIPT" "$fid" 2>&1)
+if [ "$rc" -eq 0 ] && [ -z "$out" ] \
+   && ! printf '%s' "$out_def" | grep -qiE 'finishing|재개점:[[:space:]]*finishing'; then
+  ok "R8 reviews/ alone ≠ review frontier (finishing 금지)"
+else no "R8" "rc=$rc hook=[$out] def=[$out_def]"; fi
+
+# R9 — review-skip.md 있으면 review=70 → finishing 재개점
+fid="20260804-review-skip"; root="$TMP/.specops"
+mkdir -p "$root/$fid/reviews"
+printf '## %s\n- 2026-08-04 11:00 /verify PASS (evidence.md)\n' "$fid" >> "$root/session-progress.md"
+touch "$root/$fid/spec.md" "$root/$fid/tasks.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$root/$fid/evidence.md"
+printf '| 1 | ts | A:T1 | implementer-ko | DONE | x |\n' > "$root/$fid/dispatch-log.md"
+echo "# T1 Phase B" > "$root/$fid/reviews/T1-B-report.md"
+echo "lite skip: single-task + Phase C PASS" > "$root/$fid/review-skip.md"
+out=$(SPECOPS_ROOT="$root" bash "$SCRIPT" "$fid" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qiE 'DESYNC|과소보고' \
+   && printf '%s' "$out" | grep -qiE '증거 frontier:[[:space:]]*review|evidence frontier:[[:space:]]*review' \
+   && printf '%s' "$out" | grep -qi '재개점:[[:space:]]*finishing'; then
+  ok "R9 review-skip → review frontier + finishing 재개점"
+else no "R9" "rc=$rc out=[$out]"; fi
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

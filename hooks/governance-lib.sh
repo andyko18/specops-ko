@@ -503,50 +503,35 @@ apply_lookback_rule() {
   local _exec_rc
   _verify_exec_evidence "$transcript"; _exec_rc=$?
 
-  # ★ P0-2 태스크 receipt 면제 (R-1 전용): 부모가 record-task-receipt 로 남긴 PASS receipt 가
-  #   staged⊆outputs · tree 신선 · test_command hash 일치면 커밋 허용. FID 전체 VERIFY: PASS 불필요.
-  #   receipt 부재(rc=2) → 아래 legacy implement/verify 경로. receipt 무효(rc=1) → 즉시 deny.
-  #   R-2 는 receipt 로 열지 않는다.
-  if [ "$rule_id" = "R-1" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
+  # ★ R-1 implement 창: task receipt 필수 (Wave A — downstream-dogfood 병렬 wave BYPASS 관성 제거)
+  #   tasks.md 존재 ∧ evidence.md 부재 = implement 창. FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지.
+  #   유효 receipt(staged⊆outputs·tree 신선·test_command hash)만 면제. T# 없음·부재·무효 → deny.
+  #   evidence.md 이후(post-verify)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
+  if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
     _rfid=$(detect_fid)
-    _rtask=$(_infer_commit_task "$tool_cmd")
-    if [ -n "$_rfid" ] && [ -n "$_rtask" ] && [ -f ".specops/$_rfid/receipts/$_rtask.json" ]; then
-      bash "$_CHECK_TASK_RECEIPT_SH" "$_rfid" "$_rtask" >/dev/null 2>&1
-      _rrc=$?
+    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && [ ! -f ".specops/$_rfid/evidence.md" ]; then
+      _rtask=$(_infer_commit_task "$tool_cmd")
+      _rrc=2
+      if [ -n "$_rtask" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
+        bash "$_CHECK_TASK_RECEIPT_SH" "$_rfid" "$_rtask" >/dev/null 2>&1
+        _rrc=$?
+      fi
       if [ "$_rrc" -eq 0 ]; then
         return 0
       fi
-      if [ "$_rrc" -eq 1 ]; then
-        local offset
-        offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
-          [inputs] as $all
-          | ([ $all | to_entries[]
-               | select(.value.type == "assistant")
-               | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
-               | .key ] | last) // ($all | length)
-        ' "$transcript" 2>/dev/null)
-        [ -z "$offset" ] && offset=0
-        jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
-          '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
-        return 0
-      fi
-    fi
-  fi
-
-  # ★ implement 단계 면제 (20260723-lifecycle-robustness B): implement 단계 태스크별 TDD 커밋은
-  #   /verify PASS 앵커·evidence stamp 가 **구조적으로 존재할 수 없다**(verify 는 후속 단계). 그래서
-  #   정직한 흐름도 매 커밋 BYPASS 로 몰렸다(20260722 screen-design 5+회). transcript 에 실제 러너
-  #   VERIFY: PASS 실행증거(exec_rc=0, 엄격 — fail-open rc=2 불인정)가 있고, FID 가 implement 창
-  #   (tasks.md 존재 ∧ evidence.md 부재)에 있으면 R-1 커밋을 면제한다. 자기보고 아닌 실행증거 기반
-  #   이라 위조 불가. **evidence.md 생기는 즉시 이 경로가 닫히고** post-verify 는 기존 앵커로 판정된다.
-  #   R-1 한정 — R-2(PR)는 verify 이후라 evidence.md 존재, 대상 아님.
-  #   receipt 보급 전 legacy 호환 경로(P0-2 경로 B). receipt 가 있는 커밋은 위에서 이미 처리됨.
-  if [ "$rule_id" = "R-1" ] && [ "$_exec_rc" -eq 0 ]; then
-    local _ifid
-    _ifid=$(detect_fid)
-    if [ -n "$_ifid" ] && [ -f ".specops/$_ifid/tasks.md" ] && [ ! -f ".specops/$_ifid/evidence.md" ]; then
-      return 0   # implement 단계 + 실행증거 → 면제
+      local offset
+      offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
+        [inputs] as $all
+        | ([ $all | to_entries[]
+             | select(.value.type == "assistant")
+             | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
+             | .key ] | last) // ($all | length)
+      ' "$transcript" 2>/dev/null)
+      [ -z "$offset" ] && offset=0
+      jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
+        '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+      return 0
     fi
   fi
 

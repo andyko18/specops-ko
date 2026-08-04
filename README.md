@@ -205,7 +205,7 @@ specops-ko/
 │   │  /init-project 산출 템플릿 (13건): constitution, PRD, requirements,
 │   │      CLAUDE, README, architecture, frontend-architecture, backend-architecture,
 │   │      api-spec, api-spec-consumer, data-model, screens-overview, test-strategy
-├── agents/                               ← 7건 (implementer, spec-reviewer, code-reviewer, plan-reviewer, red-team, blue-team, auditor)
+├── agents/                               ← 8건 (implementer, spec-reviewer, code-reviewer, plan-reviewer, design-reviewer, red-team, blue-team, auditor)
 ├── scripts/
 │   ├── session-progress-append.sh
 │   ├── dag/                              ← DAG 파서 + 컨텍스트 검증

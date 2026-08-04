@@ -88,4 +88,19 @@ fi
 (cd "$TD" && _record_bypass_metric "../escape")
 [ "$(wc -l < "$BLOG" | tr -d ' ')" = "1" ] && ok "M5b 빈/잘못된 FID no-op" || nope "M5b" "lines=$(wc -l < "$BLOG")"
 
+# M6: evaluator-degradation phase 기록 + 스킬/커맨드 배선
+(cd "$TD" && bash "$REC" \
+  --fid 20260803-metrics --task T1 --phase evaluator-degradation \
+  --fallback true --model claude-sonnet-override)
+if jq -e 'select(.phase=="evaluator-degradation" and .fallback==true and .model=="claude-sonnet-override")' \
+     "$LOG" >/dev/null; then
+  ok "M6a evaluator-degradation JSONL"
+else
+  nope "M6a" "log=$(cat "$LOG")"
+fi
+grep -q 'evaluator-degradation' "$PLUGIN/skills/implementing-ko/SKILL.md" \
+  && grep -q 'evaluator-degradation' "$PLUGIN/commands/start-all.md" \
+  && ok "M6b implementing-ko·start-all 배선" \
+  || nope "M6b" "doc wiring missing"
+
 finish

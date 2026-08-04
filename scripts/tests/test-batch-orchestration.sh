@@ -78,28 +78,48 @@ r21=$(grep -c '21개 검증 항목' "$E2E" "$PLUGIN/commands/e2e-test.md" | awk 
 [ "$c1" -ge 1 ] && [ "$c2" -ge 1 ] && [ "$r21" -eq 0 ] \
   && ok "T7.a V 개수 24 동기·21 잔존 0" || nope "T7.a V 동기" "c1=$c1 c2=$c2 r21=$r21"
 
-# ── T8: Phase 2.5 batch 통합 화면 설계 계약 (FID 20260716-start-all-batch-screen-design) ──
+# ── T8: Phase 2.5 batch 통합 design-first (화면→IF) 계약 ──
 # dogfood 발견: start-all 이 화면 design-first 를 각 FR specify 에 못 끼워 화면설계가 몰림.
-# fix = 무거운 단계(security/integration/perf) 통합 패턴으로 구현 직전 1회 통합 화면설계 단계 명시.
+# 후속: 인터페이스도 FR별 5.6이 아니라 Phase 2.5-B로 옮겨 통상 순서(화면→IF) 복원.
 SA="$PLUGIN/commands/start-all.md"
 SAA="$PLUGIN/commands/start-all-auto.md"
-# T8.a: start-all 에 Phase 2.5 화면 설계 단계 존재 + ui-ux-pro-max 통합 호출
-grep -q 'Phase 2.5' "$SA" && grep -q 'ui-ux-pro-max' "$SA" \
-  && ok "T8.a start-all Phase 2.5 화면설계 + ui-ux-pro-max 배선" || nope "T8.a" "Phase 2.5/ui-ux-pro-max 부재"
+# T8.a: start-all 에 Phase 2.5 화면+IF + ui-ux-pro-max
+grep -q 'Phase 2.5' "$SA" && grep -q 'ui-ux-pro-max' "$SA" && grep -q '통합 인터페이스' "$SA" \
+  && ok "T8.a start-all Phase 2.5 화면+IF + ui-ux-pro-max" || nope "T8.a" "Phase 2.5/IF/ui-ux 부재"
 # T8.b: design-first 순서 — Phase 2.5 가 Phase 3(구현) 앞에 위치
 l25=$(grep -n 'Phase 2.5' "$SA" | head -1 | cut -d: -f1)
 l3=$(grep -n '^### Phase 3 ' "$SA" | head -1 | cut -d: -f1)
 { [ -n "$l25" ] && [ -n "$l3" ] && [ "$l25" -lt "$l3" ]; } \
   && ok "T8.b design-first 순서 (Phase 2.5 < Phase 3 구현)" || nope "T8.b 순서" "2.5=$l25 3=$l3"
-# T8.c: graceful skip (UI 없는 순수 API/CLI batch)
-grep -q 'SCREEN-DESIGN: SKIP' "$SA" \
-  && ok "T8.c UI 부재 graceful skip" || nope "T8.c skip" "graceful skip 부재"
-# T8.d: 인프라 전파 — start-all-auto 에도 Phase 2.5 §auto 자동 행 존재
-grep -q 'Phase 2.5' "$SAA" && grep -q 'ui-ux-pro-max' "$SAA" \
-  && ok "T8.d start-all-auto 전파 (Phase 2.5 §auto 자동)" || nope "T8.d 전파" "start-all-auto 누락"
-# T8.e: 구현이 화면 계약 소비 (implementing §6 설계 계약 — teeth 연결)
-grep -q '설계 계약' "$SA" && grep -qE 'implementing|screens/' "$SA" \
-  && ok "T8.e 구현이 screens/ 설계계약 소비 명시" || nope "T8.e teeth" "구현 계약 연결 부재"
+# T8.c: UI 부재 시 화면만 SKIP → IF(B)로 진행 (Phase 3 직행 금지)
+grep -q 'SCREEN-DESIGN: SKIP' "$SA" && grep -q 'B(인터페이스)로 진행' "$SA" \
+  && ok "T8.c UI 부재 시 화면 SKIP→IF" || nope "T8.c skip" "SCREEN→B 진행 부재"
+# T8.c2: Phase 1은 5.5·5.6 SKIP
+grep -qE '5\.5·5\.6 SKIP' "$SA" \
+  && ok "T8.c2 Phase 1 Step 5.5·5.6 SKIP" || nope "T8.c2" "이중 SKIP 앵커 부재"
+# T8.d: 인프라 전파 — start-all-auto 에도 Phase 2.5 화면→IF
+grep -q 'Phase 2.5' "$SAA" && grep -qE '2\.5-B|화면→|화면·인터페이스' "$SAA" \
+  && ok "T8.d start-all-auto 전파 (Phase 2.5 화면→IF)" || nope "T8.d 전파" "start-all-auto 누락"
+# T8.e: 구현이 화면·IF 계약 소비
+grep -q '설계 계약' "$SA" && grep -qE 'screens/|api-spec' "$SA" \
+  && ok "T8.e 구현이 screens/·api-spec 설계계약 소비" || nope "T8.e teeth" "구현 계약 연결 부재"
+# T8.f: Phase 2.5-D 무거운 설계 리뷰 배선
+grep -q 'design-reviewer-ko' "$SA" && grep -q 'DESIGN-REVIEW-RESULT' "$SA" \
+  && grep -q '이 설계로 구현 진행' "$SA" \
+  && ok "T8.f Phase 2.5-D design-reviewer + E 게이트" || nope "T8.f" "D/E 배선 부재"
+# T8.g: FAIL 재시도 1회 + Critical/Important cap 분기 (Wave B)
+grep -q '재dispatch 1회' "$SA" \
+  && grep -qE 'Critical cap|Critical≥1|Critical>=1' "$SA" \
+  && grep -q 'Important-only cap' "$SA" \
+  && ok "T8.g design-review FAIL 재시도·Critical/Important cap" || nope "T8.g" "재시도/cap 분기 부재"
+# T8.h: start-all-auto에 D 단계 전파
+grep -q 'design-reviewer-ko' "$SAA" && grep -q 'design-review.md' "$SAA" \
+  && ok "T8.h start-all-auto design-review 전파" || nope "T8.h" "auto 전파 누락"
+# T8.i: §auto Critical 정지 · Important-only 자동통과 (Wave B)
+grep -qE 'Critical.*정지|Critical cap.*정지' "$SAA" \
+  && grep -qE 'Important-only|Important.*자동통과' "$SAA" \
+  && ok "T8.i start-all-auto Critical 정지 / Important auto-pass" \
+  || nope "T8.i" "auto Critical/Important 계약 누락"
 
 # ── T9: Step B batch 통합·E2E 배선 계약 (FID 20260716-start-all-batch-e2e) ──
 # dogfood 발견: start-all Step B(integration)가 "통합 표면(API·DB)"만 스캔해

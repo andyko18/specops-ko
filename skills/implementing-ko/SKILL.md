@@ -8,7 +8,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/S
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/spec-reviewer-prompt.md
   - obra/superpowers@v5.0.7 skills/subagent-driven-development/code-quality-reviewer-prompt.md
   - specops-ko skills/engine/subagent-driven-development-ko.md
-specops_version: 1.59.0
+specops_version: 1.60.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구)
 ---
 
@@ -105,8 +105,9 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     - leaf staged diff 추출: `git -C .worktrees/<FID>-<task-id>/ diff --cached > /tmp/<task-id>.patch`
     - main worktree 이식: `git apply --index /tmp/<task-id>.patch` (충돌 시 abort → 에스컬레이션)
     - 부모가 commit (leaf 권한 박탈, R8) — fast-forward 불가 (leaf는 R8로 commit 없음)
-    - **커밋 직전 receipt (P0-2)**: Phase C PASS 후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> <task-id>` 실행 → staged가 해당 task `outputs` 부분집합일 때 R-1이 FID 전체 verify 없이 열린다. 커밋 메시지에 `T#` 또는 `Task: T#` 포함(추론용). receipt 부재 시 기존 implement/verify 면제 경로로 fallthrough.
-    - **위험 프로파일 (P1 shadow)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=shadow`인 동안 Phase B 생략·critic skip·verify 면제는 **금지**(lite여도 TDD·verify·receipt 유지).
+    - **커밋 직전 receipt (P0-2, 필수)**: Phase C PASS 후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> <task-id>` 실행 → staged가 해당 task `outputs` 부분집합일 때 R-1이 FID 전체 verify 없이 열린다. 커밋 메시지에 `T#` 또는 `Task: T#` 포함(추론용). **implement 창에서 receipt 부재·무효는 R-1 deny** — 실행증거 fallthrough 없음. 예외는 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='…'` 병기 BYPASS만.
+    - **커밋 분리 (Wave C, 필수)**: `git add … && git commit …` 한 줄 compound 금지. R-1 PreToolUse deny 시 add도 함께 취소되어 빈/부분 커밋·amend 루프가 난다 — `git add`와 `git commit`을 **별도 Bash 호출**로 실행한다.
+    - **위험 프로파일 (P1 limited-live)**: `.specops/<FID>/risk-profile.json`이 있으면 `effective`를 dispatch-log에 1줄 기록한다. `mode=live`여도 allowlist 외 축소는 **금지** — Phase B 생략·critic skip·TDD/verify/receipt 면제 불가. 유일하게 허용되는 축소는 `reductions_allowed`의 `batch-review-skip`(lite + 단일 태스크 + Phase C — requesting/receiving만, 오케스트레이터·batch-state 재검).
     ↓
   부모 머지 완료 → done에 batch task-id 추가
     ↓
@@ -167,9 +168,10 @@ Phase B/C Evaluator(`spec-reviewer-ko`·`code-reviewer-ko`)는 `model: fable` �
 1. **같은 Evaluator 를 독립 서브에이전트로 재dispatch** 하되 **가용 모델을 override**(Agent 도구 `model` 인자로 세션 모델 등 지정, fable 아님). fresh 서브에이전트 = **부모와 분리된 컨텍스트**라 Generator↔Evaluator 불변식이 보존된다 — 독립성은 **모델 차이가 아니라 컨텍스트 분리**에서 온다.
 2. **절대 부모 self-review 로 후퇴 금지** — 부모(생성자)가 자기 산출을 리뷰하면 Evaluator=Generator 편향(자기평가)이다. **test2 실측 근거**: 부모(opus) self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 비-fable 리뷰어가 잡았다**. 즉 **독립-약한 모델 ≫ 편향-강한 모델**.
 3. `dispatch-log.md` 에 degradation 명시: `Phase C: code-reviewer-ko (모델 fallback: fable 불가 → <모델>) PASS/FAIL` (원칙 1·5 — 투명성·한계 고백).
-4. 이건 **graceful floor** 지 fable 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 크레딧 복구 후 **보안·인증·DB 등 고위험 FID 는 fable 로 재리뷰 권고**(dispatch-log 에 재리뷰 필요 플래그).
+4. **메트릭 (Wave C, 필수)**: fallback 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <FID> --task <task-id> --phase evaluator-degradation --fallback true --model <override-model>` 실행. 프롬프트·사유 원문은 넣지 않는다(스키마 식별자만).
+5. 이건 **graceful floor** 지 fable 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 크레딧 복구 후 **보안·인증·DB·migration 등 고위험 FID 는 fable 로 재리뷰 필요**(dispatch-log 플래그 + 위 메트릭 한 줄이 근거).
 
-> **[기계 검사 — 미기록은 VERIFY 를 막는다]** (20260721 test1 dogfood): 위 3·4 항(degradation 기록)과 아래 감사 추적은 **프로즈가 아니다**. `scripts/_internal/check-review-audit.sh` 가 `reviews/<task-id>-[BC]-{report,feedback}.md` ↔ `dispatch-log.md` 행을 대조하고, `run-verification.sh` 가 이를 호출해 **미기록 리뷰가 있으면 `VERIFY: PASS` 를 거부**한다 (실행-근거 게이트 → 커밋도 안 열림). 실측 근거: test1 `20260717-approval-rbac` 이 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행을 누락했는데 아무도 못 잡았다. **한계**: 이 검사는 **누락 전용**이다 — 행은 썼는데 내용이 거짓인 경우(부모 인라인 판정을 서브에이전트로 기재)는 자기보고라 파일 대조로 못 잡는다. 그 층은 여전히 정직에 의존한다.
+> **[기계 검사 — 미기록은 VERIFY 를 막는다]** (20260721 test1 dogfood): 위 3·4·5 항(degradation 기록·메트릭)과 아래 감사 추적은 **프로즈가 아니다**. `scripts/_internal/check-review-audit.sh` 가 `reviews/<task-id>-[BC]-{report,feedback}.md` ↔ `dispatch-log.md` **구조화 행/경로**를 대조하고, `run-verification.sh` 가 이를 호출해 **미기록 리뷰가 있으면 `VERIFY: PASS` 를 거부**한다 (실행-근거 게이트 → 커밋도 안 열림). 인정 형태: (1) `reviews/<basename>` 경로 (2) Phase 셀 `B:<task-id>`/`C:<task-id>` (3) `## task-<task-id>` 섹션 내 B/C 행. **tid 문자열만 산문에 있으면 부족**하다. 실측 근거: test1 `20260717-approval-rbac` 이 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행을 누락 · downstream-dogfood 산문위장 false-pass. **한계**: 행은 썼는데 내용이 거짓인 falsification은 자기보고라 파일 대조로 못 잡는다.
 
 > **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다.
 

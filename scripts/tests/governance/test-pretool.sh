@@ -365,8 +365,22 @@ EOF
     mkdir -p "$root/.specops/20260721-login"
     : > "$root/.specops/20260721-login/review-base.sha"
     : > "$root/.specops/20260721-login/review-request.md"
-    printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$root/.specops/20260721-login/evidence.md"
-    printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n' \
+    # Wave B: ACTIVE batch PR 는 RELEASE_READY hard — 정직 fixture는 축 충족해야 false-block 금지
+    cat > "$root/.specops/20260721-login/evidence.md" <<'EOF'
+RUN-VERIFICATION-RESULT: PASS
+
+## /security-review PASS
+**결과**: PASS
+
+## /integration-test PASS
+**결과**: PASS
+
+## /performance-test SKIP
+**결과**: SKIP
+**근거**: NFR 없음
+EOF
+    # reconcile DESYNC 방지 — review-request 있으면 evidence=70, 기록도 review 이상
+    printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n- 2026-07-21 14:00 /request-review DONE\n' \
       > "$root/.specops/session-progress.md"
   else
     printf '# session progress\n' > "$root/.specops/session-progress.md"
@@ -464,6 +478,21 @@ check "T-bypass-log.c 비-specops BYPASS → allow" '"continue":true' "$out"
 if [ ! -d "$bsno/.specops" ]; then echo "PASS T-bypass-log.d .specops 미생성(관할 한정)"; pass=$((pass+1))
 else echo "FAIL T-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
 rm -rf "$bsno"
+
+# ── T-compound-split: Wave C — git add&&commit deny 사유에 분리 안내 포함 ──
+out=$(mkstdin "git add a.sh && git commit -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-compound-split.a compound add+commit → deny" '"permissionDecision":"deny"' "$out"
+check "T-compound-split.b deny 사유에 분리 안내" '별도 Bash 호출' "$out"
+# commit-only deny 에는 compound 안내가 없어야 한다 (오안내 방지)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q '"permissionDecision":"deny"' \
+   && ! printf '%s' "$out" | grep -q '별도 Bash 호출'; then
+  echo "PASS T-compound-split.c commit-only 에 compound 안내 없음"; pass=$((pass+1))
+else
+  echo "FAIL T-compound-split.c — unexpected compound hint or allow: $out"; fail=$((fail+1))
+fi
 
 # ── T-bypass-metric: BYPASS 시 metrics.jsonl에 식별자만 기록 (사유 원문 없음) ──
 bsm=$(mktemp -d)

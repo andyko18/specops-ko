@@ -213,23 +213,23 @@ bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --fa
 
 `run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
 
-## risk-profile.sh — 위험 프로파일 shadow 분류 (P1)
+## risk-profile.sh — 위험 프로파일 limited-live 분류 (P1)
 
 ```bash
 bash scripts/_internal/risk-profile.sh compute <FID> [--floor standard|strict]
 bash scripts/_internal/risk-profile.sh show <FID>
 ```
 
-`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다. strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·병렬 batch·cross-service)가 있으면 라인 수와 무관하게 strict입니다. `mode=shadow`에서는 절차를 축소하지 않으며, TDD·verify·receipt는 면제되지 않습니다. 사용자/ENV floor는 상향만 가능합니다.
+`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다 (`mode=live`). strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·병렬 batch·cross-service)가 있으면 라인 수와 무관하게 strict입니다. `effective=lite`일 때만 `reductions_allowed: ["batch-review-skip"]`(requesting/receiving skip). Phase B·TDD·verify·receipt 축소는 금지입니다. 사용자/ENV floor는 상향만 가능합니다.
 
-## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3, warn-only)
+## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3)
 
 ```bash
 bash scripts/_internal/release-ready.sh <FID>
 # 0=READY · 1=NOT_READY · 2=UNKNOWN(legacy/fail-open)
 ```
 
-verify(`verification-state` PASS) · review-audit · security/integration/performance(evidence PASS|SKIP) · reconcile(DESYNC 없음) · Critical/High 휴리스틱을 AND로 합성합니다. `pretool-governance`는 `gh pr create` 시 미충족이어도 **hard deny 하지 않고** stderr + friction-log에만 `RELEASE_READY` 경고를 남깁니다.
+verify(`verification-state` PASS) · review-audit · security/integration/performance(evidence PASS|SKIP) · reconcile(DESYNC 없음) · Critical/High 휴리스틱을 AND로 합성합니다. `pretool-governance`는 `gh pr create` 시 **strict FID 또는 ACTIVE batch 브랜치 PR**에서 NOT_READY면 hard deny하고, 그 외는 stderr + friction-log warn만 남깁니다. UNKNOWN(rc=2)은 fail-open입니다.
 
 ## record-task-receipt.sh / check-task-receipt.sh — 태스크 단위 커밋 게이트 (P0-2)
 
@@ -249,4 +249,13 @@ bash scripts/_internal/record-metric.sh \
   --retry-count 0 --timeout false --fallback false --verdict PASS
 ```
 
-`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김).
+`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김). Evaluator `fable` 불가 재dispatch는 `phase=evaluator-degradation --fallback true --model <override>`를 남깁니다(`implementing-ko` · `start-all` Phase 2.5-D).
+
+## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
+
+```bash
+bash scripts/_internal/check-propagation.sh
+# 매트릭스: scripts/_internal/propagation-matrix.jsonl
+```
+
+신규 게이트·allowlist·Critical cap 등 **소비처가 있는 계약**을 추가·변경할 때 `propagation-matrix.jsonl`에 edge 행을 함께 갱신합니다. `scripts/tests/test-propagation.sh`가 run-all에 포함됩니다.

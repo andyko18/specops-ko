@@ -236,6 +236,15 @@ if [ -n "$violation" ]; then
     _anchor_hint="② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
    또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다."
   fi
+  # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
+  _compound_hint=""
+  if [ "$violation" = "R-1" ] \
+     && printf '%s' "$tool_cmd_scan" | grep -Eq '(^|[[:space:];&|({`])git[[:space:]]+add([[:space:]]|$)' ; then
+    _compound_hint="
+
+⚠️ compound 안내: 이 명령에 \`git add\` 와 \`git commit\` 이 함께 있습니다.
+   PreToolUse deny 시 add 도 함께 취소됩니다 — \`git add\` 와 \`git commit\` 을 **별도 Bash 호출**로 분리 실행하세요."
+  fi
   reason="$act 차단 — verify 면제 조건 2가지 중 최소 하나가 미충족입니다.
 
 ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
@@ -249,26 +258,99 @@ implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
    (staged ⊆ task outputs, receipt 이후 코드 변경 없음).
 
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
-우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
 fi
 
-# ── P0-3 RELEASE_READY warn-only (R-2 / gh pr create 전용) ──────────────────
-# hard deny 금지 — 미충족이어도 allow. stderr + friction-log 에만 남긴다.
-# R-1·docs-only·BYPASS·batch hard gate·verify lookback 은 위쪽에서 이미 처리됨.
-if printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
-  _rr_fid="${fid:-}"
+# ── P0-3 RELEASE_READY (R-2 / gh pr create 전용) — Wave B limited hard ──────
+# strict FID 또는 ACTIVE batch(브랜치 일치) PR: NOT_READY → hard deny.
+# 그 외: warn-only. UNKNOWN(rc=2)은 fail-open. R-1·docs-only·BYPASS·batch-state·verify lookback 은 위에서 처리됨.
+_release_ready_gate() {
+  printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create' || return 0
+  [ -f "$plugin_root/scripts/_internal/release-ready.sh" ] || return 0
+
+  local hard=0 hard_why="" fids="" f branch m d qdir qfile eff line
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null || true)
+
+  # batch 스코프 — ACTIVE + feat/<BATCH_ID> ( _batch_pr_gate 와 동일 판별 )
+  if [ -n "$branch" ]; then
+    for m in .specops/batch-*/ACTIVE; do
+      [ -f "$m" ] || continue
+      d=$(dirname "$m")
+      [ "$branch" = "feat/$(basename "$d")" ] || continue
+      qfile="$d/queue.md"
+      [ -f "$qfile" ] || continue
+      hard=1
+      hard_why=batch
+      qdir="$d"
+      # IMPL_DONE FID 전부
+      while IFS= read -r line; do
+        f=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}')
+        printf '%s' "$f" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || continue
+        fids="${fids}${fids:+ }$f"
+      done < <(grep -E '\|[[:space:]]*IMPL_DONE[[:space:]]*\|' "$qfile" 2>/dev/null || true)
+      break
+    done
+  fi
+
+  # detect_fid / active-fid fallback + strict 프로파일
+  local _rr_fid="${fid:-}"
   [ -n "$_rr_fid" ] || _rr_fid=$(detect_fid 2>/dev/null || echo "")
-  if [ -n "$_rr_fid" ] && [ -f "$plugin_root/scripts/_internal/release-ready.sh" ]; then
-    _rr_out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$_rr_fid" 2>&1)
-    _rr_rc=$?
-    if [ "$_rr_rc" -eq 1 ]; then
-      echo "RELEASE_READY warn (PR 차단 아님): $_rr_out" >&2
-      log_friction "$_rr_fid" "RELEASE_READY" 1 "$(printf '%s' "$_rr_out" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+  if [ -z "$fids" ] && [ -n "$_rr_fid" ]; then
+    fids="$_rr_fid"
+  fi
+  if [ -n "$_rr_fid" ] && [ -f ".specops/$_rr_fid/risk-profile.json" ]; then
+    eff=$(jq -r '.effective // empty' ".specops/$_rr_fid/risk-profile.json" 2>/dev/null || true)
+    if [ "$eff" = "strict" ]; then
+      hard=1
+      [ "$hard_why" = "batch" ] || hard_why=strict
+      case " $fids " in *" $_rr_fid "*) ;; *) fids="${fids}${fids:+ }$_rr_fid" ;; esac
     fi
   fi
-fi
+
+  [ -n "$fids" ] || return 0
+
+  local any_not_ready=0 agg="" rc out
+  for f in $fids; do
+    # || true 금지 — $? 가 항상 0 이 되어 NOT_READY 를 못 본다
+    out=$(bash "$plugin_root/scripts/_internal/release-ready.sh" "$f" 2>&1)
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+      any_not_ready=1
+      if [ -n "$agg" ]; then
+        agg="$agg
+
+--- FID $f ---
+$out"
+      else
+        agg="--- FID $f ---
+$out"
+      fi
+    fi
+    # rc=2 UNKNOWN → 해당 FID는 무시(fail-open)
+  done
+
+  [ "$any_not_ready" -eq 1 ] || return 0
+
+  if [ "$hard" -eq 1 ]; then
+    local reason
+    reason="RELEASE_READY 차단 — PR 품질 축 미충족 (${hard_why}).
+
+$agg
+
+해법: 해당 FID에서 verify·review·security/integration/performance·reconcile 축을 충족한 뒤 재시도하세요.
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>"
+    log_friction_sev "${_rr_fid:-$f}" "RELEASE_READY" 1 "$(printf '%s' "$agg" | tr '\n' ' ' | cut -c1-200)" 0 block 2>/dev/null || true
+    jq -nc --arg r "$reason" \
+      '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+    exit 0
+  fi
+
+  echo "RELEASE_READY warn (PR 차단 아님): $agg" >&2
+  log_friction "${_rr_fid:-unknown}" "RELEASE_READY" 1 "$(printf '%s' "$agg" | tr '\n' ' ' | cut -c1-200)" 0 2>/dev/null || true
+}
+_release_ready_gate
 
 allow

@@ -71,7 +71,7 @@ EOF
 : > "$TMP/b1b/.specops/20260101-skip/review-base.sha"
 : > "$TMP/b1b/.specops/20260101-skip/evidence.md"
 echo "lite+단일태스크+Phase C PASS" > "$TMP/b1b/.specops/20260101-skip/review-skip.md"
-printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+printf '{"effective":"lite","computed":"lite","mode":"live","reductions_allowed":["batch-review-skip"]}\n' \
   > "$TMP/b1b/.specops/20260101-skip/risk-profile.json"
 cat > "$TMP/b1b/.specops/20260101-skip/tasks.md" <<'EOF'
 ## 의존 그래프
@@ -96,7 +96,7 @@ EOF
 : > "$TMP/b1c/.specops/20260101-std/review-base.sha"
 : > "$TMP/b1c/.specops/20260101-std/evidence.md"
 echo "lite+단일태스크+Phase C PASS" > "$TMP/b1c/.specops/20260101-std/review-skip.md"
-printf '{"effective":"standard","computed":"standard","mode":"shadow"}\n' \
+printf '{"effective":"standard","computed":"standard","mode":"live","reductions_allowed":[]}\n' \
   > "$TMP/b1c/.specops/20260101-std/risk-profile.json"
 cat > "$TMP/b1c/.specops/20260101-std/tasks.md" <<'EOF'
 ## 의존 그래프
@@ -125,7 +125,7 @@ EOF
 : > "$TMP/b1d/.specops/20260101-multi/review-base.sha"
 : > "$TMP/b1d/.specops/20260101-multi/evidence.md"
 echo "lite+단일태스크+Phase C PASS" > "$TMP/b1d/.specops/20260101-multi/review-skip.md"
-printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+printf '{"effective":"lite","computed":"lite","mode":"live","reductions_allowed":["batch-review-skip"]}\n' \
   > "$TMP/b1d/.specops/20260101-multi/risk-profile.json"
 cat > "$TMP/b1d/.specops/20260101-multi/tasks.md" <<'EOF'
 ## 의존 그래프
@@ -156,7 +156,7 @@ EOF
 : > "$TMP/b1e/.specops/20260101-empty/review-base.sha"
 : > "$TMP/b1e/.specops/20260101-empty/evidence.md"
 printf '   \n' > "$TMP/b1e/.specops/20260101-empty/review-skip.md"
-printf '{"effective":"lite","computed":"lite","mode":"shadow"}\n' \
+printf '{"effective":"lite","computed":"lite","mode":"live","reductions_allowed":["batch-review-skip"]}\n' \
   > "$TMP/b1e/.specops/20260101-empty/risk-profile.json"
 cat > "$TMP/b1e/.specops/20260101-empty/tasks.md" <<'EOF'
 ## 의존 그래프
@@ -173,6 +173,35 @@ if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out
   ok "T2.a5 review-skip 공백 사유 — 차단"
 else
   nope "T2.a5 empty skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+fi
+
+# ── fixture B1f: review-skip + lite but reductions_allowed 없음 → 무효 (Wave B) ──
+mkdir -p "$TMP/b1f/.specops/batch-y1f" "$TMP/b1f/.specops/20260101-noal"
+cat > "$TMP/b1f/.specops/batch-y1f/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-noal | one | IMPL_DONE |
+EOF
+: > "$TMP/b1f/.specops/20260101-noal/review-base.sha"
+: > "$TMP/b1f/.specops/20260101-noal/evidence.md"
+echo "lite+단일태스크+Phase C PASS" > "$TMP/b1f/.specops/20260101-noal/review-skip.md"
+printf '{"effective":"lite","computed":"lite","mode":"live","reductions_allowed":[]}\n' \
+  > "$TMP/b1f/.specops/20260101-noal/risk-profile.json"
+cat > "$TMP/b1f/.specops/20260101-noal/tasks.md" <<'EOF'
+## 의존 그래프
+```yaml
+tasks:
+  - id: T1
+    deps: []
+```
+EOF
+printf '## 20260101-noal\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/b1f/.specops/session-progress.md"
+printf '| FR-1 | noal | M1 | must | s | f |\n' > "$TMP/b1f/req.md"
+out=$(bash "$SCRIPT" "$TMP/b1f/.specops/batch-y1f" "$TMP/b1f/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -q "batch-review-skip"; then
+  ok "T2.a6 review-skip + lite without allowlist — 차단"
+else
+  nope "T2.a6 no allowlist" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 fi
 
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
@@ -378,7 +407,7 @@ printf '| FR-4 | a | M1 | must | s | f |\n' > "$TMP/g2b/req.md"
 : > "$TMP/g2b/.specops/20260721-skipbad/review-base.sha"
 : > "$TMP/g2b/.specops/20260721-skipbad/evidence.md"
 echo "claimed lite skip" > "$TMP/g2b/.specops/20260721-skipbad/review-skip.md"
-printf '{"effective":"standard","computed":"standard","mode":"shadow"}\n' \
+printf '{"effective":"standard","computed":"standard","mode":"live","reductions_allowed":[]}\n' \
   > "$TMP/g2b/.specops/20260721-skipbad/risk-profile.json"
 cat > "$TMP/g2b/.specops/20260721-skipbad/tasks.md" <<'EOF'
 ## 의존 그래프

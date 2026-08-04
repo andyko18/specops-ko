@@ -9,15 +9,16 @@ DS="$PLUGIN/commands/design-screen.md"
 DSS="$PLUGIN/commands/design-screens.md"
 SP="$PLUGIN/skills/specifying-ko/SKILL.md"
 
-# AC-1: design-screen.md 에 분업표 섹션(신규 헤더) + 3경로
-grep -q '^## 화면 설계 3경로 분업' "$DS" && grep -q 'Step 5.5' "$DS" && grep -q '/design-screens' "$DS" \
-  && ok "AC-1 분업표 3경로" || nope "AC-1" "분업표 헤더/3경로 누락"
-# AC-2: "언제 쓰나" 기준 — 분업표 블록 *내부*에서만 검사 (기존 텍스트 false-pass 방지)
-TBL=$(awk '/^## 화면 설계 3경로 분업/,/^## [^화]/' "$DS")
+# AC-1: design-screen.md 에 분업표 + batch Phase 2.5-A
+grep -q '^## 화면 설계 경로 분업' "$DS" && grep -q 'Step 5.5' "$DS" && grep -q '/design-screens' "$DS" \
+  && grep -q 'Phase 2.5-A' "$DS" \
+  && ok "AC-1 분업표+Phase 2.5-A" || nope "AC-1" "분업표 헤더/경로 누락"
+# AC-2: "언제 쓰나" 기준 — 분업표 블록 *내부*에서만 검사
+TBL=$(awk '/^## 화면 설계 경로 분업/,/^## Process/' "$DS")
 printf '%s' "$TBL" | grep -qiE 'lifecycle 자동' && printf '%s' "$TBL" | grep -qiE '독립' \
   && ok "AC-2 언제쓰나 기준(표 내부)" || nope "AC-2" "표 내부 기준 없음"
-# AC-3: design-screens.md 에 분업표 가리키는 *신규 고유* cross-ref (기존 L118 과 구분)
-grep -q '§화면 설계 3경로 분업' "$DSS" && ok "AC-3 design-screens cross-ref(고유)" || nope "AC-3" "고유 cross-ref 없음"
+# AC-3: design-screens.md 고유 cross-ref
+grep -q '§화면 설계 경로 분업' "$DSS" && ok "AC-3 design-screens cross-ref(고유)" || nope "AC-3" "고유 cross-ref 없음"
 # AC-4: specifying Step5.5 cross-ref
 awk '/^5\.5\./,/^6\. /' "$SP" | grep -qE '/design-screen' && ok "AC-4 Step5.5 cross-ref" || nope "AC-4" "cross-ref 없음"
 
