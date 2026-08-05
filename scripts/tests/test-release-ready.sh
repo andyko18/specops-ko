@@ -339,6 +339,9 @@ out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
 rm -rf "$TD"
 
 # RR-17: 과거 라운드의 -feedback.md 잔존 — 최종 report 가 깨끗하면 무시
+#        근거(implementing-ko:115·131): FAIL 이면 `-feedback.md` 병기 후 재dispatch → B/C 재실행이
+#        같은 `-report.md` 경로를 덮어쓴다. 즉 report 가 최종 판정이고 feedback 은 해소된 라운드가 남는다.
+#        FAIL 이 현재 상태라면 report 자체가 NEEDS_FIX 단독 선택이므로 RR-18 경로로 잡힌다.
 TD=$(mktemp -d); FID=20260806-rr-stalefeedback
 _mk_endloaded "$TD" "$FID"
 _tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' "$_TPL_MENU"
@@ -370,5 +373,26 @@ out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
 [ "$rc" -eq 1 ] && echo "$out" | grep -q 'crit_high=UNRESOLVED_REVIEW' \
   && ok "RR-19 report 없는 feedback → NOT_READY" || nope "RR-19" "rc=$rc out=$out"
 rm -rf "$TD"
+
+# RR-20: 증상 실증 — strict FID + end-loaded 산출물 + 템플릿 리포트 → gh pr create ALLOW
+#        (F1 원본 증상: 전 축 PASS 인데 crit_high 오탐으로 hard deny 되던 경로)
+TD=$(mktemp -d); FID=20260806-rr-strictendloaded
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' "$_TPL_MENU"
+printf '{"effective":"strict","computed":"strict","mode":"live","reductions_allowed":[]}\n' \
+  > "$TD/.specops/$FID/risk-profile.json"
+(cd "$TD" && echo y > src/b.sh && git add src/b.sh)
+# staged 이후에 verify 상태를 기록해야 STALE 이 아님 (verify 축 분리 — 본 케이스는 crit_high 검증)
+(cd "$TD" && bash "$STATE" record "$FID" PASS --executed 1) >/dev/null
+# stderr 는 $TD 밖에 둔다 — 워크스페이스 지문(git add -A)에 잡혀 verify=STALE 로 오염된다
+ERR=$(mktemp)
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+  | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$ERR")
+echo "$out" | grep -q '"continue":true' \
+  && ! echo "$out" | grep -q '"permissionDecision":"deny"' \
+  && ! grep -q 'RELEASE_READY' "$ERR" \
+  && ok "RR-20 strict + end-loaded 정상 산출물 → PR allow" \
+  || nope "RR-20" "out=$out stderr=$(cat "$ERR")"
+rm -rf "$TD" "$ERR"
 
 finish
