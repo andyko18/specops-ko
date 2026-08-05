@@ -12,6 +12,10 @@
 - **start-all Phase 1 plan-reviewer batch defer** — FR마다 ★플랜 검사관을 빼고(`DEFERRED`), 전 `PLAN_DONE` 후 Phase 2에서 `plan-reviewer-ko` **1회** + `batch-plan-digest.sh` 짧은 표 → [y/n]. `/start`·foundation은 per-FID 리뷰 유지. per-FR 외부 critic도 batch로 이전/SKIP.
 - **implementing end-loaded 리뷰 (기본, `/start`·`/start-all` FR)** — 태스크별 A→B→C를 **A만 wave → FID 말미 B 1회 + C 1회**로 전환(`review_mode: end-loaded`). 레거시 `per-task`. requesting은 B/C 산출 시 `review-skip.md` skip.
 
+### Fixed
+- **RELEASE_READY `crit_high` 오탐 — end-loaded 기본 흐름 PR 하드 차단 봉합** — `release-ready.sh`가 `reviews/`를 `grep -RqlE 'NEEDS_FIX|## 🔴 Critical'`로 스캔했는데, `code-reviewer-ko` 출력 템플릿은 **발견 0건이어도** `## 🔴 Critical` 헤딩과 `## 종합 판정` 3종 메뉴(READY_TO_MERGE·NEEDS_FIX·NEEDS_DISCUSSION)를 항상 찍는다 → 무조건 매치. 구제 조건은 session-progress 의 `/receive-review`·`수용` 토큰뿐인데 08-04에 기본값이 된 end-loaded 는 requesting 을 `review-skip.md`로 건너뛰어 그 줄이 생기지 않는다. 결과: 전 축 PASS 인데 `crit_high=UNRESOLVED_REVIEW` → strict FID·ACTIVE batch 브랜치에서 `gh pr create` hard deny(BYPASS 강요 → 관성 재발 경로). 모든 진입점이 `decomposing-ko:10c`를 지나 `risk-profile.json`을 갖고, spec 에 "엔드포인트" 한 단어만 있어도 `effective=strict`라 예외가 아닌 **일반 케이스**였다. 판정기를 (a) 🔴 절의 **실제 항목**(플레이스홀더 `<file>:<line>`·`없음` 제외) (b) `READY_TO_MERGE` 없이 `NEEDS_FIX`만 남은 **선택된 판정** 두 신호로 교체하고, 스캔 대상을 최종 판정물 `*-report.md`로 한정(해소된 과거 라운드가 남는 `-feedback.md` 제외). teeth 보존 — 실제 Critical 항목이 있으면 여전히 수용 흔적을 요구한다. 회귀 테스트 7건(RR-14·14b·15·16·17·18, RED 3 → GREEN 20) + `propagation-matrix` `review-verdict-contract` edge 로 템플릿↔판정기 드리프트 락.
+- **`start-all` lite review-skip 조건의 `risk-profile.json` 경로 복원** — batch-end-loaded revert 가 명시 경로까지 함께 걷어내 `batch-state.sh`(그 파일을 계속 읽음)와 문서가 어긋났고 `test-screen-generation-gate` T1.e 가 FAIL(run-all 112 중 1)로 하루 방치됐다.
+
 ## [1.60.0] — 2026-08-04
 
 ### Added

@@ -20,6 +20,60 @@ RECON_SH="$PLUGIN/scripts/_internal/reconcile-check.sh"
 # shellcheck source=/dev/null
 source "$PLUGIN/scripts/skip-tracker.sh"
 
+# ── 리뷰 미해결 판정 (⑦ crit_high) ────────────────────────────────────────────
+# 헤딩·토큰 존재로 판정하면 안 된다 — agents/code-reviewer-ko.md 출력 템플릿은
+# 발견 0건이어도 `## 🔴 Critical` 헤딩과 `## 종합 판정` 3종 메뉴를 항상 찍는다.
+# 그래서 구 `grep -RqlE 'NEEDS_FIX|## 🔴 Critical'` 는 end-loaded 기본 흐름
+# (requesting skip → session-progress 에 `/receive-review` 줄 없음)을 전부 오탐해
+# strict FID·batch 브랜치 PR 을 통째로 hard deny 시켰다.
+# 대신 (a) 🔴 절의 **실제 항목** (b) READY_TO_MERGE 없이 NEEDS_FIX 만 남은 **선택된 판정**
+# 두 신호만 인정한다. 스캔 대상도 최종 판정물 `*-report.md` 로 한정 —
+# `-feedback.md` 는 해소된 과거 라운드가 그대로 남는 산출물이다.
+
+# 🔴 Critical 절에 플레이스홀더가 아닌 실제 항목이 있는가
+rr::has_critical_item() {
+  awk '
+    /^[[:space:]]*#+[[:space:]]*.*🔴/ { in_sec=1; next }
+    in_sec && /^[[:space:]]*#+[[:space:]]/ { in_sec=0 }
+    in_sec && /^[[:space:]]*(---|===)/ { in_sec=0 }
+    in_sec && /^[[:space:]]*[-*][[:space:]]+/ {
+      line=$0
+      sub(/^[[:space:]]*[-*][[:space:]]+/, "", line)
+      gsub(/[`*_]/, "", line)
+      sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      if (line ~ /^(없음|없다|해당 없음|N\/A|n\/a|NA|TBD|-|\.\.\.)[[:space:].]*$/) next
+      if (line ~ /<[A-Za-z_]+>/) next   # `<file>:<line>` — 템플릿 플레이스홀더
+      found=1
+    }
+    END { exit(found ? 0 : 1) }
+  ' "$1" 2>/dev/null
+}
+
+# 판정이 NEEDS_FIX 로 **선택**됐는가 (3종 메뉴 그대로면 READY_TO_MERGE 도 함께 있다)
+rr::needs_fix_selected() {
+  grep -q 'NEEDS_FIX' "$1" 2>/dev/null && ! grep -q 'READY_TO_MERGE' "$1" 2>/dev/null
+}
+
+rr::unresolved_review() {
+  local dir="$1" f
+  for f in "$dir"/*-report.md; do
+    [ -f "$f" ] || continue
+    if rr::has_critical_item "$f" || rr::needs_fix_selected "$f"; then
+      return 0
+    fi
+  done
+  # 짝 report 가 아예 없는 feedback = 해소되지 않은 FAIL 라운드 (report 가 있으면 그쪽이 최종)
+  for f in "$dir"/*-feedback.md; do
+    [ -f "$f" ] || continue
+    [ -f "${f%-feedback.md}-report.md" ] && continue
+    if rr::has_critical_item "$f" || rr::needs_fix_selected "$f"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 if [ ! -d "$FID_DIR" ]; then
   echo "RELEASE_READY: UNKNOWN"
   echo "  reason=fid-dir-missing"
@@ -117,7 +171,7 @@ if [ -f "$ev" ]; then
   fi
 fi
 if [ -d "$FID_DIR/reviews" ]; then
-  if grep -RqlE 'NEEDS_FIX|## 🔴 Critical' "$FID_DIR/reviews" 2>/dev/null; then
+  if rr::unresolved_review "$FID_DIR/reviews"; then
     # receive-review 수용 흔적이 없으면 미승인으로 본다 (휴리스틱)
     if ! grep -qE '/receive-review|수용' "$SPECOPS/session-progress.md" 2>/dev/null; then
       crit_high=UNRESOLVED_REVIEW

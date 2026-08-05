@@ -247,4 +247,128 @@ echo "$out" | grep -q '"continue":true' \
   || nope "RR-13" "out=$out stderr=$(cat "$TD/stderr")"
 rm -rf "$TD"
 
+# ── crit_high — 실 리포트 템플릿 기준 (F1 오탐 봉합) ──────────────────────────
+# 배경: agents/code-reviewer-ko.md 출력 템플릿은 발견 0건이어도 `## 🔴 Critical` 헤딩과
+#       `## 종합 판정` 3종 메뉴(READY_TO_MERGE·NEEDS_FIX·NEEDS_DISCUSSION)를 항상 찍는다.
+#       헤딩·토큰 존재만으로 판정하면 end-loaded 기본 흐름(/receive-review 줄 없음)이 전부 오탐.
+_mk_endloaded() {  # $1=dir $2=fid — end-loaded skip 흐름 (수용 흔적 없음)
+  local d="$1" fid="$2"
+  _mk_base "$d" "$fid"
+  printf 'end-loaded: Phase B/C already covered\n' > "$d/.specops/$fid/review-skip.md"
+  # session-progress: /receive-review·수용 토큰 없음 (end-loaded 실제 산출)
+  printf '<!-- active-fid: %s -->\n## %s\n- 2026-08-06 10:00 /verify PASS\n- 2026-08-06 10:05 /request-review 완료 "review-skip.md (end-loaded)"\n' \
+    "$fid" "$fid" > "$d/.specops/session-progress.md"
+  _ev_gates "$d/.specops/$fid/evidence.md"
+  (cd "$d" && bash "$STATE" record "$fid" PASS --executed 1) >/dev/null
+}
+
+_tpl_report() {  # $1=path $2=critical 절 본문 $3=판정 절 본문 — 실 템플릿 골격
+  cat > "$1" <<EOF
+# 🔍 코드 품질 리뷰 — abc123
+
+**리뷰어**: code-reviewer-ko (Phase C)
+
+---
+
+## 🟢 잘된 점
+
+- 테스트 격리 양호
+
+## 🟡 Important (권장 수정)
+
+- \`src/a.sh:12\` — 네이밍 개선 권장
+
+## 🔴 Critical (merge 전 수정 필수)
+
+$2
+
+---
+
+## 종합 판정
+
+$3
+EOF
+}
+
+# 템플릿 그대로의 미선택 판정 메뉴 (3종 나열)
+_TPL_MENU='- ✅ **READY_TO_MERGE**: Critical 0, Important 0~허용
+- ⚠️ **NEEDS_FIX**: Critical 1+ — implementer-ko 재dispatch
+- 🤔 **NEEDS_DISCUSSION**: 사용자 판단 필요 trade-off'
+
+# RR-14: end-loaded + Critical 0건(템플릿 헤딩·플레이스홀더만) → READY (오탐 없음)
+TD=$(mktemp -d); FID=20260806-rr-endloaded
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' "$_TPL_MENU"
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'crit_high=OK' \
+  && ok "RR-14 end-loaded + Critical 0건 → READY" || nope "RR-14" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-14b: 플레이스홀더 항목(`<file>:<line>`)만 남은 템플릿도 0건
+TD=$(mktemp -d); FID=20260806-rr-placeholder
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" \
+  '- `<file>:<line>` — <설명>. 근거: 5원칙 N 또는 보안·안전 표준' "$_TPL_MENU"
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'crit_high=OK' \
+  && ok "RR-14b 플레이스홀더 항목 → READY" || nope "RR-14b" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-15: 🔴 절에 실제 항목 1건 + 수용 흔적 없음 → NOT_READY (teeth 보존)
+TD=$(mktemp -d); FID=20260806-rr-realcrit
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" \
+  '- `src/auth.sh:44` — 토큰 검증 없이 세션 발급. 근거: 보안 표준' \
+  '- ⚠️ **NEEDS_FIX**: Critical 1건'
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'crit_high=UNRESOLVED_REVIEW' \
+  && ok "RR-15 실제 Critical + 미수용 → NOT_READY" || nope "RR-15" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-16: 실제 Critical + /receive-review 수용 흔적 → READY
+TD=$(mktemp -d); FID=20260806-rr-resolved
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" \
+  '- `src/auth.sh:44` — 토큰 검증 없이 세션 발급. 근거: 보안 표준' \
+  '- ⚠️ **NEEDS_FIX**: Critical 1건'
+printf -- '- 2026-08-06 10:20 /receive-review 완료 "Critical 1건 fix 1라운드"\n' \
+  >> "$TD/.specops/session-progress.md"
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'crit_high=OK' \
+  && ok "RR-16 수용 흔적 있음 → READY" || nope "RR-16" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-17: 과거 라운드의 -feedback.md 잔존 — 최종 report 가 깨끗하면 무시
+TD=$(mktemp -d); FID=20260806-rr-stalefeedback
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' "$_TPL_MENU"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-feedback.md" \
+  '- `src/a.sh:3` — (1라운드에서 수정 완료된 과거 지적)' \
+  '- ⚠️ **NEEDS_FIX**: Critical 1건'
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'crit_high=OK' \
+  && ok "RR-17 stale feedback 무시 → READY" || nope "RR-17" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-18: 판정 절이 NEEDS_FIX 만 선택(READY_TO_MERGE 부재) → 항목 없어도 미해결
+TD=$(mktemp -d); FID=20260806-rr-verdictonly
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' \
+  '- ⚠️ **NEEDS_FIX**: 재dispatch 필요'
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'crit_high=UNRESOLVED_REVIEW' \
+  && ok "RR-18 NEEDS_FIX 단독 선택 → NOT_READY" || nope "RR-18" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# RR-19: 짝 report 없는 -feedback.md = 미해소 FAIL 라운드 → teeth 유지
+TD=$(mktemp -d); FID=20260806-rr-feedbackonly
+_mk_endloaded "$TD" "$FID"
+_tpl_report "$TD/.specops/$FID/reviews/T1-C-report.md" '- 없음' "$_TPL_MENU"
+_tpl_report "$TD/.specops/$FID/reviews/T2-C-feedback.md" \
+  '- `src/b.sh:9` — 미해소 Critical' '- ⚠️ **NEEDS_FIX**: Critical 1건'
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'crit_high=UNRESOLVED_REVIEW' \
+  && ok "RR-19 report 없는 feedback → NOT_READY" || nope "RR-19" "rc=$rc out=$out"
+rm -rf "$TD"
+
 finish
