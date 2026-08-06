@@ -121,6 +121,53 @@ rm -f "$T10F"
 t T10.d "e2e V21 스캔 스크립트 배선"  'scan-enrich-placeholders\.sh'                    "$E2E_SKILL"
 # T10.e Phase 11 계약에 규약 표기 잔존 허용 명시
 t T10.e "규약 표기 잔존 허용 계약"    '규약 표기'                                        "$CMD"
+
+# ── T10.f HTML 주석 마커 오검출 (20260806 실측) ──────────────────────────────
+# 모든 specops 템플릿은 `<!-- OWNER_COMMAND: ... -->` · `<!-- layer: ... -->` 헤더를 갖는다.
+# 이건 구조 계약이라 **지울 수 없는데** 스캐너가 placeholder 로 센다 → V21(검출 0)이
+# 구조적으로 달성 불가. 실측: 부트스트랩 산출물 163건 중 26건이 HTML 주석.
+T10F=$(mktemp) || exit 1
+printf '<!-- OWNER_COMMAND: /init-project -->\n<!-- layer: Project-Document -->\n\n# 문서\n' > "$T10F"
+if bash "$SCAN" "$T10F" >/dev/null 2>&1; then
+  printf 'PASS %-6s %s\n' "T10.f" "HTML 주석 마커만 → clean exit 0 (지울 수 없는 구조 계약)"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.f" "HTML 주석 마커만 → clean exit 0 (지울 수 없는 구조 계약)"; FAIL=$((FAIL+1))
+fi
+rm -f "$T10F"
+
+# T10.g 주석 안에 진짜 placeholder 가 있어도 주석은 주석 — 단, 주석 **밖** 실 placeholder 는 검출 유지
+T10F=$(mktemp) || exit 1
+printf '<!-- layer: Project-Memory -->\n- 항목: <미기재>\n' > "$T10F"
+if ! bash "$SCAN" "$T10F" >/dev/null 2>&1 \
+   && bash "$SCAN" "$T10F" 2>/dev/null | grep -q '<미기재>' \
+   && ! bash "$SCAN" "$T10F" 2>/dev/null | grep -q 'layer:'; then
+  printf 'PASS %-6s %s\n' "T10.g" "주석 제외 후에도 실 placeholder 검출 유지"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.g" "주석 제외 후에도 실 placeholder 검출 유지"; FAIL=$((FAIL+1))
+fi
+rm -f "$T10F"
+
+# ── T12: PRD.md 가 Phase 11 보강 깊이 목록에 배정돼 있는가 (담당 공백) ───────
+# e2e V21 은 PRD.md 를 **스캔 대상으로 지정**하는데, Phase 11 의 깊게/얕게 목록
+# 어디에도 PRD.md 가 없었다 — 게이트는 검사하는데 담당이 없는 상태.
+# 실측: 부트스트랩 직후 PRD.md 에 원시 <TODO> 10곳(NFR·리스크·기술스택) 잔존.
+# 느슨한 grep 은 인접 줄의 다른 PRD.md 언급(가정 다이제스트 등)에 걸려 공허하게 통과한다.
+# `깊게` 블록의 **불릿 항목**으로 존재하는지만 본다 (블록 = `**깊게**` ~ 다음 빈 줄).
+_deep_block=$(awk '/^\*\*깊게\*\*/{f=1;next} f&&/^$/{exit} f' "$CMD")
+if printf '%s\n' "$_deep_block" | grep -qE '^- `PRD\.md`'; then
+  printf 'PASS %-6s %s\n' "T12.b" "PRD.md 가 '깊게' 불릿 항목으로 명시"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T12.b" "PRD.md 가 '깊게' 불릿 항목으로 명시"; FAIL=$((FAIL+1))
+fi
+# 얕게/스킵 목록과 중복 배정되면 모순 — 한쪽에만 있어야 한다
+_shallow_block=$(awk '/^\*\*얕게\/스킵\*\*/{f=1;next} f&&/^$/{exit} f' "$CMD")
+if ! printf '%s\n' "_$_shallow_block" | grep -q 'PRD\.md'; then
+  printf 'PASS %-6s %s\n' "T12.b2" "PRD.md 가 얕게/스킵에 중복 배정 안 됨"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T12.b2" "PRD.md 가 얕게/스킵에 중복 배정 안 됨"; FAIL=$((FAIL+1))
+fi
+# Phase 4 확정분(§1~2)은 보강이 덮지 않는다는 경계 명시
+t T12.c "Phase 4 확정분 보존 경계"    'Phase 4 확정|§1.*보존|사용자 응답.*덮어쓰기 금지' "$CMD"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

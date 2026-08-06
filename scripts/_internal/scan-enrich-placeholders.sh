@@ -3,7 +3,12 @@
 # 사용: scan-enrich-placeholders.sh <file...>
 #   exit 0 = 검출 없음(clean) · exit 1 = 검출 있음(file:line 출력) · exit 2 = 사용 오류
 #
-# 제외 2계층:
+# 제외 3계층:
+#   ⓪ 토큰 단위 — **HTML 주석** `<!-- ... -->` (20260806 실측 결함):
+#      모든 specops 템플릿이 `<!-- OWNER_COMMAND: ... -->`·`<!-- layer: ... -->` 헤더를 갖는다.
+#      이건 구조 계약이라 **지울 수 없는데** 구 패턴이 placeholder 로 셌다 → e2e V21(검출 0)이
+#      구조적으로 달성 불가였다(부트스트랩 산출물 163건 중 26건이 이 주석).
+#      주석 **밖** 실 placeholder 는 검출을 유지해야 하므로 줄 단위가 아니라 토큰 단위로 지운다.
 #   ① 줄 단위 — `미확정 — 근거 필요` 마커 줄 (Phase 11 계약상 허용)
 #   ② 토큰 단위 — 규약 표기 (채움 대상 아닌 문서 본문 서술; 문맥 포함 매칭이라
 #      같은 줄의 실 placeholder 는 검출 유지):
@@ -18,7 +23,8 @@ set -u
 _PH='<([A-Za-z]|[^[:space:][:cntrl:]/<>])[^>]{0,40}>'
 out=$(grep -HnE "$_PH" "$@" 2>/dev/null \
   | grep -v '미확정 — 근거 필요' \
-  | sed -e 's|\.specops/<FID>|.specops/FID|g' \
+  | sed -e 's|<!--[^>]*-->||g' \
+        -e 's|\.specops/<FID>|.specops/FID|g' \
         -e 's|screens/<name>|screens/name|g' \
         -e 's|design-screen <name>|design-screen name|g' \
         -e 's|<YYYYMMDDHHMMSS>_<description>|TIMESTAMP_DESCRIPTION|g' \

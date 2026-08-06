@@ -60,6 +60,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 **문서별 보강 깊이 (Light enrich) — 최소 깊이 기준**:
 
 **깊게** (생성분·해당 KIND만):
+- `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
 - `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
