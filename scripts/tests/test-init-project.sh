@@ -560,6 +560,49 @@ else
   nope "T23.a Phase 0 discovery 배선" "n=$n 또는 구성요소 누락"
 fi
 
+# ── T24: PRD 6필드 **값** 정합 (20260806) ────────────────────────────────────
+# 기존 E2E 는 파일 존재·개수만 봐서, 무라벨 numbered list 가 값에 "1. " 를 남긴 채로도
+# 전부 PASS 했다. 값이 PRD §1 → CLAUDE.md → README.md → requirements FR 시드까지
+# 전파되므로 **한 곳이라도 오염되면 프로젝트 문서 전체가 오염**된다.
+setup_fixture
+{
+  printf "4\nskip\n"
+  printf "1. 사내 일정 관리\n2. 팀장\n3. 빠름, 간편, 정확\n4. 로그인\n5. 대시보드\n6. 알림\n\n"
+  printf "1\nhome, login\ny\n2\n"
+} | bash "$SCRIPT" mychat >/dev/null 2>&1
+_one=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 줄 설명\*\*: *//')
+_per=$(grep -m1 '^\*\*주요 페르소나\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*주요 페르소나\*\*: *//')
+if [ "$_one" = "사내 일정 관리" ] && [ "$_per" = "팀장" ]; then
+  ok "T24.a 무라벨 numbered list → PRD 값에 번호 미누출"
+else
+  nope "T24.a PRD 값 오염" "한줄='$_one' 페르소나='$_per'"
+fi
+if ! grep -qE '^\| FR-1 \| [0-9]+\. ' .specops/memory/requirements.md 2>/dev/null \
+   && grep -q '^| FR-1 | 로그인 |' .specops/memory/requirements.md 2>/dev/null; then
+  ok "T24.b requirements FR 시드행에 번호 미누출"
+else
+  nope "T24.b FR 시드 오염" "$(grep -m1 '^| FR-1 |' .specops/memory/requirements.md 2>/dev/null)"
+fi
+if ! grep -qE '^[0-9]+\. 사내 일정 관리' CLAUDE.md README.md 2>/dev/null \
+   && grep -q '사내 일정 관리' README.md 2>/dev/null; then
+  ok "T24.c PRD_ONELINE 전파처(CLAUDE·README) 미오염"
+else
+  nope "T24.c 전파 오염" "$(grep -m1 '사내 일정 관리' README.md 2>/dev/null)"
+fi
+teardown_fixture
+
+# T24.d 라벨형도 동일 결과 (회귀 보호 — 두 형식 동치)
+setup_fixture
+{
+  printf "4\nskip\n"
+  printf "1. 한 줄 설명: 사내 일정 관리\n2. 페르소나: 팀장\n3. 가치: a, b, c\n4. M1: 로그인\n5. M2: 대시보드\n6. M3: 알림\n\n"
+  printf "1\nhome\ny\n2\n"
+} | bash "$SCRIPT" mychat >/dev/null 2>&1
+_one=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 줄 설명\*\*: *//')
+[ "$_one" = "사내 일정 관리" ] \
+  && ok "T24.d 라벨형 — 무라벨형과 동일 결과" || nope "T24.d" "한줄='$_one'"
+teardown_fixture
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

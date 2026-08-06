@@ -124,13 +124,31 @@ _should_skip() {
   [ -e "$1" ] && [ "$CONFLICT_POLICY" != "overwrite" ]
 }
 
-# numbered list 의 N 번 항목 추출 (": " 뒤 텍스트)
+# numbered list 의 N 번 항목 추출
+#
+# 두 형식을 모두 받는다 (20260806 실측 결함 수정):
+#   라벨형  `1. 한 줄 설명: 사내 일정 관리`  → "사내 일정 관리"   (프롬프트가 보여주는 형식)
+#   무라벨형 `1. 사내 일정 관리`             → "사내 일정 관리"   (Phase 0 파이프의 자연 형식)
+#
+# 구 구현은 `[0-9]+\.[^:]*:` 를 **한 덩어리로** 요구해 무라벨형이면 sub 가 통째로 실패했다
+#   → 값에 "1. " 가 남은 채 PRD.md §1 · CLAUDE.md · README.md · requirements.md FR 시드행까지
+#     전파(실측). `_phase_4_count_filled` 는 "비어있지 않음"만 세므로 fallback 도 안 깨어난다.
+# 또 하나: 라벨 길이 무제한(`[^:]*:`)이라 값 중간에 콜론이 늦게 나오는 긴 문장이면
+#   콜론 앞 전체를 라벨로 오인해 잘라냈다 (실측: 60자 손실).
+#
+# 그래서 ① 번호 접두는 **무조건** 제거 ② 라벨 제거는 콜론이 앞쪽(≤40바이트)에 있을 때만.
+#   interval 정규식 `{1,40}` 은 구형 awk 비호환이라 index() 로 판정한다(이식성).
 _parse_numbered() {
   local raw="$1" num="$2"
   printf '%s\n' "$raw" | awk -v n="$num" '
     BEGIN { pat = "^[[:space:]]*" n "\\." }
     $0 ~ pat {
-      sub(/^[[:space:]]*[0-9]+\.[[:space:]]*[^:]*:[[:space:]]*/, "")
+      sub(/^[[:space:]]*[0-9]+\.[[:space:]]*/, "")
+      c = index($0, ":")
+      if (c > 0 && c <= 40) {
+        $0 = substr($0, c + 1)
+        sub(/^[[:space:]]+/, "")
+      }
       print
       exit
     }'
