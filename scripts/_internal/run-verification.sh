@@ -188,7 +188,8 @@ fi
 #   "생략 금지" 선언에 대응하는 관측을 여기 둔다. **차단하지 않는다** —
 #   즉시 하드화하면 기존 FID 35% 가 소급 FAIL(실측). 빈도 관측 후 전환 판단.
 if [ -f "$PRESENCE_SH" ]; then
-  presence_out=$(bash "$PRESENCE_SH" "$FID" 2>&1 || true)
+  presence_out=$(bash "$PRESENCE_SH" "$FID" 2>&1)
+  presence_ec=$?
   {
     echo "### review-presence"
     echo '```'
@@ -196,7 +197,15 @@ if [ -f "$PRESENCE_SH" ]; then
     echo '```'
     echo ""
   } >> "$EVIDENCE"
-  printf '%s' "$presence_out" | grep -q 'WARN' && printf '%s\n' "$presence_out" >&2
+  if [ "$presence_ec" -ne 0 ]; then
+    # §lite 만 rc=1 (하드) — 비-lite 는 rc=0 WARN 이라 여기 오지 않는다.
+    all_pass=0
+    failed=$((failed + 1))
+    echo "VERIFY: FAIL review-presence (§lite Phase B/C 생략)" >&2
+    printf '%s\n' "$presence_out" >&2
+  else
+    printf '%s' "$presence_out" | grep -q 'WARN' && printf '%s\n' "$presence_out" >&2
+  fi
 fi
 
 # foundation manifest 산출 게이트 — §유형=foundation 인 FID 만 대상(그 외 SKIP).

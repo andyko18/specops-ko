@@ -41,6 +41,20 @@ if [ -z "$miss" ]; then
   exit 0
 fi
 
+# ── §lite 는 하드 차단 (20260806) ────────────────────────────────────────────
+# lite 는 clarify·plan 을 **이미 뺀** 모드라 Phase B/C 가 **남은 유일한 리뷰층**이다.
+#   여기서도 B/C 가 사라지면 lite = spec → implement → verify (외부 리뷰 0) 가 된다.
+#   warn-first 를 택한 이유는 소급 영향이었는데(전체 FID 20건 중 7건 무리뷰),
+#   **§lite FID 는 실측 0건**(v1.60 도입 직후)이라 하드화의 소급 비용이 없다 —
+#   "가장 필요한 곳"과 "가장 싼 곳"이 일치한다. 비-lite 는 warn 유지(기존 계약 무손상).
+if grep -qE '^\*\*§lite\*\*:[[:space:]]*true' "$DIR/spec.md" 2>/dev/null; then
+  echo "REVIEW-PRESENCE: FAIL — $miss (§lite 는 B/C 가 남은 유일한 리뷰층이라 생략 불가)"
+  echo "  lite 는 clarify·plan 을 이미 축약했다 — Phase B/C 까지 빠지면 외부 리뷰가 0 이 된다."
+  echo "  end-loaded 로 FID 말미 B 1회 + C 1회를 수행하고 reviews/<tid>-B-report.md ·"
+  echo "  <tid>-C-report.md 를 남긴 뒤 재실행하세요."
+  exit 1
+fi
+
 echo "REVIEW-PRESENCE: WARN — $miss"
 echo "  skill 계약상 Phase B/C 는 생략 금지다(end-loaded 는 시점 통합이지 생략이 아님)."
 echo "  현재는 **관측만** 하고 chain 을 막지 않는다(warn-only). 리뷰 산출물은"

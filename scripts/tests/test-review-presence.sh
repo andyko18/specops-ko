@@ -91,6 +91,47 @@ TD=$(mktemp -d); _fid "$TD" 20260806-p
   && ok "T7 friction-log 관측 기록" || nope "T7" "기록 없음"
 rm -rf "$TD"
 
+# ── §lite 는 하드 (20260806 lite 검토) ──────────────────────────────────────
+# 근거: lite 는 clarify·plan 을 **이미 뺀** 모드라 Phase B/C 가 **남은 유일한 리뷰층**이다.
+#   여기서도 B/C 가 조용히 사라지면 lite = spec → implement → verify (외부 리뷰 0) 가 된다.
+#   warn-first 를 택한 이유는 소급 영향이었는데(전체 FID 20건 중 7건 무리뷰),
+#   **§lite FID 는 실측 0건**(v1.60 도입 직후)이라 하드화의 소급 비용이 없다.
+#   즉 "가장 필요한 곳"과 "가장 싼 곳"이 일치한다.
+_lite() {  # $1=dir $2=fid — §lite FID
+  mkdir -p "$1/.specops/$2"
+  printf '**§유형**: trivial\n**§lite**: true\n' > "$1/.specops/$2/spec.md"
+  printf '# tasks\n' > "$1/.specops/$2/tasks.md"
+}
+
+# T10.a: §lite + B/C 0회 → FAIL(rc=1, 차단)
+TD=$(mktemp -d); _lite "$TD" 20260806-l
+out=$(cd "$TD" && bash "$CHK" 20260806-l 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qE 'FAIL|§lite' \
+  && ok "T10.a §lite + B/C 0회 → 차단(rc=1)" || nope "T10.a" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T10.b: §lite + B/C 수행 → 통과
+TD=$(mktemp -d); _lite "$TD" 20260806-l
+mkdir -p "$TD/.specops/20260806-l/reviews"
+: > "$TD/.specops/20260806-l/reviews/T1-B-report.md"
+: > "$TD/.specops/20260806-l/reviews/T1-C-report.md"
+(cd "$TD" && bash "$CHK" 20260806-l >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T10.b §lite + B/C 수행 → 통과" || nope "T10.b" "rc=$rc"
+rm -rf "$TD"
+
+# T10.c: 비-lite 는 여전히 warn (기존 계약 무손상 — 소급 7건 보호)
+TD=$(mktemp -d); _fid "$TD" 20260806-n
+out=$(cd "$TD" && bash "$CHK" 20260806-n 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'WARN' \
+  && ok "T10.c 비-lite → warn 유지(rc=0)" || nope "T10.c" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T10.d: §lite 차단이 verify 관문에 실제 연결 (run-verification 이 rc 를 본다)
+grep -qE 'presence_ec|check-review-presence.*\|\||VERIFY: FAIL review-presence' \
+  "$PLUGIN/scripts/_internal/run-verification.sh" \
+  && ok "T10.d run-verification 이 presence rc 를 판정에 반영" \
+  || nope "T10.d" "rc 무시 — §lite 차단이 관문에 도달 못 함"
+
 # T8: run-verification 배선 (VERIFY 관문에서 관측 — 차단은 안 함)
 grep -q 'check-review-presence.sh' "$PLUGIN/scripts/_internal/run-verification.sh" \
   && ok "T8 run-verification 배선" || nope "T8" "미배선"

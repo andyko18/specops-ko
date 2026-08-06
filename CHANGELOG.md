@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **`§lite` FID 의 Phase B/C 생략을 하드 차단으로 승격 (lite 검토 20260806)** — `review-presence` 관측을 warn-first 로 도입한 이유는 소급 영향이었다(전체 FID 20건 중 **7건**이 무리뷰 → 즉시 하드화 시 35% 소급 FAIL). 그런데 lite 를 따로 재보니 **`§lite` FID 는 실측 0건**이었다(v1.60 도입 직후). 그리고 lite 는 clarify·plan 을 **이미 뺀** 모드라 **Phase B/C 가 남은 유일한 리뷰층**이다 — 여기서도 B/C 가 사라지면 lite 는 `spec → implement → verify` 로 외부 리뷰가 0 이 된다. 즉 **"가장 필요한 곳"과 "소급 비용이 가장 싼 곳"이 일치**한다. `§lite` 만 rc=1(차단)로 올리고 비-lite 는 warn 유지(기존 계약 무손상). `run-verification` 이 rc 를 판정에 반영하도록 배선 — 종전엔 rc 를 버려 §lite 차단이 관문에 도달하지 못했다(T10.d 로 잠금). E2E: §lite → `VERIFY: FAIL review-presence`, 비-lite → `WARN` + `VERIFY: PASS` 동시 실증. 테스트 4건(T10.a~d), mutation 비-vacuous.
+
 ### Added
 - **가정 다이제스트 결정론적 집계 — 무인 모드의 유일한 확인점 (`/start-all-auto` 분석 20260806)** — `/start-all-auto` 는 clarify BLOCKING 을 best-guess 로 자동 답하고 `status: ASSUMED` 로 기록한다. 사용자가 그 가정들을 보는 **유일한 지점이 batch PR 게이트의 다이제스트**다 — 나머지 확인은 전부 자동 통과한다. 그런데 집계가 **모델 재량**이라 누락·과소보고를 잡는 층이 0곳이었다(`batch-state`·`pretool` 어디에도 검사 없음 — 실측). 누락되면 사용자는 무엇이 자기 대신 결정됐는지 모른 채 batch PR 을 승인한다 — 무인 모드를 수용 가능하게 만드는 단 하나의 게이트가 내용을 잃는다(5원칙 4 주권). 신규 `collect-assumptions.sh` 가 queue.md 의 **IMPL_DONE FID 전체**를 훑어 ① `clarifications.md` 의 `status: ASSUMED` Q-block ② `spec.md` 의 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 를 집계 — **과소보고가 구조적으로 불가능**해진다. `RESOLVED`(사용자가 정함)·비-IMPL_DONE FID 는 제외, **0건도 명시 보고**("0건"과 "집계 안 함"은 다르다). `/start-all` 에도 배선 — §auto 가 아니어도 Phase 2.5 가 화면·IF 를 대화 승인 없이 반영하는 경로가 있다. 테스트 8건, mutation 비-vacuous.
 
