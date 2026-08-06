@@ -13,12 +13,17 @@
 | name | 제목 | 목적 | 상세 스펙 | 미리보기 |
 |---|---|---|---|---|
 <!-- screens-table:start -->
-| home | 홈 | 진입점 — 주요 액션 | [screens/home.md](../../screens/home.md) | [screens/home.html](../../screens/home.html) |
-| login | 로그인 | 사용자 인증 | [screens/login.md](../../screens/login.md) | [screens/login.html](../../screens/login.html) |
-| dashboard | 대시보드 | 인증 후 메인 — 사용자 데이터 요약 | [screens/dashboard.md](../../screens/dashboard.md) | [screens/dashboard.html](../../screens/dashboard.html) |
 <!-- screens-table:end -->
 
-> Phase 7 입력 비웠다면 본 표 placeholder. 추후 `/start-all` Phase 2.5 또는 `/design-screen <name>` 또는 `/start "<UI 기능>"` 진입 시 화면 파일 생성.
+> **본 표는 빈 상태로 시작한다** — 화면이 실제로 생길 때 `/init-project` Phase 7·`/design-screen`·`/start-all` Phase 2.5 가 행을 채운다.
+> 예시 행을 미리 넣지 않는 이유: 이 표는 **화면 목록 마스터**라 존재하지 않는 `screens/*.md` 를 가리키는 행이 남으면 Phase 2.5-A UI 표면 검출·`design-reviewer-ko` 정합 검사가 **유령 화면을 실 화면으로 읽는다**(20260806 실측 — `/design-screen` append 경로에서 예시 2행 잔존).
+
+작성 형식 참고 — 행 1건의 컬럼 순서만 표기한다 (**샘플이며 표 문법으로 쓰지 않는다**. 파이프로 시작하는 샘플 줄은 도구가 실제 행으로 오인할 수 있다):
+
+```text
+name(영숫자/-/_) → 제목 → 목적(1줄) → [screens/NAME.md](../../screens/NAME.md) → [screens/NAME.html](../../screens/NAME.html)
+예) dashboard → 대시보드 → 인증 후 메인, 사용자 데이터 요약
+```
 
 ## 2. 화면 흐름 (Mermaid stateDiagram)
 

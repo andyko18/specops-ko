@@ -148,6 +148,48 @@ grep -q '| Border |' "$PLUGIN/templates/DESIGN.md" \
   && ok  "T9.a 템플릿 DESIGN.md Border 행 존재 (9색 매핑 정합)" \
   || nope "T9.a 템플릿 Border 행" "lib.sh 9매핑 vs 템플릿 8행 — Border 주입 영구 no-op"
 
+# ── T10: screens-overview 골격 예시 행 (20260806 design 계열 정밀분석) ──────
+# 결함: §1 fence 가 home/login/dashboard **예시 3행**을 담은 채 배포된다.
+#   init Phase 7 은 fence 를 통째로 교체하므로 무해하지만, /design-screen 은 **append**
+#   경로라 예시가 남는다 → 존재하지 않는 screens/home.md·dashboard.md 를 가리키는 행이
+#   화면 목록 마스터에 잔존(유령 화면). Phase 2.5-A UI 표면 검출·design-reviewer 정합
+#   검사가 이 유령을 실 화면으로 읽는다. (decisions.md 예시 행과 동일 클래스)
+# T10.a: 템플릿 fence 는 비어 있어야 한다 — "아직 화면 없음" 이 진실
+tpl_rows=$(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|/' \
+  "$PLUGIN/templates/screens-overview.md" | grep -c . || true)
+[ "${tpl_rows:-0}" -eq 0 ] \
+  && ok  "T10.a 템플릿 fence 예시 행 0 (유령 화면 배포 안 함)" \
+  || nope "T10.a 템플릿 예시 행 잔존" "fence 내 ${tpl_rows}행 — 존재하지 않는 화면 참조"
+
+# T10.b: 골격에서 첫 화면 추가 → 그 화면 1행만 (유령과 섞이지 않음)
+mkdir -p .specops/memory
+cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
+sed -i.bak 's/<PROJECT_NAME>/TestProj/' .specops/memory/screens-overview.md
+rm -f .specops/memory/screens-overview.md.bak
+bash "$SCRIPT" solo >/dev/null 2>&1
+rows=$(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|/' \
+  .specops/memory/screens-overview.md | grep -c . || true)
+{ [ "${rows:-0}" -eq 1 ] && grep -q '| solo |' .specops/memory/screens-overview.md; } \
+  && ok  "T10.b 골격 + 첫 화면 → 1행만" \
+  || nope "T10.b" "행수=${rows}"
+
+# T10.c: 실제로 파일이 없는 화면을 마스터가 참조하지 않는다 (유령 참조 0)
+ghost=0
+while IFS= read -r n; do
+  [ -z "$n" ] && continue
+  [ -f "screens/${n}.md" ] || ghost=$((ghost+1))
+done < <(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|/{split($0,x,"|"); gsub(/^[[:space:]]+|[[:space:]]+$/,"",x[2]); print x[2]}' \
+  .specops/memory/screens-overview.md)
+[ "$ghost" -eq 0 ] \
+  && ok  "T10.c 마스터의 유령 화면 참조 0" \
+  || nope "T10.c 유령 참조" "${ghost}건 — 파일 없는 화면이 목록에 있음"
+
+# T11: 중복 skip 시 정직 보고 — 행이 추가되지 않았는데 '갱신됨' 은 거짓 보고
+out=$(bash "$SCRIPT" solo --force 2>&1)
+printf '%s' "$out" | grep -qE '이미 등록|기존 행 유지|중복' \
+  && ok  "T11 중복 이름 → 정직 보고(갱신 아님 명시)" \
+  || nope "T11 거짓 보고" "행 미추가인데 '갱신됨' 만 출력: $out"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

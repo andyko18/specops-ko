@@ -90,6 +90,7 @@ _inject_design_palette "screens/${NAME}.html"
 
 # screens-overview.md 갱신 (fence 기반 — 존재 시만)
 overview=".specops/memory/screens-overview.md"
+overview_note=""
 if [ -f "$overview" ]; then
   # 기존 fence 내 행 목록 추출 (name 컬럼 — 첫 번째 파이프 뒤)
   existing_names=$(awk '
@@ -98,9 +99,10 @@ if [ -f "$overview" ]; then
     inside && /^\|/ { split($0, f, "|"); gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[2]); if (f[2] != "name") print f[2] }
   ' "$overview" 2>/dev/null)
 
-  # 신규 이름이 이미 있으면 중복 추가 안 함
+  # 신규 이름이 이미 있으면 중복 추가 안 함.
+  #   행을 안 넣었는데 아래에서 "갱신됨" 만 출력하면 거짓 보고다(20260806) — 명시한다.
   if echo "$existing_names" | grep -qx "$NAME"; then
-    :
+    overview_note="이미 등록된 이름 — 기존 행 유지(중복 추가 안 함)"
   else
     all_names=$(printf "%s\n%s" "$existing_names" "$NAME" | grep -v '^$')
     rows=""
@@ -121,5 +123,11 @@ fi
 echo "→ screens/${NAME}.md"
 echo "→ screens/${NAME}.html"
 echo "→ DESIGN.md 팔레트 주입 (확정 색상만)"
-[ -f "$overview" ] && echo "→ screens-overview.md 갱신됨"
+if [ -f "$overview" ]; then
+  if [ -n "$overview_note" ]; then
+    echo "→ screens-overview.md: $overview_note"
+  else
+    echo "→ screens-overview.md 갱신됨"
+  fi
+fi
 exit 0
