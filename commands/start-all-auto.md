@@ -4,7 +4,7 @@ description: "[전체·무인] specops-ko 한국어 자율 Lifecycle — require
 triggers:
   - "/start-all-auto"
 mode: ask
-specops_version: 1.61.0
+specops_version: 1.62.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 ---
