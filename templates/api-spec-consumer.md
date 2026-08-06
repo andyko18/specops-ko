@@ -25,10 +25,16 @@
 
 내가 call 하는 엔드포인트와 **의존하는 응답 필드**만 기록 (upstream breaking change 감지용).
 
+> ⚠️ **아래는 예시다 — 실제 소비 엔드포인트로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+> `verifying-evidence-ko` memory 동기화 점검이 소비 IF 축을 이 표와 대조하므로,
+> 예시가 남으면 **유령 외부 API 가 계약으로 읽힌다**. 잔존 시 `scan-enrich-placeholders.sh` 미채움 판정.
+
+<!-- specops:example:start -->
 | Method | Path | 내가 의존하는 응답 필드 | 비고 |
 |---|---|---|---|
 | GET | `/users/:id` | `id`, `email`, `displayName` | 사용자 프로필 표시 |
 | POST | `/auth/token` | `access_token`, `expires_in` | 로그인 토큰 발급 |
+<!-- specops:example:end -->
 
 **공통 에러 포맷** (이 서비스의 에러 응답):
 ```json

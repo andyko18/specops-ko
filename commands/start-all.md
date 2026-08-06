@@ -52,6 +52,14 @@ reference_upstream: specops-ko 독자 추가
    grep -E '^\| FR-[0-9]+ \|' <requirements.md 경로>
    ```
    FR 행 0건이면: "FR 표가 비어 있습니다. `requirements.md`에 FR 표를 작성 후 재실행하세요." 출력 후 **중단**
+
+   **★ placeholder FR 가드 (필수 — 20260806)**: 위 grep 은 **행 존재**만 본다. 골격 `| FR-1 | <한 줄> | M1 | must |` 도 3건으로 세어져, 사용자가 FR 을 하나도 안 썼는데 batch 가 진입한다(Phase 1 이 넘기는 "FR 원문" 이 `<한 줄>`). 실 FR 판정은 스크립트로:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-fr-table.sh
+   ```
+   - `rc=0` → 실 FR 개수 확인 후 진행. placeholder 경고가 나오면 **그 FR 은 batch 대상에서 제외**한다.
+   - `rc=1` → 실 FR 0건. 중단하고 requirements.md 작성 안내.
+   - `rc=2` → 파일 부재. 위 `/init-project` 안내와 동일 처리.
 4. **batch 브랜치 생성** (1회, 재진입 시 skip):
    ```bash
    # 이미 존재하면 switch, 없으면 create
