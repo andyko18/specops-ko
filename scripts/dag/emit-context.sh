@@ -45,6 +45,18 @@ if [ -f "$_REUSE_SH" ]; then
   fi
 fi
 
+# foundation 기술스택 확정 증거 (clarify 층 봉합).
+#   clarify 단계엔 스크립트가 반드시 지나는 관문이 없어(specify→clarify→plan 전부 대화)
+#   BLOCKING 강제가 산문으로만 남았다. 결정의 **증거**를 구현 직전인 여기서 확인한다.
+_STACK_SH="$SCRIPT_DIR/../_internal/check-stack-decided.sh"
+if [ -f "$_STACK_SH" ]; then
+  if ! stack_out=$(bash "$_STACK_SH" "$FID" 2>&1); then
+    printf '%s\n' "$stack_out" >&2
+    echo "emit-context: foundation 기술스택 미확정 — clarify·원장 보완 후 재실행" >&2
+    exit 1
+  fi
+fi
+
 # 1단계 dry-run 검증 (Python)
 YAML_IN="$yaml" AC_PATH="$AC" python3 - << 'PYEOF' || exit 1
 import os, sys, re, yaml

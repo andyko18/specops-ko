@@ -89,6 +89,8 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 > bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-decisions-ledger.sh '<주제 regex>'   # 0=확정 · 1=미확정
 > bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-decisions-ledger.sh --list            # 확정 주제 일람
 > ```
+> **후속 관문 (건너뛰어도 잡힌다)**: foundation 의 스택 확정은 구현 직전 `emit-context.sh` 가 `scripts/_internal/check-stack-decided.sh` 로 재검한다 — 원장 확정 행 **또는** clarifications.md 의 스택 `RESOLVED` 중 하나가 없으면 dispatch 가 열리지 않는다(`status: ASSUMED` 는 결정이 아니므로 불인정). 즉 본 절을 생략하면 여기서 막힌다. RESOLVED 시 원장 upsert 를 반드시 함께 하라 — 안 하면 후속 FR 이 같은 질문을 반복한다.
+>
 > `/init-project` 가 만드는 **원장 골격에는 예시 행이 들어 있다** — `| D-001 | (예시) UI 유무 | 있음 | … |`. 표를 눈으로 보면 "행이 있으니 확정된 원장" 으로 오독하기 쉽고, 그러면 foundation 기술스택 BLOCKING 이 **근거 없이 면제**돼 미확정 스택으로 plan 에 진입한다. 판정기는 `(예시)` 접두 행·빈칸·`<...>` placeholder·`TBD`/`(미정)` 류 무정보 값을 **모두 미확정**으로 본다. `1` 이면 면제 없이 BLOCKING 질문을 진행한다.
 
 **DESIRABLE** (가정으로 진행 가능):
