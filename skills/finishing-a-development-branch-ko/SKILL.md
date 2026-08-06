@@ -98,25 +98,22 @@ worktree가 없으면 "worktree 없음 — 스킵" 출력 후 다음 단계.
 ```bash
 FEAT_BRANCH=$(git branch --show-current)
 
-# main으로 먼저 이동
+# main으로 먼저 이동 (판정기는 현재 체크아웃 브랜치를 거부한다)
 git checkout main
 
-# 안전 삭제 시도
-git branch -d "$FEAT_BRANCH" || {
-  # git branch -d 실패 = "not fully merged" (squash/rebase merge 포함)
-  if [ "$MERGE_CONFIRMED_BY_GH" = "true" ]; then
-    echo "squash/rebase merge 감지 — gh CLI가 MERGED 확인했으므로 -D 허용"
-    git branch -D "$FEAT_BRANCH"
-  else
-    echo "HARD GATE: 브랜치가 완전히 머지되지 않았습니다. PR 상태를 확인하세요."
-    echo "  gh CLI로 'state: MERGED' 확인 후 재실행하거나, 수동으로 git branch -D 실행."
-    exit 1
-  fi
+# ★ 삭제 안전 판정 — 판정기가 SoT (20260806 기계화)
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-branch-deletable.sh "$FEAT_BRANCH" main || {
+  echo "HARD GATE: 삭제 금지 — 위 사유 확인 후 재실행"
+  exit 1
 }
+# rc=0 일 때만 삭제 (조상 확인분은 -d 로도 지워지고, squash/rebase merge 분만 -D 필요)
+git branch -d "$FEAT_BRANCH" 2>/dev/null || git branch -D "$FEAT_BRANCH"
 ```
 
-**HARD GATE**: `MERGE_CONFIRMED_BY_GH=false` (gh CLI 미확인) 상태에서 `-D` 는 절대 금지.
-- gh CLI가 `state: MERGED` 확인한 경우에만 squash/rebase merge 대응으로 `-D` 허용 (추측 아닌 근거 기반).
+**HARD GATE 판정 SoT = `scripts/_internal/check-branch-deletable.sh`**.
+- 종전엔 `MERGE_CONFIRMED_BY_GH` 라는 **모델이 스스로 세팅하는 변수**가 게이트였다 — gh 가 실제로 `MERGED` 를 반환했는지 검증하는 층이 0곳이었고, `git branch -D` 는 pretool 훅 관할 밖(R-1/R-2 는 commit·PR 만 본다)이라 미머지 브랜치 삭제 시 **커밋이 소실**될 수 있었다.
+- 판정 근거 2종: **① git 조상**(`merge-base --is-ancestor` — 일반 merge) **② gh PR `state=MERGED`**(squash/rebase merge 는 조상이 아니므로 이것만이 근거).
+- **fail-CLOSED**: gh 미설치·PR 없음·조회 실패 등 판정 불가는 **금지**로 처리한다. 다른 게이트의 fail-open 과 반대인 이유는 결과가 **비가역 데이터 손실**이기 때문이다 — 안전한 쪽이 "안 지움" 이다. 의도적 폐기는 사용자가 수동 `git branch -D`.
 
 ### Step 5: Remote branch 삭제 (사용자 확인)
 
