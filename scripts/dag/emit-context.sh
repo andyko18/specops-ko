@@ -30,6 +30,21 @@ source "$SCRIPT_DIR/parse-dag.sh"
 yaml=$(dag::extract_yaml "$TASKS")
 [ -n "$yaml" ] || { echo "emit-context: YAML 부재 — $TASKS" >&2; exit 1; }
 
+# foundation 재사용 게이트 (소비측) — 구현 **전** fail-fast.
+#   decomposing-ko 계약: §유형≠foundation 이고 manifest 가 있으면 각 task 가
+#   `**재사용 foundation**` 또는 `**미재사용 근거**` 를 기재해야 한다. 종전엔 산문뿐이라
+#   모델이 안 쓰면 그대로 통과했다 — 공통부를 만들고 아무도 안 쓰는 상태가 조용히 지나간다.
+#   여기 배선한 이유: emit-context 는 dispatch 직전의 원자적 게이트라, 실패가 곧
+#   implementing 진입 차단이다(디스크 작성 0 — 다른 검증과 동일 원자성).
+_REUSE_SH="$SCRIPT_DIR/../_internal/check-foundation-reuse.sh"
+if [ -f "$_REUSE_SH" ]; then
+  if ! reuse_out=$(bash "$_REUSE_SH" "$FID" 2>&1); then
+    printf '%s\n' "$reuse_out" >&2
+    echo "emit-context: foundation 재사용 선언 누락 — tasks.md 보완 후 재실행" >&2
+    exit 1
+  fi
+fi
+
 # 1단계 dry-run 검증 (Python)
 YAML_IN="$yaml" AC_PATH="$AC" python3 - << 'PYEOF' || exit 1
 import os, sys, re, yaml

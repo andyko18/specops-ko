@@ -27,6 +27,8 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 **foundation 재사용 게이트**: spec.md §유형이 `foundation` 이 **아니고** `.specops/memory/foundation-manifest.md` 가 존재하면, 각 task 에 다음 중 하나가 **반드시** 기재되어야 한다 — 누락 시 `specops-ko:implementing-ko` 호출 금지:
 - `**재사용 foundation**: <foundation-manifest.md 의 모듈명>` — foundation 모듈을 재사용하는 경우
 - `**미재사용 근거**: <이유>` — 재사용하지 않는 경우 (예: 해당 task 가 foundation 범위 외)
+
+> **판정 SoT = `scripts/_internal/check-foundation-reuse.sh`** (20260806 기계화). Step 10b 의 `emit-context.sh` 가 **구현 전에** 자동 호출하므로 누락 시 dispatch 자체가 열리지 않는다(디스크 작성 0 — 다른 검증과 동일 원자성). 종전엔 산문뿐이라 모델이 선언을 빠뜨리면 그대로 통과했다 — 공통부를 만들어 놓고 아무도 안 쓰는 상태가 조용히 지나간다. 빈 값·`<모듈명>` 류 placeholder 는 **미기재로 판정**한다(형식만 갖춘 통과 차단).
 </HARD-GATE>
 
 ## trivial / §lite 단축 분기 (plan.md 부재)
