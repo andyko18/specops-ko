@@ -3,7 +3,7 @@ name: using-specops-ko
 description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
-specops_version: 1.26.3
+specops_version: 1.61.0
 used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
 ---
 

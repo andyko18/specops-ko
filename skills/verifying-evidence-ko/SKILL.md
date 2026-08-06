@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
   - specops-ko skills/engine/verifying-evidence-ko.md
-specops_version: 1.59.0
+specops_version: 1.61.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 ---
 

@@ -4,7 +4,7 @@ description: "[단일·대화형] specops-ko 한국어 자율 Lifecycle 단일 �
 triggers:
   - "/start"
 mode: ask
-specops_version: 1.0.0
+specops_version: 1.61.0
 specops_layer: Lifecycle
 reference_upstream: obra/superpowers@v5.0.7 commands/brainstorm.md
 ---
