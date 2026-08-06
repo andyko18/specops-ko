@@ -72,4 +72,17 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T8 Step1 시드 로직 미구현"
 fi
 
+# T9 (20260806 /promote 정밀분석): analyzing promote-fid 분기의 검증 재실행
+# 갭: promote-validate 는 command 레이어(Process 1)에만 배선돼 있었다. 재개 세션·
+#   스킬 직접 호출로 analyzing 에 promote-fid 가 도달하면 재검증 없이 진행 —
+#   already-promoted FID(spec.md 존재)면 specifying 유지보수 분기가 **진행 중
+#   lifecycle 의 spec.md 를 덮어쓴다**. 분기 첫 동작으로 재검증을 요구한다.
+step0p=$(awk '/\[promote-fid 분기\]/{f=1} f&&/^args에서/{f=0} f' "$ANA")
+if printf '%s' "$step0p" | grep -q 'promote-validate.sh' \
+   && printf '%s' "$step0p" | grep -qE 'REJECT.*중단|중단.*REJECT'; then
+  PASS=$((PASS+1)); echo "PASS T9 analyzing 분기 검증 재실행 + REJECT 중단"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9 재검증 부재 — already-promoted spec.md 덮어쓰기 표면"
+fi
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

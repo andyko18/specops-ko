@@ -44,6 +44,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 ### Step 0: FID 생성 + 디렉토리 보장 (AC-1)
 
 **[promote-fid 분기]** (신규 — `/promote` 진입): args 둘째 줄이 `<!-- promote-fid: <FID> -->` 이면:
+- **★ 검증 재실행 (분기 첫 동작 — 20260806)**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/promote-validate.sh <FID>` 를 실행해 `OK` 확인. `REJECT:*` 면 사유 출력 후 **분기 중단**(chain 진행 금지). 검증은 `/promote` command 레이어에도 있지만, 재개 세션·스킬 직접 호출로 여기 도달하는 경로엔 그 레이어가 없다 — `already-promoted`(spec.md 존재) FID 로 진행하면 specifying 유지보수 분기가 **진행 중 lifecycle 의 spec.md 를 덮어쓴다**.
 - 해당 `<FID>` 를 그대로 사용 — **새 FID 슬러그 생성 skip**. `mkdir -p .specops/<FID>`·`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh <FID>` 는 그대로(idempotent — FID 이미 존재).
 - current-state.md §1 변경 대상을 **`.specops/<FID>/freework.md` 의 `files`** + 실제 변경(`git diff HEAD` 미커밋 우선, 빈손이면 `git log` 최근 커밋 변경 fallback)으로 시드한다.
 - §4 관찰 동작은 freework.md 요약 + 위 변경 상태로 캡처.
