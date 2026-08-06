@@ -98,10 +98,13 @@ if [ -n "$_last_tag" ]; then
     [ -n "$_f" ] || continue
     [ -f "$PLUGIN_ROOT/$_f" ] || continue
     # footer 스탬프 줄을 제외한 실질 변경이 있는가
-    # grep 무매치는 rc=1 — set -e·pipefail 하에서 스크립트를 죽인다 (|| true 필수)
-    _subst=$( { git -C "$PLUGIN_ROOT" diff -U0 "$_last_tag" -- "$_f" 2>/dev/null \
+    # grep 무매치는 rc=1 — set -e·pipefail 하에서 스크립트를 죽인다.
+    #   `{ …; } || echo 0` 은 wc 가 이미 "0" 을 낸 뒤 echo 가 **한 번 더** 붙어
+    #   "0\n0" 이 되고, `[ "0\n0" -gt 0 ]` 가 integer 오류 → 그 파일이 조용히 누락된다.
+    #   파이프라인 끝에 `|| true` 만 붙여 stdout(정상 "0")은 그대로 쓰고 exit 만 흡수한다.
+    _subst=$(git -C "$PLUGIN_ROOT" diff -U0 "$_last_tag" -- "$_f" 2>/dev/null \
       | grep -E '^[+-]' | grep -Ev '^[+-][+-]' | grep -Ev '^[+-]\*specops-ko ' \
-      | wc -l | tr -d ' '; } 2>/dev/null || echo 0)
+      | wc -l | tr -d ' ' || true)
     [ "${_subst:-0}" -gt 0 ] || continue
     _cur=$( { awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}' \
       "$PLUGIN_ROOT/$_f" 2>/dev/null; } || true)

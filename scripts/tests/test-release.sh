@@ -320,6 +320,22 @@ out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.
   && ok "T19.c footer-only diff → 무경고" || fail "T19.c (rc=$rc out='$out')"
 rm -rf "$TD"
 
+# T19.f: ★ diff 집계가 stderr 오류를 내지 않는다 (20260806 회귀)
+# 결함: `{ pipeline; } 2>/dev/null || echo 0` 은 wc 가 이미 "0" 을 낸 뒤 `echo 0` 이
+#   **한 번 더** 붙어 "0\n0" 이 된다(set -euo pipefail 에서 grep 무매치 → 파이프라인 실패).
+#   그러면 `[ "0\n0" -gt 0 ]` 가 `integer expression expected` 를 뱉고 rc=2 →
+#   `|| continue` 로 흡수돼 **그 파일은 판정에서 조용히 누락**된다(false negative + 잡음).
+#   dast-scan.sh 가 이미 문서화한 `grep -c` 0매치 패턴의 재발.
+TD=$(mktemp -d); _make_git_fixture "$TD"
+git -C "$TD" tag v1.9.0
+sed -i.bak 's/^\*specops-ko v1.8.0.*/*specops-ko v1.9.0 · 2026-01-02 · test*/' "$TD/commands/cmd.md"
+rm -f "$TD/commands/cmd.md.bak"
+git -C "$TD" add -A && git -C "$TD" commit -qm "chore: footer 스탬프만"
+err=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1 >/dev/null)
+! printf '%s' "$err" | grep -q 'integer expression expected' \
+  && ok "T19.f diff 집계 stderr 오류 0 (0매치 이중값 회귀)" || fail "T19.f (err='$err')"
+rm -rf "$TD"
+
 # T19.e: ★ 직전 태그 시점에 **없던 파일**이 있어도 죽지 않는다 (20260806 회귀)
 # 결함: `git show <tag>:<newfile>` 은 exit 128 이고, release.sh 는 set -euo pipefail 이라
 #   그 자리에서 스크립트가 통째로 중단됐다(rc=128). 신규 커맨드가 추가된 릴리즈는
