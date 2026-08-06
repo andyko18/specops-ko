@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.62.0] — 2026-08-06
+
 ### Changed
 - **`§lite` FID 의 Phase B/C 생략을 하드 차단으로 승격 (lite 검토 20260806)** — `review-presence` 관측을 warn-first 로 도입한 이유는 소급 영향이었다(전체 FID 20건 중 **7건**이 무리뷰 → 즉시 하드화 시 35% 소급 FAIL). 그런데 lite 를 따로 재보니 **`§lite` FID 는 실측 0건**이었다(v1.60 도입 직후). 그리고 lite 는 clarify·plan 을 **이미 뺀** 모드라 **Phase B/C 가 남은 유일한 리뷰층**이다 — 여기서도 B/C 가 사라지면 lite 는 `spec → implement → verify` 로 외부 리뷰가 0 이 된다. 즉 **"가장 필요한 곳"과 "소급 비용이 가장 싼 곳"이 일치**한다. `§lite` 만 rc=1(차단)로 올리고 비-lite 는 warn 유지(기존 계약 무손상). `run-verification` 이 rc 를 판정에 반영하도록 배선 — 종전엔 rc 를 버려 §lite 차단이 관문에 도달하지 못했다(T10.d 로 잠금). E2E: §lite → `VERIFY: FAIL review-presence`, 비-lite → `WARN` + `VERIFY: PASS` 동시 실증. 테스트 4건(T10.a~d), mutation 비-vacuous.
 
@@ -916,7 +918,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.61.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.62.0...HEAD
+[1.62.0]: https://github.com/andyko18/specops-ko/compare/v1.61.0...v1.62.0
 [1.61.0]: https://github.com/andyko18/specops-ko/compare/v1.60.0...v1.61.0
 [1.60.0]: https://github.com/andyko18/specops-ko/compare/v1.59.0...v1.60.0
 [1.59.0]: https://github.com/andyko18/specops-ko/compare/v1.58.0...v1.59.0
