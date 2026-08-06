@@ -320,6 +320,26 @@ out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.
   && ok "T19.c footer-only diff → 무경고" || fail "T19.c (rc=$rc out='$out')"
 rm -rf "$TD"
 
+# T19.e: ★ 직전 태그 시점에 **없던 파일**이 있어도 죽지 않는다 (20260806 회귀)
+# 결함: `git show <tag>:<newfile>` 은 exit 128 이고, release.sh 는 set -euo pipefail 이라
+#   그 자리에서 스크립트가 통째로 중단됐다(rc=128). 신규 커맨드가 추가된 릴리즈는
+#   **항상** 이 경로를 탄다 — 실측: v1.60.0 이후 추가된 commands/start-lite.md.
+#   워킹트리가 dirty 하면 T10.b 가 skip 되어 세션 내내 가려져 있었다.
+TD=$(mktemp -d); _make_git_fixture "$TD"
+git -C "$TD" tag v1.9.0
+cat > "$TD/commands/newcmd.md" <<'CMD'
+---
+name: newcmd
+specops_version: 1.9.0
+---
+태그 이후 신설된 커맨드.
+CMD
+git -C "$TD" add -A && git -C "$TD" commit -qm "feat: 신규 커맨드 추가"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'DRY-RUN 완료' \
+  && ok "T19.e 태그 시점 부재 파일 → 중단 없이 완주" || fail "T19.e (rc=$rc out='$out')"
+rm -rf "$TD"
+
 # T19.d: 태그 부재(최초 릴리즈) → 판정 불가 fail-open, 차단 없음
 TD=$(mktemp -d); _make_git_fixture "$TD"
 out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?

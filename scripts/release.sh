@@ -103,10 +103,14 @@ if [ -n "$_last_tag" ]; then
       | grep -E '^[+-]' | grep -Ev '^[+-][+-]' | grep -Ev '^[+-]\*specops-ko ' \
       | wc -l | tr -d ' '; } 2>/dev/null || echo 0)
     [ "${_subst:-0}" -gt 0 ] || continue
-    _cur=$(awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}' \
-      "$PLUGIN_ROOT/$_f" 2>/dev/null)
-    _old=$(git -C "$PLUGIN_ROOT" show "$_last_tag:$_f" 2>/dev/null \
-      | awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}')
+    _cur=$( { awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}' \
+      "$PLUGIN_ROOT/$_f" 2>/dev/null; } || true)
+    # `git show <tag>:<newfile>` 은 태그 시점에 없던 파일이면 **exit 128** 이다.
+    #   set -euo pipefail 하에서 그대로 두면 스크립트가 통째로 중단된다(실측 rc=128) —
+    #   신규 커맨드가 추가된 릴리즈는 항상 이 경로를 탄다. 빈 문자열로 흡수하면
+    #   아래 `[ -n "$_old" ]` 가 자연히 걸러 "신규 파일은 부패 판정 대상 아님" 이 된다.
+    _old=$( { git -C "$PLUGIN_ROOT" show "$_last_tag:$_f" 2>/dev/null \
+      | awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}'; } || true)
     [ -n "$_cur" ] && [ -n "$_old" ] && [ "$_cur" = "$_old" ] && _stale="${_stale} $_f"
   done <<EOF
 $(git -C "$PLUGIN_ROOT" diff --name-only "$_last_tag" -- 'commands/*.md' 'skills/*/SKILL.md' 'agents/*.md' 2>/dev/null)
