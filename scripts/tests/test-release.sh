@@ -282,6 +282,51 @@ out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.
   && ok "T18.c 신선 스탬프 → 무경고 + release 계속" || fail "T18.c (rc=$rc out='$out')"
 rm -rf "$TD"
 
+# ── T19: specops_version 부패 soft 경고 (M1, 20260806) ──────────────────────
+# 실측 부패: start.md 가 d1af18d(08-04)에서 end-loaded 절이 추가됐는데 frontmatter 는 1.0.0.
+# release.sh FR-7 은 footer↔frontmatter **동기**만 하고, "본문이 바뀌었는데 버전이 그대로"는
+# 아무도 안 본다. CLAUDE.md 규약("마지막 substantive 변경 버전")이 조용히 썩는다.
+_stale_fixture() {  # $1=dir — 직전 태그 이후 본문 변경 + 버전 미bump
+  _make_git_fixture "$1"
+  git -C "$1" tag v1.9.0
+  printf '\n추가된 본문 절 — substantive 변경.\n' >> "$1/commands/cmd.md"
+  git -C "$1" add -A && git -C "$1" commit -qm "feat: cmd 본문 변경 (버전 미bump)"
+}
+
+TD=$(mktemp -d); _stale_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'specops_version 미갱신' && echo "$out" | grep -q 'commands/cmd.md' \
+  && ok "T19.a 본문 변경 + 버전 미bump → soft 경고" || fail "T19.a (rc=$rc out='$out')"
+rm -rf "$TD"
+
+# T19.b: 버전을 올렸으면 무경고 (false-positive 없음)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+git -C "$TD" tag v1.9.0
+printf '\n본문 변경.\n' >> "$TD/commands/cmd.md"
+sed -i.bak 's/^specops_version: 1.9.0/specops_version: 1.10.0/' "$TD/commands/cmd.md" && rm -f "$TD/commands/cmd.md.bak"
+git -C "$TD" add -A && git -C "$TD" commit -qm "feat: 본문 변경 + 버전 bump"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'specops_version 미갱신' \
+  && ok "T19.b 버전 bump 됨 → 무경고" || fail "T19.b (rc=$rc out='$out')"
+rm -rf "$TD"
+
+# T19.c: footer 스탬프만 바뀐 diff 는 substantive 아님 → 무경고 (release.sh FR-7 이 매 릴리즈 건드림)
+TD=$(mktemp -d); _make_git_fixture "$TD"
+git -C "$TD" tag v1.9.0
+sed -i.bak 's/^\*specops-ko v1.8.0.*/*specops-ko v1.9.0 · 2026-01-02 · test*/' "$TD/commands/cmd.md" && rm -f "$TD/commands/cmd.md.bak"
+git -C "$TD" add -A && git -C "$TD" commit -qm "chore: footer 스탬프만"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'specops_version 미갱신' \
+  && ok "T19.c footer-only diff → 무경고" || fail "T19.c (rc=$rc out='$out')"
+rm -rf "$TD"
+
+# T19.d: 태그 부재(최초 릴리즈) → 판정 불가 fail-open, 차단 없음
+TD=$(mktemp -d); _make_git_fixture "$TD"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'specops_version 미갱신' \
+  && ok "T19.d 태그 부재 → fail-open 무경고" || fail "T19.d (rc=$rc out='$out')"
+rm -rf "$TD"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

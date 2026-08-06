@@ -152,4 +152,37 @@ else
   nope "decomposing-ko P4 선언 넛지 소실" "implementing-ko 자동호출 R-3 warn 재발"
 fi
 
+# ── /security-scan 소유확인 게이트 (M3, 20260806) ────────────────
+# DAST 는 타인 서버에 쏘면 불법이다. 소유 확인 프롬프트는 **법적 안전장치**인데
+# 커맨드 문서에 문구만 있고 이를 잠그는 테스트가 0 이었다 — 리팩터링에서 조용히 사라질 수 있다.
+S=commands/security-scan.md
+# ★ 프롬프트 **한 줄** 안에 소유확인 + [y/N] 이 함께 있어야 한다.
+#   느슨하게 '본인 소유' 만 보면 §안티패턴의 서술문("본인 소유가 아닌 서버를 스캔하면 불법")에
+#   걸려 프롬프트를 지워도 통과한다 — mutation 으로 실제 확인된 false-pass.
+if grep -qE '본인 소유.*\[y/N\]' "$S"; then
+  ok "security-scan DAST 소유확인 프롬프트 존재 (법적 안전장치)"
+else
+  nope "security-scan 소유확인 프롬프트 소실" "'본인 소유…[y/N]' 단일 줄 부재"
+fi
+if grep -qE '무단.*불법|불법.*무단|무단 스캔' "$S"; then
+  ok "security-scan 무단 스캔 위법 고지 존재"
+else
+  nope "security-scan 위법 고지 소실" "무단 스캔 경고 문구 부재"
+fi
+# 승인 없이 dast-scan.sh 를 먼저 실행하는 순서 역전 방지 — 경고(Process 1)가 DAST(Process 3)보다 앞
+_l_warn=$(grep -n '능동 스캔 경고' "$S" | head -1 | cut -d: -f1)
+_l_dast=$(grep -n 'dast-scan.sh' "$S" | head -1 | cut -d: -f1)
+if [ -n "$_l_warn" ] && [ -n "$_l_dast" ] && [ "$_l_warn" -lt "$_l_dast" ]; then
+  ok "security-scan 승인→DAST 순서 보존"
+else
+  nope "security-scan 순서 역전" "warn=$_l_warn dast=$_l_dast"
+fi
+
+# ── self-config 적대감사 토큰 경고 (M3 동반) ─────────────────────
+if has "$S" 'self-config' '토큰 비용' '\[y/N\]'; then
+  ok "security-scan --self-config 토큰 경고 게이트 존재"
+else
+  nope "security-scan self-config 토큰 경고 소실" "3 서브에이전트 dispatch 무경고"
+fi
+
 finish

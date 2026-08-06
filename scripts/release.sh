@@ -85,6 +85,39 @@ else
   fi
 fi
 
+# M1: specops_version 부패 soft 경고 (비차단 — 20260806 커맨드 전수 분석)
+# FR-7 은 footer↔frontmatter **동기**만 한다. "본문이 substantive 하게 바뀌었는데 버전이
+# 직전 태그와 동일" 은 아무도 안 봐서 CLAUDE.md 규약("마지막 substantive 변경 버전")이
+# 조용히 썩는다. 실측: start.md 가 d1af18d 에서 end-loaded 절을 얻고도 1.0.0 잔존.
+# footer 스탬프 줄만 바뀐 diff 는 substantive 가 아니다 — FR-7 이 매 릴리즈 건드리므로 제외.
+# 태그 부재(최초 릴리즈)·git 실패는 fail-open.
+_last_tag=$(git -C "$PLUGIN_ROOT" describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+if [ -n "$_last_tag" ]; then
+  _stale=""
+  while IFS= read -r _f; do
+    [ -n "$_f" ] || continue
+    [ -f "$PLUGIN_ROOT/$_f" ] || continue
+    # footer 스탬프 줄을 제외한 실질 변경이 있는가
+    # grep 무매치는 rc=1 — set -e·pipefail 하에서 스크립트를 죽인다 (|| true 필수)
+    _subst=$( { git -C "$PLUGIN_ROOT" diff -U0 "$_last_tag" -- "$_f" 2>/dev/null \
+      | grep -E '^[+-]' | grep -Ev '^[+-][+-]' | grep -Ev '^[+-]\*specops-ko ' \
+      | wc -l | tr -d ' '; } 2>/dev/null || echo 0)
+    [ "${_subst:-0}" -gt 0 ] || continue
+    _cur=$(awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}' \
+      "$PLUGIN_ROOT/$_f" 2>/dev/null)
+    _old=$(git -C "$PLUGIN_ROOT" show "$_last_tag:$_f" 2>/dev/null \
+      | awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}')
+    [ -n "$_cur" ] && [ -n "$_old" ] && [ "$_cur" = "$_old" ] && _stale="${_stale} $_f"
+  done <<EOF
+$(git -C "$PLUGIN_ROOT" diff --name-only "$_last_tag" -- 'commands/*.md' 'skills/*/SKILL.md' 'agents/*.md' 2>/dev/null)
+EOF
+  if [ -n "$_stale" ]; then
+    echo "⚠️  specops_version 미갱신 (${_last_tag} 이후 본문 변경, soft):" >&2
+    for _f in $_stale; do echo "      - $_f" >&2; done
+    echo "    CLAUDE.md 규약: specops_version = 본문이 마지막으로 substantive 변경된 버전" >&2
+  fi
+fi
+
 CHANGELOG="$PLUGIN_ROOT/CHANGELOG.md"
 README="$PLUGIN_ROOT/README.md"
 DATE=$(date +%Y-%m-%d)
