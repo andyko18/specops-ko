@@ -18,6 +18,46 @@ screen_is_placeholder() {
   grep -qF "$SCREEN_PLACEHOLDER_MARKER" "$1"
 }
 
+# 필수 8섹션 (specifying-ko Step 5.5 · /design-screen(s) 공통 계약).
+# 조건부 4섹션(RBAC·반응형·접근성·진입/이탈)은 미해당 시 넣지 않는 규약이라 대상 아님.
+SCREEN_REQUIRED_SECTIONS="목적
+Layout
+Components
+States
+Interactions
+필드 정의표
+데이터 소스
+에러 메시지"
+
+# screen_missing_sections <file.md> — 미완 섹션명을 줄단위 출력 (없으면 무출력)
+#
+# 왜 필요한가: 마커는 "채우면 이 줄을 삭제한다" 규약이라 **모델이 스스로 지워
+#   '채웠다'고 선언**하는 자기보고다(20260806). 마커만 지우고 섹션을 비워도
+#   FILLED 로 통과했다 — 선언된 필수 8섹션을 실제로 검사한다.
+#   헤더만 있고 본문이 비면 미완(헤더 복사만으로 통과 방지).
+screen_missing_sections() {
+  local f="$1" sec
+  [ -f "$f" ] || return 0
+  case "$f" in *.md) ;; *) return 0 ;; esac   # .html 은 마커 판정만
+  while IFS= read -r sec; do
+    [ -n "$sec" ] || continue
+    SEC="$sec" awk '
+      BEGIN { want = ENVIRON["SEC"]; found = 0; body = 0 }
+      /^##[[:space:]]/ {
+        if (inblk) { inblk = 0 }
+        h = $0; sub(/^##[[:space:]]+/, "", h)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", h)
+        if (h == want) { found = 1; inblk = 1 }
+        next
+      }
+      inblk && NF > 0 { body = 1 }
+      END { exit((found && body) ? 0 : 1) }
+    ' "$f" || printf '%s\n' "$sec"
+  done <<EOF
+$SCREEN_REQUIRED_SECTIONS
+EOF
+}
+
 # --check 진입점 — 소비처(Phase 2.5 · Step 5.5 · verify backstop)가 호출.
 # 기존 `<name> [--force]` 경로보다 앞에서 즉시 exit 하므로 스캐폴딩 동작에 무접촉.
 if [ "${1:-}" = "--check" ]; then
@@ -30,6 +70,13 @@ if [ "${1:-}" = "--check" ]; then
   for _f in "$@"; do
     if screen_is_placeholder "$_f"; then
       echo "PLACEHOLDER: $_f"
+      _check_rc=0
+      continue
+    fi
+    # 마커는 지웠지만 필수 8섹션이 미완이면 여전히 껍데기다 (자기보고 차단)
+    _miss=$(screen_missing_sections "$_f")
+    if [ -n "$_miss" ]; then
+      echo "PLACEHOLDER: $_f (필수 섹션 미완: $(printf '%s' "$_miss" | tr '\n' ',' | sed 's/,$//'))"
       _check_rc=0
     fi
   done
