@@ -70,6 +70,20 @@ if [ -f "$_REGAC_SH" ]; then
   fi
 fi
 
+# AC 필드 게이트 (20260807 OpenSpec 갭분석 G1) — **아래 must 커버리지 검사의 전제**.
+#   그 검사는 `**우선순위**: must` 가 있는 AC 만 대상으로 삼는다(하위호환 fail-open).
+#   필드가 없으면 must_ids=[] 가 되어 검사가 무음으로 꺼지므로, 스위치의 존재를 먼저 강제한다.
+#   실측 20260807: AC 픽스처 7개 중 6개가 우선순위 0건 — 그 문서들에선 검사가 죽어 있었다.
+_ACFMT_SH="$SCRIPT_DIR/../_internal/check-ac-format.sh"
+if [ -f "$_ACFMT_SH" ]; then
+  if ! acfmt_out=$(bash "$_ACFMT_SH" "$FID" 2>&1); then
+    printf '%s\n' "$acfmt_out" >&2
+    echo "emit-context: AC 필드 미충족 — acceptance-criteria.md 보완 후 재실행" >&2
+    exit 1
+  fi
+  printf '%s\n' "$acfmt_out" | grep '^AC-FORMAT: WARN' >&2 || true
+fi
+
 # foundation 기술스택 확정 증거 (clarify 층 봉합).
 #   clarify 단계엔 스크립트가 반드시 지나는 관문이 없어(specify→clarify→plan 전부 대화)
 #   BLOCKING 강제가 산문으로만 남았다. 결정의 **증거**를 구현 직전인 여기서 확인한다.

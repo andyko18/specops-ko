@@ -518,8 +518,15 @@ _bak=$(mktemp)
 cp "$PLUGIN/skills/specifying-ko/SKILL.md" "$_bak"
 python3 - "$PLUGIN/skills/specifying-ko/SKILL.md" <<'PYEOF'
 import sys
+# hardgate_classified 는 **파일 전체**에서 분류 토큰을 찾는다(블록 스코프 아님).
+#   따라서 한 문구만 지우면 같은 파일의 다른 `판정 SoT` 언급이 규칙을 만족시켜
+#   변이가 통과한다(20260807 실측 — specifying-ko Step 6 에 AC 게이트 SoT 를
+#   추가하자 본 테스트가 vacuous 로 전환됐다). 세 토큰을 모두 제거해야
+#   "메타 규칙이 실제로 본다" 를 검사할 수 있다.
 p=sys.argv[1]; s=open(p,encoding="utf-8").read()
-open(p,"w",encoding="utf-8").write(s.replace("**판정: 대화 게이트 (기계화 불가)**","**설명**",1))
+for tok in ("판정 SoT", "기계화 불가", "대화 게이트"):
+    s = s.replace(tok, "설명")
+open(p,"w",encoding="utf-8").write(s)
 PYEOF
 out2=$(bash "$SCRIPT" 2>&1)
 cp "$_bak" "$PLUGIN/skills/specifying-ko/SKILL.md"; rm -f "$_bak"

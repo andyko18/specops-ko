@@ -45,6 +45,7 @@ used_by: implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC �
 2. 모든 AC는 **관찰 가능한 결과**로 서술. "내부적으로 ... 호출" 같은 구현 디테일 금지.
 3. 우선순위: `must` 항목 전부 충족되지 않으면 `/verify`는 PASS 불가.
 4. Evaluator는 계약서의 AC 번호로 참조(`AC-3 실패`)하여 판정.
+5. **AC 필드는 기계 검증된다** — 판정 SoT = `scripts/_internal/check-ac-format.sh` (20260807, `emit-context.sh` 가 구현 직전 자동 호출). AC 블록마다 **Given·When·Then·우선순위** 필수, 값은 `must`·`should`·`nice-to-have`. `**우선순위**` 누락은 단순 서식 문제가 아니다 — `emit-context.sh` 의 **must AC 역방향 커버리지** 검사가 `**우선순위**: must` 인 AC 만 대상으로 삼으므로, 필드가 없으면 그 검사가 **무음으로 꺼진다**(필수 AC 가 태스크 매핑 없이 통과 → 영영 미구현). 회귀 AC(`AC-R-*`)는 대상 밖 — SoT 는 `check-regression-ac.sh`.
 
 ## 체크리스트 (Evaluator)
 
