@@ -326,10 +326,37 @@ make_r5_transcript() {
   printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"%s","old_string":"x","new_string":"y"}}]}}\n' "$spec_path" > "$out"
 }
 
+# ── R-5 실호출 증거 게이트 (20260806) ────────────────────────────────────────
+# 종전 R-5 는 `## N. Advisor 협의 기록` 에 data row 가 **있기만 하면** PASS 했다 —
+# 모델이 스스로 쓰는 표라 자기발급 면제표였다. R-1/R-2 의 실행-근거 게이트와 동형으로,
+# 협의를 **주장**하면 transcript 의 실호출 증거를 요구한다.
+# advisor 는 서버사이드 도구라 `server_tool_use`(name=advisor) ↔ `advisor_tool_result`
+# 로 기록된다(실측 — 일반 tool_use/tool_result 가 아니다).
+_r5_transcript() {  # $1=대상 파일 $2=출력 $3=증거모드(none|advisor|advisor-error|critic)
+  local fp="$1" out="$2" mode="${3:-none}"
+  printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"%s","old_string":"x","new_string":"y"}}]}}\n' "$fp" > "$out"
+  case "$mode" in
+    advisor)
+      printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"server_tool_use","name":"advisor","id":"srvtoolu_A1","input":{}}]}}\n' >> "$out"
+      printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"advisor_tool_result","tool_use_id":"srvtoolu_A1","content":"권고 요지"}]}}\n' >> "$out"
+      ;;
+    advisor-error)
+      printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"server_tool_use","name":"advisor","id":"srvtoolu_A2","input":{}}]}}\n' >> "$out"
+      printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"advisor_tool_result","tool_use_id":"srvtoolu_A2","is_error":true,"content":"failed"}]}}\n' >> "$out"
+      ;;
+    critic)
+      printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","id":"tu_C1","input":{"command":"bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/x/plan.md"}}]}}\n' >> "$out"
+      printf '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_C1","content":"CRITIC: OK"}]}}\n' >> "$out"
+      ;;
+  esac
+}
+
 # T10.a R-5 data row 1+ → 미매칭
+# (20260806) 실호출 증거 게이트 도입 후 data row 만으로는 통과하지 않는다 — 본 케이스는
+#   섹션 파싱 축을 보므로 advisor 실호출을 함께 둔다. 증거 축은 T10.i~T10.n 소관.
 rule_r5=$(jq -c 'select(.id == "R-5")' "$PLUGIN/hooks/rules.jsonl")
 tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
-make_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" advisor
 out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
 if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T10.a data row 존재 → 미매칭"
@@ -455,6 +482,75 @@ if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T10.f Write(신규 생성) + 섹션 부재 → 미매칭 (v0.5 W2)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T10.f (out=$out)"
+fi
+rm -rf "$tmp"
+
+
+# T10.i data row + advisor 실호출 → 미매칭
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" advisor
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.i data row + advisor 실호출 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.i (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.j ★ data row 만 있고 실호출 없음 → 매칭 (자기보고 면제표 차단)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" none
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.j data row + 실호출 없음 → 매칭 (자기보고 차단)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.j (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.k data row + critic-ask 공식 fallback 실행 → 미매칭 (advisor 미연결 정직 경로)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" critic
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.k data row + critic-ask 실행 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.k (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.l advisor 호출했으나 is_error → 증거 불인정 → 매칭
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" advisor-error
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-5"' >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T10.l advisor is_error → 증거 불인정 → 매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.l (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.m "해당 없음" 정직 선언 + 실호출 없음 → 미매칭 (한계 고백은 통과 — 원칙 5)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-haedang-eopseum.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" none
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.m '해당 없음' + 실호출 없음 → 미매칭 (정직 선언 통과)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.m (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.n transcript 에 assistant 이벤트 0건 → 판정 불가 fail-open (미매칭)
+tmp=$(mktemp -d); cp "$FIXTURES/r5-with-data-row.md" "$tmp/spec.md"
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" none
+out_ref=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")   # 매칭 전제 확인
+: > "$tmp/empty.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/empty.jsonl")
+if [ -n "$out_ref" ] && [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.n 이벤트 0건 → fail-open 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.n (ref=$out_ref out=$out)"
 fi
 rm -rf "$tmp"
 

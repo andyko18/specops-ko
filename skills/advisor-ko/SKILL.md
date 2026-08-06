@@ -78,6 +78,23 @@ advisor()
 
 ---
 
+## 기계 검증 — R-5 실호출 증거 게이트 (20260806)
+
+`## N. Advisor 협의 기록` 에 **표를 쓰는 것만으로는 통과하지 않는다.** R-1/R-2 의 실행-근거 게이트와 동형으로, 협의를 **주장**하면 transcript 의 실호출 증거를 요구한다 (`governance-lib.sh:_advisor_exec_evidence`).
+
+| 섹션 상태 | transcript 증거 | R-5 판정 |
+|---|---|---|
+| `해당 없음` (정직 선언) | 불요 | 통과 — 원칙 5 한계 고백 |
+| data row 1+ | `server_tool_use`(name=advisor) ↔ `advisor_tool_result`(비-error) | 통과 |
+| data row 1+ | `critic-ask.sh` Bash 실행 + 성공 결과 | 통과 — advisor 미연결 공식 fallback |
+| data row 1+ | 없음 | **위반 기록** — 자기발급 면제표 |
+| 섹션 부재·빈 섹션 | — | 위반 (기존) |
+
+- advisor 는 서버사이드 도구라 일반 `tool_use`/`tool_result` 가 **아니다** — `server_tool_use`/`advisor_tool_result` 로 기록된다(실측 확인). 일반 tool_use 만 보는 검사로는 영원히 0건이다.
+- **fail-open**: transcript 부재·jq 실패·content 블록 0건은 판정 불가로 두고 기존 관대 동작 유지.
+- 강도는 `Stop` 훅 **warn**(friction-log 기록) — 커밋·PR 을 막지 않는다. advisor 는 비용·latency 트레이드오프가 있어 hard block 대상이 아니다.
+- 함의: **advisor 를 못 부르는 세션이면 표를 쓰지 말고 `해당 없음` + 사유를 쓴다.** 아래 연결 진단 4원인 안내가 그 경로다.
+
 ## 5 원칙 매핑 요약
 
 | advisor 원칙 | specops-ko 5 원칙 |

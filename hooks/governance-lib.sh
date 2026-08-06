@@ -677,10 +677,52 @@ apply_assertion_without_test_rule() {
   fi
 }
 
+# advisor 실호출 증거 판정 (20260806) — R-5 자기보고 면제표 봉합
+#
+# advisor 는 **서버사이드 도구**라 transcript 에 일반 tool_use/tool_result 로 남지 않는다.
+# 실측 기록 형태: assistant 메시지의 `server_tool_use`(name="advisor", id=srvtoolu_*) ↔
+#   `advisor_tool_result`(tool_use_id 동일). 일반 tool_use 만 보던 코드로는 영원히 0건이라
+#   이 형태를 직접 join 한다.
+# critic-ask.sh 도 인정한다 — advisor 미연결 시의 **공식 fallback**(advisor-ko §외부 모델 위탁)이라
+#   이를 불인정하면 정직한 미연결 세션이 위반으로 찍힌다.
+# 반환: 0=실호출 증거 있음 / 1=없음 / 2=판정 불가(fail-open)
+_advisor_exec_evidence() {
+  local transcript="$1"
+  [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
+  command -v jq >/dev/null 2>&1 || return 2
+  local out
+  out=$(jq -rn --slurpfile a "$transcript" '
+    ([ $a[] | .message?.content? | select(type=="array") | .[] ]) as $blk
+    # 이벤트 0건 = "호출 안 했다"와 "transcript 를 못 읽었다"를 구별 불가 → 판정 불가
+    | ($blk | length) as $n
+    | if $n == 0 then "UNKNOWN"
+      else
+        ([ $blk[] | select(.type=="server_tool_use" and .name=="advisor") | .id ]) as $calls
+        | ([ $blk[] | select(.type=="advisor_tool_result" and (.is_error != true)) | .tool_use_id ]) as $oks
+        | ([ $calls[] | select(. as $c | $oks | index($c)) ] | length) as $adv
+        # critic-ask 공식 fallback
+        | ([ $blk[] | select(.type=="tool_use" and .name=="Bash"
+                             and ((.input.command // "") | test("critic-ask\\.sh"))) | .id ]) as $ccalls
+        | ([ $blk[] | select(.type=="tool_result" and (.is_error != true)) | .tool_use_id ]) as $coks
+        | ([ $ccalls[] | select(. as $c | $coks | index($c)) ] | length) as $crit
+        | if ($adv + $crit) > 0 then "HIT" else "MISS" end
+      end
+  ' "$transcript" 2>/dev/null) || return 2
+  case "$out" in
+    HIT) return 0 ;;
+    MISS) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
 # R-5 매처 — 세션 중 수정된 spec/plan/analysis md 의 Advisor 협의 기록 섹션 검사
 # usage: apply_advisor_section_rule <rule_json> <transcript>
-# PASS 조건: 섹션 내 data row 1+ 또는 "해당 없음" 문자열 존재 (Q-D 관대)
+# PASS 조건: (a) 섹션 내 "해당 없음"(정직 선언 — 원칙 5) 또는
+#            (b) data row 1+ **이면서** transcript 에 advisor/critic-ask 실호출 증거
 # 매칭 조건: target_files 중 하나라도 위 PASS 조건 미충족
+# 자기보고 봉합(20260806): 종전엔 data row 존재만으로 통과해 모델이 표를 쓰면 스스로 면제됐다.
+#   R-1/R-2 실행-근거 게이트와 동형으로 "협의했다" 주장에는 실호출 증거를 요구한다.
+#   판정 불가(rc=2)는 fail-open — 기존 관대 동작 유지.
 apply_advisor_section_rule() {
   local rule="$1" transcript="$2"
   [ -f "$transcript" ] || return 0
@@ -732,6 +774,14 @@ EOF_T
     if [ "$data_rows" -eq 0 ] && [ "$has_hae" -eq 0 ]; then
       match_result="섹션 미충족: $fp"
       break
+    fi
+    # 협의를 **주장**하면(data row 1+, "해당 없음" 아님) 실호출 증거를 요구한다
+    if [ "$data_rows" -gt 0 ] && [ "$has_hae" -eq 0 ]; then
+      _advisor_exec_evidence "$transcript"
+      case $? in
+        1) match_result="협의 기록 있으나 advisor 실호출 증거 없음: $fp"; break ;;
+        *) : ;;   # 0=증거 있음 · 2=판정 불가(fail-open)
+      esac
     fi
   done <<EOF_M
 $modified_files
