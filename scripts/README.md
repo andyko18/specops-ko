@@ -259,3 +259,5 @@ bash scripts/_internal/check-propagation.sh
 ```
 
 신규 게이트·allowlist·Critical cap 등 **소비처가 있는 계약**을 추가·변경할 때 `propagation-matrix.jsonl`에 edge 행을 함께 갱신합니다. `scripts/tests/test-propagation.sh`가 run-all에 포함됩니다.
+
+**edge 는 계약 토큰이 아니라 소비 문자열까지 잡아야 합니다.** 실측(44cd095): `batch-review-skip` edge 가 토큰만 요구해, revert 가 `commands/start-all.md`에서 `risk-profile.json` 경로만 떨어뜨렸을 때 스캔은 통과하고 `test-screen-generation-gate` T1.e 만 하루 red 로 남았습니다. 소비처가 **읽는 파일 경로·필드명**을 edge 에 포함하세요.

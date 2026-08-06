@@ -14,7 +14,7 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 
 # P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="batch-review-skip,design-critical-cap,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured,review-verdict-contract"
+expected="batch-review-skip,design-critical-cap,end-loaded-skip,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured,review-verdict-contract"
 if [ "$ids" = "$expected" ]; then
   ok "P1 matrix id 정렬 일치"
 else
@@ -69,5 +69,24 @@ if grep -q 'propagation-matrix' "$PLUGIN/scripts/README.md"; then
 else
   nope "P6" "README 안내 부재"
 fi
+
+# P7: 실제 드리프트 회귀 락 — batch-review-skip 이 소비 경로 문자열까지 요구하는가
+#     계기 44cd095: revert 가 start-all.md 에서 risk-profile.json 경로만 떨어뜨렸는데
+#     구 edge(batch-review-skip 토큰만)는 통과했고 T1.e 가 하루 red 로 방치됐다.
+if jq -es 'map(select(.id=="batch-review-skip").edges[]
+             | select(.path=="commands/start-all.md" and (.must_match|test("risk-profile"))))
+           | length > 0' "$MATRIX" >/dev/null; then
+  ok "P7 batch-review-skip 이 start-all 소비 경로까지 락"
+else
+  nope "P7" "start-all.md ~ risk-profile 경로 edge 부재 (44cd095 재발 가능)"
+fi
+
+# P8: end-loaded 리뷰 계약 4자 전파 (implementing 산출 → requesting 사유 → start-all 조건 → batch-state 재검)
+el_paths=$(jq -rs 'map(select(.id=="end-loaded-skip").edges[].path) | sort | join(",")' "$MATRIX")
+for want in skills/implementing-ko/SKILL.md skills/requesting-code-review-ko/SKILL.md \
+            commands/start-all.md scripts/batch-state.sh; do
+  case ",$el_paths," in *",$want,"*) ;; *) nope "P8" "end-loaded-skip 에 $want 누락"; el_missing=1 ;; esac
+done
+[ -z "${el_missing:-}" ] && ok "P8 end-loaded 계약 4자 전파" || true
 
 finish
