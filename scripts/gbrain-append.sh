@@ -23,6 +23,15 @@ while [ $# -gt 0 ]; do
         echo "Usage: gbrain-append.sh <insight> [--fid FID] [--tags tag1,tag2]" >&2
         exit 1
       fi
+      # FID 형식 검증 (20260806) — repo 전 스크립트 공통 규약
+      #   (session-progress-append·show-fid-status·record-metric·record-task-receipt·
+      #    promote-validate 와 동일 패턴). 여기만 무검증이라 실 learnings.jsonl 에
+      #   형식 위배 5건(`audit-20260710` 등)이 적재됐고, `/gbrain --fid` 필터가
+      #   조용히 어긋났다. 빈 문자열(생략)은 자유작업 인사이트라 허용.
+      if [ -n "$2" ] && ! printf '%s' "$2" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'; then
+        echo "gbrain-append: invalid FID '$2' — YYYYMMDD-kebab-slug 형식이어야 합니다" >&2
+        exit 1
+      fi
       FID_VAL="$2"
       shift 2
       ;;

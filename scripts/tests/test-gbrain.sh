@@ -137,10 +137,11 @@ run "T6.b commands/gbrain.md gbrain-ko 언급" \
 T7_a() {
   local tmp
   tmp=$(mktemp)
-  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "인사이트A" --fid "fid-A" 2>/dev/null
-  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "인사이트B" --fid "fid-B" 2>/dev/null
+  # (20260806) FID 형식 검증 도입 — 픽스처를 규약 형식(YYYYMMDD-kebab)으로 갱신.
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "인사이트A" --fid "20260806-fid-a" 2>/dev/null
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "인사이트B" --fid "20260806-fid-b" 2>/dev/null
   local ret=0
-  grep -q '"fid-A"' "$tmp" && grep -q '"fid-B"' "$tmp" || ret=1
+  grep -q '"20260806-fid-a"' "$tmp" && grep -q '"20260806-fid-b"' "$tmp" || ret=1
   rm -f "$tmp"
   return $ret
 }
@@ -185,6 +186,38 @@ T_conf_missing() {
   local r=$?; rm -rf "$gd"; return $r
 }
 run "AC-4 --confidence 값 누락 거부(exit 1)" T_conf_missing
+
+# ── T5: --fid 형식 검증 (20260806 유틸 스캔) ─────────────────────────────────
+# 결함: repo 전 스크립트가 FID 를 `^[0-9]{8}-[a-z0-9-]+$` 로 검증하는데
+#   (session-progress-append·show-fid-status·record-metric·record-task-receipt·
+#    promote-validate) gbrain-append·gbrain-recall 만 무검증이었다.
+#   실측: 실 learnings.jsonl 에 형식 위배 **5건**(`audit-20260710` 등) 적재됨 →
+#   `/gbrain --fid <FID>` 필터·FID별 환류 조회가 조용히 어긋난다.
+T5_a() {  # 형식 위배 FID 거부
+  local tmp; tmp=$(mktemp)
+  ! GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "x" --fid "audit-20260710" >/dev/null 2>&1
+}
+run "T5.a 형식 위배 --fid 거부 (exit≠0)" T5_a
+
+T5_b() {  # 경로 문자 주입 거부
+  local tmp; tmp=$(mktemp)
+  ! GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "x" --fid "../../etc/passwd" >/dev/null 2>&1
+}
+run "T5.b 경로 문자 --fid 거부" T5_b
+
+T5_c() {  # 정상 FID 통과 + 기록
+  local tmp; tmp=$(mktemp)
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "정상" --fid "20260806-valid-fid" >/dev/null 2>&1 \
+    && jq -e '.fid == "20260806-valid-fid"' "$tmp" >/dev/null 2>&1
+}
+run "T5.c 정상 FID 통과" T5_c
+
+T5_d() {  # --fid 미지정(빈값)은 정상 — 자유작업 인사이트
+  local tmp; tmp=$(mktemp)
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "자유" >/dev/null 2>&1 \
+    && jq -e '.fid == ""' "$tmp" >/dev/null 2>&1
+}
+run "T5.d --fid 생략 → 빈값 허용" T5_d
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
