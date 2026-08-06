@@ -26,6 +26,7 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
 FND_SH="$PLUGIN/scripts/_internal/check-foundation-manifest.sh"
+PRESENCE_SH="$PLUGIN/scripts/_internal/check-review-presence.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
 
@@ -180,6 +181,22 @@ if [ -f "$AUDIT_SH" ]; then
     echo "VERIFY: FAIL review-audit (exit=$audit_ec)" >&2
     echo "$audit_out" >&2
   fi
+fi
+
+# Phase B/C 수행 존재 관측 (warn-only — 20260806).
+#   check-review-audit 는 정합 검사라 리뷰 0회면 검사 대상이 없어 통과한다.
+#   "생략 금지" 선언에 대응하는 관측을 여기 둔다. **차단하지 않는다** —
+#   즉시 하드화하면 기존 FID 35% 가 소급 FAIL(실측). 빈도 관측 후 전환 판단.
+if [ -f "$PRESENCE_SH" ]; then
+  presence_out=$(bash "$PRESENCE_SH" "$FID" 2>&1 || true)
+  {
+    echo "### review-presence"
+    echo '```'
+    echo "$presence_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  printf '%s' "$presence_out" | grep -q 'WARN' && printf '%s\n' "$presence_out" >&2
 fi
 
 # foundation manifest 산출 게이트 — §유형=foundation 인 FID 만 대상(그 외 SKIP).
