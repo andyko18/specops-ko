@@ -45,6 +45,19 @@ if [ -f "$_REUSE_SH" ]; then
   fi
 fi
 
+# 유지보수 baseline 게이트 — analyzing 산출물(current-state·impact-analysis) 존재·채움.
+#   analyzing-ko HARD-GATE 의 기계화 가능 부분. 부재 시 AC-R-1 근거가 없고,
+#   check-regression-ac 의 스키마 override 판정이 current-state.md 를 읽으므로
+#   파괴적 스키마 변경에도 AC-R-2 가 요구되지 않는다(안전망 무음 해제).
+_MBASE_SH="$SCRIPT_DIR/../_internal/check-maintain-baseline.sh"
+if [ -f "$_MBASE_SH" ]; then
+  if ! mbase_out=$(bash "$_MBASE_SH" "$FID" 2>&1); then
+    printf '%s\n' "$mbase_out" >&2
+    echo "emit-context: 유지보수 baseline 부재 — analyzing-ko 선행 후 재실행" >&2
+    exit 1
+  fi
+fi
+
 # 회귀 AC 게이트 — §유형=유지보수 는 AC-R-1, 스키마 override 는 AC-R-2 (독립 조건).
 #   "/maintain 의 존재 이유" 인 회귀 안전망이 산문뿐이었다(템플릿의 "evaluator BLOCK" 주장에
 #   구현 0곳). 템플릿이 AC-R 섹션을 기본 포함하므로 채움(placeholder 잔존)까지 판정한다.

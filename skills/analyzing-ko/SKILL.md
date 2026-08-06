@@ -18,6 +18,12 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 
 <HARD-GATE>
 두 산출물 (`current-state.md` + `impact-analysis.md`) 사용자 검토 통과 전 specifying-ko 호출 금지.
+
+**판정 분리 (20260806)**:
+- **산출물 존재·채움** → 기계 판정. SoT = `scripts/_internal/check-maintain-baseline.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 부재·placeholder 잔존 시 dispatch 가 열리지 않는다).
+- **사용자 검토 통과** → 대화 게이트라 **기계화 불가**. 본 skill Step 7 이 [y/n] 로 받는다.
+
+> 종전엔 둘 다 산문이라 유지보수 FID 가 **analyzing 산출물 0개로 구현까지** 갔다(실측). 2차 피해가 크다 — `check-regression-ac` 의 **스키마 override 판정이 `current-state.md` 를 읽으므로**, 파일이 없으면 파괴적 스키마 변경에도 **AC-R-2(데이터 보존)가 요구되지 않는다**(안전망 무음 해제). AC-R-1 도 baseline 없이는 "무엇을 보존하는지" 근거가 없다.
 </HARD-GATE>
 
 ## [lite-mini 분기] (`<!-- entry: maintain-lite -->`)
