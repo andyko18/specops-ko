@@ -500,5 +500,42 @@ else
   fi
 fi
 rm -rf "$sb"
+
+# ── hardgate_classified — 클래스 A 재발 방지 메타 규칙 (20260806) ─────────────
+# 20260806 감사에서 동일 클래스 결함 9건: SKILL.md 가 HARD 를 선언하는데 검사 구현이 0곳
+# (foundation manifest·재사용·회귀 AC·advisor·DAST 소유확인·브랜치 삭제·B/C 존재·
+#  화면 8섹션·analyzing baseline). 개별 수정만으로는 다음에 또 나온다 —
+# 선언 시점에 "기계 판정" 인지 "기계화 불가" 인지 **분류를 강제**한다.
+out=$(bash "$SCRIPT" 2>&1)
+if echo "$out" | grep -q 'hardgate_classified: OK'; then
+  PASS=$((PASS+1)); echo "PASS T-hg.a 전 HARD-GATE 분류 완료"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.a 미분류 잔존"
+fi
+
+# T-hg.b: 분류 문구를 지우면 적발 (비-vacuous — 메타 규칙이 실제로 본다)
+_bak=$(mktemp)
+cp "$PLUGIN/skills/specifying-ko/SKILL.md" "$_bak"
+python3 - "$PLUGIN/skills/specifying-ko/SKILL.md" <<'PYEOF'
+import sys
+p=sys.argv[1]; s=open(p,encoding="utf-8").read()
+open(p,"w",encoding="utf-8").write(s.replace("**판정: 대화 게이트 (기계화 불가)**","**설명**",1))
+PYEOF
+out2=$(bash "$SCRIPT" 2>&1)
+cp "$_bak" "$PLUGIN/skills/specifying-ko/SKILL.md"; rm -f "$_bak"
+if echo "$out2" | grep -q 'hardgate_classified: FAIL'; then
+  PASS=$((PASS+1)); echo "PASS T-hg.b 분류 제거 시 적발 (비-vacuous)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.b 메타 규칙 무반응"
+fi
+
+# T-hg.c: 판정 SoT 로 주장한 스크립트는 실재해야 한다 (dangling 인용 금지)
+if grep -q 'SoT 부재' "$SCRIPT"; then
+  PASS=$((PASS+1)); echo "PASS T-hg.c dangling SoT 인용 검사 존재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.c 실재 검사 없음"
+fi
+
+
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL

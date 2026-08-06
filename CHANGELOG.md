@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+- **`hardgate_classified` 메타 규칙 — 결함 클래스 A 재발 구조적 차단 (구현 정합성 개선 20260806)** — 20260806 감사에서 **동일 클래스 결함 9건**이 나왔다: SKILL.md 가 HARD 를 선언하는데 그것을 검사하는 구현이 0곳(foundation manifest·재사용 게이트·회귀 AC·advisor 협의·DAST 소유확인·브랜치 삭제·Phase B/C 존재·화면 8섹션·analyzing baseline). **개별 수정만으로는 다음에 또 나온다** — 선언 시점에 결정을 강제하는 규칙이 필요하다. `validate-structure` 에 신규 검사: `<HARD-GATE>` 형식 블록을 가진 skill 은 그 게이트를 **반드시 분류**해야 한다 — ① `판정 SoT = <스크립트>`(기계 판정, **스크립트 실재도 함께 검사**해 dangling 인용 차단) 또는 ② `기계화 불가`/`대화 게이트`(사유 명시). 둘 다 없으면 FAIL — "선언만 하고 구현 여부를 결정하지 않은" 상태를 금지한다. 도입 즉시 **미분류 4건 적발**(brainstorming·clarifying·improve-arch·specifying) 후 전부 분류: 3건은 행위 금지·대화 승인이라 기계화 불가로 명시(후속 관문이 우회를 어떻게 좁히는지 함께 기록), clarifying 은 **부분 기계화**(foundation 스택 축만 `check-stack-decided.sh`)로 분류. 테스트 3건 — T-hg.b 는 분류 문구를 실제로 지워 적발을 확인하는 **mutation 내장** 테스트다.
+- **유지보수 baseline 산출물 게이트 — 데이터 안전망 무음 해제 봉합** — 클래스 A 9번째 인스턴스. `analyzing-ko` HARD-GATE 는 "두 산출물 사용자 검토 통과 전 specifying 금지" 인데 **산출물 존재 자체를 검사하는 층이 0곳**이었다(실측: 유지보수 FID 가 analyzing 산출물 0개로 `emit-context` 통과 → 구현). 2차 피해가 크다 — `check-regression-ac` 의 **스키마 override 판정이 `current-state.md` 를 읽으므로**, 파일이 없으면 `need_r2=0` 이 되어 **파괴적 스키마 변경에도 AC-R-2(데이터 보존)가 요구되지 않는다**(안전망 무음 해제). AC-R-1 도 baseline 없이는 "무엇을 보존하는지" 근거가 없다. 신규 `check-maintain-baseline.sh` 를 `emit-context` 에 배선 — 두 산출물 존재 + placeholder 잔존 시 미채움 판정(파일만 만들고 통과 차단). `§유형≠유지보수`·spec 부재는 skip/fail-open. HARD-GATE 본문에 **판정 분리**를 명시했다(산출물 존재·채움 = 기계 / 사용자 검토 = 대화 게이트). 테스트 9건, mutation 비-vacuous.
+
 ## [1.62.0] — 2026-08-06
 
 ### Changed

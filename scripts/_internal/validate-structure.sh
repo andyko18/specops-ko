@@ -351,6 +351,39 @@ PYEOF
   if [ $? -eq 0 ]; then emit contract_consistency OK "$ct_out"; else emit contract_consistency FAIL "$ct_out"; fi
 fi
 
+# ── hardgate_classified — 클래스 A 재발 방지 메타 규칙 (20260806) ──────────────
+# 20260806 감사에서 **동일 클래스 결함 9건**이 나왔다: SKILL.md 가 HARD 를 선언하는데
+#   그것을 검사하는 구현이 0곳(foundation manifest·재사용·회귀 AC·advisor 협의·
+#   DAST 소유확인·브랜치 삭제·B/C 존재·화면 8섹션·analyzing baseline).
+#   개별 수정만으로는 **다음에 또 나온다** — 선언 시점에 결정을 강제하는 규칙이 필요하다.
+#
+# 규칙: `<HARD-GATE>` 형식 블록을 가진 skill 은 그 게이트를 **분류**해야 한다.
+#   ① `판정 SoT = <스크립트>` — 기계 판정 (스크립트 실재도 함께 검사)
+#   ② `기계화 불가` 또는 `대화 게이트` — 사유와 함께 명시 (사용자 승인 등)
+#   둘 다 없으면 FAIL — "선언만 하고 구현 여부를 결정하지 않은" 상태를 금지한다.
+hg_fail=()
+for f in skills/*/SKILL.md; do
+  [ -f "$f" ] || continue
+  grep -q '<HARD-GATE>' "$f" 2>/dev/null || continue
+  name=$(basename "$(dirname "$f")")
+  if ! grep -qE '판정 SoT|기계화 불가|대화 게이트' "$f" 2>/dev/null; then
+    hg_fail+=("$name(미분류)")
+    continue
+  fi
+  # 판정 SoT 를 주장하면 그 스크립트가 실재해야 한다 (dangling 인용 금지)
+  while IFS= read -r sp; do
+    [ -n "$sp" ] || continue
+    [ -f "$sp" ] || hg_fail+=("$name(SoT 부재:$sp)")
+  done <<EOF
+$(grep -oE 'scripts/_internal/check-[A-Za-z0-9._-]+\.sh' "$f" 2>/dev/null | sort -u)
+EOF
+done
+if [ ${#hg_fail[@]} -eq 0 ]; then
+  emit hardgate_classified OK
+else
+  emit hardgate_classified FAIL "${hg_fail[*]}"
+fi
+
 # 출력
 if [ "$JSON_MODE" -eq 1 ]; then
   printf '{"fails":%d,"checks":[' "$FAILS"

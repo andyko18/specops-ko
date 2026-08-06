@@ -17,6 +17,8 @@ used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
 <HARD-GATE>
 **BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 
+**판정: 부분 기계화 + 대화 게이트** — "모든 BLOCKING 이 RESOLVED 인가" 는 BLOCKING 목록 자체가 모델 판단이라 전수 검사가 불가하다. 단 **가장 비싼 축(foundation 기술스택)은 기계 판정**한다 — 판정 SoT = `scripts/_internal/check-stack-decided.sh` (구현 직전 `emit-context.sh` 가 원장 확정 행 또는 clarifications.md 의 스택 `RESOLVED` 를 재검, `ASSUMED` 불인정). 원장 확정값 판정도 `scripts/_internal/check-decisions-ledger.sh` 로 눈대중을 대체했다.
+
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - 합리적 기본값·컨텍스트 기반 추론으로 답변 선택

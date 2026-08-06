@@ -19,6 +19,8 @@ used_by: /brainstorming, 선택적 pre-init-project 진입
 **코드 작성 금지.** 파일 생성·수정·삭제·commit 금지.
 
 탐색 완료 후 구현은 `/init-project` → `/start <기능>` 으로 진입.
+
+**판정: 기계화 불가 (행위 금지형)** — "코드를 쓰지 않았다" 는 **부재의 증명**이라 검사할 산출물이 없다. 본 skill 은 lifecycle 밖 선택 진입점이라 관문도 없다. 위반 시 후속 `/start` 의 spec 단계에서 드러나는 것이 현실적 안전망이다.
 </HARD-GATE>
 
 ---

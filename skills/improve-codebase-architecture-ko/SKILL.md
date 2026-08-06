@@ -11,6 +11,8 @@ used_by: /improve-arch
 
 <HARD-GATE>
 본 skill은 분석·권고만 한다. 리팩터링 실행 금지. 변경이 필요하면 `/maintain <대상 파일>`으로 새 Lifecycle 진입.
+
+**판정: 기계화 불가 (행위 금지형)** — 읽기 전용 분석이라 산출물이 없고, 위반(코드 변경)은 lifecycle 밖이라 관문을 지나지 않는다. 변경이 실제로 일어나면 R-1(커밋 전 verify)이 뒤늦게 잡는다.
 </HARD-GATE>
 
 ## 개요
