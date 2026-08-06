@@ -251,6 +251,20 @@ bash scripts/_internal/record-metric.sh \
 
 `.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김). Evaluator `fable` 불가 재dispatch는 `phase=evaluator-degradation --fallback true --model <override>`를 남깁니다(`implementing-ko` · `start-all` Phase 2.5-D).
 
+## install-git-hooks.sh — 2단 git hook 게이트 (도구 무관)
+
+```bash
+bash scripts/_internal/install-git-hooks.sh            # 설치 (clone 마다 1회)
+bash scripts/_internal/install-git-hooks.sh --uninstall
+```
+
+| 훅 | 게이트 | 소요 |
+|---|---|---|
+| `pre-commit` | `validate-structure` + `check-propagation` | ~5s |
+| `pre-push` | `run-all.sh` 전체 스위트 | ~195s |
+
+훅 본문은 `.githooks/` 로 버전관리되지만 `core.hooksPath` 는 `.git/config` 로컬 설정이라 **clone 마다 1회 설치**가 필요합니다. Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로, 도구 무관하게 걸리는 층은 git hook 뿐입니다 — 계기는 `44cd095` 가 `run-all` 없이 나가 `main` 이 하루 red 였던 사고입니다. 커밋마다 195s 를 걸면 `--no-verify` 관성이 생겨 게이트가 무력화되므로 비용을 2단으로 나눴습니다. 탈출구(주권): `git commit --no-verify` · `git push --no-verify`. 게이트 스크립트가 없는 repo 에서는 자동 면제됩니다(월권 금지).
+
 ## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
 
 ```bash

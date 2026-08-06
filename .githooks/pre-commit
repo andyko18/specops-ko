@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# specops-ko 커밋 전 빠른 정합 게이트 (~5s)
+#
+# 계기 (20260806 감사): 44cd095 revert 가 run-all 없이 나가 main 이 하루 red 였다.
+#   run-all.sh 는 릴리즈 pre-flight 게이트인데, Claude Code PreToolUse 훅(R-1)은
+#   Cursor 등 **다른 도구의 커밋에는 발화하지 않는다**. git hook 이 도구 무관하게
+#   걸리는 유일한 층이다.
+#
+# 범위 분리: 여기서는 5초짜리 정합만 본다. 전체 스위트(195s)는 pre-push 소관 —
+#   커밋마다 3분을 걸면 --no-verify 관성이 생겨 게이트 자체가 무력화된다
+#   (이 repo 가 BYPASS 관성으로 이미 겪은 실패 모드).
+#
+# 탈출구(주권, 5원칙 4): git commit --no-verify
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$ROOT" 2>/dev/null || exit 0
+
+VS="scripts/_internal/validate-structure.sh"
+CP="scripts/_internal/check-propagation.sh"
+
+# 관할 한정 — 게이트 스크립트가 없는 repo 는 specops 플러그인 repo 가 아니다 (월권 금지)
+[ -f "$VS" ] && [ -f "$CP" ] || exit 0
+
+fail=0
+report=""
+
+vs_out=$(bash "$VS" 2>&1); vs_rc=$?
+if [ "$vs_rc" -ne 0 ] || printf '%s' "$vs_out" | grep -q '❌'; then
+  fail=1
+  report="${report}
+--- validate-structure ---
+$(printf '%s' "$vs_out" | grep -E '❌|FAIL' | head -10)"
+fi
+
+cp_out=$(bash "$CP" 2>&1); cp_rc=$?
+if [ "$cp_rc" -ne 0 ]; then
+  fail=1
+  report="${report}
+--- check-propagation ---
+$(printf '%s' "$cp_out" | grep 'FAIL' | head -10)"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  cat >&2 <<EOF
+✋ 커밋 차단 — specops 구조/계약 정합 게이트 실패
+$report
+
+전체 스위트로 원인 확인:
+  bash scripts/tests/run-all.sh
+
+의도적으로 넘기려면(주권): git commit --no-verify
+EOF
+  exit 1
+fi
+
+exit 0
