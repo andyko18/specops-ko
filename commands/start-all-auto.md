@@ -37,7 +37,12 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    - 결과: 각 spec.md §1 = `**§유형**` + `**§batch**: <id>` + `**§auto**: true` → 다운스트림 6개 skill 무변경으로 §auto 자동통과 전파
 4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). **단** `.specops/memory/decisions.md` 확정 주제는 ASSUMED 재질문도 금지(원장 우선). 사용자 정지 없음.
 5. **Phase 2** — 전 PLAN_DONE 후 **batch plan-reviewer 1회** → `batch-plan-digest.sh` → 일괄 리뷰 게이트 자동 통과 → Phase 2.5 (Critical plan-review cap은 정지).
-6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 자동 수집·제시:
+6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 **집계기로** 수집·제시한다:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/$BATCH_ID"
+   ```
+   > **수기 집계 금지 (20260806)**: 이 다이제스트는 무인 진행에서 **사용자가 자동 확정 항목을 보는 유일한 지점**이다(나머지 확인은 전부 자동 통과). 집계가 모델 재량이면 누락 시 사용자는 무엇이 자기 대신 결정됐는지 모른 채 PR 을 승인한다 — 무인 모드를 수용 가능하게 만드는 단 하나의 게이트가 내용을 잃는다(5원칙 4 주권). 집계기는 IMPL_DONE FID 전체를 훑어 과소보고를 구조적으로 차단하고, **0건도 명시 보고**한다("0건"과 "집계 안 함"은 다르다).
+   집계기 출력에 더해 아래 항목을 확인한다:
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계
    - 전 FID spec.md "자동 결정 화면" 목록

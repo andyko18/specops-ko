@@ -280,6 +280,12 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 **Step D: batch PR 생성**
 
+PR 직전 **자동 확정 항목을 집계기로 수집**해 PR 본문·사용자 확인에 포함한다 — `/start-all` 도 Phase 2.5 에서 화면·인터페이스를 **대화 승인 없이** 반영하는 경로가 있고(§auto 여부와 무관하게 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 가 남는다), 수기 집계는 과소보고를 막지 못한다:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/$BATCH_ID"
+```
+
 ```bash
 git push -u origin "feat/$BATCH_ID"
 ```
