@@ -87,4 +87,35 @@ for t in api-spec data-model; do
     && ok "T6.$t 예시 삭제 지침" || nope "T6.$t" "지침 부재"
 done
 
+# ── T7: 골격 예시 소비처 계약 (클래스 B 재발 방지, 20260806) ──────────────────
+# 20260806 감사에서 "골격 예시가 실데이터로 읽힘" 결함 4건:
+#   decisions.md(면제 개방) · screens-overview(유령 화면) ·
+#   api-spec/data-model(유령 스키마 = 설계 계약) · requirements FR(placeholder 로 batch 진입)
+#
+# 정적 메타 규칙은 **만들지 않았다** — 실측 결과 placeholder 형식이 4가지
+#   (`<...>` · `{{...}}` · `#______` · `(예시)`)라 "실값 행" 휴리스틱이 오탐 4건을 냈고
+#   (DESIGN.md 색상·SKILL.md·dispatch-context 5원칙표·decisions 예시행 — 전부 정상),
+#   진짜 성질은 "기계가 프로젝트 데이터로 읽는가" 라는 **의미론**이라 정적 판별이 안 된다.
+# 대신 **소비처마다 제외 규칙을 둔다**(클래스 A 를 관문에서 잡은 것과 같은 원리).
+#   본 테스트는 그 제외 규칙들이 **조용히 사라지지 않도록** 한곳에서 잠근다 —
+#   새 소비처가 생기면 여기 행을 추가하는 것이 규약이다.
+_consumer_guard() {  # $1=스크립트 $2=제외패턴 $3=라벨
+  if grep -q "$2" "$PLUGIN/$1" 2>/dev/null; then
+    ok "T7 소비처 예시-제외 유지: $3"
+  else
+    nope "T7 $3" "$1 에서 제외 규칙($2) 소실 — 골격 예시가 실데이터로 읽힌다"
+  fi
+}
+_consumer_guard scripts/_internal/check-decisions-ledger.sh '(예시)'        'decisions 원장'
+_consumer_guard scripts/_internal/check-fr-table.sh          'TBD'          'requirements FR 표'
+_consumer_guard scripts/_internal/scan-enrich-placeholders.sh 'specops:example' 'api-spec·data-model 블록'
+
+# T7.d: screens-overview 골격 fence 는 비어 있어야 한다 (append 경로 유령 화면 차단)
+_tplrows=$(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|/' \
+  "$PLUGIN/templates/screens-overview.md" | grep -c . || true)
+[ "${_tplrows:-0}" -eq 0 ] \
+  && ok "T7 소비처 예시-제외 유지: screens-overview 빈 fence" \
+  || nope "T7 screens-overview" "fence 에 ${_tplrows}행 — 유령 화면 배포"
+
+
 finish
