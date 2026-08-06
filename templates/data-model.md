@@ -69,6 +69,11 @@ erDiagram
 
 ## §3. 핵심 엔티티 표
 
+> ⚠️ **아래는 전자상거래 예시다 — 실제 테이블로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+> 본 문서는 구현의 **설계 계약**이라 예시가 남으면 전자상거래가 아닌 프로젝트에
+> `users`/`orders`/`products` **유령 스키마가 계약으로 남는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
+
+<!-- specops:example:start -->
 | 테이블 | 역할 | 주요 컬럼 | 관계 |
 |---|---|---|---|
 | `users` | 사용자 계정 | `id`, `email`, `password_hash`, `created_at` | 1:N orders, 1:N addresses |
@@ -76,6 +81,7 @@ erDiagram
 | `order_items` | 주문 항목 | `id`, `order_id`, `product_id`, `quantity`, `unit_price` | N:1 order, N:1 product |
 | `products` | 상품 카탈로그 | `id`, `name`, `price`, `stock` | 1:N order_items |
 | `addresses` | 사용자 배송지 | `id`, `user_id`, `line1`, `city`, `postal_code` | N:1 user |
+<!-- specops:example:end -->
 
 ## §4. 인덱스 정책
 

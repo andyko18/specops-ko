@@ -21,12 +21,18 @@
 
 ## §1. Markdown 엔드포인트 표
 
+> ⚠️ **아래는 전자상거래 예시다 — 실제 엔드포인트로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+> 본 문서는 구현의 **설계 계약**이라 예시가 남으면 `design-reviewer-ko` 정합 검사·`verifying-evidence-ko`
+> memory 동기화 점검이 **유령 엔드포인트를 실 계약으로 읽는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
+
+<!-- specops:example:start -->
 | Method | Path | Auth | Request | Response | 비고 |
 |---|---|---|---|---|---|
 | GET | `/v1/users/:id` | Bearer | — | `User` | 단일 사용자 조회 |
 | POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 사용자 생성 |
 | PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 사용자 수정 |
 | DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 사용자 삭제 |
+<!-- specops:example:end -->
 
 **공통 에러 포맷** (RFC 7807 Problem Details):
 ```json

@@ -36,6 +36,24 @@ out=$(grep -HnE "$_PH" "$@" 2>/dev/null \
         -e 's|"<첫 기능>"|"첫-기능"|g' \
   | grep -E "$_PH")
 
+# ── 예시 블록 잔존 검출 (20260806) ───────────────────────────────────────────
+# `<...>` placeholder 는 "안 채운 티" 가 나지만, 템플릿의 **예시 표**(api-spec 의
+# `/v1/users/:id`, data-model 의 users/orders/products)는 **완성된 실값처럼 보여서**
+# 위 패턴으로는 구조적으로 못 잡는다(실측: 검출 0). 그런데 이 두 문서는 구현의
+# **설계 계약**이라, 전자상거래가 아닌 프로젝트에 유령 스키마가 계약으로 남는다.
+# 템플릿이 예시를 마커로 감싸고, 채울 때 블록째 삭제한다.
+ex_out=$(awk -v FN="" '
+  FILENAME != FN { FN = FILENAME; inblk = 0 }
+  /specops:example:start/ { inblk = 1; print FILENAME ":" FNR ": [example-block] 예시 블록 잔존 — 실제 내용으로 교체 후 마커째 삭제"; next }
+  /specops:example:end/   { inblk = 0; next }
+' "$@" 2>/dev/null)
+
+if [ -n "$ex_out" ]; then
+  [ -n "$out" ] && printf '%s\n' "$out"
+  printf '%s\n' "$ex_out"
+  exit 1
+fi
+
 [ -z "$out" ] && exit 0
 printf '%s\n' "$out"
 exit 1
