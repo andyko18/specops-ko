@@ -58,6 +58,8 @@
 
 `spec.md §개요` 의 `**§유형**` 라벨이 `유지보수` 인 경우, 본 섹션에 `AC-R-N` 회귀 must AC 를 **최소 1 개 이상** 작성한다. sprint-contracts-ko evaluator 가 회귀 AC 누락 시 `verdict = BLOCK` 판정.
 
+> **판정 SoT = `scripts/_internal/check-regression-ac.sh`** (20260806 기계화 — `emit-context.sh` 가 구현 직전 자동 호출). 유지보수인데 AC-R-1 이 없거나 아래 대괄호 placeholder 를 그대로 두면 dispatch 가 열리지 않는다. 스키마 override(current-state.md §1 마커) 시 AC-R-2 는 §유형 무관 강제.
+
 ### AC-R-1: 기존 동작 보존
 
 **Given** [구체적 입력 또는 기존 호출 패턴]

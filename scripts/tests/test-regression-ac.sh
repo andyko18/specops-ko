@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# 회귀 AC(AC-R-1/AC-R-2) 게이트 기계화 — 20260806 /maintain 정밀분석
+#
+# 결함: "/maintain 의 존재 이유" 인 회귀 안전망이 전부 산문이었다.
+#   - specifying-ko:133·205 "유지보수 → AC-R-1 강제(스키마면 AC-R-2)"
+#   - 템플릿: "sprint-contracts evaluator 가 회귀 AC 누락 시 verdict=BLOCK"
+#   그런데 verify·emit-context·release-ready 어디에도 검사 스크립트가 0곳 —
+#   모델이 빠뜨리면 회귀 AC 없이 구현이 진행된다(멀쩡하던 것이 깨지는 클래스).
+# 추가: 템플릿이 AC-R-1/AC-R-2 섹션을 **기본 포함**하므로 "헤더 존재" 만 보면
+#   템플릿 복사만으로 뚫린다 — Given/When/Then 의 템플릿 문구 잔존을 미채움으로 판정.
+set -u
+PASS=0; FAIL=0
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+CHK="$PLUGIN/scripts/_internal/check-regression-ac.sh"
+
+_mk() {  # $1=dir $2=fid $3=§유형 [$4=override(y)]
+  mkdir -p "$1/.specops/$2"
+  printf '**§유형**: %s\n' "$3" > "$1/.specops/$2/spec.md"
+  if [ "${4:-n}" = "y" ]; then
+    printf '# 현행\n**라인 범위 합산: 2줄 → 유지보수(스키마 override)**\n' \
+      > "$1/.specops/$2/current-state.md"
+  else
+    printf '# 현행\n**라인 범위 합산: 12줄 → 유지보수**\n' \
+      > "$1/.specops/$2/current-state.md"
+  fi
+}
+_ac_r1_filled() { cat <<'EOF'
+# AC
+
+### AC-1: 기본
+**Given** 입력 x
+**When** 실행
+**Then** 출력 y
+**우선순위**: must
+
+### AC-R-1: 기존 동작 보존
+**Given** 기존 사용자가 `login.sh alice` 를 실행하던 패턴
+**When** 변경 후 동일 명령 실행
+**Then** 기존 출력 `welcome alice` 와 동일하게 동작한다 — 변경되지 않음
+**검증 방법**: bash scripts/tests/test-login-regression.sh
+**우선순위**: must
+EOF
+}
+_ac_r1_template() { cat <<'EOF'
+# AC
+
+### AC-R-1: 기존 동작 보존
+**Given** [구체적 입력 또는 기존 호출 패턴]
+**When** [현재와 동일한 트리거]
+**Then** 기존 출력 [구체적 결과] 와 동일하게 동작한다 — 변경되지 않음
+**검증 방법**: [기존 회귀 테스트 경로 또는 신규 회귀 테스트 추가]
+**우선순위**: must
+EOF
+}
+_ac_r2_filled() { cat <<'EOF'
+
+### AC-R-2: 데이터 보존·역가역성
+**Given** users 테이블에 기존 행 100건, email 컬럼 채워짐
+**When** 마이그레이션 forward(up) 적용 후 reverse(down) 적용
+**Then** up→down→up 멱등 + 기존 100건 데이터 손실 0 + NOT NULL 위반 0
+**검증 방법**: bash scripts/tests/test-migration-roundtrip.sh
+**우선순위**: must
+EOF
+}
+
+# T1: 유지보수 + acceptance-criteria.md 부재 → FAIL
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "T1 유지보수 + AC 파일 부재 → FAIL" || nope "T1" "rc=$rc"
+rm -rf "$TD"
+
+# T2: 유지보수 + AC-R-1 채움 → PASS
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+_ac_r1_filled > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T2 AC-R-1 채움 → PASS" || nope "T2" "rc=$rc"
+rm -rf "$TD"
+
+# T3: ★ 템플릿 그대로(placeholder 잔존) → FAIL — 헤더만으론 안 뚫린다
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+_ac_r1_template > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "T3 템플릿 placeholder 잔존 → FAIL" || nope "T3" "rc=$rc"
+rm -rf "$TD"
+
+# T4: AC-R-1 헤더 자체가 없음 → FAIL
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+printf '# AC\n### AC-1: 기본\n**Given** x\n**When** y\n**Then** z\n' \
+  > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "T4 AC-R-1 부재 → FAIL" || nope "T4" "rc=$rc"
+rm -rf "$TD"
+
+# T5: §유형=신규 → skip (AC-R 면제 계약)
+TD=$(mktemp -d); _mk "$TD" 20260806-m 신규
+printf '# AC\n' > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T5 신규 → skip" || nope "T5" "rc=$rc"
+rm -rf "$TD"
+
+# T6: §유형=trivial → skip
+TD=$(mktemp -d); _mk "$TD" 20260806-m trivial
+printf '# AC\n' > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T6 trivial → skip" || nope "T6" "rc=$rc"
+rm -rf "$TD"
+
+# T7: ★ 스키마 override 마커 + AC-R-2 부재 → FAIL (AC-R-1 채움이어도)
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수 y
+_ac_r1_filled > "$TD/.specops/20260806-m/acceptance-criteria.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'AC-R-2' \
+  && ok "T7 스키마 override + AC-R-2 부재 → FAIL" || nope "T7" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T8: 스키마 override + AC-R-1·AC-R-2 채움 → PASS
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수 y
+{ _ac_r1_filled; _ac_r2_filled; } > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T8 override + 둘 다 채움 → PASS" || nope "T8" "rc=$rc"
+rm -rf "$TD"
+
+# T9: ★ trivial 이어도 스키마 override 면 AC-R-2 강제 (템플릿 예외 계약 — 데이터 안전은 라인수 면제 불가)
+TD=$(mktemp -d); _mk "$TD" 20260806-m trivial y
+printf '# AC\n### AC-1: 기본\n**Given** x\n**When** y\n**Then** z\n' \
+  > "$TD/.specops/20260806-m/acceptance-criteria.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'AC-R-2' \
+  && ok "T9 trivial + override → AC-R-2 강제" || nope "T9" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T10: spec.md 부재 → fail-open
+TD=$(mktemp -d); mkdir -p "$TD/.specops/20260806-m"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T10 spec 부재 → fail-open" || nope "T10" "rc=$rc"
+rm -rf "$TD"
+
+# T11: emit-context 배선 (구현 직전 — foundation 게이트와 동일 지점)
+grep -q 'check-regression-ac.sh' "$PLUGIN/scripts/dag/emit-context.sh" \
+  && ok "T11 emit-context 배선" || nope "T11" "미배선 — 산문 잔존"
+
+# T12: 템플릿이 판정 SoT 를 지목 (구 문구는 evaluator BLOCK 주장뿐 — 구현 없었음)
+grep -q 'check-regression-ac.sh' "$PLUGIN/templates/acceptance-criteria.md" \
+  && ok "T12 템플릿 SoT 지목" || nope "T12" "템플릿 미갱신"
+
+finish

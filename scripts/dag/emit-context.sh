@@ -45,6 +45,18 @@ if [ -f "$_REUSE_SH" ]; then
   fi
 fi
 
+# 회귀 AC 게이트 — §유형=유지보수 는 AC-R-1, 스키마 override 는 AC-R-2 (독립 조건).
+#   "/maintain 의 존재 이유" 인 회귀 안전망이 산문뿐이었다(템플릿의 "evaluator BLOCK" 주장에
+#   구현 0곳). 템플릿이 AC-R 섹션을 기본 포함하므로 채움(placeholder 잔존)까지 판정한다.
+_REGAC_SH="$SCRIPT_DIR/../_internal/check-regression-ac.sh"
+if [ -f "$_REGAC_SH" ]; then
+  if ! regac_out=$(bash "$_REGAC_SH" "$FID" 2>&1); then
+    printf '%s\n' "$regac_out" >&2
+    echo "emit-context: 회귀 AC(AC-R) 누락·미채움 — acceptance-criteria.md 보완 후 재실행" >&2
+    exit 1
+  fi
+fi
+
 # foundation 기술스택 확정 증거 (clarify 층 봉합).
 #   clarify 단계엔 스크립트가 반드시 지나는 관문이 없어(specify→clarify→plan 전부 대화)
 #   BLOCKING 강제가 산문으로만 남았다. 결정의 **증거**를 구현 직전인 여기서 확인한다.
