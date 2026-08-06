@@ -18,6 +18,12 @@ if [ "${1:-}" = "--uninstall" ]; then
   exit 0
 fi
 
+# 관할 한정 — .githooks/ 없는 repo 를 없는 경로로 가리키게 두지 않는다 (훅과 동일 원칙)
+[ -d .githooks ] || {
+  echo "install-git-hooks: .githooks/ 부재 — specops 플러그인 repo 에서 실행하세요" >&2
+  exit 1
+}
+
 git config core.hooksPath .githooks || { echo "install-git-hooks: 설정 실패" >&2; exit 1; }
 chmod +x .githooks/pre-commit .githooks/pre-push 2>/dev/null || true
 

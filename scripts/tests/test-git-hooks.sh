@@ -96,7 +96,7 @@ fi
 # GH-9: 설치 스크립트가 core.hooksPath 를 .githooks 로 설정
 if [ -f "$INSTALLER" ]; then
   TD=$(mktemp -d)
-  (cd "$TD" && git init -q)
+  (cd "$TD" && git init -q && mkdir -p .githooks)
   (cd "$TD" && bash "$INSTALLER" >/dev/null 2>&1)
   hp=$(cd "$TD" && git config core.hooksPath || true)
   [ "$hp" = ".githooks" ] && ok "GH-9 installer → core.hooksPath=.githooks" \
@@ -104,6 +104,20 @@ if [ -f "$INSTALLER" ]; then
   rm -rf "$TD"
 else
   nope "GH-9" "install-git-hooks.sh 부재"
+fi
+
+# GH-9b: 관할 한정 — .githooks/ 없는 repo 는 설치 거부 (없는 경로를 가리키게 두지 않는다)
+if [ -f "$INSTALLER" ]; then
+  TD=$(mktemp -d)
+  (cd "$TD" && git init -q)
+  (cd "$TD" && bash "$INSTALLER" >/dev/null 2>&1); rc=$?
+  hp=$(cd "$TD" && git config core.hooksPath || true)
+  [ "$rc" -ne 0 ] && [ -z "$hp" ] \
+    && ok "GH-9b .githooks 부재 repo → 설치 거부" \
+    || nope "GH-9b" "rc=$rc hooksPath=$hp"
+  rm -rf "$TD"
+else
+  nope "GH-9b" "install-git-hooks.sh 부재"
 fi
 
 # GH-10: 설치 안내가 문서화됐는가 (clone 마다 1회 필요 — core.hooksPath 는 버전관리 대상이 아님)
