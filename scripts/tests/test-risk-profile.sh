@@ -171,4 +171,80 @@ out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 [ "$out" = "standard" ] && ok "T13 trivial ≠ lite 강제" || nope "T13" "out=$out"
 rm -rf "$TD"
 
+# ── §lite × strict 승격 가드 (H1, 20260806) ──────────────────────────────────
+# specifying-ko:122·131 의 `★ strict 승격 가드` 는 산문(모델의 키워드 판단)뿐이었다.
+# lite 는 clarify·plan 을 이미 건너뛴 뒤라, strict 가 뒤늦게 드러나도 되돌릴 게이트가 없었다.
+# compute 가 spec.md 의 `**§lite**: true` 를 **스스로 감지**해 strict 면 rc=3 을 낸다
+# (모델이 플래그를 넘겨야 하는 설계면 플래그 생략으로 우회 가능 — self-detect 여야 한다).
+# plan.md 가 생기면(승격 완료) 자동 해제 — 영구 차단 방지.
+_setup_lite() {  # $1=dir $2=fid $3=spec 본문 추가줄
+  _setup "$1" "$2"
+  printf 'a\n' > "$1/src/a.sh"; (cd "$1" && git add src)
+  { printf '**§유형**: trivial\n'; printf '**§lite**: true\n'; printf '%s\n' "$3"; } \
+    > "$1/.specops/$2/spec.md"
+}
+
+# T14: §lite + strict 신호 → rc=3 (프로파일은 기록됨 — 판정 자체는 남긴다)
+TD=$(mktemp -d); FID=20260806-rp-lite-strict
+_setup_lite "$TD" "$FID" '사용자 로그인 jwt 인증을 추가한다.'
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+eff=$(jq -r .effective "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)
+[ "$rc" -eq 3 ] && [ "$eff" = "strict" ] \
+  && ok "T14 §lite + strict → rc=3 (가드 발화)" || nope "T14" "rc=$rc eff=$eff"
+rm -rf "$TD"
+
+# T15: §lite + 비-strict → rc=0 (정상 lite 흐름 무영향 — false-block 없음)
+TD=$(mktemp -d); FID=20260806-rp-lite-ok
+_setup_lite "$TD" "$FID" 'CSV 줄 수를 세는 CLI 를 만든다.'
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T15 §lite + 비-strict → rc=0" || nope "T15" "rc=$rc"
+rm -rf "$TD"
+
+# T16: §lite 아님 + strict → rc=0 (범위 한정 — 일반 strict 는 정상 흐름)
+TD=$(mktemp -d); FID=20260806-rp-nolite-strict
+_setup "$TD" "$FID"
+printf 'a\n' > "$TD/src/a.sh"; (cd "$TD" && git add src)
+printf '**§유형**: 신규\n사용자 로그인 jwt 인증을 추가한다.\n' > "$TD/.specops/$FID/spec.md"
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T16 비-lite strict → rc=0 (범위 한정)" || nope "T16" "rc=$rc"
+rm -rf "$TD"
+
+# T17: 승격 완료(plan.md 존재) → 가드 자동 해제 (영구 차단 방지)
+TD=$(mktemp -d); FID=20260806-rp-lite-promoted
+_setup_lite "$TD" "$FID" '사용자 로그인 jwt 인증을 추가한다.'
+printf '# plan\n' > "$TD/.specops/$FID/plan.md"
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T17 plan.md 존재 → 가드 해제" || nope "T17" "rc=$rc"
+rm -rf "$TD"
+
+# T18: 사용자 주권 override — env + 사유 병기 (모델이 쓸 수 있는 마커 파일 아님)
+TD=$(mktemp -d); FID=20260806-rp-lite-override
+_setup_lite "$TD" "$FID" '사용자 로그인 jwt 인증을 추가한다.'
+(cd "$TD" && SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='내부 PoC — 인증 목업' \
+  bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T18 override(env+사유) → rc=0" || nope "T18" "rc=$rc"
+rm -rf "$TD"
+
+# T18b: override 인데 사유 없음 → 무효 (무사유 우회 거부 — BYPASS 규약 동형)
+TD=$(mktemp -d); FID=20260806-rp-lite-noreason
+_setup_lite "$TD" "$FID" '사용자 로그인 jwt 인증을 추가한다.'
+(cd "$TD" && SPECOPS_LITE_STRICT_OVERRIDE=1 bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 3 ] && ok "T18b override 무사유 → 여전히 rc=3" || nope "T18b" "rc=$rc"
+rm -rf "$TD"
+
+# T19: --floor strict 로 사용자가 명시 상향한 lite FID → 가드 발화 (의도적 상향 = 승격 강제)
+TD=$(mktemp -d); FID=20260806-rp-lite-floor
+_setup_lite "$TD" "$FID" 'CSV 줄 수를 세는 CLI 를 만든다.'
+(cd "$TD" && bash "$RP" compute "$FID" --floor strict >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 3 ] && ok "T19 --floor strict + §lite → rc=3" || nope "T19" "rc=$rc"
+rm -rf "$TD"
+
+# T20: spec.md 부재 → fail-open (판정 불가로 차단하지 않는다)
+TD=$(mktemp -d); FID=20260806-rp-nospec
+_setup "$TD" "$FID"
+printf 'a\n' > "$TD/src/a.sh"; (cd "$TD" && git add src)
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T20 spec.md 부재 → fail-open rc=0" || nope "T20" "rc=$rc"
+rm -rf "$TD"
+
 finish

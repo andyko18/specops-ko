@@ -14,7 +14,7 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 
 # P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="batch-review-skip,design-critical-cap,end-loaded-skip,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured,review-verdict-contract"
+expected="batch-review-skip,design-critical-cap,end-loaded-skip,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,receipt-mandatory,reconcile-review-skip,release-ready-hard,review-audit-structured,review-verdict-contract"
 if [ "$ids" = "$expected" ]; then
   ok "P1 matrix id 정렬 일치"
 else

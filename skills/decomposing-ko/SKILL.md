@@ -98,6 +98,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
     - `effective=lite` → `reductions_allowed: ["batch-review-skip"]` (그 외는 `[]`)
     - **allowlist 외 축소 금지** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지. `batch-review-skip`만 batch 오케스트레이터가 requesting/receiving에 적용 가능. **`review_mode: end-loaded`는 Phase B/C 생략이 아님**(시점만 FID 말미로 통합) — allowlist와 무관하게 기본 동작
     - 사용자 상향만 허용: `--floor standard|strict` 또는 `SPECOPS_RISK_PROFILE_FLOOR`
+    - **★ rc=3 = `LITE-STRICT-GUARD` (HARD GATE — 20260806)**: `§lite` FID 인데 프로파일이 `strict` 면 compute 가 rc=3 을 낸다. lite 는 clarify·plan 을 **이미 건너뛴** 상태라 그대로 진행하면 고위험 변경이 설계 검토 없이 구현된다. **implementing-ko 로 진행 금지** — `specops-ko:clarifying-ko` → `specops-ko:planning-ko` 를 수행해 승격한 뒤 본 스킬 재진입(정상 체크리스트 경로). `plan.md` 가 생기면 가드는 자동 해제된다. 사용자 주권 우회는 env + 사유 병기(`SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<사유>'`)뿐 — 모델이 파일을 써서 열 수 없다.
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-ko:implementing-ko` 호출
 

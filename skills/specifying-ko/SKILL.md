@@ -120,6 +120,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    **[lite 분기]** (`/start-lite` — clarify·plan ceremony 축약, 화면/IF·teeth 유지):
      - FID·브랜치 생성은 [신규 분기] Step 0과 동일
      - **★ strict 승격 가드** (진입 직후·설계 전): 요청/변경 표면에 auth·oauth·jwt·rbac·credential·migration·ALTER/DROP TABLE·결제/PII·파괴적 스키마·public API 신설 등 **strict 신호**가 보이면 lite 진행 **금지**. 사용자에게 "`/start-lite` 범위 밖(고위험) — `/start`로 진행하세요" 안내 후 **중단**(강제 다운그레이드 금지).
+       > 본 가드는 조기 차단(설계 전)이지만 **모델 판단**이다. 놓쳐도 `decomposing-ko` Step 10c 의 `risk-profile.sh` 가 `LITE-STRICT-GUARD` rc=3 으로 기계 탐지한다(승격 강제). 이중 안전망 — 여기서 잡는 게 손실이 가장 적다.
      - Step 6에서 `**§lite**: true` + `**§유형**: trivial` **질문 없이 강제**(슬래시 진입=축약 승인). "축약할까요?" 제안 **하지 않음**.
      - Step 3~4(명확화 질문·2~3 접근)는 **경량화**: 블로킹 모호점만 0~2문장으로 확인하거나 명백하면 skip — **clarifying-ko·planning-ko 스킬은 호출하지 않음**.
      - Step 5 설계 제시 → ★ HARD GATE 1회(스펙+(해당 시) 화면/IF 통합 승인)

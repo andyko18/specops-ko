@@ -225,6 +225,45 @@ rp::compute() {
 
   printf 'RISK_PROFILE: computed=%s effective=%s mode=live\n' "$computed" "$effective"
   printf '%s\n' "$effective"
+
+  # ── §lite × strict 승격 가드 (H1, 20260806) ────────────────────────────────
+  # specifying-ko:122·131 의 `★ strict 승격 가드` 는 산문(모델의 키워드 판단)뿐이었다.
+  # lite 는 clarify·plan 을 **이미 건너뛴 뒤** decompose 에 도달하므로, strict 가 뒤늦게
+  # 드러나도 되돌릴 게이트가 없었다 — 잃어버린 clarify·plan 은 스스로 돌아오지 않는다.
+  #
+  # self-detect 인 이유: `--lite-guard` 류 플래그 설계면 플래그를 안 넘기는 것으로 우회된다.
+  #   spec.md 의 `**§lite**: true`(specifying-ko Step 6 이 강제 기재)를 직접 읽는다.
+  # 범위 한정: §lite 만. `§유형: trivial` 단독은 제외 — public_api 가 "엔드포인트" 한 단어에
+  #   걸리므로 최빈 경로인 trivial 까지 묶으면 false-block 생성기가 된다.
+  # 자동 해제: plan.md 가 생기면(=승격 완료) 가드 무발화 — 영구 차단 방지.
+  # 주권 탈출구: env + **사유 병기 필수**(SPECOPS_GOVERNANCE_BYPASS 규약 동형).
+  #   마커 파일이 아닌 env 인 이유 — 파일은 모델이 쓸 수 있어 자기발급 면제표가 된다.
+  # 강도: rc=3 은 **기계 탐지**이지 하드 차단이 아니다 (emit-context.sh fail-fast 와 동급 —
+  #   체인 레벨 강제). 판정 불가(spec.md 부재 등)는 fail-open.
+  local _spec="$fid_dir/spec.md"
+  if [ "$effective" = "strict" ] && [ -f "$_spec" ] \
+     && grep -qE '^\*\*§lite\*\*:[[:space:]]*true' "$_spec" 2>/dev/null \
+     && [ ! -f "$fid_dir/plan.md" ]; then
+    if [ "${SPECOPS_LITE_STRICT_OVERRIDE:-}" = "1" ] && [ -n "${SPECOPS_LITE_STRICT_REASON:-}" ]; then
+      [ -f "$METRIC_SH" ] && bash "$METRIC_SH" --fid "$fid" --phase lite-strict-override \
+        --verdict WAIVED --finding-severity high 2>/dev/null || true
+      printf 'LITE-STRICT-GUARD: override (사유 기록됨) — lite 유지\n' >&2
+      return 0
+    fi
+    [ -f "$METRIC_SH" ] && bash "$METRIC_SH" --fid "$fid" --phase lite-strict-guard \
+      --verdict FAIL --finding-severity high 2>/dev/null || true
+    cat >&2 <<EOF
+LITE-STRICT-GUARD: §lite FID 인데 위험 프로파일이 strict 입니다 (신호: ${strict_signals:-none}).
+  lite 는 clarify·plan 을 이미 건너뛴 상태라 이대로 진행하면 고위험 변경이 설계 검토 없이 구현됩니다.
+
+  승격(권장): specops-ko:clarifying-ko → specops-ko:planning-ko 수행 후 decomposing 재진입.
+              plan.md 가 생기면 본 가드는 자동 해제됩니다.
+  사용자 주권 우회(사유 병기 필수):
+              SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<한 줄 사유>' <명령>
+EOF
+    return 3
+  fi
+  return 0
 }
 
 rp::show() {
