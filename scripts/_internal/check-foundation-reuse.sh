@@ -21,6 +21,7 @@ SPECOPS="${SPECOPS_ROOT:-.specops}"
 SPEC="$SPECOPS/$FID/spec.md"
 TASKS="$SPECOPS/$FID/tasks.md"
 MANIFEST="$SPECOPS/memory/foundation-manifest.md"
+PLUGIN_DIR=$(cd "$(dirname "$0")/../.." && pwd)
 
 [ -f "$SPEC" ] && [ -f "$TASKS" ] || { echo "FOUNDATION-REUSE: SKIP (산출물 부재)"; exit 0; }
 
@@ -50,6 +51,27 @@ missing=$(awk '
   }
   END { if (cur != "" && !ok) print cur }
 ' "$TASKS")
+
+# 태스크 원천 대조 (20260806) — 본 게이트는 `## 태스크 N:` 마크다운 절을 순회하는데,
+#   `emit-context` 가 실제 dispatch 하는 원천은 **YAML DAG** 다. 절 수 < YAML 태스크 수면
+#   나머지는 **검사 자체를 안 받고 통과**한다(실측: YAML 2 · 절 1 → PASS).
+#   무인(`/start-all-auto`)에서는 사람이 눈으로 못 잡으므로 그대로 구현에 들어간다.
+_sections=$(grep -cE '^##[[:space:]]+태스크[[:space:]]' "$TASKS" 2>/dev/null || true)
+_yaml_ids=""
+if [ -f "$PLUGIN_DIR/scripts/dag/parse-dag.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$PLUGIN_DIR/scripts/dag/parse-dag.sh" 2>/dev/null || true
+  _y=$(dag::extract_yaml "$TASKS" 2>/dev/null || true)
+  [ -n "$_y" ] && _yaml_ids=$(printf '%s\n' "$_y" | grep -oE '^[[:space:]]*-[[:space:]]+id:[[:space:]]*[A-Za-z0-9._-]+' \
+    | sed 's/.*id:[[:space:]]*//' || true)
+fi
+_ycount=$(printf '%s\n' "$_yaml_ids" | grep -c . || true)
+if [ "${_ycount:-0}" -gt "${_sections:-0}" ]; then
+  # 절이 없는 태스크 id 를 지목 — 절 제목에 id 가 없을 수 있으므로 개수 기준으로 뒤쪽 id 를 나열
+  _uncovered=$(printf '%s\n' "$_yaml_ids" | tail -n "$(( _ycount - _sections ))" | tr '\n' ' ')
+  missing="${missing}${missing:+
+}YAML 태스크 절 누락(${_sections}/${_ycount}) — 미검사 태스크: ${_uncovered}"
+fi
 
 if [ -n "$missing" ]; then
   echo "FOUNDATION-REUSE: FAIL — 재사용 선언 누락·무효"

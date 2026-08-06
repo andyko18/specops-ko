@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **foundation 재사용 게이트의 태스크 원천 불일치 — 미검사 태스크가 조용히 통과 (`/start-all-auto` 분석 20260806)** — 게이트는 `## 태스크 N:` **마크다운 절**만 순회하는데, `emit-context` 가 실제로 dispatch 하는 태스크 원천은 **YAML DAG** 다. 두 원천이 어긋나면(YAML 2 태스크 · 마크다운 절 1개) **나머지 태스크는 검사 자체를 안 받고 통과**한다(실측 확인). 무인(`/start-all-auto`)에서는 사람이 눈으로 못 잡으므로 미선언 태스크가 그대로 구현에 들어간다. YAML 태스크 id 수와 절 수를 대조해 미검사 태스크를 지목하도록 보강 — `emit-context` 와 **동일 SoT**(YAML)를 기준으로 삼는다. 테스트 2건(T11.a·b), mutation 비-vacuous.
+
 ### Added
 - **TDD RED 증거 관측 (warn-only 1단계)** — `record-task-receipt.sh` 는 `test_command` 가 **PASS 일 때만** receipt 를 남긴다. 즉 GREEN 은 증명되지만 **"구현 전에 실패했는가"(RED)** 는 아무도 안 봤다 — 빠지는 것은 **공허한 테스트**(구현 없이도 통과하는 테스트)다. 근거는 이론이 아니다: 20260806 세션에서 **작성자 본인의 테스트가 공허하게 통과한 사례가 7건**이었고 전부 mutation 에서만 드러났다(헬퍼 정의 순서·느슨한 grep 2회·h2 헤더 매칭·예시행 오탐·OR 조건 축 미격리 등). 신규 `check-tdd-red.sh` 가 transcript 에서 같은 `test_command` 의 결과를 시간 순으로 보고 **FAIL 이 첫 PASS 보다 앞서면** RED 로 인정한다(PASS→FAIL 은 "구현 후 깨짐" 이라 불인정, 타 명령 FAIL 불인정). **★ 판정은 `is_error` 가 아니라 내용 토큰 기반** — 실측: 본 세션 `tool_result` 658건 중 `FAIL=` 를 담은 **187건의 `is_error` 가 전부 false**였다. 실패한 테스트 실행은 `is_error` 를 세우지 않는다. advisor 게이트(`server_tool_use`)와 같은 교훈으로, 형태를 추측했다면 영구 0-hit 이 됐다. bash 하네스(`FAIL=[1-9]`)·pytest(`N failed`)·go(`^FAIL`) 토큰 인식. `record-task-receipt` 가 결과를 receipt 의 `tdd_red: observed|absent|unknown` 필드로 남긴다 — **커밋을 막지 않는다**(판정 불가가 흔함: 이전 세션 실행·명령 문자열 변형. 차단 전환 시 바꿀 지점은 호출자의 비차단 처리). E2E 로 `observed`/`absent` 양쪽 모두 receipt 정상 기록 실증. 테스트 9건, mutation(순서 판정 제거 → T3 재현) 비-vacuous, `propagation-matrix` `tdd-red-observation` 락.
 

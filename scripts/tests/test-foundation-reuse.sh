@@ -84,6 +84,63 @@ TD=$(mktemp -d); mkdir -p "$TD/.specops/20260806-f"
 [ "$rc" -eq 0 ] && ok "T8 산출물 부재 → fail-open" || nope "T8" "rc=$rc"
 rm -rf "$TD"
 
+# ── T11: 태스크 원천 불일치 (20260806 /start-all-auto 분석) ──────────────────
+# 결함: 본 게이트는 `## 태스크 N:` **마크다운 절**만 순회하는데, `emit-context` 가
+#   실제로 dispatch 하는 태스크 원천은 **YAML DAG** 다. 두 원천이 어긋나면
+#   (YAML 3개 · 마크다운 절 1개) 나머지 태스크는 **검사 자체를 안 받고 통과**한다.
+#   무인(`/start-all-auto`)에서는 사람이 눈으로 못 잡으므로 그대로 구현에 들어간다.
+# T11.a: YAML 2 태스크 · 마크다운 절 1개(선언 보유) → 미선언 태스크 적발
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+cat > "$TD/.specops/20260806-f/tasks.md" <<'EOF'
+# 태스크
+
+## 태스크 1: 첫 작업
+**재사용 foundation**: 라우팅
+
+## 의존 그래프
+
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash t.sh"
+    outputs: [a]
+  - id: T2
+    test_command: "bash t2.sh"
+    outputs: [b]
+```
+EOF
+out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'T2' \
+  && ok "T11.a YAML 태스크 수 > 절 수 → 미선언 태스크 적발" || nope "T11.a" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T11.b: YAML·절 개수 일치 + 전부 선언 → PASS (정상 흐름 무손상)
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+cat > "$TD/.specops/20260806-f/tasks.md" <<'EOF'
+# 태스크
+
+## 태스크 1: 첫 작업
+**재사용 foundation**: 라우팅
+
+## 태스크 2: 둘째 작업
+**미재사용 근거**: 공통부 범위 밖 순수 유틸
+
+## 의존 그래프
+
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash t.sh"
+    outputs: [a]
+  - id: T2
+    test_command: "bash t2.sh"
+    outputs: [b]
+```
+EOF
+(cd "$TD" && bash "$CHK" 20260806-f >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T11.b 개수 일치 + 전부 선언 → PASS" || nope "T11.b" "rc=$rc"
+rm -rf "$TD"
+
 # T9: emit-context 배선 — 구현 **전** 차단 지점에 연결됐는가
 grep -q 'check-foundation-reuse.sh' "$PLUGIN/scripts/dag/emit-context.sh" \
   && ok "T9 emit-context 배선 (구현 전 fail-fast)" || nope "T9" "미배선 — 산문 잔존"
