@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.61.0] — 2026-08-06
+
 ### Added
 - **`/start-lite` · `/maintain-lite`** — clarify·plan ceremony만 생략하는 경량 Lifecycle 진입. 화면(Step 5.5)/IF(5.6)·Phase B/C·verify·AC-R-1은 풀과 동일. `/maintain-lite`는 analyzing-mini. strict 신호 시 `/start`·`/maintain` 승격. NL로 lite 추론 금지(슬래시 전용).
 
@@ -901,7 +903,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.60.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.61.0...HEAD
+[1.61.0]: https://github.com/andyko18/specops-ko/compare/v1.60.0...v1.61.0
 [1.60.0]: https://github.com/andyko18/specops-ko/compare/v1.59.0...v1.60.0
 [1.59.0]: https://github.com/andyko18/specops-ko/compare/v1.58.0...v1.59.0
 [1.58.0]: https://github.com/andyko18/specops-ko/compare/v1.57.0...v1.58.0
