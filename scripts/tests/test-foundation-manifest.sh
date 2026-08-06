@@ -104,4 +104,57 @@ grep -q 'check-foundation-manifest.sh' "$PLUGIN/scripts/_internal/run-verificati
 grep -q 'check-foundation-manifest.sh' "$PLUGIN/skills/verifying-evidence-ko/SKILL.md" \
   && ok "T9 verifying-evidence-ko 가 스크립트 지목" || nope "T9" "스킬 본문 미갱신"
 
+# ── CLI/라이브러리 foundation — 템플릿 경직성 (20260806 시나리오 검증) ────────
+# 템플릿 모듈 5행이 라우팅·인증·레이아웃·공통컴포넌트·DB 로 고정이라 CLI foundation 엔
+# 전부 무관하다. 채움 판정을 엄격화한 뒤 실측하니 **모델의 자연스러운 선택**(무관 행을
+# 템플릿 그대로 방치)이 FAIL 이 된다 — 체커가 틀린 게 아니라 템플릿이 실패 형태로 유도한다.
+# 해법은 판정 완화가 아니라 **"해당 없는 행·항목은 삭제"** 를 템플릿에 명시하는 것.
+# 느슨한 grep(`삭제|예시`)은 표 안의 `<import 예시>`·기술스택 주석에 걸려 공허하게 통과한다
+# (mutation 으로 실증). 계약의 **세 요소**를 모두 요구한다:
+#   ① 행 자체 삭제 허용 ② 판정기 이름(SoT) ③ 미채움 → VERIFY: FAIL 귀결
+TPL="$PLUGIN/templates/foundation-manifest.md"
+_t10=0
+grep -qE '행 자체를 삭제|행·항목은 삭제|해당 없는 것은 행' "$TPL" || _t10=1
+grep -q 'check-foundation-manifest' "$TPL" || _t10=1
+grep -q 'VERIFY: FAIL' "$TPL" || _t10=1
+if [ "$_t10" -eq 0 ]; then
+  ok "T10 템플릿에 행 삭제 허용 + 판정기 + FAIL 귀결 명시"
+else
+  nope "T10" "템플릿 지침 불완전 — CLI foundation 이 placeholder 방치로 유도됨"
+fi
+
+# T11: CLI 형태(라우팅·인증·DB 무관, 모듈 3행 교체) manifest → PASS
+TD=$(mktemp -d); _mk "$TD" 20260806-cli foundation
+cat > "$TD/.specops/memory/foundation-manifest.md" <<'EOF'
+<!-- layer: Lifecycle-Artifact -->
+# Foundation Manifest — mycli
+## 제공 모듈
+| 모듈 | 경로 | 역할 (1줄) | 재사용 방법 |
+|---|---|---|---|
+| 인자 파싱 | `src/cli/args.sh` | 공통 옵션 파싱 | `source src/cli/args.sh` |
+| 로깅 | `src/cli/log.sh` | 레벨별 로깅 | `source src/cli/log.sh` |
+## 기술 스택
+- **런타임**: bash 5.2
+EOF
+(cd "$TD" && bash "$CHK" 20260806-cli >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T11 CLI 형태 manifest(행 교체·스택 축소) → PASS" || nope "T11" "rc=$rc"
+rm -rf "$TD"
+
+# T12: 무관 행을 '해당 없음' 으로 채운 형태도 PASS (삭제·명시 둘 다 허용)
+TD=$(mktemp -d); _mk "$TD" 20260806-cli foundation
+cat > "$TD/.specops/memory/foundation-manifest.md" <<'EOF'
+<!-- layer: Lifecycle-Artifact -->
+# Foundation Manifest — mycli
+## 제공 모듈
+| 모듈 | 경로 | 역할 (1줄) | 재사용 방법 |
+|---|---|---|---|
+| 인자 파싱 | `src/cli/args.sh` | 공통 옵션 파싱 | `source src/cli/args.sh` |
+| 라우팅 | 해당 없음 | 해당 없음 | 해당 없음 |
+## 기술 스택
+- **런타임**: bash 5.2
+EOF
+(cd "$TD" && bash "$CHK" 20260806-cli >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T12 '해당 없음' 명시 형태 → PASS" || nope "T12" "rc=$rc"
+rm -rf "$TD"
+
 finish

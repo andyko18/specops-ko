@@ -262,6 +262,8 @@ foundation-manifest 는 **사전 선언된** 공통부 재사용만 게이트한
 spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마지막에 다음 태스크를 포함한다:
 
 > **[foundation 전용 마지막 태스크]** 공통부 구현 완료 후 `templates/foundation-manifest.md` 를 기반으로 실제 모듈 경로·역할을 채워 `.specops/memory/foundation-manifest.md` 에 저장한다.
+>
+> 템플릿의 모듈 5행(라우팅·인증·레이아웃·공통 컴포넌트·DB 스키마)과 기술 스택 3항목은 **웹/풀스택 기준 예시**다. **프로젝트 유형에 맞게 교체하고 해당 없는 행·항목은 삭제**한다 — CLI/라이브러리 foundation 이면 인자 파싱·로깅·설정 로더 등 실제 제공 모듈로 바꾼다. placeholder(`<경로>`·`<확정된 프레임워크>`)를 그대로 남기면 `check-foundation-manifest.sh` 가 미채움으로 판정해 `VERIFY: FAIL` 이 난다(실측 20260806: 무관 행 방치가 모델의 자연스러운 선택이라 이 안내가 없으면 CLI foundation 이 반복 실패한다).
 
 이 태스크가 없으면 후속 `/start <기능>` 시 decomposing-ko HARD GATE 가 `foundation-manifest.md` 를 발견하지 못해 재사용 게이트가 동작하지 않는다.
 
