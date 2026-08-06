@@ -171,6 +171,22 @@ grep -qE 'DEFERRED → Phase 2 batch|plan-reviewer DEFER' "$PLUGIN/skills/planni
 grep -q 'Phase 1에서 §batch plan-reviewer 실행' "$SA" \
   && ok "T11.e 안티패턴 Phase1 reviewer" || nope "T11.e" "안티패턴 부재"
 
+# ── T13: Critical 판정 방식 대칭 (20260806 /start-all-auto 분석) ─────────────
+# 결함: Phase 2.5-D(design-review)는 `^Critical:[[:space:]]*[1-9]` **기계 grep** 으로
+#   Critical 을 판정하는데, Phase 2(plan-review)는 "Critical≥1" **산문 판단**뿐이었다.
+#   plan-reviewer 도 동일 포맷(`Critical: <N>건`)을 출력하므로 기계화가 가능한데,
+#   §auto 무인에서 모델이 오판하면 **Critical plan 이 자동통과**한다(사람 없음).
+grep -qE 'plan-review\.md.*\^Critical|Critical:\[\[:space:\]\]\*\[1-9\].*plan' "$SA" \
+  || grep -A 2 'FAIL\*\* \(재시도 후\)' "$SA" | grep -qE '\^Critical:\[\[:space:\]\]\*\[1-9\]' \
+  && ok "T13.a Phase 2 plan-review Critical 기계 판정" \
+  || nope "T13.a" "plan-review Critical 이 산문 판단 — §auto 오판 시 Critical 자동통과"
+
+# T13.b: 두 판정이 동일 패턴을 쓴다 (드리프트 방지)
+n=$(grep -cE '\^Critical:\[\[:space:\]\]\*\[1-9\]' "$SA" || true)
+[ "${n:-0}" -ge 2 ] \
+  && ok "T13.b Critical grep 패턴 2곳 이상(plan·design 대칭)" \
+  || nope "T13.b" "패턴 ${n}곳 — 대칭 아님"
+
 # ── T12: BATCH_ID 충돌 방지 + ACTIVE 기반 재개 (M2, 20260806) ────────────────
 # 구 규약 `batch-<YYYYMMDD>` 는 날짜가 곧 재개 키였다 — 같은 날 두 번째 /start-all 이
 # 이전 batch 의 queue.md 를 재사용해 서로 다른 requirements 가 한 큐에 뭉갰다.

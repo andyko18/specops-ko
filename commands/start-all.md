@@ -121,7 +121,8 @@ reference_upstream: specops-ko 독자 추가
    - 각 FID `dispatch-log.md`에 deferred 해소 행: `| … | plan-reviewer | plan-reviewer-ko | PASS|FAIL | batch Phase 2 |`
    - **PASS** → 선택: 외부 critic 최대 1회(대표 plan 또는 전 경로) 또는 `CRITIC: SKIP (batch defer)` 기록 → 스텝 2
    - **FAIL** (1회차): 이슈 목록으로 관련 FID `plan.md` 수정 → 필요 시 해당 FID만 `decomposing-ko` 재실행 → plan-reviewer **재dispatch 1회**
-   - **FAIL** (재시도 후): Critical≥1 또는 대화형 → `HARD-GATE: batch plan-reviewer cap — 사용자 개입`. **§auto**이고 Important-only면 기존 plan §auto와 같이 가역 자동통과 + queue/다이제스트 기록 가능
+   - **FAIL** (재시도 후): 부모가 `.specops/<BATCH_ID>/plan-review.md` 에서 **`^Critical:[[:space:]]*[1-9]`** 를 본다(Phase 2.5-D 와 **동일 기계 판정** — plan-reviewer 도 `Critical: <N>건` 을 출력한다). **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: batch plan-reviewer cap — 사용자 개입` 후 **정지**(§auto 자동통과 금지). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE, **§auto**만 가역 자동통과 + queue/다이제스트 기록.
+     > 산문 판단 금지(20260806): 무인에서 Critical 을 눈으로 세면 오판 시 **Critical plan 이 자동통과**한다 — 사람이 없다. 두 리뷰 축이 같은 패턴을 쓰게 고정한다.
    - **금지**: Phase 2 plan-review 생략 · 부모 self-review 대체 · FR마다 plan-reviewer 재실행
 
 2. **짧은 digest** — 전 plan 본문 덤프 금지. 스크립트:

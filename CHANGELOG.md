@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **`/start-all` Phase 2 plan-review 의 Critical 판정이 산문뿐 — 무인 오판 표면 (`/start-all-auto` 분석 20260806)** — Phase 2.5-D(design-review)는 `^Critical:[[:space:]]*[1-9]` **기계 grep** 으로 Critical 을 판정하는데, Phase 2(plan-review)는 "Critical≥1" **산문 판단**뿐이었다. `plan-reviewer-ko` 도 동일 포맷(`Critical: <N>건`)을 출력하므로 기계화가 가능한 자리다. §auto 무인에서는 사람이 없어, 모델이 Critical 수를 오판하면 **Critical plan 이 그대로 자동통과**한다. 두 리뷰 축이 **같은 패턴**을 쓰도록 고정했다(드리프트 방지 테스트 T13.b 로 2곳 이상 존재를 잠금). 테스트 2건, mutation 비-vacuous.
 - **foundation 재사용 게이트의 태스크 원천 불일치 — 미검사 태스크가 조용히 통과 (`/start-all-auto` 분석 20260806)** — 게이트는 `## 태스크 N:` **마크다운 절**만 순회하는데, `emit-context` 가 실제로 dispatch 하는 태스크 원천은 **YAML DAG** 다. 두 원천이 어긋나면(YAML 2 태스크 · 마크다운 절 1개) **나머지 태스크는 검사 자체를 안 받고 통과**한다(실측 확인). 무인(`/start-all-auto`)에서는 사람이 눈으로 못 잡으므로 미선언 태스크가 그대로 구현에 들어간다. YAML 태스크 id 수와 절 수를 대조해 미검사 태스크를 지목하도록 보강 — `emit-context` 와 **동일 SoT**(YAML)를 기준으로 삼는다. 테스트 2건(T11.a·b), mutation 비-vacuous.
 
 ### Added
