@@ -84,6 +84,13 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 - 스펙이 두 가지로 해석되어 **근본적으로 다른 구현**을 초래
 - **§유형=`foundation`** 이고 `.specops/memory/frontend-architecture.md` 또는 `.specops/memory/backend-architecture.md` 에 `<...>` 형태의 미해소 placeholder 가 있으면 **기술 프레임워크 확정을 BLOCKING 질문으로 강제** — RESOLVED 전 planning-ko 진입 차단. **단** `decisions.md`에 프론트/백엔드 스택이 이미 확정되어 있으면 placeholder가 남아 있어도 BLOCKING 재질문 금지(원장 우선 — init이 채운 값을 신뢰). placeholder와 원장이 충돌할 때만 1회 재확인
 
+> **★ 원장 면제는 눈대중 금지 — 판정기로 확인한다** (20260806). 위 두 항목의 "`decisions.md`에 확정되어 있으면 제외" 는 반드시 아래로 판정한다:
+> ```bash
+> bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-decisions-ledger.sh '<주제 regex>'   # 0=확정 · 1=미확정
+> bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-decisions-ledger.sh --list            # 확정 주제 일람
+> ```
+> `/init-project` 가 만드는 **원장 골격에는 예시 행이 들어 있다** — `| D-001 | (예시) UI 유무 | 있음 | … |`. 표를 눈으로 보면 "행이 있으니 확정된 원장" 으로 오독하기 쉽고, 그러면 foundation 기술스택 BLOCKING 이 **근거 없이 면제**돼 미확정 스택으로 plan 에 진입한다. 판정기는 `(예시)` 접두 행·빈칸·`<...>` placeholder·`TBD`/`(미정)` 류 무정보 값을 **모두 미확정**으로 본다. `1` 이면 면제 없이 BLOCKING 질문을 진행한다.
+
 **DESIRABLE** (가정으로 진행 가능):
 - UI 세부 (색상·버튼 텍스트)
 - 비-치명적 엣지 케이스 처리 선택
