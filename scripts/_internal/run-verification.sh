@@ -25,6 +25,7 @@ fi
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
+FND_SH="$PLUGIN/scripts/_internal/check-foundation-manifest.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
 
@@ -62,6 +63,17 @@ if [ -z "$commands" ]; then
       _record_result FAIL
       echo "VERIFY: FAIL review-audit" >&2
       echo "$audit_out" >&2
+      exit 1
+    }
+  fi
+  # foundation manifest 도 동일 이유로 여기서 검사한다 — review-audit 이 봉합한 것과 같은
+  #   "NO COMMANDS 우회" 구멍. 테스트 명령 0건인 foundation FID 가 게이트를 통째로 비껴간다.
+  if [ -f "$FND_SH" ]; then
+    fnd_out=$(bash "$FND_SH" "$FID" 2>&1) || {
+      failed=$((failed + 1))
+      _record_result FAIL
+      echo "VERIFY: FAIL foundation-manifest 미산출" >&2
+      echo "$fnd_out" >&2
       exit 1
     }
   fi
@@ -167,6 +179,28 @@ if [ -f "$AUDIT_SH" ]; then
     failed=$((failed + 1))
     echo "VERIFY: FAIL review-audit (exit=$audit_ec)" >&2
     echo "$audit_out" >&2
+  fi
+fi
+
+# foundation manifest 산출 게이트 — §유형=foundation 인 FID 만 대상(그 외 SKIP).
+#   review-audit 과 같은 이유로 여기 배선한다: 실행-근거 게이트(R-1/R-2)가 "VERIFY: PASS" 만
+#   커밋·PR 면제로 인정하므로, 이 축의 위반도 같은 관문을 통과해야 실효가 있다.
+#   종전엔 verifying-evidence-ko 산문뿐이라 모델이 건너뛰면 무발동이었다(20260806 실측).
+if [ -f "$FND_SH" ]; then
+  fnd_out=$(bash "$FND_SH" "$FID" 2>&1)
+  fnd_ec=$?
+  {
+    echo "### foundation-manifest"
+    echo '```'
+    echo "$fnd_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  if [ "$fnd_ec" -ne 0 ]; then
+    all_pass=0
+    failed=$((failed + 1))
+    echo "VERIFY: FAIL foundation-manifest 미산출 (exit=$fnd_ec)" >&2
+    echo "$fnd_out" >&2
   fi
 fi
 

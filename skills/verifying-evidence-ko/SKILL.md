@@ -176,7 +176,8 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - **테스트=spec 커버 점검** (ecc inspect-first 교훈 2 — 빈틈2 해소): 이번 FID 가 **api-spec.md 에 추가·변경한 제공 엔드포인트** 각각에 대해, 브랜치 누적 변경의 테스트 파일에서 해당 라우트를 호출·검증하는 케이스가 존재하는지 대조. 미커버 엔드포인트는 evidence.md `## 미커버 엔드포인트` 섹션에 나열 (감지·권고만 — AC 매핑 커버리지는 decomposing 몫이므로 여기서는 **설계문서↔테스트의 잔여 괴리**만 잡는다. 부재 시 graceful skip).
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.
-  - **FAIL 조건**: 파일 부재 **또는** raw 템플릿 placeholder 잔존(`grep -q '<경로>' .specops/memory/foundation-manifest.md` — 미채움 간주) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단.
+  - **판정 SoT = `scripts/_internal/check-foundation-manifest.sh`** (20260806 기계화). `run-verification.sh` 가 자동 호출하므로 **본 체크리스트는 결과 확인용**이다 — 모델이 이 절을 건너뛰어도 게이트는 발화한다. 종전엔 산문뿐이라(구현 0곳) **침묵 무발동을 막으려는 게이트 자체가 침묵 무발동**이었다.
+  - **FAIL 조건**: 파일 부재 **또는** 템플릿 placeholder 잔존(미채움) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단. 채움 판정은 placeholder SoT(`scan-enrich-placeholders.sh`)를 재사용한다 — 구 판정 `grep -q '<경로>'` 는 **단일 토큰**이라 경로만 채우고 `<설명>`·`<import 예시>`·`<확정된 프레임워크>` 가 전부 남아도 통과했다.
   - **근거**: 소비측 재사용 게이트(`decomposing-ko`)는 이 파일 **존재를 전제**로만 발동한다. 생산은 `planning-ko` 산문 지시뿐(강제 evaluator 부재)이라, verify 가 실제 산출물을 확인하지 않으면 manifest 누락 시 후속 `/start` 재사용 게이트가 **침묵 무발동(no-op)** 한다. 본 게이트가 **Mode1(manifest 태스크 누락)·Mode2(태스크 존재하나 파일 미작성)** 를 모두 차단 → implementing **후** 실제 파일을 검사하는 유일 지점이므로 소비 게이트를 무접촉으로 transitively 건전화한다.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
