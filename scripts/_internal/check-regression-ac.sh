@@ -31,6 +31,17 @@ grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$SPEC" 2>/dev/null && nee
 need_r2=0
 [ -f "$CS" ] && grep -q '스키마 override' "$CS" 2>/dev/null && need_r2=1
 
+# 라벨 정합 — analyzing 마커(합산 >5 → 유지보수)와 spec §유형 의 다운그레이드 차단.
+#   analyzing 이 `→ 유지보수` 를 썼는데 spec 이 trivial 이면 AC-R-1 면제가 근거 없이 열린다.
+#   상향(마커 trivial, spec 유지보수)은 더 엄격한 쪽이므로 허용.
+if [ -f "$CS" ] \
+   && grep -qE '라인 범위 합산.*→[[:space:]]*유지보수' "$CS" 2>/dev/null \
+   && grep -qE '^\*\*§유형\*\*:[[:space:]]*trivial' "$SPEC" 2>/dev/null; then
+  echo "REGRESSION-AC: FAIL — 라벨 불일치 (analyzing 마커=유지보수, spec §유형=trivial)"
+  echo "  합산 >5줄 이면 trivial 면제가 성립하지 않는다 — spec §유형을 유지보수로 정정하고 AC-R-1 을 작성하세요."
+  exit 1
+fi
+
 if [ "$need_r1" -eq 0 ] && [ "$need_r2" -eq 0 ]; then
   echo "REGRESSION-AC: SKIP (§유형≠유지보수 · 스키마 override 없음)"
   exit 0
@@ -42,10 +53,10 @@ if [ ! -f "$AC" ]; then
 fi
 
 # 섹션 추출 + 채움 판정. 템플릿 잔존 문구(대괄호 placeholder)는 미채움.
-_section() {  # $1=AC-R-N → 섹션 본문
-  awk -v h="### $1" '
-    index($0, h) == 1 { f=1; next }
-    f && /^### / { exit }
+_section() {  # $1=AC-R-N → 섹션 본문 (h2/h3 모두 — emit-context #209 헤더 완화와 정합)
+  awk -v id="$1" '
+    $0 ~ ("^##(#)?[[:space:]]+" id "([[:space:]:]|$)") { f=1; next }
+    f && /^##(#)?[[:space:]]/ { exit }
     f { print }
   ' "$AC"
 }

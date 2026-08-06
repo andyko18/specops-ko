@@ -96,6 +96,27 @@ for t in tasks:
             errors.append(f"{tid}: {a} 가 acceptance-criteria.md 에 부재")
     if "inputs" not in t or "outputs" not in t:
         errors.append(f"{tid}: inputs/outputs 키 부재")
+
+# 역방향 커버리지 (20260806 /maintain 정밀분석) — 모든 **must** AC 가 ≥1 task 에 매핑.
+#   종전엔 task→AC 한 방향만 검사해, AC-R-1(회귀 must)을 채워 놓고 어느 태스크에도
+#   매핑하지 않으면 회귀 테스트가 영영 구현되지 않았다 (decomposing 산문 "모든 must AC 매핑" 의 teeth).
+#   must 판정: h2/h3 AC 헤더 섹션 안에 `**우선순위**: must` 가 있는 id 만 —
+#   우선순위 필드가 아예 없는 구식/픽스처 AC 문서는 자연히 대상 0건(하위호환 fail-open).
+must_ids = []
+_cur = None
+for line in ac_text.splitlines():
+    m = re.match(r"^#{2,3}\s+(AC-[A-Za-z0-9-]+)", line)
+    if m:
+        _cur = m.group(1)
+        continue
+    if _cur and re.match(r"^\*\*우선순위\*\*:\s*must", line.strip()):
+        must_ids.append(_cur)
+        _cur = None
+covered = {a for t in tasks for a in (t.get("ac") or [])}
+for mid in must_ids:
+    if mid not in covered:
+        errors.append(f"must AC 미커버 — {mid} 가 어느 태스크의 ac 배열에도 없음 (회귀/필수 AC 는 태스크 매핑 의무)")
+
 if errors:
     for e in errors:
         print(f"emit-context FAIL — {e}", file=sys.stderr)

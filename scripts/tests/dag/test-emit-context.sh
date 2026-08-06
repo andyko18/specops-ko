@@ -201,5 +201,23 @@ else
 fi
 rm -rf "$tmp"
 
+# ── T3: must AC 역방향 커버리지 (20260806 /maintain 정밀분석) ────────────────
+# 종전 검증은 task→AC 한 방향(ac 배열의 id 가 AC.md 에 존재)뿐이었다.
+# 역방향(모든 must AC 가 ≥1 task 에 매핑)은 decomposing 산문뿐 — AC-R-1 을 채워도
+# 어느 태스크에도 안 매핑하면 회귀 테스트가 영영 구현되지 않는 구멍.
+out=$(run_emit "$FIXTURES/must-uncovered")
+if echo "$out" | grep -q "exit=1" && echo "$out" | grep -q "AC-R-1" \
+   && echo "$out" | grep -q "(empty)"; then
+  PASS=$((PASS+1)); echo "PASS T3.a must AC 미커버 → exit 1 + 미커버 id 지목 + 부분잔류 0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.a"; echo "out=$out"
+fi
+# should AC(AC-2) 미커버는 차단하지 않는다 — 오류 메시지에 AC-2 가 나오면 과잉
+if ! echo "$out" | grep -E "커버.*AC-2|AC-2.*커버" >/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T3.b should AC 미커버는 비차단"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.b should 과잉 차단"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

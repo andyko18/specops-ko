@@ -16,10 +16,15 @@ command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit
 CHK="$PLUGIN/scripts/_internal/check-regression-ac.sh"
 
 _mk() {  # $1=dir $2=fid $3=§유형 [$4=override(y)]
+  # 마커는 analyzing 계약과 정합하게 생성 — override 는 라인수 무관 강제 비trivial 이고,
+  # trivial 라벨이면 마커도 trivial 이어야 한다 (불일치 조합은 T13 라벨 검사 전용 픽스처).
   mkdir -p "$1/.specops/$2"
   printf '**§유형**: %s\n' "$3" > "$1/.specops/$2/spec.md"
   if [ "${4:-n}" = "y" ]; then
     printf '# 현행\n**라인 범위 합산: 2줄 → 유지보수(스키마 override)**\n' \
+      > "$1/.specops/$2/current-state.md"
+  elif [ "$3" = "trivial" ]; then
+    printf '# 현행\n**라인 범위 합산: 3줄 → trivial**\n' \
       > "$1/.specops/$2/current-state.md"
   else
     printf '# 현행\n**라인 범위 합산: 12줄 → 유지보수**\n' \
@@ -122,13 +127,15 @@ TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수 y
 [ "$rc" -eq 0 ] && ok "T8 override + 둘 다 채움 → PASS" || nope "T8" "rc=$rc"
 rm -rf "$TD"
 
-# T9: ★ trivial 이어도 스키마 override 면 AC-R-2 강제 (템플릿 예외 계약 — 데이터 안전은 라인수 면제 불가)
+# T9: ★ trivial 라벨 + 스키마 override → 차단 (라벨 불일치 우선 — analyzing 계약상
+#     override 는 라인수 무관 강제 비trivial 이므로 이 조합 자체가 다운그레이드다.
+#     정정 후 spec=유지보수 가 되면 AC-R-2 요구는 T7 이 잠근다 — 데이터 안전 우회 경로 없음)
 TD=$(mktemp -d); _mk "$TD" 20260806-m trivial y
 printf '# AC\n### AC-1: 기본\n**Given** x\n**When** y\n**Then** z\n' \
   > "$TD/.specops/20260806-m/acceptance-criteria.md"
 out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
-[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'AC-R-2' \
-  && ok "T9 trivial + override → AC-R-2 강제" || nope "T9" "rc=$rc out=$out"
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qE '라벨|AC-R-2' \
+  && ok "T9 trivial + override → 차단(라벨 불일치)" || nope "T9" "rc=$rc out=$out"
 rm -rf "$TD"
 
 # T10: spec.md 부재 → fail-open
@@ -144,5 +151,33 @@ grep -q 'check-regression-ac.sh' "$PLUGIN/scripts/dag/emit-context.sh" \
 # T12: 템플릿이 판정 SoT 를 지목 (구 문구는 evaluator BLOCK 주장뿐 — 구현 없었음)
 grep -q 'check-regression-ac.sh' "$PLUGIN/templates/acceptance-criteria.md" \
   && ok "T12 템플릿 SoT 지목" || nope "T12" "템플릿 미갱신"
+
+# ── 라벨 정합 (20260806 후속) — analyzing 마커 ↔ spec §유형 다운그레이드 차단 ──
+# analyzing 이 합산 >5 로 `→ 유지보수` 마커를 썼는데 spec 이 trivial 로 라벨되면
+# AC-R-1 면제가 근거 없이 열린다. 두 산출물 다 파일이라 정합은 기계 검사 가능.
+# T13: 마커 유지보수 + spec trivial → FAIL (라벨 다운그레이드)
+TD=$(mktemp -d); _mk "$TD" 20260806-m trivial
+printf '# 현행\n**라인 범위 합산: 12줄 → 유지보수**\n' > "$TD/.specops/20260806-m/current-state.md"
+printf '# AC\n' > "$TD/.specops/20260806-m/acceptance-criteria.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '라벨' \
+  && ok "T13 마커 유지보수 + spec trivial → FAIL(라벨 불일치)" || nope "T13" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T14: 마커 trivial + spec trivial → 정합 skip (정당한 trivial)
+TD=$(mktemp -d); _mk "$TD" 20260806-m trivial
+printf '# 현행\n**라인 범위 합산: 3줄 → trivial**\n' > "$TD/.specops/20260806-m/current-state.md"
+printf '# AC\n' > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T14 마커·spec 둘 다 trivial → skip" || nope "T14" "rc=$rc"
+rm -rf "$TD"
+
+# T15: 마커 trivial + spec 유지보수(상향) → 허용 — 더 엄격한 쪽은 정당
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+printf '# 현행\n**라인 범위 합산: 3줄 → trivial**\n' > "$TD/.specops/20260806-m/current-state.md"
+_ac_r1_filled > "$TD/.specops/20260806-m/acceptance-criteria.md"
+(cd "$TD" && bash "$CHK" 20260806-m >/dev/null 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T15 상향(spec 유지보수) → 허용" || nope "T15" "rc=$rc"
+rm -rf "$TD"
 
 finish
