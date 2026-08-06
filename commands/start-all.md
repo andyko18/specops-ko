@@ -238,6 +238,10 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
    - Critical/High 검출 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
+   - **PASS/SKIP 후 전 FID 전파 (필수)** — skill 은 대표 FID 1곳의 evidence.md 에만 기록하는데, `gh pr create` 의 RELEASE_READY 는 **전 IMPL_DONE FID** 각각에 이 게이트를 요구한다(MISSING → hard deny):
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" security <PASS|SKIP> [SKIP근거]
+     ```
 
 **Step B: batch 레벨 통합·E2E 테스트**
 
@@ -248,6 +252,10 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - **두 표면 모두 부재**(순수 데이터 batch·CLI) 시에만 graceful skip. **UI batch 인데 E2E 를 건너뛰면 안 된다** — 화면 있는 batch 는 E2E 가 통합 검증의 본체다(dogfood 20260716: batch 가 API 통합만 보고 UI E2E 를 흐름 밖으로 흘려 사후 수동 보충됨).
    - `BATCH-INTEGRATION-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
    - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
+   - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" integration <PASS|SKIP> [SKIP근거]
+     ```
 
 **Step C: batch 레벨 성능 테스트**
 
@@ -256,6 +264,10 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - 성능 임계값 신호 부재 시 graceful skip
    - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
    - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환)
+   - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" performance <PASS|SKIP> [SKIP근거]
+     ```
 
 **Step D: batch PR 생성**
 
