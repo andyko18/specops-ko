@@ -64,14 +64,34 @@ tmp="$SPECOPS/$FID/receipts/.$TASK.$$.tmp"
 [ ! -L "$target" ] || { echo "record-task-receipt: receipt symlink 거부" >&2; exit 1; }
 
 outputs_json=$(printf '%s\n' "$outputs" | jq -Rsc 'split("\n")|map(select(length>0))')
+
+# TDD RED 관측 (20260806) — **비차단**. receipt 는 GREEN(test PASS)만 증명하므로,
+#   "구현 전에 실패했는가" 를 별도 관측해 필드로 남긴다(공허한 테스트 감사 경로).
+#   판정 불가(transcript 부재·명령 미발견)가 흔해 커밋을 막지 않는다 — 차단 전환 시
+#   바꿀 지점이 여기다.
+_RED_SH="$PLUGIN/scripts/_internal/check-tdd-red.sh"
+tdd_red="unknown"
+if [ -f "$_RED_SH" ]; then
+  if red_out=$(bash "$_RED_SH" "$FID" "$TASK" 2>&1); then
+    tdd_red="observed"
+  else
+    case $? in
+      1) tdd_red="absent"; printf '%s\n' "$red_out" >&2 ;;
+      *) tdd_red="unknown" ;;
+    esac
+  fi
+fi
+
 jq -n \
   --argjson schema_version 1 --arg fid "$FID" --arg task "$TASK" \
   --arg tree_hash "$tree" --arg test_command "$test_cmd" \
   --arg test_command_hash "$cmd_hash" --argjson outputs "$outputs_json" \
   --arg verdict PASS --arg recorded_at "$ts" --arg runner "record-task-receipt.sh" \
+  --arg tdd_red "$tdd_red" \
   '{schema_version:$schema_version,fid:$fid,task:$task,tree_hash:$tree_hash,
     test_command:$test_command,test_command_hash:$test_command_hash,
-    outputs:$outputs,verdict:$verdict,recorded_at:$recorded_at,runner:$runner}' \
+    outputs:$outputs,verdict:$verdict,tdd_red:$tdd_red,
+    recorded_at:$recorded_at,runner:$runner}' \
   > "$tmp" || { rm -f "$tmp"; exit 1; }
 mv "$tmp" "$target"
 echo "RECEIPT: PASS $FID/$TASK"
