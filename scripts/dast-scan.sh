@@ -15,6 +15,17 @@ if [ "${SPECOPS_DAST_NO_RUN:-0}" = "1" ]; then
   echo "DAST: SKIP (nuclei·ZAP·nikto·docker 미설치 — graceful skip)"
   exit 0
 fi
+# ── 소유확인 ACK 게이트 (20260806) ───────────────────────────────────────────
+# 소유확인([y/N])은 command 산문에만 있었다 — 본 스크립트를 직접 실행하면 확인 없이
+# 능동 스캔이 나간다(실측: ACK 없이 docker ZAP 분기 실행됨). 무단 스캔은 불법이므로
+# 실 스캔 경로에 명시 승인 env 를 요구한다. NO_RUN dry 는 위에서 이미 반환됐다(면제).
+# command 레이어가 사용자 [y] 승인 후에만 SPECOPS_DAST_ACK=1 을 부여한다.
+if [ "${SPECOPS_DAST_ACK:-0}" != "1" ]; then
+  echo "DAST: 거부 — 대상이 본인 소유 서버인지 확인되지 않았습니다 (무단 능동 스캔은 불법)." >&2
+  echo "  사용자 승인([y]) 후: SPECOPS_DAST_ACK=1 dast-scan.sh <URL>" >&2
+  exit 2
+fi
+
 crit=0; high=0; ran=0; manual=0
 rep=$(mktemp "${TMPDIR:-/tmp}/specops-dast.XXXXXX") || rep=""
 [ -n "$rep" ] && trap 'rm -f "$rep"' EXIT

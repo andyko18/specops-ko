@@ -20,6 +20,7 @@ reference_upstream: specops-ko 독자 추가
 
 플러그인 자기 설정(hooks·skills·rules.jsonl·plugin.json·settings) 적대 보안감사. **on-demand 전용**.
 
+0. **FID 결정** — self-config 는 lifecycle 밖 온디맨드라 진행 중 FID 가 없다. `FID = <YYYYMMDD>-self-config-audit` 로 고정 생성(`mkdir -p .specops/<FID>`) — 임의 슬러그·무관 FID 귀속 금지(같은 날 재실행은 동일 FID 재사용 — 감사 산출물 갱신).
 1. **토큰 경고**: `self-config 적대감사는 red/blue/auditor 3 서브에이전트를 dispatch합니다 — 토큰 비용이 큽니다. 진행? [y/N]`
 2. **번들**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/self-config-collect.sh . > .specops/<FID>/self-config-bundle.md` (collect 는 stdout 출력만 — redirect 로 번들 저장 필수. 이 파일이 red dispatch 입력)
 3. **red dispatch**: `agents/red-team-ko` (입력: 번들)
@@ -43,10 +44,12 @@ reference_upstream: specops-ko 독자 추가
    - 전체 소스 스캔 (대상 디렉터리 고정: 현재 경로)
    - 취약점 목록 + 심각도(critical/high/medium/low) 출력
 
-3. **DAST 실행** (URL 인자 있을 경우만)
+3. **DAST 실행** (URL 인자 있을 경우만 — Process 1 의 사용자 `[y]` 승인 **후에만** ACK env 를 부여한다)
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dast-scan.sh <URL>
+   SPECOPS_DAST_ACK=1 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dast-scan.sh <URL>
    ```
+   > ACK 게이트(20260806): 스크립트는 `SPECOPS_DAST_ACK=1` 없이는 실 스캔을 **거부**한다(exit 2) —
+   > 소유확인이 command 산문에만 있어 스크립트 직접 실행 시 우회되던 표면 봉합. 승인 전 부여 금지.
    - 배포 서버에 대한 동적 점검
    - nuclei > ZAP(docker) > nikto 우선순위로 도구 탐지
    - 도구 부재 시 graceful skip (실행 실패 없음)
