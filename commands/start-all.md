@@ -21,10 +21,29 @@ reference_upstream: specops-ko 독자 추가
 
 ### Phase 0 — 준비
 
-1. **batch-id 결정** (실행 날짜 기준):
+1. **batch-id 결정 — 재개 키는 날짜가 아니라 `ACTIVE` 마커다**
+
+   구 규약은 `batch-<YYYYMMDD>` 여서 **날짜가 곧 재개 키**였다. 같은 날 두 번째 `/start-all` 을
+   다른 `requirements.md` 로 돌리면 이전 batch 의 `queue.md` 를 재사용해 서로 다른 FR 집합이
+   한 큐에 뭉갰다. 재개 판정을 이미 존재하는 진행 표시(`ACTIVE`)로 옮기고, 신규 id 에는 시각을 붙인다.
+
+   ```bash
+   # ① 진행 중 batch 탐색 — 훅(_batch_pr_gate)과 동일 관용구: .specops/batch-*/ACTIVE
+   for m in .specops/batch-*/ACTIVE; do [ -f "$m" ] && basename "$(dirname "$m")"; done
    ```
-   BATCH_ID = "batch-<YYYYMMDD>"   예: batch-20260605
-   ```
+
+   - **정확히 1개** → 그 batch **재개**. `BATCH_ID = basename`. (구 포맷 `batch-<YYYYMMDD>` 도
+     ACTIVE 가 있으면 그대로 재개된다 — **하위호환**. 디렉토리명을 바꾸지 않는다.)
+   - **2개 이상** → **모호**. 목록을 제시하고 사용자에게 선택받는다(자동 선택 금지 — 주권).
+     `"진행 중 batch 가 여러 개입니다. 어느 것을 이어서 진행할까요? [번호 / new=새 batch]"`
+   - **0개** → 신규 생성:
+     ```
+     BATCH_ID = "batch-<YYYYMMDD>-<HHMM>"   예: batch-20260806-1430
+     ```
+     `.specops/$BATCH_ID` 가 이미 있으면(같은 분 재실행) `-2`, `-3` … 접미로 회피한다.
+
+   > 훅(`hooks/pretool-governance.sh`)·`batch-state.sh` 는 `batch-*` 글롭과 디렉토리 인자만 쓰므로
+   > id 포맷에 의존하지 않는다 — 본 변경으로 게이트 동작은 바뀌지 않는다.
 2. **requirements.md 탐색** (`.specops/memory/requirements.md` 우선, 없으면 루트):
    - 탐색 순서: `.specops/memory/requirements.md` → `requirements.md`
    - 두 곳 모두 없으면: "`requirements.md`가 없습니다. `/init-project`를 먼저 실행하세요." 출력 후 **중단**
@@ -50,6 +69,8 @@ reference_upstream: specops-ko 독자 추가
    그것과 무관한 후속 작업의 PR 이 과거 상태로 차단된다(false-block). 마커를 안 남기면 게이트도 발화하지 않는다.
 
    `.specops/$BATCH_ID/queue.md` 이미 존재하면 → **기존 파일 재사용** (초기화 스킵, PENDING/PLAN_DONE 상태 보존).
+   재사용은 **스텝 1이 ACTIVE 로 재개를 판정한 batch 에서만** 일어난다 — 신규 batch 는 id 에 시각이 붙어
+   디렉토리가 겹치지 않으므로 남의 queue 를 물려받지 않는다(구 날짜-키 규약의 뭉갬 경로 제거).
    없으면 신규 생성:
    ```
    | FR-ID | FID | FR 설명(1줄) | Status |

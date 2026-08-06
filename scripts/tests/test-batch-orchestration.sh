@@ -171,6 +171,34 @@ grep -qE 'DEFERRED → Phase 2 batch|plan-reviewer DEFER' "$PLUGIN/skills/planni
 grep -q 'Phase 1에서 §batch plan-reviewer 실행' "$SA" \
   && ok "T11.e 안티패턴 Phase1 reviewer" || nope "T11.e" "안티패턴 부재"
 
+# ── T12: BATCH_ID 충돌 방지 + ACTIVE 기반 재개 (M2, 20260806) ────────────────
+# 구 규약 `batch-<YYYYMMDD>` 는 날짜가 곧 재개 키였다 — 같은 날 두 번째 /start-all 이
+# 이전 batch 의 queue.md 를 재사용해 서로 다른 requirements 가 한 큐에 뭉갰다.
+# 재개 키를 **ACTIVE 마커**로 옮기고(이미 PR 게이트 판정 범위로 존재), 신규 id 에 시각을 붙인다.
+grep -qE 'batch-<YYYYMMDD>-<HHMM>' "$SA" \
+  && ok "T12.a 신규 BATCH_ID 에 시각 접미" || nope "T12.a" "batch-<YYYYMMDD>-<HHMM> 부재"
+
+# 재개는 날짜가 아니라 ACTIVE 마커로 판정해야 한다
+grep -qE '\.specops/batch-\*/ACTIVE' "$SA" \
+  && ok "T12.b ACTIVE 마커로 진행 batch 탐색" || nope "T12.b" "ACTIVE 글롭 탐색 부재"
+
+# 복수 ACTIVE 는 모호 — 자동 선택 금지, 사용자 게이트
+grep -qE '2개 이상|복수.*ACTIVE|여러 개' "$SA" \
+  && ok "T12.c 복수 ACTIVE → 사용자 선택 게이트" || nope "T12.c" "모호성 게이트 부재"
+
+# 하위호환: 기존 batch-YYYYMMDD(시각 없음) 도 ACTIVE 있으면 재개
+grep -qE '하위호환|기존 `batch-<YYYYMMDD>`' "$SA" \
+  && ok "T12.d 구 포맷 하위호환 명시" || nope "T12.d" "하위호환 문구 부재"
+
+# 구 규약 잔존 금지 — 날짜만으로 재개한다는 서술이 남으면 드리프트
+grep -qE 'BATCH_ID = "batch-<YYYYMMDD>"[^-]' "$SA" \
+  && nope "T12.e 구 날짜-only 규약 잔존" "batch-<YYYYMMDD> 단독 정의 남음" \
+  || ok "T12.e 구 날짜-only 규약 제거"
+
+# 훅 판정은 포맷 무관(glob) — 회귀 락
+grep -qE '\.specops/batch-\*/ACTIVE' "$PLUGIN/hooks/pretool-governance.sh" \
+  && ok "T12.f 훅 ACTIVE 글롭 포맷 무관" || nope "T12.f" "훅 글롭 변경됨"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
