@@ -601,5 +601,33 @@ else
   echo "FAIL T-no-selfcontam — repo friction-log 자기오염 (${_repo_bypass_before}->${_repo_bypass_after})"; fail=$((fail+1))
 fi
 
+# ── deny 안내문 보강 (20260807-bg-verify-evidence) ──
+# 백그라운드 실행이 증거로 인정되게 바뀌면서, "왜 막혔는지" 를 원인별로 구분해 안내해야 한다.
+# 구분이 없으면 사용자는 방금 러너를 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다.
+_PT_SRC=$(cat "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/hooks/pretool-governance.sh")
+
+# P-bg1 — 포그라운드 timeout 지침 (AC-5)
+check "P-bg1 deny 메시지에 포그라운드 timeout 지침" 'timeout' "$_PT_SRC"
+check "P-bg1b 포그라운드 문구" '포그라운드' "$_PT_SRC"
+
+# P-bg2 — 백그라운드 미회수 구분 안내 (AC-7) — **behavioral**
+#   ★ 소스 문자열 grep 으로 검사하면 배선이 끊겨도 통과한다(Phase B 적발: _EXEC_BG_PENDING_PATH 를
+#   서브셸에서 설정해 부모로 전파되지 않았는데 정적 grep 은 PASS 했다). 훅을 실제로 실행해
+#   deny 메시지를 검사한다.
+_PT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+_bgtr=$(mktemp)
+_BGOUT='/private/tmp/x/tasks/pbg2.output'
+_BGSTUB="Command running in background with ID: pbg2. Output is being written to: ${_BGOUT}. You will be notified when it completes."
+jq -nc --arg cmd 'bash scripts/tests/run-all.sh' \
+  '{type:"assistant",message:{role:"assistant",content:[{type:"tool_use",id:"toolu_PB1",name:"Bash",input:{command:$cmd}}]}}' > "$_bgtr"
+jq -nc --arg out "$_BGSTUB" \
+  '{type:"user",message:{role:"user",content:[{type:"tool_result",tool_use_id:"toolu_PB1",is_error:false,content:$out}]}}' >> "$_bgtr"
+# ★ codesandbox 격리 — 실 repo working tree 가 docs-only dirty 이면 docs 면제로 allow 가 나와
+#   위양성 FAIL 이 된다(Phase B 2회차 Important). 파일 상단 격리 규약을 동일 적용.
+_bgres=$(CLAUDE_PROJECT_DIR="$codesandbox" mkstdin 'git commit -m "x"' "$_bgtr" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$_PT_ROOT/hooks/pretool-governance.sh" 2>&1)
+check "P-bg2 bg 스텁만 있으면 미회수 구분 안내" '백그라운드 실행은 감지됐으나' "$_bgres"
+check "P-bg2b 회수할 경로 안내" "$_BGOUT" "$_bgres"
+rm -f "$_bgtr"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

@@ -178,13 +178,44 @@ _verify_exec_evidence() {
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
          | $i ] | max // -1) as $lasthit
+    # ── 백그라운드 실행 증거 (20260807-bg-verify-evidence) — 기존 $lasthit 경로 무손상 ──
+    # 백그라운드 Bash 는 tool_result 가 실행 출력이 아니라 스텁이다("Output is being written to: <경로>").
+    # 실제 출력은 이후 별도 Read 의 결과에만 있으므로, **그 스텁이 발급한 경로와 정확히 일치하는**
+    # Read 를 찾아 판정한다. 완화가 아니라 경로 추가다 — 백그라운드 Bash 도 러너 앵커를 먼저 통과해야 하고,
+    # 경로 일치·출처 구속이 걸려 임의 파일 Read 로는 열리지 않는다.
+    # ★ select 가드 필수: 없이 split 하면 미매칭 시 null|split 로 **jq 전체가 죽어** 셸의 `|| return 2`
+    #   에 걸린다 → rc=2(fail-open) = 게이트 무음 해제. T21 이 이 회귀를 잠근다.
+    # ★ Read 결과 술어는 Bash 결과와 **동일**해야 한다 — 기존 부정토큰 검사는 Bash 결과에만 걸려 있어
+    #   자동 적용되지 않는다. 빼면 T10 이 잠근 위조 표면이 신규 경로에 무잠금 이식된다. T22 가 잠근다.
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Bash")
+         | {id: .id, cmd: (.input.command // "")}
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | . as $u
+         | ($res | map(select(.id == $u.id)) | .[0].out // "")
+         | select(test("Output is being written to: "))
+         | (split("Output is being written to: ")[1] | split(" ")[0] | rtrimstr(".")) as $path
+         | select($path | length > 0)
+         | select([ range($i+1; $all) as $j
+                    | $tus[$j]
+                    | select(.name=="Read")
+                    | select((.input.file_path // "") == $path)
+                    | . as $r
+                    | ($res | map(select(.id == $r.id)) | .[0].out // "")
+                    | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
+                    | 1 ] | length > 0)
+         | $i ] | max // -1) as $bghit
     # 마지막 코드 편집(비-.specops Edit/Write/NotebookEdit)의 전역 인덱스 (없으면 -1)
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit")
          | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
          | $i ] | max // -1) as $lastedit
-    | (if $lasthit >= 0 and $lasthit > $lastedit then 1 else 0 end) as $h
+    # $bghit 은 **러너를 띄운 Bash 의 인덱스**다(Read 인덱스가 아님) — 실행 시작 시점이 더 보수적이라
+    # "Bash 띄움 → 코드 수정 → Read" 를 stale 로 올바르게 판정한다(T20).
+    | ([$lasthit, $bghit] | max) as $besthit
+    | (if $besthit >= 0 and $besthit > $lastedit then 1 else 0 end) as $h
     | "\($all) \($h)"
   ' 2>/dev/null) || return 2
   [ -z "$out" ] && return 2
@@ -192,6 +223,49 @@ _verify_exec_evidence() {
   [ "$uses" -eq 0 ] 2>/dev/null && return 2   # tool_use 이벤트 0건 → 판정 불가 (증거 없음이 아님)
   [ "$hits" -gt 0 ] 2>/dev/null && return 0
   return 1
+}
+
+# 백그라운드 러너 스텁은 있으나 출력 회수 Read 가 없는 경우의 경로를 반환 (없으면 빈 출력).
+# deny 안내문이 "왜 막혔는지" 를 원인별로 구분하는 데 쓴다 — 구분이 없으면 사용자는 방금 러너를
+# 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 195s 러너 재실행 낭비).
+# ★ 별도 함수인 이유: _verify_exec_evidence 는 `res=$(apply_lookback_rule ...)` 서브셸 안에서
+#   호출돼 그 안에서 설정한 변수가 부모로 전파되지 않는다(Phase B 적발). 안내문 생성은 deny
+#   경로에서만 일어나므로 여기서 jq 를 1회 더 도는 비용은 hot path 에 영향이 없다.
+_bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열)
+  [ -n "${1:-}" ] && [ -f "$1" ] || return 0
+  jq -rn --slurpfile a "$1" '
+    ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
+    | ($tus | length) as $all
+    | ($a | map(select(.type=="user") | .message.content[]?
+                | select(.type=="tool_result" and (.is_error != true))
+                | {id: .tool_use_id, out: (.content | if type=="string" then . else tostring end)})) as $res
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Bash")
+         | {id: .id, cmd: (.input.command // "")}
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | . as $u
+         | ($res | map(select(.id == $u.id)) | .[0].out // "")
+         | select(test("Output is being written to: "))
+         | (split("Output is being written to: ")[1] | split(" ")[0] | rtrimstr(".")) as $path
+         | select($path | length > 0)
+         | select([ range($i+1; $all) as $j
+                    | $tus[$j]
+                    | select(.name=="Read")
+                    | select((.input.file_path // "") == $path)
+                    | 1 ] | length == 0)
+         | {i: $i, p: $path} ] | last // null) as $pend
+    # ★ staleness 정렬 (Phase C Important 1): 안내는 판정과 같은 기준을 써야 한다.
+    #   bg 기동 이후 코드 편집이 있으면 안내대로 Read 해도 stale 로 재차단된다 —
+    #   "Read 하면 인정됩니다" 가 거짓이 되고, 이 deny 메시지 자신이 경고하는
+    #   "안내 이행 후 동일 메시지 재차단 → BYPASS 스파이럴"(dogfood #418→#421) 조건이 된다.
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit")
+         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | $i ] | max // -1) as $lastedit
+    | (if $pend != null and $pend.i > $lastedit then $pend.p else "" end)
+  ' 2>/dev/null || true
 }
 
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).

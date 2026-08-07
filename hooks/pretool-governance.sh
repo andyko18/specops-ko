@@ -239,6 +239,20 @@ if [ -n "$violation" ]; then
   #   구 문안은 ①만 안내해, 지시대로 러너를 재실행하고도 ②가 없어 또 막힌 모델을 BYPASS 로 몰았다
   #   (dogfood 20260721 test1 #418→#419→#420: 안내 이행 후 동일 메시지로 재차단 → #421 BYPASS).
   #   $fid 가 비어 있으면 그 자체가 진단이다 — session-progress 에 FID 섹션이 없다는 뜻.
+  # 백그라운드 실행 원인 구분 (20260807-bg-verify-evidence) — 구분이 없으면 사용자는 방금 러너를
+  # 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 195s 러너 재실행 낭비).
+  # ★ 부모 스코프에서 계산한다 — _verify_exec_evidence 는 `res=$(apply_lookback_rule ...)`
+  #   서브셸 안에서 돌아 그 안의 변수 설정이 여기로 전파되지 않는다(Phase B 적발).
+  _EXEC_BG_PENDING_PATH=$(_bg_pending_path "$transcript" 2>/dev/null || true)
+  _bg_hint=""   # 메인 흐름(함수 밖) — local 불가
+  if [ -n "${_EXEC_BG_PENDING_PATH:-}" ]; then
+    _bg_hint="   ※ 백그라운드 실행은 감지됐으나 출력을 Read 로 회수한 기록이 없습니다.
+      ${_EXEC_BG_PENDING_PATH} 를 Read 하면 그 결과가 실행 증거로 인정됩니다."
+  else
+    _bg_hint="   ※ 긴 러너는 timeout 을 명시(최대 600s)해 **포그라운드**로 실행하세요 — 백그라운드로 돌리면
+      출력 파일을 Read 로 회수해야만 증거가 성립합니다."
+  fi
+
   _anchor_hint=""   # 메인 흐름(함수 밖) — local 불가
   if [ -z "${fid:-}" ]; then
     _anchor_hint="② 진행 기록 앵커가 없습니다 — .specops/session-progress.md 에 \`## <FID>\` 섹션이 하나도 없습니다.
@@ -262,6 +276,7 @@ if [ -n "$violation" ]; then
 ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
    bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
+$_bg_hint
 $_anchor_hint
 
 implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후

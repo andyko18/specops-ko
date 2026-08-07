@@ -149,5 +149,87 @@ printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","c
 _verify_exec_evidence "$fr"; ck "T-fresh.d 수정 후 재검증 → 0 (최신 증거 우선)" 0 $?
 rm -f "$fr"
 
+# ── 백그라운드 실행 증거 인식 (20260807-bg-verify-evidence) ──
+# 백그라운드 Bash 는 tool_result 가 실행 출력이 아니라 스텁이다. 실제 출력은 이후 Read 결과에만
+# 있으므로, 스텁이 발급한 경로와 정확히 일치하는 Read 를 찾아 증거를 판정한다.
+BGP='/private/tmp/claude-501/x/tasks/bg1.output'
+BGSTUB="Command running in background with ID: bg1. Output is being written to: $BGP. You will be notified when it completes."
+
+_mk_bg() {  # $1=출력파일 $2=Bash command $3=스텁 문구 $4=Read file_path $5=Read 결과
+  printf '%s\n' \
+    "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_B1\",\"name\":\"Bash\",\"input\":{\"command\":\"$2\"}}]}}" \
+    "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_B1\",\"is_error\":false,\"content\":\"$3\"}]}}" \
+    "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_B2\",\"name\":\"Read\",\"input\":{\"file_path\":\"$4\"}}]}}" \
+    "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_B2\",\"is_error\":false,\"content\":\"$5\"}]}}" > "$1"
+}
+
+bgf=$(mktemp)
+
+# T17 — 정직 bg 인정 (AC-1)
+_mk_bg "$bgf" "bash scripts/tests/run-all.sh" "$BGSTUB" "$BGP" "==== run-all: suites PASS=130 FAIL=0 ====\\nVERIFY: PASS"
+_verify_exec_evidence "$bgf"; ck "T17 bg 러너+Read 회수 → 0 (인정)" 0 $?
+
+# T18 — 경로 불일치 거부 (AC-2): 임의 파일 Read 로는 안 열린다
+_mk_bg "$bgf" "bash scripts/tests/run-all.sh" "$BGSTUB" "/tmp/other.output" "VERIFY: PASS"
+_verify_exec_evidence "$bgf"; ck "T18 Read 경로 불일치 → 1 (임의 파일 불인정)" 1 $?
+
+# T19 — 스텁 출처 구속 (AC-3): 러너 앵커에 안 걸리는 Bash 의 스텁 경로는 쓸 수 없다
+_mk_bg "$bgf" "echo hello" "$BGSTUB" "$BGP" "VERIFY: PASS"
+_verify_exec_evidence "$bgf"; ck "T19 비러너 Bash 스텁 → 1 (앵커 구속)" 1 $?
+
+# T20 — bg 후 코드 Edit → stale (AC-4): staleness 는 러너 Bash 인덱스 기준
+printf '%s\n' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_B1","name":"Bash","input":{"command":"bash scripts/tests/run-all.sh"}}]}}' \
+  "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_B1\",\"is_error\":false,\"content\":\"$BGSTUB\"}]}}" \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_BE","name":"Edit","input":{"file_path":"src/app.sh"}}]}}' \
+  "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_B2\",\"name\":\"Read\",\"input\":{\"file_path\":\"$BGP\"}}]}}" \
+  '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_B2","is_error":false,"content":"VERIFY: PASS"}]}}' > "$bgf"
+_verify_exec_evidence "$bgf"; ck "T20 bg 후 코드 Edit → 1 (stale · Bash 인덱스 기준)" 1 $?
+
+# T21 — 스텁 문구 불일치 → rc=1 (rc=2 면 FAIL): 경로 추출 가드 누락 회귀 잠금 (AC-R-2)
+#   가드 없이 split 하면 jq 가 rc=5 로 죽어 rc=2(fail-open)가 된다 — 게이트 무음 해제 방향.
+_mk_bg "$bgf" "bash scripts/tests/run-all.sh" "Output written to: $BGP" "$BGP" "VERIFY: PASS"
+_verify_exec_evidence "$bgf"; ck "T21 스텁 문구 불일치 → 1 (rc=2 fail-open 금지)" 1 $?
+
+# T22 — bg Read 결과 PASS/PARTIAL 혼재 → 1 (FR-2 후반절)
+#   기존 부정토큰 술어는 Bash 결과에만 걸려 있어 Read 결과에 자동 적용되지 않는다(T10 의 bg 판).
+_mk_bg "$bgf" "bash scripts/tests/run-all.sh" "$BGSTUB" "$BGP" "VERIFY: PASS\\nVERIFY: PARTIAL"
+_verify_exec_evidence "$bgf"; ck "T22 bg Read PASS/PARTIAL 혼재 → 1" 1 $?
+
+rm -f "$bgf"
+
+# T23 — verifying-evidence-ko SKILL.md 에 포그라운드 timeout 지침 (AC-6)
+_VE_SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/skills/verifying-evidence-ko/SKILL.md"
+if grep -qF 'timeout' "$_VE_SKILL" && grep -qF '포그라운드' "$_VE_SKILL"; then
+  ck "T23 SKILL.md 포그라운드 timeout 지침" 0 0
+else
+  ck "T23 SKILL.md 포그라운드 timeout 지침" 0 1
+fi
+
+# T24 — bg 안내 경로가 staleness 와 정렬 (Phase C Important 1)
+#   안내는 판정과 같은 기준을 써야 한다. bg 기동 후 코드 편집이 있으면 안내대로 Read 해도
+#   stale 로 재차단된다 — "Read 하면 인정됩니다" 가 거짓이 되고 BYPASS 스파이럴 조건이 된다.
+_stf=$(mktemp)
+_STUB2="Command running in background with ID: z. Output is being written to: /tmp/z.out. You will be notified."
+jq -nc --arg c 'bash scripts/tests/run-all.sh' '{type:"assistant",message:{content:[{type:"tool_use",id:"b1",name:"Bash",input:{command:$c}}]}}' > "$_stf"
+jq -nc --arg o "$_STUB2" '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"b1",is_error:false,content:$o}]}}' >> "$_stf"
+if [ -n "$(_bg_pending_path "$_stf")" ]; then ck "T24a 편집 없음 → 안내 경로 반환" 0 0; else ck "T24a 편집 없음 → 안내 경로 반환" 0 1; fi
+jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"e1",name:"Edit",input:{file_path:"src/app.sh"}}]}}' >> "$_stf"
+if [ -z "$(_bg_pending_path "$_stf")" ]; then ck "T24b bg 후 코드편집 → 안내 억제(과약속 금지)" 0 0; else ck "T24b bg 후 코드편집 → 안내 억제(과약속 금지)" 0 1; fi
+rm -f "$_stf"
+
+# T25 — 러너 앵커 regex drift 잠금 (Phase C Important 2)
+#   앵커가 $lasthit·$bghit·_bg_pending_path 3곳에 복제돼 있다. drift 하면 인정 판정과
+#   deny 안내가 어긋난다(판정은 안 여는데 "감지됐다"고 하거나 그 역). 동일성을 잠근다.
+_GL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/hooks/governance-lib.sh"
+_anchor_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | wc -l | tr -d ' ')
+_anchor_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | sort -u | wc -l | tr -d ' ')
+if [ "$_anchor_n" -ge 3 ] && [ "$_anchor_u" -eq 1 ]; then
+  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 0
+else
+  echo "  (앵커 출현=$_anchor_n · 고유 패턴=$_anchor_u — 고유는 1이어야 함)"
+  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 1
+fi
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

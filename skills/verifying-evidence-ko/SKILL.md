@@ -143,6 +143,8 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 태스크 종료 전 다음 명령을 **실제 실행**하고 출력 첨부:
 
+> **★ 러너는 `timeout` 을 명시해 포그라운드로 실행한다** (20260807-bg-verify-evidence) — `run-all.sh`(~195s) 처럼 오래 걸리는 러너는 Bash 도구 `timeout` 을 명시(최대 600s)하고 **포그라운드**로 돌린다. 백그라운드로 돌리면 tool_result 가 실행 출력이 아니라 스텁이라, **출력 파일을 `Read` 로 회수해야만** R-1/R-2 실행-근거 게이트가 증거로 인정한다. 회수를 빠뜨리면 정직하게 실행하고도 커밋이 막힌다(실측: 195s 러너 재실행 낭비). 게이트가 막았는데 백그라운드 실행이 감지되면 deny 메시지가 회수할 경로를 알려준다.
+
 - [ ] **U3 자동화** (1순위): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/run-verification.sh <FID>` — tasks.md 의 검증 명령을 자동 추출·실행하고 evidence.md 에 전문 append.
   - `VERIFY: PASS` + exit 0: 모든 명령 실행됨 + 전부 PASS (skip 0건)
   - `VERIFY: FAIL <cmd> (exit=N)` (stderr) + exit 1: 1건이라도 FAIL
