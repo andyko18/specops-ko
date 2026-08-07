@@ -3,7 +3,7 @@ name: sprint-contracts-ko
 description: acceptance-criteria.md를 스프린트 계약서로 취급하고, Evaluator는 오직 계약서와 산출물만 비교한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/sprint-contracts/SKILL.md
-specops_version: 1.44.0
+specops_version: 1.63.0
 used_by: implementing-ko (spec-reviewer-ko 서브에이전트 dispatch 시 AC 계약 검증), clarifying-ko (AC append)
 ---
 

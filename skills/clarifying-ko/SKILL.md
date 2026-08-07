@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (후반 "Spec Self-Review" + "User Review Gate" 분리)
   - github/spec-kit commands/clarify.md (specops-ko 경유)
   - specops-ko commands/clarify.md
-specops_version: 1.61.0
+specops_version: 1.63.0
 used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
 ---
 

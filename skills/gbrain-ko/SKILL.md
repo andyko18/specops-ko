@@ -3,7 +3,7 @@ name: gbrain-ko
 description: 개발 세션 인사이트를 learnings.jsonl에서 조회·요약 — 최신 10건 + 전체 개수 출력, --fid 필터링 가능
 layer: 2
 reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
-specops_version: 1.28.0
+specops_version: 1.63.0
 used_by: /gbrain
 ---
 

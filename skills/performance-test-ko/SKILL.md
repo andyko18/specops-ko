@@ -3,7 +3,7 @@ name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 1.8.0
+specops_version: 1.63.0
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
