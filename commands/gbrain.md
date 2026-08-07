@@ -19,7 +19,8 @@ reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrai
 
 1. **즉시 `specops-ko:gbrain-ko` 호출** — `--fid` 인자를 그대로 전달
 2. learnings.jsonl 읽기 → 전체 개수 + 최신 10건 출력
-3. `--fid FID` 지정 시 해당 FID 레코드만 추가 출력
+3. **마찰 집계** — `scripts/gbrain-friction.sh` 로 `friction-log.jsonl` 을 규칙별 집계 + 증류 후보 제시 (기본 출력, 플래그 불요)
+4. `--fid FID` 지정 시 해당 FID 레코드만 추가 출력
 
 ## 사용 예
 
