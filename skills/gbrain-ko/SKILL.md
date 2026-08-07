@@ -116,7 +116,7 @@ learnings.jsonl 은 git 추적 (학습 자산 영속 — gitignore 예외).
 세션 중 발견한 패턴·주의사항을 추가:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2 --confidence <low|medium|high>
 ```
 
 ## 5원칙 주입 (specops-ko 고유)

@@ -40,7 +40,7 @@ reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrai
 ## 인사이트 추가
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fid <FID> --tags tag1,tag2 --confidence <low|medium|high>
 ```
 
 연계: `gbrain-collect.sh` (추출 수집) · `gbrain-recall.sh` (환류 조회) — 상세는 `skills/gbrain-ko/SKILL.md` §연계 유틸.

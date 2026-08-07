@@ -26,7 +26,13 @@ TAB=$(printf '\t')
 ranked=$(
   jq -Rr '(fromjson? | objects
     | ((((.tags // []) | join(" ")) + " " + (.insight // ""))) as $txt
-    | (((.confidence // "") | if . == "high" then 3 elif . == "medium" then 2 elif . == "low" then 1 else 0 end)) as $cw
+    # 미기재는 **low 와 동급(1)** 이다 — 0 으로 두면 저자가 "확신 낮음" 이라고
+    #   명시한 인사이트가 아무 평가도 없는 인사이트보다 위로 올라간다(순위 역전).
+    #   실측 20260807: 167건 중 confidence 기재는 10건(6%)뿐이라 이 역전이
+    #   코퍼스 94% 에 적용되고 있었다. 평가 부재는 "낮은 평가" 가 아니다.
+    #   `low` 분기를 남겨 둔다 — 지우고 else 로 합치면 값이 같아 보이지만,
+    #   변이 검증에서 low 와 미기재를 **동시에** 바꿔 버려 회귀가 이 축을 못 본다(20260807 실측).
+    | (((.confidence // "") | if . == "high" then 3 elif . == "medium" then 2 elif . == "low" then 1 else 1 end)) as $cw
     | "\($cw)\t\($txt | gsub("\t";" "))") // "0\t"' "$FILE" |
   awk -F'\t' -v q="$Q" '
     function addtok(s, set,   i, n, p) {
