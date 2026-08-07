@@ -47,5 +47,23 @@ if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'hookSpecificOutput' \
   ok "S3 no-specops 안전"
 else no "S3" "rc=$rc out=[$(printf '%s' "$out" | head -c 400)]"; fi
 
+# ── S4: 정합 + 산출물 불완전 → 완결성 notice 주입, DESYNC 단언 금지 ──
+# 20260807-reconcile-completeness: `--hook` 은 DESYNC 없이 완결성 경고만 반환할 수 있게 됐다.
+# 종전 notice 는 무조건 "과소보고 중… 재개점부터 진행하라" 로 단언해, 과소보고도 재개점도
+# 없는 상태에서 거짓 지시가 매 세션 주입됐다(Phase C Important).
+mkdir -p "$TMP/s4/.specops/20260106-warnonly"
+( cd "$TMP/s4"
+  printf '## 20260106-warnonly · ok\n\n- 2026-01-06T00:00:00Z /plan 완료 (plan.md)\n' > .specops/session-progress.md
+  touch .specops/20260106-warnonly/spec.md .specops/20260106-warnonly/clarifications.md
+  printf '# plan\n## 1. 가정\n' > .specops/20260106-warnonly/plan.md   # heading-end 불완전
+)
+out=$( cd "$TMP/s4" && bash "$HOOK" 2>/dev/null ); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'session-progress-reconcile' \
+   && printf '%s' "$out" | grep -qF '불완전 가능' \
+   && printf '%s' "$out" | grep -qF '완결성 힌트' \
+   && ! printf '%s' "$out" | grep -qF '과소보고 중'; then
+  ok "S4 경고-only → 완결성 notice (DESYNC 거짓단언 없음)"
+else no "S4" "rc=$rc out=[$(printf '%s' "$out" | head -c 500)]"; fi
+
 echo "── test-session-start-reconcile: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

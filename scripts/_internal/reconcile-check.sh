@@ -25,6 +25,63 @@ fi
 _stage_name() { case "$1" in 5) echo analyze;; 10) echo specify;; 20) echo clarify;; 30) echo plan;; 40) echo tasks;; 50) echo implement;; 60) echo verify;; 70) echo review;; 80) echo finishing;; *) echo "-";; esac; }
 _stage_next() { case "$1" in 5) echo 10;; 10) echo 20;; 20) echo 30;; 30) echo 40;; 40) echo 50;; 50) echo 60;; 60) echo 70;; 70) echo 80;; *) echo 999;; esac; }
 
+# ── 산출물 완결성 판정 (20260807-reconcile-completeness) ──
+# 토큰 한도 등으로 단계 중간에 끊긴 "쓰다 만" 산출물 3형태를 탐지한다.
+# frontier 계산과 **완전히 분리**된 warn-only 판정 — evidence 사다리·`evidence > recorded`
+# 비교에 영향을 주지 않는다(AC-R-1). 파일 존재만 보던 기존 판정이 반쪽 plan 을 "완료"로
+# 계산해 재개가 그 위에서 진행되던 문제(current-state §4 [A][B] 실증)의 완화다.
+# NFR-2 예산: 파일당 grep 2회 + tail 1회. 마지막 줄 추출은 변수 확장, 표 구분행 분류는 builtin =~.
+# 한계(spec §7-1): 문장 중간 중단·빈 파일은 미탐지 — 완전 탐지를 약속하지 않는다.
+#   추가 실측 한계(Phase C): table-hdr 는 spec FR-1 계약대로 **끝 3줄**만 본다 —
+#   구분행 뒤에 빈 줄이 3개 이상 붙어 창 밖으로 밀리면 미탐지다. 창을 넓히면
+#   FR-1·AC-3 의 "끝 3줄" 계약을 벗어나므로 여기서 바꾸지 않고 한계로 남긴다.
+_artifact_incomplete() {  # $1=파일경로 → stdout 신호명 · rc 0=불완전 · 1=완결/부재
+  [ -f "$1" ] || return 1
+  local body last fences tail3 line seen_sep=0
+  local sep_re='^\|[-: |]+\|[[:space:]]*$'
+
+  # 판정 불가(권한 없음·I/O 오류)는 fail-open — 경고를 만들지 않는다. stderr 누출은 막는다:
+  # default 모드 출력은 /status 로 사용자에게 그대로 보이므로 grep/tail 오류가 섞이면 안 된다.
+
+  # ① heading-end — 마지막 비어있지 않은 줄이 '#' 로 시작 (섹션 제목만 쓰고 중단)
+  body=$(grep -vE '^[[:space:]]*$' "$1" 2>/dev/null)   # grep 1/2
+  last="${body##*$'\n'}"                                # 변수 확장 — 추가 프로세스 0
+  case "$last" in '#'*) echo "heading-end"; return 0 ;; esac
+
+  # ② odd-fence — ``` 로 시작하는 줄이 홀수 (코드블록·YAML DAG 중간 중단)
+  fences=$(grep -cE '^[[:space:]]*```' "$1" 2>/dev/null)   # grep 2/2
+  [ "${fences:-0}" -gt 0 ] 2>/dev/null && [ $((fences % 2)) -eq 1 ] && { echo "odd-fence"; return 0; }
+
+  # ③ table-hdr — 끝 3줄에 표 구분행이 있고 그 뒤 데이터 행이 없음 (표 헤더만 쓰고 중단)
+  tail3=$(tail -3 "$1" 2>/dev/null)            # tail 1/1
+  # 파이프 금지 — 서브셸이 생기면 seen_sep 갱신이 유실된다. here-doc 입력 사용.
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    # 구분행 뒤에 **어떤** 비어있지 않은 줄이든 오면 데이터가 이어진 것이다.
+    # 선행 파이프(`| a | b |`)만 데이터로 치면 markdown 합법인 pipeless 행(`a | b`)이
+    # 오탐된다 — spec FR-1 의 "데이터 행이 뒤따르지 않음" 은 파이프 스타일을 한정하지 않는다.
+    [ "$seen_sep" -eq 1 ] && seen_sep=0
+    [[ "$line" =~ $sep_re ]] && seen_sep=1
+  done <<EOF
+$tail3
+EOF
+  [ "$seen_sep" -eq 1 ] && { echo "table-hdr"; return 0; }
+
+  return 1
+}
+
+# 불완전 산출물마다 경고 1줄 방출 (AC-9 — 파일별 1줄, 최대 2줄).
+# 문구는 **중립**이다(clarify Q3) — 판정이 3신호 휴리스틱이라 100% 가 아니므로
+# "재실행하라" 류 지시형을 쓰지 않는다. 판단은 사용자 몫(5원칙 4 주권).
+# 탐지 0건이면 완전 무출력 — `--hook` 노이즈 0 계약 보존(AC-R-2).
+_emit_completeness_warnings() {  # $1=FID 디렉토리 $2=줄 접두어
+  local f sig
+  for f in plan.md tasks.md; do
+    sig=$(_artifact_incomplete "$1/$f") || continue
+    printf '%s⚠️ %s 불완전 가능(%s) — 재개 전 확인 요망\n' "$2" "$f" "$sig"
+  done
+}
+
 # 기록 frontier — session-progress FID 섹션에서 등장한 최고 단계
 recorded=0
 if [ -f "$PROGRESS" ] && grep -qE "^## $FID([[:space:]]|$)" "$PROGRESS"; then
@@ -79,6 +136,8 @@ if [ "$MODE" = "--hook" ]; then
       "$(_stage_name "$(_stage_next "$evidence")")" \
       "$(_stage_name "$(_stage_next "$recorded")")" "$(_stage_name "$evidence")"
   fi
+  # 완결성 경고는 DESYNC 와 독립 — 정합이어도 반쪽 산출물이면 알린다(AC-5).
+  _emit_completeness_warnings "$FID_DIR" ''
   exit 0
 fi
 
@@ -92,6 +151,12 @@ if [ "$evidence" -gt "$recorded" ]; then
     "$(_stage_name "$(_stage_next "$evidence")")" "$(_stage_name "$evidence")"
   printf '     → 먼저 기록 보정: %s~%s 단계가 실제 완료됐으나 session-progress 미기록 — session-progress-append.sh 로 채울 것.\n' \
     "$(_stage_name "$(_stage_next "$recorded")")" "$(_stage_name "$evidence")"
-else
+elif [ "$evidence" -eq "$recorded" ]; then
   printf '  \xe2\x9c\x85 정합 — 기록(%s) = 증거(%s)\n' "$(_stage_name "$recorded")" "$(_stage_name "$evidence")"
+else
+  # evidence < recorded — 종전엔 이 경우도 위 else 로 흡수돼 서로 다른 값을 '=' 로 표기했다
+  # (`✅ 정합 — 기록(clarify) = 증거(specify)`). 거짓 안심이라 갈래를 분리한다(AC-8).
+  printf '  \xe2\x84\xb9\xef\xb8\x8f 기록이 증거보다 앞섬 — 기록(%s) > 증거(%s)\n' "$(_stage_name "$recorded")" "$(_stage_name "$evidence")"
+  printf '     → session-progress 가 실제보다 앞서 기록됐을 수 있습니다. 산출물을 확인하세요.\n'
 fi
+_emit_completeness_warnings "$FID_DIR" '  '

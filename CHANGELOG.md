@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+- **재개 시 산출물 완결성 경고 (FID 20260807-reconcile-completeness)** — `reconcile-check.sh` 는 아티팩트의 **파일 존재만** 보고 단계 완료로 계산했다. 토큰 한도(5시간/주간)로 `/plan` 중간에 끊기면 반쪽 `plan.md` 가 남는데, 재개점 계산은 그걸 "plan 완료"로 읽는다 — 실증: `## 1. 가정` 만 있는 **2줄짜리** plan.md 에 `--hook` 이 `재개점: tasks 부터` 를 새 세션에 주입했다. 사용자의 실사용 패턴("한도 풀리면 `진행해` 한 마디로 재개")에서 조용히 틀리는 경로다. 3신호 OR 판정 — `heading-end`(마지막 비어있지 않은 줄이 `#`) · `odd-fence`(``` ``` ``` 시작 줄 홀수) · `table-hdr`(끝 3줄에 표 구분행만). **warn-only** — evidence 사다리와 `evidence > recorded` 비교를 건드리지 않아 frontier 계산은 불변이다(오탐 피해가 경고 1줄로 묶임). 대상은 `plan.md`·`tasks.md` 2종(`evidence.md` 는 R7 구조화 판정이 이미 커버). **배제된 대안 2종은 실측이 죽였다** — 템플릿 필수섹션 매칭은 실 산출물 22건 중 7섹션 전건 충족이 10건뿐(**오탐 55%**, 279줄 완성 plan 이 2/7 매칭 — 헤딩을 번호 없이·다른 번호·자유 제목으로 씀), footer 존재 판정도 plan 15/22·tasks 13/21 로 **오탐 32~38%**(미준수 8건은 전부 정상 완료). 채택안은 실 산출물 45건 순회 **오탐 0**. 신규 판정 원칙이 아니라 기존 R7("파일 존재 ≠ 단계 완료", verify 축)의 plan·tasks 축 확장이다. 한계 명시 — 문장 중간 중단·빈 파일·구분행이 끝 3줄 창 밖으로 밀린 경우는 미탐(spec §7-1, 코드 주석 기재). 테스트 R10~R22 신설(총 22건), differential sentinel 로 판정 반전 시 10건 FAIL 확인.
+
+### Fixed
+- **`evidence < recorded` 오표기 — 거짓 안심 제거** — 비교가 `evidence > recorded` **단방향**이라 역방향이 else 로 흡수돼 서로 다른 값을 `=` 로 표기했다(`✅ 정합 — 기록(clarify) = 증거(specify)`). 3갈래로 분리해 `ℹ️ 기록이 증거보다 앞섬 — 기록(X) > 증거(Y)` 로 정정. 정합 문구는 **원문 보존**(`show-fid-status` byte-동일 위임 계약 유지). 커밋 `9202864`(Wave A 거짓 안심 제거 — audit·reconcile·receipt)의 잔여 표면이다.
+- **SessionStart notice 거짓 단언 (자기 결함 — 완결성 경고가 유발)** — 종전 `--hook` 계약은 "비어있지 않음 ⇔ DESYNC" 였는데, 완결성 경고를 DESYNC 와 **독립** 방출하게 바꾸면서 `session-start.sh` 의 notice 가 과소보고도 재개점도 미기록 단계도 없는 상태에서 "재개점부터 진행하고 `session-progress-append.sh` 로 보정하라"를 **매 세션 주입**하게 됐다. SessionStart 컨텍스트는 자율 lifecycle 에서 행동을 직접 구동하므로 불필요한 보정 시도를 유발한다. `recon_out` 의 DESYNC 포함 여부로 notice 를 분기(경고-only 는 "휴리스틱이라 오탐 가능, 재개점 자체는 정상")하고 `test-session-start-reconcile.sh` S4 로 고정. **Phase C code-reviewer-ko 가 훅을 직접 실행해 적발**했다 — 부모 자기검증에서는 안 보였다.
+- 판정 함수 부수 결함 2건 — 읽기 권한 없는 파일의 `grep`/`tail` stderr 가 `/status` 사용자 출력에 누출(`2>/dev/null` + `fences` 가드, R21) · markdown 합법인 pipeless 표 데이터 행(`a | b`)을 데이터로 안 쳐서 `table-hdr` 오탐(구분행 뒤 **모든** 비어있지 않은 줄을 데이터로 인정 — FR-1 "데이터 행이 뒤따르지 않음"은 파이프 스타일을 한정하지 않는다, R20).
+
 ## [1.63.0] — 2026-08-07
 
 ### Added
