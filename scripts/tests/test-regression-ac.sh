@@ -180,4 +180,52 @@ _ac_r1_filled > "$TD/.specops/20260806-m/acceptance-criteria.md"
 [ "$rc" -eq 0 ] && ok "T15 상향(spec 유지보수) → 허용" || nope "T15" "rc=$rc"
 rm -rf "$TD"
 
+# ── T-neg: "스키마 override: 미발동" 부정문을 긍정으로 오독하지 않는다 ──────
+# 20260807 실사용 검증(FID 20260807-doctor-ci-check) 실측 결함:
+#   판정이 `grep -q '스키마 override'` 라 **문자열 존재만** 봤다. analyzing-ko 가
+#   "스키마 override: 미발동 — …" 이라고 **부정문으로 근거를 남기면** 그것마저
+#   양성으로 읽혀 AC-R-2(데이터 보존)를 근거 없이 요구했다.
+#   analyzing-ko:122 가 규정한 **양성 마커**는 합산 줄의 `→ 유지보수(스키마 override)` 다.
+#   1호(AC 골격 오탐)·2호와 같은 클래스 — "언급" vs "해당".
+_neg=$(mktemp -d); mkdir -p "$_neg/.specops/20260101-neg"
+cat > "$_neg/.specops/20260101-neg/spec.md" <<'EOF'
+# spec
+**§유형**: 유지보수
+EOF
+cat > "$_neg/.specops/20260101-neg/current-state.md" <<'EOF'
+# 현재 상태
+**라인 범위 합산: 90줄 → 유지보수**
+
+**스키마 override**: 미발동 — CLI 스크립트로 마이그레이션·ALTER/DROP 변경 없음.
+EOF
+cat > "$_neg/.specops/20260101-neg/acceptance-criteria.md" <<'EOF'
+### AC-R-1: 기존 동작 보존
+
+**Given** 기존 호출 패턴
+**When** 동일 트리거
+**Then** 동일 출력
+
+**우선순위**: must
+EOF
+_o=$(cd "$_neg" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-regression-ac.sh" 20260101-neg 2>&1); _r=$?
+if [ "$_r" -eq 0 ]; then
+  ok "T-neg 부정문(미발동)은 AC-R-2 를 요구하지 않는다"
+else
+  nope "T-neg" "부정 언급을 양성으로 오독 — rc=$_r out=$_o"
+fi
+
+# ── T-pos: 양성 마커(합산 줄의 `→ 유지보수(스키마 override)`)는 여전히 AC-R-2 요구 ──
+# 축 분리 — T-neg 수정이 판정을 통째로 죽이면 안 된다.
+cat > "$_neg/.specops/20260101-neg/current-state.md" <<'EOF'
+# 현재 상태
+**라인 범위 합산: 3줄 → 유지보수(스키마 override)**
+EOF
+_o=$(cd "$_neg" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-regression-ac.sh" 20260101-neg 2>&1); _r=$?
+if [ "$_r" -eq 1 ] && printf '%s' "$_o" | grep -q 'AC-R-2'; then
+  ok "T-pos 양성 마커는 AC-R-2 요구 (판정 유지)"
+else
+  nope "T-pos" "양성 마커를 놓침 — rc=$_r out=$_o"
+fi
+rm -rf "$_neg"
+
 finish

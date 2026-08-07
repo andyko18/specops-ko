@@ -29,7 +29,13 @@ need_r1=0
 grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$SPEC" 2>/dev/null && need_r1=1
 
 need_r2=0
-[ -f "$CS" ] && grep -q '스키마 override' "$CS" 2>/dev/null && need_r2=1
+# ⚠️ **양성 마커**만 본다 — 문자열 존재(`grep -q '스키마 override'`)로 판정하면
+#   analyzing-ko 가 "**스키마 override**: 미발동 — …" 이라고 **부정문으로 근거를 남길 때**
+#   그것마저 양성으로 읽혀 AC-R-2(데이터 보존)를 근거 없이 요구한다
+#   (20260807 실사용 검증 FID 20260807-doctor-ci-check 실측 — 정상 유지보수 FID 가 차단됐다).
+#   analyzing-ko:122 가 규정한 양성 형식은 §1 합산 줄의 `→ 유지보수(스키마 override)` 다.
+#   "언급 ≠ 해당" — AC 골격 오탐(1호)과 같은 클래스.
+[ -f "$CS" ] && grep -qE '유지보수\(스키마 override\)' "$CS" 2>/dev/null && need_r2=1
 
 # 라벨 정합 — analyzing 마커(합산 >5 → 유지보수)와 spec §유형 의 다운그레이드 차단.
 #   analyzing 이 `→ 유지보수` 를 썼는데 spec 이 trivial 이면 AC-R-1 면제가 근거 없이 열린다.

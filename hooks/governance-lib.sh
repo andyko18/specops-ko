@@ -23,6 +23,22 @@ _infer_commit_task() {
   printf '%s' "${hit:-}"
 }
 
+# 인라인 BYPASS 의 **사유 값**을 위치 무관하게 추출한다.
+#   20260807 실사용 검증 4호: 3호 수정이 `${tool_cmd:0:200}` **앞부분 절단**이라,
+#   앞에 `cd`·`echo` 같은 전처리가 붙으면 200자가 거기서 소진돼 **사유가 통째로 잘렸다**.
+#   "사유는 명령 앞쪽에 온다"는 3호의 근거가 틀렸다 — compound·전처리가 붙으면 뒤로 밀린다.
+#   따라서 자르지 말고 **추출**한다. 3형식(작은따옴표·큰따옴표·무따옴표) 전부 인정 —
+#   형식 함정으로 정직하게 사유를 병기한 우회를 무기록 처리하면 안 된다(:136 false-deny 금지 정신).
+#   개행은 공백으로 평탄화 — 사유는 계약상 한 줄이고, sed 가 줄 단위라 평탄화가 필요하다.
+_extract_bypass_reason() {
+  local c r
+  c=$(printf '%s' "${1:-}" | tr '\n' ' ')
+  r=$(printf '%s' "$c" | sed -n "s/.*SPECOPS_BYPASS_REASON='\([^']*\)'.*/\1/p" | head -1)
+  [ -n "$r" ] || r=$(printf '%s' "$c" | sed -n 's/.*SPECOPS_BYPASS_REASON="\([^"]*\)".*/\1/p' | head -1)
+  [ -n "$r" ] || r=$(printf '%s' "$c" | sed -n 's/.*SPECOPS_BYPASS_REASON=\([^[:space:]]*\).*/\1/p' | head -1)
+  printf '%s' "$r"
+}
+
 # BYPASS 수율 계측 — 사유·명령 원문은 friction-log에 남기고, metrics에는 식별자만 기록한다.
 # FID가 없거나 형식이 틀리면 no-op (비-specops·초기 세션에서 게이트를 막지 않음).
 _record_bypass_metric() {

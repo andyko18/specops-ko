@@ -490,6 +490,73 @@ if [ ! -d "$bsno/.specops" ]; then echo "PASS T-bypass-log.d .specops 미생성(
 else echo "FAIL T-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
 rm -rf "$bsno"
 
+# ── T-inline-bypass-log: **인라인** BYPASS 사유의 friction-log 감사 기록 (실사용 검증 3호) ──
+# 20260807 실측 결함: deny 메시지(pretool:159)와 주석(:135)이 "사유는 **명령 원문째**
+#   friction-log evidence_snippet 에 남는다" 고 약속하는데, 인라인 경로(:151-158)는
+#   `_record_bypass_metric` 만 부르고 `log_friction` 을 **부르지 않았다**.
+#   실측: 실제 bypass 커밋 전후 BYPASS-ENV 기록 0 → 0, metrics 만 1건
+#   (`{"phase":"governance-bypass","fallback":true}` — 사유·명령 원문 없음).
+#   세션-env 경로(T-bypass-log.b)는 부르는데 인라인만 빠졌다 — 우회의 **책임 추적이 통째로 공백**.
+ibl=$(mktemp -d); mkdir -p "$ibl/.specops"
+_inline_cmd="SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='게이트 결함 수정 부트스트랩' git commit -m x"
+out=$(mkstdin "$_inline_cmd" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$ibl" bash "$HOOK" 2>/dev/null)
+check "T-inline-bypass-log.a 사유 병기 인라인 BYPASS → allow" '"continue":true' "$out"
+if [ -f "$ibl/.specops/friction-log.jsonl" ] && grep -q "BYPASS-ENV" "$ibl/.specops/friction-log.jsonl"; then
+  echo "PASS T-inline-bypass-log.b 인라인 BYPASS friction-log 기록 생성"; pass=$((pass+1))
+else echo "FAIL T-inline-bypass-log.b — 기록 없음 (deny 메시지의 감사 약속 불이행)"; fail=$((fail+1)); fi
+# ★ 핵심: 기록만이 아니라 **사유 문자열이 실제로** 들어 있어야 한다.
+#   식별자만 남기면 "우회 횟수만 아는 무정보 감사"(:134 주석이 지적한 바로 그것)가 된다.
+if grep -q "게이트 결함 수정 부트스트랩" "$ibl/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-inline-bypass-log.c 사유 원문이 evidence_snippet 에 보존"; pass=$((pass+1))
+else echo "FAIL T-inline-bypass-log.c — 사유 원문 유실 (식별자만 남음 = 무정보 감사)"; fail=$((fail+1)); fi
+rm -rf "$ibl"
+# 관할 한정 — 비-specops repo 는 인라인 BYPASS 여도 .specops 를 만들지 않는다 (세션-env T-bypass-log.d 와 대칭)
+ibno=$(mktemp -d)
+out=$(mkstdin "$_inline_cmd" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$ibno" bash "$HOOK" 2>/dev/null)
+if [ ! -d "$ibno/.specops" ]; then
+  echo "PASS T-inline-bypass-log.d 비-specops 는 .specops 미생성(관할 한정)"; pass=$((pass+1))
+else echo "FAIL T-inline-bypass-log.d — .specops 생성됨(월권)"; fail=$((fail+1)); fi
+rm -rf "$ibno"
+
+# ── T-inline-bypass-log.e: 사유가 명령 **뒤쪽**에 있어도 evidence 에 남는가 (4호) ──
+# 20260807 실측: 3호 수정이 `${tool_cmd:0:200}` **앞부분 절단**이라, 앞에 cd·echo 같은
+#   전처리가 붙으면 200자가 거기서 소진돼 **사유가 통째로 잘렸다**.
+#   실제 기록: "inline SPECOPS_GOVERNANCE_BYPASS: cd /Users/… echo …건 ===\"\nSPE" ← 여기서 끝
+#   "사유는 명령 앞쪽에 온다"는 3호 커밋의 근거 자체가 틀렸다 — compound·전처리가 붙으면 뒤로 밀린다.
+#   위치 무관 **추출**이어야 한다.
+ible=$(mktemp -d); mkdir -p "$ible/.specops"
+# ⚠️ 200자를 **실제로** 넘겨야 결함이 재현된다. 짧은 pad 로는 테스트가 공허해진다(첫 시도 실측 — PASS 로 통과했다).
+#    bash ${var:0:200} 은 문자 단위라 한글도 1자로 센다. 넉넉히 250자+ 를 만든다.
+_pad="echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA && echo BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB && echo CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC && echo DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD && echo EEEEEEEEEEEEEEEEEEEEEEEEEEEEEE && echo FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF && echo GGGGGGGGGGGGGGGGGGGGGGGGGGGGGG &&"
+[ "${#_pad}" -gt 200 ] || { echo "FAIL T-inline-bypass-log.e0 — pad 가 200자 미만(${#_pad}) 이라 결함 미재현"; fail=$((fail+1)); }
+_late_cmd="$_pad SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유가뒤쪽에온다' git commit -m x"
+out=$(mkstdin "$_late_cmd" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$ible" bash "$HOOK" 2>/dev/null)
+check "T-inline-bypass-log.e1 뒤쪽 사유 인라인 BYPASS → allow" '"continue":true' "$out"
+if grep -q "사유가뒤쪽에온다" "$ible/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-inline-bypass-log.e2 위치 무관 사유 추출 (앞부분 절단 아님)"; pass=$((pass+1))
+else
+  echo "FAIL T-inline-bypass-log.e2 — 사유 유실. evidence=$(grep -h 'BYPASS-ENV' "$ible/.specops/friction-log.jsonl" 2>/dev/null | head -c 200)"; fail=$((fail+1))
+fi
+rm -rf "$ible"
+# 큰따옴표·무따옴표 형식도 동일하게 추출되는가 (형식 함정 false-negative 금지)
+for _q in 'dq' 'bare'; do
+  _d=$(mktemp -d); mkdir -p "$_d/.specops"
+  case "$_q" in
+    dq)   _c="SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=\"큰따옴표사유\" git commit -m x"; _want='큰따옴표사유' ;;
+    bare) _c="SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=무따옴표사유 git commit -m x";     _want='무따옴표사유' ;;
+  esac
+  out=$(mkstdin "$_c" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_d" bash "$HOOK" 2>/dev/null)
+  # ★ substring 이 아니라 `reason=<값>` 정확 매칭 — 따옴표가 **벗겨졌는지**까지 본다.
+  #   느슨하게 보면 무따옴표 fallback 이 `reason="값"` 으로 뽑아도 통과해
+  #   따옴표 분기가 무검증 코드가 된다(변이 생존 실측 20260807).
+  if grep -q "reason=$_want " "$_d/.specops/friction-log.jsonl" 2>/dev/null; then
+    echo "PASS T-inline-bypass-log.e3-$_q $_q 형식 사유 추출(따옴표 제거)"; pass=$((pass+1))
+  else
+    echo "FAIL T-inline-bypass-log.e3-$_q — $_q 형식 미정규화. got=$(grep -o 'reason=[^|]*' "$_d/.specops/friction-log.jsonl" 2>/dev/null | head -1)"; fail=$((fail+1))
+  fi
+  rm -rf "$_d"
+done
+
 # ── T-compound-split: Wave C — git add&&commit deny 사유에 분리 안내 포함 ──
 out=$(mkstdin "git add a.sh && git commit -m x" "$FIX/pretool-no-verify.jsonl" \
   | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)

@@ -152,6 +152,18 @@ if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_
     # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
     if [ -d ".specops" ]; then
       _bypass_fid=$(detect_fid 2>/dev/null || echo "")
+      # ⚠️ friction-log 기록이 **본체**다 — metrics 는 식별자만 담아 "우회 횟수만 아는
+      #   무정보 감사"(위 :134 주석이 지적한 바로 그것)가 된다. 사유 원문은 여기 남는다.
+      #   20260807 실사용 검증 3호: 이 호출이 **누락**돼 있었다. deny 메시지(아래 reason)와
+      #   :135 주석이 "사유는 명령 원문째 friction-log evidence_snippet 에 남는다" 고
+      #   약속하는데 실제로는 metrics 1건뿐이었다(실측: BYPASS-ENV 0 → 0).
+      #   세션-env 경로(위 :59)는 부르는데 인라인만 빠져 **우회의 책임 추적이 통째로 공백**이었다.
+      #   ⚠️ 앞부분 절단(${tool_cmd:0:N})은 쓰지 않는다 — 4호 실측: 앞에 cd·echo 전처리가
+      #   붙으면 예산이 거기서 소진돼 **사유가 통째로 잘린다**. 사유는 위치 무관 **추출**하고,
+      #   명령 원문은 그 뒤에 붙여 잘려도 사유는 항상 보존되게 한다.
+      _bypass_reason=$(_extract_bypass_reason "$tool_cmd")
+      log_friction "$_bypass_fid" "BYPASS-ENV" 1 \
+        "inline BYPASS reason=${_bypass_reason:-(추출실패)} | cmd: ${tool_cmd:0:200}" 0 2>/dev/null || true
       _record_bypass_metric "$_bypass_fid"
     fi
     allow
