@@ -12,7 +12,14 @@ _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
   local cmd="${1:-}" hit
-  hit=$(printf '%s' "$cmd" | grep -oE 'Task:[[:space:]]*T[0-9]+|T[0-9]+' | head -1 | grep -oE 'T[0-9]+' | head -1)
+  # ① 명시 선언 `Task: T#` 우선 — 산문보다 앞선다.
+  #    구 구현은 `Task:...|T[0-9]+` 교대(alternation)를 한 번에 스캔해 **문서 순서상 먼저 나온
+  #    쪽**을 집었다. 그래서 제목이 "출력층 (T1~T4 집약)" 이고 본문에 `Task: T4` 인 커밋이
+  #    T1 으로 오인돼, 훅이 안내한 receipt 탈출구가 열리지 않았다
+  #    (20260807 실사용 검증 — FID 20260807-specops-doctor 에서 실측).
+  hit=$(printf '%s' "$cmd" | grep -oE 'Task:[[:space:]]*T[0-9]+' | head -1 | grep -oE 'T[0-9]+' | head -1)
+  # ② 명시 선언이 없을 때만 산문 T# fallback (기존 동작 보존)
+  [ -n "$hit" ] || hit=$(printf '%s' "$cmd" | grep -oE 'T[0-9]+' | head -1)
   printf '%s' "${hit:-}"
 }
 

@@ -49,10 +49,17 @@ function flush() {
   if (!fr) warn[++v] = cur ": **관련 FR** 부재"
   cur = ""
 }
-# 골격 판정: `<...>` 각괄호 placeholder, 또는 값이 점(...)뿐
+# 골격 판정: 값 **전체**가 `<...>` placeholder 이거나 점(...)뿐일 때.
+#   ⚠️ 부분 매칭 금지 — 실사용 검증 1호 결함(20260807, FID 20260807-specops-doctor AC-3):
+#      "…api-spec.md 에 `<placeholder>` 가 남아 있을 때" 라는 **정상 문장**이 골격으로
+#      오판돼 dispatch 가 막혔다. 템플릿 골격은 값 전체가 placeholder 인 형태
+#      (`**Given** <전제 조건·초기 상태>`)이므로 앵커드 매칭이 맞다.
+#      클래스 B 교훈과 동일 — 과탐지는 정상 문서를 막아 게이트 신뢰를 깎는다.
+#      대가: 부분 채움(`<전제> 이고 <조건>`)은 통과한다. 오탐보다 미탐을 택한다.
 function skeleton(s) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
-  if (s ~ /<[^<>]{1,60}>/) return 1
+  gsub(/^`|`$/, "", s)                 # 백틱 코드스팬 감싸기 제거 후 판정
+  if (s ~ /^<[^<>]{1,60}>$/) return 1
   if (s ~ /^\.{2,}$/) return 1
   return 0
 }

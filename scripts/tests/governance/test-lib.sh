@@ -268,6 +268,24 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-hd.5 (AC-6) — got: $(printf '%s' "$_got" | tr '\n' '|')"
 fi
 
+# ── T-task.* : _infer_commit_task 명시 선언 우선 (20260807 실사용 검증 12호) ──
+# 구 구현은 `Task:...|T[0-9]+` 교대를 한 번에 스캔해 **문서 순서상 먼저 나온 쪽**을 집었다.
+#   제목 "출력층 (T1~T4 집약)" + 본문 `Task: T4` 인 커밋이 T1 으로 오인돼,
+#   훅이 deny 메시지로 안내한 **receipt 탈출구가 실제로는 열리지 않았다**.
+#   FID 20260807-specops-doctor 실사용 중 실측 — 합성 픽스처로는 안 나온 결함.
+_infer_case() {  # $1=라벨 $2=커밋메시지 $3=기대
+  local got; got=$(_infer_commit_task "$2")
+  if [ "$got" = "$3" ]; then
+    PASS=$((PASS+1)); echo "PASS $1"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL $1 — got '$got' want '$3'"
+  fi
+}
+_infer_case "T-task.1 명시 Task: 가 제목 산문보다 우선" $'feat: 출력층 (T1~T4 집약)\n\nTask: T4' T4
+_infer_case "T-task.2 명시 선언 단독" $'fix: something\n\nTask: T7' T7
+_infer_case "T-task.3 산문 T# fallback 보존" 'feat: T3 구현' T3
+_infer_case "T-task.4 선언·산문 모두 없으면 빈값" 'feat: 그냥 커밋' ''
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

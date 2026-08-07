@@ -52,6 +52,31 @@ _LONG='1. 사용자가 일정을 등록하고 팀원과 공유하는 서비스�
 [ "$(_pn "$_LONG" 1)" = "사용자가 일정을 등록하고 팀원과 공유하는 서비스인데 목표는 다음과 같다: 빠른 조회" ] \
   && ok "T-pn.e 긴 문장 내 콜론 보존 (라벨 오인 금지)" || nope "T-pn.e" "got='$(_pn "$_LONG" 1)'"
 
+# T-pn.wire: awk index() 단위 고정 (로케일 이식성) — 20260807 Linux CI red 회귀 락
+#   awk(BWK, macOS)=바이트 · gawk(UTF-8, Linux)=문자. 한글 3배 차이로 임계 40 이 갈린다.
+#   T-pn.e 는 **macOS 에서는 LC_ALL=C 없이도 통과**하므로 행동 테스트만으로는 이 축을 못 잡는다
+#   (실측: macOS index=102 / gawk UTF-8 index=40 — 경계에 정확히 걸림).
+grep -q 'LC_ALL=C awk' "$PLUGIN/scripts/_internal/init-project/lib.sh" \
+  && ok "T-pn.wire _parse_numbered awk 로케일 고정(LC_ALL=C)" \
+  || nope "T-pn.wire" "LC_ALL=C 부재 — gawk 에서 index() 가 문자 단위가 되어 긴 문장이 절단된다"
+
+# T-pn.gawk: gawk 가 있으면 **awk 를 gawk 로 강제**하고 UTF-8 로케일에서 행동 확인.
+#   PATH 앞에 gawk→awk 심볼릭 링크 디렉터리를 끼워 _parse_numbered 내부의 `awk` 를 실제로 바꾼다
+#   (앞선 시도는 bash -c 로 함수를 export 하려 해서 정작 _pn 은 정상 awk 를 썼다 — 공허했다).
+if command -v gawk >/dev/null 2>&1; then
+  _shim=$(mktemp -d)
+  ln -s "$(command -v gawk)" "$_shim/awk"
+  _g=$(PATH="$_shim:$PATH" LC_ALL=en_US.UTF-8 bash -c '
+        source "$1/scripts/_internal/init-project/lib.sh" 2>/dev/null || exit 9
+        _parse_numbered "$2" 1' _ "$PLUGIN" "$_LONG" 2>/dev/null)
+  rm -rf "$_shim"
+  [ "$_g" = "사용자가 일정을 등록하고 팀원과 공유하는 서비스인데 목표는 다음과 같다: 빠른 조회" ] \
+    && ok "T-pn.gawk gawk+UTF-8 로케일에서도 보존 (Linux 거동 재현)" \
+    || nope "T-pn.gawk" "got='$_g' — gawk 문자 단위 index() 로 절단됨"
+else
+  ok "T-pn.gawk gawk 부재 — SKIP (CI Linux 가 실제 커버)"
+fi
+
 # 부재 번호는 빈 문자열
 [ -z "$(_pn "$_BARE" 3)" ] && ok "T-pn.f 부재 번호 → 빈 값" || nope "T-pn.f" "got='$(_pn "$_BARE" 3)'"
 

@@ -135,7 +135,7 @@ specops-ko/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/                                 ← 슬래시 진입로 (23건)
+├── commands/                                 ← 슬래시 진입로 (24건)
 │   ├── start.md                              ← 신규 진입 슬래시 /start
 │   ├── start-lite.md                         ← 경량 신규 /start-lite (clarify·plan skip)
 │   ├── start-foundation.md                   ← 공통부 우선 개발 /start-foundation
@@ -157,6 +157,7 @@ specops-ko/
 │   ├── start-all-auto.md                     ← 무인 배치 오케스트레이터 /start-all-auto
 │   ├── promote.md                            ← 자유작업 mini-FID lifecycle 승격 /promote
 │   ├── status.md                             ← FID Lifecycle 단계·아티팩트 현황 /status
+│   ├── doctor.md                             ← 설치·환경 건강 진단 /doctor
 │   ├── security-scan.md                      ← 온디맨드 보안 점검 /security-scan
 │   └── statusline-install.md                 ← HUD statusLine 등록 /statusline-install
 ├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (거버넌스 4종) + Notification (보조)

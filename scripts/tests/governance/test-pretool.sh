@@ -27,7 +27,18 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_
 check "T1 commit no-verify → deny" '"permissionDecision":"deny"' "$out"
 # T2: Skill 호출 + 실제 실행증거 = 정직한 경로 → allow
 #   (20260713-verify-exec-gate fixture 보강 — 조임 후 Skill 호출'만'으로는 부족. 구 fixture 는 T2b 로 이관)
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | bash "$HOOK" 2>/dev/null)
+# ★ 격리 필수 (20260807 실사용 검증 11호) — 형제 T1·T2b·T2d 는 전부 CLAUDE_PROJECT_DIR 를
+#   붙였는데 **T2 만 빠져** 실 repo 루트에서 돌았다. 그래서 훅이 repo 의 **실제 활성 FID** 를
+#   해석하고 그 FID 의 진행 기록을 봤다 — 활성 FID 가 verify 미완료면 T2 가 red 가 된다.
+#   평소엔 활성 FID 가 우연히 verify PASS 라 통과했고, **실제 lifecycle 을 돌리는 순간 red**.
+#   allow 케이스라 ②진행기록 앵커까지 필요하므로 전용 sandbox 를 만든다.
+allowsandbox=$(mktemp -d) || exit 1
+( cd "$allowsandbox" && git init -q && echo "echo x" > a.sh && git add a.sh \
+  && mkdir -p .specops/20260101-t2allow \
+  && printf '# Session Progress\n\n## 20260101-t2allow\n\n- 2026-01-01 10:00 /verify PASS\n' \
+     > .specops/session-progress.md )
+trap 'rm -rf "$codesandbox" "$allowsandbox"' EXIT
+out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$allowsandbox" bash "$HOOK" 2>/dev/null)
 check "T2 commit with-verify(+exec) → allow" '"continue":true' "$out"
 # T2b ★ 조임 — Skill 호출만(실행증거 없음) → deny (구 T2 가 allow 하던 것)
 out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)

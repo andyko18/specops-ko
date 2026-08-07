@@ -80,8 +80,16 @@ grep -q '§lite' "$SP" && grep -q 'trivial' "$SP" \
   && grep -q '유지보수' "$SP" \
   && ok "T12 §lite·유형 라벨" || nope "T12" "§lite 라벨 부재"
 
-# baseline commands=23
-grep -q '"count":23' "$PLUGIN/scripts/_internal/.structure-baseline" \
-  && ok "T13 baseline commands=23" || nope "T13" "baseline count≠23"
+# baseline commands 카운트 ↔ 실제 파일 수 정합
+#   ⚠️ 구 구현은 `grep -q '"count":23'` 였다 — **하드코딩 지뢰**다:
+#     ① 커맨드가 늘 때마다 반드시 터진다(20260807 실측: /doctor 추가 시 T5 차단)
+#     ② 카테고리 무범위 substring 이라 **templates 카운트가 23 이어도 오탐 통과**한다
+#   실측 대조로 바꿔 재발 클래스와 오탐을 함께 제거한다.
+_bl_cmds=$(jq -rs 'map(select(.category=="commands")) | .[0].count' \
+  "$PLUGIN/scripts/_internal/.structure-baseline" 2>/dev/null)
+_actual_cmds=$(ls "$PLUGIN"/commands/*.md 2>/dev/null | grep -c .)
+[ -n "$_bl_cmds" ] && [ "$_bl_cmds" = "$_actual_cmds" ] \
+  && ok "T13 baseline commands=$_bl_cmds ↔ 실제 $_actual_cmds 정합" \
+  || nope "T13" "baseline=$_bl_cmds actual=$_actual_cmds — --update-baseline 필요"
 
 finish

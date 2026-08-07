@@ -181,6 +181,42 @@ EOF
 _run dots
 [ "$_RC" -eq 1 ] && ok 'T8b 골격 점(...) 잔존 → FAIL' || nope "T8b" "rc=$_RC out=$_OUT"
 
+# ── T8c: placeholder 를 **언급하는** 정당한 문장은 골격이 아니다 (오탐 차단) ──
+# 실사용 검증 1호 결함(20260807): FID 20260807-specops-doctor 의 AC-3 본문
+#   "…api-spec.md 에 `<placeholder>` 가 남아 있을 때" 가 골격으로 오판돼 dispatch 가 막혔다.
+#   원인: skeleton() 이 `<...>` 를 **부분 매칭**했다. 템플릿 골격은 값 **전체**가
+#   placeholder 인 형태(`**Given** <전제 조건·초기 상태>`)이므로 앵커드 매칭이 맞다.
+#   클래스 B 교훈과 같다 — 과탐지는 정상 문서를 막아 게이트 신뢰를 깎는다.
+_mkfid mentions-ph <<'EOF'
+### AC-1: placeholder 검출
+
+**Given** `.specops/memory/api-spec.md` 에 `<placeholder>` 가 남아 있을 때
+**When** 스캐너를 실행하면
+**Then** 미채움으로 판정된다
+
+**검증 방법**: tests/test_scan.py
+**관련 FR**: FR-2
+**우선순위**: must
+EOF
+_run mentions-ph
+[ "$_RC" -eq 0 ] && ok "T8c placeholder 언급 문장은 골격 아님 (오탐 차단)" \
+  || nope "T8c" "정상 문서 오탐 — rc=$_RC out=$_OUT"
+
+# ── T8d: 백틱으로 감싼 골격도 검출 (백틱 제거 로직이 살아 있는가) ────────
+# T8c 의 앵커드 매칭만으로는 `` `<전제 조건>` `` 형태가 통과한다 — 백틱 제거가 그걸 잡는다.
+# 이 축이 없으면 백틱 제거 줄이 무검증 코드가 된다(변이 생존 실측).
+_mkfid backtick-ph <<'EOF'
+### AC-1: 무언가
+
+**Given** `<전제 조건·초기 상태>`
+**When** 실행하면
+**Then** 결과가 나온다
+
+**우선순위**: must
+EOF
+_run backtick-ph
+[ "$_RC" -eq 1 ] && ok "T8d 백틱 감싼 골격도 검출" || nope "T8d" "rc=$_RC out=$_OUT"
+
 # ── T9: h2 헤더(## AC-1)도 인정 ────────────────────────────────────────
 # emit-context 가 h2 drift 를 구제하므로(20260722 실측) 본 게이트도 같은 폭이어야 한다.
 # 좁으면 h2 문서가 "헤더 0건" 으로 오판된다.

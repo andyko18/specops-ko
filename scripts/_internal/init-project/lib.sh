@@ -138,9 +138,17 @@ _should_skip() {
 #
 # 그래서 ① 번호 접두는 **무조건** 제거 ② 라벨 제거는 콜론이 앞쪽(≤40바이트)에 있을 때만.
 #   interval 정규식 `{1,40}` 은 구형 awk 비호환이라 index() 로 판정한다(이식성).
+#
+# ⚠️ LC_ALL=C 필수 — `index()` 의 단위가 로케일·구현에 따라 다르다:
+#   awk(BWK, macOS) → **바이트** · gawk(UTF-8 로케일, 대부분의 Linux) → **문자**
+#   한글은 UTF-8 에서 3바이트라 같은 문자열이 102 vs 40 으로 갈린다(실측).
+#   임계 40 은 **바이트** 기준으로 설계됐으므로(라벨은 짧다 ≈ 한글 13자) 단위를 고정한다.
+#   미고정 시 gawk 에서 40 이하로 계산돼 **긴 문장의 콜론 앞이 라벨로 오인·절단**된다 —
+#   macOS 로컬은 green 인데 Linux CI 만 red 가 되는 형태로 나타난다
+#   (20260807 실측: T-pn.e 가 gawk index=40 으로 경계에 정확히 걸렸다).
 _parse_numbered() {
   local raw="$1" num="$2"
-  printf '%s\n' "$raw" | awk -v n="$num" '
+  printf '%s\n' "$raw" | LC_ALL=C awk -v n="$num" '
     BEGIN { pat = "^[[:space:]]*" n "\\." }
     $0 ~ pat {
       sub(/^[[:space:]]*[0-9]+\.[[:space:]]*/, "")
