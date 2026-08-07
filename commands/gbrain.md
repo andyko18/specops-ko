@@ -58,4 +58,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fi
 
 ---
 
-*specops-ko v1.0.0 · 2026-05-19 · garrytan/gstack office-hours gbrain 패턴 한국어 재창작*
+*specops-ko v1.63.0 · 2026-05-19 · garrytan/gstack office-hours gbrain 패턴 한국어 재창작*

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.63.0] — 2026-08-07
+
 ### Added
 - **`/doctor` — specops 설치·환경 건강 진단 (실사용 검증 20260807)** — `validate-structure.sh` 는 **플러그인 개발자용**이라 사용자 프로젝트의 `.specops/` 상태를 보는 층이 **0곳**이었다. 가장 위험한 공백은 **git hook 미설치** — `install-git-hooks.sh` 는 clone 마다 수동 1회이고, 미실행 시 2단 게이트가 **조용히 없다**(Claude Code PreToolUse 훅은 Cursor 등 타 도구 커밋에 발화하지 않음 — 계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). read-only 4점검: git hook 2단 게이트(`core.hooksPath`+`pre-commit`+`pre-push`) · memory placeholder(판정은 `scan-enrich-placeholders.sh` **호출**로 재사용 — 중복 로직 금지, propagation edge 로 잠금) · 고아 FID · session-progress 정합. 항상 `exit 0`(조회 도구, 흐름 비차단) · `--json` 기계 판독 · `.specops` 부재 시 면제(5원칙 4 주권). NFR-2 실측 **0.16s / 2s 기준**(12.5배 여유) — `_chk_progress` 를 줄당 프로세스 스폰 0(순수 bash 문자열 연산)으로 구현한 결과다(A/B: 줄당 `printf|grep` 이면 **6.55s**). 어서션 19건, 변이 5종 전부 격추. 본 기능은 **specops 를 자기 lifecycle 로 11단계 완주시킨 실사용 검증**의 산출이다(게이트 우회 0회).
 - **마찰 로그 집계 `gbrain-friction.sh` — 학습 루프 observe→distill 1단계 (20260807)** — `friction-log.jsonl` 이 `.specops/<FID>/` 마다 흩어져 **아무도 읽지 않았다**. 실측: 25개 파일 130행, 그중 **R-1(commit 전 verify) 89행 = 68%**, block 44건. 한 규칙이 23개 FID 에서 89번 울렸는데 그 신호로 바뀐 것이 0이었다 — 데이터가 없어서가 아니라 **집계가 없어서**다. 규칙별 행수·**FID수 분리**(한 FID 편중 vs 전역 패턴 구분)·severity 분포 + 증류 후보(기본 3회, Hermes 학습 루프의 "3회 이상 반복 → 증류" 차용). `/gbrain` **기본 출력**에 편입 — 별도 플래그 뒤로 숨기면 결함 원인(있는데 안 읽힘)이 그대로 재발한다. **게이트 자동 생성은 하지 않는다** — 클래스 B 정적 메타 규칙이 후보 4건 전부 오탐(4/4)으로 철회된 전례. 증류와 게이트 사이에는 사람 승인이 들어간다.
@@ -939,7 +941,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.62.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.63.0...HEAD
+[1.63.0]: https://github.com/andyko18/specops-ko/compare/v1.62.0...v1.63.0
 [1.62.0]: https://github.com/andyko18/specops-ko/compare/v1.61.0...v1.62.0
 [1.61.0]: https://github.com/andyko18/specops-ko/compare/v1.60.0...v1.61.0
 [1.60.0]: https://github.com/andyko18/specops-ko/compare/v1.59.0...v1.60.0
