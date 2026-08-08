@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.64.0] — 2026-08-08
+
 ### Added
 - **pre-push CI 상태 경고 (FID 20260807-doctor-ci-check)** — 2026-08-07 `main` 이 **3커밋 연속 Linux CI red** 였는데 아무도 몰랐다. 원인은 `_parse_numbered` 의 awk 로케일 의존이었고, **로컬 게이트가 전부 macOS**(pre-commit·pre-push) 라 Linux 를 보는 층이 CI 하나뿐이었다. 신호는 GitHub 에 있었으나 **소비 지점이 없었다** — `friction-log` 가 25개 파일에 흩어져 안 읽히던 것과 같은 실패 형태다. `/doctor --ci` 는 기각했다: NFR-2(2초·네트워크 없음)와 정면 충돌하고, **수동이라 3일간 아무도 안 돌린 것이 이번 사고**다. push 는 자동으로 일어난다. 신규 `check-ci-status.sh` 가 판정 SoT 이고 훅은 호출만 한다(FR-8). 면제 4종 **뒤**·`run-all` **앞**이 계약 — 앞이면 비-specops repo 에서 `gh` 를 부르는 월권, 뒤면 195초 늦는다(실측 배선 `면제:29 < ci:34 < run-all:38`). **항상 `exit 0`**(게이트화는 오프라인 개발을 막으므로 범위 밖). 결론 분류는 **allowlist** — `success`·빈 값만 조용하고 나머지는 전부 경고한다. blocklist 로 실패 결론을 열거하면 GitHub 가 문자열을 추가·개명할 때 조용히 green 이 되는데, 그건 워크플로 이름 하드코딩을 clarify Q2 가 기각한 것과 같은 실패 형태다. GNU `timeout` 은 macOS 에 없어 bash 3.2 워치독으로 상한을 걸었고, **`pkill -P` 가 동작 조건**이다 — `kill` 은 래퍼 셸만 죽여 고아 자식이 명령치환 파이프를 물고 놓지 않는다(실측 A/B: 미적용 **30.02s** / 적용 **1.05s**). 왕복 실측 1.01/0.99/1.00s → NFR-2(3초) 충족, 기본 타임아웃 5초는 5배 여유. 어서션 14건(`GH-ci.1`·`.1b`·`.2`·`.3`·`.4`·`.4b`·`.5`·`.5b`·`.6`~`.9`·`.R1`·`.doc`), 변이 **5종**으로 비-vacuous 확인 — 워치독 무력화 `FAIL 소요=30s` · `exit 0`→`7` `rcs=[0 0 0 0 7 0]` · 파일 쓰기 주입 트리 해시 변화 · 그룹 kill→`pkill -P` 복원 `FAIL 소요=31s` · sentinel `"-"`→`""` 복원 `결론: deadbeef00112233`. **독립 리뷰가 3라운드 전부 실결함을 잡았다** — plan-reviewer Critical 2건(테스트의 `PATH` 완전 교체가 `bash` 자체를 못 찾아 rc=127 **영구 FAIL**·GH-ci.6 연쇄 / 변이 실험의 `git checkout` 복구가 **미커밋 구현 파괴**), Phase C Important 2건(아래). 후자 2건은 **부모 자기검증이 전부 놓친 것**이다.
 - **CI 경고 스크립트의 프로세스·파싱 결함 2건 (Phase C 적발)** — ① **워치독이 depth-1 한정**이었다. `pkill -P "$pid"` 는 직계 자식만 죽여서 `gh` 가 손자를 띄우면 타임아웃이 **통째로 무력화**된다(프로브 실증: `TIMEOUT=1` 인데 HANG 10s+, 고아 `sleep 30` 잔존). hang 지점이 pre-push 의 "run-all 실행 중" 안내 **앞**이라 push 가 **무출력 동결**된다 — 사용자에겐 도구가 멈춘 것으로 보인다. `set -m` + `kill -TERM -- -$pid`(프로세스 그룹째)로 교체. ② **빈 필드 시프트** — 탭은 bash 의 IFS whitespace 라 **연속 구분자가 collapse** 되는데 jq sentinel 이 `// ""` 였다. `conclusion` 부재 응답에서 SHA 가 결론 칸으로, URL 이 커밋 칸으로 밀려 경고문이 `결론: deadbeef00112233` 로 오염됐다(false-green 은 불가하고 `exit 0` 도 유지돼 AC 계약은 안 깨지나 경고 신뢰성이 죽는다). sentinel `// "-"` + `"-"` 는 파싱 실패로 보고 침묵(spec §7 안전 방향). 두 수정 모두 어서션 신설(`GH-ci.5b`·`GH-ci.1b`) 후 **구 코드 복원 변이로 FAIL 유도 확인**. **`set -m` 은 stderr 계약(AC-2)에 닿는 변경이라 Linux bash 5.2.37 컨테이너에서 별도 실측**했다 — 잡 컨트롤 알림 누출 0, 스위트 25/25 PASS. 이 FID 자체가 "로컬 게이트가 전부 macOS 라 Linux 결함을 놓쳤다"에서 출발했으므로 같은 갭을 반복하지 않았다.
@@ -954,7 +956,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.63.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.64.0...HEAD
+[1.64.0]: https://github.com/andyko18/specops-ko/compare/v1.63.0...v1.64.0
 [1.63.0]: https://github.com/andyko18/specops-ko/compare/v1.62.0...v1.63.0
 [1.62.0]: https://github.com/andyko18/specops-ko/compare/v1.61.0...v1.62.0
 [1.61.0]: https://github.com/andyko18/specops-ko/compare/v1.60.0...v1.61.0
