@@ -48,9 +48,21 @@ _artifact_incomplete() {  # $1=파일경로 → stdout 신호명 · rc 0=불완�
   last="${body##*$'\n'}"                                # 변수 확장 — 추가 프로세스 0
   case "$last" in '#'*) echo "heading-end"; return 0 ;; esac
 
-  # ② odd-fence — ``` 로 시작하는 줄이 홀수 (코드블록·YAML DAG 중간 중단)
-  fences=$(grep -cE '^[[:space:]]*```' "$1" 2>/dev/null)   # grep 2/2
-  [ "${fences:-0}" -gt 0 ] 2>/dev/null && [ $((fences % 2)) -eq 1 ] && { echo "odd-fence"; return 0; }
+  # ② odd-fence — 코드펜스가 **열린 채로** 파일이 끝남 (코드블록·YAML DAG 중간 중단)
+  #   ★ 펜스 **길이를 추적**한다. 종전 `grep -cE '^[[:space:]]*```'` 는 길이를 보지 않아
+  #     4-backtick 블록 안의 3-backtick 처럼 **의도적으로 짝이 안 맞는 내부 펜스**를 세어
+  #     정상 문서를 불완전으로 오판했다 (실측 20260809: plan.md 1건 오탐 → R18 red).
+  #     CommonMark 는 "닫는 펜스는 여는 펜스 **이상** 길이" 다 — `==` 로 두면
+  #     3-open/4-close 라는 **유효한** 문서를 미완결로 새로 오탐한다(Phase C 프로브 P5).
+  fences=$(awk '
+    { line = $0; sub(/^[ \t]+/, "", line)
+      if (match(line, /^`+/) && RLENGTH >= 3) {
+        n = RLENGTH
+        if (f == 0)      f = n
+        else if (n >= f) f = 0
+      } }
+    END { print (f == 0 ? 0 : 1) }' "$1" 2>/dev/null)
+  [ "${fences:-0}" -eq 1 ] 2>/dev/null && { echo "odd-fence"; return 0; }
 
   # ③ table-hdr — 끝 3줄에 표 구분행이 있고 그 뒤 데이터 행이 없음 (표 헤더만 쓰고 중단)
   tail3=$(tail -3 "$1" 2>/dev/null)            # tail 1/1

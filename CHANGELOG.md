@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+- **`plan.md` → `tasks.md` 골격 기계 생성기 (FID 20260809-plan-to-tasks-generator)** — `decomposing-ko` 가 `tasks.md` 를 쓸 때 `plan.md` 내용을 상당 부분 **재타이핑**한다. 실측: tasks.md 의 substantive 줄 중 plan.md 와 **완전 동일한 줄**이 3 FID 에서 **44%·55%·63%**. 신규 `scripts/dag/plan-to-tasks.sh` 가 단일 awk 패스로 Task 블록(`**파일**` 블록·Step 본문·코드펜스)을 추출해 **stdout 으로만** 낸다 — 실측 결과 골격이 기존 tasks.md 의 **80~86%** 를 커버한다(504/604 · 311/359 · 291/361). `decomposing-ko` 는 그 위에 생성기가 만들지 않는 4섹션만 쓴다.
+  - **`## 의존 그래프` YAML 을 의도적으로 만들지 않는다** — 이것이 설계의 핵심이다. `depends_on` 은 plan.md 에서 도출 불가한데, `[]` 로 채우면 `dag::find_independent_batch` 가 전 태스크를 절대 leaf 로 보아 **거짓 병렬**이 열린다(실측: 3-task all-leaf → `T1 T2 T3` **무경고** 반환). 반대로 per-task `ac` 는 비워도 `emit-context.sh` 가 `must AC 미커버` 로 dispatch 를 차단하므로 **관문이 강제**한다 — 두 필드의 처리가 다른 이유가 이 **게이트 비대칭**이다. 센티널 주입도 기각(리스트 아닌 값이 파서에 들어가는 위험). 포기하는 절감은 YAML 약 30줄뿐이다.
+  - **파싱 실패 = 전면 거부**(rc=1 + stdout 빈손). Task 헤더 0건·Step 0개 Task·plan 부재 3경로, 사유는 stderr 로 구별. 부분 골격을 내면 "완성처럼 보이는 반쪽 산출물"을 **스크립트가 양산**하게 된다. 실측 파싱 성공 **22/28** — 실패 6건은 Task 블록이 없는 산문형 plan(5건)과 Step 0개 Task 를 가진 plan(1건, `20260711-g0-batch-e2e`)이다. 정규식만 보던 사전 기준선(22/27)과의 차이는 후자가 **설계대로 거부**된 것이다.
+  - **읽기 전용**(워킹트리 델타 0 검증) · Step 개수를 **세지 않는다**(실측: Task 78건 중 5-Step 은 **49%뿐** — 2개 11건·6개 8건·7~9개 6건) · 파일 라벨 6종 원문 보존(수정 52·테스트 25·생성 15·Modify 9·삭제 3·Create 3) · **코드펜스 길이 추적**(4-backtick 안의 3-backtick 을 종료로 오인하지 않음 — 실측 1건 실재).
+  - **성공지표에서 "plan-reviewer 토큰 52%(525k) 절감"을 명시 제외했다** — 이 생성기는 `plan.md` 를 건드리지 않으므로 plan-reviewer 입력이 1토큰도 줄지 않는다. 제안 시점에 그 근거를 썼다가 실측으로 정정했고, 그 정정 이유를 spec §1 에 남겼다(직전 FID 의 충족 불가 AC 리터럴과 같은 클래스를 피함).
+  - **plan-reviewer 가 2라운드 연속 실결함을 잡았다** — 1회차 Critical 2: ① T15 가 잠그려던 `BATCH-PHASE1-DONE:decomposing-ko` 가 **repo 전체 0건**이라 영구 FAIL(실물은 `BATCH-PHASE1-DONE: <FID>`) ② propagation edge 를 `{source,contract,consumers}` 로 제안했으나 실물 파서는 `.edges[].path/.must_match` 만 소비 → **무음 no-op**, spec 이 지정한 잠금이 설치 즉시 공허. 2회차 Important 2: ③ 변이 M2("펜스추적 제거 → FAIL 기대")가 **실행하면 diff 0** — fixture 의 내부 3-fence 가 **짝수**라 naive 토글이 우연히 복귀, AC-12 의 "변이 시 FAIL" 이 원리적 불성립이었다(홀수 + `###` 함정 헤더로 재설계) ④ `git ls-files` 는 **untracked 를 세지 않아**(실측 0 vs staged 1) T0 가 즉시 FAIL·finish 해 RED 6건 관측 불가. **네 건 모두 "RED·변이 결과를 실행하지 않고 단정"** 이라는 동일 클래스이며, 이는 **직전 릴리즈(v1.65.0)가 `planning-ko` 자체검토 항목 7 로 신설한 바로 그 검사**다 — 규칙을 만든 다음 FID 에서 저자가 두 라운드 연속 재현했다.
+  - 어서션 **20건(T0~T19)**, 변이 4종으로 비-vacuous 확인 — 거부 반전 `FAIL T8` · 펜스추적 제거 `FAIL T7 (^## Task=2)` · Step0 거부 제거 `FAIL T9 stdout=550자` · run-all glob 제거 `FAIL T16`. propagation 101 → **106 edges**.
+  - **Phase C 가 프로브로 경계 결함 3건을 격추했다** — ① 닫는 펜스를 `==` 로 판정해 **CommonMark 유효한 3-open/4-close 문서에서 뒤 Task 가 무음 병합**(주석이 CommonMark 를 잘못 인용하고 있었다. 규격은 "닫는 펜스는 여는 펜스 **이상**") ② **Step 카운트에 fence 가드가 없어** 코드펜스 안의 예시 Step 이 실제 스텝으로 계수 → zero-step 거부(AC-2)를 **우회**(이 repo 의 plan.md 자체가 그 입력 클래스다) ③ T12 가 `parse-dag.sh` 부재 시 `_y` 빈손 → `batch=0` 으로 **영구 통과**. 셋 다 수정 + T18·T19 신설 + T12 가드로 잠갔다. ①은 `reconcile-check` 에도 같은 오탐을 심을 뻔했다(동일 커밋에 함께 교정).
+  - **한계**: 절감의 **실제 효과**(생성 골격을 모델이 얼마나 안 고치고 쓰는가)는 본 FID 에서 측정 불가하다 — 후속 FID 의 decomposing 출력 관측 대상이다. mawk 의 `{2,3}` interval 지원은 로컬 검증 불가(NFR-1 "Linux 미검증" 명시).
+
 ## [1.65.0] — 2026-08-08
 
 ### Added

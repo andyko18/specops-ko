@@ -104,6 +104,23 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-ko:implementing-ko` 호출
 
+## 골격 기계 생성 (선택 — 있으면 쓴다)
+
+Step 9(출력) 에서 `tasks.md` 를 처음부터 타이핑하기 전에, `plan.md` 가 있으면 골격 생성을 **먼저 시도**한다:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/plan-to-tasks.sh <FID> > "${TMPDIR:-/tmp}/tasks-skeleton-<FID>.md"
+```
+
+- **rc=0** — `${TMPDIR:-/tmp}/tasks-skeleton-<FID>.md` 가 `## Task N` 블록(`**파일**` 블록·Step 본문·코드펜스 포함)을 담고 있다. 그 위에 **생성기가 만들지 않는 4섹션만** 직접 작성한다 — `## AC → Task 매핑` · `## 파괴적 작업` · `## 진행 상태` · `## 의존 그래프`(YAML). **Task 본문을 다시 타이핑하지 않는다.**
+- **rc≠0** — 생성기가 파싱을 거부했다(산문형 plan · Step 0개 Task · plan 부재). stderr 사유를 1줄 고지하고 **기존 전량 작성 경로로 진행**한다. chain 을 막지 않는다(graceful **fallback**).
+
+> 근거(실측 20260809): `tasks.md` 의 substantive 줄 중 `plan.md` 와 **완전 동일한 줄**이 44~63% 다(3 FID). 생성기는 그 도출 가능한 구간만 옮긴다.
+
+> 생성기는 `## 의존 그래프` YAML 을 **의도적으로 만들지 않는다**. `depends_on` 은 plan.md 에서 도출할 수 없고, `[]` 로 채우면 `dag::find_independent_batch` 가 전 태스크를 절대 leaf 로 보아 **거짓 병렬**이 열린다(실측: 3-task all-leaf → `T1 T2 T3` 무경고 반환). 이 섹션은 항상 사람·모델이 쓴다.
+
+> per-task `ac` 배열도 생성기가 채우지 않는다 — 이것은 **안전하다**. 비운 채로 두면 `emit-context.sh` 가 `must AC 미커버` 로 dispatch 를 차단하므로 **관문이 강제**한다. 반대로 `depends_on` 은 그런 관문이 없어서(무경고 통과) 생성기가 손대지 않는 쪽을 택했다. 두 필드의 처리가 다른 이유가 이것이다.
+
 ## 태스크 크기 규약
 
 **각 태스크 = 2~5분 작업 단위**

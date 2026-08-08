@@ -14,7 +14,7 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 
 # P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="ac-format-switch,assumption-digest-deterministic,batch-gate-propagation,batch-id-active-resume,batch-review-skip,decisions-ledger-resolved,design-critical-cap,doctor-readonly-always-zero,end-loaded-skip,foundation-manifest-gate,friction-aggregate-default,gbrain-confidence-example,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,receipt-mandatory,reconcile-review-skip,regression-ac-gate,release-ready-hard,review-audit-structured,review-presence-warn,review-verdict-contract,tdd-red-observation,template-example-detectable"
+expected="ac-format-switch,assumption-digest-deterministic,batch-gate-propagation,batch-id-active-resume,batch-review-skip,decisions-ledger-resolved,design-critical-cap,doctor-readonly-always-zero,end-loaded-skip,foundation-manifest-gate,friction-aggregate-default,gbrain-confidence-example,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,p2t-generator-wiring,p2t-must-ac-gate,receipt-mandatory,reconcile-review-skip,regression-ac-gate,release-ready-hard,review-audit-structured,review-presence-warn,review-verdict-contract,tdd-red-observation,template-example-detectable"
 if [ "$ids" = "$expected" ]; then
   ok "P1 matrix id 정렬 일치"
 else
