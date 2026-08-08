@@ -107,7 +107,7 @@ fi
 | `scripts/gbrain-append.sh` | 인사이트 1줄 기록 | performance-test-ko 학습 추출 (자동) + 수동 |
 | `scripts/gbrain-collect.sh <FID>` | handoffs/evidence 결정적 수집 | performance-test-ko 학습 추출 1단계 |
 | `scripts/gbrain-recall.sh "<질의>" [--top N]` | 토큰 중첩 관련 인사이트 조회 | specifying-ko Step 1 환류 (자동) + 수동 |
-| `scripts/gbrain-friction.sh [--json]` | friction-log 규칙별 집계 + 증류 후보 | 본 skill Step 2b (기본 출력) |
+| `scripts/gbrain-friction.sh [--json]` | friction-log 규칙별 집계 + 증류 후보(**block 기준** — warn 은 감사 기록이라 미집계) | 본 skill Step 2b (기본 출력) |
 
 learnings.jsonl 은 git 추적 (학습 자산 영속 — gitignore 예외).
 

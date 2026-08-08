@@ -59,12 +59,17 @@ agg=$(
     END {
       for (r in rows) {
         # severity 분포 문자열 (block 우선 표기 — 우선순위 판단의 핵심 축)
-        s = ""
+        s = ""; b = 0
         for (k in sev) {
           split(k, p, SUBSEP)
-          if (p[1] == r) s = s (s == "" ? "" : " ") p[2] ":" sev[k]
+          if (p[1] == r) { s = s (s == "" ? "" : " ") p[2] ":" sev[k]; if (p[2] == "block") b = sev[k] }
         }
-        printf "%s\t%d\t%d\t%s\t%s\n", r, rows[r], fids[r], s, last[r]
+        # ts 가 비면 **중간 필드 붕괴**가 난다 — bash read 의 IFS 탭은 whitespace 라
+        #   빈 필드가 사라져 blocks 가 last 로 밀린다(표에 block 0 오표시).
+        #   종전엔 last_ts 가 말단이라 무해했으나 blocks 컬럼 추가로 새로 생긴 경로다.
+        #   여기서 "?" 로 채우면 붕괴 자체가 성립하지 않는다.
+        lt = (last[r] == "" ? "?" : last[r])
+        printf "%s\t%d\t%d\t%s\t%s\t%d\n", r, rows[r], fids[r], s, lt, b
       }
       printf "TOTAL\t%d\n", total
     }
@@ -79,31 +84,38 @@ n_files=$(printf '%s\n' "$files" | grep -c . || true)
 if [ "$JSON" -eq 1 ]; then
   printf '%s\n' "$rows_only" | jq -Rs --argjson min "$MIN" --argjson tr "${total_rows:-0}" --argjson tf "${n_files:-0}" '
     [ split("\n")[] | select(length > 0) | split("\t")
-      | {rule_id: .[0], rows: (.[1]|tonumber), fids: (.[2]|tonumber), severity: .[3], last_ts: .[4]} ]
+      | {rule_id: .[0], rows: (.[1]|tonumber), fids: (.[2]|tonumber),
+         severity: .[3], last_ts: .[4], blocks: (.[5]|tonumber)} ]
     | {total_rows: $tr, total_files: $tf, min: $min,
-       rules: ., candidates: [ .[] | select(.rows >= $min) ]}'
+       rules: ., candidates: [ .[] | select(.blocks >= $min) ]}'
   exit 0
 fi
 
 echo "### 마찰 집계 (${total_rows}행 / ${n_files}개 FID 로그)"
 echo ""
-echo "| 규칙 | 행수 | FID수 | severity | 최근 |"
-echo "|---|---:|---:|---|---|"
-printf '%s\n' "$rows_only" | while IFS=$'\t' read -r r rows fids sev last; do
+echo "| 규칙 | 행수 | FID수 | block | severity | 최근 |"
+echo "|---|---:|---:|---:|---|---|"
+# block 을 4번째에 둔다 — 후보 판정의 **직접 근거**라 눈에 먼저 들어와야 하고,
+#   앞 3열(규칙·행수·FID수)이 그대로라 기존 어서션(T2·T3)의 그렙이 보존된다.
+printf '%s\n' "$rows_only" | while IFS=$'\t' read -r r rows fids sev last blocks; do
   [ -n "$r" ] || continue
-  printf '| %s | %5d | %5d | %s | %s |\n' "$r" "$rows" "$fids" "$sev" "${last%T*}"
+  printf '| %s | %5d | %5d | %5d | %s | %s |\n' "$r" "$rows" "$fids" "${blocks:-0}" "$sev" "${last%T*}"
 done
 
-cand=$(printf '%s\n' "$rows_only" | awk -F'\t' -v m="$MIN" '$2 + 0 >= m')
+# 후보 판정은 **block(차단) 건수**만 본다 — warn 은 posttool 감사 기록이라 성공한
+#   커밋에도 붙는다(실측: R-1 warn 66행이 전부 통과한 커밋). 합산하면 설계상 warn 인
+#   규칙(R-3·R-4·R-5 — rules.jsonl severity: warn)에게 "게이트를 더 세게 걸까?" 를 묻게 된다.
+cand=$(printf '%s\n' "$rows_only" | awk -F'\t' -v m="$MIN" '$6 + 0 >= m')
 echo ""
-echo "### 증류 후보 (${MIN}회 이상 반복)"
+echo "### 증류 후보 (block ${MIN}회 이상)"
 echo ""
 if [ -z "$cand" ]; then
-  echo "- 없음 — 임계 ${MIN}회 미만"
+  echo "- 없음 — **block(차단) ${MIN}회 이상**인 규칙이 없다. warn 은 posttool 감사 기록이라 후보 판정에 세지 않는다(표에는 남는다)."
 else
-  printf '%s\n' "$cand" | while IFS=$'\t' read -r r rows fids sev last; do
+  printf '%s\n' "$cand" | while IFS=$'\t' read -r r rows fids sev last blocks; do
     [ -n "$r" ] || continue
-    printf -- '- **%s** — %d행 / %d FID. ' "$r" "$rows" "$fids"
+    # 판정의 직접 근거인 block 건수를 함께 낸다 — 행수만 보이면 왜 후보인지 알 수 없다.
+    printf -- '- **%s** — block %d회 (%d행 / %d FID). ' "$r" "${blocks:-0}" "$rows" "$fids"
     if [ "${fids:-0}" -ge 3 ]; then
       echo "여러 FID 에 걸친 **전역 패턴** — 규칙을 더 세게 걸 문제인지, 워크플로 설계를 바꿀 문제인지 판단 필요."
     else

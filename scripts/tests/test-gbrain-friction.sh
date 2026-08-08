@@ -56,27 +56,33 @@ _order=$(printf '%s' "$_OUT" | grep -oE '^\| R-[0-9]+ ' | tr -d '| ' | tr '\n' '
 [ "$_order" = "R-1,R-5,R-2," ] \
   && ok "T4 행수 내림차순 정렬" || nope "T4" "order=$_order"
 
-# ── T5: 증류 후보 임계 — 3회 이상만 (Hermes 3+ 임계 차용) ──────────────
-printf '%s' "$_OUT" | grep -q 'R-1' \
-  && printf '%s' "$_OUT" | sed -n '/증류 후보/,$p' | grep -q 'R-1' \
-  && ok "T5 R-1(3회) 증류 후보 등재" || nope "T5" "out=$_OUT"
+# ── T5 (승계): warn 만 있는 규칙은 증류 후보가 아니다 ──────────────────
+#   종전 단언: "R-1(warn 3행)이 후보로 등재된다" — 행수 기준 의미. 폐기(clarify Q6).
+#   픽스처 무수정 + 단언 반전. 양성 검증은 독립 픽스처를 쓰는 T14·T15 가 맡는다.
+_cand5=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
+[ -n "$_cand5" ] && ! printf '%s' "$_cand5" | grep -q 'R-1' \
+  && ok "T5 (승계) warn-only R-1 은 증류 후보 아님" || nope "T5" "cand=$_cand5"
 
-# ── T6: 임계 미만은 후보 아님 (R-2 1회 · R-5 2회) ─────────────────────
-# 축 분리: T5 가 "표시된다" 를, T6 이 "임계가 실제로 작동한다" 를 본다.
+# ── T6 (승계): block 임계 미만은 후보 아님 ─────────────────────────────
+#   종전은 R-1 을 후보 섹션의 **양성 대조군**으로 요구했다(공허 통과 방지 목적 —
+#   없는 문자열만 grep 하면 항상 참이 되므로). block 기준에선 표준 픽스처에 양성이 없다.
+#   공허 방지는 **표에 R-1 행이 렌더됐음**으로 대체한다 — 출력이 실제로 생성됐고
+#   R-1 이 집계에는 있는데 후보에만 없다는 것을 한 어서션에서 보인다(AC-4 축과 동형).
 _cand=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
-# ⚠️ 빈 출력에서 공허 통과 방지 — 후보 섹션 **존재**를 먼저 요구한다
-#    (구현 전 RED 에서 T6 만 통과했다: 없는 문자열 2개를 grep 하면 항상 참).
-if [ -n "$_cand" ] && printf '%s' "$_cand" | grep -q 'R-1' \
+if printf '%s' "$_OUT" | grep -qE '^\| R-1 \|' && [ -n "$_cand" ] \
    && ! printf '%s' "$_cand" | grep -q 'R-2' && ! printf '%s' "$_cand" | grep -q 'R-5'; then
-  ok "T6 임계 미만(R-2·R-5) 후보 제외"
+  ok "T6 (승계) block 임계 미만(R-2:0 · R-5:1) 후보 제외 — 표엔 렌더됨"
 else
   nope "T6" "cand=$_cand"
 fi
 
-# ── T7: 임계 조정 가능 (환경변수) ──────────────────────────────────────
-_OUT=$(cd "$TMP" && SPECOPS_ROOT=".specops" GBRAIN_FRICTION_MIN=2 bash "$SH" 2>&1)
+# ── T7 (승계): 임계 조정 가능 (환경변수) ───────────────────────────────
+#   종전: MIN=2 → R-5 편입(행수 2). block 기준에선 R-5 는 block 1 이라 탈락한다.
+#   임계 동작을 검증하려면 **경계에 걸치는 규칙**이 필요하다 — R-5(block 1)는 MIN=1 에서 편입.
+_OUT=$(cd "$TMP" && SPECOPS_ROOT=".specops" GBRAIN_FRICTION_MIN=1 bash "$SH" 2>&1)
 printf '%s' "$_OUT" | sed -n '/증류 후보/,$p' | grep -q 'R-5' \
-  && ok "T7 GBRAIN_FRICTION_MIN=2 → R-5 편입" || nope "T7" "out=$_OUT"
+  && ok "T7 (승계) GBRAIN_FRICTION_MIN=1 → R-5(block 1) 편입" || nope "T7" "out=$_OUT"
+_seed; _run   # 후속 어서션을 위해 표준 상태 복원
 
 # ── T8: --json 기계 판독 ───────────────────────────────────────────────
 _seed
@@ -123,5 +129,113 @@ fi
 grep -q '기본 출력' "$PLUGIN/skills/gbrain-ko/SKILL.md" \
   && sed -n '/Step 2/,/Step 3/p' "$PLUGIN/skills/gbrain-ko/SKILL.md" | grep -q 'gbrain-friction\.sh' \
   && ok "T12 /gbrain 기본 출력에 편입" || nope "T12" "플래그 전용이면 안 읽힌다"
+
+# ─────────────────────────────────────────────────────────────
+# T13~T20: 증류 후보 정확도 (FID 20260808-friction-candidate-accuracy)
+#   후보 판정 기준: 전 severity 합산 행수 → **block 건수**
+#   ⚠️ T1~T4·T8~T12 무수정 (AC-R-1c). T5·T6·T7 은 clarify Q6 로 승계.
+# ─────────────────────────────────────────────────────────────
+
+# T13 (AC-1): warn-only 규칙은 임계를 넘겨도 후보가 아니다
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/w1"
+{ _row w1 R-9 warn 2026-07-01T00:00:00Z
+  _row w1 R-9 warn 2026-07-02T00:00:00Z
+  _row w1 R-9 warn 2026-07-03T00:00:00Z; } > "$TMP/.specops/w1/friction-log.jsonl"
+_run
+_c=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
+[ -n "$_c" ] && ! printf '%s' "$_c" | grep -q 'R-9' \
+  && ok "T13 warn-only 3행 → 후보 아님" || nope "T13" "cand=$_c"
+
+# T14 (AC-2): block 이 임계 이상이면 후보다
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/b1"
+{ _row b1 R-8 block 2026-07-01T00:00:00Z
+  _row b1 R-8 block 2026-07-02T00:00:00Z
+  _row b1 R-8 block 2026-07-03T00:00:00Z; } > "$TMP/.specops/b1/friction-log.jsonl"
+_run
+printf '%s' "$_OUT" | sed -n '/증류 후보/,$p' | grep -q 'R-8' \
+  && ok "T14 block 3행 → 후보 등재" || nope "T14" "out=$_OUT"
+
+# T15 (AC-3): 혼재 — block 만 센다 (행수 기준이면 통과·block 기준이면 탈락하는 변별 케이스)
+#   warn 10 + block 2, 임계 3 → 총 12행이지만 block 2 < 3 이라 후보 아님.
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/m1"
+{ for i in 1 2 3 4 5 6 7 8 9; do _row m1 R-7 warn "2026-07-0${i}T00:00:00Z"; done
+  _row m1 R-7 warn  2026-07-10T00:00:00Z
+  _row m1 R-7 block 2026-07-11T00:00:00Z
+  _row m1 R-7 block 2026-07-12T00:00:00Z; } > "$TMP/.specops/m1/friction-log.jsonl"
+_run
+_c=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
+printf '%s' "$_OUT" | grep -q 'R-7' \
+  && [ -n "$_c" ] && ! printf '%s' "$_c" | grep -q 'R-7' \
+  && ok "T15 warn10+block2 (총12행) → 후보 아님" || nope "T15" "cand=$_c"
+
+# T16 (AC-4): 정보 유실 0 — block 0 규칙도 표에는 남는다
+#   후보에서 빼는 것과 안 보이게 하는 것은 다르다. 이 어서션이 그 경계다.
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/w2"
+{ _row w2 R-6 warn 2026-07-01T00:00:00Z
+  _row w2 R-6 warn 2026-07-02T00:00:00Z
+  _row w2 R-6 warn 2026-07-03T00:00:00Z; } > "$TMP/.specops/w2/friction-log.jsonl"
+_run
+_c=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
+printf '%s' "$_OUT" | grep -qE '^\| R-6 \| +3 \|' \
+  && [ -n "$_c" ] && ! printf '%s' "$_c" | grep -q 'R-6' \
+  && ok "T16 block 0 규칙 — 표엔 남고 후보엔 없음" || nope "T16" "out=$_OUT"
+
+# T17 (AC-5): 표에 block 컬럼 노출 (판정 근거가 보여야 한다)
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/m2"
+{ _row m2 R-5 warn  2026-07-01T00:00:00Z
+  _row m2 R-5 block 2026-07-02T00:00:00Z
+  _row m2 R-5 block 2026-07-03T00:00:00Z; } > "$TMP/.specops/m2/friction-log.jsonl"
+_run
+printf '%s' "$_OUT" | grep -q '| block |' \
+  && printf '%s' "$_OUT" | grep -qE '^\| R-5 \| +3 \| +1 \| +2 \|' \
+  && ok "T17 표에 block 컬럼 + 값 정확(2)" || nope "T17" "out=$_OUT"
+
+# T18 (AC-6): --json 기존 5키 불변 + blocks 필드 추가 + candidates 는 block 기준
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/j1"
+{ for i in 1 2 3 4 5; do _row j1 R-4 warn "2026-07-0${i}T00:00:00Z"; done
+  _row j1 R-3 block 2026-07-06T00:00:00Z
+  _row j1 R-3 block 2026-07-07T00:00:00Z
+  _row j1 R-3 block 2026-07-08T00:00:00Z; } > "$TMP/.specops/j1/friction-log.jsonl"
+_run --json
+if printf '%s' "$_OUT" | jq -e '
+      (has("total_rows") and has("total_files") and has("min")
+       and has("rules") and has("candidates"))
+      and (all(.rules[]; has("blocks")))
+      and ([.candidates[].rule_id] == ["R-3"])' >/dev/null 2>&1; then
+  ok "T18 --json 5키 불변 + blocks + candidates=block기준"
+else
+  nope "T18" "out=$_OUT"
+fi
+
+# T19 (AC-7): 후보 0건이어도 판정 기준을 밝히는 안내 (빈 섹션 금지)
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/z1"
+{ _row z1 R-2 warn 2026-07-01T00:00:00Z
+  _row z1 R-2 warn 2026-07-02T00:00:00Z
+  _row z1 R-2 warn 2026-07-03T00:00:00Z; } > "$TMP/.specops/z1/friction-log.jsonl"
+_run
+_c=$(printf '%s' "$_OUT" | sed -n '/증류 후보/,$p')
+[ -n "$_c" ] && printf '%s' "$_c" | grep -q 'block' \
+  && ok "T19 후보 0건 → 판정 기준 명시 안내" || nope "T19" "cand=$_c"
+
+# T20 (AC-8): 판정 기준이 문서에 기술됐는가
+#   `grep -q 'block'` 은 두 문서에 다른 맥락의 'block' 이 한 번만 들어와도 영구 공허화된다
+#   (Phase C 지적). 실문구("block 기준"·"`block`(차단) 건수 기준")에 맞춰 조인다.
+grep -qE 'block.*기준' "$PLUGIN/commands/gbrain.md" \
+  && grep -qE 'block.*기준' "$PLUGIN/skills/gbrain-ko/SKILL.md" \
+  && ok "T20 문서에 block 기준 판정 명시" || nope "T20" "문서 미갱신"
+
+# T21 (Phase C Important 1): ts 누락 규칙에서 표의 block 열이 밀리지 않는다
+#   bash read 의 IFS 탭은 whitespace 라 **빈 중간 필드가 붕괴**한다. blocks 컬럼을
+#   추가하면서 last_ts 가 말단→중간이 되어 새로 생긴 회귀다(종전엔 말단이라 무해).
+#   증상: 후보엔 등재되는데 표엔 block 0 — 판정 근거를 보이겠다는 목적과 정면 모순.
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/t1"
+{ printf '{"fid":"t1","rule_id":"R-T","principle":1,"severity":"block","evidence_snippet":"x"}\n'
+  printf '{"fid":"t1","rule_id":"R-T","principle":1,"severity":"block","evidence_snippet":"x"}\n'
+  printf '{"fid":"t1","rule_id":"R-T","principle":1,"severity":"block","evidence_snippet":"x"}\n'; } \
+  > "$TMP/.specops/t1/friction-log.jsonl"
+_run
+printf '%s' "$_OUT" | grep -qE '^\| R-T \| +3 \| +1 \| +3 \|' \
+  && printf '%s' "$_OUT" | sed -n '/증류 후보/,$p' | grep -q 'R-T' \
+  && ok "T21 ts 누락 — 표 block 열 정확(3) + 후보 등재" || nope "T21" "out=$_OUT"
 
 finish
