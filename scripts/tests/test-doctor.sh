@@ -221,4 +221,121 @@ _run "$R"
   && printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
   && ok "T17 unknown → JSON status unknown + 표 ⚠️" || nope "T17" "json_unknown=$json_unknown out=$_OUT"
 
+# ─────────────────────────────────────────────────────────────
+# T18~T26: progress 아카이브 분리 (FID 20260808-doctor-progress-archive)
+#   판정 3분류 — 디렉터리 부재=아카이브 / 디렉터리 있음+evidence 부재=불일치 / 정상
+#   ⚠️ T1~T17 은 건드리지 않는다 (AC-R-1 — diff 가 +N/-0 여야 한다)
+# ─────────────────────────────────────────────────────────────
+
+# T18 (AC-1): 디렉터리 자체가 없는 FID 는 불일치가 아니다 → ✅
+R="$TMP/r18"; _mkrepo "$R"
+printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '✅' \
+  && ! printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '20260101-archived' \
+  && ok "T18 아카이브 FID → ✅ · 미지목" || nope "T18" "out=$_OUT"
+
+# T19 (AC-2): 디렉터리 있음 + evidence.md 부재 → 여전히 ⚠️ + 지목
+#   (T5 와 같은 축이나, 아카이브 분기 도입 후에도 살아있음을 명시 고정한다)
+R="$TMP/r19"; _mkrepo "$R"
+mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
+printf '# Session Progress\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q '20260202-real' \
+  && ok "T19 dir 존재 + evidence 부재 → ⚠️ 유지" || nope "T19" "out=$_OUT"
+
+# T21 (AC-5): 혼재 — 불일치가 아카이브에 가려지지 않는다
+#   카운트는 dir-exists 만, 지목도 dir-exists 만, 아카이브 FID 이름은 안 나온다
+R="$TMP/r21"; _mkrepo "$R"
+mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
+printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+_row=$(printf '%s' "$_OUT" | grep -E '^\| progress ')
+printf '%s' "$_row" | grep -q '⚠️' \
+  && printf '%s' "$_row" | grep -q '1건 불일치' \
+  && printf '%s' "$_row" | grep -q '20260202-real' \
+  && ! printf '%s' "$_row" | grep -q '20260101-archived' \
+  && printf '%s' "$_row" | grep -q '아카이브 1건' \
+  && ok "T21 혼재 → 불일치 1건만 카운트·지목 + 아카이브 건수 표기" || nope "T21" "row=$_row"
+
+# T20 (AC-3): 아카이브 건수가 ✅ 경로에도 명시된다
+R="$TMP/r20"; _mkrepo "$R"
+printf '# Session Progress\n\n## 20260101-a\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260101-b\n\n- 2026-01-01 11:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '✅' \
+  && printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '아카이브 2건 제외' \
+  && ok "T20 ✅ 경로에 아카이브 건수 명시" || nope "T20" "out=$_OUT"
+
+# T22 (AC-4): 아카이브 0건이면 그 문구가 아예 없다 (잡음 금지)
+#   경고 포화를 고치면서 새 잡음을 만들지 않는다는 것이 이 FID 의 절반이다.
+R="$TMP/r22"; _mkrepo "$R"
+mkdir -p "$R/.specops/20260303-done"
+printf '# spec\n' > "$R/.specops/20260303-done/spec.md"
+printf '# evidence\n' > "$R/.specops/20260303-done/evidence.md"
+printf '# Session Progress\n\n## 20260303-done\n\n- 2026-03-03 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '✅' \
+  && ! printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '아카이브' \
+  && ok "T22 아카이브 0건 → 문구 없음" || nope "T22" "out=$_OUT"
+
+# T26 (AC-3 하위 · dedup 대칭): 같은 FID 헤더가 두 번이어도 아카이브는 1건
+#   기존 bad 는 dedup 하는데 arch 만 안 하면 건수가 부풀고, 그걸 잡는 어서션이 없다.
+R="$TMP/r26"; _mkrepo "$R"
+printf '# Session Progress\n\n## 20260101-dup\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260101-dup\n\n- 2026-01-02 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '아카이브 1건' \
+  && ok "T26 중복 헤더 → 아카이브 dedup (1건)" || nope "T26" "out=$_OUT"
+
+# T24 (AC-7): 판정 의미가 문서에 기술됐는가 — 계약서가 지정한 ID 다
+grep -q '아카이브' "$PLUGIN/commands/doctor.md" \
+  && ok "T24 doctor.md 에 아카이브 판정 기술" || nope "T24" "commands/doctor.md 아카이브 문구 부재"
+
+# T25 (AC-10): 원 AC-5 승계 명시 + 원 FID 계약서 무수정
+#   계약서 AC-10 의 두 번째 절("git diff 에 원 FID 경로 부재")은 .gitignore:5 가 .specops/* 를
+#   통째로 제외해 **구조상 영원히 통과**한다(vacuous — plan §4.3 실측). 의도(원 FID 아티팩트
+#   무수정)를 실제로 검증하는 형태로 읽는다 — 원 계약서에 승계 문구가 들어가지 않았음을 확인.
+grep -q 'AC-5' "$PLUGIN/commands/doctor.md" && t25_doc=1 || t25_doc=0
+_OLD_AC="$PLUGIN/.specops/20260807-specops-doctor/acceptance-criteria.md"
+if [ -f "$_OLD_AC" ]; then
+  grep -qE 'supersede|20260808' "$_OLD_AC" && t25_old=0 || t25_old=1
+else
+  t25_old=1   # .specops/* 는 gitignore — 신규 clone·CI 에는 없다 (GH-8 선례의 SKIP 동형)
+fi
+[ "$t25_doc" -eq 1 ] && [ "$t25_old" -eq 1 ] \
+  && ok "T25 승계 명시 + 원 FID 계약서 무수정" \
+  || nope "T25" "doc=$t25_doc old_untouched=$t25_old"
+
+# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 4건 · schema_version 1 · warn_count 정합)
+R="$TMP/r23"; _mkrepo "$R"
+mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
+printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R" --json
+_n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
+_sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
+_wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
+_actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
+[ "$_n" = "4" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=4 · warn_count=$_wc)" \
+  || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
+
+# T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
+#   `\r` 가 FID 문자열에 남으면 `[ -d ]` 가 실패해 **존재하는 dir 이 아카이브로 오분류**된다.
+#   main 에서 ⚠️ 로 시끄럽던 진짜 결함이 ✅ 로 조용해지는 **실패 방향 반전** — 가장 위험한 형태다.
+R="$TMP/r27"; _mkrepo "$R"
+mkdir -p "$R/.specops/20260202-crlf"; printf '# spec\n' > "$R/.specops/20260202-crlf/spec.md"
+printf '# Session Progress\r\n\r\n## 20260202-crlf\r\n\r\n- 2026-02-02 10:00 /verify PASS\r\n' \
+  > "$R/.specops/session-progress.md"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q '20260202-crlf' \
+  && ok "T27 CRLF 헤더 → dir 존재 인식 유지 (아카이브 오분류 없음)" || nope "T27" "out=$_OUT"
+
 finish

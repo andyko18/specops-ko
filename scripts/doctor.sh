@@ -103,10 +103,18 @@ _chk_progress() {
   # ⚠️ 줄당 프로세스 스폰 금지 — session-progress.md 는 append-only 라 선형 성장한다
   #   (실측 1,791줄). 리뷰 A/B 실측: 줄당 `printf | grep` 이 ~1.1s 를 차지해
   #   NFR-2(2초) 를 넘겼다. 순수 bash 문자열 연산만 쓴다.
-  local bad="" n=0 cur=""
+  # 3분류: 아카이브(디렉터리째 정리됨) / 불일치(디렉터리 있는데 evidence 없음) / 정상.
+  #   arch 는 bad 와 **대칭으로 dedup** 한다 — 같은 FID 헤더가 두 번 나오면 건수가 부푼다.
+  #   (이 repo 실측: FID 섹션 125건 vs 디렉터리 32개 — 중복은 개연이지 가설이 아니다)
+  local bad="" arch="" n=0 an=0 cur=""
+  # an(아카이브 고유 건수)은 루프 종료 후 sort -u 로 1회 산출한다 — 아래 판정부 주석 참조.
   while IFS= read -r line; do
     case "$line" in
-      "## "*) cur="${line#\#\# }"; cur="${cur%% *}"
+      "## "*) cur="${line#\#\# }"; cur="${cur%% *}"; cur="${cur%$'\r'}"
+              # CRLF 방어 — `\r` 가 남으면 디렉터리명이 어긋나 `[ -d ]` 가 실패하고,
+              #   그 결과 **존재하는 dir 이 아카이브로 오분류**된다. main 에서 ⚠️ 로 시끄럽던
+              #   진짜 결함이 branch 에서 ✅ 로 조용해지는 **실패 방향 반전**이라 위험하다
+              #   (Phase C 실측: main `⚠️ 1건 불일치` vs branch `✅ (아카이브 1건 제외)`).
               # 헤더는 신뢰 입력이 아니다 — 경로 구분자·상위 참조가 섞이면 .specops 밖을
               #   프로브하게 된다(read-only 라 무해하나 무검증). 실측: 실 repo 헤더 126건 중
               #   `/`·`..` 포함 0건 — 정상 FID 를 떨어뜨리지 않는다.
@@ -115,22 +123,41 @@ _chk_progress() {
       #   (PASSWORD 의 PASS). 실측: 실 repo 에서 loose 113줄 = `/verify PASS` 113줄 —
       #   loose-only 0줄이라 조여도 검출력 손실이 없다.
       *) if [ -n "$cur" ] && case "$line" in *"/verify PASS"*) true ;; *) false ;; esac; then
-           if [ ! -f "$SPECOPS/$cur/evidence.md" ]; then
+           if [ ! -d "$SPECOPS/$cur" ]; then
+             # 디렉터리째 없음 = 아카이브. `.specops/*` 는 gitignore 라 로컬 전용이고
+             #   session-progress.md 는 append-only 다 — 과거 FID 정리는 의도된 동작이지
+             #   결함이 아니다. 조치 문구("evidence.md 확인")도 여기엔 수행 불가능하다.
+             # dedup 은 **루프 밖에서 1회** 한다 — `case " $arch " in *" $cur "*` 인라인 dedup 은
+             #   O(n²) 이고, arch 는 아카이브할수록 **단조 증가하는 축**이라 시간이 갈수록 나빠진다
+             #   (Phase C 실측: 500건 0.17s / 2,000건 1.74s — NFR-2 예산 2s 근접 / 10,000건 40s).
+             #   bad 는 인라인 dedup 을 유지한다 — 그쪽은 **순서 있는 표시 목록**이 필요하고
+             #   실측 0건이라 성장 축이 아니다. 비대칭이지만 요구가 다르다(count vs ordered list).
+             arch="${arch}${arch:+ }$cur"
+           elif [ ! -f "$SPECOPS/$cur/evidence.md" ]; then
+             # 디렉터리는 있는데 증거만 없다 = 진짜 결함(검증 주장 후 증거 유실).
              case " $bad " in *" $cur "*) ;; *) bad="${bad}${bad:+ }$cur"; n=$((n + 1)) ;; esac
            fi
            cur=""
          fi ;;
     esac
   done < "$sp"
+  # 아카이브 고유 건수 — 스폰은 여기 4회로 **상수**다(줄당 0). `tr ' ' '\n'` 은 아래 head5 와
+  #   같은 관용구로, 비인용 확장의 glob 전개(`## *` 류 헤더)를 피한다.
+  [ -n "$arch" ] && an=$(printf '%s' "$arch" | tr ' ' '\n' | sort -u | wc -l | tr -d ' ')
   if [ "$n" -eq 0 ]; then
-    _add progress ok "verify PASS 기록 ↔ evidence.md 정합" ""
+    # 아카이브가 있으면 건수를 밝힌다 — 조용히 버리지 않는 것이 이 변경의 절반이다.
+    #   0건이면 붙이지 않는다: 없는 정보로 잡음을 만들면 고치려던 문제를 재생산한다.
+    local suffix=""
+    [ "$an" -gt 0 ] && suffix=" (아카이브 ${an}건 제외)"
+    _add progress ok "verify PASS 기록 ↔ evidence.md 정합${suffix}" ""
   else
-    # 실 repo 실측(리뷰 3회차): 불일치 83건 — 전체 나열 시 표 한 셀이 수천 자가 된다.
-    #   AC-5 는 "지목"만 요구하므로 앞 5건 + "외 N건" 으로 절단한다.
-    local head5 rest
+    # 실 repo 실측(리뷰 3회차): 불일치가 많으면 표 한 셀이 수천 자가 된다.
+    #   AC 는 "지목"만 요구하므로 앞 5건 + "외 N건" 으로 절단한다.
+    local head5 rest suffix=""
     head5=$(printf '%s' "$bad" | tr ' ' '\n' | head -5 | tr '\n' ' ')
     rest=$((n - 5)); [ "$rest" -gt 0 ] && head5="${head5}외 ${rest}건"
-    _add progress warn "${n}건 불일치: $head5" "evidence.md 확인 또는 /verify 재실행"
+    [ "$an" -gt 0 ] && suffix=" · 아카이브 ${an}건 제외"
+    _add progress warn "${n}건 불일치: ${head5}${suffix}" "evidence.md 확인 또는 /verify 재실행"
   fi
 }
 

@@ -4,7 +4,7 @@ description: specops 설치·환경 건강 진단 — git hook 2단 게이트·m
 triggers:
   - "/doctor"
 mode: ask
-specops_version: 1.62.0
+specops_version: 1.65.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -30,7 +30,7 @@ reference_upstream: specops-ko 독자 추가
 | `git_hooks` | `core.hooksPath=.githooks` + `pre-commit`·`pre-push` 실행 가능 |
 | `memory` | `.specops/memory/*.md` placeholder 잔존 (판정 SoT = `scan-enrich-placeholders.sh`) |
 | `orphan_fid` | `spec.md` 만 있고 `tasks.md`·`evidence.md` 둘 다 없는 FID |
-| `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 |
+| `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 (**디렉터리째 없는 FID 는 아카이브로 제외**) |
 
 ## 계약
 
@@ -43,6 +43,16 @@ reference_upstream: specops-ko 독자 추가
 
 - **자동 수정** — 본 커맨드는 진단만. 조치는 사용자가 실행한다 (5원칙 4 주권).
 - **게이트화** — exit 0 계약을 깨고 CI 를 막지 않는다. 필요해지면 `--strict` 를 별도 설계한다.
+
+## progress 판정 — 아카이브 제외 (v1.65.0, FID 20260808-doctor-progress-archive)
+
+`/verify PASS` 를 기록한 FID 중 **`.specops/<FID>/` 디렉터리 자체가 없는 것**은 **아카이브**로 보고 불일치에서 제외합니다. `.specops/*` 는 `.gitignore` 대상이라 로컬 전용이고 `session-progress.md` 는 append-only 이므로, 과거 FID 디렉터리 정리는 **의도된 동작이지 결함이 아닙니다** — 조치 문구("evidence.md 확인 또는 `/verify` 재실행")도 6주 전 FID 에는 수행 자체가 불가능합니다. 제외된 건수는 `아카이브 N건 제외` 로 함께 표기해 조용히 사라지지 않게 합니다(0건이면 미표기).
+
+**불일치로 남는 것은 `디렉터리는 있는데 evidence.md 만 없는` 경우**입니다 — 검증을 주장한 뒤 증거가 유실된 진짜 결함입니다.
+
+계기: 실측 불일치 83건이 **전부 디렉터리 부재**였고 `evidence.md` 만 없는 경우는 0건이었습니다(누락 `20260426~20260702` · 실재 `20260709~`). 끌 수 없는 ⚠️ 는 아무도 읽지 않습니다.
+
+> **승계**: 이 판정은 FID `20260807-specops-doctor` 의 **AC-5**("그 FID 에 `evidence.md` 가 없을 때 ⚠️")를 **대체(supersede)** 합니다. 원 문면은 디렉터리 유무를 구분하지 않아 아카이브 FID 도 포함했으나, 그 AC 를 검증하던 `T5` 픽스처는 실제로는 디렉터리가 존재하는 케이스였습니다. 종료된 FID 의 계약서는 이력 보존을 위해 **수정하지 않았고**, 승계는 `20260808-doctor-progress-archive` 의 AC-1·AC-2 에 기록돼 있습니다.
 
 ## 참조
 
