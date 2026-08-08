@@ -261,9 +261,11 @@ bash scripts/_internal/install-git-hooks.sh --uninstall
 | 훅 | 게이트 | 소요 |
 |---|---|---|
 | `pre-commit` | `validate-structure` + `check-propagation` | ~5s |
-| `pre-push` | `run-all.sh` 전체 스위트 | ~195s |
+| `pre-push` | `check-ci-status`(경고, ~1s) + `run-all.sh` 전체 스위트 | ~195s |
 
 훅 본문은 `.githooks/` 로 버전관리되지만 `core.hooksPath` 는 `.git/config` 로컬 설정이라 **clone 마다 1회 설치**가 필요합니다. Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로, 도구 무관하게 걸리는 층은 git hook 뿐입니다 — 계기는 `44cd095` 가 `run-all` 없이 나가 `main` 이 하루 red 였던 사고입니다. 커밋마다 195s 를 걸면 `--no-verify` 관성이 생겨 게이트가 무력화되므로 비용을 2단으로 나눴습니다. 탈출구(주권): `git commit --no-verify` · `git push --no-verify`. 게이트 스크립트가 없는 repo 에서는 자동 면제됩니다(월권 금지).
+
+`check-ci-status.sh` 는 `git push` 직전 origin main 의 **최근 완료 CI 결론**을 조회해 red 면 경고합니다 — 195s 스위트를 돌기 전에 알리는 것이 목적이라 면제 4종 뒤·`run-all` 앞에 옵니다. **차단하지 않습니다**(항상 `exit 0`). `gh`·`jq` 는 **선택 의존**이라 미설치·미인증·오프라인·타임아웃에서는 조용히 넘어갑니다. 타임아웃 상한은 `SPECOPS_CI_CHECK_TIMEOUT`(기본 5초, 실측 왕복 ~1.0초)로 조정합니다. 계기: 2026-08-07 `main` 이 3커밋 연속 Linux CI red 였는데 로컬 게이트가 전부 macOS 라 아무도 몰랐습니다.
 
 ## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
 
