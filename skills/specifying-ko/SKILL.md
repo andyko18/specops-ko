@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.63.0
+specops_version: 1.65.0
 used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain-lite
 ---
 
@@ -198,6 +198,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    - 반영 완료 후 Step 6 진행
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - **AC 필수 필드 (기계 검증)** — AC 블록마다 `### AC-<n>: <제목>` 헤더 + **Given·When·Then·우선순위** 를 반드시 채운다. `**우선순위**` 값은 `must`·`should`·`nice-to-have` 중 하나. 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 미충족 시 dispatch 가 열리지 않는다). **`**우선순위**` 는 서식이 아니라 스위치다** — 없으면 `emit-context` 의 must AC 역방향 커버리지 검사가 그 AC 를 보지 못해, 필수 AC 가 태스크 매핑 없이 통과하고 영영 구현되지 않는다. 쓰지 않는 템플릿 골격 AC(`<...>`·`...`)는 **남기지 말고 삭제**한다(골격 잔존도 차단 대상).
+   - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
    - API/스키마 기능이면 §참조에 `.specops/memory/api-spec.md`·`data-model.md` 자동 포함 (Step 5.6 갱신분)
    - **§유형 라벨 자동 기재** (Phase A — 신규 추가): spec.md §1 개요 의 `**§유형**` 라벨을 다음 규칙으로 자동 부여 — 진입 신호 + current-state.md §1 라인 범위 메타 합산 기반:
