@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.65.0] — 2026-08-08
+
 ### Added
 - **`planning-ko` 자체 검토 4항목 + AC 개수 상한 안내 (FID 20260808-plan-selfcheck-ac-cap)** — 이번 세션 실측이 근거다: `plan-reviewer` **1회차 FAIL 3/3(100%)** · plan-reviewer 서브에이전트가 세션 토큰의 **52%(525k)** · 코드 **18줄** 변경에 AC **12건**(plan 558줄·tasks 468줄). 세 FID 의 Critical 이 **같은 클래스**였다 — 기존 테스트가 폐기 대상의 의미를 고정하는데 plan 이 승계를 일부만 특정했다. 자체 검토를 3 → 7항목으로: ④ **기존 테스트 승계 스캔**(판정 의미가 바뀌면 **양성 대조군을 요구하는 어서션이 조용히 깨진다** — 픽스처를 고칠지 단언을 뒤집을지는 **양쪽을 실제로 돌려보고** 정한다) ⑤ **어서션 실행 가능성**(`.gitignore` 경로를 `git diff` 로 검사·미실행 분기의 변이 앵커·`PATH` 통교체로 `bash` 자체 유실 — 전부 실제 발생) ⑥ **복구 절차 안전성**(`git checkout` 이 미커밋 구현 파괴 → `cp` 백업) ⑦ **RED 예상 실측**. 넷 다 **판정 질문**임을 blockquote 로 못박았다 — 답이 길어지면 리뷰 대상이 늘어 역효과다. `specifying-ko` 에는 **AC 개수 상한(should)** 을 넣되 **하드 게이트로 만들지 않았다**: 기계 강제는 must AC 누락을 유발하고, 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다(반대 방향 경고 병기 — 누락 시 `emit-context` 역방향 커버리지가 막는다). 신규 `test-plan-selfcheck.sh`(T0 가드 + T1~T4)로 산문을 회귀 잠금, run-all **130 → 131**.
   - **이 FID 자체가 신설 규칙의 첫 반례였다 — 재귀 2회.** Phase B FAIL: `AC-R-1` 리터럴("삭제 줄 0" · "run-all 130/130")이 **원리적으로 충족 불가**였다(`specops_version` 갱신 = numstat 상 1삭제 / 신규 스위트 자동 편입 = 131). 리뷰어 판정 *"재dispatch 대상은 implementer 가 아니라 계약서"* → `/clarify` append 로 `AC-R-1b` 정정, 구현 무변경. 이것이 신설 **항목 7** 이 잡는 클래스다. Phase C Important 2건: T3 의 whole-file grep 이 다른 절의 `상한`·`should` 에 매치해 **should 성격만 지워도 통과**, T4 의 양성 대조군(`check-ac-format.sh`)을 **내가 추가한 201행이 오염**시켜 보존 대상 bullet 을 통삭제해도 통과 — **회귀 잠금이 태어날 때부터 공허**했다. 이것이 신설 **항목 4·5** 가 잡는 클래스다(리뷰어 명명: "두 번째 재귀 사례"). 프로브 P1·P3·P5 로 재현 후 행 스코프·앵커 교체·T0 가드로 수정, 세 프로브 전부 격추 확인.
@@ -968,7 +970,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.64.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.65.0...HEAD
+[1.65.0]: https://github.com/andyko18/specops-ko/compare/v1.64.0...v1.65.0
 [1.64.0]: https://github.com/andyko18/specops-ko/compare/v1.63.0...v1.64.0
 [1.63.0]: https://github.com/andyko18/specops-ko/compare/v1.62.0...v1.63.0
 [1.62.0]: https://github.com/andyko18/specops-ko/compare/v1.61.0...v1.62.0
