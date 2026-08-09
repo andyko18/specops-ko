@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.67.0] — 2026-08-09
+
 ### Added
 - **plan-reviewer 1회차 FAIL 예방 사전검사 (FID 20260809-predispatch-fail-check)** — 리뷰 비용 구조를 재보니 **초과 첨부보다 재dispatch 가 훨씬 크다**: 계약 밖 아티팩트 첨부는 dispatch 당 **5~11k(8~14%)** 인데 **1회차 FAIL 로 인한 재dispatch 는 +62~91k** 다(실측). 그리고 plan-reviewer **1회차 FAIL 이 5/5**. 신규 `scripts/_internal/check-plan-predispatch.sh` 가 그 FAIL 을 만든 결함 중 **기계 판별 가능한 3클래스**를 dispatch **직전**에 잡는다 — ① **dangling-lock**(잠글 문자열이 repo 에도 plan 구현부에도 없어 어서션이 영구 FAIL) ② **propagation-schema**(파서가 소비하는 `.edges[].path` 부재로 잠금이 무음 사망) ③ **red-evidence**(선-green 단정에 실측 근거 부재). `planning-ko` 가 dispatch 직전 호출하고 rc=1 이면 수정 후 재실행한다.
   - **리뷰어를 대체하지 않고 왕복만 줄인다.** 판별이 애매하면 **통과**시킨다(미탐 선택) — 오탐은 정상 plan 을 막아 게이트 신뢰를 깎는다. 실 코퍼스 **28건 오탐 0**.
@@ -1002,7 +1004,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.66.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.67.0...HEAD
+[1.67.0]: https://github.com/andyko18/specops-ko/compare/v1.66.0...v1.67.0
 [1.66.0]: https://github.com/andyko18/specops-ko/compare/v1.65.0...v1.66.0
 [1.65.0]: https://github.com/andyko18/specops-ko/compare/v1.64.0...v1.65.0
 [1.64.0]: https://github.com/andyko18/specops-ko/compare/v1.63.0...v1.64.0
