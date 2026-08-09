@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.66.0] — 2026-08-09
+
 ### Fixed
 - **`active-fid` 마커 생산자 신설 (FID 20260809-active-fid-marker-producer)** — `hooks/governance-lib.sh` 의 `detect_fid()` 는 `.specops/session-progress.md` 의 `<!-- active-fid: <FID> -->` 를 **1순위**로 읽는데(주석의 U8 — 다중 FID 환경 first-only 회피), 그 마커를 갱신하는 층이 **0곳**이었다(`session-progress-append.sh` 의 `active-fid` 참조 0건 실측). **소비자만 있고 생산자가 없어** 한 번 기록된 값이 영원히 고착됐다. 실사용 관측: R-1 게이트가 현재 FID 가 아니라 **직전 FID** 의 verify 증거를 요구해 `git commit` 이 **2회 차단**됐고 사람이 수동 `sed` 로 풀었다.
   - **2순위 fallback 이 대신 맞아주지 않는다** — 섹션은 **prepend** 되므로 첫 h2 헤더는 "가장 최근 **생성**된 FID" 이지 활성 FID 가 아니고, **재개 시 둘이 갈린다**. 마커가 도입된 이유가 정확히 그것이라, 마커 폐지는 U8 버그 복원이다. `detect_fid()` 는 **무수정**(2순위는 마커 이전 파일용으로 보존 — AC-R-1).
@@ -990,7 +992,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.65.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.66.0...HEAD
+[1.66.0]: https://github.com/andyko18/specops-ko/compare/v1.65.0...v1.66.0
 [1.65.0]: https://github.com/andyko18/specops-ko/compare/v1.64.0...v1.65.0
 [1.64.0]: https://github.com/andyko18/specops-ko/compare/v1.63.0...v1.64.0
 [1.63.0]: https://github.com/andyko18/specops-ko/compare/v1.62.0...v1.63.0
