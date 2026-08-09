@@ -51,6 +51,48 @@ fi
 
 TARGET=".specops/session-progress.md"
 
+# ── active-fid 마커 upsert (FID 20260809-active-fid-marker-producer) ──
+# 왜 필요한가: hooks/governance-lib.sh 의 detect_fid() 가 이 마커를 **1순위**로 읽는데
+#   (주석의 U8 — 다중 FID 환경 first-only 회피) 갱신하는 층이 **0곳**이었다. 소비자만
+#   있고 생산자가 없어 한 번 기록된 값이 영원히 고착된다. 실사용 관측(20260809):
+#   R-1 게이트가 직전 FID 의 verify 증거를 요구해 `git commit` 이 2회 막혔고 사람이
+#   수동 sed 로 풀었다.
+# 왜 2순위로 못 때우나: 섹션은 **prepend** 되므로 첫 h2 헤더는 "가장 최근 **생성**된
+#   FID" 이지 활성 FID 가 아니다 — 재개 시 둘이 갈린다(마커가 도입된 이유가 그것).
+# 왜 replace 단독이 아닌가: 마커가 **없는** 파일(신규 프로젝트·구 파일)에서 치환은
+#   조용히 no-op 이 된다. 삽입 경로가 없으면 그 파일은 영원히 2순위에 머문다.
+# 왜 sed -i 가 아닌가: GNU/BSD 인자 분기(`sed -i ''`)를 피해 awk + mv 로 통일한다.
+# 실패해도 스크립트를 죽이지 않는다 — 섹션 기록이 1차 목적이고 이미 끝난 뒤 호출된다.
+_upsert_active_fid() {
+  local fid="$1" target="$2" tmp
+  tmp=$(mktemp) || { echo "warn: active-fid 마커 갱신 skip (mktemp 실패)" >&2; return 0; }
+  # ★ 생산자 앵커는 소비자와 **대칭**이어야 한다 — detect_fid 의 grep 은 무앵커(행 내
+  #   아무 위치)라, 생산자만 `^<!--` 로 조이면 **선행 공백이 붙은 마커**(수동 편집 흔적:
+  #   이 결함의 기원이 바로 수동 sed 다)를 못 보고 아래에 새 마커를 추가한다. 그러면
+  #   소비자의 `grep -m1` 이 위쪽 stale 을 먼저 집어 **재실행해도 자기치유되지 않는다**
+  #   (Phase C 프로브 P2 실증: 두 번 돌려도 detect_fid=20260101-stale 고착).
+  #   또 이미 오염된 파일의 **후속 중복 마커는 청소**한다 — 하나만 남기는 것이 계약이다.
+  if FID="$fid" awk '
+    BEGIN { done = 0 }
+    /^[[:space:]]*<!--[[:space:]]*active-fid:/ {
+      if (!done) { printf "<!-- active-fid: %s -->\n", ENVIRON["FID"]; done = 1 }
+      next
+    }
+    !done && /^#/ {
+      printf "<!-- active-fid: %s -->\n\n", ENVIRON["FID"]; done = 1; print; next
+    }
+    { print }
+    END { if (!done) printf "<!-- active-fid: %s -->\n", ENVIRON["FID"] }
+  ' "$target" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$target"
+  else
+    # 무음 실패는 마커 고착 재발을 흔적 없이 숨긴다 — 1줄이라도 남긴다(원칙 5).
+    rm -f "$tmp"
+    echo "warn: active-fid 마커 갱신 skip (섹션 기록은 완료)" >&2
+  fi
+  return 0
+}
+
 # 파일 부재 시 ensure-session-progress.sh 호출하여 생성
 if [ ! -f "$TARGET" ]; then
   script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -110,6 +152,7 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
       if (in_section && !added) print ENVIRON["LINE"]
     }
   ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
+  _upsert_active_fid "$FID" "$TARGET"
   echo "appended to existing section: $FID"
 else
   # 섹션 없음 — 파일 상단 (구분선 --- 다음 첫 ## 자리) 에 신규 섹션 prepend
@@ -132,5 +175,6 @@ else
     }
     { print }
   ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
+  _upsert_active_fid "$FID" "$TARGET"
   echo "created new section: $HEADER"
 fi

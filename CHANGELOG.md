@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`active-fid` 마커 생산자 신설 (FID 20260809-active-fid-marker-producer)** — `hooks/governance-lib.sh` 의 `detect_fid()` 는 `.specops/session-progress.md` 의 `<!-- active-fid: <FID> -->` 를 **1순위**로 읽는데(주석의 U8 — 다중 FID 환경 first-only 회피), 그 마커를 갱신하는 층이 **0곳**이었다(`session-progress-append.sh` 의 `active-fid` 참조 0건 실측). **소비자만 있고 생산자가 없어** 한 번 기록된 값이 영원히 고착됐다. 실사용 관측: R-1 게이트가 현재 FID 가 아니라 **직전 FID** 의 verify 증거를 요구해 `git commit` 이 **2회 차단**됐고 사람이 수동 `sed` 로 풀었다.
+  - **2순위 fallback 이 대신 맞아주지 않는다** — 섹션은 **prepend** 되므로 첫 h2 헤더는 "가장 최근 **생성**된 FID" 이지 활성 FID 가 아니고, **재개 시 둘이 갈린다**. 마커가 도입된 이유가 정확히 그것이라, 마커 폐지는 U8 버그 복원이다. `detect_fid()` 는 **무수정**(2순위는 마커 이전 파일용으로 보존 — AC-R-1).
+  - **치환·삽입 양방향** — 마커가 **없는** 파일(신규 프로젝트·구 파일)에서 치환 단독은 조용한 no-op 이라 그 파일이 영원히 2순위에 머문다. GNU/BSD `sed -i` 인자 분기를 피해 awk + `mv` 원자 교체.
+  - **리뷰가 결함 6건을 잡았다.** Phase B: ① AC-2 TEST_GAP(삽입 픽스처에 `detect_fid` 대조 부재 — 삽입·치환은 별개 printf 라 한쪽만 깨지면 1순위가 조용히 무력화된다) ② 수습 중 발견 — 픽스처가 섹션 1개라 새 FID append 시 **새 섹션이 맨 위에 prepend** 되어 **2순위도 같은 답**을 냈다. 두 경로가 일치해 어서션이 **구조적으로 공허**했고 `-->` 제거 변이가 25/0 통과했다 → 섹션 2개·대상이 두 번째인 판별 픽스처로 교체. Phase C: ③ **생산자 `^<!--` 앵커 ↔ 소비자 무앵커 grep 비대칭** — 선행 공백이 붙은 마커(수동 편집 흔적, **이 결함의 기원이 바로 수동 sed**)를 생산자가 못 보고 아래에 새로 추가하면 소비자 `grep -m1` 이 위쪽 stale 을 먼저 집는다. **재실행해도 자기치유되지 않는다**(프로브 실증: 두 번 돌려도 `detect_fid=20260101-stale`) — **이 FID 가 고치려는 결함이 입력 1클래스에 그대로 잔존**했다 ④ 무음 실패 ⑤ END fallback 미검증 ⑥ 다중 마커 잔존.
+  - 어서션 **M1~M10 + M2b** 신설, **변이 6종** 전부 격추 — upsert 호출 제거 `FAIL M1·M2·M3·M4` · 삽입 분기 제거 `FAIL M2` · 삽입/치환 printf `-->` 제거 각각 `FAIL M2b`/`FAIL M4 (detect_fid='20260505-decoy')` · 앵커 원복 `FAIL M9 (마커수=2, stale 고착)` · END fallback 제거 `FAIL M10`. propagation 106 → **109 edges**(producer↔consumer 3-edge 잠금).
+  - **실사용 자가검증**: 구현 직후 이 FID 로 append 하자 마커가 즉시 따라왔고, 이어진 `git commit` 에서 R-1 게이트가 **올바른 FID** 를 요구했다.
+  - **한계**: "가장 최근 append = 활성 FID"는 **휴리스틱**이다(두 FID 번갈아 진행 시 마지막에 손댄 쪽). 현행(영원히 고착)보다 엄격히 낫다. Linux 미검증 · override 사유 문자열은 `risk-profile.sh` 가 영속하지 않음(기존 동작).
+
 ### Added
 - **`plan.md` → `tasks.md` 골격 기계 생성기 (FID 20260809-plan-to-tasks-generator)** — `decomposing-ko` 가 `tasks.md` 를 쓸 때 `plan.md` 내용을 상당 부분 **재타이핑**한다. 실측: tasks.md 의 substantive 줄 중 plan.md 와 **완전 동일한 줄**이 3 FID 에서 **44%·55%·63%**. 신규 `scripts/dag/plan-to-tasks.sh` 가 단일 awk 패스로 Task 블록(`**파일**` 블록·Step 본문·코드펜스)을 추출해 **stdout 으로만** 낸다 — 실측 결과 골격이 기존 tasks.md 의 **80~86%** 를 커버한다(504/604 · 311/359 · 291/361). `decomposing-ko` 는 그 위에 생성기가 만들지 않는 4섹션만 쓴다.
   - **`## 의존 그래프` YAML 을 의도적으로 만들지 않는다** — 이것이 설계의 핵심이다. `depends_on` 은 plan.md 에서 도출 불가한데, `[]` 로 채우면 `dag::find_independent_batch` 가 전 태스크를 절대 leaf 로 보아 **거짓 병렬**이 열린다(실측: 3-task all-leaf → `T1 T2 T3` **무경고** 반환). 반대로 per-task `ac` 는 비워도 `emit-context.sh` 가 `must AC 미커버` 로 dispatch 를 차단하므로 **관문이 강제**한다 — 두 필드의 처리가 다른 이유가 이 **게이트 비대칭**이다. 센티널 주입도 기각(리스트 아닌 값이 파서에 들어가는 위험). 포기하는 절감은 YAML 약 30줄뿐이다.

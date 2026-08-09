@@ -213,5 +213,171 @@ T6_d() {
 }
 T6_d && ok "T6.d escape 동일 라인 멱등 1회 (AC-3)" || fail "T6.d escape 동일 라인 멱등 1회 (AC-3)"
 
+# ── M1~M8: active-fid 마커 생산자 (FID 20260809-active-fid-marker-producer) ──
+#   결함: detect_fid() 가 마커를 1순위로 읽는데 갱신하는 층이 0곳이라 값이 고착됐다.
+#   실사용 관측: R-1 게이트가 직전 FID 의 verify 증거를 요구해 git commit 2회 차단.
+
+_mk_progress() {   # $1=루트 디렉터리, $2=마커 FID(빈 문자열이면 마커 없음)
+  mkdir -p "$1/.specops"
+  {
+    echo '<!-- OWNER_COMMAND: 모든 커맨드가 append -->'
+    echo '<!-- layer: Harness-Foundation-Artifact -->'
+    [ -n "$2" ] && echo "<!-- active-fid: $2 -->"
+    echo ''
+    echo '# Session Progress — fixture'
+    echo ''
+    echo '---'
+    echo ''
+    echo '## 20260101-existing-fid · 기존'
+    echo ''
+    echo '- 2026-01-01 00:00 /specify 완료 "기존 행"'
+    echo ''
+  } > "$1/.specops/session-progress.md"
+}
+_detect() {   # $1=루트 — governance-lib 의 detect_fid 를 그 cwd 에서 실행
+  ( cd "$1" && . "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1 && detect_fid ) 2>/dev/null
+}
+
+# 1순위(마커) ↔ 2순위(첫 h2 헤더)가 **갈리는** 픽스처 — 판별력 확보용.
+#   섹션이 2개이고 대상 FID 는 **두 번째**다. 마커 없이 대상에 append 하면
+#   2순위는 첫 섹션(20260505-decoy)을 내놓으므로, detect_fid 가 대상을 반환하면
+#   그것은 **마커를 읽었다는 뜻**이다. 섹션 1개짜리 픽스처는 새 섹션이 맨 위에
+#   prepend 돼 두 경로가 같은 답을 내므로 구조적으로 공허하다(구현 중 실증).
+_mk_progress2() {   # $1=루트, $2=마커 FID(빈 문자열이면 마커 없음)
+  mkdir -p "$1/.specops"
+  {
+    echo '<!-- OWNER_COMMAND: 모든 커맨드가 append -->'
+    [ -n "$2" ] && echo "<!-- active-fid: $2 -->"
+    echo ''
+    echo '# Session Progress — fixture2'
+    echo ''
+    echo '---'
+    echo ''
+    echo '## 20260505-decoy · 첫 섹션(2순위가 집는 값)'
+    echo ''
+    echo '- 2026-05-05 00:00 /specify 완료 "decoy"'
+    echo ''
+    echo '## 20260101-existing-fid · 대상'
+    echo ''
+    echo '- 2026-01-01 00:00 /specify 완료 "기존 행"'
+    echo ''
+  } > "$1/.specops/session-progress.md"
+}
+
+_m1=$(mktemp -d); _mk_progress "$_m1" "20260101-old"
+( cd "$_m1" && bash "$SCRIPT" 20260202-new /specify 완료 "m1" ) >/dev/null 2>&1
+_n=$(grep -c 'active-fid' "$_m1/.specops/session-progress.md")
+_v=$(grep -c 'active-fid: 20260202-new' "$_m1/.specops/session-progress.md")
+[ "$_n" = "1" ] && [ "$_v" = "1" ] \
+  && ok "M1 마커 치환 (중복 0) (AC-1)" || fail "M1 마커 치환 — active-fid 줄=$_n 신값=$_v (기대 1·1)"
+
+# M2 — 마커가 없으면 삽입. 치환 단독이면 여기서 조용히 no-op 된다 (AC-2)
+_m2=$(mktemp -d); _mk_progress "$_m2" ""
+( cd "$_m2" && bash "$SCRIPT" 20260303-ins /specify 완료 "m2" ) >/dev/null 2>&1
+_n2=$(grep -c 'active-fid' "$_m2/.specops/session-progress.md")
+#   ★ 배치까지 본다 — 값 존재만 보면 END fallback 이 **파일 끝**에 붙여도 통과해,
+#     삽입 경로를 지우는 변이가 격추되지 않는다(구현 중 실제 확인). 상단 주석 블록,
+#     즉 첫 `#` 제목보다 **앞**에 와야 기존 파일 관례와 일치한다.
+_lm=$(grep -n 'active-fid' "$_m2/.specops/session-progress.md" | head -1 | cut -d: -f1)
+_lh=$(grep -n '^#' "$_m2/.specops/session-progress.md" | head -1 | cut -d: -f1)
+[ "$_n2" = "1" ] && grep -q 'active-fid: 20260303-ins' "$_m2/.specops/session-progress.md" \
+  && [ -n "$_lm" ] && [ -n "$_lh" ] && [ "$_lm" -lt "$_lh" ] \
+  && ok "M2 마커 부재 시 상단 삽입 (AC-2)" || fail "M2 마커 삽입 — 줄수=$_n2 마커행=$_lm 제목행=$_lh (기대 1·마커<제목)"
+
+# M2b — 삽입된 마커를 detect_fid 가 **실제로 읽는가** (AC-2 Then 후반부)
+#   ★ grep substring 만 보면 삽입 분기 printf 의 `-->` 가 빠지는 변이가 통과한다
+#     (구현 중 실증: 24/0 그대로). detect_fid 정규식은 `-->` 를 요구하므로 그런 마커는
+#     조용히 2순위로 떨어진다 — 이 FID 가 고치려는 결함 클래스 그 자체다.
+#     치환 분기(M4)와 삽입 분기는 **별개 printf** 라 한쪽만 깨질 수 있어 둘 다 잠근다.
+_m2b=$(mktemp -d); _mk_progress2 "$_m2b" ""
+( cd "$_m2b" && bash "$SCRIPT" 20260101-existing-fid /verify PASS "m2b" ) >/dev/null 2>&1
+_ins=$(_detect "$_m2b")
+[ "$_ins" = "20260101-existing-fid" ] \
+  && ok "M2b 삽입 마커를 detect_fid 가 인식 (AC-2)" \
+  || fail "M2b detect_fid='$_ins' (기대 20260101-existing-fid — 2순위면 20260505-decoy 가 나온다)"
+
+# M3 — 기존 섹션 append 경로에서도 갱신 (AC-3)
+_m3=$(mktemp -d); _mk_progress "$_m3" "20260101-old"
+( cd "$_m3" && bash "$SCRIPT" 20260101-existing-fid /verify PASS "m3" ) >/dev/null 2>&1
+grep -q 'active-fid: 20260101-existing-fid' "$_m3/.specops/session-progress.md" \
+  && ok "M3 기존 섹션 경로에서도 마커 갱신 (AC-3)" || fail "M3 기존 섹션 append 시 마커 미갱신"
+
+# M4 — detect_fid 가 최신 FID 를 반환 (AC-4, 결함의 직접 해소)
+_m4=$(mktemp -d); _mk_progress2 "$_m4" "20260505-decoy"
+( cd "$_m4" && bash "$SCRIPT" 20260101-existing-fid /verify PASS "m4" ) >/dev/null 2>&1
+_got=$(_detect "$_m4")
+[ "$_got" = "20260101-existing-fid" ] \
+  && ok "M4 detect_fid 최신 FID 반환 (AC-4)" \
+  || fail "M4 detect_fid='$_got' (기대 20260101-existing-fid — 마커 미갱신이면 20260505-decoy)"
+
+# M5 — 기존 섹션 헤더·행 무손상 (AC-5, append-only 계약)
+grep -q '^## 20260101-existing-fid · 기존' "$_m1/.specops/session-progress.md" \
+  && grep -q '기존 행' "$_m1/.specops/session-progress.md" \
+  && ok "M5 기존 섹션 헤더·행 보존 (AC-5)" || fail "M5 기존 섹션 손상"
+
+# M6 — sed -i 미사용(GNU/BSD 분기 회피) + mktemp 원자 교체 (AC-6)
+#   ★ 주석을 제외하고 본다 — whole-file grep 은 "왜 sed -i 가 아닌가" 같은 **설명 주석**에
+#     매치해 오탐한다(구현 중 실제 발생). 실행되는 줄만 검사한다.
+_code_only=$(grep -v '^[[:space:]]*#' "$SCRIPT")
+if printf '%s' "$_code_only" | grep -q 'sed -i'; then
+  fail "M6 sed -i 사용 — GNU/BSD 인자 분기 위험"
+elif printf '%s' "$_code_only" | grep -q 'mktemp'; then
+  ok "M6 원자 교체 (sed -i 미사용) (AC-6)"
+else
+  fail "M6 mktemp 미사용"
+fi
+
+# M7 — AC-R-1: 마커 부재 파일에서 2순위 fallback 보존 (detect_fid 무수정)
+_m7=$(mktemp -d); _mk_progress "$_m7" ""
+_fb=$(_detect "$_m7")
+[ "$_fb" = "20260101-existing-fid" ] \
+  && ok "M7 마커 부재 시 2순위 fallback 보존 (AC-R-1)" || fail "M7 fallback='$_fb' (기대 20260101-existing-fid)"
+
+# M8 — AC-R-2: stdout 문구 보존 (호출 규약 무변경)
+_m8=$(mktemp -d); _mk_progress "$_m8" "20260101-old"
+_o1=$( ( cd "$_m8" && bash "$SCRIPT" 20260101-existing-fid /verify PASS "m8" ) 2>&1 )
+_o2=$( ( cd "$_m8" && bash "$SCRIPT" 20260404-brand /specify 완료 "m8b" ) 2>&1 )
+printf '%s' "$_o1" | grep -q 'appended to existing section' \
+  && printf '%s' "$_o2" | grep -q 'created new section' \
+  && ok "M8 stdout 문구 보존 (AC-R-2)" || fail "M8 stdout 규약 변경 — [$_o1] [$_o2]"
+
+# M9 — 선행 공백 마커도 치환·중복 청소 (Phase C 프로브 P2)
+#   ★ 생산자 앵커가 `^<!--` 로 조여 있으면 들여쓴 마커를 못 보고 아래에 새로 추가한다.
+#     소비자(detect_fid)의 grep 은 **무앵커**라 위쪽 stale 을 먼저 집어 **재실행해도
+#     자기치유되지 않는다**(실증: 두 번 돌려도 stale 고착). 앵커 대칭이 계약이다.
+_m9=$(mktemp -d); mkdir -p "$_m9/.specops"
+{
+  echo '<!-- OWNER_COMMAND: x -->'
+  echo '  <!-- active-fid: 20260101-stale -->'
+  echo ''
+  echo '# Session Progress — fixture9'
+  echo ''
+  echo '---'
+  echo ''
+  echo '## 20260707-other · 첫 섹션'
+  echo ''
+  echo '- 2026-07-07 00:00 /specify 완료 "x"'
+  echo ''
+} > "$_m9/.specops/session-progress.md"
+( cd "$_m9" && bash "$SCRIPT" 20260808-new /verify PASS "m9" ) >/dev/null 2>&1
+_n9=$(grep -c 'active-fid' "$_m9/.specops/session-progress.md")
+_d9=$(_detect "$_m9")
+[ "$_n9" = "1" ] && [ "$_d9" = "20260808-new" ] \
+  && ok "M9 선행 공백 마커 치환 + 중복 청소 (Phase C P2)" \
+  || fail "M9 마커수=$_n9 detect='$_d9' (기대 1·20260808-new — stale 이면 고착 재발)"
+
+# M10 — END fallback: `#` 제목도 마커도 없는 퇴화 파일에서도 마커가 생긴다
+#   Phase B 가 "생존 변이"로 고백한 미검증 경로를 잠근다.
+#   ★ `#` 이 하나라도 있으면 그 분기가 먼저 잡아 END 에 도달하지 않는다(구현 중 실증:
+#     `## FID` 헤더 픽스처로는 END 변이가 격추되지 않았다). `#` 도 `---` 도 없어야 한다.
+_m10=$(mktemp -d); mkdir -p "$_m10/.specops"
+printf -- 'plain text only\nno heading, no separator\n' > "$_m10/.specops/session-progress.md"
+( cd "$_m10" && bash "$SCRIPT" 20260606-only /verify PASS "m10" ) >/dev/null 2>&1
+grep -q 'active-fid: 20260606-only' "$_m10/.specops/session-progress.md" \
+  && ok "M10 퇴화 파일 END fallback 마커 생성" \
+  || fail "M10 END fallback 미동작 — 마커 부재"
+
+rm -rf "$_m1" "$_m2" "$_m2b" "$_m3" "$_m4" "$_m7" "$_m8" "$_m9" "$_m10"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
