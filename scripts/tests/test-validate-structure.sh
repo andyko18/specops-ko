@@ -516,6 +516,14 @@ fi
 # T-hg.b: 분류 문구를 지우면 적발 (비-vacuous — 메타 규칙이 실제로 본다)
 _bak=$(mktemp)
 cp "$PLUGIN/skills/specifying-ko/SKILL.md" "$_bak"
+# ★ 중단 안전 (20260809-mutation-test-trap): 이 블록은 **실 파일**을 변이한다. 중단되면
+#   손상이 워킹트리에 남고 다음 run-all 이 원인 불명 FAIL 을 낸다 — 2026-08-09 실제 발생
+#   (git push 180s 타임아웃이 pre-push 의 run-all 을 죽였고 SKILL.md 규약 문구가 깨졌다).
+#   ★ EXIT **단독**이다. INT/TERM 을 함께 잡으면 셸 기본 종료가 사라져 핸들러가
+#     포그라운드 명령 종료까지 지연되고 그 사이 손상이 남는다(실측 — T-hg.d 대조).
+#   한계: SIGKILL 은 트랩 불가. 그때는 git checkout skills/specifying-ko/SKILL.md 로 복구.
+# shellcheck disable=SC2064
+trap "cp '$_bak' '$PLUGIN/skills/specifying-ko/SKILL.md'; rm -f '$_bak'" EXIT
 python3 - "$PLUGIN/skills/specifying-ko/SKILL.md" <<'PYEOF'
 import sys
 # hardgate_classified 는 **파일 전체**에서 분류 토큰을 찾는다(블록 스코프 아님).
@@ -530,6 +538,7 @@ open(p,"w",encoding="utf-8").write(s)
 PYEOF
 out2=$(bash "$SCRIPT" 2>&1)
 cp "$_bak" "$PLUGIN/skills/specifying-ko/SKILL.md"; rm -f "$_bak"
+trap - EXIT
 if echo "$out2" | grep -q 'hardgate_classified: FAIL'; then
   PASS=$((PASS+1)); echo "PASS T-hg.b 분류 제거 시 적발 (비-vacuous)"
 else
@@ -543,6 +552,77 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-hg.c 실재 검사 없음"
 fi
 
+
+
+# ── T-hg.d/e: 변이 테스트 중단 안전성 (FID 20260809-mutation-test-trap) ──
+#   계기: 2026-08-09 git push 180초 타임아웃(SIGTERM)이 pre-push 훅의 run-all 을 죽였고,
+#   그때 T-hg.b 가 변이 창 안이라 skills/specifying-ko/SKILL.md 손상이 워킹트리에 남았다.
+#   다음 run-all 이 3 스위트 FAIL 을 내며 원인 불명으로 보였다.
+
+# T-hg.d: 패턴 실증 — trap EXIT 은 SIGTERM 에서 복원하고, trap 없으면 손상이 남는다
+#   ★ 격리 픽스처로만 검증한다. 실 파일을 쓰면 이 테스트가 바로 그 결함을 재생산한다.
+#   ★ trap 은 EXIT **단독**이어야 한다. INT/TERM 을 함께 잡으면 셸 기본 종료가 사라져
+#     핸들러가 포그라운드 명령(sleep) 종료까지 **지연**되고, 그 사이 뒤따르는 SIGKILL 을
+#     맞으면 복원이 영영 실행되지 않는다. 아래 프로브가 `TERM → 유예 → KILL` 로 재현한다
+#     (타임아웃 구현의 전형). SIGTERM 만 오고 프로세스가 완주하면 둘 다 복원되므로,
+#     그 시나리오로는 두 패턴이 구별되지 않는다 — 구현 중 변이 M3 가 이를 실증했다.
+_sb=$(mktemp -d)
+cat > "$_sb/mut-trap.sh" <<'MUTEOF'
+#!/usr/bin/env bash
+target="$1"; echo ORIGINAL > "$target"
+_bak="$target.bak"; cp "$target" "$_bak"
+trap 'cp "$_bak" "$target"; rm -f "$_bak"' EXIT
+echo MUTATED > "$target"
+sleep 20
+MUTEOF
+cat > "$_sb/mut-notrap.sh" <<'MUTEOF'
+#!/usr/bin/env bash
+target="$1"; echo ORIGINAL > "$target"
+_bak="$target.bak"; cp "$target" "$_bak"
+echo MUTATED > "$target"
+sleep 5
+cp "$_bak" "$target"; rm -f "$_bak"
+MUTEOF
+_term_probe() {   # $1=픽스처명 → stdout: 중단 후 파일 내용
+  local t="$_sb/probe-$1.txt"
+  #   ★ 자식의 stdout/stderr 를 끊는다. 안 끊으면 TERM 이 bash 만 죽이고 **고아 sleep 이
+  #     명령 치환의 파이프를 붙든 채** 남아, $(_term_probe …) 이 그 EOF 를 기다린다
+  #     (실측: 25s → 6s. pre-push 가 매 push 마다 도는 예산이다).
+  #     고아 sleep 은 블록 종료 후 최대 ~19초 잔존하나 파일을 건드리지 않고 자연 소멸한다.
+  bash "$_sb/$1" "$t" >/dev/null 2>&1 & local p=$!
+  sleep 1
+  kill -TERM "$p" 2>/dev/null    # 정중한 종료 요청
+  sleep 2                        # 유예 — EXIT 단독이면 이 사이에 복원된다
+  kill -KILL "$p" 2>/dev/null    # 강제 종료 — 지연된 핸들러는 여기서 영영 사라진다
+  wait "$p" 2>/dev/null
+  cat "$t" 2>/dev/null
+}
+_with=$(_term_probe mut-trap.sh)
+_without=$(_term_probe mut-notrap.sh)
+rm -rf "$_sb"
+if [ "$_with" = "ORIGINAL" ] && [ "$_without" = "MUTATED" ]; then
+  PASS=$((PASS+1)); echo "PASS T-hg.d trap EXIT 이 SIGTERM 중단에서 복원 (대조: 무trap 은 손상 잔존)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.d 중단 복원 — trap판='$_with'(기대 ORIGINAL) · 무trap판='$_without'(기대 MUTATED)"
+fi
+
+# T-hg.e: T-hg.b **자신**이 그 패턴을 쓰는가 (실 파일 잠금)
+#   T-hg.d 는 패턴 지식만 잠근다. 실제 블록이 안 고쳐지면 결함은 그대로다.
+#   ★ **설치** trap 만 본다. `^ *trap .+ EXIT *$` 로 느슨하게 잡으면 해제 줄(`trap - EXIT`)이
+#     그 조건을 만족시켜, 설치 trap 을 통째로 지워도 통과한다(구현 중 변이 M1 이 실증).
+#     복원 대상 경로를 포함한 줄을 특정한다.
+#   ★ 시그널 목록은 **등식**으로 본다. " EXIT 로 끝나는가" 로 보면 `trap "…" INT TERM EXIT` 가
+#     통과한다 — EXIT 로 끝나면서 INT/TERM 을 잡는 형태이고, 이건 다중 시그널 trap 의 가장
+#     관용적 표기다(Phase C 리뷰어 실측). 그러면 본 FID 가 고친 지연-핸들러 결함이
+#     "견고화" 명목으로 조용히 부활한다. 마지막 따옴표 뒤 전체가 정확히 `EXIT` 여야 한다.
+_thgb=$(awk '/^# T-hg\.b:/{f=1} f{print} f && /^fi$/{exit}' "$0" 2>/dev/null)
+_thgb_trap=$(printf '%s\n' "$_thgb" | grep -E "^ *trap .*cp .*specifying-ko/SKILL\.md" | head -1)
+_thgb_sig=$(printf '%s' "$_thgb_trap" | sed 's/.*"[[:space:]]*//')
+if [ -n "$_thgb_trap" ] && [ "$_thgb_sig" = EXIT ]; then
+  PASS=$((PASS+1)); echo "PASS T-hg.e T-hg.b 가 복원 trap 을 EXIT 단독으로 보유 (중단 안전)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.e 복원 trap 부재 또는 시그널이 EXIT 단독이 아님 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}'"
+fi
 
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL
