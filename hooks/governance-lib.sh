@@ -143,11 +143,58 @@ _verify_evidence_stamp() {
 #   .specops/ 아티팩트 Write(evidence.md 마무리 등)는 정직한 verify 후 흐름이라 제외.
 #   한계(F-1 동류 heuristic): Bash 경유 파일수정(sed -i·리다이렉트)은 미탐 — honest-mistake 의
 #   지배 경로는 Edit/Write 이고, 의도적 우회는 F-3 wrapper 클래스로 수용.
+# ── 선언 test_command 추출 (FID 20260809-runner-anchor-downstream) ──
+# 왜 필요한가: 실행-근거 앵커가 specops 자신의 러너 형태(run-verification·tests/run-all·
+#   pytest·npm test·go/cargo test)를 전제해, downstream 이 테스트를 실제로 돌려도 게이트가
+#   열리지 않는다. 실측: 외부 4개 프로젝트에서 BYPASS 77건, 실사용 러너 4종 전부 불인정
+#   (bash scripts/tests/frontend.sh · npx vitest run · pnpm --filter … test · turbo run test).
+# 왜 grep 인가: dag::get_task_test_command 는 python3+pyyaml 을 요구하는데 여기는 PreToolUse
+#   훅 경로다(지연이 체감에 직결). test_command 는 중첩 없는 평면 스칼라라 grep 으로 족하다.
+#   대가는 파서 두 벌 — propagation edge 로 잠근다.
+# 왜 whitelist 인가: 선언값을 그대로 믿으면 임의 명령이 실행증거가 된다. record-task-receipt
+#   가 쓰는 패턴을 **그대로** 재사용한다(두 벌 만들면 drift).
+# 한계 (전부 **미탐 방향** — 막히면 사용자는 BYPASS 로 돌아갈 뿐이고 그건 현행이다):
+#   - 쌍따옴표 값만 벗긴다. `test_command: 'x'` 는 따옴표가 남아 whitelist 를 못 통과한다.
+#     templates/tasks.md 가 쌍따옴표를 쓰므로 실사용 영향 미관측.
+#   - CRLF 개행 tasks.md 는 추출이 `[]` 가 된다(선언 경로 무음 비활성 — Phase C 프로브 P12).
+#   - 매칭은 접두 비교라 `<러너> || true`·`<러너> 2>&1` 처럼 **임의 접미 wrapper** 를 허용한다.
+#     F-3(의도 위조) 클래스로 수용 — 러너는 실제로 돌았고 결과 술어가 별도로 검사된다.
+#   - `bash -c "<러너>"` 래핑은 인식하지 않는다(줄 첫 토큰이 다르다).
+#   - `SPECOPS_X=1 <러너>` 같은 env 접두도 인식하지 않는다.
+#   - 멀티라인 cmd 의 앞줄이 `cd <경로>`·`set -eu`·`export X=Y`·빈 줄이 아니면 인식하지
+#     않는다. 따옴표 든 경로(`cd "/path with space"`)도 여기 걸린다 — 문자셋에 따옴표를
+#     넣으면 `cd "` 한 줄이 "안전" 이 되어 게이트가 열리기 때문이다(T58 이 그 완화를 잠금).
+_extract_declared_cmds() {
+  local tasks="$1"
+  [ -n "$tasks" ] && [ -r "$tasks" ] || { echo '[]'; return 0; }
+  local pat='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+(run[[:blank:]]+)?test([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
+  local cmd out=""
+  # ★ sed 는 **파이프 1회**만 돈다 — 종전 per-line fork 는 태스크 수에 선형이었다
+  #   (실측: 30태스크 97ms · 100태스크 268ms). PreToolUse hot path 라 fork 를 O(1) 로 낮춘다.
+  while IFS= read -r cmd; do
+    [ -n "$cmd" ] || continue
+    case "$cmd" in *..*) continue ;; esac
+    [[ "$cmd" =~ $pat ]] || continue
+    out="${out}${cmd}"$'\n'
+  done <<EOF_TC
+$(grep -E '^[[:blank:]]*test_command:' "$tasks" 2>/dev/null \
+    | sed -E 's/^[[:blank:]]*test_command:[[:blank:]]*"?//; s/"[[:blank:]]*$//')
+EOF_TC
+  printf '%s' "$out" | jq -Rs 'split("\n") | map(select(length > 0)) | unique' 2>/dev/null || echo '[]'
+}
+
 _verify_exec_evidence() {
-  local transcript="$1"
+  local transcript="$1" fiddir="${2:-}"
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
+  # ★ 창 한정: tasks.md ∧ evidence.md 가 둘 다 있을 때만 선언 경로를 연다(post-verify 창).
+  #   evidence.md 부재(implement 창)는 task receipt 소관이라 건드리지 않는다(Wave A).
+  #   2번째 인자는 **선택적** — 기존 1-인자 호출자는 decl='[]' 라 판정이 완전히 불변이다.
+  local decl='[]'
+  if [ -n "$fiddir" ] && [ -f "$fiddir/tasks.md" ] && [ -f "$fiddir/evidence.md" ]; then
+    decl=$(_extract_declared_cmds "$fiddir/tasks.md")
+  fi
   local out uses hits
-  out=$(jq -rn --slurpfile a "$transcript" '
+  out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" '
     # ★ C-A: $all 은 **전체 tool_use** 를 센다 (name 무관). $uses(Bash 한정)로 세면
     #   Bash 가 없는 transcript(Edit-only·Skill-only = 위조 표현)가 0건이 되어 rc=2 fail-open 으로
     #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
@@ -206,6 +253,86 @@ _verify_exec_evidence() {
                     | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
                     | 1 ] | length > 0)
          | $i ] | max // -1) as $bghit
+    # ── 선언 test_command 실행 증거 (20260809-runner-anchor-downstream) ──
+    # 왜 별도 블록인가: 기존 앵커 정규식은 3곳에 텍스트 복제돼 있고 T25 가 그 동일성을
+    #   잠근다. 그 select 안에 OR 를 넣으면 고유 패턴이 2종이 되어 T25 가 깨진다.
+    #   별도 블록은 리터럴을 늘리지 않고, 후속에 bg 확장이 필요해질 때 지점도 명확하다.
+    # 왜 고정문자열인가: 선언 48건이 정규식 메타문자를 포함한다 — test() 에 넣으면 `.` 가
+    #   임의 문자로 확장돼 과대 매치한다(게이트 무력화 방향).
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Bash")
+         | {id: .id, cmd: (.input.command // "")}
+         # ★ heredoc 위장 차단: `cat <<DOC` 본문의 러너 줄이 줄시작 토큰으로 앵커를 통과한다.
+         #   evidence.md 를 heredoc 으로 쓰는 것은 정직한 흐름이라, 막지 않으면 **문서 작성이
+         #   게이트를 여는** false-open 이 된다. 기존 5종은 VERIFY: PASS 양성 요구라 무관했다.
+         | select(.cmd | contains("<<") | not)
+         | . as $u
+         # ★ 매칭 줄이 **진짜 명령 시작**인지 본다 (Phase C Critical, 20260809).
+         #   heredoc 가드만으로는 부족했다 — 따옴표 문자열 안의 실개행 줄이 선언 명령과
+         #   같으면 실행 없이 열렸다(실측 재현):
+         #     echo "노트\n<러너>\n끝" > notes.md      ← rc=0 이었음
+         #     git commit -m "fix\n\n<러너> 로 검증함"  ← rc=0 이었음
+         #     true \ + 개행 + <러너>                   ← rc=0 이었음 (인자 연속)
+         #   ★ 이 판정은 인용 문법을 **흉내내지 않는다**. 두 번 시도했고 두 번 다 뚫렸다:
+         #     1차 따옴표 개수 패리티 → `\"` 이스케이프가 짝수를 만들어 false-open
+         #     2차 인용 상태기계     → ANSI-C `$\u0027..\u0027`·`$(..)` 중첩·백틱에서 false-open
+         #   둘 다 주석에 "오산은 미탐 방향이라 안전" 이라 적었고 **둘 다 실측 반증됐다**.
+         #   셸 인용은 정규 파싱이 불가하므로 아래처럼 **안전 접두 화이트리스트**로 뒤집는다.
+         | ($u.cmd | split("\n")) as $lines
+         | select([ range(0; ($lines | length)) as $k
+             | ($lines[$k] | sub("^[ \t]+"; "")) as $L
+             | select($decl | any(. as $d | $L == $d or ($L | startswith($d + " "))))
+             # ★ 매칭 줄 **앞** 줄들을 안전 화이트리스트로 좁힌다 (Phase C 3회차 전환).
+             #   종전엔 "문자열이 열렸나" 를 직접 판정했다 — 따옴표 패리티 → 인용 상태기계
+             #   순으로 두 번 고쳤는데, 셸 인용은 정규 파싱이 불가해 라운드마다 새 우회가
+             #   나왔다(이스케이프 \" → 혼합 인용 → ANSI-C → $(..) 중첩 → 백틱). 전부
+             #   **false-open** 이었다. 쫓기를 그만두고 방향을 뒤집는다:
+             #   앞 줄이 전부 `빈 줄`·`cd <경로>`·`set -eu`·`export X=Y` 일 때만 매칭 줄을
+             #   명령 시작으로 인정한다. 그 밖(echo·git commit -m·치환·백틱·행연속·리다이렉션)은
+             #   무엇이 들었든 skip 이라 **구성상 열 수 없다** — 인용 문법을 흉내내지 않는다.
+             #   허용 문자셋에 따옴표·$·백틱·\ 를 넣지 않는 것이 이 가드의 본체다.
+             #   대가는 미탐이다 — 앞줄에 echo 가 섞인 정직한 실행은 인식 못 한다. 그때
+             #   사용자는 러너를 단독 실행하면 되고, 그건 현행 BYPASS 와 동등하다(T53).
+             #   ★ 폐쇄의 범위는 **어휘적 열림**까지다. `export PATH=/tmp/evil` · `cd /가짜repo`
+             #   처럼 **환경·경로를 바꿔 가짜 러너를 심는** 것은 화이트리스트를 통과한다 —
+             #   F-3(의도 위조) 클래스로 설계상 수용된 범위이지 이 가드가 막는 대상이 아니다.
+             #   (위 162행이 same-line env 접두를 "미인식" 이라 적은 것과 비대칭이다: 그건
+             #   앵커가 줄 첫 토큰을 요구해서지 env 조작을 막아서가 아니다.)
+             #   `set -euo pipefail`·`set -o pipefail` 은 `pipefail` 토큰 때문에 막힌다(미탐).
+             #   후행 순수 옵션어 허용은 어휘 문자가 없어 안전하나, **인용값 허용**
+             #   (`export FOO="bar baz"`)은 T58 이 잠근 `cd "` 구멍과 동형이라 금지다.
+             | select($k == 0 or ([ $lines[0:$k][]
+                 | select(test("^[ \t]*(cd[ \t]+[A-Za-z0-9_./~-]+|set[ \t]+-[a-zA-Z]+|export[ \t]+[A-Za-z_][A-Za-z0-9_]*=[A-Za-z0-9_./:-]*)?[ \t]*$") | not)
+               ] | length) == 0)
+             | 1 ] | length > 0)
+         # ★ 결과 존재 확인이 먼저다 — $res 는 is_error!=true 만 담으므로 에러 결과는
+         #   조인에서 빠져 "" 가 되고, "" 엔 실패 토큰이 없어 성공으로 오판된다(T34 잠금).
+         | ($res | map(select(.id == $u.id))) as $r
+         | select($r | length > 0)
+         | ($r[0].out // "")
+         # ★ 백그라운드 스텁 차단 — bg Bash 의 결과는 실행 출력이 아니라 스텁이다.
+         #   막지 않으면 러너를 띄우고 **결과를 보지도 않은 채** 커밋이 열린다(T41).
+         #   문자열은 아래 $bghit(및 _bg_pending_path)이 쓰는 것과 동일하다.
+         | select(test("Output is being written to: ") | not)
+         # downstream 러너는 VERIFY: PASS 를 찍지 않는다(`PASS 12/12`) — 그 토큰을 요구하면
+         #   이 경로가 영영 안 열린다. 주 판정은 위 `$r | length > 0`(= is_error false =
+         #   종료코드 0) 이고, 아래 실패 토큰 스캔은 **보조층**이다.
+         # ★ 꼬리 3줄만 본다 — 전체를 스캔하면 규약 성공 요약 `PASS=N FAIL=0` 과 테스트
+         #   설명 줄(`PASS T16 run-all 실패(FAIL 토큰)`)이 걸려 정직한 성공이 막힌다.
+         #   그건 이 FID 가 고치려는 병의 재생산이다(실측).
+         | (split("\n") | map(select(test("^[ \t]*$") | not)) | .[-3:] | join("\n"))
+         # 0-카운트 중화가 스캔보다 **먼저**여야 한다 — 안 그러면 FAIL=0 이 실패로 읽힌다.
+         | gsub("(?i)(fail(ure)?(ed)?s?|error(s)?)[ \t]*[=:][ \t]*0(?![0-9])"; "ZERO")
+         | gsub("(?i)\\b(0|no)[ \t]+(fail(ure|ed)?s?|errors?)"; "ZERO")
+         # 한국어도 중화한다 — 없으면 `실패: 0`·`오류 0건` 이 차단된다. 한국어 플러그인이
+         #   한국어 러너 출력을 막는 것은 대상 집단 직격 false-block 이다.
+         | gsub("(실패|오류|에러)[ \t]*[:=]?[ \t]*0[ \t]*건?(?![0-9])"; "ZERO")
+         | gsub("0[ \t]*건?[ \t]*(실패|오류|에러)"; "ZERO")
+         | select(test("VERIFY: (PARTIAL|FAIL)") | not)
+         | select(test("(?i)(^|[^a-z])(fail(ure|ed)?s?|error)") | not)
+         | select(test("실패|오류|에러") | not)
+         | $i ] | max // -1) as $declhit
     # 마지막 코드 편집(비-.specops Edit/Write/NotebookEdit)의 전역 인덱스 (없으면 -1)
     | ([ range(0; $all) as $i
          | $tus[$i]
@@ -214,7 +341,7 @@ _verify_exec_evidence() {
          | $i ] | max // -1) as $lastedit
     # $bghit 은 **러너를 띄운 Bash 의 인덱스**다(Read 인덱스가 아님) — 실행 시작 시점이 더 보수적이라
     # "Bash 띄움 → 코드 수정 → Read" 를 stale 로 올바르게 판정한다(T20).
-    | ([$lasthit, $bghit] | max) as $besthit
+    | ([$lasthit, $bghit, $declhit] | max) as $besthit
     | (if $besthit >= 0 and $besthit > $lastedit then 1 else 0 end) as $h
     | "\($all) \($h)"
   ' 2>/dev/null) || return 2
@@ -597,8 +724,11 @@ apply_lookback_rule() {
   #   Skill 호출)는 전부 **모델이 쓰는 것**이라, 검증했다고 착각한 모델이 선의로 게이트를 연다.
   #   #138 staleness 와 직교: staleness 는 "verify 가 충분히 최신인가", 본 gate 는 "verify 가 실제로 돌았나".
   #   ★ emit 은 기존 경로로 흘려보낸다(early-return 금지) — offset 계산을 선점하면 T6.e/f 회귀.
-  local _exec_rc
-  _verify_exec_evidence "$transcript"; _exec_rc=$?
+  # ★ detect_fid 는 아래에서 최대 2회 더 쓰인다(R-1 receipt 창·자기보고 면제). 훅 경로라
+  #   지연이 체감에 직결돼(NFR-3) **1회만 부르고 재사용**한다 — 20260809 리뷰 지적.
+  local _exec_rc _efid
+  _efid=$(detect_fid 2>/dev/null || echo "")
+  _verify_exec_evidence "$transcript" "${_efid:+.specops/$_efid}"; _exec_rc=$?
 
   # ★ R-1 implement 창: task receipt 필수 (Wave A — downstream-dogfood 병렬 wave BYPASS 관성 제거)
   #   tasks.md 존재 ∧ evidence.md 부재 = implement 창. FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지.
@@ -606,7 +736,7 @@ apply_lookback_rule() {
   #   evidence.md 이후(post-verify)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
   if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
-    _rfid=$(detect_fid)
+    _rfid="$_efid"          # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
     if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && [ ! -f ".specops/$_rfid/evidence.md" ]; then
       _rtask=$(_infer_commit_task "$tool_cmd")
       _rrc=2
@@ -636,7 +766,7 @@ apply_lookback_rule() {
   # F-1(5c): session-progress verify 우선 — transcript lookback false-block 회피
   if [ "$_exec_rc" -ne 1 ]; then
     local _fid
-    _fid=$(detect_fid)
+    _fid="$_efid"           # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
     if [ -n "$_fid" ]; then
       _verify_passed_in_progress "$_fid"; local _vp=$?
       if [ "$_vp" -eq 0 ]; then

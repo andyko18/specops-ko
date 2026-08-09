@@ -231,5 +231,278 @@ else
   ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 1
 fi
 
+
+# ── T26~T27: 선언 명령 추출 (FID 20260809-runner-anchor-downstream) ──
+#   ★ 라벨은 T26 부터다 — 위에 T1~T25 가 이미 있다.
+_mk_tasks() {   # $1=디렉터리, $2..=test_command 값들
+  local d="$1"; shift; mkdir -p "$d"
+  { echo '## 의존 그래프'; echo '```yaml'; echo 'tasks:'
+    local i=0
+    for c in "$@"; do i=$((i+1))
+      echo "  - id: T$i"; echo "    test_command: \"$c\""; echo "    depends_on: []"
+    done
+    echo '```'; } > "$d/tasks.md"
+}
+
+# T26 — whitelist 통과 명령만 추출된다
+_t26=$(mktemp -d)
+_mk_tasks "$_t26" "bash scripts/tests/frontend.sh" "grep -q token file.js" "npx vitest run x"
+_got=$(_extract_declared_cmds "$_t26/tasks.md")
+_n=$(printf '%s' "$_got" | jq 'length' 2>/dev/null || echo -1)
+[ "$_n" = "2" ] \
+  && ck "T26 whitelist 통과분만 추출 (2/3)" 0 0 \
+  || ck "T26 whitelist 통과분만 추출 — 실제 ${_n}건(기대 2)" 0 1
+rm -rf "$_t26"
+
+# T27 — tasks.md 부재·test_command 0건이면 빈 배열 (기존 동작 보존)
+_t27=$(mktemp -d)
+_e=$(_extract_declared_cmds "$_t27/nope.md")
+[ "$_e" = "[]" ] && ck "T27 tasks.md 부재 → 빈 배열" 0 0 || ck "T27 tasks.md 부재 → 빈 배열(실제 '$_e')" 0 1
+rm -rf "$_t27"
+
+
+# ── T28~T43: 선언 명령 앵커 분기 ($declhit) ──
+#   ★ 헬퍼는 jq 로 만든다 — printf 로 JSON 을 조립하면 heredoc·따옴표 픽스처(T35)에서
+#     이스케이프가 어긋나 어서션이 조용히 공허해진다.
+_decl_tx() {   # $1=출력파일, $2=명령, $3=결과내용, $4=is_error(기본 false)
+  jq -nc --arg c "$2" '{type:"assistant",message:{role:"assistant",content:[
+      {type:"tool_use",id:"toolu_D1",name:"Bash",input:{command:$c}}]}}'  > "$1"
+  jq -nc --arg o "$3" --argjson e "${4:-false}" '{type:"user",message:{role:"user",content:[
+      {type:"tool_result",tool_use_id:"toolu_D1",is_error:$e,content:$o}]}}' >> "$1"
+}
+_D=$(mktemp -d); _mk_tasks "$_D" "bash scripts/tests/frontend.sh"
+: > "$_D/evidence.md"
+_tx=$(mktemp)
+
+# T28 — 선언 러너 실행 + 러너 성공 → 인정 (AC-1·AC-11)
+#   `PASS 12/12` 는 `VERIFY: PASS` 를 포함하지 않는다 — 이게 downstream 의 실제 모습이고
+#   본 FID 의 존재 이유다. 기존 술어를 그대로 쓰면 이 어서션이 영영 통과할 수 없다.
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T28 선언 downstream 러너 → 0 (AC-1·11)" 0 $?
+
+# T29 — 선언되지 않은 명령은 불인정 (AC-2)
+_decl_tx "$_tx" "bash scripts/tests/other.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T29 미선언 명령 → 1 (AC-2)" 1 $?
+
+# T30 — 정규식 취급 금지: `.` 가 임의 문자로 매치되면 안 된다 (AC-8)
+_decl_tx "$_tx" "bash scripts/tests/frontendXsh" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T30 . 를 임의문자로 매치하지 않음 → 1 (AC-8)" 1 $?
+
+# T31 — 선언 명령의 주석 위장 (AC-5)
+_decl_tx "$_tx" "# bash scripts/tests/frontend.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T31 선언 명령 주석 위장 → 1 (AC-5)" 1 $?
+
+# T32 — 선언 명령의 echo 위장 (AC-5)
+_decl_tx "$_tx" 'echo "bash scripts/tests/frontend.sh"' "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T32 선언 명령 echo 위장 → 1 (AC-5)" 1 $?
+
+# T33 — 꼬리에 실패 요약이 있으면 불인정 (AC-11·AC-14 부정)
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "PASS T1 ok
+FAIL T2 broken
+PASS=11 FAIL=1"
+_verify_exec_evidence "$_tx" "$_D"; ck "T33 꼬리 실패 요약 → 1 (AC-11·14)" 1 $?
+
+# T34 — is_error:true 는 불인정 (AC-11 부정) ★ false-open 방지의 본체
+#   $res 가 is_error 를 걸러내므로 조인이 빈 문자열이 된다. 빈 문자열엔 실패 토큰이 없어
+#   결과 존재 가드가 없으면 **성공으로 오판**한다. 이 어서션이 그 구멍을 잠근다.
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "boom" true
+_verify_exec_evidence "$_tx" "$_D"; ck "T34 is_error:true → 1 (AC-11)" 1 $?
+
+# T35 — heredoc 본문 위장 차단 (AC-12)
+#   `evidence.md` 를 heredoc 으로 쓰는 것은 정직한 흐름이다. 술어를 완화한 이상 이 경로가
+#   열리면 "문서 작성이 게이트를 연다". `<<` 포함 시 선언 분기를 통째로 skip 한다.
+_decl_tx "$_tx" "cat > .specops/x/evidence.md <<DOC
+bash scripts/tests/frontend.sh
+DOC" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T35 heredoc 본문 위장 → 1 (AC-12)" 1 $?
+
+# T39 — ★ 규약 성공 요약 `PASS=N FAIL=0` 은 **인정**되어야 한다 (AC-14)
+#   templates/dispatch-context.md 가 downstream 러너의 성공 출력을 이 형태로 규정한다.
+#   전체 출력 스캔이면 FAIL 문자열 때문에 차단돼 이 FID 가 고치려는 병을 재생산한다.
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "==== Results: PASS=26 FAIL=0 ===="
+_verify_exec_evidence "$_tx" "$_D"; ck "T39 규약 성공요약 FAIL=0 → 0 (AC-14)" 0 $?
+
+# T40 — ★ 본문 중간의 실패 어휘는 인정을 막지 않는다 (AC-14)
+#   실패 처리를 검증하는 스위트는 이름에 실패 어휘가 들어간다(이 파일 자신이 그렇다).
+#   ★ 픽스처 주의: 그 줄들을 **꼬리 3줄 밖**에 둔다. 안에 두면 차단되는 것이 정상 동작이며
+#     (§7-9 한계), 실제 러너는 요약을 마지막에 찍으므로 이 배치가 현실적이다.
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "PASS T16 run-all 실패(FAIL 토큰) → 1
+PASS T21 스텁 문구 불일치 → 1 (rc=2 fail-open 금지)
+PASS T9 is_error 결과 → 1 (에러결과 불인정)
+ok 12 tests
+done
+PASS=30 FAIL=0"
+_verify_exec_evidence "$_tx" "$_D"; ck "T40 설명 줄 실패어휘 → 0 (AC-14)" 0 $?
+
+# T41 — ★ 백그라운드 스텁은 불인정 (AC-15) — false-open 잠금
+#   러너를 bg 로 띄우면 결과가 스텁이라 실패 토큰이 없다. 막지 않으면 "띄우고 결과를
+#   보지도 않은 채 커밋" 이 열린다. 기존 5종은 VERIFY: PASS 양성 요구라 자동 탈락한다.
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "Command running in background with ID: bash_1
+Output is being written to: /tmp/x.log"
+_verify_exec_evidence "$_tx" "$_D"; ck "T41 bg 스텁 → 1 (AC-15)" 1 $?
+
+# T42 — 한국어 0-카운트 성공 요약은 인정 (AC-16)
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "테스트 12건 성공, 실패 0"
+_verify_exec_evidence "$_tx" "$_D"; ck "T42 한국어 실패 0 → 0 (AC-16)" 0 $?
+
+# T43 — 한국어 실패 요약은 불인정 (AC-16 부정)
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "테스트 9건 성공, 실패 3건"
+_verify_exec_evidence "$_tx" "$_D"; ck "T43 한국어 실패 3건 → 1 (AC-16)" 1 $?
+
+# T36 — 창 한정: evidence.md 부재면 신규 경로 비활성 (AC-7)
+rm -f "$_D/evidence.md"
+_decl_tx "$_tx" "bash scripts/tests/frontend.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx" "$_D"; ck "T36 implement 창(evidence 부재) → 1 (AC-7)" 1 $?
+rm -rf "$_D"
+
+# T37 — 다중 선언 중 **하나만** 실행해도 인정 (AC-10, clarify Q1)
+#   전부 요구하면 선언 5~11개인 FID 7건이 현행과 똑같이 막혀 이 FID 가 무효가 된다.
+_M=$(mktemp -d); _mk_tasks "$_M" "bash scripts/tests/frontend.sh" "npx vitest run" "cargo test"
+: > "$_M/evidence.md"
+_decl_tx "$_tx" "npx vitest run" "Tests  12 passed"
+_verify_exec_evidence "$_tx" "$_M"; ck "T37 다중 선언 중 1개 실행 → 0 (AC-10)" 0 $?
+rm -f "$_tx"; rm -rf "$_M"
+
+# T38 — AC-13: 앵커 리터럴 3곳 무수정 (T25 보존의 명시 재확인)
+_a_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | wc -l | tr -d ' ')
+_a_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | sort -u | wc -l | tr -d ' ')
+if [ "$_a_n" -ge 3 ] && [ "$_a_u" -eq 1 ]; then
+  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 0
+else
+  echo "  (출현=$_a_n · 고유=$_a_u — 신규 경로가 기존 select 를 건드렸다)"
+  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 1
+fi
+
+
+# ── T44: whitelist 두 벌 drift 잠금 (AC-R-2) ──
+#   선언 경로와 receipt 경로가 같은 whitelist 를 쓰는데 한쪽만 조여지면 게이트가 조용히
+#   넓어진다. propagation edge 가 본 잠금이고, 여기서는 배선 실재만 확인한다.
+grep -q '_extract_declared_cmds' "$PLUGIN/hooks/governance-lib.sh" \
+  && grep -q 'test_command' "$PLUGIN/hooks/governance-lib.sh" \
+  && grep -q 'declared-testcmd-anchor' "$PLUGIN/scripts/_internal/propagation-matrix.jsonl" \
+  && ck "T44 선언 추출 배선 + propagation 잠금 존재 (AC-R-2)" 0 0 \
+  || ck "T44 선언 추출 배선 또는 propagation 잠금 부재 (AC-R-2)" 0 1
+
+
+# ── T45~T48: 인용 멀티라인·행연속 위장 차단 (Phase C Critical — 20260809) ──
+#   heredoc 가드(T35)가 막으려던 "문서 작성이 게이트를 연다" 의 미봉합 변종이다.
+#   Bash cmd 의 **따옴표 문자열 내부** 실개행 줄이 선언 명령과 같으면, 실행 없이 열렸다.
+#   규칙: 매칭 줄 **앞** 텍스트의 따옴표 개수가 홀수면 그 줄은 문자열 내부 → skip.
+#         앞줄이 `\` 로 끝나면 그 줄은 명령 시작이 아니라 인자 연속 → skip.
+_D2=$(mktemp -d); _mk_tasks "$_D2" "bash scripts/tests/frontend.sh"
+: > "$_D2/evidence.md"
+_tx2=$(mktemp)
+
+# T45 — echo 인용 멀티라인 위장 (Phase C 프로브 P1)
+_decl_tx "$_tx2" 'echo "검증 노트
+bash scripts/tests/frontend.sh
+끝" > notes.md' ""
+_verify_exec_evidence "$_tx2" "$_D2"; ck "T45 echo 인용 멀티라인 위장 → 1 (Phase C C-1)" 1 $?
+
+# T46 — git commit 메시지 본문 언급 (Phase C 프로브 P2)
+_decl_tx "$_tx2" 'git commit -m "fix: 수정
+
+bash scripts/tests/frontend.sh 로 검증함"' ""
+_verify_exec_evidence "$_tx2" "$_D2"; ck "T46 commit 메시지 본문 언급 → 1 (Phase C C-1)" 1 $?
+
+# T47 — 백슬래시 행연속 (매칭 줄이 명령 시작이 아님)
+_decl_tx "$_tx2" 'true \
+bash scripts/tests/frontend.sh' "PASS 12/12"
+_verify_exec_evidence "$_tx2" "$_D2"; ck "T47 백슬래시 행연속 → 1 (Phase C C-1)" 1 $?
+
+# T48 — ★ 정직한 멀티라인은 그대로 인정 (과차단 방지 — 이 가드의 대칭 잠금)
+#   `cd <path>` 다음 줄에 러너는 실사용 지배 패턴이다(governance-lib:164 주석 근거).
+#   인용도 행연속도 없으므로 통과해야 한다.
+_decl_tx "$_tx2" 'cd /repo
+bash scripts/tests/frontend.sh' "PASS 12/12"
+_verify_exec_evidence "$_tx2" "$_D2"; ck "T48 정직한 cd+러너 멀티라인 → 0 (과차단 방지)" 0 $?
+rm -f "$_tx2"; rm -rf "$_D2"
+
+# T49 — whitelist 두 벌 byte-identity 잠금 (Phase C Important 1)
+#   propagation edge 는 `test_command` 문자열 존재만 본다 — 한쪽만 조여지는 drift 를
+#   자동으로 못 잡는다. T25 방식으로 **패턴 자체**의 동일성을 잠근다.
+_p_gl=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/hooks/governance-lib.sh" | head -1)
+_p_rc=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/scripts/_internal/record-task-receipt.sh" | head -1)
+if [ -n "$_p_gl" ] && [ "$_p_gl" = "$_p_rc" ]; then
+  ck "T49 whitelist 패턴 byte-identity (drift 잠금)" 0 0
+else
+  echo "  (gl 길이=${#_p_gl} · rc 길이=${#_p_rc} — 두 벌이 어긋났다)"
+  ck "T49 whitelist 패턴 byte-identity (drift 잠금)" 0 1
+fi
+
+
+# ── T50~T53: 인용 상태 판정 (Phase C 2회차 Critical — 20260809) ──
+#   따옴표 **개수 패리티**로 "문자열 내부" 를 판정하던 것이 양방향으로 틀렸다(실측 반증).
+#   `\"` 이스케이프·혼합 인용이 카운트를 오염시켜 **false-open** 이 났고(P8·P9·P10),
+#   겹따옴표 안 아포스트로피는 **false-block** 을 냈다(P11 — `Don't` 은 흔한 표면).
+#   패리티 대신 **인용 상태기계**로 앞 텍스트를 훑어 "문자열이 열린 채인가" 를 판정한다.
+_D3=$(mktemp -d); _mk_tasks "$_D3" "bash scripts/tests/frontend.sh"
+: > "$_D3/evidence.md"
+_tx3=$(mktemp)
+
+# T50 — 이스케이프된 겹따옴표가 든 위장 (패리티는 짝수로 오산했다)
+_decl_tx "$_tx3" 'echo "note \" x
+bash scripts/tests/frontend.sh
+end" > f.md' ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T50 이스케이프 따옴표 위장 → 1 (Phase C2 C-1)" 1 $?
+
+# T51 — 혼합 인용 위장 (홑 안의 겹따옴표가 카운트를 오염시켰다)
+_decl_tx "$_tx3" "echo 'x \"y' \"a
+bash scripts/tests/frontend.sh" ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T51 혼합 인용 위장 → 1 (Phase C2 C-1)" 1 $?
+
+# T52 — commit 메시지 + 이스케이프 따옴표 (T46 의 실전 변종)
+_decl_tx "$_tx3" 'git commit -m "fix: \" 인용 처리
+
+bash scripts/tests/frontend.sh 로 검증"' ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T52 commit+이스케이프 위장 → 1 (Phase C2 C-1)" 1 $?
+
+# T53 — 인용을 포함한 앞줄은 **불인정**(미탐 — 안전 방향, 20260809 Phase C3 계약 변경)
+#   종전엔 인용 상태기계로 "문자열이 열렸나" 를 판정했는데, 셸 인용은 정규 파싱이 불가해
+#   라운드마다 새 우회가 나왔다(패리티 → 상태기계 → ANSI-C·$()·백틱). 쫓기를 그만두고
+#   **선행 줄을 안전 화이트리스트로 좁힌다** — 빈 줄·`cd <경로>`·`set -eu`·`export X=Y` 만.
+#   그 밖은 전부 skip 이라 인용·치환·백틱이 무엇을 하든 **구성상 열 수 없다**.
+#   대가: 아래처럼 앞줄에 echo 가 섞인 정직한 실행도 미인식된다. 사용자는 러너를 단독
+#   실행하면 열린다(현행 BYPASS 와 동등) — 미탐 방향이라 수용한다.
+_decl_tx "$_tx3" "echo \"Don't forget\" && cd /repo
+bash scripts/tests/frontend.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T53 인용 섞인 앞줄 → 1 (안전 화이트리스트 밖)" 1 $?
+
+# T54~T56 — 셸 인용 컨텍스트 3종 위장 차단 (Phase C3 Critical)
+#   상태기계는 ANSI-C·$()·백틱에서 **닫힘으로 오판**해 false-open 했다(실측 3/3).
+#   화이트리스트는 이 줄들이 애초에 `cd|set|export` 가 아니라 통째로 막는다.
+_decl_tx "$_tx3" "echo \$'note \\'
+bash scripts/tests/frontend.sh
+end' > f.md" ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T54 ANSI-C 인용 위장 → 1 (Phase C3 C-1)" 1 $?
+
+_decl_tx "$_tx3" 'echo "$(echo "
+bash scripts/tests/frontend.sh
+")" > f.md' ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T55 \$() 중첩 인용 위장 → 1 (Phase C3 C-1)" 1 $?
+
+_decl_tx "$_tx3" 'echo "`echo "
+bash scripts/tests/frontend.sh
+`" > f.md' ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T56 백틱 중첩 인용 위장 → 1 (Phase C3 C-1)" 1 $?
+
+# T57 — ★ 안전 접두는 그대로 인정 (과차단 방지 대칭 — 화이트리스트가 공허하지 않음)
+_decl_tx "$_tx3" "set -eu
+export CI=1
+cd /repo
+
+bash scripts/tests/frontend.sh" "PASS 12/12"
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T57 set/export/cd 접두 → 0 (과차단 방지)" 0 $?
+
+# T58 — ★ `cd "` 처럼 **열린 따옴표만 있는 앞줄**은 불인정 (화이트리스트 완화 잠금)
+#   경로 문자셋에 따옴표를 넣고 싶은 유혹이 있다(`cd "/path with space"` 미탐 때문).
+#   넣으면 `cd "` 한 줄이 "안전" 이 되고 다음 줄이 문자열 내부가 되어 게이트가 열린다.
+#   이 어서션이 그 완화를 잠근다 — 변이 M13 이 격추함을 실증.
+_decl_tx "$_tx3" 'cd "
+bash scripts/tests/frontend.sh
+" > f.md' ""
+_verify_exec_evidence "$_tx3" "$_D3"; ck "T58 cd + 열린 따옴표 앞줄 → 1 (완화 잠금)" 1 $?
+rm -f "$_tx3"; rm -rf "$_D3"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]
