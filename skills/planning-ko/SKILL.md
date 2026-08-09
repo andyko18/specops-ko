@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko skills/engine/writing-plans-ko.md
-specops_version: 1.65.0
+specops_version: 1.67.0
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
