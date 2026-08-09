@@ -174,6 +174,21 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo BATCH || echo SINGLE
 
 **비-batch** (`/start`·foundation 등 §batch 부재): 아래 기존 독립 리뷰 절차 **그대로**.
 
+### dispatch 직전 사전검사 (필수 — 20260809)
+
+`plan-reviewer` 를 부르기 **전에** 실행한다:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-predispatch.sh <FID>
+```
+
+- **rc=0** (`PREDISPATCH: OK` 또는 `SKIP`) → 아래 dispatch 진행
+- **rc=1** → 지적대로 `plan.md` 를 수정하고 **재실행**해 통과시킨 뒤 dispatch
+
+**근거**: plan-reviewer **1회차 FAIL 이 5/5** 이고 재dispatch 1회가 **+62~91k 토큰**이다. 검사기는 그 FAIL 을 만든 결함 중 **기계 판별 가능한 3클래스**만 본다 — ① 잠글 문자열이 repo 에도 plan 구현부에도 없어 어서션이 영구 FAIL ② propagation 레코드가 파서 스키마(`.edges[].path`)와 달라 잠금이 무음 사망 ③ Step 2 가 "이미 통과한다"고 단정하면서 실측 근거가 없음.
+
+> **리뷰어를 대체하지 않는다** — 왕복만 줄인다. 판별이 애매하면 **통과**시키므로(미탐 선택) 놓친 것은 plan-reviewer 가 여전히 잡는다. 실 코퍼스 28건 오탐 **0**.
+
 ### 비-batch — plan-reviewer dispatch
 
 자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).

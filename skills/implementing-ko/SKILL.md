@@ -235,6 +235,14 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 - **PASS 경로 (Phase B→C)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
 - **FAIL 경로**: Phase B/C FAIL 직후 부모가 reviewer 출력을 위 feedback 경로에 저장한 뒤 implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
 
+## 리뷰어 dispatch 입력 계약 (20260809)
+
+Phase B/C dispatch 시 `agents/spec-reviewer-ko.md`·`agents/code-reviewer-ko.md` 의 **받는 컨텍스트** 목록 밖 경로를 임의로 첨부하지 않는다. 두 계약은 이미 최소다 — `tasks.md`·`plan.md`·`clarifications.md` 는 **거기 없다**.
+
+리뷰어가 더 필요하면 **`NEEDS_CONTEXT` 로 당겨간다**(push → pull). 그 반환 경로가 이미 규약에 있으므로 부모가 미리 얹을 이유가 없다.
+
+**근거(실측 20260809)**: 계약 밖 첨부가 dispatch 당 **5~11k 토큰(8~14%)** 을 더한다. `/start-all` 에서는 **2N배**로 곱해진다.
+
 ## dispatch-log.md 자동 append (Wave 2 U5)
 
 task 시작 시 `.specops/<FID>/dispatch-log.md` 부재면 `templates/dispatch-log.md` 복사로 생성. 매 시도(Phase A/B/C)마다 해당 task-id 블록에 1행 append:
