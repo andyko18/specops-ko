@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+### Fixed
+- **실행-근거 앵커가 downstream 선언 `test_command` 를 인식 (FID 20260809-runner-anchor-downstream, #255)** — R-1/R-2 커밋 게이트의 러너 앵커가 **specops 자신의 러너 5종만** 인정해, downstream 프로젝트가 테스트를 **실제로 돌려도 커밋이 막혔다**. 외부 4개 프로젝트 실측 **BYPASS 77건**, 실사용 러너 4종(`bash scripts/tests/frontend.sh`·`npx vitest run`·`pnpm --filter … test`·`turbo run test`) **0/4 인정**. BYPASS 사유의 지배적 패턴이 *"테스트를 실제로 돌렸는데 게이트가 안 열림"* 이었다. post-verify 창에서 그 FID `tasks.md` 가 **선언한 `test_command`** 를 앵커로 인정한다 — 러너 **이름을 나열하지 않으므로** 생태계 무관하다(이름 나열은 20260716·Wave A·본 FID 로 이미 **세 번 반복된** 실패 패턴).
+  - **기존 앵커 리터럴 3곳은 무수정.** T25 가 그 동일성을 잠그므로(`$lasthit`·`$bghit`·`_bg_pending_path`), OR 확장 대신 **별도 `$declhit` 스캔 블록**을 추가해 `[$lasthit,$bghit,$declhit]|max` 로 합류한다. spec 초안의 *"`$bghit` 는 같은 앵커를 공유한다"* 는 **실측상 거짓**이었고(3중 텍스트 복제) FR-7 을 철회했다.
+  - **결과 술어는 2층** — ① `is_error == false`(주, 종료코드 0) ② **꼬리 3줄** 실패 토큰 부재(보조). `VERIFY: PASS` 요구는 **철회**했다(downstream 러너가 그 토큰을 안 찍어 이 경로가 영영 안 열린다). **전체 출력 스캔은 성립하지 않는다** — 규약 성공요약 `PASS=N FAIL=0`(`templates/dispatch-context.md` 가 규정)과 **테스트 설명 줄**(`PASS T16 run-all 실패(FAIL 토큰)`)이 걸려 정직한 성공이 막힌다. 한국어 0-카운트(`실패: 0`·`오류 0건`)도 중화한다 — 한국어 플러그인이 한국어 러너를 막는 건 대상 집단 직격이다.
+  - **멀티라인 판정은 안전 접두 화이트리스트.** 인용 문법을 흉내내는 시도가 **두 번 다 뚫렸다** — 따옴표 패리티는 `\"` 이스케이프에, 인용 상태기계는 ANSI-C·`$()` 중첩·백틱에 각각 **false-open** 했다. 셸 인용은 정규 파싱이 불가하므로 방향을 뒤집어, 앞 줄이 전부 `빈 줄`·`cd <경로>`·`set -<flags>`·`export X=Y` 일 때만 명령 시작으로 인정한다. 허용 문자셋에 `"` `'` `` ` `` `$` `\` 가 없어 **폐쇄가 코드 정독으로 확인된다**. 부수로 병리형 지연 1115ms → 22ms.
+  - **3중 가드** — heredoc(`<<`) skip · **bg 스텁 차단**(러너를 백그라운드로 띄우고 결과를 보지도 않은 채 커밋이 열렸다) · 결과 존재 확인(`is_error:true` 가 빈 문자열로 조인돼 성공 오판). whitelist 는 `record-task-receipt.sh` 재사용이며 **byte-identity 를 T49 로 잠근다**.
+  - **Phase C 리뷰어가 3연속 Critical 을 적중**시켰고 셋 다 사실이었다(전부 false-open). 원인은 매번 **주석에 검증 없이 쓴 "미탐 방향이라 안전"** 주장이었다. plan-reviewer 도 2회 FAIL 했고 그중 하나가 **spec 성공지표의 자기모순**을 잡았다 — "4/4 인식" 목표가 재사용하기로 한 whitelist 때문에 구조적으로 **2/4** 였다(실측 후 spec 정정).
+  - 테스트 **T26~T58 신규 33건**(전체 63/63) · **변이 13종** 전부 격추 · **end-to-end 실발화 6/6**(`pretool-governance.sh` 에 `PreToolUse` JSON 직접 투입) · propagation 111 → **114 edges** · 훅 median 125ms 불변, 선언 경로 순증분 +14ms.
+  - **한계**: 효과(BYPASS 감소)는 **외부 프로젝트의 다음 커밋에서만** 확인된다. 성공지표 **2/4** — `pnpm --filter <scope> test`·`turbo run test` 는 whitelist 밖(우회 표기 `npx turbo run test`·`pnpm test` 는 통과). 앞줄이 화이트리스트 밖인 정직 실행·`bash -c` 래핑·env 접두·CRLF `tasks.md` 는 미탐. **F-3 의도 위조 미방어** — `export PATH=/tmp/evil`·`cd /가짜repo` 로 가짜 러너를 심는 건 통과한다(설계상 수용). Linux 미검증.
+
+- **변이 테스트 중단 시 실 파일 손상 방지 (FID 20260809-mutation-test-trap, #256)** — `scripts/tests/test-validate-structure.sh` 의 **T-hg.b** 가 `skills/specifying-ko/SKILL.md` **실 파일**을 변이시킨 뒤 `cp` 로 복원하는데 **`trap` 이 없었다**. 위 #255 를 push 하다 **실제로 물렸다** — 180초 타임아웃이 `pre-push` 훅의 `run-all` 을 변이 창에서 죽였고, 규약 문구가 깨진 채 남아 다음 `run-all` 이 원인 불명의 3 스위트 FAIL 을 냈다. `pre-push` 가 `run-all` 을 돌리므로 **push 타임아웃마다 재현**된다.
+  - **`trap … EXIT` 은 단독이어야 한다.** `EXIT INT TERM` 이 더 안전해 보이지만 **반대다** — INT/TERM 을 잡으면 셸 기본 종료가 사라져 핸들러가 포그라운드 명령 종료까지 **지연**되고, 뒤따르는 SIGKILL(타임아웃 구현의 전형)을 맞으면 복원이 영영 실행되지 않는다. SIGTERM 만 보내고 `wait` 하면 두 패턴이 **구별되지 않으므로**, 잠금은 `TERM → 유예 → KILL` 로 재현한다.
+  - **잠금이 두 번 공허했다.** ① 어미 검사 `^ *trap .+ EXIT *$` 가 **해제 줄**(`trap - EXIT`)에 매치돼 설치 trap 삭제도 통과 ② ` EXIT *$` 가 **`trap "…" INT TERM EXIT`**(다중 시그널의 관용 표기)를 통과. 둘 다 **변이가 격추에 실패한 것**이 신호였다 — 시그널 목록을 **등식**(`= EXIT`)으로 판정하도록 교체했다.
+  - **부수 개선** — 프로브가 25.06s 였고 그중 **19s 가 dead wait** 였다(TERM 이 bash 만 죽이고 고아 `sleep` 이 명령 치환의 파이프를 붙든 채 EOF 를 기다림) → **6.08s**. 픽스처 `mktemp` 백업이 매회 시스템 temp 에 **영구 잔존**하던 것도 제거(검증 중 35개 누적) → 0.
+  - **계측 재현이 핵심 증거다.** 스위트가 72초라 단순 SIGTERM 은 변이 창을 못 잡는다(첫 시도가 `창포착=0` 으로 **공허**했다). 사본에 `sleep 12` 를 삽입해 창을 벌리고 포착 확인 후 SIGTERM → 현행 **RESTORED** / 무trap 대조 **CORRUPTED**.
+  - `test-git-hooks.sh` GH-8 은 **이미 `trap … EXIT`** 이라 무수정. 변이 **6종** 전부 격추(리뷰어가 격리 사본에서 trap 표기 10종까지 전수 실행).
+  - **한계**: **SIGKILL 은 트랩 불가**(복구는 `git checkout skills/specifying-ko/SKILL.md` — 주석 명시). trap 줄 끝 주석을 적대적으로 조작하면 통과하는 **false-pass 1형태**. macOS bash 3.2 만 실측.
+
+### Changed
+- **선행 기록 정정** — `20260809-runner-anchor-downstream` 의 evidence·gbrain 에 *"변이 전 `trap … EXIT INT TERM` 이 필수"* 라고 **검증 없이** 기록했다. 실측으로 반증됐고 #256 의 인사이트가 정정본이다.
+
+
 ## [1.67.0] — 2026-08-09
 
 ### Added
