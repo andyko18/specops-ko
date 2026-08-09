@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.68.0] — 2026-08-10
+
 ### Fixed
 - **실행-근거 앵커가 downstream 선언 `test_command` 를 인식 (FID 20260809-runner-anchor-downstream, #255)** — R-1/R-2 커밋 게이트의 러너 앵커가 **specops 자신의 러너 5종만** 인정해, downstream 프로젝트가 테스트를 **실제로 돌려도 커밋이 막혔다**. 외부 4개 프로젝트 실측 **BYPASS 77건**, 실사용 러너 4종(`bash scripts/tests/frontend.sh`·`npx vitest run`·`pnpm --filter … test`·`turbo run test`) **0/4 인정**. BYPASS 사유의 지배적 패턴이 *"테스트를 실제로 돌렸는데 게이트가 안 열림"* 이었다. post-verify 창에서 그 FID `tasks.md` 가 **선언한 `test_command`** 를 앵커로 인정한다 — 러너 **이름을 나열하지 않으므로** 생태계 무관하다(이름 나열은 20260716·Wave A·본 FID 로 이미 **세 번 반복된** 실패 패턴).
   - **기존 앵커 리터럴 3곳은 무수정.** T25 가 그 동일성을 잠그므로(`$lasthit`·`$bghit`·`_bg_pending_path`), OR 확장 대신 **별도 `$declhit` 스캔 블록**을 추가해 `[$lasthit,$bghit,$declhit]|max` 로 합류한다. spec 초안의 *"`$bghit` 는 같은 앵커를 공유한다"* 는 **실측상 거짓**이었고(3중 텍스트 복제) FR-7 을 철회했다.
@@ -1026,7 +1028,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.67.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.68.0...HEAD
+[1.68.0]: https://github.com/andyko18/specops-ko/compare/v1.67.0...v1.68.0
 [1.67.0]: https://github.com/andyko18/specops-ko/compare/v1.66.0...v1.67.0
 [1.66.0]: https://github.com/andyko18/specops-ko/compare/v1.65.0...v1.66.0
 [1.65.0]: https://github.com/andyko18/specops-ko/compare/v1.64.0...v1.65.0
