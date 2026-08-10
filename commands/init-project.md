@@ -4,7 +4,7 @@ description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 1
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 1.69.0
+specops_version: 1.70.0
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---

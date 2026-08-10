@@ -4,7 +4,7 @@ description: specops 설치·환경 건강 진단 — git hook 2단 게이트·m
 triggers:
   - "/doctor"
 mode: ask
-specops_version: 1.65.0
+specops_version: 1.70.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
