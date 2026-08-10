@@ -1,0 +1,2 @@
+No,UI_Category,Recommended_Pattern,Style_Priority,Color_Mood,Typography_Mood,Key_Effects,Decision_Rules,Anti_Patterns,Severity
+1,Financial Dashboard,Data-Dense Dashboard,Dark Mode (OLED) + Data-Dense,High contrast + Signal colors,Numeric clarity,Instant updates + Sparklines,"{""must_have"": ""real-time-updates"", ""must_have"": ""high-contrast""}",Light mode default + Slow rendering,HIGH

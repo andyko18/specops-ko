@@ -83,9 +83,14 @@ if printf '%s' "$out3" | grep "20260803-structured" | grep -q "🟡"; then
   PASS=$((PASS+1)); echo "PASS T2.c PARTIAL 표시"
 else FAIL=$((FAIL+1)); echo "FAIL T2.c ($out3)"; fi
 
+# ★ 만료일은 **상대 날짜**로 만든다. 미래 날짜를 하드코딩하면 그 시각이 지나는 순간
+#   WAIVED 가 NOT_RUN 으로 계산돼 스위트가 스스로 터진다 — 2026-08-10 실발화:
+#   "2026-08-10T00:00:00Z" 가 자정에 만료돼 본 스위트와 test-verdict-board 가 동시에 FAIL 했다.
+#   (프로덕션은 정상 — verification-state.sh 가 조회 시점에 만료를 계산하는 게 설계다.)
+_future=$(date -u -v+1d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "+1 day" +%Y-%m-%dT%H:%M:%SZ)
 (cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured WAIVED \
   --waiver-reason "승인된 예외" --waiver-approved-by "owner@example.com" \
-  --waiver-expires-at "2026-08-10T00:00:00Z")
+  --waiver-expires-at "$_future")
 out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
 if printf '%s' "$out3" | grep "20260803-structured" | grep -q "◻"; then
   PASS=$((PASS+1)); echo "PASS T2.d WAIVED 표시"

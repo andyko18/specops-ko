@@ -47,6 +47,75 @@ _design_brand_name() {
   esac
 }
 
+# 자산으로 DESIGN.md 를 채운다. 성공 rc=0 / 실패 rc=1(호출부가 5택으로 fallback).
+# ★ hex 는 반드시 **백틱으로 감싼다** — _inject_design_palette 가 백틱 감싼 hex 만 뽑기
+#   때문에 백틱이 없으면 무음 skip 된다(lib.sh 실측).
+_design_from_assets() {
+  local target="$1" ptype="$2"
+  local pal; pal=$(uiux::palette "$ptype") || return 1
+  [ -n "$pal" ] || return 1
+  cp "$PLUGIN/templates/DESIGN.md" "$target" || return 1
+  _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" \
+    "# DESIGN.md — ${PROJECT_NAME} (${ptype})"
+  # 라이선스 머리말 (AC-8) — 문구는 **어댑터가** 만든다(결합 격리).
+  local lic; lic=$(uiux::license_lines)
+  LIC="$lic" awk '
+    { print }
+    /^# DESIGN\.md — / && !seen { print ""; print ENVIRON["LIC"]; seen = 1 }' \
+    "$target" > "$target.tmp" && mv "$target.tmp" "$target" \
+    || { rm -f "$target.tmp"; return 1; }
+  # 팔레트 주입 — "| <라벨> | `#______` |" 를 값으로 치환
+  local lbl hex
+  while IFS=$'\t' read -r lbl hex; do
+    [ -n "$lbl" ] || continue
+    # ★ 값 형식 가드 — awk sub() 의 대체문자열에서 `&` 는 **매치 전체로 확장**된다.
+    #   실측: HEX='#AB&C' → `| Primary | `#AB`#______`C` |` 로 오염된다.
+    #   현 자산의 매핑 16컬럼엔 `&` 가 0건이나(Notes 에만 52건), 어댑터가 "minor 는 자동
+    #   신뢰" 라고 적은 결합 구조상 자산 갱신 한 번에 활성화된다. hex 만 통과시킨다.
+    #   부수: 개행·탭이 든 값도 여기서 걸러진다(라인 프로토콜 파단 방지).
+    case "$hex" in
+      '#'[0-9A-Fa-f]*) : ;;
+      *) echo "  ℹ️  ${lbl}: hex 아닌 값 skip (${hex})" >&2; continue ;;
+    esac
+    case "$hex" in *'&'*|*'\'*) echo "  ℹ️  ${lbl}: 메타문자 포함 skip" >&2; continue ;; esac
+    LBL="$lbl" HEX="$hex" awk '
+      BEGIN { l = ENVIRON["LBL"]; h = ENVIRON["HEX"] }
+      index($0, "| " l " | `#______`") == 1 { sub(/`#______`/, "`" h "`"); print; next }
+      { print }' "$target" > "$target.tmp" && mv "$target.tmp" "$target" \
+      || { rm -f "$target.tmp"; return 1; }
+  done <<< "$pal"
+  # 컨셉 — 없어도(rc=1) **실패가 아니다**. colors-only 유형은 색상만 넣고 진행한다(FR-5).
+  local con; con=$(uiux::concept "$ptype" 2>/dev/null) || con=""
+  if [ -n "$con" ]; then
+    _design_apply_concept "$target" "$con"
+  else
+    echo "  ℹ️  ${ptype} 는 컨셉 데이터 미보유 — 컨셉 섹션은 미채움으로 둡니다" >&2
+  fi
+  return 0
+}
+
+_design_apply_concept() {   # $1=target $2="필드<TAB>값" 행들
+  local target="$1" con="$2" k v
+  local pattern="" style="" effects="" anti=""
+  while IFS=$'\t' read -r k v; do
+    case "$k" in
+      Recommended_Pattern) pattern="$v" ;;
+      Style_Priority)      style="$v" ;;
+      Key_Effects)         effects="$v" ;;
+      Anti_Patterns)       anti="$v" ;;
+    esac
+  done <<< "$con"
+  _replace_line_prefix "$target" "- **권장 패턴**:"      "- **권장 패턴**: ${pattern:-(미제공)}"
+  _replace_line_prefix "$target" "- **스타일 우선순위**:" "- **스타일 우선순위**: ${style:-(미제공)}"
+  _replace_line_prefix "$target" "- **핵심 효과**:"       "- **핵심 효과**: ${effects:-(미제공)}"
+  # §Design Principles 산문 placeholder → 실제 값 (AC-2)
+  _replace_line_prefix "$target" "1. **[원칙 1]**" "1. **패턴**: ${pattern:-(미제공)}"
+  _replace_line_prefix "$target" "2. **[원칙 2]**" "2. **스타일**: ${style:-(미제공)}"
+  _replace_line_prefix "$target" "3. **[원칙 3]**" "3. **핵심 효과**: ${effects:-(미제공)}"
+  _replace_line_prefix "$target" "- [금지 패턴 1]" "- ${anti:-(미제공)}"
+  _replace_line_prefix "$target" "- [금지 패턴 2]" "- (자산 제공 안티패턴은 위 1건)"
+}
+
 phase_6_design() {
   if [ "$PROJECT_KIND" != "1" ] && [ "$PROJECT_KIND" != "4" ] && [ "$PROJECT_KIND" != "5" ]; then
     echo "[Phase 6] DESIGN.md skip (PROJECT_KIND=${PROJECT_KIND}, UI/풀스택/모바일만 활성)"
@@ -57,6 +126,25 @@ phase_6_design() {
     echo "→ ${target} 보존 (skip 정책)"
     return
   fi
+  # ── 자산 경로 (FID 20260810-uiux-asset-driven-design) ──
+  # ui-ux-pro-max 자산(192유형 팔레트 + 161 컨셉)으로 채운다. 파일명·경로·스키마는 전부
+  #   scripts/_internal/uiux-assets.sh 안에 있다 — 여기서 알면 결합 격리(AC-5)가 깨진다.
+  # 실패는 전부 아래 5택 fallback 이 흡수한다 — 부트스트랩 1회 경로라 중단이 치명적이다.
+  . "$PLUGIN/scripts/_internal/uiux-assets.sh" 2>/dev/null || true
+  if [ -n "${UIUX_PRODUCT_TYPE:-}" ]; then
+    if type uiux::available >/dev/null 2>&1 && uiux::available; then
+      uiux::warn_copies || true
+      if _design_from_assets "$target" "$UIUX_PRODUCT_TYPE"; then
+        echo "→ ${target} 작성 완료 (자산: ${UIUX_PRODUCT_TYPE}, ui-ux-pro-max $(uiux::version))"
+        return
+      fi
+      echo "  ⚠️  자산 주입 실패 — 브랜드 5택으로 진행합니다" >&2
+    else
+      # ★ 조용히 5택으로 빠지면 사용자는 자산이 왜 안 쓰였는지 모른다(AC-4·FR-6).
+      echo "  ⚠️  ui-ux-pro-max 자산을 쓸 수 없습니다(미설치 또는 스키마 불일치) — 브랜드 5택으로 진행합니다" >&2
+    fi
+  fi
+
   echo ""
   echo "[Phase 6] DESIGN.md — 디자인 시스템 브랜드 선택:"
   echo "  (1) Stripe   — 보라 그라디언트, 개발자 친화 ← 추천"

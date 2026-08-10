@@ -72,7 +72,9 @@ _replace_token() {
   sed -i.bak "s|${esc_token}|${esc}|g" "$file" && rm -f "${file}.bak"
 }
 
-# DESIGN.md 색상 표(9행) → screen.html :root CSS 변수 전체 주입
+# DESIGN.md 색상 표 → screen.html :root CSS 변수 주입
+#   ★ 매핑 대상은 아래 map 의 **9라벨**이다. §1 표는 17행으로 늘었으나(20260810 자산 확장)
+#     이 함수는 라벨 grep 이라 신규 행을 무시한다 — 의도된 동작이다.
 # 사용: _inject_design_palette <html-file>
 # - DESIGN.md 부재 또는 대상 파일 부재 시 no-op (return 0)
 # - 색상별 hex 검증 — 미확정(`#______` placeholder)·비hex 는 skip → 템플릿 기본값 유지

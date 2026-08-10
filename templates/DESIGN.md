@@ -18,9 +18,17 @@
 | Text Secondary | `#______` | 보조 텍스트, 레이블 |
 | Border | `#______` | 그리드 라인, 카드 테두리 |
 | Error | `#______` | 에러 상태 |
-| Success | `#______` | 성공 상태 |
+| Success | (자산 미제공 — shadcn 규약엔 success 토큰 없음) | 성공 상태 |
+| Accent | `#______` | 강조 액션, 배지 |
+| Muted | `#______` | 비활성 배경 |
+| Ring | `#______` | 포커스 링 |
+| On Primary | `#______` | Primary 위 텍스트 |
+| On Secondary | `#______` | Secondary 위 텍스트 |
+| On Accent | `#______` | Accent 위 텍스트 |
+| Card Foreground | `#______` | 카드 내 텍스트 |
+| On Destructive | `#______` | Error 위 텍스트 |
 
-**Gradient**: `linear-gradient(135deg, #______, #______)`
+**Gradient**: (자산 미제공 — 색상 데이터셋에 gradient 컬럼 없음. Phase 11 enrich 또는 수기)
 
 **Dark Mode**: [다크 모드 색상 변형 또는 "Not applicable"]
 
@@ -76,7 +84,33 @@ Shadow:     [shadow-definition]
 Padding:    [N]px
 ```
 
-## 5. Design Principles
+## 5. Motion
+
+| 상황 | 지속 | 이징 | 비고 |
+|---|---|---|---|
+| Hover Micro-interaction | [ms] | [easing] | [설명] |
+| Scroll Reveal | [ms] | [easing] | [설명] |
+| Stagger List | [ms] | [easing] | [설명] |
+
+> 값 채움은 **후속 FID** 로 이관 — 자산(motion.csv) 연결은 본 어댑터 범위 밖이다.
+
+## 6. 레이아웃 패턴
+
+- **권장 패턴**: [Recommended_Pattern]
+- **스타일 우선순위**: [Style_Priority]
+- **핵심 효과**: [Key_Effects]
+
+## 7. 상태 표현
+
+| 상태 | 표현 | 비고 |
+|---|---|---|
+| 로딩 | [스켈레톤/스피너/프로그레스] | |
+| 빈 상태 | [일러스트/문구/CTA] | |
+| 에러 | [인라인/토스트/전체] | |
+
+> 값 채움은 **후속 FID** 로 이관 — Phase 11 enrich 또는 수기.
+
+## 8. Design Principles
 
 1. **[원칙 1]**: [설명]
 2. **[원칙 2]**: [설명]
@@ -86,7 +120,7 @@ Padding:    [N]px
 - [금지 패턴 1]
 - [금지 패턴 2]
 
-## 6. AI Usage Guidelines
+## 9. AI Usage Guidelines
 
 > 이 섹션을 AI 에이전트가 직접 읽어 일관된 UI를 생성한다.
 

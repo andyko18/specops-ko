@@ -145,7 +145,7 @@ reference_upstream: specops-ko 독자 추가
 
 1. **UI 표면 검출** — 전 FID `.specops/<FID>/spec.md` §참조·§범위에서 화면 신호(`screens/<name>` 목록·화면 렌더·사용자 흐름)를 취합한다.
    - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
-2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출. **graceful 안전망**: ui-ux-pro-max 미감지 시 `DESIGN.md` 토큰 fallback + marketplace 안내. 우선순위: ui-ux-pro-max 결과 우선, DESIGN.md 후순위.
+2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출. **graceful 안전망**: ui-ux-pro-max 미감지 시 `DESIGN.md` 토큰 fallback + marketplace 안내. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
 3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md` + `screens/<name>.html` 쌍을 통합 design system 스타일로 생성한다.
    - **파일이 없으면 생성**한다.
    - **이미 있고** `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상) → **재사용**.

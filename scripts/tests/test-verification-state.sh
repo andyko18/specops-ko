@@ -44,9 +44,14 @@ else
   ok "S4 승인 메타데이터 없는 WAIVED 거부"
 fi
 waiver_recorded=0
+# ★ 만료일은 **상대 날짜**로 만든다. 미래 날짜를 하드코딩하면 그 시각이 지나는 순간
+#   WAIVED 가 NOT_RUN 으로 계산돼 스위트가 스스로 터진다 — 2026-08-10 실발화:
+#   "2026-08-10T00:00:00Z" 가 자정에 만료돼 본 스위트와 test-verdict-board 가 동시에 FAIL 했다.
+#   (프로덕션은 정상 — verification-state.sh 가 조회 시점에 만료를 계산하는 게 설계다.)
+_future=$(date -u -v+1d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "+1 day" +%Y-%m-%dT%H:%M:%SZ)
 (cd "$TD" && bash "$STATE" record 20260803-state WAIVED \
   --waiver-reason "외부 시스템 점검" --waiver-approved-by "owner@example.com" \
-  --waiver-expires-at "2026-08-10T00:00:00Z") && waiver_recorded=1
+  --waiver-expires-at "$_future") && waiver_recorded=1
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 if [ "$waiver_recorded" -eq 1 ] && [ "$out" = "WAIVED" ] \
    && jq -e '.waiver.reason != "" and .waiver.approved_by != "" and .waiver.expires_at != ""' \

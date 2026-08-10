@@ -163,7 +163,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    **[§auto 이외 모드]** (기존 동작):
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
-   - **[ui-ux-pro-max design system 자문 (자동)]**: ui-ux-pro-max 는 plugin.json hard dependency(보장 동반 설치)다. 화면 설계 시작 전 1회만 `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 → design system 산출 → HTML artifact 스타일에 반영. **graceful 안전망**: marketplace 미등록 등으로 available-skills 미감지 시 DESIGN.md 토큰 fallback(의존성 미해결 경고 — `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 안내). **우선순위**: ui-ux-pro-max 결과 우선, DESIGN.md 후순위.
+   - **[ui-ux-pro-max design system 자문 (자동)]**: ui-ux-pro-max 는 plugin.json hard dependency(보장 동반 설치)다. 화면 설계 시작 전 1회만 `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 → design system 산출 → HTML artifact 스타일에 반영. **graceful 안전망**: marketplace 미등록 등으로 available-skills 미감지 시 DESIGN.md 토큰 fallback(의존성 미해결 경고 — `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 안내). **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
    - 각 화면을 순서대로 설계:
      1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성 (별도 질문 없이)
      2. 사용자에게 보여주고 수정 요청 수렴 → 수정 요청 시 재생성 루프

@@ -2,7 +2,7 @@
 # design-screen.sh — /design-screen 보일러플레이트 자동화
 # 사용: bash scripts/_internal/design-screen.sh <name> [--force]
 #   - screens/{name}.md + screens/{name}.html 스캐폴딩
-#   - DESIGN.md §1 Color System 전체 팔레트(9색) 추출 → HTML :root 변수 주입
+#   - DESIGN.md §1 Color System 팔레트 추출 → HTML :root 변수 주입 (매핑된 9라벨)
 #   - .specops/memory/screens-overview.md fence 갱신
 set -u
 
@@ -128,7 +128,7 @@ sed -i.bak "s/{{created}}/${today}/g"  "screens/${NAME}.md"
 sed -i.bak "s/{{updated}}/${today}/g"  "screens/${NAME}.md"
 rm -f "screens/${NAME}.md.bak"
 
-# screen.html 생성 (DESIGN.md 전체 팔레트 주입 — 9색)
+# screen.html 생성 (DESIGN.md 팔레트 주입 — 매핑된 9라벨)
 cp "$PLUGIN/templates/screen.html" "screens/${NAME}.html"
 sed -i.bak "s/{{title}}/${NAME}/g"      "screens/${NAME}.html"
 sed -i.bak "s/{{화면 제목}}/${NAME}/g" "screens/${NAME}.html"

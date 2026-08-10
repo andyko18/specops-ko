@@ -43,7 +43,8 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
    - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
    - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
-   - Phase 6: DESIGN.md (UI/풀스택/모바일만, brand-pick: Stripe/Notion/Linear/Claude/직접)
+   - Phase 6: DESIGN.md (UI/풀스택/모바일만) — **자산 우선**: ui-ux-pro-max 의 제품유형별 팔레트(16토큰 + Success 미제공 사유행)·컨셉을 주입. 자산 부재·스키마 불일치 시 brand-pick(Stripe/Notion/Linear/Claude/직접)으로 graceful fallback + 사유 출력
+     - **★ LLM 레이어 선행 (한국어 입력 경로)**: 자산의 제품 유형 목록은 **전량 영문**이다(한글 0건 실측). bash 호출 **전에** 사용자 한국어 입력·PRD 로 영문 제품 유형을 정해 `UIUX_PRODUCT_TYPE` 환경변수로 넘긴다(Phase 0 `.init-prd-fields` 패턴과 동형). 후보 조회는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/uiux-assets.sh` 를 source 해 `uiux::match <영문키워드>` 로 한다. 미지정이면 bash 가 brand-pick 으로 진행하므로 무해하다.
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
    - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/test-strategy)
    - Phase 9: README.md 자동 생성 (PRD §1 인용)

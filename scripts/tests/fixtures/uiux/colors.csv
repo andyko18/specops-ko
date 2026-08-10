@@ -1,0 +1,3 @@
+No,Product Type,Primary,On Primary,Secondary,On Secondary,Accent,On Accent,Background,Foreground,Card,Card Foreground,Muted,Muted Foreground,Border,Destructive,On Destructive,Ring,Notes
+1,Financial Dashboard,#0F172A,#FFFFFF,#1E293B,#FFFFFF,#3FB950,#0F172A,#020203,#E6EDF3,#0D0D12,#E6EDF3,#14141B,#8A8F98,#252833,#F2555A,#FFFFFF,#5E6AD2,"Dark finance palette, success green [Accent adjusted for WCAG 3:1]"
+2,OrphanType,#123456,#FFFFFF,#234567,#FFFFFF,#345678,#FFFFFF,#FFFFFF,#111111,#FAFAFA,#111111,#EEEEEE,#666666,#DDDDDD,#CC0000,#FFFFFF,#123456,colors 만 있고 ui-reasoning 없음

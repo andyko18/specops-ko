@@ -56,7 +56,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 
 **탐지**: ui-ux-pro-max 는 plugin.json hard dependency(보장)다. available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 감지 시 호출, 미감지(의존성 미해결) 시 graceful fallback.
 - **없으면 (의존성 미해결)**: 이 단계 전체 skip → Step 3 직행. `rationale = null`. ⚠️ `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 로 marketplace 선행 등록 권고.
-- **있으면**: `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: ui-ux-pro-max 결과 우선 채택 — DESIGN.md 토큰은 후순위 fallback.
+- **있으면**: `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
 
   자문 완료 후 아래 4개 항목을 **rationale 변수**로 추출해 이후 Step에서 사용:
   - `style`: style 이름 + 근거 한 줄
