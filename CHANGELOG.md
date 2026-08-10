@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`/init-project` 종결 커밋이 실행되지 않던 문제 — 목록 소유권을 bash 로 (FID 20260810-init-commit-teeth, #258)** — 부트스트랩이 산출물 18개를 staged 로 남기고 **커밋 없이 끝났다**. 실사용 실측(attendance): `git log` = `does not have any commits yet` · reflog 0 · `.git/COMMIT_EDITMSG` 부재 · friction-log 부재 → **커밋 시도조차 없었다**(거버넌스 차단이 아니다).
+  - **근원은 플레이스홀더였다** — `commands/init-project.md:109` 산문이 add 대상을 꺾쇠 플레이스홀더로 두어 **모델에게 목록 재구성을 시켰다**. 그런데 bash 는 `ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]` 로 **정본 목록을 이미 소유**한다(`phases-artifacts.sh:216`). 신규 `scripts/_internal/init-finalize.sh` 가 그 소유권을 되찾는다 — 정본 배열 재-add → 진행기록 append → **단일 커밋** → SHA·파일수 출력. 산문은 **호출 1줄**로 축약됐다(`git add`·`git commit` 리터럴 0건).
+  - **`/doctor` 5번째 항목 `bootstrap` 신설**(4→5) — `chore(init):` 커밋 부재로 미종결을 사후 검출한다. `exit 0`·read-only·`--json` 행수 계약 불변. **판정식은 subject 한정**(`--format=%s | grep -c '^chore(init): '`)이다 — `git log --grep` 은 커밋 메시지를 **행 단위**로 매칭해 `^` 앵커가 **본문 줄머리**를 잡는다(실측: 실 repo 3건 매치가 **전부 오탐**, subject 한정 후 0건).
+  - **`hooks/hooks.json:45` 하드코딩 인자 제거** — 리터럴 `specops-ko` 를 `ensure-session-progress.sh` 에 넘겨 **downstream 5/5 프로젝트**의 `session-progress.md` 제목이 전부 오염돼 있었다(downstream-dogfood·downstream-company=`specops-ko` · downstream-project·downstream-portal·specops-test2=`specops-auto-ko`). 스크립트 기본값 `basename $(pwd)` 는 원래 정상이었다. 기존 오염분은 **소급 정정하지 않는다**(사용자 repo 파일 — 5원칙 4).
+  - **리뷰가 잡은 것** — Phase B: `.bak` 잔존으로 spec §3 "git status clean" 부분 미충족(→ 성공 경로 회수). Phase C **Critical**: repo **하위 디렉토리 실행 시** 상대경로 재-add 가 전부 no-op → `rc=0 "커밋 완료"` **거짓 성공**(AC-2 무력화) — *조용한 실패를 없애려던 스크립트가 같은 클래스를 새로 만들고 있었다*. `cd "$(git rev-parse --show-toplevel)"` 를 **append 호출보다 앞**에 둬 `sub/.specops` 신규 생성까지 함께 차단.
+  - **실패 경로 정직성** — 커밋 실패 시 `rc=1` + 사유 원문 + staged 보존 + 재시도 안내. append 를 커밋 앞으로 옮기자 **거짓 "완료" 기록**이 남는 문제가 생겨, `.bak` 복원 + 재-add 로 롤백한다. stale `.bak` 복원은 **pre-rm(출처 증명) + 기록 실재 grep 2중 가드** 뒤에만 — 각 가드 단독으로는 못 막는 구멍(백업 `cp` 만 실패 / append 총체 실패인데 `rc=0`)이 실측으로 확인됐다.
+  - 테스트 `test-init-finalize.sh` **14건 신설** · `test-doctor.sh` 29→**31** · 전체 스위트 134→**135** · 변이 M1(재-add 제거) **격추 확인** · R-1 거버넌스 실발화 검증(13종 `.md` staged → allow / `+app.ts` 대조군 → deny).
+  - **한계**: 효과(커밋 누락 재발 0)는 **다음 신규 프로젝트 부트스트랩에서만** 확인된다. `semgrep`·`gitleaks` 미설치라 보안은 self-check 만. Linux 미검증. F12/F13 픽스처는 root CI 에서 무력화 가능. **형제 결함 별건 이관** — `phases-artifacts.sh` 도 같은 상대경로 add 이고 `init-project.sh` 전체가 상대경로라 국소 수습은 반쪽이다.
+
 ## [1.69.0] — 2026-08-10
 
 ### Added
