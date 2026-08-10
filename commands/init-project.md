@@ -156,4 +156,4 @@ git add <보강·골격 파일들> && git commit -m "chore(init): /init-project 
 
 ---
 
-*specops-ko v1.50.0 · 2026-08-03 · Light enrich · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v1.69.0 · 2026-08-03 · Light enrich · 원장 · Phase7 목록만 · 커밋1*

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.69.0] — 2026-08-10
+
 ### Added
 - **ui-ux-pro-max 자산 기반 디자인 시스템 확정 (FID 20260810-uiux-asset-driven-design, #257)** — specops-ko 는 `ui-ux-pro-max`(MIT)를 **cross-marketplace hard dependency 로 설치해 놓고 CSV 자산 참조가 0건**이었다. 유일한 연결이 `specifying-ko:166` 의 Skill 1회 호출(블랙박스)이었고, `/init-project` **Phase 6 은 하드코딩 5택으로 Primary 색 1개만** 채웠다. 자산에는 `colors`(**192유형 × 16토큰**, shadcn 규약)·`ui-reasoning`(**161 컨셉** — 패턴·스타일·핵심효과·안티패턴·`Decision_Rules`)·`styles` 84·`ux-guidelines` 98·`typography` 74·`motion` 16 이 있었다.
   - **실사용 증거**: downstream-dogfood(금융 대시보드)는 `§1.1 금융 도메인 색상`·`§1.4 명암비`·`§5 Motion`·컴포넌트 4종(Metric/Gauge/Chip/Tab)을 **손으로 만들었다**. `Financial Dashboard` 팔레트와 `Data-Dense Dashboard` 패턴·`must_have: high-contrast` 가 **이미 있었는데** 쓰이지 않았다. 이제 제품 유형 하나로 **§1 미채움 0 · hex 16행 · 컨셉 4축**이 들어간다.
@@ -1047,7 +1049,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.68.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.69.0...HEAD
+[1.69.0]: https://github.com/andyko18/specops-ko/compare/v1.68.0...v1.69.0
 [1.68.0]: https://github.com/andyko18/specops-ko/compare/v1.67.0...v1.68.0
 [1.67.0]: https://github.com/andyko18/specops-ko/compare/v1.66.0...v1.67.0
 [1.66.0]: https://github.com/andyko18/specops-ko/compare/v1.65.0...v1.66.0
