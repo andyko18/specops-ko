@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### Added
+- **ui-ux-pro-max 자산 기반 디자인 시스템 확정 (FID 20260810-uiux-asset-driven-design, #257)** — specops-ko 는 `ui-ux-pro-max`(MIT)를 **cross-marketplace hard dependency 로 설치해 놓고 CSV 자산 참조가 0건**이었다. 유일한 연결이 `specifying-ko:166` 의 Skill 1회 호출(블랙박스)이었고, `/init-project` **Phase 6 은 하드코딩 5택으로 Primary 색 1개만** 채웠다. 자산에는 `colors`(**192유형 × 16토큰**, shadcn 규약)·`ui-reasoning`(**161 컨셉** — 패턴·스타일·핵심효과·안티패턴·`Decision_Rules`)·`styles` 84·`ux-guidelines` 98·`typography` 74·`motion` 16 이 있었다.
+  - **실사용 증거**: downstream-dogfood(금융 대시보드)는 `§1.1 금융 도메인 색상`·`§1.4 명암비`·`§5 Motion`·컴포넌트 4종(Metric/Gauge/Chip/Tab)을 **손으로 만들었다**. `Financial Dashboard` 팔레트와 `Data-Dense Dashboard` 패턴·`must_have: high-contrast` 가 **이미 있었는데** 쓰이지 않았다. 이제 제품 유형 하나로 **§1 미채움 0 · hex 16행 · 컨셉 4축**이 들어간다.
+  - **결합을 어댑터 1파일에 가둔다** — 신규 `scripts/_internal/uiux-assets.sh` 가 경로·CSV 스키마·라벨 매핑·라이선스 문구·미제공 사유를 **전부** 소유하고, Phase 6 은 함수만 부른다. 결합이 실재하는 위험이기 때문이다: 캐시에 **2.5.0·2.13.0 이 공존**하고 `data/` 구성이 다르며(2.5.0 엔 `design.csv`), 같은 `colors.csv` 가 `src/`·`cli/assets/` **두 곳에 사본**인데 **md5 가 다르다**. 의존 상한이 `<3.0.0` 이라 **minor 는 자동 신뢰**된다. `U8` 이 격리를 잠근다(구현 파일에서 CSV 파일명 발견 시 FAIL).
+  - **A안 라벨 매핑 — 무음 사망 방지.** `_inject_design_palette` 는 DESIGN.md **행 라벨을 grep** 하고 실패 시 `[ -z "$hex" ] && continue` 로 **조용히** 넘어간다. CSV 라벨(`Card`·`Foreground`·`Muted Foreground`·`Destructive`)을 그대로 쓰면 4개가 사라져 `screens/*.html` 색 주입이 무음으로 죽는다 → **DESIGN 라벨로 매핑**해 넣고 기존 9라벨을 보존한다(`U11`·`U16` + 변이 M5).
+  - **값을 발명하지 않는다.** `Success` 는 어느 CSV 헤더에도 없다 — `colors.csv` 가 **shadcn/ui 규약**이고 shadcn 엔 success 토큰이 원래 없다(`destructive` 만). 고정 녹색 대신 **사유를 적어 비운다**. `Gradient`(컬럼 없음)·**비hex 값 19건**(`rgba(255,255,255,0.08)` Border 등)도 동일하게 skip + 사유 출력.
+  - **fallback 3경로 전부 `rc=0`** — 경로 부재·스키마 불일치·중도 실패에서 완전한 DESIGN.md 를 남기고 `/init-project` 를 계속 진행시킨다(부트스트랩 1회 경로라 중단이 치명적). **사유를 출력**한다 — 조용히 빠지면 사용자가 원인을 모른다.
+  - **`Decision_Rules` 에 `json.loads` 금지** — 실 자산 **40%(66/161)가 중복키**라 파싱하면 뒤엣것만 남는다(`Financial Dashboard` 는 `real-time-updates` 소실).
+  - **우선순위 역전 정정 3곳** — `ui-ux-pro-max 결과 우선, DESIGN.md 후순위` → **DESIGN.md 우선**. per-FID 생성물이 프로젝트 상수를 이기지 않는다(`specifying-ko`·`design-screen`·`start-all`).
+  - **템플릿 확장** — §1 에 8토큰 행 추가(17행 = hex 16 + Success 사유행), **§5 Motion·§6 레이아웃 패턴·§7 상태 표현** 신설. 한국어 입력은 LLM 레이어가 영문 유형으로 번역해 `UIUX_PRODUCT_TYPE` 로 넘긴다(자산 목록이 **전량 영문** — 한글 0건 실측).
+  - **리뷰가 잡은 것** — plan-reviewer 2회(Critical 3 → Important 5, 2회차엔 리뷰어가 **plan 코드를 조립해 실행**), Phase C(Important 2, **fixture 밖 프로브 6종** 합성). 전건 직접 재현 후 반영: `grep -c \|\| echo 99` → `0\n99` 정수 비교 폭발 · Gradient 범위 모순 · 하네스 진입점 부재(`phases-design.sh` 는 library-only) · **BSD sed `t;` → `undefined label`** · **U8 이 자기 plan 을 격추**(`_leak=1`) · **변이 M4 무효**(U15b 신설로 해소) · **중도 실패 성공 보고**(16행 미주입인데 `작성 완료`) · **awk `sub()` 의 `&` 확장 오염**(`#AB&C` → `` `#AB`#______`C` ``).
+  - 테스트 `test-uiux-assets.sh` **63건**(U0~U23+TB1) · **변이 8종 전부 격추** · propagation 114 → **117 edges** · **실 자산 end-to-end**(DESIGN.md → `_inject_design_palette` → CSS 변수 `--color-surface: #0E1223` 등) · 성능 자산경로 204ms vs 5택 28ms(부트스트랩 1회라 무영향).
+  - **한계**: **효과 미측정** — 새 프로젝트 부트스트랩에서만 확인된다. **Motion·상태 표현·Typography 값 채움은 후속 FID 이관**(AC-9 범위 부기) — 생성되지 않으면 spec 시나리오가 영구 미충족으로 남는다. LLM 한국어 번역 자동 검증 불가 · 정본 사본 미확증 · `ui-reasoning` 없는 31유형은 색상만 · 실 자산 192행 전수 미검증(픽스처 2행 + 리뷰어 스캔 보완) · Linux 미검증.
+
+### Fixed
+- **시한폭탄 테스트 2건 (같은 FID 에서 수습)** — `test-verification-state.sh`·`test-verdict-board.sh` 가 waiver 만료일을 **`2026-08-10T00:00:00Z` 로 하드코딩**해, 그 시각이 지나자 `WAIVED` 가 `NOT_RUN` 으로 계산돼 **두 스위트가 동시에 FAIL** 했다(자정 실발화, `main` 에서도 재현). **프로덕션은 정상이다** — `verification-state.sh` 가 조회 시점에 만료를 계산하는 게 설계이고, 테스트가 "미래" 라고 가정한 값이 과거가 된 것뿐이다. 상대 날짜(`date -u -v+1d` / GNU 폴백)로 바꾸고 **`TB1`** 이 미래 날짜 하드코딩을 잠근다. 과거 날짜(`2020-01-01`)는 만료 거부를 증명하는 의도적 고정값이라 대상이 아니다.
+  - 이 수습 없이는 **AC-R-2(run-all 전건 PASS)를 충족할 수 없어** 본 FID 가 자기 AC 를 FAIL 로 두는 모순이 생긴다(Phase B 리뷰어 판정). 사용자 승인 후 포함.
+
+
 ## [1.68.0] — 2026-08-10
 
 ### Fixed
