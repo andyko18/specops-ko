@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합 4항목 read-only 점검
+description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결 5항목 read-only 점검
 triggers:
   - "/doctor"
 mode: ask
@@ -31,6 +31,7 @@ reference_upstream: specops-ko 독자 추가
 | `memory` | `.specops/memory/*.md` placeholder 잔존 (판정 SoT = `scan-enrich-placeholders.sh`) |
 | `orphan_fid` | `spec.md` 만 있고 `tasks.md`·`evidence.md` 둘 다 없는 FID |
 | `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 (**디렉터리째 없는 FID 는 아카이브로 제외**) |
+| `bootstrap` | `/init-project` 부트스트랩이 **커밋으로 종결**됐는가 — `chore(init)` 커밋 부재 시 ⚠️ (조치: `init-finalize.sh`). `.specops/memory` 부재·비-git 은 `unknown` |
 
 ## 계약
 

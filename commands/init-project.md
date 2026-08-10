@@ -48,7 +48,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
    - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/test-strategy)
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
-   - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋.
+   - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
 4. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
 
@@ -104,11 +104,13 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.
 - **동시**: `.specops/memory/project-context.md` §1~2 채움 + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`). specifying·clarifying이 이 원장을 소비한다.
 
-**단일 커밋** (bash Phase 10 스테이징 + enrich 변경 통합):
+**단일 커밋** (bash Phase 10 스테이징 + enrich 변경 통합) — **반드시 아래 1줄로 수행한다**:
+
 ```bash
-git add <보강·골격 파일들> && git commit -m "chore(init): /init-project 부트스트랩+enrich (N종)"
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 ```
-(구: Phase 10 커밋 + Phase 11 재커밋 2회 → **1회**. bash만 단독 실행 시 `SPECOPS_INIT_COMMIT_NOW=1`.)
+
+이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다. 커밋 실패 시 rc=1 과 사유·재시도 안내가 출력되며 산출물은 staged 로 보존된다. bash 만 단독 실행할 때의 즉시커밋은 `SPECOPS_INIT_COMMIT_NOW=1` 이다.
 
 **무인 계약**: e2e-test-ko·§auto 무인 진입 시 승인 게이트를 **자동수락** 하고 Phase 11.5 인터뷰·가정 **건별 승인을 생략**한다 (HARD GATE 없이 완주 설계 정합). 단 가정 다이제스트·원장 기록은 **무인에서도 수행** — 사후 감사 경로.
 
@@ -136,7 +138,7 @@ git add <보강·골격 파일들> && git commit -m "chore(init): /init-project 
 → Phase 8e DB? (y) · 8f API? (2 = OpenAPI)
 → 13종 골격 + 원장 골격 스테이징
 → Phase 11.5 인터뷰 ≤5 → Light enrich → 게이트 1회 [y]
-→ git commit "chore(init): /init-project 부트스트랩+enrich (N종)"
+→ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
 → "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요"
 ```
 

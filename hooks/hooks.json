@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure-session-progress.sh\" specops-ko",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure-session-progress.sh\"",
             "async": false
           }
         ]

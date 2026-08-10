@@ -79,8 +79,8 @@ printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q '20260201-gap' \
   && ok "T5 progress 불일치 검출" || nope "T5" "out=$_OUT"
 
-# T6 (AC-6): 최악 상태(4항목 전부 ⚠️)에서도 exit 0
-# 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 4항목 ⚠️ 가 아니다.
+# T6 (AC-6): 최악 상태(5항목 전부 ⚠️)에서도 exit 0
+# 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 5항목 ⚠️ 가 아니다.
 R="$TMP/r6"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260101-orphan"; printf '# spec\n' > "$R/.specops/20260101-orphan/spec.md"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n- **버전**: <버전>\n' > "$R/.specops/memory/x.md"
@@ -89,8 +89,8 @@ printf '# Session Progress\n\n## 20260101-orphan\n\n- 2026-01-01 10:00 /verify P
 _run "$R"
 # 픽스처 재현과 본 단언을 **한 어서션**으로 묶는다 — 분리하면 미재현 시 총 개수가 12→13 으로 흔들린다.
 warns=$(printf '%s' "$_OUT" | grep -c '⚠️')
-[ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 4 ] \
-  && ok "T6 4항목 전부 ⚠️ 인 최악 상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
+[ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 5 ] \
+  && ok "T6 5항목 전부 ⚠️ 인 최악 상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
 
 # T7 (AC-7): .specops 부재 → 안내 + exit 0
 R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
@@ -98,10 +98,10 @@ _run "$R"
 [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
 
-# T8 (AC-8): --json 4항목 status
+# T8 (AC-8): --json 5항목 status
 R="$TMP/r8"; _mkrepo "$R"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==4 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==5 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
   ok "T8 --json 스키마"
 else
   nope "T8" "rc=$_RC out=$_OUT"
@@ -133,16 +133,20 @@ else
   nope "T10" "commands/doctor.md 누락·필드 미비"
 fi
 
-# T11 (AC-11): 정상 상태에서도 4행 전부 출력
+# T11 (AC-11): 정상 상태에서도 5행 전부 출력
 R="$TMP/r11"; _mkrepo "$R"; _hooks_ok "$R"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n' > "$R/.specops/session-progress.md"
+# bootstrap 은 "memory 존재 ∧ chore(init) 커밋 0" 이면 warn 이다 — 정상 상태 픽스처가
+#   커밋 0건이면 ✅ 5행이 되지 않는다. Given("정상 상태")을 실제로 재현한다.
+git -C "$R" add -A >/dev/null 2>&1
+git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩 (픽스처)" >/dev/null 2>&1
 _run "$R"
-rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress) ')
+rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap) ')
 oks=$(printf '%s' "$_OUT" | grep -c '✅')
-# AC-11 Then 은 2절이다 — "4행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 4행도 통과한다.
-[ "${rows:-0}" -eq 4 ] && [ "${oks:-0}" -eq 4 ] \
-  && ok "T11 정상 상태 4행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
+# AC-11 Then 은 2절이다 — "5행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 5행도 통과한다.
+[ "${rows:-0}" -eq 5 ] && [ "${oks:-0}" -eq 5 ] \
+  && ok "T11 정상 상태 5행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
 
 # ── Phase C 수습 (리뷰 T3-C / T4-C) ─────────────────────────────────────────
 
@@ -168,7 +172,7 @@ R="$TMP/r14"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260401-a|b|c"; printf '# spec\n' > "$R/.specops/20260401-a|b|c/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==4
+   | jq -e '(.checks|length)==5
             and ((.checks[]|select(.id=="orphan_fid")|.fix)=="진행하거나 정리하세요")' >/dev/null 2>&1; then
   ok "T14 파이프 인젝션에도 JSON 필드 정합 유지 (fix 문구 무손실)"
 else
@@ -180,24 +184,24 @@ NLDIR=$(printf '20260402-x\ny')
 R="$TMP/r14b"; _mkrepo "$R"
 mkdir -p "$R/.specops/$NLDIR"; printf '# spec\n' > "$R/.specops/$NLDIR/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 4행이라 헛통과한다 — 고아 검출까지 함께 고정.
+# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 5행이라 헛통과한다 — 고아 검출까지 함께 고정.
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==4
+   | jq -e '(.checks|length)==5
             and ((.checks[]|select(.id=="orphan_fid")|.status)=="warn")
             and ((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260402-x"))' >/dev/null 2>&1; then
-  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 4행 고정)"
+  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 5행 고정)"
 else
   nope "T14b" "rc=$_RC out=$_OUT"
 fi
 
 # T8b (Important 3 · 변이 M2): warn_count 가 실제 ⚠️ 개수와 일치
-#   픽스처: git_hooks=warn · memory=unknown · orphan_fid=ok · progress=unknown → 3
+#   픽스처: git_hooks=warn · memory=unknown · orphan_fid=ok · progress=unknown · bootstrap=unknown → 4
 R="$TMP/r8b"; _mkrepo "$R"
 _run "$R"                                   # 표 렌더 — ⚠️ 실개수
 warns8=$(printf '%s' "$_OUT" | grep -c '⚠️')
 wc8=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1 | jq -r '.warn_count' 2>/dev/null)
-[ "${wc8:-x}" = "3" ] && [ "${wc8:-x}" = "${warns8:-0}" ] \
-  && ok "T8b --json warn_count == 표 ⚠️ 개수 (3)" || nope "T8b" "warn_count=$wc8 warns=$warns8"
+[ "${wc8:-x}" = "4" ] && [ "${wc8:-x}" = "${warns8:-0}" ] \
+  && ok "T8b --json warn_count == 표 ⚠️ 개수 (4)" || nope "T8b" "warn_count=$wc8 warns=$warns8"
 
 # T16 (Minor 4): "## ../../outside-fid" 헤더가 .specops 밖을 프로브하지 않는다
 R="$TMP/r16"; _mkrepo "$R"
@@ -312,7 +316,7 @@ fi
   && ok "T25 승계 명시 + 원 FID 계약서 무수정" \
   || nope "T25" "doc=$t25_doc old_untouched=$t25_old"
 
-# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 4건 · schema_version 1 · warn_count 정합)
+# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 5건 · schema_version 1 · warn_count 정합)
 R="$TMP/r23"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
 printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
@@ -322,8 +326,8 @@ _n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
 _sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
 _wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
 _actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
-[ "$_n" = "4" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
-  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=4 · warn_count=$_wc)" \
+[ "$_n" = "5" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=5 · warn_count=$_wc)" \
   || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
 
 # T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
@@ -337,5 +341,35 @@ _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q '20260202-crlf' \
   && ok "T27 CRLF 헤더 → dir 존재 인식 유지 (아카이브 오분류 없음)" || nope "T27" "out=$_OUT"
+
+# T28 (Phase C Important 1): **본문**의 chore(init) 언급은 부트스트랩 종결이 아니다
+#   실 repo 실측: `git log --grep='chore(init)'` 3건 매치가 전부 오탐(190544d·a375648·23a4943)
+#   — 미종결 부트스트랩이 조용히 ✅ 되는 **실패 방향 반전**.
+#   두 번째 픽스처 커밋이 결정적이다: git 의 --grep 은 **행 단위** 매칭이라
+#   `--grep='^chore(init): '` 앵커도 본문 줄머리를 잡는다(실측 — 아래 커밋이 매치됐다).
+#   그래서 판정은 subject(%s) 만 보고 해야 한다.
+R="$TMP/r28"; _mkrepo "$R"
+mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
+git -C "$R" add -A >/dev/null 2>&1
+git -C "$R" commit -q -m "feat(x): 다른 작업" -m "본문 참조: chore(init) 커밋을 보라" >/dev/null 2>&1
+printf 'b\n' > "$R/b.txt"; git -C "$R" add -A >/dev/null 2>&1
+git -C "$R" commit -q -m "docs(y): 회고" -m "chore(init): 이 줄은 본문의 줄머리다" >/dev/null 2>&1
+_run "$R"
+if printf '%s' "$_OUT" | grep -E '^\| bootstrap ' | grep -q '⚠️' \
+   && printf '%s' "$_OUT" | grep -E '^\| bootstrap ' | grep -q 'init-finalize\.sh'; then
+  ok "T28 본문 언급뿐인 chore(init) → bootstrap ⚠️ 유지 (subject 앵커)"
+else
+  nope "T28" "row=$(printf '%s' "$_OUT" | grep -E '^\| bootstrap ')"
+fi
+
+# T29 (T28 짝) — subject 가 진짜 `chore(init): ` 이면 ✅ (검출력 손실 없음)
+R="$TMP/r29"; _mkrepo "$R"
+mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
+git -C "$R" add -A >/dev/null 2>&1
+git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩+enrich (13종)" >/dev/null 2>&1
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| bootstrap ' | grep -q '✅' \
+  && ok "T29 subject 가 chore(init): → bootstrap ✅" \
+  || nope "T29" "row=$(printf '%s' "$_OUT" | grep -E '^\| bootstrap ')"
 
 finish

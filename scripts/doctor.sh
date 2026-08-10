@@ -161,6 +161,34 @@ _chk_progress() {
   fi
 }
 
+_chk_bootstrap() {
+  # 부트스트랩이 **커밋으로 종결**됐는가. staged 잔존 기준은 사용자가 나중에 문서를
+  #   편집해 staged 로 두면 오탐하고, "커밋 0건" 기준은 기존 repo 에 init 한 흔한 경우를
+  #   미탐한다. 그래서 init 커밋(chore(init) 접두 — init-finalize.sh 자신이 쓰는 문구)의
+  #   부재를 본다.
+  if [ ! -d "$SPECOPS/memory" ]; then
+    _add bootstrap unknown "$SPECOPS/memory 부재 — 부트스트랩 안 됨" "/init-project"; return
+  fi
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    _add bootstrap unknown "git repo 아님 — 판정 불가" ""; return
+  fi
+  local n_init n_staged
+  # subject(%s) 만 본다 — `--grep` 은 커밋 메시지를 **행 단위**로 매칭하므로 본문의 언급도
+  #   잡는다. 무앵커(`chore(init)`)는 실 repo 에서 3건 전부 오탐이었고(190544d·a375648·23a4943),
+  #   앵커(`^chore(init): `)조차 **본문 줄머리**를 매치한다(픽스처 실측 — test-doctor.sh T28).
+  #   미종결이 조용히 ✅ 되는 실패 방향 반전이라, 판정 근거를 첫 줄로 한정한다.
+  #   --grep 은 순수 prefilter 로 남긴다(대형 repo 스캔 절감) — 정확도는 뒤 grep 이 책임진다.
+  n_init=$(git log --grep='chore(init)' --format=%s 2>/dev/null | grep -c '^chore(init): ' || true)
+  [ -n "$n_init" ] || n_init=0
+  if [ "$n_init" -gt 0 ]; then
+    _add bootstrap ok "부트스트랩 커밋 확인 (${n_init}건)" ""; return
+  fi
+  n_staged=$(git diff --cached --name-only 2>/dev/null | grep -c . || true)
+  [ -n "$n_staged" ] || n_staged=0
+  _add bootstrap warn "부트스트랩 미종결 (staged ${n_staged}파일 · init 커밋 0)" \
+    "bash scripts/_internal/init-finalize.sh"
+}
+
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -178,6 +206,7 @@ _chk_hooks
 _chk_memory
 _chk_orphan
 _chk_progress
+_chk_bootstrap
 
 if [ "$JSON" -eq 1 ]; then
   printf '%s' "$ROWS" | jq -Rs '
