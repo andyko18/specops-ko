@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.70.0] — 2026-08-11
+
 ### Fixed
 - **`/init-project` 종결 커밋이 실행되지 않던 문제 — 목록 소유권을 bash 로 (FID 20260810-init-commit-teeth, #258)** — 부트스트랩이 산출물 18개를 staged 로 남기고 **커밋 없이 끝났다**. 실사용 실측(attendance): `git log` = `does not have any commits yet` · reflog 0 · `.git/COMMIT_EDITMSG` 부재 · friction-log 부재 → **커밋 시도조차 없었다**(거버넌스 차단이 아니다).
   - **근원은 플레이스홀더였다** — `commands/init-project.md:109` 산문이 add 대상을 꺾쇠 플레이스홀더로 두어 **모델에게 목록 재구성을 시켰다**. 그런데 bash 는 `ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]` 로 **정본 목록을 이미 소유**한다(`phases-artifacts.sh:216`). 신규 `scripts/_internal/init-finalize.sh` 가 그 소유권을 되찾는다 — 정본 배열 재-add → 진행기록 append → **단일 커밋** → SHA·파일수 출력. 산문은 **호출 1줄**로 축약됐다(`git add`·`git commit` 리터럴 0건).
@@ -1059,7 +1061,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.69.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.70.0...HEAD
+[1.70.0]: https://github.com/andyko18/specops-ko/compare/v1.69.0...v1.70.0
 [1.69.0]: https://github.com/andyko18/specops-ko/compare/v1.68.0...v1.69.0
 [1.68.0]: https://github.com/andyko18/specops-ko/compare/v1.67.0...v1.68.0
 [1.67.0]: https://github.com/andyko18/specops-ko/compare/v1.66.0...v1.67.0
