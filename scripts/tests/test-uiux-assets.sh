@@ -222,8 +222,9 @@ for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/start-
     && ok "U20.$(basename $f) 정정" || nope "U20.$(basename $f)" "미정정"
 done
 # U20b — AC-9 범위 부기 (verify 가 AC-9 를 FAIL 로 읽지 않게 근거를 남긴다)
-grep -q 'AC-9 범위 부기' \
-  "$PLUGIN/.specops/20260810-uiux-asset-driven-design/acceptance-criteria.md" \
+#   ★ SoT 는 tracked CHANGELOG 다. `.specops/<FID>/` 는 gitignore 로컬 전용이라
+#     CI clone 에 없어 이 검사가 항상 FAIL 했다(v1.71.0 Actions 실측: U20b only).
+grep -q 'AC-9 범위 부기' "$PLUGIN/CHANGELOG.md" \
   && ok "U20b AC-9 범위 부기" || nope "U20b" "부기 부재 — verify 가 AC-9 를 FAIL 로 판정한다"
 # U21 — propagation 잠금
 grep -q 'uiux-asset-adapter' "$PLUGIN/scripts/_internal/propagation-matrix.jsonl" \
