@@ -8,7 +8,11 @@
   },
   "license": "UNLICENSED",
   "dependencies": [
-    { "name": "ui-ux-pro-max", "marketplace": "ui-ux-pro-max-skill", "version": ">=2.0.0 <3.0.0" }
+    {
+      "name": "ui-ux-pro-max",
+      "marketplace": "ui-ux-pro-max-skill",
+      "version": ">=2.0.0 <3.0.0"
+    }
   ],
   "keywords": [
     "korean",
@@ -17,7 +21,6 @@
     "superpowers",
     "skill-chain",
     "spec-driven",
-    "harness",
-    "downstream-project"
+    "harness"
   ]
 }
