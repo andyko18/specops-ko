@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **CI `test-uiux-assets` U20b 가 Actions 에서만 FAIL 하던 문제** — 검사가 gitignore 된 `.specops/<FID>/acceptance-criteria.md` 를 읽어 로컬(파일 있음)은 PASS·CI clone 은 FAIL 이었다. SoT 를 tracked `CHANGELOG.md` 의 `AC-9 범위 부기` 문구로 옮김.
+
 ## [1.71.0] — 2026-08-11
 
 ### Changed
