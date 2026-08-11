@@ -603,6 +603,157 @@ _one=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 
   && ok "T24.d 라벨형 — 무라벨형과 동일 결과" || nope "T24.d" "한줄='$_one'"
 teardown_fixture
 
+# ── T28 repo 루트 가드 (FID 20260811-init-cwd-root-guard) ─────────
+# harness.sh 에 SKIP 개념이 없어(ok/fail/nope/run/finish 5종만) 로컬 헬퍼로 구현한다.
+#   사유 없는 skip 은 검증 공백을 통과로 위장하므로 FAIL 처리한다 (AC-5).
+skipped() {
+  if [ -z "${2:-}" ]; then
+    nope "$1" "SKIP 사유 누락 — 검증 공백을 은폐함"
+    return 1
+  fi
+  echo "SKIP $1 — $2"
+}
+LIB="$PLUGIN/scripts/_internal/init-project/lib.sh"
+
+# T28.a subdir → repo 루트로 이동 + stderr 2줄 고지 (AC-2 · 구속사항 C-1)
+setup_fixture
+mkdir -p sub
+_root=$(pwd -P)
+_err_f=$(mktemp)
+_out=$(cd sub && bash -c ". \"$LIB\"; _cd_repo_root; pwd -P" 2>"$_err_f")
+_lines=$(grep -c . "$_err_f"); _err=$(cat "$_err_f"); rm -f "$_err_f"
+if [ "$_out" = "$_root" ] && [ "$_lines" -ge 2 ]; then
+  ok "T28.a subdir → repo 루트 이동 + 고지 2줄"
+else
+  nope "T28.a" "pwd=$_out root=$_root err줄=$_lines err=[$_err]"
+fi
+teardown_fixture
+
+# T28.b repo 루트 실행 → cwd 무변경 + stderr 무출력 (AC-R-2 · 구속사항 C-2)
+setup_fixture
+_root=$(pwd -P)
+_err_f=$(mktemp)
+_out=$(bash -c ". \"$LIB\"; _cd_repo_root; pwd -P" 2>"$_err_f")
+_err=$(cat "$_err_f"); rm -f "$_err_f"
+if [ "$_out" = "$_root" ] && [ -z "$_err" ]; then
+  ok "T28.b repo 루트 → 무변경·무출력"
+else
+  nope "T28.b" "pwd=$_out root=$_root err=[$_err]"
+fi
+teardown_fixture
+
+# T28.c 비-git → cd 미실행 + rc=0 + 고지 무출력 (AC-4 조용한 실패 방지)
+#   ★ `[init]` 부재 단언이 핵심이다 — rc=0/pwd 만 보면 `-z` 가드 제거 변이가 생존한다(실측).
+_t=$(mktemp -d); _tp=$(cd "$_t" && pwd -P)
+_out=$(cd "$_t" && bash -c ". \"$LIB\"; _cd_repo_root; echo \"rc=\$?\"; pwd -P" 2>&1)
+rm -rf "$_t"
+if printf '%s' "$_out" | grep -q "rc=0" \
+   && printf '%s' "$_out" | grep -qF "$_tp" \
+   && ! printf '%s' "$_out" | grep -q '\[init\]'; then
+  ok "T28.c 비-git → cd 미실행·rc=0·무출력"
+else
+  nope "T28.c" "out=$_out"
+fi
+
+# T28.g skipped() 가 사유 없는 skip 을 통과로 위장하지 않는다 (AC-5)
+#   서브셸이라 PASS/FAIL 카운터가 바깥으로 새지 않는다.
+_p1=$(PASS=0; FAIL=0; skipped "probe" >/dev/null 2>&1; echo "FAIL=$FAIL")
+_p2=$(PASS=0; FAIL=0; skipped "probe" "사유있음" >/dev/null 2>&1; echo "FAIL=$FAIL")
+if [ "$_p1" = "FAIL=1" ] && [ "$_p2" = "FAIL=0" ]; then
+  ok "T28.g skip 사유 누락 → FAIL · 사유 있으면 무증가"
+else
+  nope "T28.g" "무사유=$_p1 유사유=$_p2"
+fi
+
+# T28.d git worktree 루트 → _check_git 통과 + stderr 무출력 (AC-1)
+setup_fixture
+git commit -q --allow-empty -m init
+# worktree 는 TMPDIR **내부**에 만든다 — 형제 경로(../)는 teardown 의 rm -rf 가 회수하지 못한다
+_wt="$TMPDIR/wt-t28"
+if git worktree add -q "$_wt" -b t28branch 2>/dev/null; then
+  _err_f=$(mktemp)
+  _out=$(cd "$_wt" && bash -c ". \"$LIB\"; _check_git; echo \"rc=\$?\"" 2>"$_err_f")
+  _err=$(cat "$_err_f"); rm -f "$_err_f"
+  if printf '%s' "$_out" | grep -q "rc=0" && [ -z "$_err" ]; then
+    ok "T28.d worktree 루트 → _check_git 통과·무출력"
+  else
+    nope "T28.d" "out=$_out err=[$_err]"
+  fi
+  git worktree remove --force "$_wt" 2>/dev/null
+else
+  skipped "T28.d worktree" "git worktree 미지원 환경 (git $(git --version | awk '{print $3}')) — AC-1 미검증"
+fi
+teardown_fixture
+
+# T28.e 비-git → exit 1 + 원문 메시지 (AC-R-1 승계 · T6.a 와 동일 계약)
+_t=$(mktemp -d)
+_out=$(cd "$_t" && bash -c ". \"$LIB\"; _check_git" 2>&1); _ec=$?
+rm -rf "$_t"
+if [ "$_ec" = "1" ] && printf '%s' "$_out" | grep -q "git 저장소가 아닙니다"; then
+  ok "T28.e 비-git → exit 1 + 원문 메시지 보존"
+else
+  nope "T28.e" "ec=$_ec out=$_out"
+fi
+
+# T28.f source 시 호출자 cwd 무변경 (AC-3 — 회귀 방어)
+#   ★ 양성 단언이다 — `!= 루트` 부정형으로 쓰면 source 자체가 사망해 _out 이 빈값일 때도
+#     "루트가 아니다" 가 성립해 오탐 PASS 한다. sub 물리경로와 **일치**를 요구한다.
+setup_fixture
+mkdir -p sub
+_sub=$(cd sub && pwd -P)
+_out=$(cd sub && bash -c ". \"$SCRIPT\" >/dev/null 2>&1; pwd -P")
+if [ "$_out" = "$_sub" ]; then
+  ok "T28.f source → 호출자 cwd 무변경"
+else
+  nope "T28.f" "cwd=$_out 기대=$_sub (source 가 cwd 를 옮겼거나 스크립트 사망)"
+fi
+teardown_fixture
+
+# T28.h 작업트리 밖(`.git` 내부 · bare repo) → exit 1 + 원문 메시지 (AC-R-1 회귀 방어)
+#   ★ rc 만 보는 판정(`git rev-parse --git-dir`)은 이 두 위치에서 **rc=0** 이라 통과한다 —
+#     구 `[ -d .git ]` 이 차단하던 곳이 뚫린다. `--is-inside-work-tree` 의 **출력**(`false`)
+#     비교만이 격추한다(실측: 두 위치 모두 out=false, rc=0).
+#   두 입력 클래스를 한 케이스로 묶는다 — 같은 계약(작업트리 밖 차단)의 두 표본이다.
+_t=$(mktemp -d)
+git -C "$_t" init -q r 2>/dev/null
+git init -q --bare "$_t/b.git" 2>/dev/null
+_out1=$(cd "$_t/r/.git" && bash -c ". \"$LIB\"; _check_git" 2>&1); _ec1=$?
+_out2=$(cd "$_t/b.git" && bash -c ". \"$LIB\"; _check_git" 2>&1); _ec2=$?
+rm -rf "$_t"
+if [ "$_ec1" = "1" ] && printf '%s' "$_out1" | grep -q "git 저장소가 아닙니다" \
+   && [ "$_ec2" = "1" ] && printf '%s' "$_out2" | grep -q "git 저장소가 아닙니다"; then
+  ok "T28.h .git 내부·bare repo → exit 1 + 원문 메시지"
+else
+  nope "T28.h" ".git내부: ec=$_ec1 out=[$_out1] / bare: ec=$_ec2 out=[$_out2]"
+fi
+
+# T28.i cd 실패 분기 → rc≠0 + 사유 stderr (AC-4 ② — 유일하게 자동화 안 되던 분기)
+#   기법: fake `git` 을 PATH 앞에 주입해 `--show-toplevel` 이 **존재하지 않는 경로**를 뱉게 한다.
+#   PATH 오염은 아래 한 줄의 명령 앞 할당으로 한정된다(다른 케이스 무영향).
+#   ★ 사유 문자열 단언이 핵심이다 — `cd` 는 `|| { …; return 1; }` 없이도 실패 시 rc=1 이라
+#     rc 만 보면 에러 처리 블록 삭제 변이가 생존한다(실측). 경로 문자열 단언은 fake 가 실제로
+#     발화했음을 보증한다(heredoc 오확장으로 빈값이면 `-n` 가드에 걸려 오탐 PASS 하므로).
+_t=$(mktemp -d); _fake=$(mktemp -d)
+cat > "$_fake/git" <<'FAKEGIT'
+#!/usr/bin/env bash
+# _cd_repo_root 가 부르는 서브커맨드만 가로챈다
+case "$*" in
+  "rev-parse --show-toplevel") echo "/nonexistent-t28-probe" ;;
+  *) exit 1 ;;
+esac
+FAKEGIT
+chmod +x "$_fake/git"
+_out=$(cd "$_t" && PATH="$_fake:$PATH" bash -c ". \"$LIB\"; _cd_repo_root; echo \"rc=\$?\"" 2>&1)
+rm -rf "$_t" "$_fake"
+_rc=$(printf '%s\n' "$_out" | grep -o 'rc=[0-9]*' | tail -1)
+if [ -n "$_rc" ] && [ "$_rc" != "rc=0" ] \
+   && printf '%s' "$_out" | grep -qF '[init] repo 루트 이동 실패' \
+   && printf '%s' "$_out" | grep -qF '/nonexistent-t28-probe'; then
+  ok "T28.i cd 실패 → rc≠0 + 사유 stderr"
+else
+  nope "T28.i" "rc=[$_rc] out=[$_out]"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

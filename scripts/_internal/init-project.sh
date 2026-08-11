@@ -60,6 +60,7 @@ main() {
     echo "  10 git commit + .specops/.gitignore"
     exit 0
   fi
+  _cd_repo_root
   phase_1_precheck "${project_name}"
   phase_2_classify
   phase_3_constitution

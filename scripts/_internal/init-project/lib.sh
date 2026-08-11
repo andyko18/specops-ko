@@ -3,8 +3,35 @@
 # 공용 헬퍼 9개 (init-project.sh 에서 이동)
 
 # ── 헬퍼 ─────────────────────────────────────
+# repo 루트로 이동 — 이동만 책임진다(판정·에러는 _check_git 소관).
+#   Phase 1~10 의 산출물 경로·git add 가 전부 cwd 상대라 루트가 아니면 엉뚱한 곳에 만들어진다.
+#   호출 위치는 init-project.sh main() 의 phase_1_precheck **앞** — phases-early.sh:7 의
+#   PROJECT_NAME=$(basename "$PWD") 가 _check_git 보다 먼저 계산되기 때문이다.
+#   왜 -n 을 먼저 보나: `cd ""` 는 bash 에서 rc=0 이라 조용히 제자리에 머문다. 이 가드를 빼면
+#   비-git 에서 빈 경로로 고지까지 출력하고 "이동한 척" 진행한다(변이 M3 로 격추 확인).
+_cd_repo_root() {
+  local _root _here
+  _root=$(git rev-parse --show-toplevel 2>/dev/null)
+  [ -n "$_root" ] || return 0                      # 비-git — _check_git 이 판정한다
+  # 물리경로로 정규화한 뒤 비교한다. git 은 toplevel 을 **물리경로**로 주는데 $PWD 는 논리경로라
+  #   심링크 환경(macOS /var → /private/var)에서 같은 디렉토리가 문자열로 어긋난다 — 그러면
+  #   repo 루트인데도 "이동" 분기로 빠져 고지가 새어 나온다(실측 확인).
+  _here=$(pwd -P)
+  [ "$_root" = "$_here" ] && return 0              # 루트(worktree 루트 포함) — 무음 통과
+  echo "[init] repo 루트로 이동합니다: $_root" >&2
+  echo "     (현재 위치: ${_here#"$_root"/} — 부트스트랩은 repo 루트 기준)" >&2
+  cd "$_root" || { echo "[init] repo 루트 이동 실패: $_root" >&2; return 1; }
+}
+
 _check_git() {
-  if [ ! -d .git ]; then
+  # rev-parse 판정 — `.git` 이 **파일**인 형태(worktree·submodule)도 정상 repo 로 인식한다.
+  #   `[ -d .git ]` 는 worktree 루트를 오탐 차단했다(repo 전역에서 이 관용구를 쓰던 유일한 곳).
+  # 왜 `--git-dir` 가 아니라 `--is-inside-work-tree` 의 **출력** 비교인가:
+  #   `.git` 내부·bare repo 에서 `--git-dir` 는 성공(rc=0)해 구 `[ -d .git ]` 이 차단하던 두
+  #   위치를 통과시킨다(회귀). `--is-inside-work-tree` 는 그 두 곳에서 `false` 를 **출력**하되
+  #   rc 는 0 이므로, rc 만 보면 여전히 뚫린다 — 문자열 비교가 필수다(실측·T28.h 가 격추).
+  #   부트스트랩은 작업트리에 파일을 쓰므로 "작업트리 안인가" 가 올바른 질문이다.
+  if [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" != true ]; then
     echo "git 저장소가 아닙니다. git init 을 먼저 실행하세요." >&2
     exit 1
   fi
