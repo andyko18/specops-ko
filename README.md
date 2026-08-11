@@ -7,8 +7,15 @@
 ### 1. 플러그인 설치 (1회)
 
 ```bash
-claude plugin marketplace add ~/path/to/specops-ko
+# 의존성 선행 등록 (최초 1회)
+claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
+
+# GitHub marketplace 등록 + 설치
+claude plugin marketplace add andyko18/specops-ko
+claude plugin install specops-ko@specops-ko
 ```
+
+로컬 경로로 개발·dogfood 할 때는 `claude plugin marketplace add /절대경로/specops-ko` 도 가능합니다.
 
 ### 2. 작업 진입 (슬래시 1회 또는 자연어 1회)
 

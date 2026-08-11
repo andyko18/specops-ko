@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **marketplace 식별자 `specops-ko-local` → `specops-ko`** — GitHub(`andyko18/specops-ko`) 배포에 맞춰 로컬 접미사 제거. 설치 키는 `specops-ko@specops-ko`. 기존 `specops-ko@specops-ko-local` 사용자는 marketplace 재등록 + Claude Code 재시작 필요.
+
 ## [1.70.0] — 2026-08-11
 
 ### Fixed

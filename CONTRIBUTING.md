@@ -11,7 +11,9 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 
 ```bash
 claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill   # 의존성 선행 등록
-claude plugin marketplace add ~/Project/0.Claude/specops-ko
+claude plugin marketplace add andyko18/specops-ko                    # GitHub
+claude plugin install specops-ko@specops-ko
+# 로컬 dogfood: claude plugin marketplace add /절대경로/specops-ko
 ```
 
 ## 개발 워크플로
