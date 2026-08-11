@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.71.0] — 2026-08-11
+
 ### Changed
 - **marketplace 식별자 `specops-ko-local` → `specops-ko`** — GitHub(`andyko18/specops-ko`) 배포에 맞춰 로컬 접미사 제거. 설치 키는 `specops-ko@specops-ko`. 기존 `specops-ko@specops-ko-local` 사용자는 marketplace 재등록 + Claude Code 재시작 필요.
 
@@ -1064,7 +1066,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.70.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.71.0...HEAD
+[1.71.0]: https://github.com/andyko18/specops-ko/compare/v1.70.0...v1.71.0
 [1.70.0]: https://github.com/andyko18/specops-ko/compare/v1.69.0...v1.70.0
 [1.69.0]: https://github.com/andyko18/specops-ko/compare/v1.68.0...v1.69.0
 [1.68.0]: https://github.com/andyko18/specops-ko/compare/v1.67.0...v1.68.0
