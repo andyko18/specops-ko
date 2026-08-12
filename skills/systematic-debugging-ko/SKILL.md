@@ -5,7 +5,7 @@ layer: 2
 discipline: true
 reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
-  - specops-ko skills/engine/systematic-debugging-ko.md
+  - skills/systematic-debugging-ko/SKILL.md
 specops_version: 1.0.0
 used_by: implementing-ko·tdd-ko·verifying-evidence-ko·security-review-ko·integration-test-ko·performance-test-ko (BLOCKED·FAIL 분기 진입)
 ---
@@ -313,7 +313,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 
 ## 참조
 
-- specops-ko 한국어 선례: `skills/engine/systematic-debugging-ko.md`
+- specops-ko 한국어 선례: `skills/systematic-debugging-ko/SKILL.md`
 
 ## 다음 skill
 

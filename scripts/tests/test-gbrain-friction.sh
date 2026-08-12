@@ -238,4 +238,27 @@ printf '%s' "$_OUT" | grep -qE '^\| R-T \| +3 \| +1 \| +3 \|' \
   && printf '%s' "$_OUT" | sed -n '/증류 후보/,$p' | grep -q 'R-T' \
   && ok "T21 ts 누락 — 표 block 열 정확(3) + 후보 등재" || nope "T21" "out=$_OUT"
 
+# T22: BYPASS vs receipt — BYPASS-ENV 2행 + receipt 1개
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/b1/receipts" "$TMP/.specops/b2"
+{ _row b1 BYPASS-ENV warn 2026-08-01T00:00:00Z; } > "$TMP/.specops/b1/friction-log.jsonl"
+{ _row b2 BYPASS-ENV warn 2026-08-02T00:00:00Z; } > "$TMP/.specops/b2/friction-log.jsonl"
+echo '{"task":"T1"}' > "$TMP/.specops/b1/receipts/T1.json"
+_run
+printf '%s' "$_OUT" | grep -q 'BYPASS vs receipt' \
+  && printf '%s' "$_OUT" | grep -qE 'BYPASS-ENV 행수 \| +2' \
+  && printf '%s' "$_OUT" | grep -qE 'receipt 파일수 \| +1' \
+  && ok "T22 BYPASS vs receipt 지표" || nope "T22" "out=$_OUT"
+# JSON 필드
+_run --json
+printf '%s' "$_OUT" | jq -e '.bypass_env.rows==2 and .bypass_env.fids==2 and .receipts.files==1' >/dev/null 2>&1 \
+  && ok "T22j JSON bypass_env·receipts" || nope "T22j" "out=$_OUT"
+
+# T23: friction 0 · receipt 0 이어도 섹션 존재 (조용한 생략 금지)
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops"
+_run
+printf '%s' "$_OUT" | grep -q 'BYPASS vs receipt' \
+  && printf '%s' "$_OUT" | grep -qE 'BYPASS-ENV 행수 \| +0' \
+  && printf '%s' "$_OUT" | grep -qE 'receipt 파일수 \| +0' \
+  && ok "T23 빈 상태에서도 BYPASS vs receipt" || nope "T23" "out=$_OUT"
+
 finish

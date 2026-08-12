@@ -18,14 +18,22 @@ claude plugin install specops-ko@specops-ko
 
 ## 개발 워크플로
 
+clone 후 1회: `bash scripts/_internal/install-git-hooks.sh` (pre-commit≈5s · pre-push≈run-all).
+
 본 플러그인은 **자기 자신을 dogfood** 한다. 신규 skill·command·hook 추가는 다음 슬래시로 진입한다:
 
 ```bash
-/start "<기능 설명>"          # 신규 기능
-/maintain "<수정 대상>"       # 유지보수 (bug fix, refactor)
+/start "<기능 설명>"                 # 신규 기능 (풀 chain)
+/start-lite "<기능>"                 # 경량 신규 (clarify·plan skip)
+/start-auto "<기능>"                 # 무인 단독 (§auto)
+/start-foundation "<공통부>"         # 공통부 1회
+/start-all                           # FR batch (requirements 필요)
+/start-all-auto                      # 무인 batch
+/maintain "<수정 대상>"              # 유지보수 (analyzing 선행)
+/maintain-lite "<대상>"              # 경량 유지보수
 ```
 
-자율 chain: specify → clarify → plan → decompose → implement → verify → request-review → receive-review → PR.
+자율 chain: specify → clarify → plan → decompose → implement → verify → request-review → receive-review → security → integration-test → performance-test → PR.
 
 ## PR 전 필수 체크
 
@@ -36,7 +44,7 @@ bash scripts/_internal/validate-structure.sh
 # 2) 거버넌스 규칙 회귀 (전 항목 PASS, FAIL=0 목표)
 bash scripts/tests/governance/test-rules.sh
 
-# 3) DAG 파서 (PASS=24 목표)
+# 3) DAG 파서 (PASS=26 목표)
 bash scripts/tests/dag/test-parse-dag.sh
 
 # 4) SKILL.md 규약
@@ -44,6 +52,9 @@ bash scripts/tests/test-skill-conventions.sh
 
 # (권장) 전체 pre-flight 게이트 한 번에 — 릴리즈와 동일
 bash scripts/tests/run-all.sh
+
+# (권장·soft) 릴리즈 전 LLM smoke — stamp 7일 이내
+# bash scripts/tests/llm-eval/run-evals.sh
 ```
 
 1건이라도 FAIL 시 머지 금지.
@@ -59,7 +70,7 @@ description: <한 줄 — 언제 사용·무엇·결과>
 layer: 1 | 2 | 3
 reference_upstream: <owner/repo@version path> 또는 "specops-ko 독자 추가"
 specops_version: <semver>
-used_by: <호출 skill 목록 (namespace 포함)>
+used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (specops-ko: prefix 금지)
 ---
 ```
 

@@ -94,7 +94,7 @@ scripts/_internal/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파�
 ```
 
 **분류**:
-- `struct` (auto): 엄격 매칭 (현재 4건 — skills/engine/*-ko.md)
+- `struct` (auto): 엄격 매칭 (현재 — `skills/*/SKILL.md` 플랫 경로)
 - `manual`: 다중·서술형·확장자 없음 (현재 17건) — v0.3 primary/secondary 필드 split 예정
 
 **캐시**: `.specops-cache/upstream/${owner}__${repo}__${tag}__<path>` (gitignored)

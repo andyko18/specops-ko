@@ -6,7 +6,7 @@ discipline: true
 reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
   - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
-  - specops-ko skills/engine/verifying-evidence-ko.md
+  - skills/verifying-evidence-ko/SKILL.md
 specops_version: 1.64.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 ---
@@ -204,7 +204,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ## 참조
 
 - ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/verification-loop/`
-- specops-ko 한국어 선례: `skills/engine/verifying-evidence-ko.md`
+- specops-ko 한국어 선례: `skills/verifying-evidence-ko/SKILL.md`
 
 ## Bounded verify→fix 루프 (P2-2)
 

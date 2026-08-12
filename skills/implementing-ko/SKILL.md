@@ -399,7 +399,6 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 참조
 
-- specops-ko 한국어 선례: `skills/engine/subagent-driven-development-ko.md`
 - `skills/generator-evaluator-ko/SKILL.md` — 2단계 리뷰(스펙·품질) 분리 원칙
 - `skills/context-resets-ko/SKILL.md` — fresh 서브에이전트 세션 보장
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)

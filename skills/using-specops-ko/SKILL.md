@@ -3,7 +3,7 @@ name: using-specops-ko
 description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
-specops_version: 1.63.0
+specops_version: 1.72.0
 used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 ---
 
@@ -220,4 +220,4 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
 
 ---
 
-*specops-ko v1.0.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
+*specops-ko v1.72.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*

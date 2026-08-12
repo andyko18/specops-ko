@@ -4,8 +4,8 @@ description: 모든 창작 작업 전에 반드시 사용 — 기능 신설·컴
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
-  - specops-ko skills/engine/brainstorming-ko.md
-specops_version: 1.69.0
+  - skills/brainstorming-ko/SKILL.md
+specops_version: 1.72.0
 used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 

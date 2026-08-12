@@ -4,7 +4,7 @@ description: 화면 스펙(.md) + HTML 미리보기(.html) 쌍을 screens/ 에 �
 triggers:
   - "/design-screen"
 mode: ask
-specops_version: 1.0.0
+specops_version: 1.72.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -150,4 +150,4 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ---
 
-*specops-ko v1.0.0 · 2026-05-20 · 화면별 목업 생성 슬래시*
+*specops-ko v1.72.0 · 2026-05-20 · 화면별 목업 생성 슬래시*

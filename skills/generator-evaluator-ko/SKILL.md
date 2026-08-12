@@ -3,7 +3,7 @@ name: generator-evaluator-ko
 description: 생성 에이전트와 평가 에이전트를 엄격히 분리하여 자기평가 편향을 차단한다 (OMC 흡수)
 layer: 3
 reference_upstream: obra/omc@v1.0 skills/generator-evaluator/SKILL.md
-specops_version: 1.44.0
+specops_version: 1.72.0
 used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko, planning-ko, /start-all (Phase 2.5-D)
 ---
 

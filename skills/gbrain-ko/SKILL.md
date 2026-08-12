@@ -86,6 +86,7 @@ bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/gbrain-friction.sh" || true
 - 반복 임계는 `GBRAIN_FRICTION_MIN`(기본 3 — Hermes 학습 루프의 "3회 이상 반복 → 증류" 차용).
 - 기계 판독은 `--json`.
 - **증류 후보는 제시일 뿐 자동 조치하지 않는다.** 게이트화 여부는 사람이 정한다 (정적 패턴 자동 판별은 클래스 B 메타 규칙에서 후보 4건 전부 오탐(4/4)으로 철회된 전례).
+- **BYPASS vs receipt** — BYPASS-ENV 행수·FID수와 `.specops/*/receipts/*.json` 파일수를 대조해 우회 관성 vs 정직 중간커밋 경로 사용을 기본 출력에 포함한다.
 
 ### Step 3: --fid 필터링 (인자 지정 시)
 
@@ -107,7 +108,7 @@ fi
 | `scripts/gbrain-append.sh` | 인사이트 1줄 기록 | performance-test-ko 학습 추출 (자동) + 수동 |
 | `scripts/gbrain-collect.sh <FID>` | handoffs/evidence 결정적 수집 | performance-test-ko 학습 추출 1단계 |
 | `scripts/gbrain-recall.sh "<질의>" [--top N]` | 토큰 중첩 관련 인사이트 조회 | specifying-ko Step 1 환류 (자동) + 수동 |
-| `scripts/gbrain-friction.sh [--json]` | friction-log 규칙별 집계 + 증류 후보(**block 기준** — warn 은 감사 기록이라 미집계) | 본 skill Step 2b (기본 출력) |
+| `scripts/gbrain-friction.sh [--json]` | friction-log 규칙별 집계 + 증류 후보(**block 기준** — warn 은 감사 기록이라 미집계) + **BYPASS vs receipt** | 본 skill Step 2b (기본 출력) |
 
 learnings.jsonl 은 git 추적 (학습 자산 영속 — gitignore 예외).
 

@@ -30,11 +30,25 @@ JSON=0
 
 # 파일 수집 — 깨진 경로·부재는 조용히 건너뛴다
 files=$(find "$SPECOPS" -name 'friction-log.jsonl' -type f 2>/dev/null | sort || true)
+# receipt: implement 창 정직 탈출구 사용량 (BYPASS 관성과 대조)
+receipt_n=$(find "$SPECOPS" -path '*/receipts/*.json' -type f 2>/dev/null | grep -c . || true)
+: "${receipt_n:=0}"
+
 if [ -z "$files" ]; then
   if [ "$JSON" -eq 1 ]; then
-    echo '{"total_rows":0,"total_files":0,"rules":[],"candidates":[],"min":'"$MIN"'}'
+    echo '{"total_rows":0,"total_files":0,"rules":[],"candidates":[],"min":'"$MIN"',"bypass_env":{"rows":0,"fids":0},"receipts":{"files":'"$receipt_n"'}}'
   else
     echo "마찰 기록 없음 (friction-log.jsonl 0개)"
+    echo ""
+    echo "### BYPASS vs receipt"
+    echo ""
+    echo "| 지표 | 값 |"
+    echo "|---|---:|"
+    echo "| BYPASS-ENV 행수 | 0 |"
+    echo "| BYPASS-ENV FID수 | 0 |"
+    echo "| receipt 파일수 | $receipt_n |"
+    echo ""
+    echo "> BYPASS-ENV ≫ receipt 이면 우회 관성 · receipt ≥ BYPASS 이면 정직 중간커밋 경로 사용 중."
   fi
   exit 0
 fi
@@ -81,13 +95,21 @@ total_rows=$(printf '%s\n' "$agg" | awk -F'\t' '$1=="TOTAL"{print $2}')
 rows_only=$(printf '%s\n' "$agg" | grep -v '^TOTAL' || true)
 n_files=$(printf '%s\n' "$files" | grep -c . || true)
 
+# BYPASS-ENV 집계 (규칙 표에 없어도 0으로 보고 — 생략 금지)
+bypass_rows=$(printf '%s\n' "$rows_only" | awk -F'\t' '$1=="BYPASS-ENV"{print $2; found=1} END{if(!found) print 0}')
+bypass_fids=$(printf '%s\n' "$rows_only" | awk -F'\t' '$1=="BYPASS-ENV"{print $3; found=1} END{if(!found) print 0}')
+: "${bypass_rows:=0}"; : "${bypass_fids:=0}"
+
 if [ "$JSON" -eq 1 ]; then
-  printf '%s\n' "$rows_only" | jq -Rs --argjson min "$MIN" --argjson tr "${total_rows:-0}" --argjson tf "${n_files:-0}" '
+  printf '%s\n' "$rows_only" | jq -Rs --argjson min "$MIN" --argjson tr "${total_rows:-0}" --argjson tf "${n_files:-0}" \
+    --argjson br "${bypass_rows:-0}" --argjson bf "${bypass_fids:-0}" --argjson rn "${receipt_n:-0}" '
     [ split("\n")[] | select(length > 0) | split("\t")
       | {rule_id: .[0], rows: (.[1]|tonumber), fids: (.[2]|tonumber),
          severity: .[3], last_ts: .[4], blocks: (.[5]|tonumber)} ]
     | {total_rows: $tr, total_files: $tf, min: $min,
-       rules: ., candidates: [ .[] | select(.blocks >= $min) ]}'
+       rules: ., candidates: [ .[] | select(.blocks >= $min) ],
+       bypass_env: {rows: $br, fids: $bf},
+       receipts: {files: $rn}}'
   exit 0
 fi
 
@@ -125,5 +147,22 @@ else
   echo ""
   echo "> 후보는 **제시일 뿐** 자동 조치하지 않는다. 게이트화 여부는 사람이 정한다"
   echo "> (정적 패턴 자동 판별은 클래스 B 메타 규칙에서 4/4 오탐으로 철회된 전례)."
+fi
+
+echo ""
+echo "### BYPASS vs receipt"
+echo ""
+echo "| 지표 | 값 |"
+echo "|---|---:|"
+echo "| BYPASS-ENV 행수 | $bypass_rows |"
+echo "| BYPASS-ENV FID수 | $bypass_fids |"
+echo "| receipt 파일수 | $receipt_n |"
+echo ""
+if [ "$bypass_rows" -gt "$receipt_n" ] && [ "$bypass_rows" -ge 3 ]; then
+  echo "> **해석:** BYPASS-ENV ≫ receipt — 우회 관성 가능. implement 중간 커밋은 \`record-task-receipt\` 경로를 우선하세요."
+elif [ "$receipt_n" -ge "$bypass_rows" ] && [ "$receipt_n" -gt 0 ]; then
+  echo "> **해석:** receipt ≥ BYPASS — 정직 중간커밋 경로가 쓰이는 중."
+else
+  echo "> **해석:** BYPASS-ENV ≫ receipt 이면 우회 관성 · receipt ≥ BYPASS 이면 정직 중간커밋 경로 사용 중."
 fi
 exit 0

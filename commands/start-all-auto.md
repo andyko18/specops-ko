@@ -4,7 +4,7 @@ description: "[전체·무인] specops-ko 한국어 자율 Lifecycle — require
 triggers:
   - "/start-all-auto"
 mode: ask
-specops_version: 1.62.0
+specops_version: 1.72.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 ---
@@ -83,4 +83,4 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 
 ---
 
-*specops-ko v1.62.0 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*
+*specops-ko v1.72.0 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*

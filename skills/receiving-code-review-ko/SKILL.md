@@ -4,7 +4,7 @@ description: 코드 리뷰 피드백을 수령한 직후, 제안 구현 전 사�
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
-  - specops-ko skills/engine/receiving-code-review-ko.md
+  - skills/receiving-code-review-ko/SKILL.md
 specops_version: 1.61.0
 used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
 ---
@@ -203,7 +203,7 @@ GitHub 인라인 리뷰 코멘트 답글은 **스레드 내**에서 (`gh api rep
 
 ## 참조
 
-- specops-ko 한국어 선례: `skills/engine/receiving-code-review-ko.md`
+- specops-ko 한국어 선례: `skills/receiving-code-review-ko/SKILL.md`
 
 ## session-progress append (v0.4-pre P1 신설)
 

@@ -165,7 +165,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 ## 참조
 
 - 리뷰어 에이전트: `agents/code-reviewer-ko.md` (Phase C — `subagent_type: "specops-ko:code-reviewer-ko"`)
-- specops-ko 한국어 선례: `skills/engine/requesting-code-review-ko.md`
+- specops-ko 한국어 선례: `skills/requesting-code-review-ko/SKILL.md`
 
 ## session-progress append (v0.4-pre P1 신설)
 

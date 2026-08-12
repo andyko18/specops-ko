@@ -259,5 +259,17 @@ if [ -z "${SPECOPS_T9_INNER:-}" ]; then
   rm -rf "$sb"
 fi
 
+# T11: skills/engine/* 유령 경로 금지 (플랫 skills/<name>/SKILL.md 만)
+if command -v rg >/dev/null 2>&1; then
+  eng=$(rg -l 'skills/engine/' "$PLUGIN/skills" "$PLUGIN/commands" "$PLUGIN/scripts/README.md" --glob '*.md' 2>/dev/null || true)
+else
+  eng=$(grep -rl 'skills/engine/' "$PLUGIN/skills" "$PLUGIN/commands" "$PLUGIN/scripts/README.md" 2>/dev/null || true)
+fi
+if [ -z "$eng" ]; then
+  PASS=$((PASS+1)); echo "PASS: T11 skills/engine/ 유령 경로 0건"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T11 skills/engine/ 잔존: $eng"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
