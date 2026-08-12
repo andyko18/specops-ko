@@ -9,18 +9,25 @@ R="$PLUGIN/README.md"
 
 # AC-1: /start-auto 등장
 grep -q '/start-auto' "$R" && ok "AC-1 start-auto 등장" || nope "AC-1" "start-auto 누락"
-# AC-2: 7종 모두 등장
+# AC-2: 10종 모두 등장 (lite·maintain-lite·start-all-auto 포함)
 miss=""
-for s in '/start ' '/start-auto' '/start-foundation' '/start-all' '/init-project' '/maintain' '/brainstorming'; do
+for s in '/start ' '/start-lite' '/start-auto' '/start-foundation' '/start-all' '/start-all-auto' '/init-project' '/maintain' '/maintain-lite' '/brainstorming'; do
   grep -q -- "$s" "$R" || miss="$miss $s"
 done
-[ -z "$miss" ] && ok "AC-2 7종 진입로 등장" || nope "AC-2" "누락:$miss"
+[ -z "$miss" ] && ok "AC-2 10종 진입로 등장" || nope "AC-2" "누락:$miss"
 # AC-3: start↔maintain 판단 기준 (신규/기존 키워드)
 grep -qiE '신규.*기존|기존.*수정|신규 산출물' "$R" && ok "AC-3 판단 기준" || nope "AC-3" "판단 기준 없음"
 # AC-4: project→foundation→batch 순서 표현 (한 줄 요약 라인 매칭 — grep 줄단위)
 grep -qE '/init-project →.*/start-foundation →.*/start-all' "$R" && ok "AC-4 선택 순서" || nope "AC-4" "순서 흐름 없음"
 # AC-5: start vs start-auto 차이 (게이트/자동통과)
 grep -qiE '게이트.*자동|자동 통과|가역 게이트' "$R" && ok "AC-5 게이트 차이" || nope "AC-5" "게이트 차이 없음"
+# AC-6: 1.72 foundation/batch README 불변 앵커 (L57–62 토큰)
+grep -q 'foundation-manifest' "$R" && ok "AC-6a foundation-manifest" || nope "AC-6a" "foundation-manifest 누락"
+grep -qE 'check-foundation-merged|머지 후' "$R" && ok "AC-6b merged 게이트" || nope "AC-6b" "merged/머지 후 누락"
+grep -q 'foundation-baseline' "$R" && ok "AC-6c IF baseline" || nope "AC-6c" "foundation-baseline 누락"
+grep -q 'foundation-shell' "$R" && ok "AC-6d shell baseline" || nope "AC-6d" "foundation-shell 누락"
+grep -q 'init-batch-queue' "$R" && ok "AC-6e queue 기계화" || nope "AC-6e" "init-batch-queue 누락"
+grep -qF '[공통]' "$R" && ok "AC-6f 공통 FR SKIP" || nope "AC-6f" "[공통] 누락"
 # AC-R-1: 기존 자동체인 설명 보존
 grep -qE 'spec → clarify → plan' "$R" && ok "AC-R-1 자동체인 설명 보존" || nope "AC-R-1" "자동체인 설명 소실"
 grep -q 'using-specops-ko' "$R" && ok "AC-R-1b 라우팅 설명 보존" || nope "AC-R-1b" "라우팅 설명 소실"

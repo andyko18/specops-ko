@@ -235,9 +235,10 @@ else
 fi
 
 # 13) agent_tools — role: evaluator 역방향 스캔 (Generator-Evaluator 도구 박탈 하드강제)
-#     ① 마킹 evaluator 전체: tools 명시 + Write/Edit 박탈 ② 파일명 *reviewer* 미마킹 FAIL (2차 방어)
+#     ① 마킹 evaluator 전체: tools 명시 + Write/Edit/MultiEdit/NotebookEdit 박탈 ② 파일명 *reviewer* 미마킹 FAIL (2차 방어)
 #     ③ 파일 존재 + 마킹 0건 FAIL (공회전 방지) ④ agents/*.md 0건(sandbox) SKIP
 #     한계 고백: 미마킹 + 파일명 비reviewer 신규 evaluator (critic 류) 는 사각 — 마킹 규약(CLAUDE.md)으로 안내
+#     ★ -w Edit 만으로는 MultiEdit/NotebookEdit 를 못 잡음(한 단어) — 명시 토큰 필수
 if ! ls agents/*.md >/dev/null 2>&1; then
   emit agent_tools SKIP "agents/*.md 부재 (sandbox 등)"
 else
@@ -250,7 +251,7 @@ else
       a=$(basename "$f" .md)
       tl=$(grep -E '^tools:' "$f" 2>/dev/null)
       if [ -z "$tl" ]; then atf+=("$a:tools누락"); continue; fi
-      printf '%s' "$tl" | grep -qwE 'Write|Edit' && atf+=("$a:Write/Edit포함")
+      printf '%s' "$tl" | grep -qwE 'Write|Edit|MultiEdit|NotebookEdit' && atf+=("$a:Write/Edit포함")
     done
   fi
   for f in agents/*reviewer*.md; do

@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **즉시 로드맵 5건 (20260812)** — (1) `_verify_exec_evidence`/`_bg_pending_path` `$lastedit`에 **MultiEdit** 편입(VERIFY 후 MultiEdit→commit FN 폐쇄) + T-fresh.e·T24c. (2) `agent_tools`가 `-w Edit`만으로 MultiEdit/NotebookEdit를 놓치던 구멍 → 명시 박탈 + T15.e/f. (3) `scripts/README` 헤더 v1.21.2·68 suites·구 baseline → **v1.72.0·142 suites·24/30/33/8**. (4) `specifying-ko used_by`에 `/maintain`·`/promote`. (5) `test-readme-entry-tree` 7→**10종** + 1.72 README foundation/batch 앵커 AC-6.
+
 ## [1.72.0] — 2026-08-12
 
 ### Fixed

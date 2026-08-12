@@ -1,8 +1,9 @@
 # scripts/ — 구조 검증·릴리즈·DAG·eval 유틸리티
 
-> 구성 (v1.21.2 기준): `_internal/` (validate-structure·init-project·run-verification 등 내부 유틸) ·
-> `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator + 68 suites + llm-eval) ·
+> 구성 (v1.72.0 기준): `_internal/` (validate-structure·init-project·run-verification 등 내부 유틸) ·
+> `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator ≈ **142** suites + llm-eval) ·
 > 루트 (release.sh·gbrain-append.sh·session-progress-append.sh·git-branch-create.sh·show-fid-status.sh·slug.sh 등).
+> baseline: commands=24 · skills=30 · templates=33 · agents=8 (README templates 34는 screen.html 포함).
 > 아래 절들은 초기 (v0.1~v0.2) 스크립트의 상세 설명 — 경로는 현행 (`_internal/`) 기준으로 갱신됨.
 
 ## v0.1 — 기존
@@ -47,7 +48,7 @@ scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 | 항목 | 실패 조건 |
 |---|---|
 | `directories` | 필수 디렉토리 부재 |
-| `file_counts` | `.structure-baseline` glob 카운트 불일치 (commands=17·skills=30·templates=29·agents=4) |
+| `file_counts` | `.structure-baseline` glob 카운트 불일치 (commands=24·skills=30·templates=33·agents=8) |
 | `meta_injection` | `session-start.sh` 메타 skill 주입 누락 |
 | `frontmatter` | YAML 파싱 실패 (pyyaml 부재 시 SKIP — 한계 고백) |
 | `no_superpowers` | `commands/`·`agents/` 에 superpowers 런타임 참조 발견 |
@@ -138,8 +139,8 @@ bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 ## 수동 검증 (v0.1 잔존 — validate-structure.sh 등장 후 사용 줄어듦)
 
 ```bash
-[ $(ls commands/ | wc -l) -eq 8 ] && echo commands:OK
-[ $(ls agents/ | wc -l) -eq 8 ] && echo agents:OK
+[ $(ls commands/*.md | wc -l | tr -d ' ') -eq 24 ] && echo commands:OK
+[ $(ls agents/*.md | wc -l | tr -d ' ') -eq 8 ] && echo agents:OK
 ! grep -rE "^[^#<-]*superpowers:" commands/ agents/
 # ↑ validate-structure.sh 가 이 모두를 자동화 — 직접 실행 불필요
 ```

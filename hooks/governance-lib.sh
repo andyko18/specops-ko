@@ -333,10 +333,10 @@ _verify_exec_evidence() {
          | select(test("(?i)(^|[^a-z])(fail(ure|ed)?s?|error)") | not)
          | select(test("실패|오류|에러") | not)
          | $i ] | max // -1) as $declhit
-    # 마지막 코드 편집(비-.specops Edit/Write/NotebookEdit)의 전역 인덱스 (없으면 -1)
+    # 마지막 코드 편집(비-.specops Edit/Write/NotebookEdit/MultiEdit)의 전역 인덱스 (없으면 -1)
     | ([ range(0; $all) as $i
          | $tus[$i]
-         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit")
+         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
          | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
          | $i ] | max // -1) as $lastedit
     # $bghit 은 **러너를 띄운 Bash 의 인덱스**다(Read 인덱스가 아님) — 실행 시작 시점이 더 보수적이라
@@ -388,7 +388,7 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
     #   "안내 이행 후 동일 메시지 재차단 → BYPASS 스파이럴"(dogfood #418→#421) 조건이 된다.
     | ([ range(0; $all) as $i
          | $tus[$i]
-         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit")
+         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
          | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
          | $i ] | max // -1) as $lastedit
     | (if $pend != null and $pend.i > $lastedit then $pend.p else "" end)

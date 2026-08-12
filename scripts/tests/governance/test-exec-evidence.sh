@@ -131,13 +131,16 @@ rm -f "$rafail"
 # T-fresh: 신선도 게이트 (20260717-exec-evidence-staleness — dogfood test1 FR-3 실측: 세션 초반
 #   FR-2 의 VERIFY: PASS 가 윈도우·스코프 없이 세션 끝까지 만능 면제표가 되어, 이후 FID 의
 #   미검증 implement 커밋 전부(서브에이전트 포함)를 열었다. friction 무흔적의 실물 원인)
-#   규칙: 마지막 실행증거 **이후** 비-.specops Edit/Write/NotebookEdit 가 있으면 stale → 1.
+#   규칙: 마지막 실행증거 **이후** 비-.specops Edit/Write/NotebookEdit/MultiEdit 가 있으면 stale → 1.
 runner_ev='{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F1","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260101-x"}}]}}
 {"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_F1","is_error":false,"content":"VERIFY: PASS"}]}}'
 fr=$(mktemp) || exit 1
 # T-fresh.a ★ 증거 후 코드 Edit → stale(1)
 printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F2","name":"Edit","input":{"file_path":"src/app.ts","old_string":"a","new_string":"b"}}]}}' > "$fr"
 _verify_exec_evidence "$fr"; ck "T-fresh.a ★ 증거 후 코드 Edit → 1 (stale)" 1 $?
+# T-fresh.e ★ 증거 후 MultiEdit → stale(1) — R-5는 MultiEdit를 이미 감지하나 $lastedit 누락이 FN이던 구멍
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F2e","name":"MultiEdit","input":{"file_path":"src/app.ts","edits":[]}}]}}' > "$fr"
+_verify_exec_evidence "$fr"; ck "T-fresh.e ★ 증거 후 MultiEdit → 1 (stale)" 1 $?
 # T-fresh.b 증거 후 .specops 아티팩트 Write 만 → 여전히 0 (정직 흐름: evidence.md 마무리)
 printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_F3","name":"Write","input":{"file_path":".specops/20260101-x/evidence.md","content":"x"}}]}}' > "$fr"
 _verify_exec_evidence "$fr"; ck "T-fresh.b 증거 후 .specops Write → 0 (아티팩트 제외)" 0 $?
@@ -216,7 +219,13 @@ jq -nc --arg o "$_STUB2" '{type:"user",message:{content:[{type:"tool_result",too
 if [ -n "$(_bg_pending_path "$_stf")" ]; then ck "T24a 편집 없음 → 안내 경로 반환" 0 0; else ck "T24a 편집 없음 → 안내 경로 반환" 0 1; fi
 jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"e1",name:"Edit",input:{file_path:"src/app.sh"}}]}}' >> "$_stf"
 if [ -z "$(_bg_pending_path "$_stf")" ]; then ck "T24b bg 후 코드편집 → 안내 억제(과약속 금지)" 0 0; else ck "T24b bg 후 코드편집 → 안내 억제(과약속 금지)" 0 1; fi
-rm -f "$_stf"
+# T24c — MultiEdit 도 동일 기준 (판정↔안내 정렬)
+_stf2=$(mktemp)
+jq -nc --arg c 'bash scripts/tests/run-all.sh' '{type:"assistant",message:{content:[{type:"tool_use",id:"b1",name:"Bash",input:{command:$c}}]}}' > "$_stf2"
+jq -nc --arg o "$_STUB2" '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"b1",is_error:false,content:$o}]}}' >> "$_stf2"
+jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"m1",name:"MultiEdit",input:{file_path:"src/app.sh",edits:[]}}]}}' >> "$_stf2"
+if [ -z "$(_bg_pending_path "$_stf2")" ]; then ck "T24c bg 후 MultiEdit → 안내 억제" 0 0; else ck "T24c bg 후 MultiEdit → 안내 억제" 0 1; fi
+rm -f "$_stf" "$_stf2"
 
 # T25 — 러너 앵커 regex drift 잠금 (Phase C Important 2)
 #   앵커가 $lasthit·$bghit·_bg_pending_path 3곳에 복제돼 있다. drift 하면 인정 판정과

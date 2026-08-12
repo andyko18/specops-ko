@@ -501,6 +501,38 @@ else
 fi
 rm -rf "$sb"
 
+# T15.e MultiEdit 박탈 — -w Edit 만으로는 MultiEdit 를 못 잡던 구멍 (즉시 로드맵)
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if ! echo "$pre" | grep -q 'agent_tools: SKIP'; then
+  FAIL=$((FAIL+1)); echo "FAIL T15.e 변조 전 단언 (agents 빈 sandbox 가 SKIP 아님)"
+else
+  printf -- '---\nname: me-eval-ko\nrole: evaluator\ntools: Read, MultiEdit\n---\n' > "$sb/agents/me-eval-ko.md"
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+  if [ $rc -eq 1 ] && echo "$err" | grep -q 'agent_tools: FAIL' && echo "$err" | grep -q 'me-eval-ko:Write/Edit포함'; then
+    PASS=$((PASS+1)); echo "PASS T15.e MultiEdit 자동 편입 적발"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T15.e (rc=$rc, out=$(echo "$err" | grep agent_tools))"
+  fi
+fi
+rm -rf "$sb"
+
+# T15.f NotebookEdit 박탈
+sb=$(mktemp -d); make_sandbox "$sb"
+pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if ! echo "$pre" | grep -q 'agent_tools: SKIP'; then
+  FAIL=$((FAIL+1)); echo "FAIL T15.f 변조 전 단언 (agents 빈 sandbox 가 SKIP 아님)"
+else
+  printf -- '---\nname: nb-eval-ko\nrole: evaluator\ntools: Read, NotebookEdit\n---\n' > "$sb/agents/nb-eval-ko.md"
+  err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+  if [ $rc -eq 1 ] && echo "$err" | grep -q 'agent_tools: FAIL' && echo "$err" | grep -q 'nb-eval-ko:Write/Edit포함'; then
+    PASS=$((PASS+1)); echo "PASS T15.f NotebookEdit 자동 편입 적발"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T15.f (rc=$rc, out=$(echo "$err" | grep agent_tools))"
+  fi
+fi
+rm -rf "$sb"
+
 # ── hardgate_classified — 클래스 A 재발 방지 메타 규칙 (20260806) ─────────────
 # 20260806 감사에서 동일 클래스 결함 9건: SKILL.md 가 HARD 를 선언하는데 검사 구현이 0곳
 # (foundation manifest·재사용·회귀 AC·advisor·DAST 소유확인·브랜치 삭제·B/C 존재·
