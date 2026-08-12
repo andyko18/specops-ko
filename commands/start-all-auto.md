@@ -21,7 +21,7 @@ reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 
 ## Process
 
-Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR 파싱·`check-fr-table` / `check-fr-table.sh --classify` 시드·`foundation-scope` SKIP·`check-foundation-present.sh`·`check-foundation-merged.sh`·`feat/<BATCH_ID>`·`queue.md`)은 **`commands/start-all.md` 와 동일**(시드/`foundation-scope` SKIP·eligible=0·foundation-present HARD·foundation-merged HARD 포함). Phase 2.5-A `check-foundation-shell-baseline` snapshot→verify(§auto HARD)·`foundation-shell` 불변 · Phase 2.5-B `check-foundation-if-baseline` snapshot→verify(§auto HARD)·`foundation-baseline` 불변도 **동일**. 아래는 §auto 무인 차이점만 명시한다.
+Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR 파싱·`check-fr-table` / `check-fr-table.sh --classify` 시드·`foundation-scope` SKIP·`check-foundation-present.sh`·`check-foundation-merged.sh`·`init-batch-queue.sh`·`feat/<BATCH_ID>`·`queue.md`)은 **`commands/start-all.md` 와 동일**(시드/`foundation-scope` SKIP·eligible=0·foundation-present HARD·foundation-merged HARD·queue 기계 초기화 포함). Phase 2.5-A `check-foundation-shell-baseline` snapshot→verify(§auto HARD)·`foundation-shell` 불변 · Phase 2.5-B `check-foundation-if-baseline` snapshot→verify(§auto HARD)·`foundation-baseline` 불변도 **동일**. 아래는 §auto 무인 차이점만 명시한다.
 
 1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md` 가 세션 시작 시 이미 활성돼 있어야 함.
 2. **인자 선택적** — 인자 없이 `requirements.md` FR 표 전체를 무인 순회한다(`/start-all` 미러). 인자를 주면 추가 맥락으로만 사용. (빈 인자 되물음 없음.)

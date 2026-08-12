@@ -58,6 +58,7 @@ claude plugin install specops-ko@specops-ko
 · foundation `feat/<FID>` 는 main 머지 후 `/start-all` (Phase 0 `check-foundation-merged`)
 · foundation IF는 `foundation-baseline` 마커 — `/start-all` Phase 2.5-B는 마커 밖만 append
 · foundation UI 셸은 `app-shell` 등 + `foundation-shell` 마커 — Phase 2.5-A는 셸 재작성 금지
+· `/start-all` queue.md 는 `init-batch-queue.sh`가 `--classify`로 기계 작성 (재개 시 REUSE)
 · `[공통]` FR 은 `/start-all` 에서 SKIP — 구현은 `/start-foundation` (hybrid `§유형=foundation`+`§batch` 금지)
 · 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
 ```

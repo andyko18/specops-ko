@@ -107,17 +107,18 @@ reference_upstream: specops-ko 독자 추가
    `.specops/*` 는 gitignore 라 끝난 batch 디렉토리가 디스크에 계속 남는데, 마커 없이 아무 batch 나 집으면
    그것과 무관한 후속 작업의 PR 이 과거 상태로 차단된다(false-block). 마커를 안 남기면 게이트도 발화하지 않는다.
 
-   `.specops/$BATCH_ID/queue.md` 이미 존재하면 → **기존 파일 재사용** (초기화 스킵, PENDING/PLAN_DONE 상태 보존).
+   **★ queue 기계 초기화 (필수 — 20260812)**: 모델이 표를 손으로 쓰지 않는다. `--classify` 결과를 스크립트가 반영한다.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-batch-queue.sh \
+     ".specops/$BATCH_ID"
+   ```
+   - `QUEUE-INIT: CREATED` → 신규 표(ELIGIBLE→PENDING · seed-decomposed/foundation-scope→SKIP · placeholder 행 생략).
+   - `QUEUE-INIT: REUSE` → 기존 `queue.md` **불변**(재개 — PENDING/PLAN_DONE 보존). 재분류·덮어쓰기 금지.
+   - `QUEUE-INIT: FAIL` → Phase 0 **중단**(eligible=0 · requirements 부재 · classify 실패).
+   - ACTIVE 마커는 위와 **병치**(스크립트는 queue만 담당).
+
    재사용은 **스텝 1이 ACTIVE 로 재개를 판정한 batch 에서만** 일어난다 — 신규 batch 는 id 에 시각이 붙어
    디렉토리가 겹치지 않으므로 남의 queue 를 물려받지 않는다(구 날짜-키 규약의 뭉갬 경로 제거).
-   없으면 신규 생성 — **`--classify` 결과만** 반영 (시드·placeholder 는 `PENDING` 금지):
-   ```
-   | FR-ID | FID | FR 설명(1줄) | Status |
-   |---|---|---|---|
-   | FR-1 | — | M1 시드 (마일스톤 시드 — 세부 FR로 분해됨) | SKIP |
-   | FR-4 | TBD | <FR 설명> | PENDING |
-   ...
-   ```
    FID 컬럼은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 실제 FID로 갱신됨. Phase 1 은 **PENDING 만** 처리하므로 SKIP 은 자연 제외.
 
 ### Phase 1 — 전 FR spec→decompose (대화형)
