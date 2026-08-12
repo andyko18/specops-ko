@@ -148,7 +148,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    **[foundation 분기] — 셸 전용 Step 5.5 (20260812)**: 전면 SKIP **아님**. UI 신호(FE arch / decisions UI 있음 / project-context 프론트 실값 — `foundation-kind.sh`와 동형)이면 **셸 screens만** 설계한다.
    - **allowlist 슬러그(정확 일치)**: `app-shell` · `layout` · `login` 만 생성·수정 허용. `dashboard`/`home` 등 기능 화면은 **거부** — "기능 화면은 `/start-all` Phase 2.5-A".
    - 각 셸 `.md` 제목 직후에 **의무** 마커: `<!-- foundation-shell -->`. 짝 `.html`은 동일 slug면 Phase 2.5-A baseline에 자동 포함.
-   - 채움 요건·껍데기 판정은 아래 **[공통]**과 동일(`design-screen.sh --check` · 필수 8섹션).
+   - 채움 요건·껍데기 판정은 아래 **[공통]**과 동일(필수 8섹션).
    - 권장 최소: `app-shell` 1장. UI KIND인데 셸 0장이면 **WARN** 1줄(`app-shell` 권장) 후 Step 5.6 진행(HARD 아님 — 순수 토큰/컴포넌트 foundation false-block 방지).
    - 비UI foundation → 본 Step **SKIP** → Step 5.6.
    - Phase 2.5-A는 이 셸을 기계적으로 불변 검사한다(`check-foundation-shell-baseline.sh`). 의도적 셸 변경은 `/start-foundation` 또는 `/design-screen`(셸 슬러그)만.
