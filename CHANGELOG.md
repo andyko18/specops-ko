@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.73.0] — 2026-08-13
+
 ### Fixed
 - **`/init-project` repo 루트 가드 — worktree 오탐·subdir 자동 복구 (FID 20260811-init-cwd-root-guard)** — `_check_git` 이 `[ -d .git ]` 로 판정해 **git worktree 루트**(`.git` 이 `gitdir:` 파일)와 **repo 하위 디렉토리**에서 부트스트랩이 거부되거나 오도됐다. `#258` CHANGELOG 가 "형제 결함 별건 이관"으로만 남기고 받는 곳이 없던 항목.
   - **`_cd_repo_root()` 신설** — `phase_1_precheck` 앞에서 subdir → `show-toplevel` 로 이동 + stderr 2줄 고지. 비-git·이미 루트는 무음. `source` 경로에서는 `main()` 밖이라 호출자 cwd 불변.
@@ -1091,7 +1093,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.72.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.73.0...HEAD
+[1.73.0]: https://github.com/andyko18/specops-ko/compare/v1.72.0...v1.73.0
 [1.72.0]: https://github.com/andyko18/specops-ko/compare/v1.71.0...v1.72.0
 [1.71.0]: https://github.com/andyko18/specops-ko/compare/v1.70.0...v1.71.0
 [1.70.0]: https://github.com/andyko18/specops-ko/compare/v1.69.0...v1.70.0
