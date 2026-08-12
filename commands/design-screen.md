@@ -20,7 +20,7 @@ reference_upstream: specops-ko 독자 추가
 
 | 경로 | 진입 | 언제 쓰나 |
 |---|---|---|
-| **specifying Step 5.5** (인라인) | lifecycle 자동 (UI 기능 spec 승인 직후) | `/start` 흐름 중 — **별도 호출 불필요**. **`/start-all` batch는 SKIP** → Phase 2.5-A |
+| **specifying Step 5.5** (인라인) | lifecycle 자동 (UI 기능 spec 승인 직후) | `/start` 흐름 중 — **별도 호출 불필요**. **`/start-all` batch는 SKIP** → Phase 2.5-A. **`/start-foundation`은 셸만**(`app-shell`·`layout`·`login` + `<!-- foundation-shell -->`) |
 | **`/start-all` Phase 2.5-A** | batch 오케스트레이터 | 전 FR 화면 1회 통합. 이어서 IF(2.5-B) → **`design-reviewer-ko`(2.5-D)** |
 | **`/design-screen [name]`** | 독립 슬래시 | lifecycle 밖에서 **화면 1개** 신규/수정 |
 | **`/design-screens`** | 독립 슬래시 | lifecycle 밖에서 **여러 화면 일괄** (목록 자동판단 + 승인게이트 + 순차루프) |

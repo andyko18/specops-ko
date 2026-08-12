@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **UI 공통 vs 화면 순서 — foundation Step 5.5 셸 전용 (20260812)** — foundation 이 화면을 전면 SKIP 해 AppShell·토큰이 추측 구현되던 구멍(P0-4). allowlist(`app-shell`·`layout`·`login`) + `<!-- foundation-shell -->` 만 foundation 5.5 허용 · Phase 2.5-A `check-foundation-shell-baseline.sh` snapshot→verify · design-reviewer Critical · `test-foundation-shell-baseline.sh` · propagation `foundation-shell-baseline`.
 - **IF 이중 소유 — foundation-baseline 마커 불변 (20260812)** — foundation Step 5.6 이 채운 공통 api-spec/data-model 을 Phase 2.5-B 가 “행 갱신”으로 재작성하던 구멍. `<!-- foundation-baseline -->` 마커 + `check-foundation-if-baseline.sh` snapshot→verify · start-all 2.5-B 배선 · specifying-ko 생산 의무 · design-reviewer Critical · `test-foundation-if-baseline.sh` · propagation `foundation-if-baseline`.
 - **`/start-all` Phase 0 foundation 브랜치 머지 게이트 (20260812)** — present 는 manifest 문서만 본다. `§유형=foundation` FID 의 `feat/<FID>` 가 main 미머지(조상 아님 ∧ gh MERGED 아님)여도 batch 가 들어가면 공통 코드가 base 에 없다. 신규 `check-foundation-merged.sh`(KIND는 `foundation-kind.sh` 공유) · present 직후 배선 · `test-foundation-merged.sh` · propagation `foundation-merged-before-batch`.
 - **공통부 vs 기능 FR 경계 / hybrid 금지 (20260812)** — `[공통]` 또는 `<!-- foundation-fr: … -->` FR 은 `check-fr-table --classify` 가 `SKIP|…|foundation-scope` 로 내고 `/start-all` queue 에서 **항상 SKIP**(선택 A). `§유형=foundation`∧`§batch` hybrid 는 `check-spec-label-compat.sh` 가 emit-context·verify 에서 HARD FAIL(Argus FR-28 실측). init Phase 11·requirements 템플릿에 표기 규약 · `test-fr-foundation-scope.sh` · propagation `foundation-fr-boundary`.

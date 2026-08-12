@@ -177,12 +177,23 @@ reference_upstream: specops-ko 독자 추가
 1. **UI 표면 검출** — 전 FID `.specops/<FID>/spec.md` §참조·§범위에서 화면 신호(`screens/<name>` 목록·화면 렌더·사용자 흐름)를 취합한다.
    - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출. **graceful 안전망**: ui-ux-pro-max 미감지 시 `DESIGN.md` 토큰 fallback + marketplace 안내. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
-3. **화면 산출물 생성** — 각 화면별 `screens/<name>.md` + `screens/<name>.html` 쌍을 통합 design system 스타일로 생성한다.
-   - **파일이 없으면 생성**한다.
-   - **이미 있고** `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상) → **재사용**.
+3. **★ foundation 셸 baseline 불변 (20260812)**: 화면 생성 **직전** snapshot → **직후** verify. allowlist(`app-shell`·`layout`·`login`) ∩ `<!-- foundation-shell -->` 파일 해시가 바뀌면 FAIL → Phase 2.5 중단.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-shell-baseline.sh \
+     snapshot ".specops/$BATCH_ID/foundation-shell-baseline.sha"
+   # … 기능 화면 생성(셸 재작성·--force 금지) …
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-shell-baseline.sh \
+     verify ".specops/$BATCH_ID/foundation-shell-baseline.sha"
+   ```
+   - `FOUNDATION-SHELL-BASELINE: FAIL` → 셸 되돌림. 셸 변경은 `/start-foundation` 또는 `/design-screen`(셸 슬러그)만.
+   - `SKIP`(셸 0) → 진행(구 프로젝트). **§auto도 HARD**.
+4. **화면 산출물 생성** — 각 **기능** 화면별 `screens/<name>.md` + `screens/<name>.html` 쌍을 통합 design system 스타일로 생성한다.
+   - **foundation-shell 마커 + allowlist 슬러그**가 이미 있으면 → **재사용만**(내용 재생성·`--force`·마커 삭제 금지).
+   - **파일이 없으면 생성**한다(기능 화면).
+   - **이미 있고**(비-셸) `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상) → **재사용**.
    - **이미 있고** exit 0(껍데기) → **재사용 금지**. 통합 design system으로 덮어쓰고 **껍데기 마커 줄을 삭제**한다.
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
-4. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계.
+5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
 
@@ -376,6 +387,7 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 - **Phase 2에서 전 FID plan 전문 덤프** — `batch-plan-digest.sh` 짧은 표만
 - **Phase 1에서 batch Step 5.6 실행** — FR별 api-spec 선갱신 금지. 인터페이스는 Phase 2.5-B(화면 직후)
 - **foundation-baseline 마커 안을 Phase 2.5-B에서 갱신** — 금지. `check-foundation-if-baseline` FAIL. baseline은 `/start-foundation`·`/design-interface`만
+- **foundation-shell screens를 Phase 2.5-A에서 재작성** — 금지. `check-foundation-shell-baseline` FAIL. 셸은 `/start-foundation`·`/design-screen`(allowlist)만
 - **Phase 2.5-D 생략** — 화면 또는 IF 산출이 있으면 `design-reviewer-ko` 필수. 부모 self-review로 대체 금지
 - **design-review FAIL을 무시하고 구현** — PASS(또는 §auto Important-only cap 기록) 없이 Phase 3 진입 금지. **Critical cap은 §auto여도 정지**
 - **skill 미호출 인라인 뭉개기** — 오케스트레이터가 spec~verify 산출물을 heredoc 으로 직접 쓰는 것 금지 (R-3 스킬 선언 투명성 위반 + session-progress 줄 0 → `batch-state.sh` `[진행기록 누락]` 이 batch PR 직전 차단). 각 단계는 Skill 도구로 **실호출**한다 — dogfood 20260716: 4 FID spec→tasks 가 3분 만에 인라인 생성되어 진행 흔적이 전무했다

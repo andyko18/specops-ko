@@ -96,7 +96,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
      - args 첫 줄이 `<!-- entry: maintain-lite -->` HTML 주석이면 **[maintain-lite 분기]** 진입
      - args 첫 줄이 `<!-- entry: maintain -->` HTML 주석이면 [유지보수 분기] 진입
      - args 첫 줄이 `<!-- entry: lite -->` HTML 주석이면 **[lite 분기]** 진입
-     - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5 화면 루프 **skip**. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). **단 Step 5.6(인터페이스 설계)은 적용한다** — foundation 은 DB 스키마·공통 API 의 본진이므로 design-first 가 가장 중요: 공통부 DB 스키마는 `data-model.md`, 공통 제공 API 는 `api-spec.md` 에 **먼저 반영**. (**역할 분리**: §2 DAG 추출 = 구현 **태스크 분해** 단위 / Step 5.6 `data-model`·`api-spec` 갱신 = **설계 기준 계약** — 둘은 다른 산출물이며 **모두 수행**한다.) spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
+     - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5는 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`). 기능 화면 금지. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). **단 Step 5.6(인터페이스 설계)은 적용한다** — foundation 은 DB 스키마·공통 API 의 본진이므로 design-first 가 가장 중요: 공통부 DB 스키마는 `data-model.md`, 공통 제공 API 는 `api-spec.md` 에 **먼저 반영**. (**역할 분리**: §2 DAG 추출 = 구현 **태스크 분해** 단위 / Step 5.6 `data-model`·`api-spec` 갱신 = **설계 기준 계약** — 둘은 다른 산출물이며 **모두 수행**한다.) spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
      - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. **Step 5.5·5.6 SKIP**(화면·인터페이스 본설계는 `/start-all` Phase 2.5에서 **화면→인터페이스** 순으로 통합 1회). UI면 §참조에 예정 화면 이름만, API/스키마면 예정 엔드포인트·테이블 이름만 남기고 상세 생성·승인 루프는 하지 않는다. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
@@ -143,9 +143,17 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
 
    > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
 
-   **[foundation · batch 분기]**: 본 Step **SKIP**. foundation은 화면 루프 없음. batch는 `/start-all` Phase 2.5-A가 전 FR 화면을 **1회 통합** 설계한다 — 여기서 `screens/*`를 만들거나 승인 루프를 돌리지 않는다. UI면 Step 6 §참조에 예정 화면 이름만 기재. foundation은 **Step 5.6으로 진행**, batch는 Step 5.6도 SKIP이므로 **Step 6으로 진행**.
+   **[batch 분기]**: 본 Step **SKIP**. `/start-all` Phase 2.5-A가 전 FR 화면을 **1회 통합** 설계한다 — 여기서 `screens/*`를 만들거나 승인 루프를 돌리지 않는다. UI면 Step 6 §참조에 예정 화면 이름만 기재. Step 5.6도 SKIP이므로 **Step 6으로 진행**.
 
-   **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용 · foundation/batch 제외):
+   **[foundation 분기] — 셸 전용 Step 5.5 (20260812)**: 전면 SKIP **아님**. UI 신호(FE arch / decisions UI 있음 / project-context 프론트 실값 — `foundation-kind.sh`와 동형)이면 **셸 screens만** 설계한다.
+   - **allowlist 슬러그(정확 일치)**: `app-shell` · `layout` · `login` 만 생성·수정 허용. `dashboard`/`home` 등 기능 화면은 **거부** — "기능 화면은 `/start-all` Phase 2.5-A".
+   - 각 셸 `.md` 제목 직후에 **의무** 마커: `<!-- foundation-shell -->`. 짝 `.html`은 동일 slug면 Phase 2.5-A baseline에 자동 포함.
+   - 채움 요건·껍데기 판정은 아래 **[공통]**과 동일(`design-screen.sh --check` · 필수 8섹션).
+   - 권장 최소: `app-shell` 1장. UI KIND인데 셸 0장이면 **WARN** 1줄(`app-shell` 권장) 후 Step 5.6 진행(HARD 아님 — 순수 토큰/컴포넌트 foundation false-block 방지).
+   - 비UI foundation → 본 Step **SKIP** → Step 5.6.
+   - Phase 2.5-A는 이 셸을 기계적으로 불변 검사한다(`check-foundation-shell-baseline.sh`). 의도적 셸 변경은 `/start-foundation` 또는 `/design-screen`(셸 슬러그)만.
+
+   **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용 · batch 제외 · foundation 셸에는 적용):
    - 화면 파일이 **이미 있으면** 먼저 판정한다:
      `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/{name}.md screens/{name}.html`
      - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지).
