@@ -4,11 +4,14 @@ set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 
-# T3.a learnings.jsonl 은 ignore 대상 아님 (영속 자산 — AC-11)
+# T3.a learnings.jsonl 도 ignore 대상 (20260811 정책 전환 — AC-11 폐기)
+#   구 정책은 learnings.jsonl 만 예외로 추적했다. 세션 인사이트에 downstream 프로젝트 문맥이
+#   섞여 배포 저장소에 올리기 부적합하다는 판단으로 `.specops/` 전량 로컬 전용으로 전환했다.
+#   학습 자산은 로컬 `.specops/memory/learnings.jsonl` 에 계속 축적된다(기능 불변).
 if git -C "$PLUGIN" check-ignore -q .specops/memory/learnings.jsonl; then
-  FAIL=$((FAIL+1)); echo "FAIL T3.a learnings.jsonl 이 여전히 ignore 됨"
+  PASS=$((PASS+1)); echo "PASS T3.a learnings.jsonl ignore (로컬 전용 정책)"
 else
-  PASS=$((PASS+1)); echo "PASS T3.a learnings.jsonl 비-ignore"
+  FAIL=$((FAIL+1)); echo "FAIL T3.a learnings.jsonl 이 ignore 안 됨"
 fi
 
 # T3.b 일반 FID 산출물은 여전히 ignore (배포 불포함 규약 유지)
@@ -18,21 +21,23 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.b FID 산출물이 ignore 안 됨"
 fi
 
-# T3.c memory 내 다른 파일은 ignore (learnings 만 예외)
+# T3.c memory 내 다른 파일도 ignore (예외 없음)
 if git -C "$PLUGIN" check-ignore -q .specops/memory/other-file.md; then
   PASS=$((PASS+1)); echo "PASS T3.c memory 기타 파일 ignore 유지"
 else
   FAIL=$((FAIL+1)); echo "FAIL T3.c memory 기타 파일이 ignore 안 됨"
 fi
 
-# T3.d check-ignore rc 정밀 구분 — rc=1 (비-ignore) 만 PASS, rc>=2 는 git 오류 (Phase C 보강)
+# T3.d check-ignore rc 정밀 구분 — rc=0 (ignore) 만 PASS, rc>=2 는 git 오류 (Phase C 보강)
+#   rc=1 은 비-ignore = 구 정책 잔존이므로 FAIL 이다. rc 만 보면 오류(rc>=2)와 구분 안 되므로
+#   세 갈래를 명시적으로 나눈다.
 rc=$(git -C "$PLUGIN" check-ignore -q .specops/memory/learnings.jsonl; echo $?)
-if [ "$rc" -eq 1 ]; then
-  PASS=$((PASS+1)); echo "PASS T3.d learnings.jsonl 비-ignore (rc=1 정밀 확인)"
+if [ "$rc" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T3.d learnings.jsonl ignore (rc=0 정밀 확인)"
 elif [ "$rc" -ge 2 ]; then
   FAIL=$((FAIL+1)); echo "FAIL T3.d git check-ignore 오류 (rc=$rc)"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T3.d learnings.jsonl 이 ignore 됨 (rc=0)"
+  FAIL=$((FAIL+1)); echo "FAIL T3.d learnings.jsonl 이 비-ignore (rc=1 — 구 정책 잔존)"
 fi
 
 # ── T4 skill 본문 연결 (AC-5·6·12) ──

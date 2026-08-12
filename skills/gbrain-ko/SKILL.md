@@ -110,7 +110,7 @@ fi
 | `scripts/gbrain-recall.sh "<질의>" [--top N]` | 토큰 중첩 관련 인사이트 조회 | specifying-ko Step 1 환류 (자동) + 수동 |
 | `scripts/gbrain-friction.sh [--json]` | friction-log 규칙별 집계 + 증류 후보(**block 기준** — warn 은 감사 기록이라 미집계) + **BYPASS vs receipt** | 본 skill Step 2b (기본 출력) |
 
-learnings.jsonl 은 git 추적 (학습 자산 영속 — gitignore 예외).
+learnings.jsonl 은 **로컬 전용** (`.specops/` 전량 gitignore — 세션 인사이트에 downstream 프로젝트 문맥이 섞여 배포 저장소 부적합). 파일은 로컬에 계속 누적되며 조회·환류 동작은 불변이다.
 
 ## 인사이트 추가
 

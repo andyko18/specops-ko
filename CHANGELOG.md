@@ -5,6 +5,14 @@
 ## [Unreleased]
 
 ### Fixed
+- **`/init-project` repo 루트 가드 — worktree 오탐·subdir 자동 복구 (FID 20260811-init-cwd-root-guard)** — `_check_git` 이 `[ -d .git ]` 로 판정해 **git worktree 루트**(`.git` 이 `gitdir:` 파일)와 **repo 하위 디렉토리**에서 부트스트랩이 거부되거나 오도됐다. `#258` CHANGELOG 가 "형제 결함 별건 이관"으로만 남기고 받는 곳이 없던 항목.
+  - **`_cd_repo_root()` 신설** — `phase_1_precheck` 앞에서 subdir → `show-toplevel` 로 이동 + stderr 2줄 고지. 비-git·이미 루트는 무음. `source` 경로에서는 `main()` 밖이라 호출자 cwd 불변.
+  - **`_check_git` 판정식** — `--is-inside-work-tree` **출력** 비교(`!= true`). 초안 `--git-dir` 는 `.git` 내부·bare 에서도 rc=0 이라 구 `[ -d .git ]` 가 막던 위치를 통과시키는 **회귀**가 됐다(Phase C 실측 → 본 FID 에서 수정).
+  - 테스트 T28.a~i **9건** · `test-init-project` 38→**47** · 변이 M1·M2·M3·M-h·M-i·M-mask 격추. Linux·git 2.5 미만 worktree SKIP 은 NFR 한계.
+
+### Changed
+- **`.specops/` 전량 로컬 전용 (20260811)** — `learnings.jsonl` 만 예외로 추적하던 `.gitignore` 규칙을 제거했다. 세션 인사이트에 downstream 프로젝트 문맥이 섞여 배포 저장소에 올리기 부적합하다. `plugin.json` keywords 의 잔존 `downstream-project` 도 함께 제거.
+
 - **단기 로드맵 4건 (20260812)** — (1) `CONTRIBUTING` chain·PASS=26·진입 모드·hooks·llm soft 권고. (2) `skills/engine/*` 유령 경로 → 플랫 `skills/<name>/SKILL.md`(또는 미존재 줄 삭제) + T11 rg=0 락. (3) soft-warn stale `specops_version`/footer 10건 → **1.72.0**. (4) `gbrain-friction` **BYPASS vs receipt** 기본 출력·JSON + T22/T23 · `/gbrain`·gbrain-ko 문서.
 - **즉시 로드맵 5건 (20260812)** — (1) `_verify_exec_evidence`/`_bg_pending_path` `$lastedit`에 **MultiEdit** 편입(VERIFY 후 MultiEdit→commit FN 폐쇄) + T-fresh.e·T24c. (2) `agent_tools`가 `-w Edit`만으로 MultiEdit/NotebookEdit를 놓치던 구멍 → 명시 박탈 + T15.e/f. (3) `scripts/README` 헤더 v1.21.2·68 suites·구 baseline → **v1.72.0·142 suites·24/30/33/8**. (4) `specifying-ko used_by`에 `/maintain`·`/promote`. (5) `test-readme-entry-tree` 7→**10종** + 1.72 README foundation/batch 앵커 AC-6.
 
