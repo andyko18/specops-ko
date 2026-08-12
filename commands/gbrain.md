@@ -4,7 +4,7 @@ description: 개발 세션 인사이트 조회·요약 슬래시 — gbrain-ko �
 triggers:
   - "/gbrain"
 mode: ask
-specops_version: 1.65.0
+specops_version: 1.73.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
 ---

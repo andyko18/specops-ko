@@ -6,7 +6,7 @@ discipline: true
 reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
   - skills/systematic-debugging-ko/SKILL.md
-specops_version: 1.0.0
+specops_version: 1.73.0
 used_by: implementing-ko·tdd-ko·verifying-evidence-ko·security-review-ko·integration-test-ko·performance-test-ko (BLOCKED·FAIL 분기 진입)
 ---
 
