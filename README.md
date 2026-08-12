@@ -54,6 +54,8 @@ claude plugin install specops-ko@specops-ko
          · analyzing 선행(영향 분석) + 회귀 AC 강제  |  경량(analyze-mini) → /maintain-lite
 
 · 신규 프로젝트 순서: /init-project → /start-foundation → /start-all (또는 기능마다 /start)
+· `/start-all` 전 UI/BE/풀스택은 `.specops/memory/foundation-manifest.md` 필수 (Phase 0 HARD — 없으면 재사용 게이트 침묵 SKIP)
+· `[공통]` FR 은 `/start-all` 에서 SKIP — 구현은 `/start-foundation` (hybrid `§유형=foundation`+`§batch` 금지)
 · 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
 ```
 

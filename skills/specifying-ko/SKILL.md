@@ -209,10 +209,12 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
      | **maintain-lite 분기** | N/A | `**§유형**: 유지보수` + `**§lite**: true` + AC-R-1 강제 |
      | 신규 분기 (소규모 + 사용자 trivial 승인) | 예상 산출 ≤ 1 파일·소규모 (수 라인) | `**§유형**: trivial` (신규 단축 경로 — 아래 ★ 참조) |
      | 신규 분기 (기본) | 위 조건 미충족 | `**§유형**: 신규` |
-     | foundation 분기 | N/A | `**§유형**: foundation` |
+     | foundation 분기 | N/A | `**§유형**: foundation` (**`§batch` 기재 금지** — hybrid HARD) |
      | 유지보수 분기 | ≤ 5 | `**§유형**: trivial` (사용자가 자기선언으로 거부 가능) |
      | 유지보수 분기 | > 5 또는 미산출 | `**§유형**: 유지보수` |
-     | batch 분기 | N/A | `**§유형**: 신규` + `**§batch**: <batch-id>` (§batch 라벨이 decomposing-ko 정지점 신호로 사용됨) |
+     | batch 분기 | N/A | `**§유형**: 신규` + `**§batch**: <batch-id>` (**`§유형=foundation` 금지** — hybrid HARD) |
+
+     **★ hybrid 금지 (20260812)**: `§유형=foundation` 과 `§batch` 를 **같은 spec.md 에 쓰지 않는다**. 공통부는 `/start-foundation`(foundation only), 기능은 `/start-all` batch(`신규`+`§batch`). 겹치면 `check-spec-label-compat.sh` 가 emit-context·verify 에서 FAIL.
 
      **근거**: clarify Q-B 결정 — trivial 자동 판정 시점은 analyzing-ko current-state.md §1 메타 사전 추정. Phase A 단독 시점에는 specifying-ko Step 1 mini-checklist §1 라인 범위 메타로 대체. 라벨은 clarifying-ko 단계에서 갱신 가능.
 

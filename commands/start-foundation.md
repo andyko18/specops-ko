@@ -42,6 +42,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 - **화면 단위 구현 요구** — `/start-foundation` 은 인프라·공통부 전용. 화면 단위 기능은 foundation 완료 후 `/start` 로 진행
 - **specifying-ko 생략** — 공통부라도 spec → clarify → plan → decompose 체인 필수. 직접 구현 금지
 - **`/init-project` 대체** — `/start-foundation` 은 foundation 코드 생성 전용. 프로젝트 문서 부트스트랩은 `/init-project` 담당
+- **§batch 라벨 병기** — foundation FID 에 `**§batch**` 를 쓰지 않는다(hybrid 금지). requirements 의 `[공통]` FR 은 `/start-all` 이 SKIP 하므로 batch queue 에 넣을 필요 없음
 
 ## 참조
 
@@ -51,6 +52,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 - `skills/decomposing-ko/SKILL.md` — 재사용 HARD GATE 조건
 - `templates/foundation-manifest.md` — manifest 템플릿
 - `commands/start.md` — 기능 단위 구현 진입 슬래시 (미러링 패턴 참조)
+- `scripts/_internal/check-fr-table.sh` — `[공통]` → `foundation-scope` SKIP (start-all Phase 0)
 
 ---
 

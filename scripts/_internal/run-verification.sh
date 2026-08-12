@@ -26,6 +26,7 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
 FND_SH="$PLUGIN/scripts/_internal/check-foundation-manifest.sh"
+LABEL_SH="$PLUGIN/scripts/_internal/check-spec-label-compat.sh"
 PRESENCE_SH="$PLUGIN/scripts/_internal/check-review-presence.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
@@ -205,6 +206,25 @@ if [ -f "$PRESENCE_SH" ]; then
     printf '%s\n' "$presence_out" >&2
   else
     printf '%s' "$presence_out" | grep -q 'WARN' && printf '%s\n' "$presence_out" >&2
+  fi
+fi
+
+# hybrid 라벨 금지 — §유형=foundation ∧ §batch (emit-context 이중망).
+if [ -f "$LABEL_SH" ]; then
+  label_out=$(bash "$LABEL_SH" "$FID" 2>&1)
+  label_ec=$?
+  {
+    echo "### spec-label-compat"
+    echo '```'
+    echo "$label_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  if [ "$label_ec" -ne 0 ]; then
+    all_pass=0
+    failed=$((failed + 1))
+    echo "VERIFY: FAIL spec-label hybrid (exit=$label_ec)" >&2
+    echo "$label_out" >&2
   fi
 fi
 

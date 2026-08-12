@@ -36,6 +36,16 @@ yaml=$(dag::extract_yaml "$TASKS")
 #   모델이 안 쓰면 그대로 통과했다 — 공통부를 만들고 아무도 안 쓰는 상태가 조용히 지나간다.
 #   여기 배선한 이유: emit-context 는 dispatch 직전의 원자적 게이트라, 실패가 곧
 #   implementing 진입 차단이다(디스크 작성 0 — 다른 검증과 동일 원자성).
+# hybrid 라벨 금지 — §유형=foundation ∧ §batch 동시 (Argus FR-28 실측).
+_LABEL_SH="$SCRIPT_DIR/../_internal/check-spec-label-compat.sh"
+if [ -f "$_LABEL_SH" ]; then
+  if ! label_out=$(bash "$_LABEL_SH" "$FID" 2>&1); then
+    printf '%s\n' "$label_out" >&2
+    echo "emit-context: foundation+batch hybrid 라벨 — spec.md 수정 후 재실행" >&2
+    exit 1
+  fi
+fi
+
 _REUSE_SH="$SCRIPT_DIR/../_internal/check-foundation-reuse.sh"
 if [ -f "$_REUSE_SH" ]; then
   if ! reuse_out=$(bash "$_REUSE_SH" "$FID" 2>&1); then

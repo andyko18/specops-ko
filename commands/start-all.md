@@ -60,6 +60,29 @@ reference_upstream: specops-ko 독자 추가
    - `rc=0` → 실 FR 개수 확인 후 진행. placeholder 경고가 나오면 **그 FR 은 batch 대상에서 제외**한다.
    - `rc=1` → 실 FR 0건. 중단하고 requirements.md 작성 안내.
    - `rc=2` → 파일 부재. 위 `/init-project` 안내와 동일 처리.
+
+   **★ 시드 FR ≠ placeholder (필수 — 20260812)**: init 가 FR-1~3 을 M1~M3 **마일스톤 시드**로 넣고 세부 FR-4+ 를 붙인 뒤에도, 시드 행이 실 FR 로 남아 queue `PENDING` 에 들어가면 **이중 구현**된다(attendance·Argus 실측 — Argus 는 수동 `FR-1·2·3 = SKIP`). `rc=0` 이면 **반드시** 분류기를 돌린다:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-fr-table.sh --classify
+   ```
+   - `ELIGIBLE|<id>|<desc>|<M>` → queue Status=`PENDING`
+   - `SKIP|<id>|placeholder|` → queue에 넣지 않거나 Status=`SKIP` + 설명 `(placeholder)`
+   - `SKIP|<id>|seed-decomposed|<M>` → Status=`SKIP`, 설명에 `(마일스톤 시드 — 세부 FR로 분해됨)`
+   - `SKIP|<id>|foundation-scope|<M>` → Status=`SKIP`, 설명에 `(공통부 — /start-foundation 담당)` — 설명 선두 `[공통]`/`**[공통]**` 또는 `<!-- foundation-fr: FR-N,… -->`
+   - `SUMMARY|…|eligible=0|…` 이고 실 FR≥1 이면 → "batch 대상 FR 0건"(시드·공통부만 남음) 안내 후 **중단**. 공통만이면 `/start-foundation` 완주(또는 기능 FR 추가) 후 재실행.
+   - 시드·공통부 SKIP ≥1 이면 queue 상단에 사유 2–3줄 기재(Argus queue 헤더 패턴)
+   - **기존 `queue.md` 재사용 시 재분류 금지** (재개 규약 — PENDING/PLAN_DONE 보존)
+
+   **★ 공통부 FR ≠ 기능 FR (필수 — 20260812)**: 시드 가드·foundation-manifest 선행과 **별개**. `[공통]` 표기 FR 은 **항상** queue SKIP — `/start-all` 이 공통을 `§유형=신규`+`§batch` 로 구현하면 manifest·Step 5.6 경로와 어긋난다. hybrid(`§유형=foundation`+`§batch`)도 금지(`check-spec-label-compat.sh`).
+
+   **★ foundation-manifest 선행 게이트 (필수 — 20260812)**: 시드 FR 가드와 **별개**. UI/BE/풀스택/모바일이면 `.specops/memory/foundation-manifest.md` 가 채워져 있어야 한다 — 부재 시 `check-foundation-reuse` 가 SKIP 되어 공통 재구현이 침묵 통과한다. FR 표 통과 ≠ foundation 완료.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-present.sh
+   ```
+   - `rc=1` (`FOUNDATION-PRESENT: FAIL`) → Phase 0 **중단**. `/start-foundation "<공통부>"` 완주(manifest 채움) 후 `/start-all` 재실행.
+   - `rc=0` + `PASS` → 진행.
+   - `rc=0` + `WARN`/`SKIP` (CLI 등 비필수) → 진행. WARN이면 queue 헤더에 1줄 기록.
+   - §auto·대화형 **동일 HARD** (가정 다이제스트로 우회 금지). ACTIVE 재진입 시에도 **매 Phase 0** 재검사.
 4. **batch 브랜치 생성** (1회, 재진입 시 skip):
    ```bash
    # 이미 존재하면 switch, 없으면 create
@@ -79,15 +102,15 @@ reference_upstream: specops-ko 독자 추가
    `.specops/$BATCH_ID/queue.md` 이미 존재하면 → **기존 파일 재사용** (초기화 스킵, PENDING/PLAN_DONE 상태 보존).
    재사용은 **스텝 1이 ACTIVE 로 재개를 판정한 batch 에서만** 일어난다 — 신규 batch 는 id 에 시각이 붙어
    디렉토리가 겹치지 않으므로 남의 queue 를 물려받지 않는다(구 날짜-키 규약의 뭉갬 경로 제거).
-   없으면 신규 생성:
+   없으면 신규 생성 — **`--classify` 결과만** 반영 (시드·placeholder 는 `PENDING` 금지):
    ```
    | FR-ID | FID | FR 설명(1줄) | Status |
    |---|---|---|---|
-   | FR-1 | TBD | <FR 설명> | PENDING |
-   | FR-2 | TBD | <FR 설명> | PENDING |
+   | FR-1 | — | M1 시드 (마일스톤 시드 — 세부 FR로 분해됨) | SKIP |
+   | FR-4 | TBD | <FR 설명> | PENDING |
    ...
    ```
-   FID 컬럼은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 실제 FID로 갱신됨.
+   FID 컬럼은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 실제 FID로 갱신됨. Phase 1 은 **PENDING 만** 처리하므로 SKIP 은 자연 제외.
 
 ### Phase 1 — 전 FR spec→decompose (대화형)
 
@@ -323,6 +346,9 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 ## 안티패턴
 
 - **requirements.md FR 표 없이 실행** — `/init-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-all` 진입
+- **foundation 없이 start-all (UI/BE/풀스택/모바일)** — `/start-foundation`으로 `foundation-manifest.md` 채운 뒤 진입. Phase 0 `check-foundation-present` 가 HARD 차단
+- **공통 FR을 batch PENDING에 넣기** — `[공통]`/`foundation-fr` 표기 FR 은 SKIP. 구현은 `/start-foundation`만
+- **§유형=foundation + §batch hybrid** — 금지. `check-spec-label-compat` FAIL
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
 - **per-FR PR 생성** — Phase 3에서 per-FR PR 생성 금지. `receiving-code-review-ko`가 `BATCH-REVIEW-DONE: <FID>` 를 출력하고 halt함으로써 자동 차단된다. 최종 batch PR 1개 (Phase 3 완료 Step D)만 생성
 - **Phase 2·2.5 건너뜀** — batch plan-review·일괄 게이트·화면→IF design-first 필수. 사용자 확인 없이 Phase 3 진입 금지

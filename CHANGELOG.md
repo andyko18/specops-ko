@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **공통부 vs 기능 FR 경계 / hybrid 금지 (20260812)** — `[공통]` 또는 `<!-- foundation-fr: … -->` FR 은 `check-fr-table --classify` 가 `SKIP|…|foundation-scope` 로 내고 `/start-all` queue 에서 **항상 SKIP**(선택 A). `§유형=foundation`∧`§batch` hybrid 는 `check-spec-label-compat.sh` 가 emit-context·verify 에서 HARD FAIL(Argus FR-28 실측). init Phase 11·requirements 템플릿에 표기 규약 · `test-fr-foundation-scope.sh` · propagation `foundation-fr-boundary`.
+- **`/start-all` Phase 0 foundation-manifest 선행 게이트 — 없으면 재사용 SKIP 침묵 통과 (20260812)** — `check-foundation-reuse` 는 manifest 부재 시 SKIP 한다. Phase 0 이 requirements만 보면 init 직후 batch 가 공통 재구현을 허용한다(attendance 직전). 신규 `check-foundation-present.sh`: UI/BE/풀스택/모바일 신호(FE·BE arch · decisions · project-context)면 HARD FAIL, CLI 등 비필수는 WARN+rc=0, 파일이 있으면 채움 필수(raw 템플릿 FAIL). `start-all`/`start-all-auto` 배선 · propagation `foundation-before-batch` · `test-foundation-present.sh`.
+- **`/start-all` 시드 FR 이중 구현 — 마일스톤 시드(FR-1~3)가 세부 FR 분해 후에도 batch PENDING 에 남던 문제 (20260812)** — init 가 PRD M1~M3 를 FR-1~3 시드로 넣고 Phase 11 이 FR-4+ 를 붙이면, `check-fr-table` 은 시드도 “실 FR”로 세어 queue 에 넣었다(attendance: FR-1+FR-4~9 / Argus 는 수동 `FR-1·2·3 = SKIP`). `check-fr-table.sh --classify` 가 시드 마커(`<!-- seed-fr: FR-1,FR-2,FR-3 -->` 또는 `마일스톤 시드` 문구) ∧ 같은 마일스톤 비시드 실 FR(≥FR-4) 조건으로 `SKIP|…|seed-decomposed` 를 내고, `start-all` Phase 0 이 ELIGIBLE→PENDING · seed-decomposed→SKIP 으로 배선한다. 미분해 시드·마커 없는 구 프로젝트는 SKIP 0(오탐 방지). 테스트 `test-fr-seed-skip.sh` + mutation.
 - **CI `test-uiux-assets` U20b 가 Actions 에서만 FAIL 하던 문제** — 검사가 gitignore 된 `.specops/<FID>/acceptance-criteria.md` 를 읽어 로컬(파일 있음)은 PASS·CI clone 은 FAIL 이었다. SoT 를 tracked `CHANGELOG.md` 의 `AC-9 범위 부기` 문구로 옮김.
 
 ## [1.71.0] — 2026-08-11

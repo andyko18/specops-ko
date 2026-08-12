@@ -19,6 +19,12 @@
 각 FR 은 고유 ID + 마일스톤 매핑 + 우선순위 (must / should / nice-to-have).
 
 > **FR-1~3 은 `/init-project` 가 PRD §4 마일스톤(M1~M3)을 1:1 로 시드**한 값이다(각 마일스톤 = 1 FR). 세부 기능은 이 시드를 **여러 FR 로 분해**하며(FR-4, FR-5 …), 각 FR 은 `/start` 진입 시 `.specops/<FID>/spec.md` 로 위임된다.
+>
+> **공통부**: 스캐폴딩·인증·공통 레이아웃 등은 설명 선두 `[공통]`(예: `| FR-4 | [공통] 프로젝트 스캐폴딩 … |`). `/start-all` 은 `foundation-scope` 로 SKIP — 구현은 `/start-foundation`.
+
+<!-- seed-fr: FR-1,FR-2,FR-3 -->
+<!-- foundation-fr: -->
+<!-- 예: foundation-fr: FR-4,FR-27,FR-28 — Phase 11 에서 공통 FR ID 를 채운다(선택, [공통] 선두와 이중 인정) -->
 
 | ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
 |---|---|---|---|---|
