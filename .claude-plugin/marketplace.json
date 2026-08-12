@@ -2,7 +2,7 @@
   "name": "specops-ko",
   "allowCrossMarketplaceDependenciesOn": ["ui-ux-pro-max-skill"],
   "metadata": {
-    "description": "specops-ko 마켓플레이스 (v1.71.0 — Claude Code 전용)"
+    "description": "specops-ko 마켓플레이스 (v1.72.0 — Claude Code 전용)"
   },
   "owner": {
     "name": "andyko18",
@@ -12,7 +12,7 @@
     {
       "name": "specops-ko",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반",
-      "version": "1.71.0",
+      "version": "1.72.0",
       "source": "./",
       "author": {
         "name": "andyko18",

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.72.0] — 2026-08-12
+
 ### Fixed
 - **문서·일관성 P0 — agents/foundation/entry 드리프트 (20260812)** — `generator-evaluator-ko`가 agents **7종**·`design-reviewer-ko` 부재로 단정해 Phase 2.5-D 필수 dispatch를 거부할 수 있던 구멍 → **8종**+매트릭스 행·`used_by`에 `/start-all`·`planning-ko`. `CLAUDE.md` foundation Step 5.5 **skip** 서술을 specifying SoT(**셸 allowlist**)로 정정 + entry `auto`/`batch`·매칭 순서. `brainstorming-ko`의 `specops-ko:init-project` Skill 오표기 → `/init-project`. 메타/`start.md` PoC v0.0 잔존 문구 정리. `test-design-reviewer-doc.sh` T8–T11·변이로 재발 락.
 - **queue.md Phase 0 기계 초기화 (20260812)** — `--classify` 는 있는데 표 쓰기는 산문이라 시드·공통이 PENDING 에 들어가거나 헤더가 빠질 수 있었다. 신규 `init-batch-queue.sh` 가 ELIGIBLE→PENDING · seed/foundation→SKIP · placeholder 생략 · 기존 queue는 REUSE(불변). start-all Phase 0 step 5 배선 · `test-init-batch-queue.sh` · propagation `batch-queue-init`.
@@ -1077,7 +1079,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.71.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.72.0...HEAD
+[1.72.0]: https://github.com/andyko18/specops-ko/compare/v1.71.0...v1.72.0
 [1.71.0]: https://github.com/andyko18/specops-ko/compare/v1.70.0...v1.71.0
 [1.70.0]: https://github.com/andyko18/specops-ko/compare/v1.69.0...v1.70.0
 [1.69.0]: https://github.com/andyko18/specops-ko/compare/v1.68.0...v1.69.0
