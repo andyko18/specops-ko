@@ -98,7 +98,7 @@ Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하�
 - **Step 5.5 화면** — UI 기능이면 화면별로 `screens/<name>.md`(스펙) + `screens/<name>.html`(미리보기) 쌍 생성. lifecycle 밖 개별/일괄 수정은 `/design-screen(s)`.
 - **Step 5.6 인터페이스** — API/스키마 기능이면 마스터 문서 `.specops/memory/api-spec.md`(IF 설계) · `.specops/memory/data-model.md`(테이블 설계) 의 해당 섹션을 **먼저** 갱신. lifecycle 밖은 `/design-interface(s)`.
 
-`foundation` 분기는 Step 5.5 는 skip 하나 **Step 5.6 은 적용**(공통부 DB 스키마·공통 API 의 본진). `/start-all` **batch** 는 Step 5.5·5.6을 모두 skip 하고 Phase 2.5에서 **화면→인터페이스→`design-reviewer-ko` 무거운 리뷰** 순으로 1회 통합한다(화면 또는 IF 산출 시 리뷰 필수). 파괴적 스키마 변경은 `impact-analysis.md §2`(expand-contract) + 회귀 AC-R-2(데이터 보존)로 연계. verify 가 역방향 안전망으로 설계-구현 대칭을 검사한다.
+`foundation` 분기는 Step 5.5 를 **전면 skip 하지 않는다** — **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지). **Step 5.6 은 적용**(공통부 DB 스키마·공통 API 의 본진). `/start-all` **batch** 는 Step 5.5·5.6을 모두 skip 하고 Phase 2.5에서 **화면→인터페이스→`design-reviewer-ko` 무거운 리뷰** 순으로 1회 통합한다(화면 또는 IF 산출 시 리뷰 필수). 파괴적 스키마 변경은 `impact-analysis.md §2`(expand-contract) + 회귀 AC-R-2(데이터 보존)로 연계. verify 가 역방향 안전망으로 설계-구현 대칭을 검사한다.
 
 ### 학습 루프 (gbrain / freelog)
 
@@ -127,12 +127,15 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### maintenance flag
 
-진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다:
+진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다.
+매칭 순서(specifying-ko): maintain-lite → maintain → lite → foundation → batch → auto → (신규 기본).
 
 - `<!-- entry: maintain-lite -->` — 경량 유지보수. `analyzing-ko` `[lite-mini 분기]` → `specifying-ko` `[maintain-lite 분기]`. `maintain`보다 **먼저** 매칭.
 - `<!-- entry: maintain -->` — 유지보수 진입. `specifying-ko`의 `[유지보수 분기]`가 감지.
 - `<!-- entry: lite -->` — 경량 신규. `specifying-ko` `[lite 분기]` — clarify/plan skip, §lite+trivial, 화면/IF·B/C 유지.
-- `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5(화면 루프) skip, §유형=`foundation` 자동 라벨.
+- `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지), Step 5.6 적용, §유형=`foundation` 자동 라벨.
+- `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
+- `<!-- entry: auto -->` — 무인 단독(`§auto: true`). git-branch 유지, clarify/plan 수행.
 
 ## 구조 검증이 FAIL나면
 

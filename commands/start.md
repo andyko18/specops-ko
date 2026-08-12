@@ -40,9 +40,9 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 | 진입 방식 | 동작 | 비고 |
 |---|---|---|
 | `/start CSV 줄 수 세기 CLI` | 본 command 실행 + `specops-ko:specifying-ko` 호출 | 명시적 진입 |
-| `"CSV 줄 수 세기 CLI 만들어줘"` (자연어) | 메타 skill이 신호 감지 → `specops-ko:specifying-ko` 자동 호출 | 암묵적 진입 (PoC v0.0 검증 대상) |
+| `"CSV 줄 수 세기 CLI 만들어줘"` (자연어) | 메타 skill이 신호 감지 → `specops-ko:specifying-ko` 자동 호출 | 암묵적 진입 (SessionStart 메타 skill) |
 
-두 방식은 **기능적으로 동등**. PoC v0.0에서 자연어 진입이 실패하면 `/start` 슬래시가 **유일한 진입점**으로 격상 (§15.10 fallback).
+두 방식은 **기능적으로 동등**. `/start` 슬래시는 명시적 진입점이고, 자연어는 메타 skill이 동일 chain으로 연결한다.
 
 ## 안티패턴
 

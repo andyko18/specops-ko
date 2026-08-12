@@ -4,7 +4,7 @@ description: 생성 에이전트와 평가 에이전트를 엄격히 분리하�
 layer: 3
 reference_upstream: obra/omc@v1.0 skills/generator-evaluator/SKILL.md
 specops_version: 1.44.0
-used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
+used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko, planning-ko, /start-all (Phase 2.5-D)
 ---
 
 # Harness 기법 3 — Generator / Evaluator 분리
@@ -15,16 +15,17 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko
 
 ## 페어 매트릭스
 
-분리가 **성립하는 곳은 서브에이전트 dispatch 지점뿐**이다. 명세·설계·분해·검증(`specifying-ko`·`planning-ko`·`decomposing-ko`·`verifying-evidence-ko`)은 서브에이전트가 아니라 **skill 이 메인 세션에서** 수행한다 — 그 단계에는 Gen/Eval 에이전트 페어가 존재하지 않는다.
+분리가 **성립하는 곳은 서브에이전트 dispatch 지점뿐**이다. 명세·설계·분해·검증(`specifying-ko`·`planning-ko`·`decomposing-ko`·`verifying-evidence-ko`)은 서브에이전트가 아니라 **skill 이 메인 세션에서** 수행한다 — 그 단계에는 Gen/Eval 에이전트 페어가 존재하지 않는다. `/start-all` Phase 2.5 화면·IF 산출은 오케스트레이터가 만들고 `design-reviewer-ko`가 판정한다.
 
 | 지점 | Generator | 산출 | Evaluator (서브에이전트) | 검증 산출 |
 |---|---|---|---|---|
 | 설계 리뷰 | `planning-ko` (메인 세션) | plan.md | `plan-reviewer-ko` | 판정 보고 (PASS/BLOCK) |
+| batch 설계 리뷰 | `/start-all` Phase 2.5 (오케스트레이터) | screens + api-spec + data-model | `design-reviewer-ko` | design-review.md + `DESIGN-REVIEW-RESULT` |
 | 구현 Phase B | `implementer-ko` | 코드 + 테스트 | `spec-reviewer-ko` | 스펙 준수 판정 |
 | 구현 Phase C | `implementer-ko` | (동일 산출) | `code-reviewer-ko` | 코드 품질·보안·커버리지·DB 판정 |
 | self-config 감사 | — | (플러그인 자기 번들) | `red-team-ko` → `blue-team-ko` → `auditor-ko` | risk 등급 리포트 |
 
-**실재 에이전트는 `agents/` 7종뿐**: Generator 1 (`implementer-ko`) / Evaluator 6 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
+**실재 에이전트는 `agents/` 8종뿐**: Generator 1 (`implementer-ko`) / Evaluator 7 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`design-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
 
 ## 엄격 규칙
 

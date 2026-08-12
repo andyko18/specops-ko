@@ -4,7 +4,7 @@ description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lif
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 1.63.0
-used_by: 모든 Claude Code 세션 (PoC v0.0 — 자동 활성 검증 단계)
+used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 ---
 
 # Harness 메타 스킬 — specops-ko 자율 Lifecycle 진입

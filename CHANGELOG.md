@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **문서·일관성 P0 — agents/foundation/entry 드리프트 (20260812)** — `generator-evaluator-ko`가 agents **7종**·`design-reviewer-ko` 부재로 단정해 Phase 2.5-D 필수 dispatch를 거부할 수 있던 구멍 → **8종**+매트릭스 행·`used_by`에 `/start-all`·`planning-ko`. `CLAUDE.md` foundation Step 5.5 **skip** 서술을 specifying SoT(**셸 allowlist**)로 정정 + entry `auto`/`batch`·매칭 순서. `brainstorming-ko`의 `specops-ko:init-project` Skill 오표기 → `/init-project`. 메타/`start.md` PoC v0.0 잔존 문구 정리. `test-design-reviewer-doc.sh` T8–T11·변이로 재발 락.
 - **queue.md Phase 0 기계 초기화 (20260812)** — `--classify` 는 있는데 표 쓰기는 산문이라 시드·공통이 PENDING 에 들어가거나 헤더가 빠질 수 있었다. 신규 `init-batch-queue.sh` 가 ELIGIBLE→PENDING · seed/foundation→SKIP · placeholder 생략 · 기존 queue는 REUSE(불변). start-all Phase 0 step 5 배선 · `test-init-batch-queue.sh` · propagation `batch-queue-init`.
 - **UI 공통 vs 화면 순서 — foundation Step 5.5 셸 전용 (20260812)** — foundation 이 화면을 전면 SKIP 해 AppShell·토큰이 추측 구현되던 구멍(P0-4). allowlist(`app-shell`·`layout`·`login`) + `<!-- foundation-shell -->` 만 foundation 5.5 허용 · Phase 2.5-A `check-foundation-shell-baseline.sh` snapshot→verify · design-reviewer Critical · `test-foundation-shell-baseline.sh` · propagation `foundation-shell-baseline`.
 - **IF 이중 소유 — foundation-baseline 마커 불변 (20260812)** — foundation Step 5.6 이 채운 공통 api-spec/data-model 을 Phase 2.5-B 가 “행 갱신”으로 재작성하던 구멍. `<!-- foundation-baseline -->` 마커 + `check-foundation-if-baseline.sh` snapshot→verify · start-all 2.5-B 배선 · specifying-ko 생산 의무 · design-reviewer Critical · `test-foundation-if-baseline.sh` · propagation `foundation-if-baseline`.
