@@ -83,6 +83,14 @@ reference_upstream: specops-ko 독자 추가
    - `rc=0` + `PASS` → 진행.
    - `rc=0` + `WARN`/`SKIP` (CLI 등 비필수) → 진행. WARN이면 queue 헤더에 1줄 기록.
    - §auto·대화형 **동일 HARD** (가정 다이제스트로 우회 금지). ACTIVE 재진입 시에도 **매 Phase 0** 재검사.
+
+   **★ foundation 브랜치 머지 게이트 (필수 — 20260812)**: present(문서)와 **별개**. `§유형=foundation` FID 의 `feat/<FID>` 가 `main` 에 미머지(git 조상 아님 ∧ gh도 MERGED 아님)이면 UI/BE/풀스택/모바일은 **중단** — manifest 만 있고 공통 코드가 base 에 없는 이중 트랙을 막는다.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-merged.sh
+   ```
+   - `rc=1` (`FOUNDATION-MERGED: FAIL`) → Phase 0 **중단**. foundation PR 머지(또는 로컬 main 반영) 후 `/start-all` 재실행.
+   - `rc=0` + `PASS`/`SKIP` → 진행. `WARN`(비필수·미머지)이면 queue 헤더에 1줄.
+   - FID 없거나 브랜치가 이미 삭제된 경우 SKIP/PASS. §auto·대화형 동일 HARD.
 4. **batch 브랜치 생성** (1회, 재진입 시 skip):
    ```bash
    # 이미 존재하면 switch, 없으면 create
@@ -182,10 +190,20 @@ reference_upstream: specops-ko 독자 추가
 
 1. **IF 표면 검출** — 전 FID spec §범위·§참조 + (존재 시) `screens/*.md` Interactions에서 API/DB/클라이언트 스토리지 신호를 취합한다.
    - **신호 없음(순수 UI·문서 batch)** → `INTERFACE-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **C로 진행**.
-2. **마스터 갱신** — `.specops/memory/api-spec.md`·`data-model.md`에 전 FR 변경분을 **append**(섹션 덮어쓰기 금지 · 동일 메서드+경로/테이블은 **해당 행 갱신**).
+2. **마스터 갱신** — `.specops/memory/api-spec.md`·`data-model.md`에 전 FR 변경분을 **append**(섹션 덮어쓰기 금지 · 동일 메서드+경로/테이블은 **해당 행 갱신** — 단 **`<!-- foundation-baseline -->` 마커 안은 갱신·삭제 금지**, 마커 밖만).
+   - **★ foundation IF baseline 불변 (20260812)**: 갱신 **직전** snapshot → **직후** verify. 마커 본문이 바뀌면 FAIL → Phase 2.5 중단.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-if-baseline.sh \
+     snapshot ".specops/$BATCH_ID/foundation-if-baseline.sha"
+   # … 마스터 append (마커 밖만) …
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-foundation-if-baseline.sh \
+     verify ".specops/$BATCH_ID/foundation-if-baseline.sha"
+   ```
+   - `FOUNDATION-IF-BASELINE: FAIL` → baseline 되돌리고 FR 전용만 다시 append. `/start-foundation` 또는 `/design-interface`로만 baseline 변경.
+   - `SKIP`(마커 0) → 진행(구 프로젝트).
    - memory 부재 시: 대화형은 생성 확인, §auto는 신규 생성 금지·각 FID spec에 "인터페이스 미반영: memory 부재" 기록.
 3. 각 FID spec.md §1에 반영 요약 1줄(`**자동 결정 인터페이스**` 또는 대화형 동등 요약) + §참조에 api-spec/data-model 경로.
-4. **[§auto 모드]**: 인터페이스 대화형 승인 없이 자동 append(가역 — PR 다이제스트 집계).
+4. **[§auto 모드]**: 인터페이스 대화형 승인 없이 자동 append(가역 — PR 다이제스트 집계). **마커 안 불변은 §auto도 HARD**.
 
 #### C. cross-FR 계약 리뷰 (오케스트레이터 quick)
 
@@ -347,6 +365,7 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 - **requirements.md FR 표 없이 실행** — `/init-project` 먼저 실행해 `requirements.md`에 FR 표 작성 후 `/start-all` 진입
 - **foundation 없이 start-all (UI/BE/풀스택/모바일)** — `/start-foundation`으로 `foundation-manifest.md` 채운 뒤 진입. Phase 0 `check-foundation-present` 가 HARD 차단
+- **foundation 브랜치 미머지 상태로 start-all** — `feat/<foundation-FID>` 를 main 에 머지한 뒤 진입. Phase 0 `check-foundation-merged` 가 HARD 차단
 - **공통 FR을 batch PENDING에 넣기** — `[공통]`/`foundation-fr` 표기 FR 은 SKIP. 구현은 `/start-foundation`만
 - **§유형=foundation + §batch hybrid** — 금지. `check-spec-label-compat` FAIL
 - **spec 생략 요구** — 각 FR에 대해 specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 필수. Phase 1 생략 금지
@@ -356,6 +375,7 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 - **Phase 2 batch plan-review 생략** — Generator↔Evaluator 폐기. digest/[y/n]만으로 Phase 2.5 진입 금지
 - **Phase 2에서 전 FID plan 전문 덤프** — `batch-plan-digest.sh` 짧은 표만
 - **Phase 1에서 batch Step 5.6 실행** — FR별 api-spec 선갱신 금지. 인터페이스는 Phase 2.5-B(화면 직후)
+- **foundation-baseline 마커 안을 Phase 2.5-B에서 갱신** — 금지. `check-foundation-if-baseline` FAIL. baseline은 `/start-foundation`·`/design-interface`만
 - **Phase 2.5-D 생략** — 화면 또는 IF 산출이 있으면 `design-reviewer-ko` 필수. 부모 self-review로 대체 금지
 - **design-review FAIL을 무시하고 구현** — PASS(또는 §auto Important-only cap 기록) 없이 Phase 3 진입 금지. **Critical cap은 §auto여도 정지**
 - **skill 미호출 인라인 뭉개기** — 오케스트레이터가 spec~verify 산출물을 heredoc 으로 직접 쓰는 것 금지 (R-3 스킬 선언 투명성 위반 + session-progress 줄 0 → `batch-state.sh` `[진행기록 누락]` 이 batch PR 직전 차단). 각 단계는 Skill 도구로 **실호출**한다 — dogfood 20260716: 4 FID spec→tasks 가 3분 만에 인라인 생성되어 진행 흔적이 전무했다

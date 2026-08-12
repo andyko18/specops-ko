@@ -1,6 +1,6 @@
 ---
 name: design-reviewer-ko
-description: /start-all Phase 2.5가 dispatch하는 batch 화면·인터페이스 설계 리뷰 — Interactions↔api-spec·data-model 정합·껍데기·cross-FR 충돌·플레이스홀더. 추측 판정 금지.
+description: /start-all Phase 2.5가 dispatch하는 batch 화면·인터페이스 설계 리뷰 — Interactions↔api-spec·data-model 정합·껍데기·cross-FR 충돌·foundation-baseline 재작성·플레이스홀더. 추측 판정 금지.
 model: fable
 role: evaluator
 tools: Read, Grep, Glob, Bash
@@ -56,10 +56,12 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | Interactions↔API | Interaction이 가리키는 동작에 대응 엔드포인트 전무(API 기능인데) | 메서드/경로 불일치·인증 누락 의심(실측) | 명명만 다름 |
 | 데이터소스↔모델 | 화면이 저장/조회하는 엔티티가 data-model에 전무(스키마 기능인데) | 필드 누락·타입 명백 불일치 | 표기 스타일 |
 | cross-FR 계약 | 동일 메서드+경로/테이블이 모순 정의(서로 다른 스키마) | 중복 행·드리프트 | 문서 순서 |
+| foundation-baseline | `<!-- foundation-baseline -->` 마커 구간이 Phase 2.5에서 재작성·삭제됨(또는 마커 없이 공통 auth/health 베이스를 FR이 덮어쓴 실측) | 마커 밖 행만 갱신인데 문서 주석 불명확 | — |
 | 스펙 정합 | 화면/IF가 전 FID spec §범위와 정면 모순 | spec §참조에 경로 누락 | 요약 문장 부재 |
 | 플레이스홀더 | 설계 본문에 미치환 `<PLACEHOLDER>`·빈 템플릿 블록 | TBD/TODO가 must 경로에 잔존 | 주석성 TODO |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.
+**foundation-baseline**: `check-foundation-if-baseline.sh` FAIL과 정합 — 마커 재작성은 **Critical**(기계 검사가 1차 teeth).
 
 ## 판정 반환 포맷
 

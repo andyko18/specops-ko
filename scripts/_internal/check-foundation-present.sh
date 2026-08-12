@@ -9,8 +9,7 @@
 #   (attendance 직전 상태). check-foundation-manifest.sh 는 FID+§유형=foundation 전용(verify)이라
 #   프로젝트 입구 검사에 쓸 수 없다.
 #
-# 필수 KIND: FE/BE arch 파일 · decisions(프로젝트 종류 UI/BE/풀스택/모바일 · UI 유무 있음) ·
-#   project-context §2 실값. 없으면 CLI/기타 → 부재 시 WARN rc=0.
+# 필수 KIND: foundation-kind.sh (FE/BE arch · decisions · project-context).
 # 채움: 파일이 있으면 scan-enrich-placeholders 통과 필수(비필수 KIND 도 raw 템플릿 FAIL).
 set -u
 
@@ -19,82 +18,8 @@ MEM="$SPECOPS/memory"
 MANIFEST="$MEM/foundation-manifest.md"
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 SCAN="$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh"
-LEDGER="$MEM/decisions.md"
-CTX="$MEM/project-context.md"
-
-_is_uninformative_value() {
-  local v="$1"
-  [ -z "$v" ] && return 0
-  printf '%s' "$v" | grep -qE '^<[^>]*>$' && return 0
-  printf '%s' "$v" | grep -qE '^(TBD|tbd|N/A|n/a|-|—|\(미정\)|미정|미확정|해당없음|해당 없음|\?\?\?)$' && return 0
-  printf '%s' "$v" | grep -qE '^<미확정' && return 0
-  return 1
-}
-
-# decisions.md 표에서 확정 행만 topic|value (예시·미확정 제외 — check-decisions-ledger 정신)
-_decision_rows() {
-  [ -f "$LEDGER" ] || return 0
-  awk -F'|' '
-    /^\|/ {
-      if ($2 ~ /DECISION-ID/) next
-      if ($2 ~ /^[[:space:]]*-+[[:space:]]*$/) next
-      if (NF < 4) next
-      topic = $3; value = $4
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", topic)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-      if (topic == "") next
-      if (topic ~ /^\(예시\)/) next
-      if (value == "") next
-      if (value ~ /^<[^>]*>$/) next
-      if (value ~ /^(TBD|tbd|N\/A|n\/a|-|—|\(미정\)|미정|미확정|해당없음|해당 없음|\?\?\?)$/) next
-      print topic "|" value
-    }
-  ' "$LEDGER"
-}
-
-_required_from_decisions() {
-  local topic value
-  while IFS='|' read -r topic value; do
-    [ -n "$topic" ] || continue
-    if printf '%s' "$topic" | grep -q 'UI 유무'; then
-      printf '%s' "$value" | grep -q '있음' && return 0
-    fi
-    if printf '%s' "$topic" | grep -q '프로젝트 종류'; then
-      printf '%s' "$value" | grep -qE '풀스택|Web|UI|BE|API|모바일|Mobile|프론트|백엔드' && return 0
-    fi
-  done <<EOF
-$(_decision_rows)
-EOF
-  return 1
-}
-
-_required_from_context() {
-  [ -f "$CTX" ] || return 1
-  local area value
-  while IFS='|' read -r _ area value _; do
-    area=$(printf '%s' "$area" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    value=$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    if printf '%s' "$area" | grep -q 'UI 유무'; then
-      printf '%s' "$value" | grep -q '있음' && return 0
-    fi
-    if printf '%s' "$area" | grep -qE '^(프론트|백엔드)$'; then
-      _is_uninformative_value "$value" && continue
-      printf '%s' "$value" | grep -qiE '없음|해당[[:space:]]*없음|N/A' && continue
-      [ -n "$value" ] && return 0
-    fi
-  done <<EOF
-$(grep -E '^\|[[:space:]]*[^|]+[[:space:]]*\|' "$CTX" 2>/dev/null)
-EOF
-  return 1
-}
-
-_is_required() {
-  [ -f "$MEM/frontend-architecture.md" ] && return 0
-  [ -f "$MEM/backend-architecture.md" ] && return 0
-  _required_from_decisions && return 0
-  _required_from_context && return 0
-  return 1
-}
+# shellcheck source=/dev/null
+. "$PLUGIN/scripts/_internal/foundation-kind.sh"
 
 _fail_missing() {
   echo "FOUNDATION-PRESENT: FAIL — $MANIFEST 부재"
@@ -125,7 +50,7 @@ _check_filled() {
 }
 
 required=0
-_is_required && required=1
+foundation_kind_is_required && required=1
 
 if [ ! -f "$MANIFEST" ]; then
   if [ "$required" -eq 1 ]; then

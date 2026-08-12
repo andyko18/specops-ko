@@ -55,6 +55,8 @@ claude plugin install specops-ko@specops-ko
 
 · 신규 프로젝트 순서: /init-project → /start-foundation → /start-all (또는 기능마다 /start)
 · `/start-all` 전 UI/BE/풀스택은 `.specops/memory/foundation-manifest.md` 필수 (Phase 0 HARD — 없으면 재사용 게이트 침묵 SKIP)
+· foundation `feat/<FID>` 는 main 머지 후 `/start-all` (Phase 0 `check-foundation-merged`)
+· foundation IF는 `foundation-baseline` 마커 — `/start-all` Phase 2.5-B는 마커 밖만 append
 · `[공통]` FR 은 `/start-all` 에서 SKIP — 구현은 `/start-foundation` (hybrid `§유형=foundation`+`§batch` 금지)
 · 자연어로 진입해도 됨 — 메타 skill 이 신호 감지해 라우팅(혼재 시 1문항 확인).
 ```

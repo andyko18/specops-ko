@@ -21,7 +21,7 @@ reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 
 ## Process
 
-Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR 파싱·`check-fr-table` / `check-fr-table.sh --classify` 시드·`foundation-scope` SKIP·`check-foundation-present.sh` foundation-manifest 선행·`feat/<BATCH_ID>` 브랜치·`queue.md` 관리)은 **`commands/start-all.md` 와 동일**(Phase 0 시드≠placeholder·`seed-decomposed`/`foundation-scope` queue `SKIP`·eligible=0 중단·foundation-present HARD 포함). 아래는 §auto 무인 차이점만 명시한다.
+Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR 파싱·`check-fr-table` / `check-fr-table.sh --classify` 시드·`foundation-scope` SKIP·`check-foundation-present.sh`·`check-foundation-merged.sh`·`feat/<BATCH_ID>`·`queue.md`)은 **`commands/start-all.md` 와 동일**(시드/`foundation-scope` SKIP·eligible=0·foundation-present HARD·foundation-merged HARD 포함). Phase 2.5-B `check-foundation-if-baseline` snapshot→verify(§auto HARD)·`foundation-baseline` 불변도 **동일**. 아래는 §auto 무인 차이점만 명시한다.
 
 1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md` 가 세션 시작 시 이미 활성돼 있어야 함.
 2. **인자 선택적** — 인자 없이 `requirements.md` FR 표 전체를 무인 순회한다(`/start-all` 미러). 인자를 주면 추가 맥락으로만 사용. (빈 인자 되물음 없음.)
@@ -57,7 +57,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
 | Phase 2 batch plan-review | 전 PLAN_DONE 후 **1회** (Phase 1 DEFER 해소). FAIL Critical → 정지 | 🛑 Critical |
 | Phase 2 일괄 리뷰 게이트 | digest 후 **자동 통과** → Phase 2.5 직행 | ❌ |
-| Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP | ❌ |
+| Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP. **B는 foundation-baseline 마커 불변**(snapshot→verify HARD, §auto 동일) | ❌ / 🛑 baseline |
 | Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. **Critical≥1 cap → 정지**(§auto 자동통과 금지). Important-only cap → 자동통과+기록(가역) | 🛑 Critical / ⚠️ Important |
 | Phase 2.5-E 설계 승인 | D PASS/Important-only cap 후 **자동 통과** · Critical cap이면 미도달 · 다이제스트 집계 | ❌ |
 | Phase 3 implement/verify cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |

@@ -178,6 +178,16 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
 
    **[batch 분기]**: 본 Step **SKIP**. `/start-all` Phase 2.5-B가 전 FR 인터페이스를 **화면 설계(A) 직후** 1회 통합한다 — 여기서 api-spec/data-model을 갱신하지 않는다. API/스키마면 Step 6 §참조에 예정 엔드포인트·테이블 이름만 기재 후 **Step 6으로 진행**.
 
+   **[foundation 분기] — baseline 마커 의무 (20260812)**: 공통 테이블·공통 API(라우팅·auth·health·베이스 스키마 등)를 `api-spec.md`·`data-model.md`에 쓸 때 **반드시** 아래 마커 안에 둔다. Phase 2.5-B 는 이 구간을 기계적으로 불변 검사한다(`check-foundation-if-baseline.sh`).
+   ```html
+   <!-- foundation-baseline:start -->
+   … 공통 엔드포인트 행 / 공통 엔티티 …
+   <!-- foundation-baseline:end -->
+   ```
+   - 마커 **밖**에 FR 전용 엔티티를 foundation이 쓰지 않는다(공통부 범위).
+   - 공통 IF를 실제로 안 건드린 foundation(순수 모듈·프론트 셸만)은 마커 0 허용 → 이후 Phase 2.5 검사는 SKIP.
+   - 의도적 baseline 변경은 batch가 아니라 `/start-foundation` 또는 `/design-interface`로만.
+
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
    - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
    - **클라이언트 스토리지 도출**: 화면 영속화 Interaction(FR-9 류) → `data-model.md` 엔티티 자동 append (존재 시). 부재 시 무인은 신규 생성 안 함(기존 부재 가드 계승)
