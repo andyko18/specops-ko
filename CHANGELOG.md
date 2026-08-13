@@ -5,6 +5,18 @@
 ## [Unreleased]
 
 ### Fixed
+- **R-1 docs-only 면제 스코프 — 커밋 명령 인지 (FID 20260813-r1-docs-only-scope, #1)** — R-1 커밋 게이트의 docs-only 면제가 **실제 커밋될 파일**이 아니라 **작업트리 전체**(`git diff HEAD`)를 봐서, 문서만 staged 해 커밋해도 작업트리에 남은 코드 수정 때문에 차단됐다. 실측: friction-log R-1 **block 77회 / 38 FID**, BYPASS 사유 16건 중 **13건이 "코드 변경 0"**(gbrain 학습 적재·CHANGELOG·`specops_version` 스탬프 등).
+  - **현행 동작은 버그가 아니라 의도된 과잉 근사였다** — `test-lib.sh:122` `T-docs.d` 가 `git commit -am` 우회 방어로 명시 잠금한다. 명령을 모르면 unstaged 코드가 커밋될지 알 수 없기 때문이다. 본 FID 는 훅이 **이미 보유한** 커밋 명령 원문(`pretool-governance.sh:27`)을 스코프 결정에 넘겨 그 불확실성 자체를 제거한다.
+  - **선택적 인자 = 회귀 안전망**. `is_docs_only_change [<commit_cmd>]` 는 **인자 없이 부르면 현행과 완전히 동일**하다 — batch 게이트(`:112`)·posttool `is_docs_only_audit_scope`·기존 테스트 `T-docs.a~q` 가 전부 **무수정**이다. 배선은 `:181`(R-1 본체) 한 곳뿐.
+  - **화이트리스트 방향** — `#255` 가 "이름 나열" 접근의 **3회 반복 실패**를 기록한다. 위험 형태를 나열하면 나열 밖이 뚫리므로, 안전 형태(C1~C6)만 통과시켜 나열 밖이 전부 **보수(false-block) 방향**으로만 틀리게 했다. `-am`·compound·경로인자·`--amend`·`git -c`·env 접두·명령치환·미분류는 전부 현행 스코프 폴백.
+  - **`-F -` heredoc 포함** — friction-log 실측상 이 repo 주력 커밋 형태(`git commit -q -F - <<'EOF'` 11건)다. 메시지 입력이라 파일 범위와 무관해 안전하다(AC-7).
+  - **Phase B 가 이 FID 가 새로 연 구멍을 잡았다** — 첫 줄 절단(`${s%%$'\n'*}`)이 잔여 줄을 무검증 폐기해, 첫 줄만 안전 형태면 둘째 줄부터 무엇이든 통과했다(`git commit -m 'docs'` ⏎ `git add -A` ⏎ `git commit -am 'code'` → 축소 승인). **구코드는 deny 하던 경로**임을 e2e 반사실 대조로 확정. 멀티라인 전면 거부는 AC-7 을 깨뜨려 불가하므로, 잔여 줄이 **heredoc 종결자로만 설명되는지** 검사하도록 봉합했다.
+  - **Phase C Important 2건 흡수** — ① `$(`·백틱 토큰이 `skip` 으로 무검사 소비되던 구조적 비일관(`_strip_quoted_strings` 는 그 토큰을 "실제 실행됨 → 판정 보존" 목적으로 일부러 남기는데 skip 이 무력화). 치환은 커밋 **前** 실행이라 `-m "$(ga)"` 한 형태로도 파싱 시점 ≠ 커밋 시점 staged 가 성립한다. ② `:483` 주석이 실측과 불일치 — **본 FID 의 결함 뿌리가 틀린 주석**("working-tree 가 곧 커밋 범위")이었으므로 검증 없는 안전 주장을 새로 남기지 않는다.
+  - **효과 측정 수단 신설** — 스코프 축소가 열어준 경우 `rule_id: R-1-SCOPE` / `severity: info` 1행 기록. `gbrain-friction` 이 `rule_id` 로 그룹핑하고 증류 후보를 `blocks>=임계` 로 거르므로 **R-1 통계는 불변**이다(AC-9 가 before=after 로 잠금).
+  - 테스트 `test-lib` 44→**79** · `test-pretool` 114→**119** · `test-gbrain-friction` 24→**25** · propagation 145→**150 edges** · 변이 M1 격추 3건(+부수 5건) · run-all **142/142** · 성능 NFR-2 median **26→26ms(델타 0)**.
+  - **한계**: **효과 미측정** — 기존 77 block 중 본 결함 유래를 friction-log 에 staged 목록이 없어 사후 산정할 수 없다. 표적은 `.md` 클래스 **약 8건**이고 `.specops` 클래스 약 5건은 gitignore 전환으로 이미 소멸했다 — 확인은 **향후 세션에서만** 가능하다. 의도적 잔존: compound false-block · wrapper-class(`sh -c`)는 F-3 WON'T-FIX. `semgrep`·`gitleaks` 미설치라 보안은 self-check 층만. Linux 미검증(bash 3.2.57 macOS 실측).
+  - **후속 이관 3건**: 릴리즈 경로 면제(`release.sh` pre-flight 가 `run-all` 을 이미 도는데 R-1 이 또 막는 이중 검증) · friction-log staged 목록 기록(오탐 사후 산정 가능화) · Phase C Minor 3건.
+
 - **llm-eval `TIMEOUT` 120→**300**초 · `MAX_TURNS` 는 **4 유지**(12 상향 시도 후 실측 반증·되돌림) (20260813)** — 17건 실행에서 **8건 FAIL** 이 났고, 그중 6건이 `TIMEOUT` 이었다.
   - **TIMEOUT 이 판정 실패를 가리고 있었다** — 같은 fixture 6건이 `120s=TIMEOUT` → `300s=판정 결과 노출`(`got=none`) 로 뒤집혔다. 120초는 조사 도중 끊어 원인을 감추는 층이었다. **이 상향은 유효하며 유지한다.**
   - **`MAX_TURNS` 4→12 는 틀렸고 되돌렸다.** `error_max_turns` 를 "턴이 모자라다"로 읽었는데 transcript 가 정반대를 보여줬다. `--allowedTools Skill` 은 배타 제한이 아니라 "권한 프롬프트 면제 목록"이라(deny 는 `--disallowedTools`) 모델이 `Bash`·`Read`·**`Write`** 를 자유롭게 쓴다. 턴 여유를 주면 Skill 을 부르는 대신 **직접 다 만들어버린다**.
