@@ -413,6 +413,77 @@ _cls_sandbox docs-only "T-cls.g 무인자 staged=docs" docs
 _cls_sandbox code      "T-cls.h 무인자 staged=code" code
 _cls_sandbox empty     "T-cls.i 무인자 staged=none" none
 
+# T-cls.j~m: log_friction_sev scope_class 선택 인자 (AC-5·AC-6)
+_td=$(mktemp -d)
+( cd "$_td" && mkdir -p .specops
+  source "$PLUGIN/hooks/governance-lib.sh"
+  log_friction_sev "20260101-cls" "R-1" 5 "snip-a" 7 "block" "code"
+  log_friction_sev "20260101-cls" "R-1" 5 "snip-b" 7 "block" )
+_L="$_td/.specops/20260101-cls/friction-log.jsonl"
+# j: 7번째 인자 전달 시 기록
+if jq -e 'select(.evidence_snippet=="snip-a" and .scope_class=="code")' "$_L" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T-cls.j scope_class 기록"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.j scope_class 미기록"; fi
+# k: 인자 부재 시 필드 자체가 없어야 한다 (빈 문자열 기록 금지 — AC-6)
+if jq -e 'select(.evidence_snippet=="snip-b" and (has("scope_class")|not))' "$_L" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T-cls.k 인자 부재 → 필드 생략"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.k 필드 생략 안 됨"; fi
+# l: 기존 7필드 불변 (AC-5)
+if [ "$(jq -r 'select(.evidence_snippet=="snip-b")|keys|join(",")' "$_L")" \
+     = "evidence_snippet,fid,principle,rule_id,severity,transcript_offset,ts" ]; then
+  PASS=$((PASS+1)); echo "PASS T-cls.l 기존 7필드 불변"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.l 필드 구성 변경됨"; fi
+rm -rf "$_td"
+
+# m: dedup 키 불변 — scope_class 만 달라도 중복 제거 (AC-5)
+_td=$(mktemp -d)
+( cd "$_td" && mkdir -p .specops
+  source "$PLUGIN/hooks/governance-lib.sh"
+  log_friction_sev "20260101-dd" "R-1" 5 "same" 7 "block" "code"
+  log_friction_sev "20260101-dd" "R-1" 5 "same" 7 "block" "docs-only" )
+_n=$(grep -c . "$_td/.specops/20260101-dd/friction-log.jsonl" 2>/dev/null || echo 0)
+rm -rf "$_td"
+if [ "$_n" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-cls.m dedup 키 불변 (1행)"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.m dedup 깨짐 (${_n}행)"; fi
+
+# T-cls.n2: log_friction(6번째 인자) 도 동일 동작 + 전역 fallback 보존 (AC-5·AC-7)
+_td=$(mktemp -d)
+( cd "$_td" && mkdir -p .specops
+  source "$PLUGIN/hooks/governance-lib.sh"
+  log_friction ""             "BYPASS-ENV" 1 "glob-a" 0 "docs-only"   # fid 빈값 → 전역 파일
+  log_friction "20260101-lf"  "BYPASS-ENV" 1 "fid-a"  0 )             # 인자 부재 → 필드 생략
+if jq -e 'select(.evidence_snippet=="glob-a" and .scope_class=="docs-only")' \
+     "$_td/.specops/friction-log.jsonl" >/dev/null 2>&1 \
+   && jq -e 'select(.evidence_snippet=="fid-a" and (has("scope_class")|not))' \
+     "$_td/.specops/20260101-lf/friction-log.jsonl" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T-cls.n2 log_friction 선택 인자 + 전역 fallback 보존"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.n2 log_friction 확장 실패"; fi
+rm -rf "$_td"
+
+# T-cls.o: 분류 불가(git 아님) 상황에서도 기록은 성립하고 필드만 생략된다 (AC-6)
+_td=$(mktemp -d)   # git init 하지 않음 → git diff 실패
+( cd "$_td" && mkdir -p .specops
+  source "$PLUGIN/hooks/governance-lib.sh"
+  log_friction "20260101-ng" "BYPASS-ENV" 1 "no-git" 0 "$(_commit_scope_class)" ) 2>/dev/null
+# ★ git 실패 = 판정 불가 → 필드 **생략**(빈 문자열 기록 금지). 'empty'(빈 커밋범위)와 구별된다.
+#   기록 자체는 성립해야 한다 — 분류 실패가 감사 기록을 막지 않는다.
+if jq -e 'select(.evidence_snippet=="no-git" and (has("scope_class")|not))' "$_td/.specops/20260101-ng/friction-log.jsonl" >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T-cls.o git 부재 → 필드 생략 + 기록 성립 (AC-6)"
+else FAIL=$((FAIL+1)); echo "FAIL T-cls.o git 부재 처리 실패 (empty 로 뭉갰거나 미기록)"; fi
+rm -rf "$_td"
+
+# T-cls.n: is_docs_only_change 가 판정 대상 목록을 노출한다
+_td=$(mktemp -d)
+_got=$( cd "$_td" && git init -q \
+  && echo x > a.md && echo y > b.sh && git add a.md b.sh \
+  && ( source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change >/dev/null 2>&1
+       printf '%s' "${_SPECOPS_SCOPE_FILES:-MISSING}" | tr '\n' ',' ) )
+rm -rf "$_td"
+case "$_got" in
+  *a.md*|*b.sh*) PASS=$((PASS+1)); echo "PASS T-cls.n 목록 노출 ($_got)" ;;
+  *) FAIL=$((FAIL+1)); echo "FAIL T-cls.n 목록 미노출 ($_got)" ;;
+esac
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

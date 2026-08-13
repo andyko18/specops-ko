@@ -9,6 +9,8 @@ _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
 
+: "${_SPECOPS_SCOPE_FILES:=}"   # is_docs_only_change 가 판정한 커밋 범위 (계측용, set -u 가드)
+
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
   local cmd="${1:-}" hit
@@ -418,6 +420,10 @@ is_docs_only_change() {
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
     files=$(git diff --cached --name-only --no-renames 2>/dev/null)
     [ -z "$files" ] && return 1
+    # 계측용 노출 (20260813-friction-staged-record) — 호출자가 같은 목록으로 분류할 수 있게 한다.
+    #   deny 경로에서 git diff 를 재실행하지 않기 위함이며, 판정 자체에는 쓰이지 않는다.
+    #   set -u 안전: 파일 상단에서 `: "${_SPECOPS_SCOPE_FILES:=}"` 로 초기화한다.
+    _SPECOPS_SCOPE_FILES="$files"
     _files_all_docs "$files"
     return $?
   fi
@@ -429,6 +435,8 @@ is_docs_only_change() {
     files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
+  # 계측용 노출 (20260813-friction-staged-record) — 위 staged 경로와 대칭.
+  _SPECOPS_SCOPE_FILES="$files"
   _files_all_docs "$files"
 }
 
@@ -728,9 +736,11 @@ _specops_dir_safe() { [ ! -L ".specops" ]; }
 _specops_fid_dir_safe() { [ -z "${1:-}" ] || [ ! -L ".specops/$1" ]; }
 
 # friction-log append. FID 우선 fallback 전역.
-# usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset>
+# usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset> [scope_class]
+#   6번째 인자는 **선택**이다 (20260813-friction-staged-record) — 기존 5-인자 호출부는 무수정으로
+#   종전과 byte-identical 한 레코드를 낸다(빈 값이면 필드 자체를 생략, AC-6·AC-7).
 log_friction() {
-  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5"
+  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" scope_class="${6:-}"
   _specops_dir_safe || { echo "log_friction: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   if [ -n "$fid" ] && ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
     echo "log_friction: invalid fid format" >&2
@@ -770,14 +780,17 @@ log_friction() {
     --argjson principle "$principle" \
     --arg snippet "$safe_snippet" \
     --argjson offset "$offset" \
-    '{ ts: $ts, fid: $fid, rule_id: $rule_id, principle: $principle, severity: "warn", evidence_snippet: $snippet, transcript_offset: $offset }' \
+    --arg sc "$scope_class" \
+    '{ ts: $ts, fid: $fid, rule_id: $rule_id, principle: $principle, severity: "warn", evidence_snippet: $snippet, transcript_offset: $offset }
+     + (if $sc == "" then {} else {scope_class:$sc} end)' \
     >> "$target"
 }
 
 # log_friction 의 severity 파라미터화 변형 (기존 log_friction 무변경 — append).
-# usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity>
+# usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity> [scope_class]
+#   7번째 인자는 **선택** (20260813-friction-staged-record) — 빈 값이면 필드를 생략한다(AC-6).
 log_friction_sev() {
-  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}"
+  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}" scope_class="${7:-}"
   _specops_dir_safe || { echo "log_friction_sev: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   [ -n "$fid" ] || return 0
   if ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
@@ -800,8 +813,10 @@ log_friction_sev() {
   fi
   jq -nc --arg ts "$ts" --argjson fid "$fid_json" --arg rule_id "$rule_id" \
     --argjson principle "$principle" --arg snippet "$safe_snippet" \
-    --argjson offset "$offset" --arg sev "$severity" \
-    '{ ts:$ts, fid:$fid, rule_id:$rule_id, principle:$principle, severity:$sev, evidence_snippet:$snippet, transcript_offset:$offset }' \
+    --argjson offset "$offset" --arg sev "$severity" --arg sc "$scope_class" \
+    '{ ts:$ts, fid:$fid, rule_id:$rule_id, principle:$principle, severity:$sev,
+       evidence_snippet:$snippet, transcript_offset:$offset }
+     + (if $sc == "" then {} else {scope_class:$sc} end)' \
     >> "$target"
 }
 
