@@ -446,6 +446,45 @@ EOF
   return 0
 }
 
+# 커밋 명령이 **staged 만** 커밋하는 안전 형태인지 판정한다 (20260813-r1-docs-only-scope).
+#   0 = staged 로 스코프 축소 가능 / 1 = 보수(현행 working-tree) 스코프 유지.
+#
+# 왜 필요한가: is_docs_only_change 는 working tree 전체를 봐서, 문서만 staged 해 커밋해도
+#   작업트리에 남은 코드 수정 때문에 차단됐다(실측 BYPASS 16건 중 13건이 "코드 변경 0").
+#   종전 주석은 "pretool 은 액션 前이라 working-tree 가 곧 커밋 범위"라고 단정했으나 **틀렸다** —
+#   staged 부분집합 커밋에서 working-tree ⊋ 커밋 범위다.
+#
+# 왜 화이트리스트인가: #255 가 "이름 나열"식 접근의 3회 반복 실패를 기록한다. 위험 형태를 나열하면
+#   나열 밖이 뚫린다. 안전 형태만 통과시키면 나열 밖은 전부 **보수 쪽(false-block 방향)** 으로 넘어진다.
+_commit_scope_is_staged() {
+  local s rest tok skip=0
+  [ -n "${1:-}" ] || return 1
+  # 스트리퍼 재사용 — heredoc 본문·인용 내용이 판정을 오염시키지 않도록 (pretool 과 동일 전처리).
+  s=$(_strip_heredoc_bodies "$1")
+  s=$(_strip_quoted_strings "$s")
+  s=${s%%$'\n'*}     # 첫 줄만 — heredoc 종결자 줄(EOF) 제거
+  s=${s%%<<*}        # heredoc 리다이렉션 토큰 절단 (`-F - <<'EOF'` 의 뒷부분)
+  # C1: compound — 파싱 시점 staged ≠ 커밋 시점 staged (`git add -A && git commit`)
+  case "$s" in *'&&'*|*'||'*|*';'*|*'|'*) return 1 ;; esac
+  # C2+C5: 반드시 `git commit` 으로 시작. env 접두·`git -c ... commit`·다중 명령이 한 번에 배제된다.
+  case "$s" in
+    'git commit') rest="" ;;
+    'git commit '*) rest=${s#git commit } ;;
+    *) return 1 ;;
+  esac
+  # C3+C4+C6: 화이트리스트 플래그만 허용. 값을 받는 플래그는 다음 토큰을 소비한다.
+  #   비플래그 토큰(경로 인자)·화이트리스트 밖 `-` 토큰은 전부 보수 판정.
+  for tok in $rest; do
+    if [ "$skip" -eq 1 ]; then skip=0; continue; fi
+    case "$tok" in
+      -m|--message|-F|--file) skip=1 ;;
+      --message=*|--file=*|-q|--quiet) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
+}
+
 # posttool 감사 스코프 (20260718-posttool-audit-silence): 감사는 **방금 일어난 액션의 범위**를 본다 —
 #   R-1(commit) = HEAD~1..HEAD(방금 커밋), R-2(pr create) = base...HEAD(PR 범위).
 # 왜: working-tree 기준 is_docs_only_change 를 posttool 에 쓰면, 커밋 직후 잔여 dirty 가 거의 항상

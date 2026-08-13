@@ -155,6 +155,38 @@ _docs_case 1 "T-docs.o screens/ 밖 .html 비면제(앱 코드 가능)" 'git ini
 _docs_case 1 "T-docs.p screens/*.html + 코드 혼합 차단(불변식)" 'git init -q; mkdir screens; echo x>screens/a.html; echo y>b.sh; git add screens b.sh'
 _docs_case 0 "T-docs.q .specops/ 아티팩트(비 .md 포함) 면제" 'git init -q; mkdir -p .specops/20260101-x; echo sha>.specops/20260101-x/review-base.sha; git add .specops'
 
+# T-docs.r~: _commit_scope_is_staged 분류 (20260813-r1-docs-only-scope)
+#   실행 명령에 git+commit 리터럴을 직접 쓰면 R-1 훅이 프로브 자체를 차단하므로 변수로 조립한다.
+#   헬퍼명은 `_clsf_case` 다 — 아래 `_scope_case`(:은 is_docs_only_audit_scope 용 4인자)와 이름이
+#   겹치면 정의 순서에 기대는 그림자(shadowing)가 생겨, 이후 누가 케이스를 추가할 때 조용히 깨진다.
+_G=$(printf 'g%sit' ''); _C=$(printf 'c%sommit' '')
+_clsf_case() {  # $1 expect_rc  $2 label  $3 cmd
+  ( source "$PLUGIN/hooks/governance-lib.sh"; _commit_scope_is_staged "$3" ); local rc=$?
+  if [ "$rc" -eq "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 (rc=$rc)"
+  else FAIL=$((FAIL+1)); echo "FAIL $2 rc=$rc 기대=$1"; fi
+}
+_clsf_case 0 "T-docs.r plain -m 축소"        "$_G $_C -m 'docs: x'"
+_clsf_case 0 "T-docs.s -q -m 축소"           "$_G $_C -q -m 'x'"
+_clsf_case 0 "T-docs.t --message= 축소"      "$_G $_C --message=x"
+_clsf_case 1 "T-docs.u -am 보수"             "$_G $_C -am 'x'"
+_clsf_case 1 "T-docs.v -a -m 보수"           "$_G $_C -a -m 'x'"
+_clsf_case 1 "T-docs.w --all 보수"           "$_G $_C --all -m 'x'"
+_clsf_case 0 "T-docs.t2 -q -F - heredoc 축소(AC-7)" "$_G $_C -q -F - <<'HD'
+docs: x
+HD"
+_clsf_case 1 "T-docs.x compound && 보수"     "$_G add -A && $_G $_C -m 'x'"
+_clsf_case 1 "T-docs.y compound ; 보수"      "$_G add -A ; $_G $_C -m 'x'"
+_clsf_case 1 "T-docs.y2 compound | 보수"     "$_G log | $_G $_C -m 'x'"
+_clsf_case 1 "T-docs.y3 compound || 보수"    "$_G add -A || $_G $_C -m 'x'"
+_clsf_case 1 "T-docs.z 경로인자 보수"        "$_G $_C README.md"
+_clsf_case 1 "T-docs.aa --amend 보수"        "$_G $_C --amend -m 'x'"
+_clsf_case 1 "T-docs.ab git -c 보수"         "$_G -c user.email=a@b $_C -m 'x'"
+_clsf_case 1 "T-docs.ac --only 보수"         "$_G $_C --only README.md"
+_clsf_case 1 "T-docs.ad -s signoff 보수"     "$_G $_C -s -m 'x'"
+_clsf_case 1 "T-docs.ae env 접두 보수"       "FOO=1 $_G $_C -m 'x'"
+_clsf_case 1 "T-docs.af gh pr create 보수"   "gh pr create --title x"
+_clsf_case 1 "T-docs.ag 빈 문자열 보수"      ""
+
 # T-scope.a~d: is_docs_only_audit_scope — posttool 감사 스코프 (방금 액션 범위, 20260718-posttool-audit-silence)
 _scope_case() {  # $1 expect_rc $2 label $3 rule_id $4 setup-eval
   local exp="$1" label="$2" rid="$3" setup="$4" rc
