@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **llm-eval 기본값 — `MAX_TURNS` 4→**12** · `TIMEOUT` 120→**300**초 (20260813)** — 17건 중 **8건 FAIL** 의 원인이 플러그인 신호 감지가 아니라 **하네스 자신**이었다. 러너는 `--allowedTools Skill` 을 배타 제한으로 가정했는데 CLI 의미는 "권한 프롬프트 면제 목록"이다(deny 는 `--disallowedTools`). 그래서 모델이 `Bash`·`Read` 를 자유롭게 쓰고 조사만 하다 턴이 끝났다.
+  - **transcript 실측(maint-1, $0.41)** — ① `ls`/`find` ② `Read slug.sh` ③ `git log` + 버그 재현 실행 ④ `locale` 대조 실험 → `result: error_max_turns · num_turns=5 · is_error=true`, **Skill 호출 0회** → `got=none`.
+  - **TIMEOUT 이 판정 실패를 가리고 있었다** — 같은 fixture 6건이 `120s=TIMEOUT` → `300s=판정 결과 노출` 로 뒤집혔다. 두 기본값은 한 쌍이라 함께 올린다.
+  - **조사를 `--disallowedTools` 로 봉쇄하지 않는다** — "볼 게 없으니 Skill 부름"이 되어 측정이 실사용에서 멀어진다. 베이스라인(`PASS=10 FAIL=0`) 이후 모델의 조사 성향이 강해진 것이 실제 변화이고, 하네스가 그걸 못 담고 있었다.
+  - **한계**: 상향 후 실 eval 재검증 **미실시**(별도 토큰 비용). 회귀는 stub 기반 `test-llm-eval` 40건 + 관련 4스위트 PASS 로만 확인했다 — 신호 감지율 자체가 회복되는지는 다음 수동 실행에서만 알 수 있다. 비용 주석도 실측 반영(`~$0.5` → `~$0.9`/fixture, 재시도 cap=1 포함).
+
 ## [1.73.0] — 2026-08-13
 
 ### Fixed

@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 # specops-ko LLM eval runner — 메타 skill 신호 감지 + 체인 진입 smoke eval
 # 사용: bash scripts/tests/llm-eval/run-evals.sh [fixtures.jsonl]
-# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 120초)
-# ⚠️ 실 claude 실행은 토큰 비용 발생 (~$0.5/fixture) — run-all/CI 비포함, 수동 전용
+# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 12) · LLM_EVAL_TIMEOUT(기본 300초)
+# ⚠️ 실 claude 실행은 토큰 비용 발생 (실측 ~$0.9/fixture — 재시도 cap=1 포함) — run-all/CI 비포함, 수동 전용
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FIXTURES="${1:-$HERE/fixtures.jsonl}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-# 기본 4: 모델이 Skill 호출 전 타 도구 사용 가능 — Skill 이벤트는 어느 턴에든 잡히면 됨
-MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
-TIMEOUT_S="${LLM_EVAL_TIMEOUT:-120}"
+# 기본 12: 모델이 Skill 호출 전 타 도구 사용 가능 — Skill 이벤트는 어느 턴에든 잡히면 됨.
+#   구 기본값 4 는 아래 `--allowedTools Skill` 을 **배타 제한**으로 오해한 데서 나왔다. CLI 의미는
+#   "권한 프롬프트 면제 목록"이지 deny 가 아니다(`--disallowedTools` 가 배타 제한). 그래서 모델은
+#   Bash·Read 를 자유롭게 쓰고, 조사만 하다 턴이 끝난다 — 20260813 실측 maint-1 transcript:
+#   ① ls/find ② Read slug.sh ③ git log + 버그 재현 ④ locale 대조 → `error_max_turns`(num_turns=5),
+#   Skill 호출 0회 → `got=none`. 17건 중 8건 FAIL 이 전부 이 경로였다.
+#   조사를 `--disallowedTools` 로 봉쇄하지 않는다 — "볼 게 없으니 Skill 부름"이 되어 실사용과 멀어진다.
+MAX_TURNS="${LLM_EVAL_MAX_TURNS:-12}"
+# 기본 300: max_turns 상향과 한 쌍이다. 구 120 초는 조사 도중 끊어 판정 실패를 TIMEOUT 으로 가렸다
+#   (같은 fixture 가 120s=TIMEOUT → 300s=판정 결과 노출로 뒤집힌 것이 실측 증거).
+TIMEOUT_S="${LLM_EVAL_TIMEOUT:-300}"
 
 # N-run 신뢰성 모드 (LLM_EVAL_RUNS>1) — wshobson PluginEval Layer3 이식
 RUNS="${LLM_EVAL_RUNS:-1}"
