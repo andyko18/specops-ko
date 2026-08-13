@@ -499,7 +499,10 @@ _commit_scope_is_staged() {
 # 왜: working-tree 기준 is_docs_only_change 를 posttool 에 쓰면, 커밋 직후 잔여 dirty 가 거의 항상
 #   tracked `.specops/session-progress.md` 뿐이라 .specops/* 면제(#214)에 걸려 **감사가 통째로 침묵**한다
 #   (#214 이후 R-1 posttool warn 전 repo 0건의 실물 원인 — pretool block 만 남는 절반 가시성).
-#   pretool 은 액션 前이라 working-tree 가 곧 커밋 범위 = 기존 함수가 정확하다(무변경).
+#   pretool 을 분리해 두는 이 근거(#214 침묵)는 그대로 유효하다 — 감사는 **이미 일어난** 액션의 범위를 본다.
+#   다만 종전 주석이 덧붙인 "pretool 은 액션 前이라 working-tree 가 곧 커밋 범위" 라는 전제는 **틀렸다**:
+#   staged 부분집합 커밋에서 working-tree ⊋ 커밋 범위다. pretool 쪽은 is_docs_only_change 가 커밋 명령을
+#   받아 _commit_scope_is_staged 로 스코프를 좁혀 해결했다 (20260813-r1-docs-only-scope, 위 :458 참조).
 # fail-safe: range diff 실패(최초 커밋 HEAD~1 부재·base 미검출) = 비면제(감사 실행 — 차단 아닌 기록이라
 #   과잉 방향이 안전).
 is_docs_only_audit_scope() {
