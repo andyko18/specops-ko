@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.74.0] — 2026-08-13
+
 ### Fixed
 - **R-1 docs-only 면제 스코프 — 커밋 명령 인지 (FID 20260813-r1-docs-only-scope, #1)** — R-1 커밋 게이트의 docs-only 면제가 **실제 커밋될 파일**이 아니라 **작업트리 전체**(`git diff HEAD`)를 봐서, 문서만 staged 해 커밋해도 작업트리에 남은 코드 수정 때문에 차단됐다. 실측: friction-log R-1 **block 77회 / 38 FID**, BYPASS 사유 16건 중 **13건이 "코드 변경 0"**(gbrain 학습 적재·CHANGELOG·`specops_version` 스탬프 등).
   - **현행 동작은 버그가 아니라 의도된 과잉 근사였다** — `test-lib.sh:122` `T-docs.d` 가 `git commit -am` 우회 방어로 명시 잠금한다. 명령을 모르면 unstaged 코드가 커밋될지 알 수 없기 때문이다. 본 FID 는 훅이 **이미 보유한** 커밋 명령 원문(`pretool-governance.sh:27`)을 스코프 결정에 넘겨 그 불확실성 자체를 제거한다.
@@ -1116,7 +1118,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.73.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.74.0...HEAD
+[1.74.0]: https://github.com/andyko18/specops-ko/compare/v1.73.0...v1.74.0
 [1.73.0]: https://github.com/andyko18/specops-ko/compare/v1.72.0...v1.73.0
 [1.72.0]: https://github.com/andyko18/specops-ko/compare/v1.71.0...v1.72.0
 [1.71.0]: https://github.com/andyko18/specops-ko/compare/v1.70.0...v1.71.0
