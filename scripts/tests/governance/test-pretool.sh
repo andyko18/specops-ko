@@ -676,5 +676,66 @@ _none=$(ls "$scopesandbox"/.specops/*/friction-log.jsonl 2>/dev/null | wc -l | t
 check "T-cscope.e FID 부재 → 기록 생략(AC-8 후단)" '^0$' "$_none"
 # 정리는 위 trap 이 담당한다 (중단 시에도 실행).
 
+# T-fsc.a~d: scope_class 배선 e2e (20260813-friction-staged-record)
+_G=$(printf 'g%sit' ''); _C=$(printf 'c%sommit' '')
+_fsc_sandbox() {  # $1 staged(docs|code|none) → stdout=sandbox 경로
+  local td; td=$(mktemp -d)
+  ( cd "$td" && git init -q && mkdir -p .specops/20260101-fsc \
+    && printf '## 20260101-fsc\n' > .specops/session-progress.md \
+    && echo x > seed.md && git add seed.md \
+    && git -c user.email=e@t -c user.name=t commit -q -m init
+    case "$1" in docs) echo y > README.md; git add README.md ;;
+                 code) echo y > app.sh; git add app.sh ;;
+                 *) : ;; esac ) >/dev/null 2>&1
+  printf '%s' "$td"
+}
+_fsc_class() {  # $1 sandbox  $2 rule_id → stdout=scope_class
+  jq -r --arg r "$2" 'select(.rule_id==$r)|.scope_class // "ABSENT"' \
+    "$1"/.specops/*/friction-log.jsonl 2>/dev/null | tail -1
+}
+
+# a~c: BYPASS-ENV 는 3값 전부 도달 가능 (AC-2)
+for _st in docs code none; do
+  case "$_st" in docs) _exp=docs-only ;; code) _exp=code ;; *) _exp=empty ;; esac
+  _sb=$(_fsc_sandbox "$_st")
+  mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+    | SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test \
+      CLAUDE_PROJECT_DIR="$_sb" bash "$HOOK" >/dev/null 2>&1
+  check "T-fsc BYPASS staged=$_st → $_exp (AC-2)" "^$_exp\$" "$(_fsc_class "$_sb" BYPASS-ENV)"
+  rm -rf "$_sb"
+done
+
+# d: R-1 block 은 code (AC-3)
+_sb=$(_fsc_sandbox code)
+mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$_sb" bash "$HOOK" >/dev/null 2>&1
+check "T-fsc.d R-1 block → code (AC-3)" '^code$' "$(_fsc_class "$_sb" R-1)"
+_d_all=$(jq -r 'select(.rule_id=="R-1")|.scope_class // "ABSENT"' "$_sb"/.specops/*/friction-log.jsonl 2>/dev/null | sort -u | tr '\n' ',')
+rm -rf "$_sb"
+
+# e: block 지점에 docs-only 는 구조적으로 나올 수 없다 (AC-3 후단 — 나오면 버그 신호)
+if printf '%s' "$_d_all" | grep -q 'docs-only'; then
+  echo "FAIL T-fsc.e block 에 docs-only 출현 — :191 이 allow 했어야 함 (버그 신호)"; fail=$((fail+1))
+else
+  echo "PASS T-fsc.e block docs-only 미출현 (AC-3)"; pass=$((pass+1))
+fi
+
+# g: ★ 인라인 BYPASS 경로(:165) 배선 검증 — env 미설정 + 명령 내 인라인 토큰
+#   T-fsc.a~c 는 env 를 세팅해 :56 세션-env 경로에서 단락되므로 :165 에 도달하지 않는다.
+#   실측상 인라인 BYPASS 가 태스크 중간커밋의 지배 경로라(:213 주석), 이 배선이 빠지면
+#   1차 표적의 최대 데이터원이 무검증으로 남는다(plan-reviewer 2회차 Important).
+_sb=$(_fsc_sandbox docs)
+mkstdin "SPECOPS_BYPASS_REASON=t SPECOPS_GOVERNANCE_BYPASS=1 $_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$_sb" bash "$HOOK" >/dev/null 2>&1
+check "T-fsc.g 인라인 BYPASS(:165) → docs-only (AC-2)" '^docs-only$' "$(_fsc_class "$_sb" BYPASS-ENV)"
+rm -rf "$_sb"
+
+# f: staged·working-tree 모두 빈 상태 → empty (AC-3)
+_sb=$(_fsc_sandbox none)
+mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$_sb" bash "$HOOK" >/dev/null 2>&1
+check "T-fsc.f R-1 block staged 없음 → empty (AC-3)" '^empty$' "$(_fsc_class "$_sb" R-1)"
+rm -rf "$_sb"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

@@ -60,14 +60,20 @@ agg=$(
     [ -n "$f" ] || continue
     jq -Rr 'fromjson? | objects
       | select(.rule_id != null)
-      | [ .rule_id, (.fid // "?"), (.severity // "?"), (.ts // "") ] | @tsv' "$f" 2>/dev/null || true
+      | [ .rule_id, (.fid // "?"), (.severity // "?"), (.ts // "?"), (.scope_class // "unknown") ] | @tsv' "$f" 2>/dev/null || true
   done | awk -F'\t' '
     {
       r = $1
       rows[r]++
       if (!seen[r SUBSEP $2]++) fids[r]++
       sev[r SUBSEP $3]++
-      if ($4 > last[r]) last[r] = $4
+      # `$4 != "?"` 가드: ts 누락 자리채움("?")이 max 를 이기면 안 된다.
+      #   awk 문자열 비교는 **로케일 의존**이다 — LC_ALL=C(바이트순)에서 "?"(0x3F) >
+      #   "2"(0x32) 라 누락 행이 이겨 `최근` 이 "?" 로 붕괴한다(실측). UTF-8 로케일은
+      #   strcoll 이라 구두점이 앞서 붕괴가 **가려진다** — 그래서 로컬에선 안 보이고
+      #   C 로케일 환경(CI·훅)에서만 터지는 종류의 결함이다. 자리채움과 max 는 분리한다.
+      if ($4 != "?" && $4 > last[r]) last[r] = $4
+      sc[r SUBSEP $5]++
       total++
     }
     END {
@@ -83,7 +89,13 @@ agg=$(
         #   종전엔 last_ts 가 말단이라 무해했으나 blocks 컬럼 추가로 새로 생긴 경로다.
         #   여기서 "?" 로 채우면 붕괴 자체가 성립하지 않는다.
         lt = (last[r] == "" ? "?" : last[r])
-        printf "%s\t%d\t%d\t%s\t%s\t%d\n", r, rows[r], fids[r], s, lt, b
+        # 커밋 범위 분류 4버킷. **`unknown` 은 `empty` 와 다른 축**이다(AC-4) —
+        #   전자는 분류 불가(구 레코드·git 실패), 후자는 "커밋 범위가 실제로 비었다".
+        #   jq 의 `// "unknown"` 이 그 경계를 만들고 여기서 별도 카운터로 유지한다.
+        d = sc[r SUBSEP "docs-only"] + 0; c = sc[r SUBSEP "code"] + 0
+        e = sc[r SUBSEP "empty"] + 0;     u = sc[r SUBSEP "unknown"] + 0
+        # 신규 4열은 **뒤에 붙인다** — 앞 6필드 인덱스가 밀리면 기존 소비부가 전부 깨진다.
+        printf "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\n", r, rows[r], fids[r], s, lt, b, d, c, e, u
       }
       printf "TOTAL\t%d\n", total
     }
@@ -105,7 +117,9 @@ if [ "$JSON" -eq 1 ]; then
     --argjson br "${bypass_rows:-0}" --argjson bf "${bypass_fids:-0}" --argjson rn "${receipt_n:-0}" '
     [ split("\n")[] | select(length > 0) | split("\t")
       | {rule_id: .[0], rows: (.[1]|tonumber), fids: (.[2]|tonumber),
-         severity: .[3], last_ts: .[4], blocks: (.[5]|tonumber)} ]
+         severity: .[3], last_ts: .[4], blocks: (.[5]|tonumber),
+         scope: {"docs-only": (.[6]|tonumber), code: (.[7]|tonumber),
+                 empty: (.[8]|tonumber), unknown: (.[9]|tonumber)}} ]
     | {total_rows: $tr, total_files: $tf, min: $min,
        rules: ., candidates: [ .[] | select(.blocks >= $min) ],
        bypass_env: {rows: $br, fids: $bf},
@@ -115,13 +129,16 @@ fi
 
 echo "### 마찰 집계 (${total_rows}행 / ${n_files}개 FID 로그)"
 echo ""
-echo "| 규칙 | 행수 | FID수 | block | severity | 최근 |"
-echo "|---|---:|---:|---:|---|---|"
+echo "| 규칙 | 행수 | FID수 | block | docs-only | code | empty | 판정불가 | severity | 최근 |"
+echo "|---|---:|---:|---:|---:|---:|---:|---:|---|---|"
 # block 을 4번째에 둔다 — 후보 판정의 **직접 근거**라 눈에 먼저 들어와야 하고,
 #   앞 3열(규칙·행수·FID수)이 그대로라 기존 어서션(T2·T3)의 그렙이 보존된다.
-printf '%s\n' "$rows_only" | while IFS=$'\t' read -r r rows fids sev last blocks; do
+#   분류 4열은 block 뒤·severity 앞에 넣는다 — 기존 어서션은 전부 4열까지의
+#   **접두 그렙**이라 보존되고, 분류는 block 옆에 있어야 함께 읽힌다.
+printf '%s\n' "$rows_only" | while IFS=$'\t' read -r r rows fids sev last blocks d c e u; do
   [ -n "$r" ] || continue
-  printf '| %s | %5d | %5d | %5d | %s | %s |\n' "$r" "$rows" "$fids" "${blocks:-0}" "$sev" "${last%T*}"
+  printf '| %s | %5d | %5d | %5d | %5d | %5d | %5d | %5d | %s | %s |\n' \
+    "$r" "$rows" "$fids" "${blocks:-0}" "${d:-0}" "${c:-0}" "${e:-0}" "${u:-0}" "$sev" "${last%T*}"
 done
 
 # 후보 판정은 **block(차단) 건수**만 본다 — warn 은 posttool 감사 기록이라 성공한
@@ -134,7 +151,9 @@ echo ""
 if [ -z "$cand" ]; then
   echo "- 없음 — **block(차단) ${MIN}회 이상**인 규칙이 없다. warn 은 posttool 감사 기록이라 후보 판정에 세지 않는다(표에는 남는다)."
 else
-  printf '%s\n' "$cand" | while IFS=$'\t' read -r r rows fids sev last blocks; do
+  # 읽기 변수만 늘린다(출력 불변) — 안 늘리면 말단 변수 blocks 에 남은 4필드가
+  #   탭 결합돼 들어와 printf %d 가 깨진다.
+  printf '%s\n' "$cand" | while IFS=$'\t' read -r r rows fids sev last blocks d c e u; do
     [ -n "$r" ] || continue
     # 판정의 직접 근거인 block 건수를 함께 낸다 — 행수만 보이면 왜 후보인지 알 수 없다.
     printf -- '- **%s** — block %d회 (%d행 / %d FID). ' "$r" "${blocks:-0}" "$rows" "$fids"

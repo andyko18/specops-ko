@@ -9,6 +9,8 @@ _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
 
+: "${_SPECOPS_SCOPE_FILES:=}"   # is_docs_only_change 가 판정한 커밋 범위 (계측용, set -u 가드)
+
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
   local cmd="${1:-}" hit
@@ -413,11 +415,23 @@ is_docs_only_change() {
   #   (tool.sh→tool.md)이 원본 .sh 를 숨겨 docs-only 오인면제되던 표면 차단. 출력포맷(--name-only) 무변경.
   # $1(선택): 실행될 커밋 명령. **인자가 없으면 아래 분기가 통째로 비활성**이라 종전과 동일하게 동작한다
   #   — batch 게이트(pretool:112)·기존 T-docs.a~q 가 무수정인 이유다.
+  # ★ 계측 전역 리셋 (Phase C Important, 20260813-friction-staged-record): 아래 이른 반환 경로
+  #   (`[ -z "$files" ] && return 1`, 2곳)는 대입 **전에** 빠져나간다. 같은 훅 프로세스에서
+  #   batch 게이트(pretool:113, 무인자)가 먼저 working-tree 목록으로 전역을 채운 뒤 본판정이
+  #   이른 반환하면, deny 경로(pretool:236)가 **직전 호출의 목록**을 분류한다(실측: staged 빈
+  #   상태인데 `code` 로 기록). 나아가 working-tree 가 all-docs 면 block 레코드에 `docs-only` 가
+  #   출현해 AC-3 이 세운 "구조적 불가" 이상신호 축을 자기오염시킨다. 판정·종료코드와는 무관한
+  #   계측 전용 결함이지만, 계측이 사실을 말하지 않으면 존재 이유가 없다(5원칙 1).
+  _SPECOPS_SCOPE_FILES=""
   local files
   if _commit_scope_is_staged "${1:-}"; then
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
     files=$(git diff --cached --name-only --no-renames 2>/dev/null)
     [ -z "$files" ] && return 1
+    # 계측용 노출 (20260813-friction-staged-record) — 호출자가 같은 목록으로 분류할 수 있게 한다.
+    #   deny 경로에서 git diff 를 재실행하지 않기 위함이며, 판정 자체에는 쓰이지 않는다.
+    #   set -u 안전: 파일 상단에서 `: "${_SPECOPS_SCOPE_FILES:=}"` 로 초기화한다.
+    _SPECOPS_SCOPE_FILES="$files"
     _files_all_docs "$files"
     return $?
   fi
@@ -429,6 +443,8 @@ is_docs_only_change() {
     files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
+  # 계측용 노출 (20260813-friction-staged-record) — 위 staged 경로와 대칭.
+  _SPECOPS_SCOPE_FILES="$files"
   _files_all_docs "$files"
 }
 
@@ -453,6 +469,34 @@ _files_all_docs() {
 $files
 EOF
   return 0
+}
+
+# 커밋 범위를 계측용으로 분류한다 (20260813-friction-staged-record).
+#   stdout: docs-only | code | empty · 항상 rc=0 (판정 실패 개념이 없다 — 빈 목록도 유효한 답)
+#
+# 왜 필요한가: friction-log 가 "무엇을 커밋하려 했는가"를 남기지 않아, 마찰이 정탐인지
+#   오탐인지 사후 산정이 불가능했다(선행 FID 20260813-r1-docs-only-scope 가 block 77건 중
+#   결함 유래를 끝내 세지 못하고 "효과 미측정"으로 남긴 것이 실증).
+#
+# 왜 _files_all_docs 재사용인가: 분류가 **면제 클래스와 정의상 일치**해야 집계가 의미를 갖는다.
+#   별도 규칙을 만들면 "면제됐는데 code 로 분류" 같은 모순이 생긴다. 매처 자체는 건드리지 않는다
+#   (pretool↔posttool 공유 — #214→T8.e 회귀 위험).
+_commit_scope_class() {
+  local files rc1=0 rc2=0
+  if [ "$#" -gt 0 ]; then
+    files="$1"
+  else
+    files=$(git diff --cached --name-only --no-renames 2>/dev/null); rc1=$?
+    if [ -z "$files" ]; then
+      files=$(git diff HEAD --name-only --no-renames 2>/dev/null); rc2=$?
+      # ★ 판정 불가(git 실패)와 빈 커밋범위를 구별한다 (AC-6·AC-4).
+      #   둘 다 실패면 **아무것도 출력하지 않는다** → 호출부의 조건부 병합이 필드를 생략하고
+      #   집계는 `판정불가` 로 센다. 여기서 'empty' 를 내면 AC-4 가 분리한 축이 다시 뭉개진다.
+      [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && return 0
+    fi
+  fi
+  [ -z "$files" ] && { printf 'empty'; return 0; }
+  if _files_all_docs "$files"; then printf 'docs-only'; else printf 'code'; fi
 }
 
 # 커밋 명령이 **staged 만** 커밋하는 안전 형태인지 판정한다 (20260813-r1-docs-only-scope).
@@ -700,9 +744,11 @@ _specops_dir_safe() { [ ! -L ".specops" ]; }
 _specops_fid_dir_safe() { [ -z "${1:-}" ] || [ ! -L ".specops/$1" ]; }
 
 # friction-log append. FID 우선 fallback 전역.
-# usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset>
+# usage: log_friction <fid_or_empty> <rule_id> <principle> <evidence_snippet> <transcript_offset> [scope_class]
+#   6번째 인자는 **선택**이다 (20260813-friction-staged-record) — 기존 5-인자 호출부는 무수정으로
+#   종전과 byte-identical 한 레코드를 낸다(빈 값이면 필드 자체를 생략, AC-6·AC-7).
 log_friction() {
-  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5"
+  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" scope_class="${6:-}"
   _specops_dir_safe || { echo "log_friction: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   if [ -n "$fid" ] && ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
     echo "log_friction: invalid fid format" >&2
@@ -742,14 +788,17 @@ log_friction() {
     --argjson principle "$principle" \
     --arg snippet "$safe_snippet" \
     --argjson offset "$offset" \
-    '{ ts: $ts, fid: $fid, rule_id: $rule_id, principle: $principle, severity: "warn", evidence_snippet: $snippet, transcript_offset: $offset }' \
+    --arg sc "$scope_class" \
+    '{ ts: $ts, fid: $fid, rule_id: $rule_id, principle: $principle, severity: "warn", evidence_snippet: $snippet, transcript_offset: $offset }
+     + (if $sc == "" then {} else {scope_class:$sc} end)' \
     >> "$target"
 }
 
 # log_friction 의 severity 파라미터화 변형 (기존 log_friction 무변경 — append).
-# usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity>
+# usage: log_friction_sev <fid> <rule_id> <principle> <snippet> <offset> <severity> [scope_class]
+#   7번째 인자는 **선택** (20260813-friction-staged-record) — 빈 값이면 필드를 생략한다(AC-6).
 log_friction_sev() {
-  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}"
+  local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}" scope_class="${7:-}"
   _specops_dir_safe || { echo "log_friction_sev: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   [ -n "$fid" ] || return 0
   if ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
@@ -772,8 +821,10 @@ log_friction_sev() {
   fi
   jq -nc --arg ts "$ts" --argjson fid "$fid_json" --arg rule_id "$rule_id" \
     --argjson principle "$principle" --arg snippet "$safe_snippet" \
-    --argjson offset "$offset" --arg sev "$severity" \
-    '{ ts:$ts, fid:$fid, rule_id:$rule_id, principle:$principle, severity:$sev, evidence_snippet:$snippet, transcript_offset:$offset }' \
+    --argjson offset "$offset" --arg sev "$severity" --arg sc "$scope_class" \
+    '{ ts:$ts, fid:$fid, rule_id:$rule_id, principle:$principle, severity:$sev,
+       evidence_snippet:$snippet, transcript_offset:$offset }
+     + (if $sc == "" then {} else {scope_class:$sc} end)' \
     >> "$target"
 }
 
