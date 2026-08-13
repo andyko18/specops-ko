@@ -279,4 +279,65 @@ rm -rf "$_gf_td"
   && ok "T24 info 행 집계 무오염(AC-9) before=$_before after=$_after" \
   || nope "T24 집계 오염" "before=$_before after=$_after cand=$_cand"
 
+# T25~T26: scope_class 분류 집계 (20260813-friction-staged-record)
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/20260101-sc"
+_SC="$TMP/.specops/20260101-sc/friction-log.jsonl"
+printf '%s\n' \
+ '{"ts":"2026-01-01T00:00:00Z","fid":"20260101-sc","rule_id":"R-1","severity":"block"}' \
+ '{"ts":"2026-01-01T00:00:01Z","fid":"20260101-sc","rule_id":"R-1","severity":"block","scope_class":"code"}' \
+ '{"ts":"2026-01-01T00:00:02Z","fid":"20260101-sc","rule_id":"R-1","severity":"block","scope_class":"empty"}' \
+ '{"ts":"2026-01-01T00:00:03Z","fid":"20260101-sc","rule_id":"BYPASS-ENV","severity":"warn","scope_class":"docs-only"}' \
+ > "$_SC"
+
+# T25: --json 에 4버킷이 정확히 잡힌다 (AC-1·AC-4 — 필드 부재 vs empty 구분)
+_run --json
+printf '%s' "$_OUT" | jq -e '
+  (.rules[]|select(.rule_id=="R-1")) as $r
+  | $r.scope.code==1 and $r.scope.empty==1 and $r.scope.unknown==1 and $r.scope["docs-only"]==0
+' >/dev/null 2>&1 \
+  && ok "T25 --json scope 4버킷 (AC-1·4)" || nope "T25" "out=$_OUT"
+
+# T26: 표 출력에 4열이 보인다 (AC-1 — 사람은 표만 본다)
+_run
+printf '%s' "$_OUT" | grep -q 'docs-only' \
+  && printf '%s' "$_OUT" | grep -q '판정불가' \
+  && ok "T26 표 4열 출력 (AC-1)" || nope "T26" "out=$_OUT"
+
+# T27: 기존 집계 수치 무오염 — scope_class 있는 행을 더해도 rows/fids/blocks/candidates 불변 (AC-R-2)
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/20260101-inv"
+_IV="$TMP/.specops/20260101-inv/friction-log.jsonl"
+for _i in 1 2 3 4; do
+  printf '{"ts":"2026-01-01T00:00:0%sZ","fid":"20260101-inv","rule_id":"R-1","principle":1,"severity":"block","evidence_snippet":"s%s","transcript_offset":0}\n' "$_i" "$_i" >> "$_IV"
+done
+_run --json
+_before=$(printf '%s' "$_OUT" | jq -c '[(.rules[]|select(.rule_id=="R-1")|{rows,fids,blocks}), ([.candidates[].rule_id]|sort)]')
+# scope_class 를 가진 행 1건 추가 (기존 열 수치는 rows 만 +1, blocks 도 +1 이어야 정상)
+printf '{"ts":"2026-01-01T00:00:09Z","fid":"20260101-inv","rule_id":"R-1","principle":1,"severity":"block","evidence_snippet":"s9","transcript_offset":0,"scope_class":"code"}\n' >> "$_IV"
+_run --json
+_after=$(printf '%s' "$_OUT" | jq -c '[(.rules[]|select(.rule_id=="R-1")|{rows,fids,blocks}), ([.candidates[].rule_id]|sort)]')
+_exp=$(printf '%s' "$_before" | jq -c '[{rows:(.[0].rows+1),fids:.[0].fids,blocks:(.[0].blocks+1)}, .[1]]')
+[ "$_after" = "$_exp" ] \
+  && ok "T27 기존 집계 무오염 (AC-R-2) after=$_after" \
+  || nope "T27 집계 오염" "before=$_before after=$_after exp=$_exp"
+
+# T28: ts 누락 행이 섞여도 `최근`(last_ts) 이 실제 타임스탬프를 유지한다 (AC-R-2 — 최근 열 불변)
+#   scope_class 추가로 ts 가 **다시 중간 필드**가 되어, 빈 필드 붕괴를 막으려 `// "?"` 를 넣는다.
+#   그런데 awk 의 `$4 > last[r]` 는 문자열 비교라 "?"(0x3F) > "2"(0x32) — 누락 행이 max 를
+#   이겨 `최근` 이 "?" 로 붕괴한다. 자리 채우기와 max 계산은 분리돼야 한다.
+#   T21 은 **전 행이** ts 누락이라 이 경로를 못 잡는다(혼재가 변별 조건).
+#   ★ LC_ALL=C 고정이 이 락의 핵심이다 — awk 문자열 비교는 로케일 의존이라
+#     UTF-8 로케일(strcoll)에선 구두점이 앞서 붕괴가 **가려진다**(실측: 개발 로케일
+#     통과 · LC_ALL=C 에서 last_ts="?"). 로케일을 안 고정하면 이 락은 환경 복권이 된다.
+rm -rf "$TMP/.specops"; mkdir -p "$TMP/.specops/20260101-ts"
+_TS="$TMP/.specops/20260101-ts/friction-log.jsonl"
+printf '%s\n' \
+ '{"ts":"2026-05-05T00:00:00Z","fid":"20260101-ts","rule_id":"R-TS","severity":"block"}' \
+ '{"fid":"20260101-ts","rule_id":"R-TS","severity":"block"}' \
+ > "$_TS"
+_OUT=$(cd "$TMP" && LC_ALL=C SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1)
+_lt=$(printf '%s' "$_OUT" | jq -r '.rules[]|select(.rule_id=="R-TS")|.last_ts')
+[ "$_lt" = "2026-05-05T00:00:00Z" ] \
+  && ok "T28 ts 누락 혼재 — 최근 열 보존 (AC-R-2) last_ts=$_lt" \
+  || nope "T28 최근 붕괴" "last_ts=$_lt"
+
 finish
