@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.75.0] — 2026-08-13
+
 ### Added
 - **friction-log 커밋 범위 분류 (FID 20260813-friction-staged-record, #2)** — 마찰 기록에 `scope_class`(`docs-only|code|empty`)를 남기고 `gbrain-friction` 이 규칙별 **4열**(`docs-only`·`code`·`empty`·`판정불가`)로 집계한다. 직전 FID(`20260813-r1-docs-only-scope`)가 *"block 77건 중 결함 유래 N건"* 을 끝내 세지 못하고 성공지표를 **"효과 미측정"** 으로 남긴 것이 직접 동기다.
   - **★ 산출물은 필드가 아니라 분류 출력이다** — 실측상 `evidence_snippet`·`principle`·`transcript_offset` 은 **기록되지만 아무도 읽지 않는다**(`gbrain-friction.sh:62-63` 이 읽는 것은 4개 필드뿐). 필드만 추가하면 **네 번째 write-only 필드**가 되어 고치려던 실패 모드를 재생산한다. 그래서 계약(AC)을 JSONL 키가 아니라 **가시 출력**에 걸었다(advisor 협의로 산출물 정의를 뒤집음).
@@ -1130,7 +1132,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.74.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.75.0...HEAD
+[1.75.0]: https://github.com/andyko18/specops-ko/compare/v1.74.0...v1.75.0
 [1.74.0]: https://github.com/andyko18/specops-ko/compare/v1.73.0...v1.74.0
 [1.73.0]: https://github.com/andyko18/specops-ko/compare/v1.72.0...v1.73.0
 [1.72.0]: https://github.com/andyko18/specops-ko/compare/v1.71.0...v1.72.0
