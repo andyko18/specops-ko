@@ -69,7 +69,11 @@ while IFS= read -r rule; do
   if [ -n "$result" ]; then
     snippet=$(echo "$result" | jq -r '.evidence_snippet')
     offset=$(echo "$result" | jq -r '.offset')
-    log_friction "$fid" "$local_id" "$principle" "$snippet" "$offset" 2>/dev/null || true
+    # scope_class = 방금 감사한 액션의 커밋 범위 (20260814-friction-scope-posttool).
+    #   R-3 등 커밋 범위 축이 없는 규칙은 _audit_scope_class 가 무출력 → 필드 자체가 생략된다.
+    #   posttool 은 면제(docs-only) 시 애초에 여기 도달하지 않으므로 실제 값은 code|empty|무출력이다.
+    log_friction "$fid" "$local_id" "$principle" "$snippet" "$offset" \
+      "$(_audit_scope_class "$local_id")" 2>/dev/null || true
     matches="${matches}[governance] ${local_id}: ${desc}"$'\n'
   fi
 done < <(load_rules "$rules_path" "posttool" 2>/dev/null || true)
