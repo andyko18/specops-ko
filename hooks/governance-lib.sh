@@ -411,7 +411,16 @@ _detect_base_branch() {
 is_docs_only_change() {
   # --no-renames: rename 을 delete(old)+add(new) 2줄로 분해 → 코드파일 .md rename 위장
   #   (tool.sh→tool.md)이 원본 .sh 를 숨겨 docs-only 오인면제되던 표면 차단. 출력포맷(--name-only) 무변경.
+  # $1(선택): 실행될 커밋 명령. **인자가 없으면 아래 분기가 통째로 비활성**이라 종전과 동일하게 동작한다
+  #   — batch 게이트(pretool:112)·기존 T-docs.a~q 가 무수정인 이유다.
   local files
+  if _commit_scope_is_staged "${1:-}"; then
+    # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
+    files=$(git diff --cached --name-only --no-renames 2>/dev/null)
+    [ -z "$files" ] && return 1
+    _files_all_docs "$files"
+    return $?
+  fi
   files=$(git diff HEAD --name-only --no-renames 2>/dev/null)
   [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null)
   if [ -z "$files" ]; then

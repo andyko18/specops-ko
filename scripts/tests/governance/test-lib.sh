@@ -187,6 +187,33 @@ _clsf_case 1 "T-docs.ae env 접두 보수"       "FOO=1 $_G $_C -m 'x'"
 _clsf_case 1 "T-docs.af gh pr create 보수"   "gh pr create --title x"
 _clsf_case 1 "T-docs.ag 빈 문자열 보수"      ""
 
+# T-docs.ah~ak: is_docs_only_change 스코프 분기 (sandbox — staged=docs + unstaged 코드)
+_scope_sandbox() {  # $1 expect_rc  $2 label  $3 cmd(빈 문자열이면 무인자 호출)
+  local td rc; td=$(mktemp -d)
+  ( cd "$td" && git init -q \
+    && echo "echo orig" > tracked.sh && git add tracked.sh \
+    && git -c user.email=e@t -c user.name=t commit -q -m init \
+    && echo doc > README.md && git add README.md \
+    && echo "echo changed" > tracked.sh \
+    && source "$PLUGIN/hooks/governance-lib.sh" \
+    && if [ -n "$3" ]; then is_docs_only_change "$3"; else is_docs_only_change; fi ); rc=$?
+  rm -rf "$td"
+  if [ "$rc" -eq "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 (rc=$rc)"
+  else FAIL=$((FAIL+1)); echo "FAIL $2 rc=$rc 기대=$1"; fi
+}
+_scope_sandbox 0 "T-docs.ah plain 커밋 → 면제(AC-1)"   "$_G $_C -m 'docs'"
+_scope_sandbox 1 "T-docs.ai -am → 비면제(AC-2)"        "$_G $_C -am 'x'"
+_scope_sandbox 1 "T-docs.aj compound → 비면제(AC-3)"   "$_G add -A && $_G $_C -m 'x'"
+_scope_sandbox 1 "T-docs.ak 무인자 → 현행 보존(AC-5)"  ""
+
+# T-docs.al: staged 에 코드 혼합이면 형태 무관 비면제 (AC-6 — 매처 불변식)
+_td=$(mktemp -d)
+( cd "$_td" && git init -q && echo x > a.md && echo y > b.sh && git add a.md b.sh
+  source "$PLUGIN/hooks/governance-lib.sh"; is_docs_only_change "$_G $_C -m 'x'" ); _rc=$?
+rm -rf "$_td"
+if [ "$_rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.al staged 코드혼합 비면제(AC-6)"
+else FAIL=$((FAIL+1)); echo "FAIL T-docs.al 보안회귀! rc=$_rc"; fi
+
 # T-scope.a~d: is_docs_only_audit_scope — posttool 감사 스코프 (방금 액션 범위, 20260718-posttool-audit-silence)
 _scope_case() {  # $1 expect_rc $2 label $3 rule_id $4 setup-eval
   local exp="$1" label="$2" rid="$3" setup="$4" rc
