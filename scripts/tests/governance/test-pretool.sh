@@ -649,5 +649,32 @@ _out=$(mkstdin "$_G $_C -am x" "$FIX/pretool-no-verify.jsonl" \
   | CLAUDE_PROJECT_DIR="$scopesandbox" bash "$HOOK" 2>&1)
 check "T-cscope.b -am → deny 보존(AC-2 e2e)" 'deny' "$_out"
 
+# T-cscope.c: 축소 적용 allow 시 info 1행 기록 + rule_id 가 R-1 이 아님 (AC-8)
+#   ★ detect_fid(governance-lib.sh:52-57)는 .specops/session-progress.md 의 `## <FID>` 헤더를 읽는다.
+#     sandbox 에 이 파일이 없으면 FID 가 빈 문자열이라 기록이 설계대로 생략돼 케이스가 영구 FAIL 한다.
+scopefid=$(mktemp -d) || exit 1
+( cd "$scopefid" && git init -q && mkdir -p .specops/20260101-scopetest \
+  && printf '## 20260101-scopetest\n' > .specops/session-progress.md \
+  && echo "echo orig" > tracked.sh && git add tracked.sh \
+  && git -c user.email=e@t -c user.name=t commit -q -m init \
+  && echo doc > README.md && git add README.md \
+  && echo "echo changed" > tracked.sh ) >/dev/null 2>&1
+
+mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$scopefid" bash "$HOOK" >/dev/null 2>&1
+_log=$(cat "$scopefid"/.specops/*/friction-log.jsonl 2>/dev/null)
+_hit=$(printf '%s' "$_log" | jq -s '[.[]|select(.severity=="info" and .rule_id!="R-1")]|length' 2>/dev/null || echo 0)
+check "T-cscope.c info 기록 + R-1 미오염(AC-8)" '^1$' "$_hit"
+
+# T-cscope.d: FID 미검출(session-progress.md 부재)에도 allow 는 성립 — 기록은 조용히 생략 (AC-8 후단)
+_out=$(mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$scopesandbox" bash "$HOOK" 2>&1)
+check "T-cscope.d FID 부재에도 allow(AC-8 후단)" '"continue":true' "$_out"
+# T-cscope.e: 그 allow 가 기록을 남기지 않았음 — d 는 allow 만 보므로 로깅 블록이 통째로 없어도 통과한다.
+#   AC-8 후단의 "조용히 생략" 절반은 이 줄이 잠근다 (파일 자체가 생기지 않아야 한다).
+_none=$(ls "$scopesandbox"/.specops/*/friction-log.jsonl 2>/dev/null | wc -l | tr -d ' ')
+check "T-cscope.e FID 부재 → 기록 생략(AC-8 후단)" '^0$' "$_none"
+# 정리는 위 trap 이 담당한다 (중단 시에도 실행).
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

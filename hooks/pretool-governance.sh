@@ -180,7 +180,21 @@ fi
 [ -d ".specops" ] || allow
 # tool_cmd_scan 을 넘긴다(원문 tool_cmd 아님) — :40-41 에서 heredoc 본문·인용 문자열이 이미 제거돼
 #   판정 오염이 없다. :112 batch 게이트는 인자 없이 호출해 현행 동작을 유지한다(범위 밖).
-is_docs_only_change "$tool_cmd_scan" && allow
+#
+# 스코프 축소가 실제로 열어준 경우만 정보성 1행을 남긴다 (20260813-r1-docs-only-scope AC-8).
+#   목적은 효과 측정이다 — friction-log 에 staged 목록이 없어 기존 77 block 중 본 결함 유래를
+#   사후 산정할 수 없었다. 앞으로는 gbrain-friction 이 이 행을 별도 rule_id 로 집계한다.
+#   rule_id 를 R-1 과 분리하는 이유: gbrain-friction 은 rule_id 로 그룹핑하고 증류 후보를
+#   blocks>=임계 로 거르므로(scripts/gbrain-friction.sh), 분리하면 R-1 통계가 불변이다.
+#   기록은 **부수효과**다 — FID 미검출이든 로깅 실패든 allow 를 지연·차단하지 않는다.
+if is_docs_only_change "$tool_cmd_scan"; then
+  if [ -d ".specops" ] && _commit_scope_is_staged "$tool_cmd_scan"; then
+    _scope_fid=$(detect_fid 2>/dev/null || echo "")
+    [ -n "$_scope_fid" ] && log_friction_sev "$_scope_fid" "R-1-SCOPE" 1 \
+      "staged-scope 축소로 docs-only 면제: ${tool_cmd:0:120}" 0 "info" 2>/dev/null || true
+  fi
+  allow
+fi
 
 # $fid 는 아래 log_friction_sev(위반 기록)·deny 메시지에서 재사용된다 — 삭제 금지.
 #   set -uo pipefail 하에서 unbound "$fid" 는 스크립트를 즉사시켜 deny 경로가 JSON 을 못 뱉는다(무출력 = fail-open).
