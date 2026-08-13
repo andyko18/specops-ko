@@ -413,6 +413,45 @@ _cls_sandbox docs-only "T-cls.g 무인자 staged=docs" docs
 _cls_sandbox code      "T-cls.h 무인자 staged=code" code
 _cls_sandbox empty     "T-cls.i 무인자 staged=none" none
 
+# T-acls.a~h: _audit_scope_class — posttool 감사 스코프 분류 (20260814-friction-scope-posttool)
+#   ★ is_docs_only_audit_scope 와 **같은 범위**(R-1 HEAD~1..HEAD / R-2 base...HEAD)를 쓰되
+#     boolean 이 아니라 분류를 낸다. _commit_scope_class(staged 기준)는 posttool 이 커밋 **후**
+#     발화하므로 쓸 수 없다 — --cached 가 비어 empty 로 오분류된다.
+#   ★ 기대값 "" 는 **무출력 = 판정불가**다. 'empty'(커밋 범위가 실제로 빔)와 다른 축이다.
+_acls_case() {  # $1 expect(""=무출력)  $2 label  $3 rule_id  $4 setup-eval
+  local td got
+  td=$(mktemp -d) || { FAIL=$((FAIL+1)); echo "FAIL $2 mktemp"; return; }
+  ( cd "$td" && eval "$4" ) >/dev/null 2>&1
+  got=$( cd "$td" && source "$PLUGIN/hooks/governance-lib.sh" && _audit_scope_class "$3" )
+  rm -rf "$td"
+  if [ "$got" = "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 (${got:-<무출력>})"
+  else FAIL=$((FAIL+1)); echo "FAIL $2 got=${got:-<무출력>} 기대=${1:-<무출력>}"; fi
+}
+_GC='-c user.email=e@t -c user.name=t'
+_acls_case code "T-acls.a R-1 코드 커밋" R-1 \
+  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
+   echo y > a.sh; git add a.sh; git $_GC commit -q -m code"
+_acls_case docs-only "T-acls.b R-1 docs-only 커밋" R-1 \
+  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
+   echo y > R.md; git add R.md; git $_GC commit -q -m docs"
+_acls_case code "T-acls.c R-1 working-tree dirt 무영향" R-1 \
+  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
+   echo y > a.sh; git add a.sh; git $_GC commit -q -m code; echo z > b.md"
+_acls_case "" "T-acls.d R-1 최초 커밋(HEAD~1 부재) → 판정불가" R-1 \
+  "git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init"
+_acls_case empty "T-acls.e R-1 빈 커밋 → empty(판정불가 아님)" R-1 \
+  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
+   git $_GC commit -q --allow-empty -m nothing"
+_acls_case code "T-acls.f R-2 base...HEAD 코드" R-2 \
+  "git init -q; git checkout -q -b main 2>/dev/null; echo b > b.md; git add b.md; \
+   git $_GC commit -q -m init; git checkout -q -b feat; echo c > c.sh; git add c.sh; \
+   git $_GC commit -q -m feat"
+_acls_case "" "T-acls.g R-2 base 부재 → 판정불가" R-2 \
+  "git init -q; git checkout -q -b solo 2>/dev/null; echo b > b.md; git add b.md; \
+   git $_GC commit -q -m init"
+_acls_case "" "T-acls.h 미지원 rule_id(R-3) → 판정불가" R-3 \
+  "git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init"
+
 # T-cls.j~m: log_friction_sev scope_class 선택 인자 (AC-5·AC-6)
 _td=$(mktemp -d)
 ( cd "$_td" && mkdir -p .specops
