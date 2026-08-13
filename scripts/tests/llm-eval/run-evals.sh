@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
 # specops-ko LLM eval runner — 메타 skill 신호 감지 + 체인 진입 smoke eval
 # 사용: bash scripts/tests/llm-eval/run-evals.sh [fixtures.jsonl]
-# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 12) · LLM_EVAL_TIMEOUT(기본 300초)
+# 환경: CLAUDE_BIN(기본 claude) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 300초)
 # ⚠️ 실 claude 실행은 토큰 비용 발생 (실측 ~$0.9/fixture — 재시도 cap=1 포함) — run-all/CI 비포함, 수동 전용
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 FIXTURES="${1:-$HERE/fixtures.jsonl}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-# 기본 12: 모델이 Skill 호출 전 타 도구 사용 가능 — Skill 이벤트는 어느 턴에든 잡히면 됨.
-#   구 기본값 4 는 아래 `--allowedTools Skill` 을 **배타 제한**으로 오해한 데서 나왔다. CLI 의미는
-#   "권한 프롬프트 면제 목록"이지 deny 가 아니다(`--disallowedTools` 가 배타 제한). 그래서 모델은
-#   Bash·Read 를 자유롭게 쓰고, 조사만 하다 턴이 끝난다 — 20260813 실측 maint-1 transcript:
-#   ① ls/find ② Read slug.sh ③ git log + 버그 재현 ④ locale 대조 → `error_max_turns`(num_turns=5),
-#   Skill 호출 0회 → `got=none`. 17건 중 8건 FAIL 이 전부 이 경로였다.
-#   조사를 `--disallowedTools` 로 봉쇄하지 않는다 — "볼 게 없으니 Skill 부름"이 되어 실사용과 멀어진다.
-MAX_TURNS="${LLM_EVAL_MAX_TURNS:-12}"
-# 기본 300: max_turns 상향과 한 쌍이다. 구 120 초는 조사 도중 끊어 판정 실패를 TIMEOUT 으로 가렸다
-#   (같은 fixture 가 120s=TIMEOUT → 300s=판정 결과 노출로 뒤집힌 것이 실측 증거).
+# 기본 4 — ★ 올리지 마라. 20260813 에 4→12 로 올렸다가 실측으로 반증하고 되돌렸다.
+#   함정: `--allowedTools Skill` 은 **배타 제한이 아니다**. CLI 의미는 "권한 프롬프트 면제 목록"이고
+#   deny 는 `--disallowedTools` 다. 그래서 모델은 Bash·Read·**Write** 를 자유롭게 쓴다.
+#   그 상태에서 FAIL 이 `error_max_turns` 로 끝나면 "턴이 모자라다"로 읽히지만, transcript 를 뜨면
+#   정반대다 — 턴 여유를 주면 모델은 Skill 을 부르는 대신 **직접 다 만들어버린다**:
+#     · maint-1 @4턴  → ls/find → Read → git log+버그재현 → locale 대조 → error_max_turns, Skill 0회
+#     · new-1  @12턴 → 조사 3턴 후 "TDD 순서. 테스트 먼저" → Write ×8 + npm test, Skill 0회,
+#                       thinking·text 에 specops/skill 언급 **0회**, 비용 $0.41 → $1.41 (3.4배)
+#   `new-1` 은 4턴에서 PASS 하던 fixture 다. 즉 **낮은 max_turns 가 우연히 강제력으로 작동**하고 있다.
+#   ⚠️ 그래서 이 eval 의 통과율은 "신호 감지율"이 아니라 "시간 없을 때 뭘 먼저 하나"에 가깝다.
+#      실사용은 턴 무제한이므로 실제 감지율은 이 숫자보다 낮다 — 해석 시 주의.
+#   조사를 `--disallowedTools` 로 봉쇄하지도 않는다 — "볼 게 없으니 Skill 부름"이 되어 더 왜곡된다.
+MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
+# 기본 300 — 이건 유지한다(max_turns 되돌림과 무관하게 독립적으로 유효).
+#   구 120 초는 조사 도중 끊어 **판정 실패를 TIMEOUT 으로 가렸다**. 실측: 같은 fixture 6건이
+#   120s=TIMEOUT → 300s=판정 결과 노출(`got=none`)로 뒤집혔다. TIMEOUT 은 원인을 감추는 층이었다.
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-300}"
 
 # N-run 신뢰성 모드 (LLM_EVAL_RUNS>1) — wshobson PluginEval Layer3 이식

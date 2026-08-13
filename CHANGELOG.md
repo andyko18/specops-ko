@@ -5,11 +5,15 @@
 ## [Unreleased]
 
 ### Fixed
-- **llm-eval 기본값 — `MAX_TURNS` 4→**12** · `TIMEOUT` 120→**300**초 (20260813)** — 17건 중 **8건 FAIL** 의 원인이 플러그인 신호 감지가 아니라 **하네스 자신**이었다. 러너는 `--allowedTools Skill` 을 배타 제한으로 가정했는데 CLI 의미는 "권한 프롬프트 면제 목록"이다(deny 는 `--disallowedTools`). 그래서 모델이 `Bash`·`Read` 를 자유롭게 쓰고 조사만 하다 턴이 끝났다.
-  - **transcript 실측(maint-1, $0.41)** — ① `ls`/`find` ② `Read slug.sh` ③ `git log` + 버그 재현 실행 ④ `locale` 대조 실험 → `result: error_max_turns · num_turns=5 · is_error=true`, **Skill 호출 0회** → `got=none`.
-  - **TIMEOUT 이 판정 실패를 가리고 있었다** — 같은 fixture 6건이 `120s=TIMEOUT` → `300s=판정 결과 노출` 로 뒤집혔다. 두 기본값은 한 쌍이라 함께 올린다.
-  - **조사를 `--disallowedTools` 로 봉쇄하지 않는다** — "볼 게 없으니 Skill 부름"이 되어 측정이 실사용에서 멀어진다. 베이스라인(`PASS=10 FAIL=0`) 이후 모델의 조사 성향이 강해진 것이 실제 변화이고, 하네스가 그걸 못 담고 있었다.
-  - **한계**: 상향 후 실 eval 재검증 **미실시**(별도 토큰 비용). 회귀는 stub 기반 `test-llm-eval` 40건 + 관련 4스위트 PASS 로만 확인했다 — 신호 감지율 자체가 회복되는지는 다음 수동 실행에서만 알 수 있다. 비용 주석도 실측 반영(`~$0.5` → `~$0.9`/fixture, 재시도 cap=1 포함).
+- **llm-eval `TIMEOUT` 120→**300**초 · `MAX_TURNS` 는 **4 유지**(12 상향 시도 후 실측 반증·되돌림) (20260813)** — 17건 실행에서 **8건 FAIL** 이 났고, 그중 6건이 `TIMEOUT` 이었다.
+  - **TIMEOUT 이 판정 실패를 가리고 있었다** — 같은 fixture 6건이 `120s=TIMEOUT` → `300s=판정 결과 노출`(`got=none`) 로 뒤집혔다. 120초는 조사 도중 끊어 원인을 감추는 층이었다. **이 상향은 유효하며 유지한다.**
+  - **`MAX_TURNS` 4→12 는 틀렸고 되돌렸다.** `error_max_turns` 를 "턴이 모자라다"로 읽었는데 transcript 가 정반대를 보여줬다. `--allowedTools Skill` 은 배타 제한이 아니라 "권한 프롬프트 면제 목록"이라(deny 는 `--disallowedTools`) 모델이 `Bash`·`Read`·**`Write`** 를 자유롭게 쓴다. 턴 여유를 주면 Skill 을 부르는 대신 **직접 다 만들어버린다**.
+    - `maint-1` @4턴 — `ls`/`find` → `Read slug.sh` → `git log`+버그 재현 → `locale` 대조 → `error_max_turns`(num_turns=5), **Skill 0회** ($0.41)
+    - `new-1` @12턴 — 조사 3턴 후 *"TDD 순서. 테스트 먼저 (RED)."* → `Write` ×8 + `npm test` 로 CLI 를 완성. **Skill 0회**, thinking·text 에 `specops`/`skill` 언급 **0회**, `num_turns=14` ($1.41 — 3.4배)
+    - **`new-1` 은 4턴에서 PASS 하던 fixture 다.** 즉 낮은 `max_turns` 가 **우연히 강제력으로 작동**하고 있었다. 통과율을 knob 으로 올리려던 시도가 통과율을 떨어뜨렸다.
+  - **드러난 더 큰 문제 — 이 eval 은 신호 감지율을 재고 있지 않다.** 재는 것은 *"시간이 없을 때 모델이 뭘 먼저 하나"* 에 가깝다. 실사용은 턴 무제한이므로 **실제 감지율은 이 숫자보다 낮다**. 베이스라인 `PASS=10 FAIL=0` 도 같은 착시일 수 있어 신뢰 근거가 못 된다. 메타 skill 은 주입까지는 정상 도달한다(SessionStart 훅 확인) — 모델이 받고도 **인식하지 않는다**. 후속 FID 대상이며, 착수 전에 **eval 이 무엇을 측정할 것인지부터 재정의**해야 한다.
+  - **조사를 `--disallowedTools` 로 봉쇄하지 않는다** — "볼 게 없으니 Skill 부름"이 되어 실사용에서 더 멀어진다.
+  - **한계**: 되돌린 뒤 **실 eval 재검증 미실시**(토큰 비용). 회귀는 stub 기반 `test-llm-eval` 40건 + 관련 4스위트 PASS 로만 확인했다. `MAX_TURNS` 반증 근거는 fixture **2건 표본**(`new-1` 역전 + `maint-1` transcript)이다 — 전수 확인은 안 했고, 방향성 증거로만 쓴다. 비용 주석 실측 반영(`~$0.5` → `~$0.9`/fixture, 재시도 cap=1 포함).
 
 ## [1.73.0] — 2026-08-13
 
