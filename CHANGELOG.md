@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+- **friction-log 커밋 범위 분류 (FID 20260813-friction-staged-record, #2)** — 마찰 기록에 `scope_class`(`docs-only|code|empty`)를 남기고 `gbrain-friction` 이 규칙별 **4열**(`docs-only`·`code`·`empty`·`판정불가`)로 집계한다. 직전 FID(`20260813-r1-docs-only-scope`)가 *"block 77건 중 결함 유래 N건"* 을 끝내 세지 못하고 성공지표를 **"효과 미측정"** 으로 남긴 것이 직접 동기다.
+  - **★ 산출물은 필드가 아니라 분류 출력이다** — 실측상 `evidence_snippet`·`principle`·`transcript_offset` 은 **기록되지만 아무도 읽지 않는다**(`gbrain-friction.sh:62-63` 이 읽는 것은 4개 필드뿐). 필드만 추가하면 **네 번째 write-only 필드**가 되어 고치려던 실패 모드를 재생산한다. 그래서 계약(AC)을 JSONL 키가 아니라 **가시 출력**에 걸었다(advisor 협의로 산출물 정의를 뒤집음).
+  - **`log_friction`·`log_friction_sev` 둘 다 선택적 마지막 인자** — 교체가 아니다. `log_friction:713-718` 은 fid 가 비면 **전역 파일로 fallback** 하는데 `_sev:754` 는 드랍하고, dedup 도 전자는 severity 무관·후자는 block 한정이다. 교체했다면 감사 테스트 4곳(`test-pretool.sh:482`·`504`·`509`·`535`)이 회귀했을 것이다(plan-reviewer 1회차 적발). 기존 5개 호출부는 무수정 — blast radius 0.
+  - **`판정불가` ↔ `empty` 를 뭉개지 않는다** — 필드 부재(구 레코드)는 `// "unknown"`, 빈 커밋범위는 `"empty"`. `_commit_scope_class` 는 두 `git diff` 가 **모두 rc≠0** 이면 무출력해 필드를 생략시킨다(판정 불가와 빈 범위의 구별).
+  - **계측 지점 3곳** — `BYPASS-ENV` `:59`(세션-env)·`:165`(인라인) + R-1/R-2 block `:233`. block 은 `:191` 이 이미 계산한 목록을 재사용해 **deny 핫패스 git 재실행 0**(실측 141→142ms). `R-1-SCOPE`(`:193`)는 값이 항상 `docs-only` 라 제외(clarify D2).
+  - **`:165` 인라인 경로가 지배 데이터원** — `T-fsc.a~c` 는 env 를 세팅해 `:56` 에서 단락되므로 그 배선을 **잠그지 못한다**. `T-fsc.g` 가 유일한 락이다(plan-reviewer 2회차 적발 — 없었으면 워커가 빠뜨려도 전 스위트 green).
+  - **리뷰가 잡은 결함 3건** — ① plan RED 예측 오류(구현자가 `git show` 로 반증) ② **로케일 의존 결함**: plan 지시 `(.ts // "?")` 가 awk `$4 > last[r]` 문자열 비교와 결합해 `LC_ALL=C` 에서 `최근` 열을 붕괴시켰다(`"?"`=0x3F > `"2"`=0x32). **UTF-8 개발 환경에선 가려지고 CI 에서만 터지는** 종류라 `$4 != "?"` 가드 + `T28`(LC_ALL=C 고정)로 봉합 ③ **stale 전역**: `is_docs_only_change` 이른 반환이 `_SPECOPS_SCOPE_FILES` 를 리셋하지 않아, batch 게이트가 먼저 채운 목록을 deny 경로가 분류했다(실측 `code` — 진실은 `empty`). working-tree 가 all-docs 면 block 에 `docs-only` 가 출현해 **AC-3 이 세운 "구조적 불가" 이상신호 축을 자기오염**시킨다. 진입부 1줄 리셋 + `T-cls.p`(변이 격추 확인).
+  - 테스트 `test-lib` 79→**96** · `test-pretool` 119→**126** · `test-gbrain-friction` 25→**29** · propagation 150→**156 edges** · run-all **142/142**.
+  - **한계**: **효과는 아직 0** 이다 — 실 로그 259행이 전부 `판정불가`(배선 이전 레코드)다. 분류가 쌓이는지는 **향후 세션에서만** 확인된다. 소급 분류는 원리적으로 불가하고, block 지점은 도달 조건상 `code|empty` **2분류로 축퇴**하므로 실질 변량은 `BYPASS-ENV` 축에 있다. `plan-reviewer` 2회차 FAIL(Critical 0) 후 **cap 소진으로 3회차 없이 진행**(사용자 결정) — Phase B/C 가 게이트했다. `semgrep`·`gitleaks` 미설치. Linux 미검증.
+  - **후속 이관 2건**: `:236` call-site 주석(빈 전역이 강제 `empty` 가 되는 trade-off) · propagation `gbrain-friction` edge 를 `// "unknown"` 리터럴로 조이기.
+
 ## [1.74.0] — 2026-08-13
 
 ### Fixed
