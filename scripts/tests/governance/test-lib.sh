@@ -186,6 +186,27 @@ _clsf_case 1 "T-docs.ad -s signoff 보수"     "$_G $_C -s -m 'x'"
 _clsf_case 1 "T-docs.ae env 접두 보수"       "FOO=1 $_G $_C -m 'x'"
 _clsf_case 1 "T-docs.af gh pr create 보수"   "gh pr create --title x"
 _clsf_case 1 "T-docs.ag 빈 문자열 보수"      ""
+# T-docs.am~as: 개행 분리 compound (Phase B false-allow — 개행은 `;` 와 동등한 명령 분리자다.
+#   첫 줄만 보고 잔여 줄을 무검증 폐기하면 C1·C2 가 둘째 줄부터 적용되지 않는다)
+_clsf_case 1 "T-docs.am 개행 compound(첫줄 안전형) 보수" "$_G $_C -m 'docs'
+$_G add -A
+$_G $_C -am 'code'"
+_clsf_case 1 "T-docs.an 개행 compound(첫줄 add) 보수"    "$_G add -A
+$_G $_C -m 'x'"
+_clsf_case 1 "T-docs.ao 첫줄 << 없는 2줄 보수"           "$_G $_C -m 'x'
+ls"
+_clsf_case 1 "T-docs.ap heredoc 종결자 뒤 추가명령 보수" "$_G $_C -q -F - <<'HD'
+docs: x
+HD
+$_G add -A"
+_clsf_case 0 "T-docs.aq 후행 개행만 축소 유지"           "$_G $_C -m 'x'
+"
+_clsf_case 0 "T-docs.ar heredoc <<- 탭 종결자 축소"      "$_G $_C -q -F - <<-HD
+	docs: x
+	HD"
+_clsf_case 0 "T-docs.as 멀티라인 인용 -m 축소(false-block 방지)" "$_G $_C -m 'feat: x
+
+body'"
 
 # T-docs.ah~ak: is_docs_only_change 스코프 분기 (sandbox — staged=docs + unstaged 코드)
 _scope_sandbox() {  # $1 expect_rc  $2 label  $3 cmd(빈 문자열이면 무인자 호출)
@@ -205,6 +226,10 @@ _scope_sandbox 0 "T-docs.ah plain 커밋 → 면제(AC-1)"   "$_G $_C -m 'docs'"
 _scope_sandbox 1 "T-docs.ai -am → 비면제(AC-2)"        "$_G $_C -am 'x'"
 _scope_sandbox 1 "T-docs.aj compound → 비면제(AC-3)"   "$_G add -A && $_G $_C -m 'x'"
 _scope_sandbox 1 "T-docs.ak 무인자 → 현행 보존(AC-5)"  ""
+# AC-3 은 개행 분리 compound 도 포함한다 — 연산자 4변형(`&&`·`;`·`|`·`||`)만 잠그면 개행이 뚫린다.
+_scope_sandbox 1 "T-docs.at 개행 compound → 비면제(AC-3)" "$_G $_C -m 'docs'
+$_G add -A
+$_G $_C -am 'code'"
 
 # T-docs.al: staged 에 코드 혼합이면 형태 무관 비면제 (AC-6 — 매처 불변식)
 _td=$(mktemp -d)

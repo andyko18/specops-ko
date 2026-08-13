@@ -466,12 +466,35 @@ EOF
 # 왜 화이트리스트인가: #255 가 "이름 나열"식 접근의 3회 반복 실패를 기록한다. 위험 형태를 나열하면
 #   나열 밖이 뚫린다. 안전 형태만 통과시키면 나열 밖은 전부 **보수 쪽(false-block 방향)** 으로 넘어진다.
 _commit_scope_is_staged() {
-  local s rest tok skip=0
+  local s first resid line tok extra rest skip=0
   [ -n "${1:-}" ] || return 1
   # 스트리퍼 재사용 — heredoc 본문·인용 내용이 판정을 오염시키지 않도록 (pretool 과 동일 전처리).
   s=$(_strip_heredoc_bodies "$1")
   s=$(_strip_quoted_strings "$s")
-  s=${s%%$'\n'*}     # 첫 줄만 — heredoc 종결자 줄(EOF) 제거
+  # C1(개행): **개행은 `;` 와 동등한 명령 분리자다.** 첫 줄만 남기고 잔여를 무검증 폐기하면
+  #   C1(연산자)·C2(단일 커밋) 가 둘째 줄부터 적용되지 않는다 — `git commit -m 'docs'` ⏎ `git add -A`
+  #   ⏎ `git commit -am 'code'` 가 축소 승인으로 뚫렸다(Phase B false-allow 실측, 구코드는 deny).
+  #   그렇다고 멀티라인을 전부 거부할 수는 없다 — `-F - <<'EOF'` heredoc 이 이 repo 주력 커밋 형태다(AC-7).
+  #   그래서 잔여 줄이 **heredoc 종결자로만 설명되는지**를 검사한다: 첫 줄에 `<<` 가 있고 잔여 줄이
+  #   공백 또는 bare word(`[A-Za-z0-9_]+`) 단독이면 통과, 그 외는 전부 보수.
+  #   왜 실제 delimiter 와 대조하지 않는가: `<<EOF`·`<<'EOF'`·`<<-EOF` 파싱 표면만 늘고 보안 이득이 없다 —
+  #   아래 C2 가 **첫 명령이 곧 커밋**임을 이미 보장하므로, 뒤따르는 bare word 명령은 그 커밋의
+  #   staged 범위를 바꿀 수 없다(인자 없는 한 단어라 `git add ...` 형태가 불가능).
+  #   ★ 부수효과: `-m $'a\nb'`(ANSI-C 인용)은 _strip_quoted_strings 가 bail(원본 반환)이라 여기서
+  #     보수 판정된다 — 판정 불가 시 차단 우세로 후퇴하는 이 파일의 fail-safe 방향과 일치한다.
+  first=${s%%$'\n'*}
+  if [ "$first" != "$s" ]; then
+    resid=${s#*$'\n'}
+    while IFS=$' \t' read -r tok extra; do
+      [ -z "$tok" ] && continue                            # 공백 전용 줄(후행 개행 등)
+      case "$first" in *'<<'*) ;; *) return 1 ;; esac      # heredoc 아닌 멀티라인 = 명령 분리
+      [ -n "$extra" ] && return 1                          # 종결자 줄에 토큰이 더 있으면 명령
+      case "$tok" in *[!A-Za-z0-9_]*) return 1 ;; esac      # bare word 아님
+    done <<EOF
+$resid
+EOF
+  fi
+  s=$first           # 첫 줄만 — heredoc 종결자 줄(EOF) 은 위에서 검증 완료
   s=${s%%<<*}        # heredoc 리다이렉션 토큰 절단 (`-F - <<'EOF'` 의 뒷부분)
   # C1: compound — 파싱 시점 staged ≠ 커밋 시점 staged (`git add -A && git commit`)
   case "$s" in *'&&'*|*'||'*|*';'*|*'|'*) return 1 ;; esac
