@@ -455,6 +455,34 @@ EOF
   return 0
 }
 
+# 커밋 범위를 계측용으로 분류한다 (20260813-friction-staged-record).
+#   stdout: docs-only | code | empty · 항상 rc=0 (판정 실패 개념이 없다 — 빈 목록도 유효한 답)
+#
+# 왜 필요한가: friction-log 가 "무엇을 커밋하려 했는가"를 남기지 않아, 마찰이 정탐인지
+#   오탐인지 사후 산정이 불가능했다(선행 FID 20260813-r1-docs-only-scope 가 block 77건 중
+#   결함 유래를 끝내 세지 못하고 "효과 미측정"으로 남긴 것이 실증).
+#
+# 왜 _files_all_docs 재사용인가: 분류가 **면제 클래스와 정의상 일치**해야 집계가 의미를 갖는다.
+#   별도 규칙을 만들면 "면제됐는데 code 로 분류" 같은 모순이 생긴다. 매처 자체는 건드리지 않는다
+#   (pretool↔posttool 공유 — #214→T8.e 회귀 위험).
+_commit_scope_class() {
+  local files rc1=0 rc2=0
+  if [ "$#" -gt 0 ]; then
+    files="$1"
+  else
+    files=$(git diff --cached --name-only --no-renames 2>/dev/null); rc1=$?
+    if [ -z "$files" ]; then
+      files=$(git diff HEAD --name-only --no-renames 2>/dev/null); rc2=$?
+      # ★ 판정 불가(git 실패)와 빈 커밋범위를 구별한다 (AC-6·AC-4).
+      #   둘 다 실패면 **아무것도 출력하지 않는다** → 호출부의 조건부 병합이 필드를 생략하고
+      #   집계는 `판정불가` 로 센다. 여기서 'empty' 를 내면 AC-4 가 분리한 축이 다시 뭉개진다.
+      [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && return 0
+    fi
+  fi
+  [ -z "$files" ] && { printf 'empty'; return 0; }
+  if _files_all_docs "$files"; then printf 'docs-only'; else printf 'code'; fi
+}
+
 # 커밋 명령이 **staged 만** 커밋하는 안전 형태인지 판정한다 (20260813-r1-docs-only-scope).
 #   0 = staged 로 스코프 축소 가능 / 1 = 보수(현행 working-tree) 스코프 유지.
 #

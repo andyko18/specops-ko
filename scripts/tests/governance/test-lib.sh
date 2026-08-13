@@ -377,6 +377,42 @@ _infer_case "T-task.2 명시 선언 단독" $'fix: something\n\nTask: T7' T7
 _infer_case "T-task.3 산문 T# fallback 보존" 'feat: T3 구현' T3
 _infer_case "T-task.4 선언·산문 모두 없으면 빈값" 'feat: 그냥 커밋' ''
 
+# T-cls.a~h: _commit_scope_class 분류 (20260813-friction-staged-record)
+_cls_case() {  # $1 expect  $2 label  $3 files(인자, 생략 시 무인자 호출)
+  local got
+  if [ "$#" -ge 3 ]; then got=$( ( source "$PLUGIN/hooks/governance-lib.sh"; _commit_scope_class "$3" ) )
+  else got=$( ( source "$PLUGIN/hooks/governance-lib.sh"; _commit_scope_class ) ); fi
+  if [ "$got" = "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 ($got)"
+  else FAIL=$((FAIL+1)); echo "FAIL $2 got=$got 기대=$1"; fi
+}
+_cls_case docs-only "T-cls.a .md 단독"        "README.md"
+_cls_case code      "T-cls.b .md+.sh 혼합"    "$(printf 'README.md\napp.sh')"
+_cls_case empty     "T-cls.c 빈 목록"          ""
+_cls_case docs-only "T-cls.d .specops/* 면제"  ".specops/x/friction-log.jsonl"
+_cls_case docs-only "T-cls.e screens/*.html"   "screens/a.html"
+_cls_case code      "T-cls.f src/*.html 비면제" "src/a.html"
+
+# T-cls.g~h: 무인자 자체 계산 (sandbox)
+_cls_sandbox() {  # $1 expect  $2 label  $3 staged(docs|code|none)
+  # ★ bash 3.2 파서 버그 회피: `$( … case … docs) … )` 는 3.2.57 에서 `;;` syntax error 다(실측).
+  #   패턴을 괄호형 `(docs)` 로 쓰면 통과하지만, 더 안전하게 case 를 $() **밖**으로 뺀다.
+  local td got; td=$(mktemp -d)
+  ( cd "$td" && git init -q && echo x > seed.md && git add seed.md \
+    && git -c user.email=e@t -c user.name=t commit -q -m init ) >/dev/null 2>&1
+  case "$3" in
+    (docs) echo y > "$td/README.md"; git -C "$td" add README.md ;;
+    (code) echo y > "$td/app.sh";    git -C "$td" add app.sh ;;
+    (*) : ;;
+  esac
+  got=$( cd "$td" && source "$PLUGIN/hooks/governance-lib.sh" && _commit_scope_class )
+  rm -rf "$td"
+  if [ "$got" = "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 ($got)"
+  else FAIL=$((FAIL+1)); echo "FAIL $2 got=$got 기대=$1"; fi
+}
+_cls_sandbox docs-only "T-cls.g 무인자 staged=docs" docs
+_cls_sandbox code      "T-cls.h 무인자 staged=code" code
+_cls_sandbox empty     "T-cls.i 무인자 staged=none" none
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
