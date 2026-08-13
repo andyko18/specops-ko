@@ -227,6 +227,13 @@ _scope_sandbox 1 "T-docs.ai -am → 비면제(AC-2)"        "$_G $_C -am 'x'"
 _scope_sandbox 1 "T-docs.aj compound → 비면제(AC-3)"   "$_G add -A && $_G $_C -m 'x'"
 _scope_sandbox 1 "T-docs.ak 무인자 → 현행 보존(AC-5)"  ""
 # AC-3 은 개행 분리 compound 도 포함한다 — 연산자 4변형(`&&`·`;`·`|`·`||`)만 잠그면 개행이 뚫린다.
+# T-docs.au~aw: 명령치환 토큰 보수화 (Phase C Important-2 — 20260813)
+#   _strip_quoted_strings 는 `$(`·백틱을 "실제 실행됨" 이유로 보존하는데, C3 의 skip 이 그 보존을
+#   무검사 소비하던 구멍. 치환은 커밋 前 실행이라 staged 를 바꿀 수 있다.
+_clsf_case 1 "T-docs.au 단일토큰 명령치환 -m 보수"   "$_G $_C -m \"\$(ga)\""
+_clsf_case 1 "T-docs.av 백틱 치환 -m 보수"           "$_G $_C -m \"\`ga\`\""
+_clsf_case 1 "T-docs.aw --file= 치환 보수"           "$_G $_C --file=\"\$(f)\""
+
 _scope_sandbox 1 "T-docs.at 개행 compound → 비면제(AC-3)" "$_G $_C -m 'docs'
 $_G add -A
 $_G $_C -am 'code'"

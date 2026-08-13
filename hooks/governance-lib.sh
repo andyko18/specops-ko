@@ -466,7 +466,7 @@ EOF
 # 왜 화이트리스트인가: #255 가 "이름 나열"식 접근의 3회 반복 실패를 기록한다. 위험 형태를 나열하면
 #   나열 밖이 뚫린다. 안전 형태만 통과시키면 나열 밖은 전부 **보수 쪽(false-block 방향)** 으로 넘어진다.
 _commit_scope_is_staged() {
-  local s first resid line tok extra rest skip=0
+  local s first resid tok extra rest skip=0
   [ -n "${1:-}" ] || return 1
   # 스트리퍼 재사용 — heredoc 본문·인용 내용이 판정을 오염시키지 않도록 (pretool 과 동일 전처리).
   s=$(_strip_heredoc_bodies "$1")
@@ -480,8 +480,11 @@ _commit_scope_is_staged() {
   #   왜 실제 delimiter 와 대조하지 않는가: `<<EOF`·`<<'EOF'`·`<<-EOF` 파싱 표면만 늘고 보안 이득이 없다 —
   #   아래 C2 가 **첫 명령이 곧 커밋**임을 이미 보장하므로, 뒤따르는 bare word 명령은 그 커밋의
   #   staged 범위를 바꿀 수 없다(인자 없는 한 단어라 `git add ...` 형태가 불가능).
-  #   ★ 부수효과: `-m $'a\nb'`(ANSI-C 인용)은 _strip_quoted_strings 가 bail(원본 반환)이라 여기서
-  #     보수 판정된다 — 판정 불가 시 차단 우세로 후퇴하는 이 파일의 fail-safe 방향과 일치한다.
+  #   ★ ANSI-C 인용 정정(Phase C 실측): `-m $'a\nb'` 는 _strip_quoted_strings 가 bail(원본 반환)하지만
+  #     그것만으로 보수가 되지는 않는다 — **실개행을 포함한 형태**만 위 멀티라인 검사에서 보수로 떨어지고,
+  #     리터럴 `\n` 한 토큰은 아래 C3 의 skip 이 소비해 통과한다(rc=0). 통과해도 무해하다 — 메시지 값이라
+  #     staged 범위를 바꾸지 못한다. 이 주석을 정정하는 이유: 본 함수가 존재하는 원인 자체가
+  #     "working-tree 가 곧 커밋 범위" 라는 **틀린 주석**이었다. 검증 없는 안전 주장은 다음 결함의 씨앗이다.
   first=${s%%$'\n'*}
   if [ "$first" != "$s" ]; then
     resid=${s#*$'\n'}
@@ -506,7 +509,14 @@ EOF
   esac
   # C3+C4+C6: 화이트리스트 플래그만 허용. 값을 받는 플래그는 다음 토큰을 소비한다.
   #   비플래그 토큰(경로 인자)·화이트리스트 밖 `-` 토큰은 전부 보수 판정.
+  #   ★ 명령치환은 skip 소비보다 먼저 거부한다 (Phase C Important-2). _strip_quoted_strings 는
+  #     `$(`·백틱 포함 인용을 "실제 실행된다 → 판정 보존" 목적으로 **일부러 남기는데**(:654),
+  #     `skip=1` 이 그 보존 토큰을 무검사로 삼키면 스트리퍼의 의도가 무력화된다. 실측상 뚫리던 것은
+  #     `-m "$(ga)"` 류 **무인자 단일 토큰**뿐이지만(다중 토큰·분리자 포함은 이미 보수),
+  #     치환은 커밋 **전에** 실행되므로 그 한 형태로도 "파싱 시점 staged ≠ 커밋 시점 staged" 가 성립한다.
+  #     false-block 비용은 `-m "$(cat f)"` 단일 토큰 클래스뿐이라 사실상 0.
   for tok in $rest; do
+    case "$tok" in *'$('*|*'`'*) return 1 ;; esac
     if [ "$skip" -eq 1 ]; then skip=0; continue; fi
     case "$tok" in
       -m|--message|-F|--file) skip=1 ;;
