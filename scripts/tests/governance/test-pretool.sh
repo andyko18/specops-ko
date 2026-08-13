@@ -629,5 +629,25 @@ check "P-bg2 bg 스텁만 있으면 미회수 구분 안내" '백그라운드 �
 check "P-bg2b 회수할 경로 안내" "$_BGOUT" "$_bgres"
 rm -f "$_bgtr"
 
+# T-cscope.a/b: R-1 커밋 게이트 스코프 축소 end-to-end (20260813-r1-docs-only-scope)
+#   verify 증거 없는 픽스처를 써야 게이트가 실제로 판정한다(빈 transcript = fail-open allow).
+_G=$(printf 'g%sit' ''); _C=$(printf 'c%sommit' '')
+scopesandbox=$(mktemp -d) || exit 1
+# 기존 trap(:40 codesandbox·allowsandbox)에 병합한다 — 스위트 중단 시 임시 디렉토리 누수 방지.
+trap 'rm -rf "$codesandbox" "$allowsandbox" "${scopesandbox:-}" "${scopefid:-}"' EXIT
+( cd "$scopesandbox" && git init -q && mkdir -p .specops \
+  && echo "echo orig" > tracked.sh && git add tracked.sh \
+  && git -c user.email=e@t -c user.name=t commit -q -m init \
+  && echo doc > README.md && git add README.md \
+  && echo "echo changed" > tracked.sh ) >/dev/null 2>&1
+
+_out=$(mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$scopesandbox" bash "$HOOK" 2>&1)
+check "T-cscope.a plain 커밋 → allow(AC-1 e2e)" '"continue":true' "$_out"
+
+_out=$(mkstdin "$_G $_C -am x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$scopesandbox" bash "$HOOK" 2>&1)
+check "T-cscope.b -am → deny 보존(AC-2 e2e)" 'deny' "$_out"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

@@ -178,7 +178,9 @@ fi
 # M2 관할 가드: .specops 부재 = specops 미사용 repo → verify-before-commit 강제 면제 (5원칙 4 주권 — 플러그인은
 #   자기 관할 repo 만 통제, 무관 repo 월권 금지). lifecycle 진행 중(.specops 존재)이면 그대로 강제 — 보호 손실 0.
 [ -d ".specops" ] || allow
-is_docs_only_change && allow
+# tool_cmd_scan 을 넘긴다(원문 tool_cmd 아님) — :40-41 에서 heredoc 본문·인용 문자열이 이미 제거돼
+#   판정 오염이 없다. :112 batch 게이트는 인자 없이 호출해 현행 동작을 유지한다(범위 밖).
+is_docs_only_change "$tool_cmd_scan" && allow
 
 # $fid 는 아래 log_friction_sev(위반 기록)·deny 메시지에서 재사용된다 — 삭제 금지.
 #   set -uo pipefail 하에서 unbound "$fid" 는 스크립트를 즉사시켜 deny 경로가 JSON 을 못 뱉는다(무출력 = fail-open).
