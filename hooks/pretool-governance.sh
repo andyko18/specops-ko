@@ -56,7 +56,8 @@ printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 if [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ]; then
   if [ -d ".specops" ]; then
     _bypass_fid=$(detect_fid 2>/dev/null || echo "")
-    log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 2>/dev/null || true
+    log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 \
+      "$(_commit_scope_class)" 2>/dev/null || true
     _record_bypass_metric "$_bypass_fid"
   fi
   allow
@@ -163,7 +164,8 @@ if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_
       #   명령 원문은 그 뒤에 붙여 잘려도 사유는 항상 보존되게 한다.
       _bypass_reason=$(_extract_bypass_reason "$tool_cmd")
       log_friction "$_bypass_fid" "BYPASS-ENV" 1 \
-        "inline BYPASS reason=${_bypass_reason:-(추출실패)} | cmd: ${tool_cmd:0:200}" 0 2>/dev/null || true
+        "inline BYPASS reason=${_bypass_reason:-(추출실패)} | cmd: ${tool_cmd:0:200}" 0 \
+        "$(_commit_scope_class)" 2>/dev/null || true
       _record_bypass_metric "$_bypass_fid"
     fi
     allow
@@ -230,7 +232,8 @@ while IFS= read -r rule; do
         principle=$(echo "$rule" | jq -r '.principle')
         snippet=$(echo "$res" | jq -r '.evidence_snippet')
         offset=$(echo "$res" | jq -r '.offset')
-        log_friction_sev "$fid" "$rid" "$principle" "$snippet" "$offset" block 2>/dev/null || true
+        log_friction_sev "$fid" "$rid" "$principle" "$snippet" "$offset" block \
+          "$(_commit_scope_class "${_SPECOPS_SCOPE_FILES:-}")" 2>/dev/null || true
         break
       fi
       ;;
