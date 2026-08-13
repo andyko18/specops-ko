@@ -415,6 +415,14 @@ is_docs_only_change() {
   #   (tool.sh→tool.md)이 원본 .sh 를 숨겨 docs-only 오인면제되던 표면 차단. 출력포맷(--name-only) 무변경.
   # $1(선택): 실행될 커밋 명령. **인자가 없으면 아래 분기가 통째로 비활성**이라 종전과 동일하게 동작한다
   #   — batch 게이트(pretool:112)·기존 T-docs.a~q 가 무수정인 이유다.
+  # ★ 계측 전역 리셋 (Phase C Important, 20260813-friction-staged-record): 아래 이른 반환 경로
+  #   (`[ -z "$files" ] && return 1`, 2곳)는 대입 **전에** 빠져나간다. 같은 훅 프로세스에서
+  #   batch 게이트(pretool:113, 무인자)가 먼저 working-tree 목록으로 전역을 채운 뒤 본판정이
+  #   이른 반환하면, deny 경로(pretool:236)가 **직전 호출의 목록**을 분류한다(실측: staged 빈
+  #   상태인데 `code` 로 기록). 나아가 working-tree 가 all-docs 면 block 레코드에 `docs-only` 가
+  #   출현해 AC-3 이 세운 "구조적 불가" 이상신호 축을 자기오염시킨다. 판정·종료코드와는 무관한
+  #   계측 전용 결함이지만, 계측이 사실을 말하지 않으면 존재 이유가 없다(5원칙 1).
+  _SPECOPS_SCOPE_FILES=""
   local files
   if _commit_scope_is_staged "${1:-}"; then
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.

@@ -472,6 +472,25 @@ if jq -e 'select(.evidence_snippet=="no-git" and (has("scope_class")|not))' "$_t
 else FAIL=$((FAIL+1)); echo "FAIL T-cls.o git 부재 처리 실패 (empty 로 뭉갰거나 미기록)"; fi
 rm -rf "$_td"
 
+# T-cls.p: 계측 전역이 이른 반환 경로에서 stale 로 남지 않는다 (Phase C Important 회귀 락)
+#   선행 무인자 호출(batch 게이트)이 working-tree 목록으로 전역을 채운 뒤, staged 폼 본판정이
+#   이른 반환하면 deny 경로가 **직전 목록**을 분류하던 결함. 실측: staged 빈데 code 로 기록됐다.
+_td=$(mktemp -d)
+_got=$( cd "$_td" && git init -q \
+  && echo "echo orig" > app.sh && git add app.sh \
+  && git -c user.email=e@t -c user.name=t commit -q -m init \
+  && echo "echo changed" > app.sh \
+  && ( source "$PLUGIN/hooks/governance-lib.sh"
+       is_docs_only_change >/dev/null 2>&1                  # ① batch 게이트 = 무인자
+       is_docs_only_change "$_G $_C -m x" >/dev/null 2>&1    # ② 본판정 = 이른 반환
+       _commit_scope_class "${_SPECOPS_SCOPE_FILES:-}" ) )   # ③ deny 경로 분류
+rm -rf "$_td"
+if [ "$_got" = "empty" ]; then
+  PASS=$((PASS+1)); echo "PASS T-cls.p 이른 반환 후 전역 stale 없음 ($_got)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-cls.p stale 오염 — got=$_got 기대=empty"
+fi
+
 # T-cls.n: is_docs_only_change 가 판정 대상 목록을 노출한다
 _td=$(mktemp -d)
 _got=$( cd "$_td" && git init -q \
