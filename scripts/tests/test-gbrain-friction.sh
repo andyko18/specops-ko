@@ -261,4 +261,22 @@ printf '%s' "$_OUT" | grep -q 'BYPASS vs receipt' \
   && printf '%s' "$_OUT" | grep -qE 'receipt 파일수 \| +0' \
   && ok "T23 빈 상태에서도 BYPASS vs receipt" || nope "T23" "out=$_OUT"
 
+# T24: info 행이 R-1 집계·증류 후보를 오염시키지 않는다 (AC-9)
+#   신규 기능의 RED 가 아니라 **회귀 락**이다 — 집계기는 이미 rule_id 그룹핑이라 지금도 통과한다.
+#   미래에 severity 를 무시하고 합산하거나 후보 기준을 rows 로 바꾸면 이 줄이 잡는다.
+#   ★ before 가 비면 공허한 통과다(둘 다 빈 문자열이면 = 성립) — -n 가드로 잠근다.
+_gf_td=$(mktemp -d); mkdir -p "$_gf_td/.specops/20260101-a"
+_L="$_gf_td/.specops/20260101-a/friction-log.jsonl"
+for _i in 1 2 3 4; do
+  printf '{"ts":"2026-01-01T00:00:0%sZ","fid":"20260101-a","rule_id":"R-1","principle":1,"severity":"block","evidence_snippet":"x","transcript_offset":0}\n' "$_i" >> "$_L"
+done
+_before=$(cd "$_gf_td" && bash "$PLUGIN/scripts/gbrain-friction.sh" --json | jq -r '.rules[]|select(.rule_id=="R-1")|.blocks')
+printf '{"ts":"2026-01-01T00:00:09Z","fid":"20260101-a","rule_id":"R-1-SCOPE","principle":1,"severity":"info","evidence_snippet":"scope narrowed","transcript_offset":0}\n' >> "$_L"
+_after=$(cd "$_gf_td" && bash "$PLUGIN/scripts/gbrain-friction.sh" --json | jq -r '.rules[]|select(.rule_id=="R-1")|.blocks')
+_cand=$(cd "$_gf_td" && bash "$PLUGIN/scripts/gbrain-friction.sh" --json | jq -r '[.candidates[]|.rule_id]|join(",")')
+rm -rf "$_gf_td"
+[ -n "$_before" ] && [ "$_before" = "$_after" ] && ! printf '%s' "$_cand" | grep -q 'R-1-SCOPE' \
+  && ok "T24 info 행 집계 무오염(AC-9) before=$_before after=$_after" \
+  || nope "T24 집계 오염" "before=$_before after=$_after cand=$_cand"
+
 finish

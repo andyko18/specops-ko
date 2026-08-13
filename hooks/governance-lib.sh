@@ -411,7 +411,16 @@ _detect_base_branch() {
 is_docs_only_change() {
   # --no-renames: rename 을 delete(old)+add(new) 2줄로 분해 → 코드파일 .md rename 위장
   #   (tool.sh→tool.md)이 원본 .sh 를 숨겨 docs-only 오인면제되던 표면 차단. 출력포맷(--name-only) 무변경.
+  # $1(선택): 실행될 커밋 명령. **인자가 없으면 아래 분기가 통째로 비활성**이라 종전과 동일하게 동작한다
+  #   — batch 게이트(pretool:112)·기존 T-docs.a~q 가 무수정인 이유다.
   local files
+  if _commit_scope_is_staged "${1:-}"; then
+    # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
+    files=$(git diff --cached --name-only --no-renames 2>/dev/null)
+    [ -z "$files" ] && return 1
+    _files_all_docs "$files"
+    return $?
+  fi
   files=$(git diff HEAD --name-only --no-renames 2>/dev/null)
   [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null)
   if [ -z "$files" ]; then
@@ -446,12 +455,87 @@ EOF
   return 0
 }
 
+# 커밋 명령이 **staged 만** 커밋하는 안전 형태인지 판정한다 (20260813-r1-docs-only-scope).
+#   0 = staged 로 스코프 축소 가능 / 1 = 보수(현행 working-tree) 스코프 유지.
+#
+# 왜 필요한가: is_docs_only_change 는 working tree 전체를 봐서, 문서만 staged 해 커밋해도
+#   작업트리에 남은 코드 수정 때문에 차단됐다(실측 BYPASS 16건 중 13건이 "코드 변경 0").
+#   종전 주석은 "pretool 은 액션 前이라 working-tree 가 곧 커밋 범위"라고 단정했으나 **틀렸다** —
+#   staged 부분집합 커밋에서 working-tree ⊋ 커밋 범위다.
+#
+# 왜 화이트리스트인가: #255 가 "이름 나열"식 접근의 3회 반복 실패를 기록한다. 위험 형태를 나열하면
+#   나열 밖이 뚫린다. 안전 형태만 통과시키면 나열 밖은 전부 **보수 쪽(false-block 방향)** 으로 넘어진다.
+_commit_scope_is_staged() {
+  local s first resid tok extra rest skip=0
+  [ -n "${1:-}" ] || return 1
+  # 스트리퍼 재사용 — heredoc 본문·인용 내용이 판정을 오염시키지 않도록 (pretool 과 동일 전처리).
+  s=$(_strip_heredoc_bodies "$1")
+  s=$(_strip_quoted_strings "$s")
+  # C1(개행): **개행은 `;` 와 동등한 명령 분리자다.** 첫 줄만 남기고 잔여를 무검증 폐기하면
+  #   C1(연산자)·C2(단일 커밋) 가 둘째 줄부터 적용되지 않는다 — `git commit -m 'docs'` ⏎ `git add -A`
+  #   ⏎ `git commit -am 'code'` 가 축소 승인으로 뚫렸다(Phase B false-allow 실측, 구코드는 deny).
+  #   그렇다고 멀티라인을 전부 거부할 수는 없다 — `-F - <<'EOF'` heredoc 이 이 repo 주력 커밋 형태다(AC-7).
+  #   그래서 잔여 줄이 **heredoc 종결자로만 설명되는지**를 검사한다: 첫 줄에 `<<` 가 있고 잔여 줄이
+  #   공백 또는 bare word(`[A-Za-z0-9_]+`) 단독이면 통과, 그 외는 전부 보수.
+  #   왜 실제 delimiter 와 대조하지 않는가: `<<EOF`·`<<'EOF'`·`<<-EOF` 파싱 표면만 늘고 보안 이득이 없다 —
+  #   아래 C2 가 **첫 명령이 곧 커밋**임을 이미 보장하므로, 뒤따르는 bare word 명령은 그 커밋의
+  #   staged 범위를 바꿀 수 없다(인자 없는 한 단어라 `git add ...` 형태가 불가능).
+  #   ★ ANSI-C 인용 정정(Phase C 실측): `-m $'a\nb'` 는 _strip_quoted_strings 가 bail(원본 반환)하지만
+  #     그것만으로 보수가 되지는 않는다 — **실개행을 포함한 형태**만 위 멀티라인 검사에서 보수로 떨어지고,
+  #     리터럴 `\n` 한 토큰은 아래 C3 의 skip 이 소비해 통과한다(rc=0). 통과해도 무해하다 — 메시지 값이라
+  #     staged 범위를 바꾸지 못한다. 이 주석을 정정하는 이유: 본 함수가 존재하는 원인 자체가
+  #     "working-tree 가 곧 커밋 범위" 라는 **틀린 주석**이었다. 검증 없는 안전 주장은 다음 결함의 씨앗이다.
+  first=${s%%$'\n'*}
+  if [ "$first" != "$s" ]; then
+    resid=${s#*$'\n'}
+    while IFS=$' \t' read -r tok extra; do
+      [ -z "$tok" ] && continue                            # 공백 전용 줄(후행 개행 등)
+      case "$first" in *'<<'*) ;; *) return 1 ;; esac      # heredoc 아닌 멀티라인 = 명령 분리
+      [ -n "$extra" ] && return 1                          # 종결자 줄에 토큰이 더 있으면 명령
+      case "$tok" in *[!A-Za-z0-9_]*) return 1 ;; esac      # bare word 아님
+    done <<EOF
+$resid
+EOF
+  fi
+  s=$first           # 첫 줄만 — heredoc 종결자 줄(EOF) 은 위에서 검증 완료
+  s=${s%%<<*}        # heredoc 리다이렉션 토큰 절단 (`-F - <<'EOF'` 의 뒷부분)
+  # C1: compound — 파싱 시점 staged ≠ 커밋 시점 staged (`git add -A && git commit`)
+  case "$s" in *'&&'*|*'||'*|*';'*|*'|'*) return 1 ;; esac
+  # C2+C5: 반드시 `git commit` 으로 시작. env 접두·`git -c ... commit`·다중 명령이 한 번에 배제된다.
+  case "$s" in
+    'git commit') rest="" ;;
+    'git commit '*) rest=${s#git commit } ;;
+    *) return 1 ;;
+  esac
+  # C3+C4+C6: 화이트리스트 플래그만 허용. 값을 받는 플래그는 다음 토큰을 소비한다.
+  #   비플래그 토큰(경로 인자)·화이트리스트 밖 `-` 토큰은 전부 보수 판정.
+  #   ★ 명령치환은 skip 소비보다 먼저 거부한다 (Phase C Important-2). _strip_quoted_strings 는
+  #     `$(`·백틱 포함 인용을 "실제 실행된다 → 판정 보존" 목적으로 **일부러 남기는데**(:654),
+  #     `skip=1` 이 그 보존 토큰을 무검사로 삼키면 스트리퍼의 의도가 무력화된다. 실측상 뚫리던 것은
+  #     `-m "$(ga)"` 류 **무인자 단일 토큰**뿐이지만(다중 토큰·분리자 포함은 이미 보수),
+  #     치환은 커밋 **전에** 실행되므로 그 한 형태로도 "파싱 시점 staged ≠ 커밋 시점 staged" 가 성립한다.
+  #     false-block 비용은 `-m "$(cat f)"` 단일 토큰 클래스뿐이라 사실상 0.
+  for tok in $rest; do
+    case "$tok" in *'$('*|*'`'*) return 1 ;; esac
+    if [ "$skip" -eq 1 ]; then skip=0; continue; fi
+    case "$tok" in
+      -m|--message|-F|--file) skip=1 ;;
+      --message=*|--file=*|-q|--quiet) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
+}
+
 # posttool 감사 스코프 (20260718-posttool-audit-silence): 감사는 **방금 일어난 액션의 범위**를 본다 —
 #   R-1(commit) = HEAD~1..HEAD(방금 커밋), R-2(pr create) = base...HEAD(PR 범위).
 # 왜: working-tree 기준 is_docs_only_change 를 posttool 에 쓰면, 커밋 직후 잔여 dirty 가 거의 항상
 #   tracked `.specops/session-progress.md` 뿐이라 .specops/* 면제(#214)에 걸려 **감사가 통째로 침묵**한다
 #   (#214 이후 R-1 posttool warn 전 repo 0건의 실물 원인 — pretool block 만 남는 절반 가시성).
-#   pretool 은 액션 前이라 working-tree 가 곧 커밋 범위 = 기존 함수가 정확하다(무변경).
+#   pretool 을 분리해 두는 이 근거(#214 침묵)는 그대로 유효하다 — 감사는 **이미 일어난** 액션의 범위를 본다.
+#   다만 종전 주석이 덧붙인 "pretool 은 액션 前이라 working-tree 가 곧 커밋 범위" 라는 전제는 **틀렸다**:
+#   staged 부분집합 커밋에서 working-tree ⊋ 커밋 범위다. pretool 쪽은 is_docs_only_change 가 커밋 명령을
+#   받아 _commit_scope_is_staged 로 스코프를 좁혀 해결했다 (20260813-r1-docs-only-scope, 위 :458 참조).
 # fail-safe: range diff 실패(최초 커밋 HEAD~1 부재·base 미검출) = 비면제(감사 실행 — 차단 아닌 기록이라
 #   과잉 방향이 안전).
 is_docs_only_audit_scope() {
