@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Fixed
+- **posttool 마찰 기록에 `scope_class` 배선 (FID 20260814-friction-scope-posttool, #3)** — `posttool-governance.sh:72` 이 `log_friction` 을 **5 인자로** 호출해 6번째 선택 인자를 넘기지 않았고, 빈 값이면 필드 자체가 생략되므로(`governance-lib.sh:793`) posttool 산출 **R-1/R-2 warn 계열 전량이 집계에서 영구 `판정불가`** 로 떨어졌다. 직전 `#2` 가 pretool 절반만 배선하고 남긴 미완 부분이다.
+  - **실측 동기**: 267행 중 `scope_class` 보유 **1행**. R-1 `188행 = block 86 + warn 102`, R-2 `31행 = block 13 + warn 18` — warn 계열은 구조적으로 영구 판정불가였다.
+  - **`_audit_scope_class <rule_id>` 신설** (`governance-lib.sh:611`) — 범위는 `is_docs_only_audit_scope` 와 **동일**(R-1 `HEAD~1..HEAD` / R-2 `base...HEAD`), 분류는 `_files_all_docs` 재사용으로 **"분류 클래스 ≡ 면제 클래스"** 불변식(`:481`)을 보존한다. `_commit_scope_class` 재사용은 **금지** — posttool 은 액션 **후** 발화라 `git diff --cached` 가 비어 `empty` 로 조용히 오분류된다. 같은 개념(커밋 범위)이라도 **발화 시점이 다르면 별도 함수**다.
+  - **★ posttool 기여분에 `docs-only` 는 구조적으로 나오지 않는다** — `posttool-governance.sh:56` 이 면제 시 **기록 자체를 하지 않으므로** posttool 행은 정의상 docs-only 가 아니고 실제 산출값은 `code`·`empty`·판정불가 **3종**이다. 결함이 아니라 설계 사실이라 정의부·배선부 주석과 `CLAUDE.md` 에 명시했다. 반환값에 `docs-only` 를 남긴 것은 직접 호출·향후 재사용을 위한 **계약 대칭**이다.
+  - **판정불가(무출력) ↔ `empty` 축 분리 유지** — git 실패(`HEAD~1` 부재)·base 미탐지·미지원 rule_id 는 **무출력**, git 성공 + 빈 목록은 `empty`. `_commit_scope_class` 와 동형.
+  - **`log_friction` 시그니처 무변경** — 6번째 선택 인자만 채웠다. 기존 5-인자 호출부(`stop:60`·`pretool:391,398`·`:195`)는 종전과 **byte-identical** 레코드를 산출한다(blast radius 0).
+  - **★ 결속 원장의 `must_match` 는 심볼명 평문이면 잠금이 무음 사망한다** — AC-6 이 **요구한** 주석(`posttool-governance.sh:73`)이 같은 심볼을 포함해, 호출부(`:76`)만 지우는 변이가 `PROPAGATION: PASS (160 edges)` 로 **생존**했다(실측). call-site 앵커 `\$\(_audit_scope_class` 로 좁혀 FAIL 재현을 확보했다. plan 확정 텍스트를 구현 중 정정한 유일 편차이며 Phase B 가 승인했다.
+  - `propagation-matrix.jsonl` `friction-scope-class` edge **156 → 160**. 테스트 `test-lib` 96 → **104**(`T-acls.a~h`) · `test-hooks` 9 → **10**(`T8.g` — 훅↔lib↔JSONL↔git 4단 경계 통합).
+  - **한계 — NFR-2 경로별 갈림(수용)**: 비위반 경로(posttool 발화의 대다수) median 델타 **+0~2ms ≤ 5ms** 로 통과하나, **위반-기록 경로는 191→209ms(+17~18ms)** 로 예산을 ~13ms 초과한다. 초과분은 subshell fork + `git diff` 1회이며 분류를 계산하는 이상 회피 불가하고, 해당 경로는 사용자가 방금 `git commit`(100ms+)을 실행한 직후라 체감되지 않는다. 사용자 판정으로 **PASS + 한계 명시**를 채택했다. 후속: NFR 문면을 경로별로 분리.
+  - **한계 — 소급 불가**: 기존 266행은 원본 커밋 범위가 로그에 없어 재분류 수단이 없다.
+  - **★ 효과 관측은 릴리즈를 기다린다** — 훅은 repo 작업트리가 아니라 **설치된 플러그인 캐시**(`~/.claude/plugins/cache/.../hooks/`)에서 실행된다. 머지 직후 관측에서 posttool warn 행이 여전히 `<필드부재>` 였던 것이 이 때문이다(T2 커밋 08:29 이후인 08:30·08:41 행도 부재). 이 repo 는 자기 자신이 플러그인이라 **모든 훅 변경의 효과 확인이 1 릴리즈만큼 지연**된다 — `#2` 의 pretool 절반이 "가동 후 실데이터 0건" 이었던 것도 같은 구조로 보인다.
+
 ## [1.75.0] — 2026-08-13
 
 ### Added
