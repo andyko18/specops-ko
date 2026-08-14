@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.77.0] — 2026-08-15
+
 ### Fixed
 - **SessionStart 페이로드 조립 순서 재배치 (FID 20260814-sessionstart-payload-order, #4)** — `additionalContext` 가 harness 인라인 한도를 넘어 **선두 2KB(38줄)만 노출**되고 나머지가 파일로 밀리는데, 행동 지시 블록이 뒤쪽에 누적돼 **모델에 도달하지 못했다**. `session_context` 단일 누적 변수를 `anchor_block`/`pending_out`/`reconcile_out`/`rehydrate_out`/`meta_block` **5변수로 분리**해 확정 순서로 1회 결합한다.
   - **실측 동기**: `<freecomment-pending>` 이 **250번째 줄**(byte 12,671)에 있어, 자유작업 12건이 **2026-07-23~08-10 약 1개월간** `freelog.md` 로 승격되지 않았다. 훅은 매 세션 `미기록 자유작업 12건` 을 정확히 계산해 주입했으나 **한 번도 수신되지 않았다**. `freelog.md` 마지막 기록 `20260712` ↔ pending 최초 적체 `20260723` 의 시점 일치가 이를 뒷받침한다.
@@ -1161,7 +1163,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.76.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.77.0...HEAD
+[1.77.0]: https://github.com/andyko18/specops-ko/compare/v1.76.0...v1.77.0
 [1.76.0]: https://github.com/andyko18/specops-ko/compare/v1.75.0...v1.76.0
 [1.75.0]: https://github.com/andyko18/specops-ko/compare/v1.74.0...v1.75.0
 [1.74.0]: https://github.com/andyko18/specops-ko/compare/v1.73.0...v1.74.0
