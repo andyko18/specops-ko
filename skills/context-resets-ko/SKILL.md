@@ -3,7 +3,7 @@ name: context-resets-ko
 description: 각 Lifecycle 커맨드 종료 시 세션 컨텍스트를 리셋하고 session-progress.md에서만 맥락을 재주입한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/context-resets/SKILL.md
-specops_version: 1.44.0
+specops_version: 1.77.0
 used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 ---
 
