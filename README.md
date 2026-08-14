@@ -175,7 +175,7 @@ specops-ko/
 │   └── statusline-install.md                 ← HUD statusLine 등록 /statusline-install
 ├── hooks/                               ← SessionStart + PreToolUse + PostToolUse + Stop (거버넌스 4종) + Notification (보조)
 │   ├── hooks.json                        ← 훅 매니페스트
-│   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate
+│   ├── session-start.sh                  ← 메타 스킬 자동 주입 + session-progress rehydrate (조립 순서: anchor→pending→reconcile→메타→rehydrate)
 │   ├── pretool-governance.sh             ← commit/PR 전 verify 누락 사전 차단 (R-1·R-2 Hard block)
 │   ├── posttool-governance.sh            ← 도구 호출 후 감사 (R-1·R-2·R-3 Soft Warn)
 │   ├── stop-governance.sh                ← 세션 종료 검사 (R-4·R-5, R-6 비활성)

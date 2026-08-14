@@ -57,4 +57,4 @@ used_by: 모든 engine skills (Lifecycle 단계 전환 시 적용)
 
 ## v0.0 자동 주입
 
-`hooks/session-start.sh`가 새 세션 진입을 감지해 자동으로 메타 skill 본문과 함께 `session-progress.md` 마지막 블록을 `additionalContext`로 주입 (`<session-progress-rehydrate>` 래퍼).
+`hooks/session-start.sh`가 새 세션 진입을 감지해 자동으로 메타 skill 본문과 함께 `session-progress.md` 마지막 블록을 `additionalContext`로 주입 (`<session-progress-rehydrate>` 래퍼). 조립 순서상 `session-progress-rehydrate` 는 **최후미**에 위치한다 — harness 인라인 절단 시 행동 지시 블록(pending·reconcile)과 메타 본문을 우선 노출하기 위함이다 (FID 20260814-sessionstart-payload-order).
