@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.76.0] — 2026-08-14
+
 ### Fixed
 - **posttool 마찰 기록에 `scope_class` 배선 (FID 20260814-friction-scope-posttool, #3)** — `posttool-governance.sh:72` 이 `log_friction` 을 **5 인자로** 호출해 6번째 선택 인자를 넘기지 않았고, 빈 값이면 필드 자체가 생략되므로(`governance-lib.sh:793`) posttool 산출 **R-1/R-2 warn 계열 전량이 집계에서 영구 `판정불가`** 로 떨어졌다. 직전 `#2` 가 pretool 절반만 배선하고 남긴 미완 부분이다.
   - **실측 동기**: 267행 중 `scope_class` 보유 **1행**. R-1 `188행 = block 86 + warn 102`, R-2 `31행 = block 13 + warn 18` — warn 계열은 구조적으로 영구 판정불가였다.
@@ -1145,7 +1147,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.75.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.76.0...HEAD
+[1.76.0]: https://github.com/andyko18/specops-ko/compare/v1.75.0...v1.76.0
 [1.75.0]: https://github.com/andyko18/specops-ko/compare/v1.74.0...v1.75.0
 [1.74.0]: https://github.com/andyko18/specops-ko/compare/v1.73.0...v1.74.0
 [1.73.0]: https://github.com/andyko18/specops-ko/compare/v1.72.0...v1.73.0
