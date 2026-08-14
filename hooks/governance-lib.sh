@@ -594,6 +594,33 @@ is_docs_only_audit_scope() {
   _files_all_docs "$files"
 }
 
+# 감사 스코프의 **커밋 범위 분류** (20260814-friction-scope-posttool).
+#
+# 왜 별도 함수인가: posttool 은 액션 **후** 발화하므로 `_commit_scope_class`(staged/HEAD 기준)를
+#   쓰면 `git diff --cached` 가 비어 'empty' 로 오분류된다. 범위는 is_docs_only_audit_scope 와
+#   **동일**해야 한다 — 분류가 면제 클래스와 정의상 일치해야 집계가 의미를 갖기 때문이다(:481 과 같은 이유).
+#   is_docs_only_audit_scope 는 boolean 이라 파일 목록을 돌려주지 않아 여기서 다시 캡처한다.
+#
+# ★ 판정 불가(무출력) ↔ 'empty' 는 **다른 축**이다 (_commit_scope_class 와 동형):
+#   전자는 git 판정 실패(HEAD~1 부재·base 미탐지·미지원 rule_id), 후자는 커밋 범위가 실제로 빔.
+#   무출력이면 호출부의 조건부 병합이 scope_class 필드를 생략하고 집계가 `판정불가` 로 센다.
+#
+# ★ posttool 경로에서는 'docs-only' 가 **구조적으로 나오지 않는다** — posttool-governance.sh:56 이
+#   is_docs_only_audit_scope 면제 시 기록 자체를 하지 않기 때문이다. 반환값에 'docs-only' 를 남겨 두는
+#   것은 함수 계약의 대칭(직접 호출·향후 재사용)을 위해서이지 posttool 집계에 나타나기 때문이 아니다.
+_audit_scope_class() {
+  local rule_id="${1:-}" files
+  case "$rule_id" in
+    R-1) files=$(git diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
+    R-2) local base
+         base=$(_detect_base_branch) || return 0
+         files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
+    *)   return 0 ;;
+  esac
+  [ -z "$files" ] && { printf 'empty'; return 0; }
+  if _files_all_docs "$files"; then printf 'docs-only'; else printf 'code'; fi
+}
+
 # heredoc **본문**을 트리거 검사 입력에서 제거한다 (20260713-heredoc-false-block).
 #
 # 왜: Bash tool 의 command 는 흔히 멀티라인이고 `grep -E` 는 **줄 단위**로 검사한다 → 문서·테스트에 쓴

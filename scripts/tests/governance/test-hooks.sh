@@ -102,6 +102,28 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T8.g ★ scope_class 배선 (20260814-friction-scope-posttool): posttool 이 남기는 R-1 행에
+#   커밋 범위 분류가 들어가야 한다. 없으면 gbrain-friction 집계에서 warn 계열이 영구 `판정불가`.
+#   구조상 posttool 행은 docs-only 가 될 수 없으므로(면제면 기록 자체가 없음) 기대값은 code 다.
+tmp=$(mktemp -d); cd "$tmp"; git init -q
+mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+echo 'echo v1' > a.sh
+git add a.sh .specops/session-progress.md && git -c user.email=t@t -c user.name=t commit -qm init
+echo 'echo v2' > a.sh && git add a.sh && git -c user.email=t@t -c user.name=t commit -qm "feat: code"
+printf '\n- dirty line\n' >> .specops/session-progress.md
+cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
+echo "$stdin_json" | bash "$HOOK" >/dev/null 2>&1
+log_path=".specops/20260424-newest-feature/friction-log.jsonl"
+got=$(jq -r 'select(.rule_id=="R-1") | .scope_class // "<부재>"' "$log_path" 2>/dev/null | head -1)
+if [ "$got" = "code" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.g ★ posttool R-1 행에 scope_class=code 기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.g scope_class got=$got 기대=code"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 STOP_HOOK="$PLUGIN/hooks/stop-governance.sh"
 
 # T11.a stop_hook_active=true → 즉시 exit 0, append 없음
