@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+- **SessionStart 페이로드 조립 순서 재배치 (FID 20260814-sessionstart-payload-order, #4)** — `additionalContext` 가 harness 인라인 한도를 넘어 **선두 2KB(38줄)만 노출**되고 나머지가 파일로 밀리는데, 행동 지시 블록이 뒤쪽에 누적돼 **모델에 도달하지 못했다**. `session_context` 단일 누적 변수를 `anchor_block`/`pending_out`/`reconcile_out`/`rehydrate_out`/`meta_block` **5변수로 분리**해 확정 순서로 1회 결합한다.
+  - **실측 동기**: `<freecomment-pending>` 이 **250번째 줄**(byte 12,671)에 있어, 자유작업 12건이 **2026-07-23~08-10 약 1개월간** `freelog.md` 로 승격되지 않았다. 훅은 매 세션 `미기록 자유작업 12건` 을 정확히 계산해 주입했으나 **한 번도 수신되지 않았다**. `freelog.md` 마지막 기록 `20260712` ↔ pending 최초 적체 `20260723` 의 시점 일치가 이를 뒷받침한다.
+  - **★ 구조적 원인은 개별 블록이 아니라 누적이다** — 블록이 `#137 → #142 → freecomment → #228 → #246` 로 **뒤에 하나씩 append 되며** 늘었고, 각 PR 은 자기 블록만 검증했다. **누적 크기·순서를 본 PR 이 없다.** 기존 테스트 6종도 블록 **존재**만 단언해 이 회귀를 구조적으로 못 잡았다.
+  - **★ 정렬 기준은 "행동 지시 먼저"가 아니라 "행동 지시 먼저 + 작은 것 먼저"** — `rehydrate` 단독이 **7,807 B**(전체의 49%)라 앞에 두면 뒤를 전부 밀어낸다. 확정 순서 `anchor → pending → reconcile → 메타 본문 → rehydrate`. rehydrate 를 최후미로 보내 **메타 skill 본문 선두 ~1.4KB 가 프리뷰에 노출**되도록 했다(clarify Q1 — 참조 데이터라 절단 손실이 가장 작다).
+  - **오프셋 실측**: `freecomment-pending` **16,303 B → 339 B**, `session-progress-reconcile` **15,757 B → 546 B** (상한 1,536 B = 관측 프리뷰 2,048 B 의 75%, 임계 비공개에 대한 25% 마진).
+  - **기존 5개 블록은 바이트 단위 불변** — 구·신 훅 출력을 블록별로 diff 해 `EXTREMELY_IMPORTANT`·`rehydrate`·`reconcile`·`pending` 전량 **IDENTICAL** 확인. 신뢰경계 펜스(`325db5c`)·escape 경로 원문 그대로, 조립 방식만 변경. 출력 스키마·훅 비활성 `{}` 경로도 무변경.
+  - **`scripts/tests/test-session-start-order.sh` 신설** (T-ord.a~h, 8건) — 순서·오프셋 계약 + **문서 3곳 계약 기재**(CLAUDE.md·README.md·context-resets-ko)까지 잠근다. 문서 어서션(T-ord.f~h)은 당초 T3 의 raw grep `test_command` 였으나 `record-task-receipt.sh` whitelist(`bash scripts/*.sh` 계열)를 구조적으로 통과 못 해, **우회 명령으로 바꾸는 대신 회귀 어서션으로 승격**했다. run-all 스위트 **142 → 143**(glob 자동 편입).
+  - **NFR-4 실측** — 구본 1,689.3 ms/회 vs 신본 **1,669.4 ms/회**, 외부 호출·subshell **16 → 16**(추가 프로세스 기동 0). 측정 함정 기록: 구본을 다른 경로에 두고 재면 `PLUGIN_ROOT` 가 어긋나 조기 종료해 **28.8 ms(58배 차)** 라는 허위 회귀가 나온다 — 반드시 동일 경로에서 잰다.
+  - **한계 — harness 절단 임계는 비공개 관측치**다. 프리뷰 2,048 B·11.3KB 초과 판정은 실세션 관측이며 공식 계약이 아니다. 그래서 계약을 "N바이트 이하"가 아니라 **"행동 지시를 가능한 한 앞에"** 로 잡았다. **절단 동작 자체는 검증하지 못했다.**
+  - **한계 — 앵커의 대체 효과는 자동 검증 불가**: `<specops-ko-anchor>` 가 메타 본문의 "최우선 지시" 신호를 대신한다는 가정은 정성 관찰로만 확인 가능하다. **릴리즈 후 첫 세션의 육안 확인이 실질 수용 테스트**다(1.76.0 의 *"효과 관측은 릴리즈를 기다린다"* 와 동일 구조 — 훅은 설치 캐시에서 실행된다).
+  - **한계 — clarify 가 AC 를 뒤집을 때의 처리**: 블록 4·5 순서 결정이 AC-1 원안과 충돌했으나 append-only 규약상 AC 본문을 고치지 않고 **AC-6 신설 + 파일 말미 정정 고지(supersede)** 로 처리했다. 리뷰어 dispatch 프롬프트에 이 사실을 명시해야 원문만 보고 오판하지 않는다.
+  - **후속 과제** — ① `scan-enrich-placeholders.sh` 가 꺾쇠 훅 블록 태그를 템플릿 placeholder 로 **오탐**(본 FID 산출물이 `check-maintain-baseline` FAIL 을 맞음, 표기 변경으로 우회) ② `_verify_exec_evidence` 의 러너 호출 감지가 **파이프 형태**를 포함하는지 점검(장시간 러너의 백그라운드+Read 경로 안내와 실제 감지 로직 대조).
+
 ## [1.76.0] — 2026-08-14
 
 ### Fixed
