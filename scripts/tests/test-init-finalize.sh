@@ -201,8 +201,8 @@ git init -q; git config user.email t@t; git config user.name t
 j=$(bash "$DOC" --json 2>&1)
 st=$(printf '%s' "$j" | jq -r '.checks[]|select(.id=="bootstrap")|.status' 2>/dev/null)
 cnt=$(printf '%s' "$j" | jq -r '.checks|length' 2>/dev/null)
-[ "$st" = "unknown" ] && [ "$cnt" = "5" ] \
-  && ok "F9 memory 부재 → unknown · checks 5행 고정" || nope "F9" "st=$st cnt=$cnt"
+[ "$st" = "unknown" ] && [ "$cnt" = "6" ] \
+  && ok "F9 memory 부재 → unknown · checks 6행 고정" || nope "F9" "st=$st cnt=$cnt"
 
 # F7 — session-progress 제목이 그 프로젝트 이름 (하드코딩 인자 제거)
 ENS="$PLUGIN/hooks/ensure-session-progress.sh"
@@ -241,13 +241,13 @@ DOCMD="$PLUGIN/commands/doctor.md"
 d_boot=$(grep -c 'bootstrap' "$DOCMD" || true)
 d_old=$(grep -c '4항목' "$DOCMD" || true)
 d_ids=0
-for _id in git_hooks memory orphan_fid progress bootstrap; do
+for _id in git_hooks memory orphan_fid progress bootstrap stale; do
   grep -q "\`$_id\`" "$DOCMD" && d_ids=$((d_ids + 1))
 done
-if [ "${d_boot:-0}" -ge 1 ] && [ "${d_old:-0}" -eq 0 ] && [ "$d_ids" -eq 5 ]; then
-  ok "F-doc2 /doctor 문서 5항목 동기 (bootstrap 기재 · '4항목' 잔존 0 · id ${d_ids}/5)"
+if [ "${d_boot:-0}" -ge 1 ] && [ "${d_old:-0}" -eq 0 ] && [ "$d_ids" -eq 6 ]; then
+  ok "F-doc2 /doctor 문서 6항목 동기 (bootstrap 기재 · '4항목' 잔존 0 · id ${d_ids}/6)"
 else
-  nope "F-doc2" "bootstrap=$d_boot stale4=$d_old ids=$d_ids/5"
+  nope "F-doc2" "bootstrap=$d_boot stale4=$d_old ids=$d_ids/6"
 fi
 
 finish

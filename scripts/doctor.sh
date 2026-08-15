@@ -189,6 +189,132 @@ _chk_bootstrap() {
     "bash scripts/_internal/init-finalize.sh"
 }
 
+# ISO8601 → 경과일(정수). GNU/BSD date 차이를 피해 jq fromdateiso8601 로 통일한다.
+#   파싱 실패·jq 부재 시 무출력 → 호출부가 "판정 불가"로 처리한다(0 을 반환하면 방금 일어난 일로 오독된다).
+_days_since() { # $1=ISO8601
+  command -v jq >/dev/null 2>&1 || return 0
+  jq -rn --argjson n "$(date -u +%s)" --arg d "$1" \
+    '($d | try fromdateiso8601 catch empty) as $t | if $t then (($n - $t) / 86400 | floor) else empty end' 2>/dev/null
+}
+
+# 무음 실패 감지 (FID 20260815-doctor-stale-detect) — "동작하는데 아무도 안 읽는" 상태를 표면화.
+#   계기: SessionStart pending 안내가 페이로드 뒤쪽에 묻혀 약 1개월간 미수신됐고, 그 사이 어떤
+#   게이트도 이를 잡지 못했다. doctor 는 설치·정합만 보고 "얼마나 방치됐나" 축이 없었다.
+#   3지표 종합 1행. 임계는 상수(설정화는 오탐 관측 후) — 진단 전용이라 어떤 흐름도 막지 않는다.
+#
+# JSONL 손상 내성 — `jq -rs`(전체 슬럽)는 **마지막 1줄만 깨져도 전량이 사라진다**.
+#   friction-log·pending-capture 는 훅이 append 하는 파일이라 중단된 append 로 부분 라인이
+#   실제로 생긴다. 그 경우 슬럽 파싱이 실패 → 건수 0 → "적체 없음" 이라는 무음 낙관 보고가
+#   나온다(Phase C probeA·B 실증). 라인 단위로 파싱하고, 버려진 줄 수를 세어 판정을 강등한다.
+#
+# 아래 두 지표는 **파일당 jq 1회**로 손상 줄 수와 본 지표를 함께 낸다. `-Rs` 로 통째 읽어
+#   jq 안에서 줄을 쪼개므로, 라인 내성을 얻으면서도 스폰 수는 기존(파일당 1회)과 같다.
+#   friction-log 는 FID 마다 1개라 glob 이 선형 성장한다(실측 45개) — 파일당 스폰 1회 차이가
+#   NFR-2 2초 예산을 직접 갉는다. 실측(45파일): 파일당 1회 0.4s대 · 파이프 2회 0.67s ·
+#   `$(...)` 캡처 후 재투입 0.73s(직렬화라 오히려 느리다).
+#   `objects` 필터 — JSON 으로는 유효하나 레코드가 아닌 줄(`123`)이 뒤 `.rule_id` 접근에서
+#   jq 전체를 죽이지 않도록 여기서 떨군다(그런 줄은 손상으로 집계된다).
+_JQ_SPLIT='[ split("\n")[] | select(length > 0) ] as $L
+  | [ $L[] | fromjson? | objects ] as $J
+  | (($L | length) - ($J | length)) as $bad'
+
+_chk_stale() {
+  local now cutoff msgs="" have=0 bad=0 f
+  command -v jq >/dev/null 2>&1 || {
+    _add stale unknown "적체 지표 판정 불가 (jq 미설치)" ""
+    return 0
+  }
+  now=$(date -u +%s); cutoff=$(( now - 30 * 86400 ))
+
+  # ① pending 적체 — 최고령 항목 경과일 > 7일
+  if [ -s "$SPECOPS/pending-capture.jsonl" ]; then
+    have=1
+    # "손상줄 유효건수 최고령일" 3필드를 jq 1회로 받는다. 건수는 **유효 라인만** 센다 —
+    #   손상 라인은 내용을 신뢰할 수 없다. 경과일 없음(=ts 전무)은 `-` 로 표기한다.
+    local pend_n pend_age pend_out pend_bad
+    pend_out=$(jq -Rsr --argjson n "$now" "$_JQ_SPLIT"'
+      | ([ $J[] | .ts // empty | try fromdateiso8601 catch empty ] | sort) as $t
+      | "\($bad) \($J|length) \(if ($t|length) > 0 then (($n - $t[0]) / 86400 | floor) else "-" end)"' \
+      "$SPECOPS/pending-capture.jsonl" 2>/dev/null) || pend_out=""
+    if [ -z "$pend_out" ]; then
+      # jq 자체가 실패하면 파일 전체를 읽지 못한 것이다 — 낙관(0건)이 아니라 전부 손상 취급해
+      #   판정을 unknown 으로 떨어뜨린다. `|| echo 0` 금지(grep -c 는 0건에 "0" 출력 + rc=1 이라
+      #   재발동해 "0\n0" 이 된다 — 실측). 기존 관용구(`|| true` + `[ -n ] || =0`)와 동형.
+      pend_bad=$(grep -c . "$SPECOPS/pending-capture.jsonl" 2>/dev/null || true)
+      # ★ 0·빈값이면 1 로 올린다 — 여기 온 파일은 `-s`(비어있지 않음)를 통과했는데 jq 가
+      #   못 읽은 것이다. grep 마저 못 세면(권한 000 등) 0 이 되어 **다시 "적체 없음" 낙관**으로
+      #   떨어진다(실측: chmod 000 픽스처가 ✅ 로 보고됐다). 못 읽은 파일은 최소 1줄 미상이다.
+      case "$pend_bad" in ''|0) pend_bad=1 ;; esac
+      pend_n=0; pend_age="-"
+    else
+      pend_bad=${pend_out%% *}; pend_age=${pend_out##* }
+      pend_n=${pend_out#* }; pend_n=${pend_n%% *}
+      case "$pend_bad$pend_n" in ''|*[!0-9]*) pend_bad=0; pend_n=0 ;; esac
+    fi
+    bad=$(( bad + pend_bad ))
+    [ "$pend_age" = "-" ] && pend_age=""
+    [ -n "$pend_age" ] && [ "$pend_age" -gt 7 ] \
+      && msgs="${msgs}${msgs:+ · }pending ${pend_n}건 적체(최고령 ${pend_age}일)"
+  fi
+
+  # ② freelog 정체 — 마지막 기록 후 14일 초과 AND 그 이후 커밋 1건 이상
+  #    커밋 0이면 정체가 아니라 휴지다(오탐 방지 — AC-3).
+  if [ -s "$SPECOPS/freelog.md" ]; then
+    have=1
+    local last_ymd fl_days fl_commits iso
+    last_ymd=$(grep -oE '^## [0-9]{8}' "$SPECOPS/freelog.md" 2>/dev/null | tail -1 | tr -dc '0-9')
+    if [ -n "$last_ymd" ]; then
+      iso="${last_ymd:0:4}-${last_ymd:4:2}-${last_ymd:6:2}T00:00:00Z"
+      fl_days=$(_days_since "$iso")
+      # ★ 앵커는 `$iso`(UTC 자정) — `--since=YYYY-MM-DD` 의 approxidate 는 **실행 시각-of-day**
+      #   를 앵커로 잡아 같은 데이터에 실행 시각마다 다른 답이 나온다(Phase C 실측: 01:29 커밋이
+      #   14:39 실행에서 0건). 이미 계산해 둔 iso 를 쓰면 공짜로 결정적이다.
+      fl_commits=$(git log --oneline --since="$iso" 2>/dev/null | grep -c . || true)
+      [ -n "$fl_commits" ] || fl_commits=0
+      [ -n "$fl_days" ] && [ "$fl_days" -gt 14 ] && [ "$fl_commits" -ge 1 ] \
+        && msgs="${msgs}${msgs:+ · }freelog ${fl_days}일 정체(그 사이 커밋 ${fl_commits})"
+    fi
+  fi
+
+  # ③ 우회 상시화 — 최근 30일 BYPASS-ENV 3건 이상
+  #    ★ cutoff 를 필터에 실제로 적용한다 — clarify F-1 이 잡은 결함(argjson 만 넘기고
+  #      select 에서 안 쓰면 전 기간을 세어 누적 21건인 repo 가 항상 warn 이 된다).
+  local byp=0 n fout fbad
+  for f in "$SPECOPS"/friction-log.jsonl "$SPECOPS"/*/friction-log.jsonl; do
+    [ -s "$f" ] || continue
+    have=1
+    # "손상줄 우회건수" 2필드를 jq 1회로 받는다 (파일당 스폰 1회 유지).
+    fout=$(jq -Rsr --argjson c "$cutoff" "$_JQ_SPLIT"'
+      | ([ $J[] | select(.rule_id == "BYPASS-ENV")
+                | select(((.ts // "") | try fromdateiso8601 catch 0) >= $c) ] | length) as $hit
+      | "\($bad) \($hit)"' "$f" 2>/dev/null) || fout=""
+    if [ -z "$fout" ]; then
+      # 파일 전체 판독 실패 → 전부 손상 취급(무음 낙관 금지). pending 쪽과 동형 —
+      #   grep 마저 못 세는 경우(권한 등)도 0 이 아니라 1(최소 1줄 미상)로 둔다.
+      fbad=$(grep -c . "$f" 2>/dev/null || true); case "$fbad" in ''|0) fbad=1 ;; esac; n=0
+    else
+      fbad=${fout%% *}; n=${fout##* }
+      case "$fbad$n" in ''|*[!0-9]*) fbad=0; n=0 ;; esac
+    fi
+    bad=$(( bad + fbad ))
+    byp=$(( byp + n ))
+  done
+  [ "$byp" -ge 3 ] && msgs="${msgs}${msgs:+ · }최근 30일 우회 ${byp}건"
+
+  if [ "$have" -eq 0 ]; then
+    _add stale unknown "적체 지표 판정 불가 (pending·freelog·friction-log 전부 부재)" ""
+  elif [ -n "$msgs" ]; then
+    [ "$bad" -gt 0 ] && msgs="${msgs} · 손상 라인 ${bad}줄 제외"
+    _add stale warn "$msgs" "/log 로 기록하거나 pending 을 처리하세요"
+  elif [ "$bad" -gt 0 ]; then
+    # ★ 손상 라인이 있으면 "적체 없음" 이 아니라 판정 불가다 — 읽지 못한 줄에 적체가 있었을 수
+    #   있으므로 무음 낙관 보고를 금지한다(Phase C Important 1·2).
+    _add stale unknown "적체 지표 부분 판정 불가 (손상 라인 ${bad}줄)" "해당 JSONL 을 확인하세요"
+  else
+    _add stale ok "적체 없음 (pending·freelog·우회 전부 임계 미만)" ""
+  fi
+}
+
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -207,6 +333,7 @@ _chk_memory
 _chk_orphan
 _chk_progress
 _chk_bootstrap
+_chk_stale
 
 if [ "$JSON" -eq 1 ]; then
   printf '%s' "$ROWS" | jq -Rs '

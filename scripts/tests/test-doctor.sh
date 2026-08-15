@@ -79,18 +79,23 @@ printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q '20260201-gap' \
   && ok "T5 progress 불일치 검출" || nope "T5" "out=$_OUT"
 
-# T6 (AC-6): 최악 상태(5항목 전부 ⚠️)에서도 exit 0
-# 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 5항목 ⚠️ 가 아니다.
+# T6 (AC-6): 최악 상태(6항목 전부 ⚠️)에서도 exit 0
+# 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 6항목 ⚠️ 가 아니다.
 R="$TMP/r6"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260101-orphan"; printf '# spec\n' > "$R/.specops/20260101-orphan/spec.md"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n- **버전**: <버전>\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n\n## 20260101-orphan\n\n- 2026-01-01 10:00 /verify PASS\n' \
   > "$R/.specops/session-progress.md"
+# stale 도 **진짜 warn** 으로 재현한다 — 소스 3종 부재면 unknown 이라 ⚠️ 개수는 6이 되지만
+#   T6 의 의도("전 항목이 진짜 warn")와 어긋나 픽스처 충실도가 떨어진다. 8일 전 pending 1건.
+printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
+  "$(python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(days=8)).strftime('%Y-%m-%dT%H:%M:%SZ'))")" \
+  > "$R/.specops/pending-capture.jsonl"
 _run "$R"
 # 픽스처 재현과 본 단언을 **한 어서션**으로 묶는다 — 분리하면 미재현 시 총 개수가 12→13 으로 흔들린다.
 warns=$(printf '%s' "$_OUT" | grep -c '⚠️')
-[ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 5 ] \
-  && ok "T6 5항목 전부 ⚠️ 인 최악 상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
+[ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 6 ] \
+  && ok "T6 6항목 전부 ⚠️ 인 최악 상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
 
 # T7 (AC-7): .specops 부재 → 안내 + exit 0
 R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
@@ -98,10 +103,10 @@ _run "$R"
 [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
 
-# T8 (AC-8): --json 5항목 status
+# T8 (AC-8): --json 6항목 status
 R="$TMP/r8"; _mkrepo "$R"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==5 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==6 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
   ok "T8 --json 스키마"
 else
   nope "T8" "rc=$_RC out=$_OUT"
@@ -133,20 +138,25 @@ else
   nope "T10" "commands/doctor.md 누락·필드 미비"
 fi
 
-# T11 (AC-11): 정상 상태에서도 5행 전부 출력
+# T11 (AC-11): 정상 상태에서도 6행 전부 출력
 R="$TMP/r11"; _mkrepo "$R"; _hooks_ok "$R"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n' > "$R/.specops/session-progress.md"
+# stale 은 소스 3종이 전부 없으면 unknown(⚠️ 렌더) 이라 oks 가 5에 머문다.
+#   Given("정상 상태")을 재현하려면 최신 pending 1건(0일 전)이 필요하다.
+printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
+  "$(python3 -c "import datetime;print(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))")" \
+  > "$R/.specops/pending-capture.jsonl"
 # bootstrap 은 "memory 존재 ∧ chore(init) 커밋 0" 이면 warn 이다 — 정상 상태 픽스처가
-#   커밋 0건이면 ✅ 5행이 되지 않는다. Given("정상 상태")을 실제로 재현한다.
+#   커밋 0건이면 ✅ 6행이 되지 않는다. Given("정상 상태")을 실제로 재현한다.
 git -C "$R" add -A >/dev/null 2>&1
 git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩 (픽스처)" >/dev/null 2>&1
 _run "$R"
-rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap) ')
+rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale) ')
 oks=$(printf '%s' "$_OUT" | grep -c '✅')
-# AC-11 Then 은 2절이다 — "5행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 5행도 통과한다.
-[ "${rows:-0}" -eq 5 ] && [ "${oks:-0}" -eq 5 ] \
-  && ok "T11 정상 상태 5행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
+# AC-11 Then 은 2절이다 — "6행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 6행도 통과한다.
+[ "${rows:-0}" -eq 6 ] && [ "${oks:-0}" -eq 6 ] \
+  && ok "T11 정상 상태 6행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
 
 # ── Phase C 수습 (리뷰 T3-C / T4-C) ─────────────────────────────────────────
 
@@ -172,7 +182,7 @@ R="$TMP/r14"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260401-a|b|c"; printf '# spec\n' > "$R/.specops/20260401-a|b|c/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==5
+   | jq -e '(.checks|length)==6
             and ((.checks[]|select(.id=="orphan_fid")|.fix)=="진행하거나 정리하세요")' >/dev/null 2>&1; then
   ok "T14 파이프 인젝션에도 JSON 필드 정합 유지 (fix 문구 무손실)"
 else
@@ -184,24 +194,25 @@ NLDIR=$(printf '20260402-x\ny')
 R="$TMP/r14b"; _mkrepo "$R"
 mkdir -p "$R/.specops/$NLDIR"; printf '# spec\n' > "$R/.specops/$NLDIR/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 5행이라 헛통과한다 — 고아 검출까지 함께 고정.
+# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 6행이라 헛통과한다 — 고아 검출까지 함께 고정.
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==5
+   | jq -e '(.checks|length)==6
             and ((.checks[]|select(.id=="orphan_fid")|.status)=="warn")
             and ((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260402-x"))' >/dev/null 2>&1; then
-  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 5행 고정)"
+  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 6행 고정)"
 else
   nope "T14b" "rc=$_RC out=$_OUT"
 fi
 
 # T8b (Important 3 · 변이 M2): warn_count 가 실제 ⚠️ 개수와 일치
-#   픽스처: git_hooks=warn · memory=unknown · orphan_fid=ok · progress=unknown · bootstrap=unknown → 4
+#   픽스처: git_hooks=warn · memory=unknown · orphan_fid=ok · progress=unknown · bootstrap=unknown
+#           · stale=unknown(적체 소스 3종 전부 부재) → 5
 R="$TMP/r8b"; _mkrepo "$R"
 _run "$R"                                   # 표 렌더 — ⚠️ 실개수
 warns8=$(printf '%s' "$_OUT" | grep -c '⚠️')
 wc8=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1 | jq -r '.warn_count' 2>/dev/null)
-[ "${wc8:-x}" = "4" ] && [ "${wc8:-x}" = "${warns8:-0}" ] \
-  && ok "T8b --json warn_count == 표 ⚠️ 개수 (4)" || nope "T8b" "warn_count=$wc8 warns=$warns8"
+[ "${wc8:-x}" = "5" ] && [ "${wc8:-x}" = "${warns8:-0}" ] \
+  && ok "T8b --json warn_count == 표 ⚠️ 개수 (5)" || nope "T8b" "warn_count=$wc8 warns=$warns8"
 
 # T16 (Minor 4): "## ../../outside-fid" 헤더가 .specops 밖을 프로브하지 않는다
 R="$TMP/r16"; _mkrepo "$R"
@@ -316,7 +327,7 @@ fi
   && ok "T25 승계 명시 + 원 FID 계약서 무수정" \
   || nope "T25" "doc=$t25_doc old_untouched=$t25_old"
 
-# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 5건 · schema_version 1 · warn_count 정합)
+# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 6건 · schema_version 1 · warn_count 정합)
 R="$TMP/r23"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
 printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
@@ -326,8 +337,8 @@ _n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
 _sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
 _wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
 _actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
-[ "$_n" = "5" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
-  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=5 · warn_count=$_wc)" \
+[ "$_n" = "6" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=6 · warn_count=$_wc)" \
   || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
 
 # T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
@@ -371,5 +382,168 @@ _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| bootstrap ' | grep -q '✅' \
   && ok "T29 subject 가 chore(init): → bootstrap ✅" \
   || nope "T29" "row=$(printf '%s' "$_OUT" | grep -E '^\| bootstrap ')"
+
+# ── T-stale (FID 20260815-doctor-stale-detect) ──────────────────────────────
+# 무음 실패 감지 — pending 적체 / freelog 정체 / 우회 상시화.
+# 날짜 픽스처는 timezone-aware python3 로 만든다(utcfromtimestamp 는 deprecated).
+_iso_ago() { python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(days=$1)).strftime('%Y-%m-%dT%H:%M:%SZ'))"; }
+_ymd_ago() { python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(days=$1)).strftime('%Y%m%d'))"; }
+
+_stale_status() { ( cd "$1" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>/dev/null ) | jq -r '.checks[]|select(.id=="stale")|.status'; }
+_stale_detail() { ( cd "$1" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>/dev/null ) | jq -r '.checks[]|select(.id=="stale")|.detail'; }
+# ※ repo 픽스처는 파일 상단 `_mkrepo` 를 재사용한다 — 한 글자 다른 `_mk_repo` 를 따로 두면
+#   호출부에서 혼동만 낳는다(Phase C Suggestion). 둘의 차이는 user.email 값뿐이었다.
+_byp() { # $1=dir $2=일수 $3=건수
+  local i
+  for i in $(seq 1 "$3"); do
+    printf '{"ts":"%s","rule_id":"BYPASS-ENV"}\n' "$(_iso_ago "$2")" >> "$1/.specops/friction-log.jsonl"
+  done
+}
+
+SB_A=$(mktemp -d); SB_B=$(mktemp -d); SB_C=$(mktemp -d)
+SB_D=$(mktemp -d); SB_E=$(mktemp -d); SB_F=$(mktemp -d); SB_G=$(mktemp -d); SB_H=$(mktemp -d)
+# 뒤에서 mktemp 하는 샌드박스도 trap 에 병기한다(Phase C Suggestion) — 인라인 rm 은 유지하되
+#   어서션 중도 종료 시 누수를 막는다. `set -u` 아래 미할당 참조가 trap 안에서 터지지 않도록
+#   빈 문자열로 선초기화하고 `${V:+"$V"}` 로 넘긴다.
+SB_I=""; SB_J=""; SB_K=""; SB_L=""; SB_M=""
+# ★ 기존 trap(:9 `rm -rf "$TMP"`)을 덮어쓰지 않도록 "$TMP" 를 병기한다.
+#   bash 는 동일 시그널 trap 을 **대체**하므로 누락 시 r1~r29 픽스처가 매 실행 누수된다(실측).
+trap 'rm -rf "$TMP" "$SB_A" "$SB_B" "$SB_C" "$SB_D" "$SB_E" "$SB_F" "$SB_G" "$SB_H" \
+  ${SB_I:+"$SB_I"} ${SB_J:+"$SB_J"} ${SB_K:+"$SB_K"} ${SB_L:+"$SB_L"} ${SB_M:+"$SB_M"}' EXIT
+for _d in "$SB_A" "$SB_B" "$SB_C" "$SB_D" "$SB_E" "$SB_F" "$SB_G" "$SB_H"; do _mkrepo "$_d"; done
+
+# T-stale.a (AC-1): stale 행 정확히 1개 + 4필드
+_rows=$( ( cd "$SB_A" && SPECOPS_ROOT=".specops" bash "$SH" 2>/dev/null ) | grep -c '^| stale ')
+_flds=$( ( cd "$SB_A" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>/dev/null ) \
+  | jq -r '[.checks[]|select(.id=="stale")] as $s
+           | "\($s|length) \($s[0] | (has("id") and has("status") and has("detail") and has("fix")))"' 2>/dev/null)
+[ "$_rows" = "1" ] && [ "$_flds" = "1 true" ] \
+  && ok "T-stale.a stale 1행 + 4필드" || nope "T-stale.a" "rows=$_rows flds=$_flds"
+
+# T-stale.f (AC-4): 데이터 소스 전부 부재 → unknown
+[ "$(_stale_status "$SB_A")" = "unknown" ] \
+  && ok "T-stale.f 소스 전부 부재 → unknown" || nope "T-stale.f" "got=$(_stale_status "$SB_A")"
+
+# T-stale.b (AC-2): pending 최고령 8일 → warn
+printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' "$(_iso_ago 8)" \
+  > "$SB_B/.specops/pending-capture.jsonl"
+[ "$(_stale_status "$SB_B")" = "warn" ] \
+  && ok "T-stale.b pending 8일 → warn" || nope "T-stale.b" "got=$(_stale_status "$SB_B")"
+
+# T-stale.n (AC-2 Then 후단): detail 에 지표 수치(건수·경과일)가 실제로 담긴다
+#   T-stale 전 항목이 status 만 본다 — "detail 에 수치 포함" 절을 잠그는 유일한 어서션이다.
+_det=$( ( cd "$SB_B" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>/dev/null ) \
+  | jq -r '.checks[]|select(.id=="stale")|.detail')
+printf '%s' "$_det" | grep -q '1건' && printf '%s' "$_det" | grep -q '8일' \
+  && ok "T-stale.n detail 에 건수·경과일 포함" || nope "T-stale.n" "detail=$_det"
+
+# T-stale.c (AC-2 경계): pending 7일 → warn 아님 (ok)
+printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' "$(_iso_ago 7)" \
+  > "$SB_C/.specops/pending-capture.jsonl"
+[ "$(_stale_status "$SB_C")" = "ok" ] \
+  && ok "T-stale.c pending 7일 경계 → ok" || nope "T-stale.c" "got=$(_stale_status "$SB_C")"
+
+# T-stale.d (AC-2): 최근 5일 우회 3건 → warn
+_byp "$SB_D" 5 3
+[ "$(_stale_status "$SB_D")" = "warn" ] \
+  && ok "T-stale.d 최근 우회 3건 → warn" || nope "T-stale.d" "got=$(_stale_status "$SB_D")"
+
+# T-stale.h (F-1 음성 대조군): 31일 전 우회 3건 → ok
+#   clarify F-1 이 잡은 결함 — jq 필터가 30일 창을 실제로 적용하지 않으면 여기서만 걸린다.
+#   T-stale.d(양성)만으로는 통과하므로 본 어서션이 유일한 락이다.
+_byp "$SB_E" 31 3
+[ "$(_stale_status "$SB_E")" = "ok" ] \
+  && ok "T-stale.h 31일 전 우회 3건 → ok (30일 창 적용)" || nope "T-stale.h" "got=$(_stale_status "$SB_E")"
+
+# T-stale.e (AC-3): freelog 30일 정체 + 그 이후 커밋 0 → ok
+printf '# freelog\n\n## %s\n\n- 00:00 [fix] (x) a.sh — x\n' "$(_ymd_ago 30)" > "$SB_F/.specops/freelog.md"
+[ "$(_stale_status "$SB_F")" = "ok" ] \
+  && ok "T-stale.e freelog 정체 + 커밋 0 → ok" || nope "T-stale.e" "got=$(_stale_status "$SB_F")"
+
+# T-stale.i (AC-2 ② 양성): freelog 15일 정체 + 그 이후 커밋 1건 → warn
+#   T-stale.e 는 음성(커밋 0)만 본다 — 이 어서션이 없으면 FR-3 의 warn 경로가 무테스트다.
+printf '# freelog\n\n## %s\n\n- 00:00 [fix] (x) a.sh — x\n' "$(_ymd_ago 15)" > "$SB_G/.specops/freelog.md"
+( cd "$SB_G" && echo x > f.txt && git add -A >/dev/null 2>&1 \
+  && git commit -q -m "픽스처 커밋" >/dev/null 2>&1 )
+[ "$(_stale_status "$SB_G")" = "warn" ] \
+  && ok "T-stale.i freelog 15일 + 커밋 1 → warn" || nope "T-stale.i" "got=$(_stale_status "$SB_G")"
+
+# T-stale.m (AC-2 ② 경계): freelog 14일 + 그 이후 커밋 1건 → ok (15일부터 warn)
+#   T-stale.i(15일→warn)와 짝. 이 어서션이 없으면 -gt 14 를 -gt 0 으로 바꿔도 전 스위트 생존한다(변이 실측).
+SB_J=$(mktemp -d); _mkrepo "$SB_J"
+printf '# freelog\n\n## %s\n\n- 00:00 [fix] (x) a.sh — x\n' "$(_ymd_ago 14)" > "$SB_J/.specops/freelog.md"
+( cd "$SB_J" && echo x > f.txt && git add -A >/dev/null 2>&1 \
+  && git commit -q -m "픽스처 커밋" >/dev/null 2>&1 )
+[ "$(_stale_status "$SB_J")" = "ok" ] \
+  && ok "T-stale.m freelog 14일 경계 + 커밋 1 → ok" || nope "T-stale.m" "got=$(_stale_status "$SB_J")"
+rm -rf "$SB_J"
+
+# T-stale.j (AC-2 ③ 경계): 최근 우회 2건 → ok (3건 미만)
+_byp "$SB_H" 5 2
+[ "$(_stale_status "$SB_H")" = "ok" ] \
+  && ok "T-stale.j 최근 우회 2건 경계 → ok" || nope "T-stale.j" "got=$(_stale_status "$SB_H")"
+
+# T-stale.g (AC-R-1 ②): read-only — 실행 전후 .specops 파일 목록 동일
+_before=$( (cd "$SB_B" && find .specops -type f | sort) )
+( cd "$SB_B" && SPECOPS_ROOT=".specops" bash "$SH" >/dev/null 2>&1 )
+_after=$( (cd "$SB_B" && find .specops -type f | sort) )
+[ "$_before" = "$_after" ] \
+  && ok "T-stale.g read-only 불변" || nope "T-stale.g" "파일 목록 변경됨"
+
+# T-stale.l (AC-4 ok 절 literal): 3소스 **동시** 존재 + 전부 임계 미만 → ok
+#   기존 ok 케이스(c·e·j)는 단일 소스라 합집합 커버일 뿐이다. AC-4 Then 후단이
+#   "셋 다 존재하고 임계 미만이면 ok" 를 literal 로 요구하므로 동시 픽스처를 1건 둔다.
+SB_I=$(mktemp -d); _mkrepo "$SB_I"
+printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' "$(_iso_ago 1)" \
+  > "$SB_I/.specops/pending-capture.jsonl"
+printf '# freelog\n\n## %s\n\n- 00:00 [fix] (x) a.sh — x\n' "$(_ymd_ago 1)" > "$SB_I/.specops/freelog.md"
+_byp "$SB_I" 5 1
+[ "$(_stale_status "$SB_I")" = "ok" ] \
+  && ok "T-stale.l 3소스 동시 + 전부 임계 미만 → ok" || nope "T-stale.l" "got=$(_stale_status "$SB_I")"
+rm -rf "$SB_I"
+
+# T-stale.k (AC-R-1 ①·품질): stderr 오염 없음 — fl_commits 류 정수 비교 에러 검출
+#   T-stale.e 계열은 2>/dev/null 이라 이 클래스를 영원히 못 잡는다(plan-reviewer 지적).
+_err=$( ( cd "$SB_G" && SPECOPS_ROOT=".specops" bash "$SH" >/dev/null ) 2>&1 )
+[ -z "$_err" ] && ok "T-stale.k stderr 무오염" || nope "T-stale.k" "stderr=$_err"
+
+# T-stale.o (Phase C Important 1): 유효 우회 3건 + 손상 라인 1줄 → warn + 손상 줄 수 노출
+#   `jq -rs`(전체 슬럽)는 1줄만 깨져도 전량이 사라져 "적체 없음" 으로 오판한다(Phase C probeB).
+#   detail 까지 보는 이유 — status 만 보면 손상 카운터가 죽어도(bad=0) warn 이라 통과한다.
+SB_K=$(mktemp -d); _mkrepo "$SB_K"
+_byp "$SB_K" 5 3
+printf 'CORRUPT LINE not-json\n' >> "$SB_K/.specops/friction-log.jsonl"
+if [ "$(_stale_status "$SB_K")" = "warn" ] && _stale_detail "$SB_K" | grep -q '손상 라인 1줄'; then
+  ok "T-stale.o 손상 라인 혼재해도 유효 우회 검출 + 손상 1줄 보고"
+else
+  nope "T-stale.o" "st=$(_stale_status "$SB_K") detail=$(_stale_detail "$SB_K")"
+fi
+rm -rf "$SB_K"; SB_K=""
+
+# T-stale.p (Phase C Important 2): 손상 라인만 있으면 ok 가 아니라 unknown
+#   훅 append 중단으로 부분 라인이 실제로 생긴다 — 못 읽은 줄을 "적체 없음" 으로 낙관 보고 금지.
+SB_L=$(mktemp -d); _mkrepo "$SB_L"
+printf 'CORRUPT\n' > "$SB_L/.specops/pending-capture.jsonl"
+[ "$(_stale_status "$SB_L")" = "unknown" ] \
+  && ok "T-stale.p 손상 전용 입력 → unknown (낙관 ok 금지)" || nope "T-stale.p" "got=$(_stale_status "$SB_L")"
+rm -rf "$SB_L"; SB_L=""
+
+# T-stale.q (Phase C 2회차 Important 1): jq 판독 자체가 실패해도 unknown 으로 강등
+#   T-stale.p 의 `CORRUPT\n` 은 jq -Rsr 가 **성공**하는 경로라(손상 카운트는 jq 가 세 준다)
+#   doctor.sh 의 jq 실패 fallback(`case ''|0) pend_bad=1`)에 닿지 못한다 — 그 강등을 잠그는
+#   유일한 어서션이 이것이다(없으면 pend_bad=1 → 0 변이가 전 스위트 생존, 실측).
+#   픽스처는 JSONL 경로를 **디렉토리**로 만든다 — jq·grep 모두 uid 무관 결정적 실패라
+#   chmod 000(root 에서 무력) 대비 CI 안정적이다.
+#   ※ 전제: 디렉토리가 `[ -s "$SPECOPS/pending-capture.jsonl" ]`(size>0)를 통과해야 해당 분기에
+#     진입한다. APFS·ext4·tmpfs·XFS 는
+#     참이지만 POSIX 보장은 아니다 — 이 어서션이 특정 FS 에서만 깨지면 그 전제를 먼저 의심할 것.
+SB_M=$(mktemp -d); _mkrepo "$SB_M"
+mkdir "$SB_M/.specops/pending-capture.jsonl"
+if [ "$(_stale_status "$SB_M")" = "unknown" ] && _stale_detail "$SB_M" | grep -q '손상 라인'; then
+  ok "T-stale.q jq 판독 불가(디렉토리) → unknown + 손상 라인 보고"
+else
+  nope "T-stale.q" "st=$(_stale_status "$SB_M") detail=$(_stale_detail "$SB_M")"
+fi
+rm -rf "$SB_M"; SB_M=""
 
 finish
