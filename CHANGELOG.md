@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.78.0] — 2026-08-15
+
 ### Added
 - **doctor 무음 실패 감지 `stale` 항목 (FID 20260815-doctor-stale-detect, #5)** — `doctor` 는 설치·정합만 보고 **"얼마나 방치됐나"** 축이 없었다. 직전 FID(#4)에서 SessionStart pending 안내가 약 1개월간 미수신됐는데 **어떤 게이트도 잡지 못한** 것이 직접 동기다. 코드 버그가 아니라 *동작하는데 아무도 안 읽는 상태*였고, 이 클래스를 보는 층이 0곳이었다. checks **5 → 6**.
   - **3지표 종합 1행** — pending 적체(최고령 **>7일**) · freelog 정체(**>14일 AND 그 이후 커밋 ≥1**) · 우회 상시화(최근 30일 `BYPASS-ENV` **≥3건**). 하나라도 초과 → `warn`, 소스 전부 부재 → `unknown`, 전부 미만 → `ok`.
@@ -1189,7 +1191,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.77.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.78.0...HEAD
+[1.78.0]: https://github.com/andyko18/specops-ko/compare/v1.77.0...v1.78.0
 [1.77.0]: https://github.com/andyko18/specops-ko/compare/v1.76.0...v1.77.0
 [1.76.0]: https://github.com/andyko18/specops-ko/compare/v1.75.0...v1.76.0
 [1.75.0]: https://github.com/andyko18/specops-ko/compare/v1.74.0...v1.75.0
