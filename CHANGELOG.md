@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+### Added
+- **doctor 무음 실패 감지 `stale` 항목 (FID 20260815-doctor-stale-detect, #5)** — `doctor` 는 설치·정합만 보고 **"얼마나 방치됐나"** 축이 없었다. 직전 FID(#4)에서 SessionStart pending 안내가 약 1개월간 미수신됐는데 **어떤 게이트도 잡지 못한** 것이 직접 동기다. 코드 버그가 아니라 *동작하는데 아무도 안 읽는 상태*였고, 이 클래스를 보는 층이 0곳이었다. checks **5 → 6**.
+  - **3지표 종합 1행** — pending 적체(최고령 **>7일**) · freelog 정체(**>14일 AND 그 이후 커밋 ≥1**) · 우회 상시화(최근 30일 `BYPASS-ENV` **≥3건**). 하나라도 초과 → `warn`, 소스 전부 부재 → `unknown`, 전부 미만 → `ok`.
+  - **★ freelog 는 커밋 조건이 필수다** — `>14일` 만으로 판정하면 **휴지기를 정체로 오탐**한다. 그 이후 커밋이 1건 이상일 때만 경고한다(AC-3). 커밋 수는 repo 활동의 **대리 지표**이므로 커밋 없는 자유작업은 미탐(한계).
+  - **★ 손상 JSONL 에 무음 낙관 금지** — `jq -rs`(전체 슬럽)는 마지막 1줄만 깨져도 **전량이 사라져** `byp=0` → `ok "적체 없음"` 이 된다(Phase C probeB: 유효 우회 3건 + 손상 1줄 → `ok`). friction-log·pending-capture 는 **훅이 append** 하는 파일이라 중단된 append 로 부분 라인이 현실적으로 생긴다. 파일당 jq 1회(`-Rsr` + 내부 `split`) 라인 단위 파싱으로 바꾸고, 버려진 줄이 있으면 `ok` 대신 **`unknown "부분 판정 불가 (손상 라인 N줄)"`** 로 강등한다. 무음 실패 감지기가 **자기 입력 손상에 무음이던** 결함이다.
+  - **판독 실패도 강등** — `-s` 는 통과하는데 읽을 수 없는 파일(권한·디렉토리)이면 `grep -c` 도 빈값 → `bad=0` → "적체 없음". `case ''|0) x=1` 로 최소 1 강등(구현자 자체 발견, 같은 무음 낙관 클래스).
+  - **`--since` 앵커 결정성** — `git log --since=YYYY-MM-DD` 의 approxidate 는 자정이 아니라 **실행 시각-of-day** 앵커다(실측: 01:29 커밋이 14:39 실행 시 0건). 이미 계산된 **UTC 자정 `$iso`** 를 재사용해 결정적으로 만들었다.
+  - **NFR — 파일당 스폰 1회 유지**: 45파일 실측 **0.37s**(main 기준선 0.36s, 예산 2s). 파이프 2회 0.67s · `$(...)` 캡처 후 재투입 0.73s 로 **캡처가 더 느리다**(파이프 동시 실행의 직렬화) — advisor 제안을 실측이 뒤집은 지점.
+  - `exit 0` · read-only 계약 불변. `_add` 4필드·`--json schema_version:1` 구조 불변(원소 수만 5→6). `checks 5→6` 하드코딩 **8곳 승계**(`test-doctor.sh` 6곳 + `test-init-finalize.sh` F9·F-doc2). `commands/doctor.md` 3곳(frontmatter description·`specops_version`·항목 표).
+  - 테스트 `test-doctor.sh` **31 → 48**(T-stale.a~q 17건), `test-init-finalize.sh` 13 → **14**.
+
+  - **★ 변이 실험 — 락 4건 전부 격추 실증**. 이 FID 에서 잡힌 결함은 전부 **"테스트는 있는데 그 값을 잠그지 않는다"** 는 같은 클래스였다:
+
+    | 결함 | 발견 | 변이 | 격추 |
+    |---|---|---|---|
+    | 우회 30일 창 미적용(항상 warn) | clarify F-1 | 창 없는 필터 복귀 | `T-stale.h` |
+    | freelog 임계 무테스트 | Phase B 1차 | `-gt 14` → `-gt 0` | `T-stale.m` 단독 (**변이 전 43건 전부 생존**) |
+    | 손상 JSONL 무음 낙관 | Phase C 1차 | `jq -rs` 슬럽 복귀 | `T-stale.o` 단독 |
+    | jq 판독 실패 fallback 무테스트 | Phase C 2차 | `pend_bad=1` → `=0` | `T-stale.q` 단독 (`T-stale.p` 는 생존 — fallback 미도달 전제 실증) |
+
+    원복은 전부 `cp` 백업(`git checkout` 은 미커밋 작업 파괴). 어서션 **개수**가 아니라 **변이 생존 여부**가 계약의 실질임을 4번 반복 확인했다.
+
+  - **★ `LITE-STRICT-GUARD` 오탐이 만든 승격이 결함 3건을 걸렀다** — `/maintain-lite` 로 시작했으나 `risk-profile.sh` 가 신호 `destructive_fs`(실체는 테스트의 `rm -rf` 샌드박스 정리)로 rc=3 을 내 정식 plan 승격이 강제됐다. **신호 자체는 오탐**이었지만 그 승격 덕에 clarify 가 F-1 을, plan-reviewer 가 Critical(5-하드코딩 **5곳 누락**)을, 구현자가 F9(8번째 지점 `test-init-finalize.sh:204`)를 찾았다. 가드의 가치가 신호 정확도만으로 평가되지 않음을 보여준다.
+  - **한계** — ① 임계 7/14/30/3 은 1건에서 역산, 통계적 근거 없음(오탐 피해 상한은 경고 1줄) ② `T-stale.q` 디렉토리 픽스처는 "디렉토리가 `-s` 에 size>0" 전제에 의존(APFS·ext4 실측, POSIX 보장 아님 — **CI Ubuntu 통과로 Linux 확인**) ③ `T-stale.m` UTC 자정 flake 창(수십 ms, 재실행 해소) ④ `jq` 미설치 분기 무테스트(PATH 교체 회피 관행) ⑤ 멀티바이트 손상·초대형 파일·심볼릭 링크 friction-log 미프로브.
+  - **후속 과제** — ① **R-1 통합 경로 결함 의심**: `_verify_exec_evidence` 가 1·2인자 모두 `rc=0`, `detect_fid`·②앵커 정상인데 **PreToolUse 통합만 deny**(재현 절차는 `.specops/20260815-doctor-stale-detect/evidence.md §9`). 본 FID 커밋·PR 에서 우회 2회를 강요했다 ② 러너 앵커가 **파이프 형태**(`| tail`)를 인식하지 못함 — 2개 FID 연속 관측 ③ `scan-enrich-placeholders.sh` 의 꺾쇠 훅 태그 오탐 — **2회째 재발**.
+
 ## [1.77.0] — 2026-08-15
 
 ### Fixed
