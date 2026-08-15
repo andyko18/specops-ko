@@ -1,10 +1,10 @@
 ---
 name: doctor
-description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결 5항목 read-only 점검
+description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체 6항목 read-only 점검
 triggers:
   - "/doctor"
 mode: ask
-specops_version: 1.70.0
+specops_version: 1.78.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -32,6 +32,7 @@ reference_upstream: specops-ko 독자 추가
 | `orphan_fid` | `spec.md` 만 있고 `tasks.md`·`evidence.md` 둘 다 없는 FID |
 | `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 (**디렉터리째 없는 FID 는 아카이브로 제외**) |
 | `bootstrap` | `/init-project` 부트스트랩이 **커밋으로 종결**됐는가 — `chore(init)` 커밋 부재 시 ⚠️ (조치: `init-finalize.sh`). `.specops/memory` 부재·비-git 은 `unknown` |
+| `stale` | 무음 실패 — pending 적체(>7일) · freelog 정체(>14일 + 그 사이 커밋) · 최근 30일 우회 ≥3건 |
 
 ## 계약
 
