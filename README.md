@@ -3,6 +3,7 @@
 **Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.78.0)
 
 슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement → verify → review → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
+한글로는 **명세 → 명확화 → 계획 → 분해 → TDD 구현 → 검증 → 리뷰 → 보안 → 통합 테스트 → 성능 테스트 → PR** 이다.
 
 - **자율 chain** — 각 스킬 본문의 `## 다음 skill` 이 다음 단계를 강제한다. 단계마다 지시할 필요가 없다.
 - **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다.
@@ -82,34 +83,34 @@ claude plugin install specops-ko@specops-ko
 ```
 /start <기능>  ·  /maintain <대상>  ·  자연어
     ↓
-using-specops-ko          메타 — 신호 감지 → 신규 / 유지보수 분류
+using-specops-ko (메타)            신호 감지 → 신규 / 유지보수 분류
     ↓
-[유지보수만] analyzing-ko  ★ HARD GATE — current-state.md · impact-analysis.md
+analyzing-ko (분석)                current-state.md · impact-analysis.md      [유지보수만] ★ HARD GATE
     ↓
-specifying-ko             spec.md · acceptance-criteria.md
-    │                     └ 화면 설계(screens/*.md+html) · 인터페이스 설계(api-spec·data-model)
+specifying-ko (명세)               spec.md · acceptance-criteria.md
+    │                              └ 화면 설계(screens/*.md+html) · 인터페이스 설계(api-spec·data-model)
     ↓ ★ HARD GATE (승인)
-clarifying-ko             clarifications.md
+clarifying-ko (명확화)             clarifications.md
     ↓ ★ HARD GATE
-planning-ko               plan.md  (plan-reviewer-ko 리뷰)
+planning-ko (계획)                 plan.md   ← plan-reviewer-ko (플랜 리뷰)
     ↓
-decomposing-ko            tasks.md + YAML DAG
+decomposing-ko (분해)              tasks.md + YAML DAG
     ↓
-implementing-ko           태스크별 fresh dispatch · DAG 병렬
-    │                     Phase B: spec-reviewer-ko (스펙 준수)
-    │                     Phase C: code-reviewer-ko (코드 품질·보안)
+implementing-ko (구현)             태스크별 fresh dispatch · DAG 병렬
+    │                              Phase B — spec-reviewer-ko (스펙 준수 리뷰)
+    │                              Phase C — code-reviewer-ko (코드 품질·보안 리뷰)
     ↓
-verifying-evidence-ko     evidence.md
+verifying-evidence-ko (검증)       evidence.md
     ↓
-requesting / receiving-code-review-ko
+requesting-code-review-ko (리뷰 요청) → receiving-code-review-ko (리뷰 수용)
     ↓
-security-review-ko → integration-test-ko → performance-test-ko
-    │                 (해당 표면 없으면 graceful skip)
+security-review-ko (보안) → integration-test-ko (통합 테스트) → performance-test-ko (성능 테스트)
+    │                       (해당 표면 없으면 graceful skip)
     ↓
-"PR 생성? [y/n]" → finishing-a-development-branch-ko
+"PR 생성? [y/n]" → finishing-a-development-branch-ko (브랜치 정리)
 ```
 
-**HARD GATE** 는 되돌리기 비싼 지점(analyzing · spec 승인 · clarify · plan · PR)에서만 멈춘다. 나머지는 자동 통과한다.
+**HARD GATE** 는 되돌리기 비싼 지점(analyzing 분석 · specifying 명세 승인 · clarifying 명확화 · planning 계획 · PR)에서만 멈춘다. 나머지는 자동 통과한다.
 
 **Generator ↔ Evaluator 분리** — 구현체(`implementer-ko`)와 평가자(`spec-reviewer-ko` · `code-reviewer-ko`)를 다른 서브에이전트로 나눠 자기평가 편향을 막는다. Evaluator 는 `role: evaluator` 로 Write/Edit 가 박탈된다. 기본 `review_mode: end-loaded` (FID 단위 B×1 + C×1), 레거시는 `per-task`.
 
