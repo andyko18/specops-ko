@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Changed
+- **README 재작성 — 정의·사용법·lifecycle 중심 (docs-only)** — 기존 README 는 자산 트리·거버넌스 세부에 비해 **"specops-ko 가 무엇인가"** 를 설명하는 층이 얇았다. 정의 3줄(자율 chain · 파일이 기억한다 · 주장은 증거로만)을 앞세우고 `설치 → 빠른 시작 → 진입로 결정 트리 → Lifecycle → 산출물 → 거버넌스 엔진 → 운영 슬래시 → 자산 구조 → 개발·테스트 → 트러블슈팅` 순으로 재편했다. 내부 규약 상세(chain SoT · 분기 마커 · frontmatter 필수 필드 · design-first 대칭)는 중복 서술 대신 `CLAUDE.md` 참조로 위임. **274 → 221줄**.
+  - **lifecycle 단계 표기를 `영문(한글)` 로 통일** — `analyzing-ko (분석)` · `specifying-ko (명세)` · `clarifying-ko (명확화)` · `planning-ko (계획)` · `decomposing-ko (분해)` · `implementing-ko (구현)` · `verifying-evidence-ko (검증)` · `security-review-ko (보안)` · `integration-test-ko (통합 테스트)` · `performance-test-ko (성능 테스트)` · `finishing-a-development-branch-ko (브랜치 정리)`. 리뷰어 3종(`plan-reviewer-ko` 플랜 리뷰 · `spec-reviewer-ko` 스펙 준수 리뷰 · `code-reviewer-ko` 코드 품질·보안 리뷰)과 HARD GATE 설명 줄도 같은 표기로 맞췄다.
+  - **★ README 는 산문이 아니라 계약이다** — 1차 간소화에서 앵커를 지웠다가 pre-push 가 **3 스위트를 격추**했다. `test-readme-entry-tree`(AC-6b~6f: `check-foundation-merged`/머지 후 · `foundation-baseline` · `foundation-shell` · `init-batch-queue` · `[공통]`) · `test-session-start-order`(T-ord.g `조립 순서`) · `test-doc-stamp-sync`(AC-2 `## 거버넌스 엔진` 섹션 내 `PreToolUse`). 문서를 되돌리지 않고 **앵커만 최소 복원**했다 — 진입로 절 "공통부·일괄 진입 주의" 5줄 + 거버넌스 절 제목 원복 + SessionStart 조립 순서 1문장. 간소화가 문서 품질 문제가 아니라 **계약 위반**으로 잡힌다는 것을 실증한 사례.
+  - 헤더의 `spec → clarify → plan → …` 체인만 **영문 원문 유지** — `test-readme-entry-tree` AC-R-1 이 그 문자열을 정규식으로 잠근다. 괄호를 끼우면 격추되므로 바로 아래에 한글 미러 줄을 붙여 표기 요구를 충족했다.
+  - 기계검증 불변식 5종 보존: 헤더 `(vX.Y.Z)` **첫 매치** · footer `최신: vX.Y.Z (날짜)` shape(`release.sh` sed 가 `grep -q` 가드라 shape 이 깨지면 **무음 skip**) · `SKILL.md × 30` · `templates ← 34건` · `agents ← 8건`.
+
 ## [1.78.0] — 2026-08-15
 
 ### Added
