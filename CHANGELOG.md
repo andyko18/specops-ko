@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.78.1] — 2026-08-20
+
 ### Changed
 - **README 재작성 — 정의·사용법·lifecycle 중심 (docs-only)** — 기존 README 는 자산 트리·거버넌스 세부에 비해 **"specops-ko 가 무엇인가"** 를 설명하는 층이 얇았다. 정의 3줄(자율 chain · 파일이 기억한다 · 주장은 증거로만)을 앞세우고 `설치 → 빠른 시작 → 진입로 결정 트리 → Lifecycle → 산출물 → 거버넌스 엔진 → 운영 슬래시 → 자산 구조 → 개발·테스트 → 트러블슈팅` 순으로 재편했다. 내부 규약 상세(chain SoT · 분기 마커 · frontmatter 필수 필드 · design-first 대칭)는 중복 서술 대신 `CLAUDE.md` 참조로 위임. **274 → 221줄**.
   - **lifecycle 단계 표기를 `영문(한글)` 로 통일** — `analyzing-ko (분석)` · `specifying-ko (명세)` · `clarifying-ko (명확화)` · `planning-ko (계획)` · `decomposing-ko (분해)` · `implementing-ko (구현)` · `verifying-evidence-ko (검증)` · `security-review-ko (보안)` · `integration-test-ko (통합 테스트)` · `performance-test-ko (성능 테스트)` · `finishing-a-development-branch-ko (브랜치 정리)`. 리뷰어 3종(`plan-reviewer-ko` 플랜 리뷰 · `spec-reviewer-ko` 스펙 준수 리뷰 · `code-reviewer-ko` 코드 품질·보안 리뷰)과 HARD GATE 설명 줄도 같은 표기로 맞췄다.
@@ -1198,7 +1200,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.78.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.78.1...HEAD
+[1.78.1]: https://github.com/andyko18/specops-ko/compare/v1.78.0...v1.78.1
 [1.78.0]: https://github.com/andyko18/specops-ko/compare/v1.77.0...v1.78.0
 [1.77.0]: https://github.com/andyko18/specops-ko/compare/v1.76.0...v1.77.0
 [1.76.0]: https://github.com/andyko18/specops-ko/compare/v1.75.0...v1.76.0
