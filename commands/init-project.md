@@ -26,7 +26,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      ```bash
      bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/extract-plan-from-transcript.sh
      ```
-     - **rc=0** — stdout 이 plan 전문, stderr 에 `PLAN-SOURCE:`(출처·경과시간)와 `PLAN-TITLE:`(제목)이 온다. **사용자 확인 필수**(주권 — 자동 소비 금지): "직전 plan(`<PLAN-TITLE>`, <N>시간 전)을 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시하고 0-c 로 내려간다.
+     - **rc=0** — stdout 이 plan 전문, stderr 에 `PLAN-SOURCE:`(출처·경과시간)가 오고, plan 에 `# ` 제목줄이 있으면 `PLAN-TITLE:`(제목)도 온다(**제목 없으면 생략** — 실패 아님). **사용자 확인 필수**(주권 — 자동 소비 금지): "직전 plan(`<PLAN-TITLE>` — 없으면 파일명, <N>시간 전)을 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시하고 0-c 로 내려간다.
      - **rc≠0** — 조용히 0-c 로 하강한다(디렉토리 부재·plan 0건·빈 plan·창 초과=1, `jq` 부재=2). 어떤 경우에도 `/init-project` 를 막지 않는다.
      - 기본 시간 창은 24시간 — `SPECOPS_PLAN_MAX_AGE_HOURS` 로 조정한다. 오래된 plan 을 근거로 끌어오는 stale 을 막는다.
    - **0-c. 기존 기획 문서 auto-discovery** (20260716 신설 — 온보딩 마찰 해소: 실무는 PRD 가 이미 파일로 존재하는 게 보통):
