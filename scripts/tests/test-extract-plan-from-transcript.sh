@@ -157,4 +157,37 @@ else
   nope "T1.k" "wired=$wired slot=$slot (0-b2 슬롯이 0-b·0-c 사이에 있어야 한다)"
 fi
 
+# ── T1.l: 손상 JSONL 내성 — 잘린 꼬리줄이 유효 plan 을 가리지 않는다 (Phase C I-1) ──
+# jq -rs(슬럽)로 구현하면 한 줄만 부분 JSON 이어도 파일 전체가 사라지고, 2>/dev/null 이
+# 오류까지 가려 "plan 없음"(rc=1)으로 무음 위장된다. transcript 는 라이브 append 파일이라
+# 크래시가 남긴 잘린 꼬리줄이 현실적이다 (doctor.sh v1.78.0 과 같은 결함 클래스).
+_reset; { _plan_line "$(_ts 3600)" "$TD/p1.md"; } > "$TDIR/s1.jsonl"
+printf '{"type":"assistant","timestamp":"2026-' >> "$TDIR/s1.jsonl"   # 크래시 잘린 꼬리줄
+out=$(_run 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '도메인 복제'; then
+  ok "T1.l 손상 JSONL 내성 — 잘린 꼬리줄 무시하고 유효 plan 추출"
+else
+  nope "T1.l" "rc=$rc out_len=${#out} (jq -rs 슬럽 구현이면 rc=1·무음으로 여기서 격추)"
+fi
+
+# ── T1.m: HOME 미설정 — unbound 노이즈 없이 graceful (Phase C M-2c) ──
+_reset; { _plan_line "$(_ts 3600)" "$TD/p1.md"; } > "$TDIR/s1.jsonl"
+(cd "$WORK_ABS" && env -u HOME bash "$SCRIPT") >/dev/null 2>"$TD/he.txt"; rc=$?
+if [ "$rc" -eq 1 ] && ! grep -q 'unbound variable' "$TD/he.txt"; then
+  ok "T1.m HOME 미설정 → exit 1, unbound 노이즈 없음"
+else
+  nope "T1.m" "rc=$rc stderr=$(head -1 "$TD/he.txt")"
+fi
+
+# ── T1.n: 인자 파싱 — 값 누락·알 수 없는 플래그 (Phase C M-2a·M-2b) ──
+_reset; { _plan_line "$(_ts 3600)" "$TD/p1.md"; } > "$TDIR/s1.jsonl"
+_run --max-age-hours >/dev/null 2>"$TD/a1.txt"; rc_missing=$?      # 값 없이 끝
+_run --bogus-flag   >/dev/null 2>"$TD/a2.txt"; rc_bogus=$?
+if [ "$rc_missing" -eq 0 ] && grep -qi '시간 창' "$TD/a1.txt" \
+   && [ "$rc_bogus" -eq 0 ] && grep -qi '알 수 없는 인자' "$TD/a2.txt"; then
+  ok "T1.n 인자 파싱 — 값 누락→기본값+경고 · 알 수 없는 플래그→경고 후 진행"
+else
+  nope "T1.n" "missing=$rc_missing bogus=$rc_bogus w1=$(head -1 "$TD/a1.txt") w2=$(head -1 "$TD/a2.txt")"
+fi
+
 finish
