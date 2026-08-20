@@ -24,14 +24,18 @@ _analyze() {  # $1=md $2=html
 
   # ── states: empty·loading·error 3종. 영문+한글 둘 다 인정 ──
   # 영문만 보면 한국어 문서에서 항상 0/3 이 나와 검사가 무의미해진다.
-  local st=0 sec
+  local st=0 sec miss="" states a11y semantic token microcopy
   if _readable "$md"; then
     # 종료 앵커를 `^## ` 로 두고 시작줄만 제외한다 — `/^## [^S]/` 는 후속 헤딩이 S 로
     # 시작하면(## Summary 등) 범위가 새어 다음 섹션까지 먹는다(외부 critic 지적).
     sec=$(awk '/^## States/{f=1;next} f&&/^## /{exit} f' "$md")
-    printf '%s' "$sec" | grep -qiE 'empty|빈 상태|빈상태' && st=$((st+1))
-    printf '%s' "$sec" | grep -qiE 'loading|로딩' && st=$((st+1))
-    printf '%s' "$sec" | grep -qiE 'error|오류|에러' && st=$((st+1))
+    # ★ 누락 '항목명' 을 남긴다 — 리뷰어 표는 심각도를 종류로 가른다
+    #   (empty·error 미정의=Important / loading 만 누락=Minor). 비율만 내면 그 판정을
+    #   계측 결과에서 도출할 수 없어 리뷰어가 md 를 재독하게 되고, 그건 추측 판정 금지 계약과 어긋난다.
+    if printf '%s' "$sec" | grep -qiE 'empty|빈 상태|빈상태'; then st=$((st+1)); else miss="$miss,empty"; fi
+    if printf '%s' "$sec" | grep -qiE 'loading|로딩'; then st=$((st+1)); else miss="$miss,loading"; fi
+    if printf '%s' "$sec" | grep -qiE 'error|오류|에러'; then st=$((st+1)); else miss="$miss,error"; fi
+    miss="${miss#,}"
     states="$st/3"
   else
     states="unknown"
@@ -50,7 +54,11 @@ _analyze() {  # $1=md $2=html
   if _readable "$html"; then
     # ── a11y-label: label 수 / 입력 요소 수 ──
     local inp lab
+    # hidden input(csrf 등)은 label 대상이 아니다 — 세면 오탐이 된다(외부 리뷰 M-1)
+    local hid
     inp=$(_count "$(grep -oE '<(input|select|textarea)\b' "$html" | wc -l)")
+    hid=$(_count "$(grep -oE '<input[^>]*type=["'"'"']?hidden' "$html" | wc -l)")
+    inp=$((inp - hid)); [ "$inp" -lt 0 ] && inp=0
     lab=$(_count "$(grep -oE '<label\b' "$html" | wc -l)")
     a11y="$lab/$inp"
     # ── semantic: 랜드마크 요소 수 ──
@@ -60,9 +68,13 @@ _analyze() {  # $1=md $2=html
     #   hex 12건 중 정의부 10건, 하드코딩 2건(:70 #6B7280 · :89 #6D28D9). 정의부를 빼지
     #   않으면 정상 코드 10건이 전부 위반으로 잡힌다. rgba() 등가색은 세지 않는다 — 정당한 투명도(그림자 등)까지
     #   물들이면 노이즈가 급증해 리뷰어가 검사를 무시하게 된다.
+    #   ★ var 명 문자셋은 `[A-Za-z0-9-]` — `[a-z-]` 로 좁히면 `--gray-100`·`--Color-Primary`
+    #     같은 scale/대문자 명명을 정의부로 못 잡아 **정상 코드가 전부 하드코딩으로 오탐**된다
+    #     (실측: 정의부 3건 fixture 가 def=0 → token=4). 리뷰어 기준이 "3건 이상=Important" 라
+    #     그 오탐이 곧바로 오판정이 된다.
     local all def
     all=$(_count "$(grep -oE '#[0-9A-Fa-f]{6}' "$html" | wc -l)")
-    def=$(_count "$(grep -oE '\-\-[a-z-]+:[[:space:]]*#[0-9A-Fa-f]{6}' "$html" | wc -l)")
+    def=$(_count "$(grep -oE '\-\-[A-Za-z0-9-]+:[[:space:]]*#[0-9A-Fa-f]{6}' "$html" | wc -l)")
     token=$((all - def))
     [ "$token" -lt 0 ] && token=0
   else
@@ -74,7 +86,7 @@ _analyze() {  # $1=md $2=html
 
   # 상세 — 위반이 있을 때만
   case "$states" in
-    0/3|1/3|2/3) printf '  [states] empty·loading·error 중 미정의 있음 (%s)\n' "$states" ;;
+    0/3|1/3|2/3) printf '  [states] 미정의: %s (%s)\n' "${miss:-?}" "$states" ;;
   esac
   if [ "$a11y" != "unknown" ]; then
     local l="${a11y%%/*}" i="${a11y##*/}"
