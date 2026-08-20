@@ -36,7 +36,7 @@ command -v jq >/dev/null 2>&1 || { echo "extract-plan: jq 미설치 — plan 추
 # cwd → Claude Code transcript 슬러그 ('/'·'.' → '-'). 실측 규칙이지 공개 계약이 아니다 —
 # 규칙이 바뀌면 디렉토리 부재로 판정돼 graceful skip 된다(실패 방향 안전).
 slug=$(pwd | sed 's/[/.]/-/g')
-dir="$HOME/.claude/projects/$slug"
+dir="${HOME:-}/.claude/projects/$slug"
 [ -d "$dir" ] || exit 1
 
 # ★ grep 'ExitPlanMode' 금지 — 에이전트 도구 목록 문구("All tools except ... ExitPlanMode ...")에
@@ -46,15 +46,22 @@ dir="$HOME/.claude/projects/$slug"
 best=$(
   for f in "$dir"/*.jsonl; do
     [ -f "$f" ] || continue
-    jq -rs --arg src "$(basename "$f")" '
-      [ .[]
-        | select(.message.content != null)
-        | . as $e
-        | .message.content[]?
-        | select(.type == "tool_use" and .name == "ExitPlanMode")
-        | select(((.input.plan // "") | gsub("^[[:space:]]+|[[:space:]]+$"; "")) != "")
-        | { ts: $e.timestamp, src: $src, plan: .input.plan }
-      ] | .[] | @json
+    # ★ `jq -rs`(슬럽) 금지 — 파일 안 한 줄만 부분 JSON 이어도 전량이 사라지고,
+    #   2>/dev/null 이 오류까지 가려 "plan 없음"(rc=1)으로 위장된다. transcript 는
+    #   라이브 append 파일이라 크래시 세션이 잘린 꼬리줄을 남기는 게 현실적이고,
+    #   /init-project 가 노리는 plan 은 바로 그 최근 파일 안에 있다.
+    #   (doctor.sh 가 v1.78.0 에서 고친 "손상 JSONL 무음 낙관" 과 같은 클래스)
+    #   `-R` 라인 단위 + `fromjson? // empty` 로 좋은 줄만 취한다 — 스트리밍이라
+    #   메모리도 파일 크기에 비례하지 않는다.
+    jq -Rr --arg src "$(basename "$f")" '
+      fromjson? // empty
+      | select(.message.content != null)
+      | . as $e
+      | .message.content[]?
+      | select(.type == "tool_use" and .name == "ExitPlanMode")
+      | select(((.input.plan // "") | gsub("^[[:space:]]+|[[:space:]]+$"; "")) != "")
+      | { ts: $e.timestamp, src: $src, plan: .input.plan }
+      | @json
     ' "$f" 2>/dev/null
   done | jq -rs 'if length == 0 then empty else (max_by(.ts) | @json) end' 2>/dev/null
 )
