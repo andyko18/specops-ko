@@ -24,6 +24,8 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 4. `.specops/memory/api-spec.md` · `data-model.md` 경로 (없으면 IF 축 SKIP 명시)
 5. 각 FID `.specops/<FID>/spec.md` 경로
 
+- 화면 품질 계측기: `scripts/_internal/check-screen-quality.sh` (직접 실행 — read-only·항상 exit 0)
+
 화면·IF **둘 다 부재**면 `DESIGN-REVIEW-RESULT: SKIP` 후 종료 (부모도 호출하지 않는 것이 정상).
 
 ## 검증 절차
@@ -48,6 +50,8 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **실측 불가**: `[검증 불가]` + Minor 강등. 핵심 의심이면 본문에 명시.
 
+- **품질 관점 4종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 4종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다).
+
 ## 6관점 검증 기준
 
 | 관점 | Critical | Important | Minor |
@@ -60,6 +64,10 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | foundation-shell | allowlist(`app-shell`/`layout`/`login`) ∩ `<!-- foundation-shell -->` 화면이 Phase 2.5-A에서 재작성·마커 삭제됨 | 기능 화면이 셸 컴포넌트를 복제 구현(실측) | — |
 | 스펙 정합 | 화면/IF가 전 FID spec §범위와 정면 모순 | spec §참조에 경로 누락 | 요약 문장 부재 |
 | 플레이스홀더 | 설계 본문에 미치환 `<PLACEHOLDER>`·빈 템플릿 블록 | TBD/TODO가 must 경로에 잔존 | 주석성 TODO |
+| 상태 설계 | — | `empty`·`error` 미정의 (실측: `check-screen-quality.sh` `states`) | `loading` 만 누락 |
+| 접근성 | — | label 누락 input 존재 (실측: 동 `a11y-label`) | 랜드마크 0개 (동 `semantic`) |
+| 디자인 시스템 준수 | — | 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | 1~2건 |
+| 콘텐츠 품질 | — | 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | 일부 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.
 **foundation-baseline**: `check-foundation-if-baseline.sh` FAIL과 정합 — 마커 재작성은 **Critical**(기계 검사가 1차 teeth).
