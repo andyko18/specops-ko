@@ -111,29 +111,41 @@ b2=$(shasum "$TD/bad.html" | awk '{print $1}'); n2=$(ls -1 "$TD" | wc -l | tr -d
 [ "$b1" = "$b2" ] && [ "$n1" = "$n2" ] && ok "T1.i read-only — sha·파일수 불변" \
   || nope "T1.i" "sha $b1→$b2 files $n1→$n2"
 
-# ── T1.j: 리뷰어에 품질 관점 4개 + 실측 명령 (AC-5) ──
+# ── 품질 관점 목록 (단일 소스 — 관점 추가 시 여기만 늘린다) ──
+QP='상태 설계
+접근성
+디자인 시스템 준수
+콘텐츠 품질
+DESIGN 준수'
+QP_N=$(printf '%s\n' "$QP" | wc -l | tr -d ' ')
+
+# ── T1.j: 리뷰어에 품질 관점 전건 + 실측 명령 (AC-5 · 20260821 AC-8) ──
 pmiss=""
-for p in '상태 설계' '접근성' '디자인 시스템 준수' '콘텐츠 품질'; do
-  grep -qF "$p" "$AGENT" || pmiss="$pmiss $p"
-done
+while IFS= read -r p; do
+  grep -qF -e "$p" "$AGENT" || pmiss="$pmiss $p"
+done <<EOF2
+$QP
+EOF2
 cmd=$(grep -c 'check-screen-quality' "$AGENT" || true)
 if [ -z "$pmiss" ] && [ "${cmd:-0}" -ge 1 ]; then
-  ok "T1.j 품질 관점 4개 + 실측 명령 참조 (${cmd}건)"
+  ok "T1.j 품질 관점 ${QP_N}개 + 실측 명령 참조 (${cmd}건)"
 else
   nope "T1.j" "누락:$pmiss cmd=$cmd"
 fi
 
-# ── T1.k: 신규 4관점에 Critical 없음 (AC-6) ──
+# ── T1.k: 품질 관점 전건에 Critical 없음 (AC-6) ──
 # /start-all-auto 는 Critical>=1 에서 무인 실행을 정지한다 — 주관 판정으로 배치를 세우지 않는다.
 badrow=""
-for p in '상태 설계' '접근성' '디자인 시스템 준수' '콘텐츠 품질'; do
+while IFS= read -r p; do
   row=$(grep -F "| $p |" "$AGENT" | head -1)
   [ -n "$row" ] || { badrow="$badrow [$p:행없음]"; continue; }
   # 2번째 칸(Critical)이 '—' 또는 공백이어야 한다
   crit=$(printf '%s' "$row" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/,"",$3); print $3}')
   case "$crit" in ''|'—'|'-') ;; *) badrow="$badrow [$p:$crit]" ;; esac
-done
-[ -z "$badrow" ] && ok "T1.k 신규 4관점 Critical 칸 비움" || nope "T1.k" "Critical 기재:$badrow"
+done <<EOF2
+$QP
+EOF2
+[ -z "$badrow" ] && ok "T1.k 품질 관점 ${QP_N}개 Critical 칸 비움" || nope "T1.k" "Critical 기재:$badrow"
 
 # ── T1.l: 무출력 exit 0 금지 (외부 critic — T1.h 동일 클래스) ──
 # 대상이 없거나 인자가 틀려도 침묵하면 리뷰어가 "위반 없음" 으로 읽는다.

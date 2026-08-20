@@ -68,6 +68,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 접근성 | — | label 누락 input 존재 (실측: 동 `a11y-label`) | 랜드마크 0개 (동 `semantic`) |
 | 디자인 시스템 준수 | — | 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | 1~2건 |
 | 콘텐츠 품질 | — | 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | 일부 |
+| DESIGN 준수 | — | screens/*.md States 가 DESIGN.md §7 과 어긋남, 또는 레이아웃이 §6.1 원형 필수 요소를 빠뜨림 | 표기 순서 차이 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.
 **foundation-baseline**: `check-foundation-if-baseline.sh` FAIL과 정합 — 마커 재작성은 **Critical**(기계 검사가 1차 teeth).

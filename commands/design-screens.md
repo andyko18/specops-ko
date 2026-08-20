@@ -72,6 +72,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 
 Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므로, Step 2의 공유 design system(또는 DESIGN.md)을 반영하여 그 내용을 채워 완성한다.
 
+- **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).
+
 사용자에게 artifact를 보여주고 수정 요청을 받는다:
 > "위 HTML 미리보기를 확인해 주세요. 수정이 필요하시면 말씀해 주세요. 진행할까요? [y/n]"
 
