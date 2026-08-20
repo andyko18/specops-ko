@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+### Added
+- **plan 모드 산출물을 `/init-project` PRD 근거로 편입 (FID 20260820-plan-mode-prd-source, #7)** — `/init-project` 는 PRD 6필드 초안 근거를 3경로(명시 경로 · 브레인스토밍 메모 · 기획 문서 auto-discovery)에서 찾는데, **plan 모드 산출물은 어디에도 닿지 않았다**. plan 은 대화 안에만 있고 파일로 남지 않기 때문이다. 사용자는 방금 plan 으로 정리한 내용을 처음부터 다시 입력해야 했다.
+  - **그런데 plan 은 사라지지 않는다** — `ExitPlanMode` 는 **도구 호출**이라 Claude Code transcript(`~/.claude/projects/<cwd-슬러그>/<uuid>.jsonl`)의 `tool_use.input.plan` 에 마크다운 전문이 그대로 남는다. 라인마다 `.timestamp` 도 있다. PreToolUse 훅을 새로 만들 필요가 없었다 — **사후 조회로 충분**했고, R-1/R-2 차단 경로가 걸린 `pretool-governance.sh` 를 건드리지 않았다.
+  - 신규 `scripts/_internal/extract-plan-from-transcript.sh` — cwd 슬러그로 프로젝트 transcript 를 찾아 **최신 plan 1건**을 추출한다. stdout=plan 전문(**바이트 동일**, `jq -j`) · stderr=`PLAN-SOURCE`+`PLAN-TITLE` · exit `0` 발견 / `1` 없음 / `2` `jq` 부재.
+  - `commands/init-project.md` Phase 0 근거 우선순위가 **3단 → 4단**: `0-a 명시 경로 → 0-b 브레인스토밍 메모 → **0-b2 plan** → 0-c 문서 auto-discovery → 수동`. 발견 시 **y/n 확인 필수**(0-c 와 동일한 무단 소비 금지), `rc≠0` 이면 조용히 0-c 로 하강해 `/init-project` 를 막지 않는다.
+  - **★ `grep 'ExitPlanMode'` 는 쓰면 안 된다** — 에이전트 도구 목록 문구(`All tools except Agent, Artifact, ExitPlanMode, ...`)에 걸린다. 본 저장소 실측: grep 은 여러 건 매칭하는데 **실호출은 0건**. `T1.b` 가 "grep 이 1건 이상 매칭한다"와 "추출은 exit 1 이다"를 **동시에** 요구해 grep 구현을 격추한다.
+  - **★ 전수 스캔 + `max_by(.ts)`** — mtime 순 첫 발견은 틀릴 수 있다(오래 전 시작해 최근까지 이어진 세션은 mtime 이 최신이나 그 안의 plan 은 더 오래됐을 수 있다). 전수 비용 실측 **40파일/117MB 1초**라 정확도를 택했다. `T1.e` 가 fixture 로 잠근다.
+  - **★ 시간 기준은 파일 mtime 이 아니라 plan 라인의 `.timestamp`** — mtime 은 세션 **마지막 활동** 시각이라 stale 판정이 무력해진다. jq 내부 산술(`fromdateiso8601`)이라 `date(1)` 의 BSD/GNU 차이도 타지 않는다. 기본 창 24시간, `SPECOPS_PLAN_MAX_AGE_HOURS` 로 조정.
+  - **★ 라인 단위 스트리밍 파싱 — 손상 JSONL 무음 소실 차단**. 초안은 `jq -rs`(슬럽)였는데, 파일 안 **한 줄만 부분 JSON 이어도 전량이 사라지고** `2>/dev/null` 이 오류까지 가려 `rc=1`("plan 없음")으로 위장됐다(재현: 유효 plan 1건 + 잘린 꼬리줄 1개 → rc=1 · stdout 0바이트 · stderr 0바이트). transcript 는 **라이브 append 파일**이라 크래시가 남긴 꼬리줄이 현실적이고, 하필 `/init-project` 가 노리는 plan 이 그 파일 안에 있다. **v1.78.0 `doctor.sh` 가 고친 "손상 JSONL 무음 낙관" 과 같은 클래스의 재발** — `jq -R` + `fromjson? // empty` 로 교체. 부수로 메모리가 파일 크기 비례에서 벗어났다: 194MB 파일 peak RSS **613MB → 2.85MB (215배)**.
+  - 테스트 `test-extract-plan-from-transcript.sh` **어서션 15건** — fixture transcript + 가짜 `HOME` 격리(실 `~/.claude` 미접근). 계약 전부 잠금: 바이트 동일·오탐 차단·창 양방향·최신 1건(파일 내/간)·graceful(부재·`jq` 부재·read-only)·빈 plan·env 오입력·손상 JSONL·`HOME` 미설정·배선 상시 잠금.
+  - **회귀 1건 동반 수정** — `test-init-project-enrich.sh` T2.b 가 `'(메모 부재|셋 다 부재)'` 로 **경로 개수를 문구째 하드코딩**해, 0-b2 추가로 "셋"→"넷"이 되자 깨졌다. 2→3 때(20260716)도 같은 이유로 고친 자리라 **개수 비의존**(`'(메모 부재|다 부재)'`)으로 바꿔 되풀이를 끊었다. 변이 실증: 문구 삭제→FAIL(격추 유지) · 넷→다섯→PASS(비의존 성공).
+  - **한계**: transcript 슬러그 규칙(`/`·`.` → `-`)과 `input.plan` 필드명은 **실측이지 공개 계약이 아니다**. Claude Code 가 바꾸면 추출 0건 → graceful skip(실패 방향 안전)이나 **조용히 죽으므로** 주기 점검 필요. plan 을 확정(`ExitPlanMode` 호출)하지 않고 빠져나온 경우는 복원 불가.
+
+### Fixed
+- **릴리즈 push 에 pre-push 재귀 가드 적용 — `run-all` 3회 → 1회 (FID 20260820-release-push-guard, #6)** — 릴리즈 1회가 143 스위트를 **3번** 돌렸다(pre-flight 1 + `git push` 2회가 각각 재발화시킨 pre-push). v1.78.1 실측 **약 22분**.
+  - `.githooks/pre-push` 에 재귀 가드가 **이미 있었다** — 그런데 `run-all.sh:10` 의 `export SPECOPS_RUN_ALL=1` 은 **서브프로세스 스코프**라 pre-flight 종료 후 `release.sh` 본체 환경에 남지 않는다. 릴리즈 경로에서만 가드가 무력했다.
+  - `git push` **호출부에만** 명령 prefix 로 가드를 켠다. **전역 export 금지** — `release.sh:65` 가 pre-flight 자체를 skip 해 게이트가 전면 상실된다.
+  - 가드가 켜지면 pre-push 의 `check-ci-status` 호출부에 도달하지 못하므로 그 신호는 `release.sh` 가 직접 복원한다. **서브셸 `cd` 가 필수** — `check-ci-status.sh` 는 origin 조회를 cwd 기준으로 하고 항상 exit 0 이라, 빠뜨리면 CI 경고가 **무음으로** 사라진다.
+  - 훅 본문 **무변경** — 가드를 `check-ci-status` 뒤로 옮기는 안은 배치 계약("면제 4종 뒤 — 앞에 두면 비-specops repo 에서 gh 를 부르는 월권")을 위반한다. `git push --no-verify` 안은 릴리즈 경로에서 게이트 배선을 영구 절단해 기각했다.
+  - `test-release.sh` **T20.a~d** 정적 검사 신설(push 는 원격 필요로 실행 검증 불가). **변이 6종 전부 격추 실증** — prefix 제거→T20.a · 전역 export→T20.b · CI 체크 제거→T20.c · 러너 분기→T20.d · trailing 주석 export→T20.b · 서브셸 cd 제거→T20.c.
+  - **★ `T20.b` 정규화 두 번의 교훈** — ① 초안 정규식이 `T20.a` 가 요구하는 prefix 줄을 매칭해 **GREEN 을 자기격추**했다(RED 단계에선 안 보이는 결함, plan-reviewer 가 격추). ② 줄 끝 앵커만으로는 `export SPECOPS_RUN_ALL=1  # 가드` 처럼 **주석 붙은** 전역 export 를 놓쳤다(code-reviewer 가 격추). `T11.a` 는 `RELEASE_PREFLIGHT_CMD=true` 탓에 이 회귀에 **발화하지 않으므로 T20.b 가 유일 teeth** 다 — 주석에도 명기했다.
+  - **회귀 1건 동반 수정** — `propagation-matrix.jsonl` 에 id 를 추가하면서 `test-propagation.sh` P1 의 **하드코딩 allowlist** 갱신을 놓쳐 `run-all` 이 FAIL 했다. `check-propagation.sh` 는 `PASS (164 edges)` 로 통과했기 때문에 **edge 등록만 봐서는 드러나지 않는다** — 두 검사가 서로 다른 것을 본다.
+  - **알려진 한계(범위 밖)**: clean 트리에서 `test-release.sh` 를 **단독** 실행하면 `T10.b` 가 실제 pre-flight → `run-all` 중첩을 일으켜 10분을 넘긴다. `run-all` 경유는 가드로 즉시 통과하므로 **CI·pre-push 무영향**이고, `T10.b` 의 기존 성질이라 본 FID 에서 손대지 않았다. 공교롭게 본 수정과 같은 클래스다.
+
 ## [1.78.1] — 2026-08-20
 
 ### Changed
