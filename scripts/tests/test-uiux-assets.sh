@@ -105,6 +105,84 @@ done
 grep -qE '^\| Success \| \(자산 미제공' "$_T" \
   && ok "U11b 템플릿 Success 사유 명시 (AC-11)" || nope "U11b" "#______ 또는 임의값"
 
+# ── U24: 패턴 라이브러리 확장 (FID 20260821-design-pattern-library) ──
+# §6.1 화면 원형 (AC-1)
+grep -q '^## 6\.1 ' "$_T" && ok "U24.a §6.1 화면 원형 섹션 존재 (AC-1)" \
+  || nope "U24.a" "## 6.1 섹션 없음"
+_arch_miss=""
+for a in 목록 상세 폼 대시보드; do
+  grep -q "^| ${a} |" "$_T" || _arch_miss="$_arch_miss $a"
+done
+[ -z "$_arch_miss" ] && ok "U24.b 4원형 행 존재 (AC-1)" || nope "U24.b" "누락:$_arch_miss"
+
+# §7 구간 한정 placeholder 0 (AC-2) — ★ 전역 스캔 금지: §8 의 [원칙 N]·[금지 패턴 N] 은 보존 대상(AC-R-1)
+#   한계: §7 산문에 '[인라인 편집]' 처럼 세 단어로 **시작하는** 대괄호를 쓰면 오탐한다.
+#   placeholder 재유입 차단이 목적이라 fail-safe 방향으로 남긴다 — 정당한 FAIL 로 오독 말 것.
+_s7=$(awk '/^## 7\. /{f=1;next} /^## /{f=0} f' "$_T")
+_s7ph=$(printf '%s\n' "$_s7" | grep -cE '\[(스켈레톤|일러스트|인라인)[^]]*\]' || true)
+_s7hit=$(printf '%s\n' "$_s7" | grep -E '\[(스켈레톤|일러스트|인라인)[^]]*\]' | head -1)
+[ "${_s7ph:-99}" -eq 0 ] && ok "U24.c §7 placeholder 0 (AC-2)" || nope "U24.c" "잔존 ${_s7ph}건 — 예: ${_s7hit}"
+printf '%s\n' "$_s7" | grep -q '값 채움은' \
+  && nope "U24.d" "'값 채움은 후속 FID' 유도 주석 잔존 (AC-2)" \
+  || ok "U24.d §7 유도 주석 삭제 (AC-2)"
+_row_miss=""
+for r in 로딩 "빈 상태" 에러; do
+  printf '%s\n' "$_s7" | grep -q "^| ${r} |" || _row_miss="$_row_miss [$r]"
+done
+[ -z "$_row_miss" ] && ok "U24.e §7 3행 보존 (AC-2)" || nope "U24.e" "누락:$_row_miss"
+printf '%s\n' "$_s7" | grep -E '^\| 빈 상태 \|' | grep -q '자산' \
+  && ok "U24.f 빈 상태 자산 부재 명시 (AC-3)" || nope "U24.f" "비고에 자산 근거 언급 없음"
+
+# 회귀 — _design_apply_concept 접두 리터럴 8종 (AC-R-1)
+_lit_miss=""
+while IFS= read -r lit; do
+  # ★ -e 필수: 리터럴 5종이 `-` 로 시작해 -e 없으면 grep 이 옵션으로 오파싱 → 영구 FAIL
+  grep -qF -e "$lit" "$_T" || _lit_miss="$_lit_miss [$lit]"
+done <<'LITS'
+- **권장 패턴**:
+- **스타일 우선순위**:
+- **핵심 효과**:
+1. **[원칙 1]**
+2. **[원칙 2]**
+3. **[원칙 3]**
+- [금지 패턴 1]
+- [금지 패턴 2]
+LITS
+[ -z "$_lit_miss" ] && ok "U24.g 자산 주입 앵커 8종 보존 (AC-R-1)" || nope "U24.g" "소실:$_lit_miss"
+
+# 회귀 — 기존 9섹션 제목 포함 검사 (AC-R-3) ★ 개수 검사 금지 — §6.1 추가로 10이 된다
+_sec_miss=""
+while IFS= read -r sec; do
+  grep -qF -e "$sec" "$_T" || _sec_miss="$_sec_miss [$sec]"
+done <<'SECS'
+## 1. Color System
+## 2. Typography
+## 3. Spacing & Layout
+## 4. Components
+## 5. Motion
+## 6. 레이아웃 패턴
+## 7. 상태 표현
+## 8. Design Principles
+## 9. AI Usage Guidelines
+SECS
+[ -z "$_sec_miss" ] && ok "U24.h 기존 섹션 제목 보존 (AC-R-3)" || nope "U24.h" "소실:$_sec_miss"
+
+# 배선 리터럴 3파일 (AC-4·AC-5·AC-10)
+for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design-screens.md; do
+  _wire_n=$(grep -cF '**DESIGN.md 준수**' "$PLUGIN/$f" 2>/dev/null || true)
+  _line=$(grep -F '**DESIGN.md 준수**' "$PLUGIN/$f" 2>/dev/null | head -1)
+  if [ "${_wire_n:-0}" -eq 1 ] \
+     && printf '%s' "$_line" | grep -q '§6 ' \
+     && printf '%s' "$_line" | grep -q '§6\.1' \
+     && printf '%s' "$_line" | grep -q '§7' \
+     && printf '%s' "$_line" | grep -q '§8' \
+     && printf '%s' "$_line" | grep -q '§9'; then
+    ok "U24.i.$(basename "$f") 배선 1줄 + §6~§9 (AC-10)"
+  else
+    nope "U24.i.$(basename "$f")" "매칭 ${_wire_n:-0}건 / 섹션 참조 불충족"
+  fi
+done
+
 # ── Task 3: Phase 6 통합 ──
 #   ★ phases-design.sh 는 **library-only** 다 — 직접 실행하면 함수만 정의하고 rc=0 으로 끝난다.
 #     source 후 phase_6_design 을 호출해야 한다. 함수명은 phase_6_design 이다.
