@@ -19,7 +19,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 ## Process
 
-0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 3단 우선순위:
+0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 4단 우선순위:
    - **0-a. 명시 경로** — args 에 파일 경로가 포함되면(`/init-project 쇼핑몰 docs/기획서.md`) 그 문서가 최우선 근거.
    - **0-b. 브레인스토밍 메모** — `ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1` 존재 시 사용.
    - **0-b2. plan 모드 산출물** (20260820 신설 — plan 은 파일로 안 남지만 transcript 에는 남는다):
@@ -41,7 +41,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      2. bash stdin numbered list 로 pipe
      - pipe 실패해도 `.init-prd-fields` 가 있으면 Phase 4는 **재입력하지 않는다**.
    - 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
-   - **셋 다 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
+   - **넷 다 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
 1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
