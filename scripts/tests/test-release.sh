@@ -378,7 +378,9 @@ bare_push=$(grep -cE '^[[:space:]]*git[[:space:]]+-C[[:space:]]+"\$PLUGIN_ROOT"[
 #         전역 설정 시 release.sh:65 가 pre-flight 자체를 skip 해 게이트가 전면 상실된다.
 #   ★ 반드시 줄 끝 앵커(`$`)로 **standalone 대입만** 잡을 것. 앵커가 없으면 T20.a 가 요구하는
 #     `SPECOPS_RUN_ALL=1 git ...` prefix 줄까지 매칭해 GREEN 을 자기격추한다 (실측: 앵커 없이 3, 있으면 1).
-global_set=$(grep -cE '^[[:space:]]*(export[[:space:]]+)?SPECOPS_RUN_ALL=[^[:space:]]*[[:space:]]*$' "$RELEASE")
+#     `(#.*)?` 는 trailing 주석 우회를 막는다 — `export SPECOPS_RUN_ALL=1  # 가드` 가
+#     앵커만으로는 빠져나갔다 (Phase C 실측). prefix 줄은 뒤가 `git` 이라 여전히 미매칭.
+global_set=$(grep -cE '^[[:space:]]*(export[[:space:]]+)?SPECOPS_RUN_ALL=[^[:space:]]*[[:space:]]*(#.*)?$' "$RELEASE")
 [ "$global_set" -eq 0 ] \
   && ok "T20.b SPECOPS_RUN_ALL standalone 대입 없음" \
   || fail "T20.b standalone 대입 ${global_set}건 — pre-flight skip 회귀 (release.sh:65)"
@@ -388,10 +390,12 @@ ci_ln=$(grep -nE 'check-ci-status\.sh' "$RELEASE" | tail -1 | cut -d: -f1)
 push_ln=$(grep -nE 'SPECOPS_RUN_ALL=1[[:space:]]+git[[:space:]]+-C' "$RELEASE" | head -1 | cut -d: -f1)
 # 비차단 계약: set -euo pipefail 하에서 CI 체크 실패가 릴리즈를 중단시키면 안 된다 (AC-3·AC-R-2)
 nonblock=$(grep -cE 'CI_CHECK.*\|\|[[:space:]]*true' "$RELEASE")
-if [ -n "$ci_ln" ] && [ -n "$push_ln" ] && [ "$ci_ln" -lt "$push_ln" ] && [ "$nonblock" -ge 1 ]; then
-  ok "T20.c check-ci-status 호출이 push 앞 + 비차단 (ci=$ci_ln push=$push_ln nonblock=$nonblock)"
+# 서브셸 cd 계약: check-ci-status.sh 는 origin 을 cwd 기준으로 본다 → cd 누락 시 CI 경고 무음 소실
+subcd=$(grep -cE '\(cd "\$PLUGIN_ROOT" && bash "\$CI_CHECK"\)' "$RELEASE")
+if [ -n "$ci_ln" ] && [ -n "$push_ln" ] && [ "$ci_ln" -lt "$push_ln" ] && [ "$nonblock" -ge 1 ] && [ "$subcd" -ge 1 ]; then
+  ok "T20.c check-ci-status 호출이 push 앞 + 비차단 + 서브셸 cd (ci=$ci_ln push=$push_ln nonblock=$nonblock subcd=$subcd)"
 else
-  fail "T20.c (ci=${ci_ln:-없음} push=${push_ln:-없음} nonblock=$nonblock — push 앞 비차단 호출 필요)"
+  fail "T20.c (ci=${ci_ln:-없음} push=${push_ln:-없음} nonblock=$nonblock subcd=$subcd — push 앞 비차단 호출 + 서브셸 cd 필요)"
 fi
 
 # T20.d: pre-flight 러너 == pre-push 러너 (AC-7)
