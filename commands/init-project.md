@@ -22,6 +22,13 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 3단 우선순위:
    - **0-a. 명시 경로** — args 에 파일 경로가 포함되면(`/init-project 쇼핑몰 docs/기획서.md`) 그 문서가 최우선 근거.
    - **0-b. 브레인스토밍 메모** — `ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1` 존재 시 사용.
+   - **0-b2. plan 모드 산출물** (20260820 신설 — plan 은 파일로 안 남지만 transcript 에는 남는다):
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/extract-plan-from-transcript.sh
+     ```
+     - **rc=0** — stdout 이 plan 전문, stderr 에 `PLAN-SOURCE:`(출처·경과시간)와 `PLAN-TITLE:`(제목)이 온다. **사용자 확인 필수**(주권 — 자동 소비 금지): "직전 plan(`<PLAN-TITLE>`, <N>시간 전)을 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시하고 0-c 로 내려간다.
+     - **rc≠0** — 조용히 0-c 로 하강한다(디렉토리 부재·plan 0건·빈 plan·창 초과=1, `jq` 부재=2). 어떤 경우에도 `/init-project` 를 막지 않는다.
+     - 기본 시간 창은 24시간 — `SPECOPS_PLAN_MAX_AGE_HOURS` 로 조정한다. 오래된 plan 을 근거로 끌어오는 stale 을 막는다.
    - **0-c. 기존 기획 문서 auto-discovery** (20260716 신설 — 온보딩 마찰 해소: 실무는 PRD 가 이미 파일로 존재하는 게 보통):
      ```bash
      ls PRD*.md prd*.md docs/PRD*.md docs/prd*.md 기획*.md 요구사항*.md REQUIREMENTS*.md requirements*.md docs/기획*.md docs/요구사항*.md docs/requirements*.md 2>/dev/null
