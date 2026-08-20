@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.79.0] — 2026-08-20
+
 ### Added
 - **plan 모드 산출물을 `/init-project` PRD 근거로 편입 (FID 20260820-plan-mode-prd-source, #7)** — `/init-project` 는 PRD 6필드 초안 근거를 3경로(명시 경로 · 브레인스토밍 메모 · 기획 문서 auto-discovery)에서 찾는데, **plan 모드 산출물은 어디에도 닿지 않았다**. plan 은 대화 안에만 있고 파일로 남지 않기 때문이다. 사용자는 방금 plan 으로 정리한 내용을 처음부터 다시 입력해야 했다.
   - **그런데 plan 은 사라지지 않는다** — `ExitPlanMode` 는 **도구 호출**이라 Claude Code transcript(`~/.claude/projects/<cwd-슬러그>/<uuid>.jsonl`)의 `tool_use.input.plan` 에 마크다운 전문이 그대로 남는다. 라인마다 `.timestamp` 도 있다. PreToolUse 훅을 새로 만들 필요가 없었다 — **사후 조회로 충분**했고, R-1/R-2 차단 경로가 걸린 `pretool-governance.sh` 를 건드리지 않았다.
@@ -1224,7 +1226,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.78.1...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.79.0...HEAD
+[1.79.0]: https://github.com/andyko18/specops-ko/compare/v1.78.1...v1.79.0
 [1.78.1]: https://github.com/andyko18/specops-ko/compare/v1.78.0...v1.78.1
 [1.78.0]: https://github.com/andyko18/specops-ko/compare/v1.77.0...v1.78.0
 [1.77.0]: https://github.com/andyko18/specops-ko/compare/v1.76.0...v1.77.0

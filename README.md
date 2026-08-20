@@ -1,6 +1,6 @@
 # specops-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.78.1)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v1.79.0)
 
 슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement → verify → review → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
 한글로는 **명세 → 명확화 → 계획 → 분해 → TDD 구현 → 검증 → 리뷰 → 보안 → 통합 테스트 → 성능 테스트 → PR** 이다.
@@ -219,4 +219,4 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.78.1 (2026-08-20)** · Claude Code 전용*
+*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v1.79.0 (2026-08-20)** · Claude Code 전용*
