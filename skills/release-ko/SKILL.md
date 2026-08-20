@@ -3,7 +3,7 @@ name: release-ko
 description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer·manifest 동기화, git 태그, 원격 push·GitHub Release 발행까지 완료되는 릴리즈 자동화
 layer: 2
 reference_upstream: specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
-specops_version: 1.10.0
+specops_version: 1.78.2
 used_by: /release
 ---
 
@@ -22,6 +22,7 @@ used_by: /release
 7. **post-flight** — `validate-structure.sh` 재실행 (FAIL 시 trap 롤백)
 8. **git** — `chore: release vX.Y.Z` 커밋 + annotated tag
 9. **원격 발행 (자동)** — origin 존재 시 `git push` + 태그 push, gh CLI 설치 시 `gh release create` 까지 **자동 수행**
+   - **재귀 가드**: push 는 `SPECOPS_RUN_ALL=1` prefix 로 실행돼 `pre-push` 훅의 `run-all.sh` 재실행을 막는다 (pre-flight 가 동일 스위트를 이미 통과 — 릴리즈당 3회 → 1회). 가드로 도달 불가해지는 origin CI-red 경고는 `release.sh` 가 push 직전 `check-ci-status.sh` 를 직접 호출해 보존한다.
 
 ## 사용법
 
