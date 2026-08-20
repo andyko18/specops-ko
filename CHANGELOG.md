@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### Added
+- **DESIGN.md 패턴 라이브러리 확장 + 소비 배선 (FID 20260821-design-pattern-library, #9)** — `DESIGN.md` 를 색상 토큰표에서 패턴 라이브러리로 확장하고, 화면 생성 경로가 그 섹션을 **실제로 읽도록** 배선한다.
+  - **문제는 "패턴 부족" 이 아니라 "채워 놓고 아무도 안 읽는다" 였다** — `phases-design.sh:_design_apply_concept` 가 `ui-reasoning.csv` 에서 §6 레이아웃 패턴·§8 원칙/안티패턴을 **이미 채우는데**, 화면 생성 경로 어디에도 읽으라는 지시가 없었다. `commands/design-screen.md:59` 는 `DESIGN.md §4 준수`(색상·컴포넌트)만 말한다. §9 헤더는 "이 섹션을 AI 에이전트가 직접 읽어 일관된 UI를 생성한다" 고 선언하면서 **정작 그 에이전트에게 말하는 곳이 없었다**. #8 이 고친 "렌더를 아무도 안 본다" 와 같은 클래스라 — **배선이 채움의 전제**다.
+  - `templates/DESIGN.md` **`## 6.1 화면 원형` 신설** — 목록·상세·폼·대시보드 × 필수 요소 × 흔한 누락. 모델이 즉흥하던 구간에 기준을 준다. `###` 이 아니라 `##` 인 이유는 DESIGN.md 가 `## N` 평면 번호 체계이고 `U9` 계열이 `^## ` 를 grep 하기 때문.
+  - **§7 상태 표현 placeholder → 실값** (v1.7x 부터 `[스켈레톤/스피너/프로그레스]` 로 남아 있던 "후속 FID 이관" 항목). 로딩=300ms 초과 예상 시 스켈레톤(이하 미표시, 국소 동작은 인라인 스피너) · 빈 상태=문구+CTA 필수("데이터 없음" 단독 금지) · 에러=입력 단위 인라인 + 폼 상단 요약 배너 병행. 근거는 `app-interface.csv` 의 `[Feedback] Loading Indicators`·`Error Feedback`. **§7 은 #8 이 만든 `check-screen-quality.sh` 의 `states` 검사와 직접 대응한다** — 검사기가 "정의됐나" 를 묻고 §7 이 "무엇이어야 하나" 에 답한다.
+  - **소비 배선 3곳 + 평가 배선 1곳** — `specifying-ko` Step 5.5 · `/design-screen` · `/design-screens` 에 §6~§9 준수 **동일 리터럴 1줄**(215 bytes). 화면 N개면 N배로 곱해지므로 본문 인용 없이 경로·섹션 번호만. `design-reviewer-ko` 에 `DESIGN 준수` 관점 1행 추가 — Critical 칸은 #8 의 품질 관점 4행과 동일하게 비운다(주관 판정으로 `/start-all-auto` 를 세우지 않는다).
+  - **★ 무음 사망 지점 2곳을 어서션으로 잠갔다** — ① `_design_apply_concept` 의 접두 리터럴 8종(`- **권장 패턴**:`·`1. **[원칙 1]**`·`- [금지 패턴 1]` …). **§8 의 `[원칙 N]`·`[금지 패턴 N]` 은 placeholder 처럼 보이지만 보존 대상**이라, §7 스캔은 `awk` 로 구간을 한정했다 — 전역 placeholder 스캔이었다면 AC-R-1 과 자기모순으로 **영구 FAIL** 이다. ② `lib.sh:128` 이 grep 하는 색상 표 라벨 9종(기존 `U11`) — 하나라도 바뀌면 `screens/*.html` 색 주입이 `continue` 로 조용히 사라진다. 섹션 제목은 **포함 검사**다(개수 검사면 §6.1 추가로 영구 FAIL).
+  - **★ `grep -qF "$lit"` 가 하이픈 접두 리터럴 5종을 옵션으로 오파싱** — `U24.g` 가 RED·GREEN 양쪽에서 **영구 FAIL** 이 되는 결함을 plan-reviewer 가 **실제로 실행해서** 잡았다. plan 자체검토의 "어서션 실행 가능성" 항목을 지금까지 정규식 스코프 관점으로만 봤는데 **grep 인자 파싱도 같은 클래스**다 → `grep -qF -e`.
+  - **회귀 방지 — `T1.j`/`T1.k` count-agnostic 화**. 하드코딩 4개 목록을 `QP` 배열 단일 소스로 뽑았다. 5번째 관점을 추가하면 통과는 하는데 라벨이 "품질 관점 4개" 로 남는 회귀인데, **v1.79.0 에서 `test-init-project-enrich.sh` T2.b 를 같은 이유로 고친 자리**라 되풀이를 끊었다.
+  - **어서션 이빨 실증** — `code-reviewer-ko` 가 변이 **14종** 을 넣어 표적 어서션이 정확히 1건씩 검출함을 확인(부수 오발 0). 정상 편집 오탐 2종·rc 경계 3종도 검사. bash 3.2.57 + BSD 유틸 실환경.
+  - **프로세스 편차(투명성)**: plan 의 "태스크별 receipt + 커밋" 전제가 **RED 태스크에 원리적으로 불가**함이 실측됐다 — `record-task-receipt.sh` 는 `test_command` 가 exit 0 일 때만 기록하는데 RED 는 정의상 rc=1 이다(부수로 `test_command` 의 `;`·`&&` 체인이 whitelist 에도 걸렸다). `SPECOPS_GOVERNANCE_BYPASS` 로 RED 커밋을 억지로 여는 대신 **커밋을 GREEN 완료 + `run-all.sh` 통과 후 1회로 이관**했다.
+  - **한계**: 배선은 **산문 지시**다 — 모델이 실제로 §6~§9 를 읽는다는 보장은 없고, 어서션은 "지시가 존재하는가" 만 잠근다. 사후 teeth 는 #8 의 `check-screen-quality.sh` 와 본 변경의 `DESIGN 준수` 관점이 담당하며 이 조합도 완전 강제가 아니다. **§7 빈 상태 기본값은 자산 근거가 없다**(`app-interface.csv` 30행에 empty state 항목 부재 — §7 비고란에 경고 명시). `U24.c` 는 §7 산문에 `[인라인 편집]` 처럼 세 단어로 시작하는 대괄호를 쓰면 오탐한다(placeholder 재유입 차단 목적상 fail-safe 방향, 주석으로 문서화). `templates/DESIGN.md` 가 137→146줄(+28%)이라 화면 생성마다 토큰이 곱해진다 — HTML 스니펫 병기를 기각한 것이 이 비용을 40~80줄 더 늘리지 않은 이유다.
+
+- **화면 품질 게이트 — 정적 계측기 신설 + design-reviewer 품질 관점 4개 (FID 20260820-design-quality-gate, #8)** — `design-reviewer-ko` 의 8관점이 **전부 구조·정합**이라 "구조는 맞물리는데 쓸 수 없는 화면" 이 게이트를 그대로 통과했다. 껍데기 판정(`design-screen.sh --check`)도 마커 grep + 섹션 **제목** 존재만 봐서, 8섹션 제목만 채우면 내용이 부실해도 지나갔다. **모든 게이트가 존재 여부를 볼 뿐 품질을 보지 않았다.**
+  - 신규 `scripts/_internal/check-screen-quality.sh` — 화면 쌍(`.md`+`.html`)을 5종으로 계측한다: `states`(empty·loading·error 정의) · `a11y-label`(label 없는 input) · `semantic`(랜드마크) · `token`(색 리터럴 하드코딩) · `microcopy`(무정보 에러 문구).
+  - **★ 계측 전용 — 항상 exit 0**. 판정은 리뷰어가 한다. 휴리스틱이라 오탐이 불가피한데 exit code 로 차단하면 **오탐 1건이 배치를 세운다**(`check-ci-status.sh` 동형 계약). 측정과 판단을 분리한 것이 이 설계의 핵심이다.
+  - `agents/design-reviewer-ko.md` 에 품질 관점 4행(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질) 추가. **Critical 칸은 전부 비운다** — 주관 판정으로 `/start-all-auto` 무인 실행을 정지시키지 않는다.
+  - **설계 결정 3건 전부 실측 근거**: ① `token` 은 `--이름:` **정의부를 제외**한다 — `screens/login.html` 전수 hex **12건 중 10건이 정의부**라 안 빼면 정상 코드 10건이 위반으로 잡힌다. `rgba()` 등가색도 세지 않는다(카드 그림자·포커스 링은 정당한 사용). ② `states` 는 **영문+한글 둘 다** 인정한다 — 한국어 플러그인인데 영문만 보면 항상 FAIL 이다. ③ 정규식은 `--[A-Za-z0-9-]+:` — `--[a-z-]+:` 였다면 `--gray-100`·`--Color-Primary` 를 놓쳐 정의부 카운트가 0이 되고 **정상 코드가 전부 오탐**한다.
+  - 테스트 `test-check-screen-quality.sh` 어서션 12건. **T1.b~f 가 각 검사의 양성·음성을 동시에 요구**한다(`bad`≠`good`) — 한쪽만 보면 구조적 항상통과 어서션이 된다. `T1.g`·`T1.l` 이 "계측 전용" 계약(exit 0 · 무출력 금지)을 잠근다 — 인자 부족·대상 0개에서 침묵하면 **리뷰어가 "위반 없음" 으로 읽는다**(외부 critic 지적).
+  - **한계**: 휴리스틱 정적 검사라 렌더 결과는 여전히 보지 않는다. `microcopy` 는 `templates/screen.md` 의 에러 섹션이 **표 형식**인데 스펙이 목록 행 매칭을 정의해 total-miss 가 남아 있다(별도 FID 대기).
+
 ## [1.79.0] — 2026-08-20
 
 ### Added
