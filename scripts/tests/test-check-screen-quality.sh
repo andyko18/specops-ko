@@ -146,4 +146,35 @@ else
   nope "T1.l" "인자부족 rc=$r1 out='$(printf '%s' "$o1" | head -1)' / --all rc=$r2 out='$(printf '%s' "$o2" | head -1)'"
 fi
 
+# ── T1.m: token 정의부 정규식이 scale·대문자 var 명을 인정한다 (Phase C I-1) ──
+# `[a-z-]` 로 좁히면 --gray-100·--Color-Primary 를 정의부로 못 잡아 정상 코드가
+# 전부 하드코딩으로 오탐된다. 리뷰어 기준이 "3건 이상=Important" 라 곧바로 오판정.
+cat > "$TD/scale.html" <<'H'
+<style>:root { --gray-100: #F3F4F6; --Color-Primary: #7C3AED; --c1: #ABCDEF; }
+.x { color: #F3F4F6; }</style>
+H
+cp "$TD/good.md" "$TD/scale.md"
+tk=$(_val "$(bash "$SCRIPT" "$TD/scale.md" "$TD/scale.html" 2>/dev/null)" token)
+[ "$tk" = "1" ] && ok "T1.m token 정의부 — scale·대문자 var 명 인정 (token=$tk)" \
+  || nope "T1.m" "token=$tk (기대 1 — 정의부 3건 제외 후 하드코딩 1건). [a-z-] 로 좁히면 4 가 나온다"
+
+# ── T1.n: states 상세가 누락 '항목명' 을 낸다 (Phase C I-2) ──
+# 리뷰어 표는 심각도를 종류로 가른다(empty·error=Important / loading만=Minor).
+# 비율만 내면 그 판정을 계측 결과에서 도출할 수 없다.
+det=$(bash "$SCRIPT" "$TD/bad.md" "$TD/bad.html" 2>/dev/null | grep '\[states\]')
+if printf '%s' "$det" | grep -q 'empty'; then
+  ok "T1.n states 상세에 누락 항목명 표기 ($(printf '%s' "$det" | sed 's/^ *//'))"
+else
+  nope "T1.n" "det='$det' (누락 항목명이 없으면 리뷰어가 심각도를 도출할 수 없다)"
+fi
+
+# ── T1.o: hidden input 은 label 대상에서 제외 (Phase C M-1) ──
+cat > "$TD/hid.html" <<'H'
+<main><label for="a">이메일</label><input id="a"><input type="hidden" name="csrf"></main>
+H
+cp "$TD/good.md" "$TD/hid.md"
+al=$(_val "$(bash "$SCRIPT" "$TD/hid.md" "$TD/hid.html" 2>/dev/null)" a11y-label)
+[ "$al" = "1/1" ] && ok "T1.o hidden input 제외 (a11y-label=$al)" \
+  || nope "T1.o" "a11y-label=$al (기대 1/1 — hidden 은 label 대상 아님)"
+
 finish
