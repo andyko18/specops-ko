@@ -250,9 +250,20 @@ if ! git -C "$PLUGIN_ROOT" remote get-url origin > /dev/null 2>&1; then
   exit 0
 fi
 
+# origin main CI 가 red 면 경고한다 (경고 전용 — 차단 없음).
+# 아래 push 는 SPECOPS_RUN_ALL=1 로 pre-push 재귀 가드를 켜므로, 훅 안의 check-ci-status
+# 호출부(.githooks/pre-push:31-33)에 도달하지 않는다 — 그 신호를 여기서 직접 복원한다.
+# cwd 의존: check-ci-status.sh 는 `git remote get-url origin` 을 cwd 기준으로 본다 → 서브셸 cd 필수.
+CI_CHECK="$PLUGIN_ROOT/scripts/_internal/check-ci-status.sh"
+[ -f "$CI_CHECK" ] && (cd "$PLUGIN_ROOT" && bash "$CI_CHECK") || true
+
 echo "-> 원격 push..."
-git -C "$PLUGIN_ROOT" push
-git -C "$PLUGIN_ROOT" push origin "v${VERSION}"
+# pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다. SPECOPS_RUN_ALL=1 은 pre-push
+# 재귀 가드(.githooks/pre-push:20)를 켜 같은 143 스위트의 중복 실행을 막는다.
+# ★ 반드시 명령 prefix 로 둘 것 — 스크립트 전역으로 export 하면 release.sh:65 가
+#   pre-flight 자체를 skip 해 게이트가 전면 상실된다 (T11.a·T20.b 가 잠금).
+SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push
+SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push origin "v${VERSION}"
 
 # gh CLI 미설치 시 release 만 graceful skip (push 는 이미 성공)
 if ! command -v gh > /dev/null 2>&1; then
