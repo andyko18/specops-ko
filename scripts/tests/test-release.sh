@@ -363,6 +363,49 @@ out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.
   && ok "T19.d 태그 부재 → fail-open 무경고" || fail "T19.d (rc=$rc out='$out')"
 rm -rf "$TD"
 
+# T20: 릴리즈 push 재귀 가드 (20260820-release-push-guard)
+# git push 는 원격이 필요해 실행 검증 불가(release.sh:248 origin 부재 skip) → 정적 검사로 계약을 잠근다.
+PREPUSH="$PLUGIN/.githooks/pre-push"
+
+# T20.a: push 2줄 모두 SPECOPS_RUN_ALL=1 prefix (AC-1)
+push_lines=$(grep -cE '^[[:space:]]*SPECOPS_RUN_ALL=1[[:space:]]+git[[:space:]]+-C[[:space:]]+"\$PLUGIN_ROOT"[[:space:]]+push' "$RELEASE")
+bare_push=$(grep -cE '^[[:space:]]*git[[:space:]]+-C[[:space:]]+"\$PLUGIN_ROOT"[[:space:]]+push' "$RELEASE")
+[ "$push_lines" -eq 2 ] && [ "$bare_push" -eq 0 ] \
+  && ok "T20.a push 2줄 SPECOPS_RUN_ALL=1 prefix (guarded=$push_lines bare=$bare_push)" \
+  || fail "T20.a (guarded=$push_lines bare=$bare_push — 둘 다 prefix 필요)"
+
+# T20.b: 전역 대입 금지 — standalone 대입/export 는 0건이어야 한다 (AC-2)
+#         전역 설정 시 release.sh:65 가 pre-flight 자체를 skip 해 게이트가 전면 상실된다.
+#   ★ 반드시 줄 끝 앵커(`$`)로 **standalone 대입만** 잡을 것. 앵커가 없으면 T20.a 가 요구하는
+#     `SPECOPS_RUN_ALL=1 git ...` prefix 줄까지 매칭해 GREEN 을 자기격추한다 (실측: 앵커 없이 3, 있으면 1).
+#     `(#.*)?` 는 trailing 주석 우회를 막는다 — `export SPECOPS_RUN_ALL=1  # 가드` 가
+#     앵커만으로는 빠져나갔다 (Phase C 실측). prefix 줄은 뒤가 `git` 이라 여전히 미매칭.
+global_set=$(grep -cE '^[[:space:]]*(export[[:space:]]+)?SPECOPS_RUN_ALL=[^[:space:]]*[[:space:]]*(#.*)?$' "$RELEASE")
+[ "$global_set" -eq 0 ] \
+  && ok "T20.b SPECOPS_RUN_ALL standalone 대입 없음" \
+  || fail "T20.b standalone 대입 ${global_set}건 — pre-flight skip 회귀 (release.sh:65)"
+
+# T20.c: CI-red 경고 보존 — push 줄보다 앞에 check-ci-status.sh 호출 (AC-3)
+ci_ln=$(grep -nE 'check-ci-status\.sh' "$RELEASE" | tail -1 | cut -d: -f1)
+push_ln=$(grep -nE 'SPECOPS_RUN_ALL=1[[:space:]]+git[[:space:]]+-C' "$RELEASE" | head -1 | cut -d: -f1)
+# 비차단 계약: set -euo pipefail 하에서 CI 체크 실패가 릴리즈를 중단시키면 안 된다 (AC-3·AC-R-2)
+nonblock=$(grep -cE 'CI_CHECK.*\|\|[[:space:]]*true' "$RELEASE")
+# 서브셸 cd 계약: check-ci-status.sh 는 origin 을 cwd 기준으로 본다 → cd 누락 시 CI 경고 무음 소실
+subcd=$(grep -cE '\(cd "\$PLUGIN_ROOT" && bash "\$CI_CHECK"\)' "$RELEASE")
+if [ -n "$ci_ln" ] && [ -n "$push_ln" ] && [ "$ci_ln" -lt "$push_ln" ] && [ "$nonblock" -ge 1 ] && [ "$subcd" -ge 1 ]; then
+  ok "T20.c check-ci-status 호출이 push 앞 + 비차단 + 서브셸 cd (ci=$ci_ln push=$push_ln nonblock=$nonblock subcd=$subcd)"
+else
+  fail "T20.c (ci=${ci_ln:-없음} push=${push_ln:-없음} nonblock=$nonblock subcd=$subcd — push 앞 비차단 호출 + 서브셸 cd 필요)"
+fi
+
+# T20.d: pre-flight 러너 == pre-push 러너 (AC-7)
+#         두 경로가 갈라지면 "pre-flight 가 이미 검증했다"는 가드 전제가 깨진다.
+rel_runner=$(grep -oE '_run_check "[^"]*run-all[^"]*"' "$RELEASE" | head -1 | sed 's/.*"\(.*\)"/\1/')
+hook_runner=$(grep -oE 'RUN_ALL="[^"]*"' "$PREPUSH" | head -1 | sed 's/.*"\(.*\)"/\1/')
+[ -n "$rel_runner" ] && [ "$rel_runner" = "$hook_runner" ] \
+  && ok "T20.d pre-flight/pre-push 동일 러너 ($rel_runner)" \
+  || fail "T20.d 러너 불일치 (release='$rel_runner' pre-push='$hook_runner')"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
