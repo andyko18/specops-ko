@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.80.0] — 2026-08-21
+
 ### Added
 - **DESIGN.md 패턴 라이브러리 확장 + 소비 배선 (FID 20260821-design-pattern-library, #9)** — `DESIGN.md` 를 색상 토큰표에서 패턴 라이브러리로 확장하고, 화면 생성 경로가 그 섹션을 **실제로 읽도록** 배선한다.
   - **문제는 "패턴 부족" 이 아니라 "채워 놓고 아무도 안 읽는다" 였다** — `phases-design.sh:_design_apply_concept` 가 `ui-reasoning.csv` 에서 §6 레이아웃 패턴·§8 원칙/안티패턴을 **이미 채우는데**, 화면 생성 경로 어디에도 읽으라는 지시가 없었다. `commands/design-screen.md:59` 는 `DESIGN.md §4 준수`(색상·컴포넌트)만 말한다. §9 헤더는 "이 섹션을 AI 에이전트가 직접 읽어 일관된 UI를 생성한다" 고 선언하면서 **정작 그 에이전트에게 말하는 곳이 없었다**. #8 이 고친 "렌더를 아무도 안 본다" 와 같은 클래스라 — **배선이 채움의 전제**다.
@@ -1247,7 +1249,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.79.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.80.0...HEAD
+[1.80.0]: https://github.com/andyko18/specops-ko/compare/v1.79.0...v1.80.0
 [1.79.0]: https://github.com/andyko18/specops-ko/compare/v1.78.1...v1.79.0
 [1.78.1]: https://github.com/andyko18/specops-ko/compare/v1.78.0...v1.78.1
 [1.78.0]: https://github.com/andyko18/specops-ko/compare/v1.77.0...v1.78.0
