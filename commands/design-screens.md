@@ -4,7 +4,7 @@ description: 기능 설명으로 복수 화면을 일괄 디자인 — 목록 �
 triggers:
   - "/design-screens"
 mode: ask
-specops_version: 1.0.0
+specops_version: 1.80.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
