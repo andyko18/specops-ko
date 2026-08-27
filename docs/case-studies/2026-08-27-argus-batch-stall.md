@@ -133,6 +133,57 @@ BATCH-GATE: BLOCK — per-FR 산출물·진행기록·라벨 결함 (위 목록 
 
 ---
 
+## 5-1. 사후 검증 — 건너뛴 리뷰가 무엇을 숨기고 있었나 (2026-08-27 실측)
+
+문제 C 의 6 FID 에 Phase B(스펙 준수) 리뷰를 **사후 수행**했다. `review-base.sha` 부재로 diff 격리가 불가능해 "현재 구현이 AC 를 충족하는가" 기준으로 판정했다(각 리포트에 한계 명시).
+
+| FID | 판정 | 핵심 |
+|---|---|---|
+| home-page | PASS 10/10 | footer 일부 하드코딩(스펙 위반은 아님) |
+| recommendations-page | PASS 6/6 | 테스트가 렌더 확인 수준 |
+| stock-detail-page | PASS 11/11 | `evidence.md` 의 "AC 11/11" 이 **전용 테스트 기준으로는 과대 표기** · 데드 UI 1건 |
+| watchlist-page | PASS 4/4 | **AC 파일 부재** → 사후 구성 기준에 대한 PASS · 유니버스 제외 표기 누락 |
+| redis-caching | PASS 10/10 | 문서 stale 2건(키 prefix v1→v2 · `STOCKS_CACHE_KEY` drift) |
+| **backtest-page** | **FAIL** | **결함 5건** |
+
+### backtest-page FAIL 5건
+
+| # | 결함 | 성격 |
+|---|---|---|
+| FAIL-2 | 비-404 에러(503 등)를 **"아직 산출되지 않았습니다"(미산출)로 표시** | **사실 왜곡** — 사용자는 배치가 안 돌았다고 오해하고 기다린다 |
+| FAIL-1 | 산출근거 params 패널 기본 **접힘** | 스펙 명문 "기본 펴짐 — 근거는 숨기지 않는다" 위반 |
+| FAIL-3 | `aria-sort` 부재 + 거래수 열 정렬 버튼 누락 | 접근성·스펙 필수 항목 |
+| FAIL-5 | 성공 응답 + 빈 items 시 표 영역 **무표시** | 빈 상태 부재 |
+| FAIL-4 | 재시도 버튼 부재 | 복구 경로 4곳 요구 |
+
+### 이 결과가 말하는 것
+
+- 6건 중 **1건이 FAIL** 이었고 그 안에 **사실 왜곡** 결함이 있었다. 리뷰를 건너뛰지 않았다면 8/26 에 잡혔다.
+- 이 화면들의 `review-skip.md` 에는 **"end-loaded · B PASS · C READY_TO_MERGE"** 라고 적혀 있었다. **기록은 통과였고 실제로는 검사한 적이 없다.**
+- `redis-caching` 의 종전 B 리포트는 한 줄(`end-loaded B/C PASS (inherit fallback)`)로 **판정 근거가 없었다**. 파일은 있으니 존재 검사는 통과한다 — `check-review-audit.sh` 가 경로 대조만 하고 내용을 못 보는 한계(architecture.md §6-2)의 실물이다.
+
+### 추가 발견 — 계약 파일 자체가 없다
+
+`acceptance-criteria.md` 부재 FID **3건**: `backtest-page` · `watchlist-page` · `sync-financials-schedule`.
+
+계약이 없으면 Phase B 의 비교 기준이 없다. 리뷰어는 `screens/*.md`·`requirements.md`·`data-model.md` 에서 AC 를 **사후 구성**해 판정했고, 그 사실을 리포트에 명시했다.
+
+**연쇄 붕괴 경로**:
+
+```
+clarify·plan·decompose 건너뜀
+  → tasks.md 없음
+  → emit-context.sh 가 돌 기회 자체가 없음
+  → must-AC 커버리지 게이트 무발동
+  → AC 파일 부재가 아무 데서도 안 걸림
+  → Phase B/C 도 건너뜀 (review-skip 은 통과로 기록)
+  → batch-state 라벨 드리프트로 재검도 무발화
+```
+
+게이트가 **여러 겹인데 전부 상류 산출물의 존재를 전제**한다. 상류를 건너뛰면 하류 게이트는 검사 대상이 0건이 되어 조용히 통과한다. **teeth 의 개수가 아니라 발동 조건이 문제다.**
+
+---
+
 ## 6. 부수 관찰 (우선순위 낮음)
 
 | 항목 | 실측 | 해석 |
@@ -172,9 +223,16 @@ scripts/_internal/queue-set-status.sh <queue> <FR-ID> IMPL_DONE
 
 `/status` 가 batch queue 를 읽어 `IMPL_DONE 31/31 — Phase 3 완료 미실행` 을 보고하거나, SessionStart reconcile 이 batch 미완을 감지해 재개점을 제시해야 한다. **문제 A 를 구조적으로 막는 유일한 방법.**
 
-### 7-5. review-skip 무효 3건 실사
+### 7-5. AC 파일 부재를 상류에서 잡기
 
-리뷰 근거가 없는 FID 3건. 프론트 화면 위주라 실사 비용이 낮다.
+`specifying-ko` 는 `spec.md` + `acceptance-criteria.md` 를 **쌍으로** 산출해야 하는데, 3건에서 AC 가 빠졌고 아무 게이트도 발동하지 않았다. must-AC 커버리지 게이트(`emit-context.sh`)는 `tasks.md` 존재를 전제하므로 decompose 를 건너뛰면 함께 사라진다.
+
+→ **AC 파일 존재 자체를 decompose 와 무관한 지점에서 확인**해야 한다(verify 또는 batch-state).
+
+### 7-6. review-skip 무효 3건 실사 — ✅ 2026-08-27 완료
+
+§5-1 참조. Phase B 사후 수행 결과 1건 FAIL(결함 5건).
+
 
 ---
 
