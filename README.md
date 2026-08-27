@@ -9,6 +9,8 @@
 - **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다.
 - **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다.
 
+> **도입을 검토 중이라면** → [docs/architecture.md](docs/architecture.md) — 무엇을 보장하고, **어떤 장치로** 보장하며, 무엇을 보장하지 **않는지**를 실측 수치와 함께 정리했다.
+
 ---
 
 ## 설치
@@ -186,7 +188,7 @@ specops-ko/
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md
 ```
 
-내부 규약 상세(chain SoT · 분기 마커 · frontmatter 필수 필드 · design-first 대칭)는 [CLAUDE.md](CLAUDE.md) 참조.
+내부 규약 상세(chain SoT · 분기 마커 · frontmatter 필수 필드 · design-first 대칭)는 [CLAUDE.md](CLAUDE.md), 설계 근거·한계·규모 실측은 [docs/architecture.md](docs/architecture.md) 참조.
 
 ---
 
@@ -203,6 +205,7 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 ```
 
 **검증 현황** — lifecycle dogfood 5회 완주 · 전체 suite PASS · 거버넌스 p95 69ms (AC-8 < 200ms).
+테스트 24,114줄 / 운영 스크립트 9,330줄 = **2.6 : 1** · mutation score 60% (기준 55%) · 구조 검사기 22종.
 
 ---
 
