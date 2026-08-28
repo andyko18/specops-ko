@@ -122,4 +122,26 @@ for g in security integration performance; do
 done
 [ "$_t8" -eq 0 ] && ok "T8 start-all Step A/B/C 배선(게이트 3종)" || nope "T8" "게이트별 배선 누락"
 
+# ── T9: Status 라벨 장식 흡수 (FID 20260828-queue-label-drift) ──
+#   계기: argus batch-20260729 — 모델이 `**IMPL_DONE**` 로 손편집하자 이 스크립트의
+#   `|IMPL_DONE|` 리터럴 매칭이 전건 불일치 → "IMPL_DONE FID 0건" exit 1.
+#   Step A/B/C 를 정상 수행해도 verdict 전파가 실패해 batch PR 이 막힌다.
+TN=$(mktemp -d); trap 'rm -rf "$TN"' EXIT
+_mk_batch "$TN"
+# Status 를 굵게 표기로 오염시킨다 (모델 손편집 재현)
+sed -i.bak 's/| IMPL_DONE |/| **IMPL_DONE** |/' "$TN/.specops/batch-20260806-0900/queue.md"
+out=$(cd "$TN" && bash "$REC" ".specops/batch-20260806-0900" security PASS 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'IMPL_DONE FID 0건'; then
+  ok "T9 **IMPL_DONE** 손편집에도 전 FID 전파 (정규화)"
+else
+  nope "T9 라벨 장식 미흡수" "rc=$rc out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+# 전파가 실제로 됐는지 — 두 FID evidence 모두에 기록돼야 한다 (0건 무음 통과 구분)
+_t9b=0
+for fid in 20260806-fr-one 20260806-fr-two; do
+  grep -q 'security' "$TN/.specops/$fid/evidence.md" 2>/dev/null || _t9b=1
+done
+[ "$_t9b" -eq 0 ] && ok "T9.b 전파 실측 — 2 FID evidence 모두 기록" \
+  || nope "T9.b 전파 누락" "대상 0건 무음 통과 의심"
+
 finish

@@ -14,6 +14,9 @@ set -u
 #   정당한 부분 batch 를 차단하는 false-block 이 된다(dogfood 20260721 test1 이 정확히 이 형태였다).
 #   게이트가 보는 것은 **뭉개짐 신호**뿐이다: 산출물 부재 · 진행기록 부재 · 라벨 오염.
 #   운영 신호는 gate 모드에서도 참고 출력하되 exit code 에 반영하지 않는다.
+# Status 라벨 정규화 단일 출처 (20260828-queue-label-drift) — 모델 손편집의 표기 장식 흡수
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/queue-lib.sh"
+
 GATE=0
 if [ "${1:-}" = "--gate" ]; then GATE=1; shift; fi
 
@@ -45,13 +48,16 @@ fail_gate=0   # 뭉개짐 신호만 (--gate exit code) — 운영 신호는 불�
 #    산출물·진행기록 검사는 IMPL_DONE 행만 수집하므로(아래 4·5), `DONE` 처럼 비슷하지만 다른 라벨을
 #    쓰면 **검사 대상 0건 → 조용히 통과**한다. dogfood 20260721 test1 이 정확히 그랬다(FR-4~8 전부 `DONE`).
 #    기본 모드에서는 검사하지 않는다 — 기존 호출자의 판정을 바꾸지 않기 위해서다(회귀 불변식).
-if [ "$GATE" -eq 1 ] && [ -n "$queue_rows" ]; then
-  bad_labels=$(printf '%s\n' "$queue_rows" | awk -F'|' '{
-    gsub(/\r$/, "")
+#    ★ 기본 모드로 승격 (20260828): 종전엔 `--gate` 전용이었다. 그래서 하류 teeth 가
+#      꺼진 사실을 **PR 시도 전까지 아무도 몰랐다** — 조용한 통과를 막으려고 만든 검사가
+#      정작 조용한 구간에서 안 돌았다(argus 실측: FR 31건이 그 상태로 방치).
+if [ -n "$queue_rows" ]; then
+  bad_labels=$(printf '%s\n' "$queue_rows" | awk -F'|' "$QUEUE_AWK_QNORM"'
+  {
     st = ""
-    for (i = NF; i >= 1; i--) { gsub(/^ +| +$/, "", $i); if ($i != "") { st = $i; break } }
-    id = $2; gsub(/^ +| +$/, "", id)
-    if (st !~ /^(IMPL_DONE|MERGED|TODO|WIP|DOING|PENDING|HELD|SKIP|BLOCKED|PLAN_DONE|CODE_DONE)([^A-Za-z0-9_]|$)/) print "  - " id ": " st
+    for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+    id = qnorm($2)
+    if (st !~ /^('"$QUEUE_KNOWN_LABELS"')([^A-Za-z0-9_]|$)/) print "  - " id ": " st
   }')
   if [ -n "$bad_labels" ]; then
     echo "[라벨] queue.md Status 가 인식 라벨이 아님 — 완료 판정 teeth 가 무력화됩니다:"
@@ -83,12 +89,12 @@ fi
 # 3) 미완 — Status(마지막 컬럼)가 IMPL_DONE|MERGED 아님
 incomplete=""
 if [ -n "$queue_rows" ]; then  # 빈 queue 가드 — awk 빈 줄 유입 시 "  - : " phantom 차단
-incomplete=$(printf '%s\n' "$queue_rows" | awk -F'|' '{
-  gsub(/\r$/, "")   # CRLF 방어 — $0 재분할로 IMPL_DONE\r 미완 오탐 차단
-  # 마지막 비어있지 않은 필드 = Status (st 행두 초기화 — 이월 방지, plan-reviewer Minor)
+incomplete=$(printf '%s\n' "$queue_rows" | awk -F'|' "$QUEUE_AWK_QNORM"'
+{
+  # 마지막 비어있지 않은 필드 = Status. qnorm 이 CRLF·공백·표기 장식을 함께 흡수한다.
   st = ""
-  for (i = NF; i >= 1; i--) { gsub(/^ +| +$/, "", $i); if ($i != "") { st = $i; break } }
-  id = $2; gsub(/^ +| +$/, "", id)
+  for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+  id = qnorm($2)
   if (st !~ /^(IMPL_DONE|MERGED)/) print "  - " id ": " st
 }')
 fi
@@ -114,10 +120,10 @@ fi
 SPECOPS_ROOT=$(dirname "$BATCH_DIR")
 done_pairs=""
 if [ -n "$queue_rows" ]; then
-  done_pairs=$(printf '%s\n' "$queue_rows" | awk -F'|' '{
-    gsub(/\r$/, "")
+  done_pairs=$(printf '%s\n' "$queue_rows" | awk -F'|' "$QUEUE_AWK_QNORM"'
+  {
     n = 0; delete a
-    for (i = 1; i <= NF; i++) { gsub(/^ +| +$/, "", $i); if ($i != "") a[++n] = $i }
+    for (i = 1; i <= NF; i++) { if (qnorm($i) != "") a[++n] = qnorm($i) }
     if (n >= 2 && a[n] ~ /^IMPL_DONE/) print a[1] "|" a[2]
   }')
 fi
@@ -235,7 +241,11 @@ fi
 
 if [ "$GATE" -eq 1 ]; then
   if [ "$fail_gate" -eq 0 ]; then
-    echo "BATCH-GATE: OK (뭉개짐 신호 없음 — 드리프트·미완은 운영 판단이라 차단 대상 아님)"
+    # ★ 건수를 함께 낸다 (20260828-vacuity-claim). 이 경로가 `gh pr create` 를 여는 훅
+    #   판정이라 기본 모드보다 파급이 크다 — 0건 검사로 "뭉개짐 신호 없음" 을 선언하면
+    #   batch PR 이 무검증으로 나간다. 0 은 정상일 수 있으나 **보이지 않으면 안 된다**.
+    _gchecked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+    echo "BATCH-GATE: OK (뭉개짐 신호 없음 — ${_gchecked} FID 검사. 드리프트·미완은 운영 판단이라 차단 대상 아님)"
     exit 0
   fi
   echo "BATCH-GATE: BLOCK — per-FR 산출물·진행기록·라벨 결함 (위 목록 참조)" >&2
@@ -243,7 +253,14 @@ if [ "$GATE" -eq 1 ]; then
 fi
 
 if [ "$fail" -eq 0 ]; then
-  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 완비)"
+  # ★ "완비" 라고 말하지 않고 **몇 건을 검사했는지** 말한다 (20260828-vacuity-claim).
+  #   종전엔 검사 대상이 0건이어도 — FID 디렉터리가 하나도 없어도 — 똑같이 "완비" 를
+  #   주장했다. 0건 자체는 정상이지만(갓 시작한 batch·전건 MERGED 는 teeth 제외),
+  #   **아무것도 확인하지 않고 완비를 주장하는 것**은 다른 문제다. argus batch-20260729 가
+  #   라벨 드리프트로 그 상태였고, 31 FR 이 무검증인 채 "완비" 로 보고됐다.
+  #   건수를 노출하면 0 이 눈에 띄어 사람이 물을 수 있다 — 차단이 아니라 가시성이다.
+  _checked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 ${_checked} FID 검사)"
   exit 0
 fi
 echo "BATCH-STATE: MISMATCH — batch PR 전 확인 필요" >&2

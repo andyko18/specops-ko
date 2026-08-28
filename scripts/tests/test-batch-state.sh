@@ -604,6 +604,120 @@ else
   nope "T-gate.f 기본 모드 회귀" "exit=$code"
 fi
 
+# ── T-norm: 라벨 장식 정규화 (FID 20260828-queue-label-drift) ──
+#   계기: argus batch-20260729 실측 — 모델이 Status 를 `**IMPL_DONE**`(굵게)로 손편집했고
+#   소비자 3곳이 전부 `^IMPL_DONE` 앵커라 불일치했다. 그 결과 산출물·review-skip 검사가
+#   **대상 0건으로 조용히 통과**했다(FR 31건 무검증). 쓰는 쪽은 모델이라 강제가 불가능하므로
+#   읽는 쪽에서 흡수한다.
+mk_norm_fixture() {  # <dir> <status-cell>
+  local d="$1" st="$2"
+  mkdir -p "$d/.specops/batch-n/" "$d/.specops/20260101-alpha/reviews"
+  cat > "$d/.specops/batch-n/queue.md" <<EOF
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-alpha | alpha | $st |
+EOF
+  : > "$d/.specops/20260101-alpha/review-base.sha"
+  : > "$d/.specops/20260101-alpha/evidence.md"
+  : > "$d/.specops/20260101-alpha/review-request.md"
+  printf '## 20260101-alpha\n- 2026-01-01 10:00 /verify PASS (evidence.md, AC 1/1)\n' > "$d/.specops/session-progress.md"
+  printf '| FR-1 | alpha | M1 | must | s | f |\n' > "$d/req.md"
+}
+
+# T-norm.a 굵게 표기를 IMPL_DONE 으로 인식한다 (기본 모드)
+rm -rf "$TMP/n1"; mk_norm_fixture "$TMP/n1" '**IMPL_DONE**'
+out=$(cd "$TMP/n1" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && ! printf '%s' "$out" | grep -q '미완'; then
+  ok "T-norm.a **IMPL_DONE** 을 완료로 인식 (기본 모드)"
+else
+  nope "T-norm.a 굵게 표기 미인식" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.b 굵게 표기여도 하류 teeth 가 실제로 돈다 — 산출물 누락을 잡아야 한다
+#   ★ 이게 핵심이다. a 만으로는 "미완 오탐이 사라졌다"까지만 증명하고,
+#     검사가 대상 0건으로 비어버리는 무음 통과를 구분하지 못한다.
+rm -rf "$TMP/n2"; mk_norm_fixture "$TMP/n2" '**IMPL_DONE**'
+rm -f "$TMP/n2/.specops/20260101-alpha/evidence.md"
+out=$(cd "$TMP/n2" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q 'evidence.md'; then
+  ok "T-norm.b 굵게 표기에서도 산출물 누락 teeth 발화 (무음 통과 차단)"
+else
+  nope "T-norm.b 하류 teeth 무발화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.c 백틱·여분 공백도 흡수한다
+rm -rf "$TMP/n3"; mk_norm_fixture "$TMP/n3" '  `IMPL_DONE`  '
+out=$(cd "$TMP/n3" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+[ "$code" -eq 0 ] && ok "T-norm.c 백틱·공백 흡수" \
+  || nope "T-norm.c 백틱 미흡수" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+
+# T-norm.d 정규화가 과하지 않다 — 다른 라벨을 IMPL_DONE 으로 만들지 않는다
+rm -rf "$TMP/n4"; mk_norm_fixture "$TMP/n4" '**PLAN_DONE**'
+out=$(cd "$TMP/n4" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q '미완'; then
+  ok "T-norm.d 과잉 정규화 없음 — **PLAN_DONE** 은 여전히 미완"
+else
+  nope "T-norm.d 과잉 정규화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.e 라벨 오염 검사가 기본 모드에서도 돈다 (종전 --gate 전용)
+#   무의미 라벨은 정규화로 구제되지 않아야 하고, 기본 모드에서 즉시 보여야 한다.
+rm -rf "$TMP/n5"; mk_norm_fixture "$TMP/n5" 'DONE'
+out=$(cd "$TMP/n5" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q '라벨'; then
+  ok "T-norm.e 라벨 오염 검사 기본 모드 승격 (DONE 은 인식 라벨 아님)"
+else
+  nope "T-norm.e 기본 모드 라벨 검사 부재" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T-vac: 검사하지 않은 것을 "완비" 라고 말하지 않는다 (FID 20260828-vacuity-claim) ──
+#   실측: 전건 MERGED queue 는 산출물 검사 대상이 0건인데(MERGED 는 teeth 제외),
+#   FID 디렉터리가 **하나도 없어도** `산출물·진행기록 완비` + rc=0 을 냈다.
+#   0건 자체는 정상이다(갓 시작한 batch·전건 MERGED). 문제는 **아무것도 확인하지 않고
+#   완비를 주장**하는 것이다 — argus 가 그 상태로 31건을 통과시켰다.
+rm -rf "$TMP/v1"; mkdir -p "$TMP/v1/.specops/batch-m"
+cat > "$TMP/v1/.specops/batch-m/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | one | MERGED |
+| FR-2 | 20260101-b | two | MERGED |
+EOF
+printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > "$TMP/v1/req.md"
+out=$(cd "$TMP/v1" && bash "$SCRIPT" .specops/batch-m req.md 2>&1); code=$?
+# 통과는 유지하되(0건은 정상), **검사 건수를 말해야** 한다.
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -qE '산출물·진행기록 [0-9]+ FID'; then
+  ok "T-vac.a 검사 대상 0건이면 건수를 밝힌다 (완비 주장 금지)"
+else
+  nope "T-vac.a 헛된 완비 주장" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-vac.b 실제로 검사한 경우도 건수를 밝힌다 — 0건과 구분 가능해야 의미가 있다
+rm -rf "$TMP/v2"; mkdir -p "$TMP/v2/.specops/batch-m" "$TMP/v2/.specops/20260101-a"
+cat > "$TMP/v2/.specops/batch-m/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | one | IMPL_DONE |
+EOF
+: > "$TMP/v2/.specops/20260101-a/review-base.sha"
+: > "$TMP/v2/.specops/20260101-a/evidence.md"
+: > "$TMP/v2/.specops/20260101-a/review-request.md"
+printf '## 20260101-a\n- 2026-01-01 10:00 /verify PASS (evidence.md, AC 1/1)\n' > "$TMP/v2/.specops/session-progress.md"
+printf '| FR-1 | a | M1 | must | s | f |\n' > "$TMP/v2/req.md"
+out=$(cd "$TMP/v2" && bash "$SCRIPT" .specops/batch-m req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '산출물·진행기록 1 FID'; then
+  ok "T-vac.b 실검사 건수 보고 (1 FID)"
+else
+  nope "T-vac.b 건수 미보고" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-vac.c gate 모드도 건수를 밝힌다 — 이 경로가 `gh pr create` 를 여는 훅 판정이다
+out=$(cd "$TMP/v1" && bash "$SCRIPT" --gate .specops/batch-m req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -qE '[0-9]+ FID'; then
+  ok "T-vac.c gate 모드 검사 건수 보고 (batch PR 을 여는 경로)"
+else
+  nope "T-vac.c gate 헛된 통과 선언" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
