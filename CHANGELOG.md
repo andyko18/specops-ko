@@ -14,6 +14,14 @@
   - 한계 고백: **SKILL.md 본문만** 잰다(= 컨텍스트로 로드되는 것). 본문을 보조 파일로 옮기면 수치가 준다 — 그게 의도(온디맨드 읽기)지만 "보조 파일이 정말 온디맨드인가"는 기계가 못 본다. 분할 리뷰에서 사람이 확인해야 한다.
   - 어서션 8건. `T4.a` 가 되돌려-관찰이다 — 실제 skill 을 부풀려 **FAIL 전환을 실측**하고 원복한다(`T4.b` 가 트리 무오염 확인). 래칫이 "있는데 안 무는" 상태가 가장 나쁘고, 그건 위 `skip-tracker` 와 동형이다.
 
+### Changed
+
+- **`e2e-test-ko` 시범 분할 — fixture 본문을 보조 파일로 (FID 20260828-skill-split-pilot)** — `1,018줄 / 37,452 B` → **`729줄 / 30,979 B`**. 사용자 코딩 규칙(800줄 max)을 위반하던 유일한 SKILL.md 였다. 옮긴 것은 lifecycle 산출물 fixture 5종(`spec`·`acceptance-criteria`·`clarifications`·`plan`·`tasks`) 본문 — **순수 페이로드**이고, 해당 스텝에서 한 번 쓰이는 데이터다. `skills/e2e-test-ko/fixtures/*.md` 로 옮기고 SKILL.md 에는 "이 파일을 읽어 `.specops/$FID/<파일>` 에 생성한다" 2줄 포인터만 남겼다.
+  - **본문 무손실 실측**: 추출 5건 전부 원본 블록과 **byte-identical**(스크립트로 대조). 포인터가 원래 리드인이 담던 목적지 경로·플레이스홀더 치환 지시를 모두 승계한다 — 초안에서 목적지 경로가 빠진 것을 발견해 복원했다.
+  - **신규 skill 디렉토리를 만들지 않았다**: `skills/<name>/SKILL.md` 를 늘리면 `.structure-baseline` 카운트·`used_by`·`chain_consistency`·메타 skill 목록·`readme_counts` 4~5개 게이트를 동시에 건드린다. 기존 선례(`planning-ko/plan-document-reviewer-prompt.md`·`brainstorming-ko/scripts/`)대로 skill 디렉토리 내 보조 파일을 쓴다.
+  - ⚠️ **구조 검증만 — 동작 미검증**: `e2e-test-ko` 는 수동 전용이라 `run-all` 에 없다. `run-all 149/149` 와 `validate-structure` 18항목은 **파일이 파싱되고 링크가 산다**는 것만 말하지, 이 skill 이 여전히 9단계 chain 을 몰고 가는지는 말하지 않는다. 행동 검증은 `/e2e-test` 1회 실주행(토큰 비용)이 유일한 수단이며, 이번 릴리즈에서는 돌리지 않았다. `run-all` green 을 분할 안전의 근거로 제시하지 않는다 — 그건 이 조사가 P1-6 으로 지적한 "테스트가 문구만 확인한다" 를 자기 변경에 적용하는 것이다.
+  - 나머지 chain skill 은 이번에 건드리지 않았다. `specifying-ko`(49.5 KB) 는 lifecycle 진입점이고 진입 분기 7종을 순서 매칭하므로 blast radius 가 가장 크다 — 시범 결과와 행동 검증 수단을 확보한 뒤에 다룬다.
+
 ### Fixed
 
 - **deny 사유가 원인을 거짓으로 말해 BYPASS 를 유도했다 (FID 20260828-deny-cause-truth)** — 러너를 정직하게 완주한 뒤 파일을 고치면 stale 로 막힌다(판정은 옳다). 그런데 문안은 *"이 세션에 러너 실행 기록이 없습니다"* 였다. 사용자는 방금 돌린 수분대 러너를 또 돌리거나, 게이트를 결함으로 의심하고 우회한다.
