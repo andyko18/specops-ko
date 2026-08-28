@@ -135,7 +135,11 @@ reference_upstream: specops-ko 독자 추가
    - **HARD**: batch 분기에서 specifying **Step 5.5·5.6 SKIP** — 화면·인터페이스 상세는 Phase 2.5 전담(통상 순서: 화면 → 인터페이스). Phase 1은 예정 화면/엔드포인트·테이블 **이름만** §참조에 남긴다.
    - clarifying은 `.specops/memory/decisions.md` 확정 주제를 재묻지 않음 (init 원장 우선).
    - **planning**: `**§batch**`이면 plan-reviewer·per-FR critic **DEFER** (Phase 2에서 1회). 스펙→플랜→쪼개기만 수행.
-3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status를 `PLAN_DONE`으로 갱신
+3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status 갱신:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> PLAN_DONE
+   ```
+   > **★ Status 는 스크립트로만 갱신한다 — 손으로 표를 고치지 마라** (20260828). 모델이 강조 표기를 붙여 `**PLAN_DONE**` 로 쓰면 소비자 3곳(`batch-state.sh`·`collect-assumptions.sh`·`record-batch-gate.sh`)이 전건 불일치하고, **검사가 대상 0건으로 조용히 통과**한다. argus batch-20260729 실측: FR 31건이 그 상태로 무검증 방치됐다. 읽는 쪽 정규화가 사후 방어로 들어갔지만 유입을 끊는 것은 이 호출이다. (FID 컬럼은 표 편집으로 갱신해도 된다 — 게이트가 읽는 값이 아니다.)
 4. 다음 PENDING FR 반복
 
 > **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다. (원장에 이미 확정된 주제는 BLOCKING에서 제외)
@@ -269,7 +273,11 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
      2. **lite+단일**: `.specops/<FID>/risk-profile.json`의 `effective=lite` · `reductions_allowed`에 `batch-review-skip` · 태스크 1개 · Phase C PASS (기존). 파일 부재·멀티태스크·standard/strict·auth/DB/migration·allowlist 부재는 이 경로 **금지**
    - `batch-state.sh`가 skip-only 경로에서 위 메타를 재검한다.
 4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
-5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
+5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (**스크립트로만** — 위 Phase 1 스텝 3 주의 참조):
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> IMPL_DONE
+   ```
+    (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
 6. 다음 PLAN_DONE FR 반복
 
 > **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-ko:systematic-debugging-ko`로 처리 후 재개.

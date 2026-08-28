@@ -604,6 +604,72 @@ else
   nope "T-gate.f 기본 모드 회귀" "exit=$code"
 fi
 
+# ── T-norm: 라벨 장식 정규화 (FID 20260828-queue-label-drift) ──
+#   계기: argus batch-20260729 실측 — 모델이 Status 를 `**IMPL_DONE**`(굵게)로 손편집했고
+#   소비자 3곳이 전부 `^IMPL_DONE` 앵커라 불일치했다. 그 결과 산출물·review-skip 검사가
+#   **대상 0건으로 조용히 통과**했다(FR 31건 무검증). 쓰는 쪽은 모델이라 강제가 불가능하므로
+#   읽는 쪽에서 흡수한다.
+mk_norm_fixture() {  # <dir> <status-cell>
+  local d="$1" st="$2"
+  mkdir -p "$d/.specops/batch-n/" "$d/.specops/20260101-alpha/reviews"
+  cat > "$d/.specops/batch-n/queue.md" <<EOF
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-alpha | alpha | $st |
+EOF
+  : > "$d/.specops/20260101-alpha/review-base.sha"
+  : > "$d/.specops/20260101-alpha/evidence.md"
+  : > "$d/.specops/20260101-alpha/review-request.md"
+  printf '## 20260101-alpha\n- 2026-01-01 10:00 /verify PASS (evidence.md, AC 1/1)\n' > "$d/.specops/session-progress.md"
+  printf '| FR-1 | alpha | M1 | must | s | f |\n' > "$d/req.md"
+}
+
+# T-norm.a 굵게 표기를 IMPL_DONE 으로 인식한다 (기본 모드)
+rm -rf "$TMP/n1"; mk_norm_fixture "$TMP/n1" '**IMPL_DONE**'
+out=$(cd "$TMP/n1" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && ! printf '%s' "$out" | grep -q '미완'; then
+  ok "T-norm.a **IMPL_DONE** 을 완료로 인식 (기본 모드)"
+else
+  nope "T-norm.a 굵게 표기 미인식" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.b 굵게 표기여도 하류 teeth 가 실제로 돈다 — 산출물 누락을 잡아야 한다
+#   ★ 이게 핵심이다. a 만으로는 "미완 오탐이 사라졌다"까지만 증명하고,
+#     검사가 대상 0건으로 비어버리는 무음 통과를 구분하지 못한다.
+rm -rf "$TMP/n2"; mk_norm_fixture "$TMP/n2" '**IMPL_DONE**'
+rm -f "$TMP/n2/.specops/20260101-alpha/evidence.md"
+out=$(cd "$TMP/n2" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q 'evidence.md'; then
+  ok "T-norm.b 굵게 표기에서도 산출물 누락 teeth 발화 (무음 통과 차단)"
+else
+  nope "T-norm.b 하류 teeth 무발화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.c 백틱·여분 공백도 흡수한다
+rm -rf "$TMP/n3"; mk_norm_fixture "$TMP/n3" '  `IMPL_DONE`  '
+out=$(cd "$TMP/n3" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+[ "$code" -eq 0 ] && ok "T-norm.c 백틱·공백 흡수" \
+  || nope "T-norm.c 백틱 미흡수" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+
+# T-norm.d 정규화가 과하지 않다 — 다른 라벨을 IMPL_DONE 으로 만들지 않는다
+rm -rf "$TMP/n4"; mk_norm_fixture "$TMP/n4" '**PLAN_DONE**'
+out=$(cd "$TMP/n4" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q '미완'; then
+  ok "T-norm.d 과잉 정규화 없음 — **PLAN_DONE** 은 여전히 미완"
+else
+  nope "T-norm.d 과잉 정규화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-norm.e 라벨 오염 검사가 기본 모드에서도 돈다 (종전 --gate 전용)
+#   무의미 라벨은 정규화로 구제되지 않아야 하고, 기본 모드에서 즉시 보여야 한다.
+rm -rf "$TMP/n5"; mk_norm_fixture "$TMP/n5" 'DONE'
+out=$(cd "$TMP/n5" && bash "$SCRIPT" .specops/batch-n req.md 2>&1); code=$?
+if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q '라벨'; then
+  ok "T-norm.e 라벨 오염 검사 기본 모드 승격 (DONE 은 인식 라벨 아님)"
+else
+  nope "T-norm.e 기본 모드 라벨 검사 부재" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

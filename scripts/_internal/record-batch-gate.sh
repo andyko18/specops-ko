@@ -45,9 +45,15 @@ QUEUE="$BATCH_DIR/queue.md"
 [ -f "$QUEUE" ] || { echo "record-batch-gate: queue.md 부재 ($BATCH_DIR)" >&2; exit 1; }
 
 SPECOPS=$(dirname "$BATCH_DIR")
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/queue-lib.sh"
 
-fids=$(awk -F'|' '/\|[[:space:]]*IMPL_DONE[[:space:]]*\|/ {
-  gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3
+# Status 정규화 (20260828-queue-label-drift) — 모델이 `**IMPL_DONE**` 로 손편집하면
+#   종전 `|IMPL_DONE|` 리터럴 매칭이 전건 불일치해 **대상 0건**이 됐다.
+fids=$(awk -F'|' "$QUEUE_AWK_QNORM"'
+{
+  st = ""
+  for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+  if (st ~ /^IMPL_DONE$/) print qnorm($3)
 }' "$QUEUE" | grep -E '^[0-9]{8}-[a-z0-9-]+$' || true)
 [ -n "$fids" ] || { echo "record-batch-gate: IMPL_DONE FID 0건 ($QUEUE)" >&2; exit 1; }
 
