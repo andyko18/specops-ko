@@ -104,6 +104,16 @@ if [ -n "$progress_block" ]; then
   fi
 fi
 
+# 미완 batch 자동 표면화 (20260828-batch-resume-teeth) — ACTIVE 마커가 있는데 Phase 3 완료가
+#   안 돈 상태를 매 세션 알린다. 종전엔 재개 키(ACTIVE)는 있는데 읽는 곳이 /start-all 재호출과
+#   PR 게이트뿐이라 **사용자가 먼저 물어야만** 알 수 있었다(argus 실측: FR 31건 방치).
+#   출력이 있을 때만 주입 — batch 미사용 repo·세션에는 아무 영향이 없다(차단 아님, 상태 보고).
+batch_out=""
+_bres=$(SPECOPS_ROOT="$(pwd)/.specops" bash "${PLUGIN_ROOT}/scripts/_internal/batch-resume-check.sh" --hook 2>/dev/null || true)
+if [ -n "$_bres" ]; then
+  batch_out="\n\n<batch-resume>\n$(escape_for_json "$_bres")\n</batch-resume>"
+fi
+
 # pending 자유작업 안내 (freecomment-capture) — 기존 판정 로직 불변, 변수에만 담음
 pending_file="$(pwd)/.specops/pending-capture.jsonl"
 if [ -f "$pending_file" ] && [ -s "$pending_file" ]; then
@@ -113,7 +123,7 @@ if [ -f "$pending_file" ] && [ -s "$pending_file" ]; then
 fi
 
 # 확정 순서로 1회 결합 (위 순서 계약 주석 참조)
-session_context="${anchor_block}${pending_out}${reconcile_out}\n\n${meta_block}${rehydrate_out}"
+session_context="${anchor_block}${pending_out}${reconcile_out}${batch_out}\n\n${meta_block}${rehydrate_out}"
 
 printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
 
