@@ -6,6 +6,14 @@
 
 ### Fixed
 
+- **docs-only 면제가 플러그인 런타임 전체를 면제하고 있었다 (FID 20260828-md-runtime-scope)** — `_files_all_docs` 는 `*.md` 를 전부 문서로 본다. 그런데 이 플러그인의 **실행 로직은 산문**이다 — `skills/*/SKILL.md` 한 줄이 chain 동작을 바꾼다. 즉 "commit 전 verify" 강제가 **제품 본체에서 통째로 면제**됐다. v1.45.0 에서 제거한 `§auto` 자기발급 면제표보다 넓다 — 모델이 라벨을 쓸 필요조차 없었다.
+  - **실측(최근 60커밋)**: 종전 규칙으로 54건이 면제 클래스. 신규 규칙은 41건을 코드로 재분류하고 13건만 면제로 남긴다. 재분류 41건 중 19건은 릴리즈/버전 스탬프(`release.sh` 가 in-session 으로 run-all 을 돌려 증거가 이미 있다)이고, **22건이 실제 행동 변경**이다 — `feat(design): 화면 품질 게이트`·`fix(batch): 라벨 드리프트가 teeth 를 무음 해제`·`fix(hook): SessionStart 조립 순서` 등.
+  - **규칙**: `.claude-plugin/plugin.json` 이 있는 repo 에서 `skills/*/SKILL.md`·`commands/*.md`·`agents/*.md`·`templates/*.md`·`hooks/*`·`.claude-plugin/*` 은 확장자와 무관하게 코드.
+  - ★ **플러그인 repo 조건이 본체다**: 이 경로들은 Claude Code **플러그인 규약**이지 앱 규약이 아니다. 조건 없이 걸면 하류 앱 repo 의 `templates/email.md`·`docs/agents/x.md` 가 문서 커밋에서 막힌다 — false-deny 는 정확히 BYPASS 관성을 만든다(마찰로그 BYPASS 24건/30일이 그 증거다). 같은 트리라도 `skills/*/README.md`·루트 `README`·`CHANGELOG`·`CLAUDE.md` 는 면제 유지(배포 런타임 아님).
+  - 매처는 pretool(차단)·posttool(감사)·`_commit_scope_class`(계측) 3곳이 공유한다 — "면제 클래스 ≡ 분류 클래스" 불변식이 함께 움직이는지 T-plug.k 가 잠근다(안 그러면 20260814-friction-scope-posttool 이 고친 계측 불일치가 재발한다).
+  - 어서션 **11건 신규**(T-plug.a~k). end-to-end 프로브: 플러그인 repo + `skills/foo/SKILL.md` staged → **deny**, `docs/a.md`·`CHANGELOG.md` → allow, 비플러그인 repo → 전부 allow(종전 동작 보존).
+  - **분석 정정**: 최초 조사에서 이 결함을 "pretool 이 allow 를 냈다" 로 보고했으나, 그 프로브는 transcript 부재로 **fail-open** 경로를 탄 것이었다. 면제 자체는 `is_docs_only_change` 단위 판정으로 실재했고, fixture transcript 를 물린 end-to-end 프로브로 이제 정확히 재현된다.
+
 - **`run-all` 무한 정지 — pre-push·릴리즈 pre-flight 가 네트워크에 묶여 있었다 (FID 20260828-sast-timeout)** — `scripts/security-scan.sh` 의 `semgrep --config auto` 는 레지스트리에서 룰을 받는 **네트워크 호출**이고 자체 상한이 없다. `run-all.sh` 에도 스위트별 상한이 없어, 한 스위트가 멈추면 aggregator 가 통째로 멈췄다 — 그리고 그 게이트를 `.githooks/pre-push` 와 릴리즈 pre-flight 가 그대로 쓴다. 즉 **`git push` 가 무한 정지**했다. 실측: `run-all` 이 `test-security-scan` 에서 **8분+ 무출력** 후 강제 종료. CI(ubuntu)는 semgrep 미설치라 graceful skip 되므로 **로컬 개발 환경에서만 발화하는 함정**이었고, friction-log 의 BYPASS 사유 *"러너를 단일 도구호출 내 완료 불가"* 2건이 같은 증상과 부합한다.
   - 신규 `scripts/_internal/run-bounded.sh` — `bounded_run <초> <명령…>` 공용 상한 헬퍼. `run-all`(스위트별 300s)·`security-scan`(외부 스캐너별 180s)이 소비한다.
   - ★ **GNU `timeout` 도 `perl alarm` 도 답이 아니다** — 둘 다 대상 프로세스 하나만 죽인다. 대상이 래퍼 셸이면 고아가 된 손자가 stdout 파이프를 계속 물어 `$( )` 가 반환되지 않는다. 상한은 걸렸는데 **호출부는 그대로 멈춘다**(실측: perl alarm 2s 구현에서 `bounded_run` 은 2초, `j=$(…)` 는 **102초**). `set -m` + `kill -- -$pid`(프로세스 그룹째)로 전 자손을 잡는다 — `check-ci-status.sh:_run_with_timeout` 이 이미 실증한 메커니즘이고, 두 구현의 드리프트는 `bounded-run-watchdog` 원장이 잠근다.

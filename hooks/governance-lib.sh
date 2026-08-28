@@ -450,11 +450,37 @@ is_docs_only_change() {
 
 # whitelist 매처 (is_docs_only_change ↔ is_docs_only_audit_scope 공유 — 면제 클래스 drift 방지)
 # 빈 목록 = 1 (fail-safe — 판정 불가 시 비면제).
+
+# 이 repo 에서 `.md` 가 런타임인가 — Claude Code 플러그인 저장소 판정 (20260828-md-runtime-scope).
+#   `.claude-plugin/plugin.json` 존재가 기계 판정이다. 루프 **밖에서 1회만** 부른다
+#   (파일마다 부르면 변경 파일 수만큼 프로세스를 스폰한다 — NFR: 훅은 hot path 다).
+_is_plugin_repo() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ -f "$root/.claude-plugin/plugin.json" ]
+}
+
 _files_all_docs() {
-  local files="$1" f
+  local files="$1" f plugin_repo=1
   [ -z "$files" ] && return 1
+  _is_plugin_repo && plugin_repo=0
   while IFS= read -r f; do
     [ -z "$f" ] && continue
+    # ★ 플러그인 런타임 경로는 확장자와 무관하게 **코드**다 (20260828-md-runtime-scope).
+    #   이 플러그인의 실행 로직은 산문이다 — skills/*/SKILL.md 한 줄 수정이 chain 동작을 바꾼다.
+    #   `*.md` 를 무조건 문서로 보면 "commit 전 verify" 강제가 **제품 본체에서 통째로 면제**된다.
+    #   실측(최근 60커밋): 41건이 면제 클래스였고 그중 22건이 실제 행동 변경(릴리즈 스탬프 19 제외).
+    #   v1.45.0 에서 제거한 §auto 자기발급 면제표보다 넓다 — 모델이 라벨을 쓸 필요조차 없었다.
+    # ★ 왜 플러그인 repo 에서만인가: 이 경로들은 Claude Code **플러그인 규약**이지 앱 규약이 아니다.
+    #   무조건 걸면 하류 앱 repo 의 `templates/email.md`·`docs/agents/x.md` 가 문서 커밋에서 막히고,
+    #   false-deny 는 정확히 BYPASS 관성을 만든다(마찰로그 BYPASS 24건/30일이 그 증거다).
+    # 범위 밖(의도): `skills/*/README.md` 처럼 같은 트리의 비-런타임 문서는 면제 유지 —
+    #   런타임 계약은 SKILL.md 파일명이다. CLAUDE.md·README·CHANGELOG 도 배포 런타임이 아니라 면제.
+    if [ "$plugin_repo" -eq 0 ]; then
+      case "$f" in
+        skills/*/SKILL.md|commands/*.md|agents/*.md|templates/*.md|hooks/*|.claude-plugin/*) return 1 ;;
+      esac
+    fi
     case "$f" in
       *.md|*.txt|*.rst) ;;
       # design/아티팩트 면제 (20260716-batch-dogfood: Phase 2.5 design 커밋이 .md 한정 whitelist 에

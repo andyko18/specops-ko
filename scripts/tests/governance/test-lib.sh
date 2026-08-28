@@ -542,6 +542,51 @@ case "$_got" in
   *) FAIL=$((FAIL+1)); echo "FAIL T-cls.n 목록 미노출 ($_got)" ;;
 esac
 
+# ── T-plug.a~k: 플러그인 런타임 .md 는 문서가 아니다 (FID 20260828-md-runtime-scope) ──
+# 왜: 이 플러그인의 **실행 로직은 산문**이다(skills/*/SKILL.md·commands/*.md·agents/*.md).
+#   `*.md` 를 무조건 문서로 보면 verify 강제가 제품 본체에서 통째로 면제된다 — 실측으로
+#   최근 60커밋 중 41건이 면제 클래스였고 그중 22건이 실제 행동 변경이었다(릴리즈 스탬프 19 제외).
+#   §auto 자기발급 면제표(v1.45.0 제거)보다 넓다 — 모델이 라벨을 쓸 필요조차 없었다.
+# ★ 왜 플러그인 repo 조건을 다는가: 이 경로 지식은 Claude Code **플러그인 규약**이지 앱 규약이
+#   아니다. 조건 없이 걸면 하류 앱 repo 의 `templates/email.md`·`docs/agents/x.md` 가 문서 커밋에서
+#   차단되고, false-deny 는 정확히 BYPASS 관성을 만든다(마찰로그 24건/30일이 그 증거다).
+#   `.claude-plugin/plugin.json` 존재 = "이 repo 에서 .md 는 런타임" 의 기계 판정이다.
+# plugin.json 은 **먼저 커밋**한다 — staged 에 남기면 비-.md 파일이라 그것만으로 비면제가 되어
+#   아래 케이스가 무엇을 증명하는지 알 수 없게 된다(초안에서 실제로 그렇게 새 PASS 가 났다).
+_plug='mkdir -p .claude-plugin; echo "{}" > .claude-plugin/plugin.json; git add .claude-plugin; git "$C" -q -m plug;'
+_docs_case 1 "T-plug.a 플러그인 repo skills/*/SKILL.md 비면제" \
+  "git init -q; $_plug mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills"
+_docs_case 1 "T-plug.b 플러그인 repo commands/*.md 비면제" \
+  "git init -q; $_plug mkdir -p commands; echo x>commands/start.md; git add commands"
+_docs_case 1 "T-plug.c 플러그인 repo agents/*.md 비면제" \
+  "git init -q; $_plug mkdir -p agents; echo x>agents/r.md; git add agents"
+_docs_case 1 "T-plug.d 플러그인 repo templates/*.md 비면제(하류로 배포되는 산출물)" \
+  "git init -q; $_plug mkdir -p templates; echo x>templates/spec.md; git add templates"
+_docs_case 1 "T-plug.e 플러그인 repo .claude-plugin/* 비면제" \
+  "git init -q; mkdir -p .claude-plugin; echo '{}'>.claude-plugin/plugin.json; git add .claude-plugin"
+# 면제 유지 축 — 진짜 문서까지 막으면 BYPASS 관성이 생긴다
+_docs_case 0 "T-plug.f 플러그인 repo docs/*.md 면제 유지" \
+  "git init -q; $_plug mkdir -p docs; echo x>docs/a.md; git add docs"
+_docs_case 0 "T-plug.g 플러그인 repo 루트 README/CHANGELOG/CLAUDE 면제 유지" \
+  "git init -q; $_plug echo x>README.md; echo y>CHANGELOG.md; echo z>CLAUDE.md; git add README.md CHANGELOG.md CLAUDE.md"
+_docs_case 0 "T-plug.h 플러그인 repo skills/*/README.md 면제(SKILL.md 만 런타임)" \
+  "git init -q; $_plug mkdir -p skills/foo; echo x>skills/foo/README.md; git add skills"
+# ★ 하류 오차단 방지 축 — plugin.json 없으면 종전과 동일하게 동작한다
+_docs_case 0 "T-plug.i 비플러그인 repo templates/*.md 면제(하류 오차단 방지)" \
+  "git init -q; mkdir -p templates; echo x>templates/email.md; git add templates"
+_docs_case 0 "T-plug.j 비플러그인 repo skills/*/SKILL.md 면제(경로 지식 미주입)" \
+  "git init -q; mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills"
+# ★ 면제 클래스 ≡ 분류 클래스 불변식 (governance-lib.sh:481) — posttool 계측 축도 함께 움직여야 한다
+_td=$(mktemp -d)
+_got=$( cd "$_td" && git init -q && mkdir -p .claude-plugin skills/foo \
+  && echo '{}' > .claude-plugin/plugin.json && git add .claude-plugin \
+  && git -c user.email=t@e -c user.name=t commit -q -m plug \
+  && echo x > skills/foo/SKILL.md && git add skills \
+  && ( source "$PLUGIN/hooks/governance-lib.sh"; _commit_scope_class ) )
+rm -rf "$_td"
+if [ "$_got" = "code" ]; then PASS=$((PASS+1)); echo "PASS T-plug.k _commit_scope_class 도 code (면제≡분류 불변식)"
+else FAIL=$((FAIL+1)); echo "FAIL T-plug.k 분류=$_got 기대=code (계측이 면제 클래스와 어긋남)"; fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
