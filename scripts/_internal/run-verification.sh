@@ -28,6 +28,7 @@ AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
 FND_SH="$PLUGIN/scripts/_internal/check-foundation-manifest.sh"
 LABEL_SH="$PLUGIN/scripts/_internal/check-spec-label-compat.sh"
 PRESENCE_SH="$PLUGIN/scripts/_internal/check-review-presence.sh"
+ACFMT_SH="$PLUGIN/scripts/_internal/check-ac-format.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
 
@@ -55,10 +56,34 @@ _record_result() { # <verdict>
   fi
 }
 
+# AC 계약 실재 검사 (20260828-ac-absence-detect).
+#   결함: check-ac-format 은 emit-context.sh 에서만 불렸다 — **decompose 단계 전용**이다.
+#   clarify·plan·decompose 를 건너뛰면 emit-context 가 돌 기회 자체가 없어 AC 파일 부재가
+#   아무 데서도 안 걸린다. specifying-ko 는 "emit-context 가 acceptance-criteria.md 실재를
+#   요구한다" 를 승인 우회 차단 근거로 선언하는데, 그 전제가 깨진다.
+#   실측(argus batch-20260729): AC 가 아예 없는 FID 3건이 verify·리뷰를 통과했다.
+#
+#   AC 는 **스프린트 계약**이다 — 없으면 Phase B 가 대조할 기준이 없다. 그래서 차단이다.
+#   단 freework mini-FID 는 면제한다: templates/freework.md 가 "spec.md 없는 경량 트랙" 이라고
+#   직접 선언하므로, spec.md 부재 = lifecycle FID 가 아님 → 계약을 요구할 근거가 없다.
+_ac_contract_check() {
+  [ -f "$ACFMT_SH" ] || return 0
+  [ -f ".specops/$FID/spec.md" ] || return 0   # freework mini-FID — 면제(spec.md 없는 경량 트랙)
+  local out ec
+  out=$(bash "$ACFMT_SH" "$FID" 2>&1); ec=$?
+  [ "$ec" -eq 2 ] || return 0               # 2 = AC 파일 부재. 그 외(포맷 FAIL)는 emit-context 관할
+  echo "VERIFY: FAIL ac-format" >&2
+  echo "$out" >&2
+  echo "  acceptance-criteria.md 가 없으면 Phase B 가 대조할 계약이 없다 — specifying-ko 가 spec.md 와 쌍으로 산출한다." >&2
+  return 1
+}
+
 commands=$(bash "$EXTRACT" "$TASKS")
 if [ -z "$commands" ]; then
   # 명령 0건이어도 리뷰 감사 추적은 검사한다 — 여기서 무조건 exit 0 하면 "테스트 명령을
   #   안 쓰는 FID" 가 review-audit 을 통째로 비껴가는 구멍이 된다.
+  # AC 계약 — 명령 0건 경로도 검사한다(review-audit 과 동일한 "NO COMMANDS 우회" 구멍).
+  _ac_contract_check || { failed=$((failed + 1)); _record_result FAIL; exit 1; }
   if [ -f "$AUDIT_SH" ]; then
     audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1) || {
       failed=$((failed + 1))
@@ -166,6 +191,8 @@ done <<< "$commands"
 #   테스트 명령 결과와 별개 축이지만 여기에 배선한 이유: 실행-근거 게이트(R-1/R-2)가
 #   "VERIFY: PASS" 만 커밋 면제로 인정하므로, 이 축의 위반도 같은 관문을 통과해야 실효가 있다.
 #   누락 전용 검사이며 산출물 부재는 fail-open(SKIP) 이라 무관 repo·초기 FID 에 월권하지 않는다.
+_ac_contract_check || { failed=$((failed + 1)); _record_result FAIL; exit 1; }
+
 if [ -f "$AUDIT_SH" ]; then
   audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1)
   audit_ec=$?

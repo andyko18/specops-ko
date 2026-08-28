@@ -337,4 +337,73 @@ n=$(find "$W/.specops/wire-fid/dispatch" -name '*-context.md' 2>/dev/null | grep
 [ "$rc" -eq 0 ] && [ "${n:-0}" -eq 1 ] \
   && ok "T13 배선 정상 경로 통과" || nope "T13" "rc=$rc files=${n:-0} out=$out"
 
+# ── T14~T17: verify 관문 배선 (FID 20260828-ac-absence-detect) ──
+#   결함: check-ac-format 은 emit-context.sh:87 에서만 불린다 — 즉 **decompose 단계 전용**이다.
+#   clarify·plan·decompose 를 건너뛰면(§lite·수기 진행) emit-context 가 돌 기회 자체가 없어
+#   **AC 파일 부재가 아무 데서도 안 걸린다**. specifying-ko:19 는 "emit-context 가
+#   acceptance-criteria.md 실재를 요구한다" 를 우회 차단 근거로 선언하는데, 그 전제가 깨진다.
+#   실측(argus batch-20260729): AC 파일이 아예 없는 FID 3건이 verify·리뷰를 통과했다.
+RV="$PLUGIN/scripts/_internal/run-verification.sh"
+
+# T14 run-verification 배선 — 검사기만 있고 부르는 곳이 decompose 뿐이면 그대로다
+grep -q 'check-ac-format.sh' "$RV" \
+  && ok "T14 run-verification 배선 (decompose 밖에서도 AC 부재를 본다)" \
+  || nope "T14 미배선" "verify 관문이 AC 부재를 보지 못한다"
+
+# T15 rc 를 판정에 반영 — 부르기만 하고 무시하면 관측도 차단도 아니다
+grep -qE 'acfmt_ec|AC-FORMAT: MISSING|VERIFY: FAIL ac-format' "$RV" \
+  && ok "T15 rc 반영" || nope "T15" "rc 무시 — 호출만 하고 판정에 안 쓴다"
+
+# T16 lifecycle FID(spec.md 존재) + AC 부재 → 차단
+#   AC 는 스프린트 계약이다. 없으면 Phase B 가 대조할 기준이 없다.
+TD=$(mktemp -d)
+mkdir -p "$TD/.specops/20260101-noac"
+printf '# spec\n\n**§유형**: 신규\n**§lite**: false\n' > "$TD/.specops/20260101-noac/spec.md"
+out=$(cd "$TD" && SPECOPS_ROOT="$TD/.specops" bash "$PLUGIN/scripts/_internal/check-ac-format.sh" 20260101-noac 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'MISSING'; then
+  ok "T16 lifecycle FID + AC 부재 → exit 2 MISSING"
+else
+  nope "T16 AC 부재 미검출" "rc=$rc out=$out"
+fi
+
+# T17 freework mini-FID(spec.md 부재) → 차단하지 않는다
+#   templates/freework.md 가 "spec.md 없는 경량 트랙" 이라고 직접 선언한다.
+#   여기서 FAIL 내면 정당한 자유작업 경로가 통째로 막힌다.
+rm -rf "$TD/.specops/20260101-mini"; mkdir -p "$TD/.specops/20260101-mini"
+printf '# freework.md — 20260101-mini\n\n- **type**: fix\n' > "$TD/.specops/20260101-mini/freework.md"
+grep -qE 'freework|spec\.md.*부재|mini-FID' "$RV" \
+  && ok "T17 freework mini-FID 면제 배선" \
+  || nope "T17 mini-FID 면제 부재" "spec.md 없는 경량 트랙이 차단될 수 있다"
+rm -rf "$TD"
+
+# ── T18~T19: 배선을 **실행으로** 검증한다 ──
+#   T14·T15 는 grep 이라 배선 존재만 본다. 실제로 `FID_DIR: unbound variable` 로 터지는
+#   버그를 grep 이 통과시켰다(구현 중 실측). 스크립트를 돌려서 확인한다.
+TD2=$(mktemp -d)
+
+# T18 lifecycle FID(spec.md 존재) + AC 부재 → VERIFY: FAIL ac-format
+mkdir -p "$TD2/.specops/20260101-noac"
+printf '# spec\n\n**§유형**: 신규\n' > "$TD2/.specops/20260101-noac/spec.md"
+printf '# tasks\n' > "$TD2/.specops/20260101-noac/tasks.md"
+out=$(cd "$TD2" && bash "$RV" 20260101-noac 2>&1); rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'VERIFY: FAIL ac-format' \
+   && ! printf '%s' "$out" | grep -q 'unbound variable'; then
+  ok "T18 실행 검증 — AC 부재 차단 (unbound 없음)"
+else
+  nope "T18 실행 실패" "rc=$rc out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-160)"
+fi
+
+# T19 freework mini-FID(spec.md 부재) → ac-format 이 발화하지 않는다
+#    정당한 경량 트랙을 막으면 이 수정이 새 결함이 된다.
+mkdir -p "$TD2/.specops/20260101-mini"
+printf '# freework.md — 20260101-mini\n' > "$TD2/.specops/20260101-mini/freework.md"
+printf '# tasks\n' > "$TD2/.specops/20260101-mini/tasks.md"
+out=$(cd "$TD2" && bash "$RV" 20260101-mini 2>&1); rc=$?
+if ! printf '%s' "$out" | grep -q 'ac-format'; then
+  ok "T19 freework mini-FID 면제 실행 검증"
+else
+  nope "T19 경량 트랙 오차단" "out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-160)"
+fi
+rm -rf "$TD2"
+
 finish
