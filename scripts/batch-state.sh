@@ -241,7 +241,11 @@ fi
 
 if [ "$GATE" -eq 1 ]; then
   if [ "$fail_gate" -eq 0 ]; then
-    echo "BATCH-GATE: OK (뭉개짐 신호 없음 — 드리프트·미완은 운영 판단이라 차단 대상 아님)"
+    # ★ 건수를 함께 낸다 (20260828-vacuity-claim). 이 경로가 `gh pr create` 를 여는 훅
+    #   판정이라 기본 모드보다 파급이 크다 — 0건 검사로 "뭉개짐 신호 없음" 을 선언하면
+    #   batch PR 이 무검증으로 나간다. 0 은 정상일 수 있으나 **보이지 않으면 안 된다**.
+    _gchecked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+    echo "BATCH-GATE: OK (뭉개짐 신호 없음 — ${_gchecked} FID 검사. 드리프트·미완은 운영 판단이라 차단 대상 아님)"
     exit 0
   fi
   echo "BATCH-GATE: BLOCK — per-FR 산출물·진행기록·라벨 결함 (위 목록 참조)" >&2
@@ -249,7 +253,14 @@ if [ "$GATE" -eq 1 ]; then
 fi
 
 if [ "$fail" -eq 0 ]; then
-  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 완비)"
+  # ★ "완비" 라고 말하지 않고 **몇 건을 검사했는지** 말한다 (20260828-vacuity-claim).
+  #   종전엔 검사 대상이 0건이어도 — FID 디렉터리가 하나도 없어도 — 똑같이 "완비" 를
+  #   주장했다. 0건 자체는 정상이지만(갓 시작한 batch·전건 MERGED 는 teeth 제외),
+  #   **아무것도 확인하지 않고 완비를 주장하는 것**은 다른 문제다. argus batch-20260729 가
+  #   라벨 드리프트로 그 상태였고, 31 FR 이 무검증인 채 "완비" 로 보고됐다.
+  #   건수를 노출하면 0 이 눈에 띄어 사람이 물을 수 있다 — 차단이 아니라 가시성이다.
+  _checked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 ${_checked} FID 검사)"
   exit 0
 fi
 echo "BATCH-STATE: MISMATCH — batch PR 전 확인 필요" >&2

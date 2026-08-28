@@ -670,6 +670,54 @@ else
   nope "T-norm.e 기본 모드 라벨 검사 부재" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
 fi
 
+# ── T-vac: 검사하지 않은 것을 "완비" 라고 말하지 않는다 (FID 20260828-vacuity-claim) ──
+#   실측: 전건 MERGED queue 는 산출물 검사 대상이 0건인데(MERGED 는 teeth 제외),
+#   FID 디렉터리가 **하나도 없어도** `산출물·진행기록 완비` + rc=0 을 냈다.
+#   0건 자체는 정상이다(갓 시작한 batch·전건 MERGED). 문제는 **아무것도 확인하지 않고
+#   완비를 주장**하는 것이다 — argus 가 그 상태로 31건을 통과시켰다.
+rm -rf "$TMP/v1"; mkdir -p "$TMP/v1/.specops/batch-m"
+cat > "$TMP/v1/.specops/batch-m/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | one | MERGED |
+| FR-2 | 20260101-b | two | MERGED |
+EOF
+printf '| FR-1 | a | M1 | must | s | f |\n| FR-2 | b | M1 | must | s | f |\n' > "$TMP/v1/req.md"
+out=$(cd "$TMP/v1" && bash "$SCRIPT" .specops/batch-m req.md 2>&1); code=$?
+# 통과는 유지하되(0건은 정상), **검사 건수를 말해야** 한다.
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -qE '산출물·진행기록 [0-9]+ FID'; then
+  ok "T-vac.a 검사 대상 0건이면 건수를 밝힌다 (완비 주장 금지)"
+else
+  nope "T-vac.a 헛된 완비 주장" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-vac.b 실제로 검사한 경우도 건수를 밝힌다 — 0건과 구분 가능해야 의미가 있다
+rm -rf "$TMP/v2"; mkdir -p "$TMP/v2/.specops/batch-m" "$TMP/v2/.specops/20260101-a"
+cat > "$TMP/v2/.specops/batch-m/queue.md" <<'EOF'
+| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | one | IMPL_DONE |
+EOF
+: > "$TMP/v2/.specops/20260101-a/review-base.sha"
+: > "$TMP/v2/.specops/20260101-a/evidence.md"
+: > "$TMP/v2/.specops/20260101-a/review-request.md"
+printf '## 20260101-a\n- 2026-01-01 10:00 /verify PASS (evidence.md, AC 1/1)\n' > "$TMP/v2/.specops/session-progress.md"
+printf '| FR-1 | a | M1 | must | s | f |\n' > "$TMP/v2/req.md"
+out=$(cd "$TMP/v2" && bash "$SCRIPT" .specops/batch-m req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '산출물·진행기록 1 FID'; then
+  ok "T-vac.b 실검사 건수 보고 (1 FID)"
+else
+  nope "T-vac.b 건수 미보고" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# T-vac.c gate 모드도 건수를 밝힌다 — 이 경로가 `gh pr create` 를 여는 훅 판정이다
+out=$(cd "$TMP/v1" && bash "$SCRIPT" --gate .specops/batch-m req.md 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -qE '[0-9]+ FID'; then
+  ok "T-vac.c gate 모드 검사 건수 보고 (batch PR 을 여는 경로)"
+else
+  nope "T-vac.c gate 헛된 통과 선언" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
