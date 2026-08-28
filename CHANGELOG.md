@@ -4,6 +4,49 @@
 
 ## [Unreleased]
 
+> **주제: "조용히 잘못되는" 구조를 없앤다.** 이번 릴리즈의 6건은 전부 같은 병을 고친다 — 게이트가 잡아야 할 것을 놓치면서 **놓쳤다는 사실조차 알리지 않는** 구조다. 계기는 `llm-smoke` mutation job 의 무음 red 였고, 그 조사가 downstream 프로젝트(`Argus`) 실사용 데이터 분석으로 이어져 같은 클래스 결함 3종을 더 찾았다.
+
+### Fixed
+
+- **mutation-equivalent.conf stale 복원 + stale 감지 teeth + 주석줄 변이 skip (FID 20260827-mutation-conf-stale, #10)** — `llm-smoke` mutation job 이 red 였다. 원인은 테스트 갭이 아니라 **설정 부패**다. conf 의 18개 항목이 전부 stale 이라 `equivalent=0` 이 되어, 분모에서 빠져야 할 18건이 survived 로 집계됐다. conf 가 **절대 줄 번호로 키를 잡는데** `governance-lib.sh` 가 1276줄로 자라면서 전부 어긋났다. `b76e9bb` 가 "31%→64% 정직화" 했던 그 64% 가 **무음으로 50% 까지 썩었다**.
+  - **W-1 conf remap** — 18행의 `line` 컬럼만 교체. `target`·`pattern`·`reason` 은 바이트 동일(`is_equivalent` 가 `target|line|pattern|` 로 매칭하므로 다른 컬럼을 건드리면 키가 깨진다). **`|&&|` 키는 추가하지 않았다** — L1258·L1266 의 `&&` 변이는 killed 이고 원저자가 `(&& 변형은 미제외)` 로 분모에 남긴 의도다.
+  - **W-2a 주석 줄 skip** — 변이 루프가 `grep -nF` 로 주석 줄도 잡아, 주석의 `&&` 를 `||` 로 바꿔도 동작이 같으니 `bash -n` 통과 후 **영원히 survived** 였다(실측 2건 L419·L546). 판정은 **선행 공백 제거 후 첫 문자가 `#`** 인지로만 한다 — 줄 안 `#` 존재로 skip 하면 `[ "$x" = "true" ] && return 0  # PASS` 같은 **코드 줄이 사라져 점수가 거짓 상승**한다.
+  - **W-2b stale 감지 (본 FID 의 teeth)** — `mut::check_conf` 가 매칭 사이트 0건인 항목을 보고하고 **채점 진입 전 ABORT** 한다. `mutation-score.sh` 의 baseline sanity 와 **대칭**이다: 그쪽은 stale 로 인한 거짓 **통과**를, 이쪽은 stale 로 인한 무음 **red** 를 막는다. 종전엔 방향이 하나뿐이라 equivalent 18건이 전량 무음 사망해도 아무도 몰랐다. `--check-conf` 독립 모드로 18분이 아니라 **1초**에 확인한다.
+  - 실측: `equivalent` 0 → **18**, score 50% → **60%**(baseline 55). main `llm-smoke` 에서 08-17·08-24 2주 연속 실패 이후 첫 성공 확인.
+  - **한계**: 줄 번호 키는 여전히 취약하다. 함수명+순번 재설계는 검증 왕복이 18분이라 기각했고, 대신 **drift 가 조용하지 않게** 만들었다.
+
+- **queue.md 라벨 표기 드리프트가 하류 teeth 를 무음 해제하던 것 차단 (FID 20260828-queue-label-drift, #13)** — 생성기 `init-batch-queue.sh:107` 은 Status 를 맨 문자열(`PENDING`)로 쓰는데, 이후 갱신은 `start-all.md` **산문 지시**를 받은 **모델 손편집**뿐이었다. 모델이 `**IMPL_DONE**`(굵게)로 적자 소비자 3곳이 전건 불일치했다.
+  - **결과는 오탐이 아니라 무음 통과다.** 산출물·review-skip 검사가 `IMPL_DONE` 행만 수집하므로 **대상 0건 → 조용히 pass**. downstream 실측(`Argus batch-20260729`)에서 FR **31건**이 무검증으로 남았는데 아무도 red 를 보지 못했다.
+  - 소비자 3곳이 전부 깨졌다 — `batch-state.sh:92`(31건 "미완" 오판) · `collect-assumptions.sh:26`(대상 0건) · `record-batch-gate.sh:49`(`IMPL_DONE FID 0건` exit 1 → **Step A/B/C 를 정상 수행해도 verdict 전파 실패로 batch PR 이 막힌다**).
+  - **`scripts/_internal/queue-lib.sh` 신설(단일 출처)** — 쓰는 쪽(모델 손편집)은 강제할 수단이 없고 소비자는 셋인데 **정규화 지점은 하나로 수렴**하므로 읽는 쪽에서 흡수한다. **흡수 범위는 표기 장식만**(굵게·백틱·기울임·공백·CRLF)이고 **라벨 내용은 바꾸지 않는다** — `DONE`·`PLAN_DONE` 은 그대로. 정규화가 과하면 **미완을 완료로 만들어 원 결함보다 나쁘다**.
+  - **라벨 오염 검사를 기본 모드로 승격** — 종전 `--gate` 전용이라 하류 teeth 가 꺼진 사실을 **PR 시도 전까지 아무도 몰랐다**. `batch-state.sh` **주석 L45 가 이 위험을 이미 경고**하고 있었는데, 그 경고를 실행하는 검사가 조용한 구간에서 안 돌았다.
+  - **`scripts/_internal/queue-set-status.sh` 신설** — 손편집 경로를 끊는다. **마지막 컬럼만 치환**(행 재조립하면 설명 컬럼의 한국어·em dash 를 잃는다) · 알 수 없는 라벨 거부 · FR-ID 중복 거부 · 행 수 변동 시 미덮어씀. `start-all.md` Phase 1·3 배선. **extglob `@(...)` 을 쓰지 않았다** — 셸 옵션에 의존하면 호출 환경에 따라 검증이 조용히 꺼지는데, 그건 이 FID 가 막으려는 것과 같은 형태다.
+  - **헛된 "완비" 주장 제거** — `batch-state.sh` 가 전건 MERGED queue(산출물 teeth 대상 0건)에서 **FID 디렉터리가 하나도 없어도** `산출물·진행기록 완비` + rc=0 을 냈다. 1건을 실제로 검사한 경우와 **출력이 문자 그대로 같았다**. "완비" 대신 **검사 건수**를 낸다(`0 FID 검사` / `1 FID 검사`). `--gate` 모드도 동일 — 그쪽이 `gh pr create` 를 여는 훅 판정 경로라 파급이 더 크다. **0건 자체는 정상**(갓 시작한 batch·전건 MERGED)이라 에러로 승격하지 않았다 — 차단이 아니라 **가시성**이다.
+  - **★ 착수 전 가설을 정정했다** — "무발화 검사 감지를 일반 lib 로" 라는 제안으로 시작했으나 실측 결과 과했다. `emit-context`(스위치 강제) · `check-review-audit`(건수 보고) · `check-review-presence`(*바로 이 문제를 위해 신설된 스크립트*) · `check-regression-ac`(SKIP 사유)가 **전부 이미 해결돼 있었다**. 저장소가 패턴을 인식하고 개별로 처리해 왔고, 일반 lib 는 잘 동작하는 4곳을 억지로 갈아끼우는 리팩터가 됐을 것이다. **확인된 한 곳만** 고쳤다.
+
+- **`queue-set-status.sh` IFS 조작 제거 (#15 동봉)** — semgrep 이 `bash.lang.security.ifs-tampering` 2건을 잡았다. `security-scan.sh` 의 self-check 는 **bash 파일에 위험함수 룰을 적용하지 않아** 놓쳤고, 외부 스캐너 집계에서 `test-security-scan` 의 "자기코드 오탐 0"(AC-R-2)이 깨졌다. 전역 `IFS` 를 바꾸면 그 구간의 모든 분리 동작이 영향을 받고 중간 early-return 시 복원이 누락된다 → 구분자로 감싼 부분문자열 매칭(`case "|${LABELS}|" in *"|${NEW}|"*`)으로 대체. 경계 확인: `DONE`·`IMPL`(부분 문자열)·`"|"`(구분자 자체)·`"PENDING|SKIP"`(다중) 전부 거부.
+
+### Added
+
+- **미완 batch 자동 표면화 (FID 20260828-batch-resume-teeth, #14)** — downstream 실측에서 FR 31건이 `IMPL_DONE` 에서 멈췄고 Phase 3 완료(batch 보안·통합·성능 → batch PR)가 실행되지 않은 채 방치됐다.
+  - **조사 결과 새 상태를 만들 일이 아니라 배선 한 칸이었다.** `ACTIVE` 마커는 **이미 재개 키**이고(PR 성공 시 Step D 가 제거) SessionStart 에는 reconcile 주입 경로가 **이미 있는데**, 그 둘을 잇는 batch 인식 판독기만 없었다. `ACTIVE` 를 읽는 곳이 `/start-all` 재호출·PR 게이트뿐이라 **사용자가 먼저 물어야만** 알 수 있었고, `/status`·`reconcile-check` 는 batch 를 **아예 모른다**(batch 참조 0건).
+  - **근본 원인은 계층 비대칭이다** — FID 체인은 `chain.yaml` + `## 다음 skill` + 훅 **3중**으로 잠겨 있는데, 그 위를 도는 batch 루프는 `start-all.md` **산문뿐**이라 모델이 N개 FR 을 도는 내내 루프를 놓지 않아야만 성립한다. 세션이 끝나면 이어받을 주체가 없다.
+  - `scripts/_internal/batch-resume-check.sh` 신설 + `session-start.sh` 배선. 전건 완료 시 **"Phase 3 완료 미실행"** 을 지목한다 — "완료됐다"가 아니라 **"다음 단계가 안 돌았다"** 를 말해야 재개가 된다. `queue-lib.sh` 재사용(여기서 자기 정규식을 쓰면 #13 이 고친 드리프트가 재발한다).
+  - **차단하지 않는다** — 경고도 실패도 아닌 **상태 보고**다. batch 를 의도적으로 중단한 경우도 정상이며 그때 매 세션 에러를 내면 잡음이다.
+  - **순서 계약 확인** — SessionStart additionalContext 는 **1536B 프리뷰 예산**과 상대 순서 계약이 있다. `pending 339B`·`reconcile 546B` 변동 없고 상대 순서 유지. `batch-resume` 는 **조건부**라 미완 batch 가 없으면 페이로드가 종전과 동일하다. `CLAUDE.md`·`README.md` 기재 갱신.
+
+- **AC 계약 부재를 verify 관문에서 차단 (FID 20260828-ac-absence-detect, #15)** — `check-ac-format.sh` 는 `emit-context.sh` 에서만 불렸다 — 즉 **decompose 단계 전용**이다. clarify·plan·decompose 를 건너뛰면 emit-context 가 돌 기회 자체가 없어 **AC 파일 부재가 아무 데서도 안 걸린다**. `specifying-ko:19` 는 "emit-context 가 acceptance-criteria.md 실재를 요구한다"를 **승인 우회 차단 근거로 선언**하는데, 그 전제가 상류를 건너뛰면 깨진다.
+  - downstream 실측: `acceptance-criteria.md` 가 **아예 없는 FID 3건**이 verify 와 Phase B/C 리뷰를 통과했다. 사후 리뷰에서 리뷰어들이 `screens/*.md`·`requirements.md` 에서 AC 를 **사후 구성**해 판정해야 했다.
+  - `run-verification.sh` 에 배선. **차단이다** — AC 는 스프린트 계약이라 없으면 Phase B 가 대조할 기준이 없다. 명령 0건 분기에도 넣었다(`review-audit`·`foundation-manifest` 가 봉합한 **"NO COMMANDS 우회"** 와 같은 구멍). `exit 2`(파일 부재)만 차단하고 `exit 1`(포맷 FAIL)은 emit-context 관할이라 중복 판정하지 않는다.
+  - **freework mini-FID 면제** — `templates/freework.md` 가 *"spec.md 없는 경량 트랙"* 이라 직접 선언하므로 `spec.md` 부재 = lifecycle FID 아님. 여기서 FAIL 내면 정당한 자유작업 경로가 통째로 막힌다.
+  - **★ grep 배선 테스트가 죽은 코드를 통과시켰다** — `FID_DIR` 이 존재하지 않는 변수라 `set -u` 에서 `unbound variable` 로 터지는데, 배선 테스트(T14·T15)는 grep 이라 그대로 통과했다. **배선 존재와 동작은 다른 질문**이라 실행 검증(T18·T19)을 추가했다.
+
+### Docs
+
+- **도입 검토자용 상세 분석 `docs/architecture.md` 신설 (#11)** — `DESIGN.md` 는 색상·타이포그래피 UI 디자인 시스템이고 `CONTRIBUTING.md` 는 기여 절차, `CLAUDE.md` 는 Claude 용 내부 규약이라 **"이게 어떻게 동작하고 왜 무너지지 않는가"를 설명하는 문서가 없었다**. 장치 4종(훅·실행-근거 게이트·Generator↔Evaluator 분리·파일 기반 상태) · 실행-근거 게이트가 뚫린 4가지 시도와 대응(잘못 고친 2회 포함) · 규모 실측(102 릴리즈·테스트:코드 2.6:1) · **§6 한계 6종**(의도 위조 미차단·기록 진실성 미검사·토큰 비용·큰 FID 정체·repo 밖 산출물 부적합·Claude Code 전용). README 는 카운트·버전이 이미 정확해 통째로 갈지 않고 진입 링크 2곳 + 자기검증 수치 1줄만 더했다.
+- **사례 연구 `docs/case-studies/2026-08-27-argus-batch-stall.md` (#12)** — downstream 실사용 데이터(FID 36건·§batch 25건) 사후 분석. 단일 모드 체인은 정상이고 batch 층이 마지막 관문 직전에서 죽는다는 것, 그 사실이 라벨 드리프트로 감춰졌다는 것, 건너뛴 리뷰가 숨기고 있던 결함(Critical 2·Important 12)을 실측으로 규명. **대조군이 결정적이다** — 같은 배치·같은 날·같은 코드베이스에서 리뷰가 실제로 돈 화면만 PASS 였다. 개선안 7종을 도출했고 **이번 릴리즈가 전부 구현한다**.
+
+
 ## [1.80.0] — 2026-08-21
 
 ### Added
