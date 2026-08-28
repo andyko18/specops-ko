@@ -354,6 +354,51 @@ _verify_exec_evidence() {
   return 1
 }
 
+# deny 사유 진단 (20260828-deny-cause-truth) — **판정에 관여하지 않는다**. deny 경로에서만 부른다.
+#   stdout: `stale <마지막 편집 파일>`  (러너 PASS 증거는 있는데 그 뒤 코드를 고침)
+#           빈 출력                      (그 외 — 증거 자체가 없음. 종전 문안 유지)
+#
+# 왜 필요한가 (실측): 러너를 정직하게 완주하고 그 뒤 파일을 고치면 stale 로 막힌다. 판정은 옳은데
+#   문안이 "이 세션에 러너 실행 기록이 없습니다" 라고 **거짓 원인**을 말했다. 사용자는 방금 돌린
+#   러너를 또 돌리거나(수분대 낭비) 게이트를 결함으로 의심한다 — 마찰로그 BYPASS 24건 중 15건이
+#   "이 세션에서 verify PASS" 를 사유로 적었고, 4건은 "게이트 결함 의심" 이라고 명시했다.
+#   틀린 deny 문안이 BYPASS 를 유도한 것은 두 번째다(v1.45.0 이 같은 이유로 문안을 교체했다).
+#
+# 왜 $lasthit 만 보는가: 전경 러너 경로가 지배적이고(이 함수가 다루는 실패 형태 자체가 그것),
+#   $bghit·$declhit 블록까지 복제하면 리터럴이 늘어 T25(앵커 동일성 잠금)와 충돌한다.
+#   그 경로는 진단이 빈 출력이 되어 **종전 문안으로 안전하게 떨어진다**(미탐 방향).
+# ★ 별도 함수인 이유는 _bg_pending_path 와 같다 — _verify_exec_evidence 는 서브셸 안에서 돌아
+#   변수 전파가 안 되고, 진단은 deny 경로에서만 필요해 jq 1회 추가 비용이 hot path 에 없다.
+_verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 문자열
+  [ -n "${1:-}" ] && [ -f "$1" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  jq -rn --slurpfile a "$1" '
+    ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
+    | ($tus | length) as $all
+    | ($a | map(select(.type=="user") | .message.content[]?
+                | select(.type=="tool_result" and (.is_error != true))
+                | {id: .tool_use_id, out: (.content | if type=="string" then . else tostring end)})) as $res
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Bash")
+         | {id: .id, cmd: (.input.command // "")}
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | . as $u
+         | ($res | map(select(.id == $u.id)) | .[0].out // "")
+         | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
+         | $i ] | max // -1) as $lasthit
+    | ([ range(0; $all) as $i
+         | $tus[$i]
+         | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
+         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | {i: $i, f: (.input.file_path // "")} ]) as $edits
+    | (($edits | map(.i) | max) // -1) as $lastedit
+    | if $lasthit >= 0 and $lastedit >= $lasthit
+      then "stale \(($edits | map(select(.i == $lastedit)) | .[0].f // "?"))"
+      else "" end
+  ' 2>/dev/null || true
+}
+
 # 백그라운드 러너 스텁은 있으나 출력 회수 Read 가 없는 경우의 경로를 반환 (없으면 빈 출력).
 # deny 안내문이 "왜 막혔는지" 를 원인별로 구분하는 데 쓴다 — 구분이 없으면 사용자는 방금 러너를
 # 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 수분대 러너 재실행 낭비).

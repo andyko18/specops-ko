@@ -45,6 +45,27 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJEC
 check "T2b ★ Skill 호출만(실행증거 없음) → deny" '"permissionDecision":"deny"' "$out"
 # T2c·T2d 심층 필터 통합 잠금 (verify-exec-gate 잔여 backlog — 단위 T9·T10 은 인라인 fixture 라
 #   pretool 통합 경로(훅 전체 파이프)의 is_error·negative guard 배선은 별도 파일 fixture 로 잠근다)
+# ── T-stale.a~c: deny 사유가 stale 을 stale 이라고 말한다 (FID 20260828-deny-cause-truth) ──
+# 왜: 러너를 정직하게 완주하고 그 뒤 파일을 고치면 stale 로 막히는데(설계상 옳다), 메시지는
+#   "이 세션에 러너 실행 기록이 없습니다" 라고 **거짓 원인**을 말했다. 사용자는 방금 돌린 러너를
+#   또 돌리거나(수분대 낭비) 게이트를 결함으로 의심하고 BYPASS 로 간다.
+#   실측: 마찰로그 BYPASS 24건 중 **15건이 "이 세션에서 verify PASS" 를 사유로 적었다** —
+#   증거가 있었는데 막힌 것이고, 4건은 아예 "게이트 결함 의심" 이라고 썼다.
+#   틀린 deny 문안이 BYPASS 를 유도한 것은 이번이 **두 번째**다(v1.45.0 이 같은 이유로 문안 교체).
+out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-then-edit.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-stale.a 러너 PASS 후 코드 편집 → deny 유지(판정은 불변)" '"permissionDecision":"deny"' "$out"
+# 'stale' 단어만 요구하면 안 된다 — 구 문안에도 "stale 위험도 있습니다" 가 있어 tautology 다(실측).
+#   원인을 **구별해서** 말하는 고유 문구를 요구한다.
+check "T-stale.b ★ 사유가 '러너 실행 후 코드 수정' 을 명시" '그 뒤 코드가 수정' "$out"
+if printf '%s' "$out" | grep -q '러너 실행 기록이 없습니다'; then
+  echo "FAIL T-stale.c 거짓 원인 잔존 — 증거가 있는데 '실행 기록이 없습니다' 라고 말함"; fail=$((fail+1))
+else
+  echo "PASS T-stale.c 거짓 원인 제거"; pass=$((pass+1))
+fi
+# 되돌려-관찰: 증거가 **정말로** 없는 경로는 종전 문안을 유지해야 한다(과잉 일반화 차단)
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-stale.d 증거 부재 경로는 종전 문안 유지" '러너 실행 기록이 없습니다' "$out"
+
 out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-error.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T2c 러너 is_error 결과(PASS 문자열) → deny (에러 실행 불인정)" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -m x" "$FIX/pretool-verify-exec-partial-mixed.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)

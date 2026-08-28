@@ -290,11 +290,25 @@ if [ -n "$violation" ]; then
 ⚠️ compound 안내: 이 명령에 \`git add\` 와 \`git commit\` 이 함께 있습니다.
    PreToolUse deny 시 add 도 함께 취소됩니다 — \`git add\` 와 \`git commit\` 을 **별도 Bash 호출**로 분리 실행하세요."
   fi
+  # 원인 구분 (20260828-deny-cause-truth): 증거가 **있었는데** 그 뒤 코드를 고쳐 stale 인 경우,
+  #   "실행 기록이 없습니다" 는 거짓이다. 거짓 원인은 러너 재실행 낭비 아니면 BYPASS 로 이어진다
+  #   (마찰로그 BYPASS 24건 중 15건이 "이 세션에서 verify PASS" 를 사유로 적었다).
+  #   진단이 빈 값이면 종전 문안 그대로 — 미탐 방향으로만 떨어진다.
+  _stale_cause=$(_verify_stale_cause "$transcript" 2>/dev/null || true)
+  if [ -n "${_stale_cause:-}" ]; then
+    _evidence_hint="① 실행 증거가 **stale** 입니다 — 러너는 이 세션에서 PASS 했으나 그 뒤 코드가 수정됐습니다.
+   마지막 수정: ${_stale_cause#stale }
+   수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
+   bash scripts/_internal/run-verification.sh ${fid:-<FID>}
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  else
+    _evidence_hint="① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
+   bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  fi
   reason="$act 차단 — verify 면제 조건 2가지 중 최소 하나가 미충족입니다.
 
-① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
-   bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
-   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)
+$_evidence_hint
 $_bg_hint
 $_anchor_hint
 
