@@ -42,12 +42,13 @@ NEW=$(queue::qnorm "$NEW")
 # 라벨 검증 — 단일 출처 목록과 **정확히** 일치해야 한다.
 #   extglob `@(...)` 을 쓰지 않는다: 셸 옵션에 의존하면 호출 환경에 따라 검증이 조용히
 #   꺼진다 — 이 FID 가 막으려는 "게이트가 소리 없이 안 도는" 상황과 같은 형태다.
+#   IFS 조작도 쓰지 않는다: 전역 IFS 를 바꾸면 그 구간의 모든 분리 동작이 영향을 받고,
+#   중간에 early-return 이 생기면 복원이 누락된다(semgrep bash.lang.security.ifs-tampering).
+#   구분자로 감싼 부분문자열 매칭이면 IFS 도 서브셸도 필요 없다.
 _label_ok=0
-_IFS_SAVE=$IFS; IFS='|'
-for _l in $QUEUE_KNOWN_LABELS; do
-  [ "$NEW" = "$_l" ] && { _label_ok=1; break; }
-done
-IFS=$_IFS_SAVE
+case "|${QUEUE_KNOWN_LABELS}|" in
+  *"|${NEW}|"*) _label_ok=1 ;;
+esac
 if [ "$_label_ok" -ne 1 ]; then
   echo "QUEUE-SET: 알 수 없는 라벨 '$NEW' — 허용: $QUEUE_KNOWN_LABELS" >&2; exit 1
 fi
