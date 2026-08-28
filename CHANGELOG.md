@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.82.0] — 2026-08-29
+
 ### Added
 
 - **SKILL.md 크기 래칫 (FID 20260828-skill-size-ratchet)** — lifecycle chain 12 skill 의 SKILL.md 합계가 **223,823 B / 3,611 줄**이다(대략 5만 토큰 — bytes÷4.4 기준, 추정치임을 명시한다). 단일 최대는 `specifying-ko` 49.5 KB, 줄 수 최대는 `e2e-test-ko` 1,018 줄. 지시 희석은 이 repo 가 반복해서 겪은 "조용히 잘못되는" 실패의 유력 원인인데, **어떤 게이트도 이 축을 보지 않았다**.
@@ -1346,7 +1348,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.81.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.82.0...HEAD
+[1.82.0]: https://github.com/andyko18/specops-ko/compare/v1.81.0...v1.82.0
 [1.81.0]: https://github.com/andyko18/specops-ko/compare/v1.80.0...v1.81.0
 [1.80.0]: https://github.com/andyko18/specops-ko/compare/v1.79.0...v1.80.0
 [1.79.0]: https://github.com/andyko18/specops-ko/compare/v1.78.1...v1.79.0
