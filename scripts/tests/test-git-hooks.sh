@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 195s)
+# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 ~330s)
 # 계기: 44cd095 revert 가 run-all 없이 나가 main 이 하루 red.
 #       Claude Code PreToolUse 훅은 Cursor 등 다른 도구의 커밋에 발화하지 않는다 —
 #       git hook 은 도구 무관하게 걸리는 유일한 층이다.
@@ -24,7 +24,7 @@ INSTALLER="$PLUGIN/scripts/_internal/install-git-hooks.sh"
 
 # GH-3: pre-commit 은 빠른 게이트 2종 — 정적 구성 + **실측 소요**로 확인한다.
 #       (문구 grep 은 안내문 안의 run-all 언급과 실제 호출을 구분하지 못한다.
-#        195s 스위트를 돌지 '않음'은 시간으로 증명하는 게 맞다.)
+#        전체 스위트를 돌지 '않음'은 시간으로 증명하는 게 맞다.)
 if [ -x "$PRE_COMMIT" ]; then
   grep -q 'validate-structure.sh' "$PRE_COMMIT" && grep -q 'check-propagation.sh' "$PRE_COMMIT" \
     && gate_ok=1 || gate_ok=0
@@ -129,7 +129,7 @@ grep -q 'install-git-hooks' "$PLUGIN/CLAUDE.md" && grep -q 'install-git-hooks' "
 # GH-ci.*: pre-push CI 상태 경고 (FID 20260807-doctor-ci-check)
 #
 # ⚠️ 하드 규칙: 아래 어서션은 어떤 경로로도 run-all.sh 에 도달하면 안 된다.
-#    (증상이 "스위트가 195s 가 됨" 하나뿐이라 리뷰에서 안 보인다)
+#    (증상이 "스위트가 수분대가 됨" 하나뿐이라 리뷰에서 안 보인다)
 #    실행되는 pre-push 경로는 면제 4종뿐이고, 배선 검사는 소스 grep 이다.
 # ─────────────────────────────────────────────────────────────
 CI_SH="$PLUGIN/scripts/_internal/check-ci-status.sh"

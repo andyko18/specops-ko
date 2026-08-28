@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`run-all` 무한 정지 — pre-push·릴리즈 pre-flight 가 네트워크에 묶여 있었다 (FID 20260828-sast-timeout)** — `scripts/security-scan.sh` 의 `semgrep --config auto` 는 레지스트리에서 룰을 받는 **네트워크 호출**이고 자체 상한이 없다. `run-all.sh` 에도 스위트별 상한이 없어, 한 스위트가 멈추면 aggregator 가 통째로 멈췄다 — 그리고 그 게이트를 `.githooks/pre-push` 와 릴리즈 pre-flight 가 그대로 쓴다. 즉 **`git push` 가 무한 정지**했다. 실측: `run-all` 이 `test-security-scan` 에서 **8분+ 무출력** 후 강제 종료. CI(ubuntu)는 semgrep 미설치라 graceful skip 되므로 **로컬 개발 환경에서만 발화하는 함정**이었고, friction-log 의 BYPASS 사유 *"러너를 단일 도구호출 내 완료 불가"* 2건이 같은 증상과 부합한다.
+  - 신규 `scripts/_internal/run-bounded.sh` — `bounded_run <초> <명령…>` 공용 상한 헬퍼. `run-all`(스위트별 300s)·`security-scan`(외부 스캐너별 180s)이 소비한다.
+  - ★ **GNU `timeout` 도 `perl alarm` 도 답이 아니다** — 둘 다 대상 프로세스 하나만 죽인다. 대상이 래퍼 셸이면 고아가 된 손자가 stdout 파이프를 계속 물어 `$( )` 가 반환되지 않는다. 상한은 걸렸는데 **호출부는 그대로 멈춘다**(실측: perl alarm 2s 구현에서 `bounded_run` 은 2초, `j=$(…)` 는 **102초**). `set -m` + `kill -- -$pid`(프로세스 그룹째)로 전 자손을 잡는다 — `check-ci-status.sh:_run_with_timeout` 이 이미 실증한 메커니즘이고, 두 구현의 드리프트는 `bounded-run-watchdog` 원장이 잠근다.
+  - ★ **워치독을 신호로 죽이면 안 된다** — 비대화형 bash 가 다음 명령 경계에서 `Terminated: 15 …` 를 stderr 에 흘리고, `wait 2>/dev/null` 로는 못 막는다(알림 시점이 wait 밖). 스위트마다 부르므로 148배로 불어난다. 부모는 flag 파일만 지우고 워치독이 **스스로 정상 종료**한다 — 대기 비용 0, stderr 무오염(T6.a 가 잠금).
+  - **무음 강등 차단**: 시간초과·하드 실패(rc≥2) 모두 출력에 명시한다. 상한만 걸고 표기를 빠뜨리면 정지가 **조용한 `crit=0` 통과**로 바뀐다 — 정지보다 나쁘다.
+  - **부수 발견 ①**: `--metrics=off` 는 `--config auto` 와 **비호환**이다(`Cannot create auto config when metrics are off`). 붙이면 semgrep 이 통째로 no-op 이 되는데 출력은 `SECURITY: crit=0 high=0` 이다. 도입 시도했다가 실측으로 되돌렸고, 그 경험이 위 "하드 실패 표기" 를 낳았다.
+  - **부수 발견 ②**: 이 환경의 실 `semgrep --config auto` 는 **99초 뒤 rc=2 로 실패**한다. 즉 SAST 는 이미 무음 no-op 이었고 `SECURITY: crit=0` 만 나가고 있었다. 이제 `(외부 SAST 미반영 — semgrep(실행실패 rc=2))` 로 표면화된다.
+  - **네트워크 금지 계약**: `run-all` 이 `SPECOPS_SAST_EXTERNAL=0` 을 export 한다. 스위트가 실 스캐너를 부르면 테스트 결과가 네트워크 상태에 좌우된다(실측 `test-self-config-collect` 4.4s → **104s**). 스캐너 동작 자체는 stub 으로 검증한다.
+  - 테스트 **19건 신규** — `test-run-bounded.sh` 14건(고아 손자 T5·stderr 무오염 T6·배선 T7 포함) + `test-security-scan.sh` AC-4·5·6·7·8. `test-run-all-verify-token.sh` T4(헬퍼 부재 시 무음 아닌 경고 fallback)·T5(네트워크 금지 계약).
+- **문서 소요 스탬프 드리프트** — `run-all` 을 8곳이 `~195s`·`144 스위트` 로 적고 있었다. 실측 **331s · 148 스위트**로 정정(CLAUDE.md·README·scripts/README·docs/architecture·pre-commit·pre-push·install-git-hooks·verifying-evidence-ko).
+
 ## [1.81.0] — 2026-08-28
 
 > **주제: "조용히 잘못되는" 구조를 없앤다.** 이번 릴리즈의 6건은 전부 같은 병을 고친다 — 게이트가 잡아야 할 것을 놓치면서 **놓쳤다는 사실조차 알리지 않는** 구조다. 계기는 `llm-smoke` mutation job 의 무음 red 였고, 그 조사가 downstream 프로젝트(`Argus`) 실사용 데이터 분석으로 이어져 같은 클래스 결함 3종을 더 찾았다.

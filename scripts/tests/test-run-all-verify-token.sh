@@ -13,6 +13,9 @@ trap 'rm -rf "$TMP"' EXIT
 
 mkdir -p "$TMP/scripts/tests" "$TMP/scripts/_internal"
 cp "$PLUGIN/scripts/tests/run-all.sh" "$TMP/scripts/tests/run-all.sh"
+# 상한 헬퍼도 실물로 복사한다 — stub 을 두면 sandbox 가 프로덕션 경로를 안 밟는다
+# (20260828-sast-timeout: run-all 이 bounded_run 으로 스위트를 감싼다).
+cp "$PLUGIN/scripts/_internal/run-bounded.sh" "$TMP/scripts/_internal/run-bounded.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/scripts/_internal/validate-structure.sh"
 printf '#!/usr/bin/env bash\necho "PASS t1"\nexit 0\n' > "$TMP/scripts/tests/test-ok.sh"
 
@@ -39,5 +42,24 @@ fi
 n=$(grep -c 'tests/run-all\\\\\.sh' "$PLUGIN/hooks/governance-lib.sh")
 [ "$n" -ge 1 ] && ok "T3 governance-lib 러너 클래스에 tests/run-all.sh 앵커 존재 ($n)" \
   || nope "T3 앵커 배선" "governance-lib 에 tests/run-all 앵커 없음"
+
+# ── T5: 네트워크 금지 계약 — aggregator 가 외부 SAST 를 끈다 (20260828-sast-timeout) ──
+# 왜 계약인가: 이 export 가 사라지면 test-security-scan·test-self-config-collect 가 다시 실
+#   semgrep 을 부르고, run-all 소요가 네트워크 상태에 좌우된다(실측 4.4s → 104s, 최악은 무한).
+#   pre-push 가 이 게이트를 그대로 쓰므로 `git push` 가 네트워크에 묶인다.
+grep -qE '^export SPECOPS_SAST_EXTERNAL=0' "$PLUGIN/scripts/tests/run-all.sh" \
+  && ok "T5 run-all 이 외부 SAST 를 끄고 실행 (네트워크 금지 계약)" \
+  || nope "T5 네트워크 금지" "run-all 에 SPECOPS_SAST_EXTERNAL=0 export 없음"
+
+# ── T4: 상한 헬퍼 부재 → 죽지 않고 경고 후 진행 (20260828-sast-timeout) ──
+# 왜 계약인가: 헬퍼를 하드 의존으로 두면 트리밍된 트리에서 aggregator 가 통째로 죽는다.
+#   반대로 **조용히** 무제한으로 떨어지면 "상한이 있다"는 착각만 남는다 — 이 FID 가 고치는
+#   결함의 재생산이다. 계약은 "동작하되 경고한다" 이고, 그 경고가 사라지는 것도 회귀다.
+rm -f "$TMP/scripts/tests/test-bad.sh" "$TMP/scripts/_internal/run-bounded.sh"
+out=$(bash "$TMP/scripts/tests/run-all.sh" --quiet 2>&1); code=$?
+last=$(printf '%s\n' "$out" | tail -1)
+{ [ "$code" -eq 0 ] && [ "$last" = "VERIFY: PASS" ] && printf '%s\n' "$out" | grep -q 'run-bounded.sh 부재'; } \
+  && ok "T4 헬퍼 부재 시 경고 후 정상 완주 (무음 fallback 아님)" \
+  || nope "T4 헬퍼 부재 fallback" "exit=$code last=$last out=$(printf '%s' "$out" | head -3)"
 
 finish

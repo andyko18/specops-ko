@@ -177,9 +177,9 @@ PR 생성                                                   ★ 멈춤
 
 ### 자기 검증 장치
 
-- `run-all.sh` — 144 스위트 전체 (약 195초). 릴리즈 pre-flight 와 동일한 게이트
+- `run-all.sh` — 147 스위트 전체 (실측 약 330초, 스위트별 300초 상한). 릴리즈 pre-flight 와 동일한 게이트
 - `validate-structure.sh` — 구조 무결성 17항목 (카운트·frontmatter·chain 정합·에이전트 도구 권한·상호참조 실재성)
-- git hook 2단 — `pre-commit`(구조, ~5초) + `pre-push`(전체, ~195초)
+- git hook 2단 — `pre-commit`(구조, ~5초) + `pre-push`(전체, ~330초)
 - **mutation 테스트** — 테스트가 실제로 결함을 잡는지 측정. 현재 `governance-lib.sh` 60% (기준 55%)
 - `/security-scan --self-config` — 자기 설정을 red team → blue team → auditor 순으로 적대감사
 

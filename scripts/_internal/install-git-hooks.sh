@@ -31,7 +31,7 @@ cat <<'EOF'
 install-git-hooks: 설치 완료 (core.hooksPath=.githooks)
 
   pre-commit  → validate-structure + check-propagation   (~5s)
-  pre-push    → run-all.sh 전체 스위트                    (~195s)
+  pre-push    → run-all.sh 전체 스위트                    (~330s)
 
 탈출구(주권): git commit --no-verify · git push --no-verify
 해제: bash scripts/_internal/install-git-hooks.sh --uninstall

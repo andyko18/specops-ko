@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-ko push 전 전체 스위트 게이트 (~195s)
+# specops-ko push 전 전체 스위트 게이트 (~330s — 147 스위트 실측)
 #
 # pre-commit 은 5초짜리 정합만 본다(로컬 반복 비용). 원격에 나가기 직전 한 번,
 # run-all.sh(=릴리즈 pre-flight 와 동일 게이트) 전체를 돌린다.
@@ -28,13 +28,13 @@ while read -r _lref lsha _rref _rsha; do
 done
 [ "$has_update" -eq 1 ] || exit 0
 
-# origin main CI 가 red 면 경고 (195s 스위트를 돌기 전에 알린다 — 차단은 하지 않는다).
+# origin main CI 가 red 면 경고 (~330s 스위트를 돌기 전에 알린다 — 차단은 하지 않는다).
 # 판정 로직은 전부 check-ci-status.sh 에 있다 (훅 본문 인라인 금지 — 중복 판정은 드리프트를 낳는다).
 # 면제 4종 뒤에 두는 것이 계약이다 — 앞에 두면 비-specops repo 에서 gh 를 부르는 월권(5원칙 4).
 CI_CHECK="scripts/_internal/check-ci-status.sh"
 [ -f "$CI_CHECK" ] && bash "$CI_CHECK" || true
 
-echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (~3분)…" >&2
+echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (~5.5분)…" >&2
 out=$(bash "$RUN_ALL" --quiet 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then
   cat >&2 <<EOF

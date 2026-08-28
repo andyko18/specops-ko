@@ -194,7 +194,7 @@ specops-ko/
 
 ## 개발 · 테스트
 
-> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — pre-commit(구조 검증 ~5s) + pre-push(전체 테스트 ~195s) 게이트 설치.
+> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — pre-commit(구조 검증 ~5s) + pre-push(전체 테스트 ~330s) 게이트 설치.
 
 ```bash
 bash scripts/tests/run-all.sh                    # 전체 (릴리즈 pre-flight 게이트와 동일)

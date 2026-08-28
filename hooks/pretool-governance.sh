@@ -259,7 +259,7 @@ if [ -n "$violation" ]; then
   #   (dogfood 20260721 test1 #418→#419→#420: 안내 이행 후 동일 메시지로 재차단 → #421 BYPASS).
   #   $fid 가 비어 있으면 그 자체가 진단이다 — session-progress 에 FID 섹션이 없다는 뜻.
   # 백그라운드 실행 원인 구분 (20260807-bg-verify-evidence) — 구분이 없으면 사용자는 방금 러너를
-  # 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 195s 러너 재실행 낭비).
+  # 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 수분대 러너 재실행 낭비).
   # ★ 부모 스코프에서 계산한다 — _verify_exec_evidence 는 `res=$(apply_lookback_rule ...)`
   #   서브셸 안에서 돌아 그 안의 변수 설정이 여기로 전파되지 않는다(Phase B 적발).
   _EXEC_BG_PENDING_PATH=$(_bg_pending_path "$transcript" 2>/dev/null || true)
