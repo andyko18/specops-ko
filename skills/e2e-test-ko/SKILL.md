@@ -119,13 +119,31 @@ TMP="$(mktemp -d)"
 { [ -f "$TMP/.specops/memory/constitution.md" ] \
   && [ -f "$TMP/.specops/memory/requirements.md" ] \
   && [ -f "$TMP/.specops/memory/test-strategy.md" ]; } && r11=0 || r11=1
-# V12: session-progress 골격 + init 커밋 1건
-{ [ -f "$TMP/.specops/session-progress.md" ] \
-  && [ "$(git -C "$TMP" log --oneline 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ]; } && r12=0 || r12=1
+# V12: session-progress 골격 + 부트스트랩 커밋 계약
+# ★ 계약 정정 (20260829 e2e 실주행 적발): init-project Phase 10 은 **스테이징까지만** 한다 —
+#   "Phase 11 enrich 후 단일 커밋하세요". 구 V12 는 `git log >= 1` 을 요구해 기본 경로에서
+#   **구조적으로 FAIL** 이었다(하네스가 구현보다 오래된 계약을 들고 있었다). /e2e-test 는 수동
+#   전용이라 run-all 이 못 봤고, 이 repo doctor 의 "부트스트랩 미종결 · init 커밋 0" 도 같은 원인이다.
+#   기본 경로는 **staged > 0 · 커밋 0** 을 요구하고, 커밋 경로는 SPECOPS_INIT_COMMIT_NOW=1 로 별도 실증한다
+#   (둘 다 봐야 "스테이징만 하고 커밋은 Phase 11" 계약에 이빨이 선다).
+staged_n=$(git -C "$TMP" diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+commit_n=$(git -C "$TMP" log --oneline 2>/dev/null | wc -l | tr -d ' ')
+{ [ -f "$TMP/.specops/session-progress.md" ] && [ "$staged_n" -gt 0 ] && [ "$commit_n" -eq 0 ]; } && r12a=0 || r12a=1
+
+TMP2="$(mktemp -d)"
+(
+  cd "$TMP2" && git init -q && git config user.email e2e@test.local && git config user.name e2e
+  printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
+    | RESUME_MODE=0 SPECOPS_INIT_COMMIT_NOW=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+) >/dev/null 2>&1
+[ "$(git -C "$TMP2" log --oneline 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ] && r12b=0 || r12b=1
+rm -rf "$TMP2"
+
+{ [ "$r12a" = 0 ] && [ "$r12b" = 0 ]; } && r12=0 || r12=1
 
 e2e_check V10 "init-project root 산출물 3종" "$r10"
 e2e_check V11 "init-project memory 산출물 3종" "$r11"
-e2e_check V12 "session-progress 골격 + init 커밋" "$r12"
+e2e_check V12 "session-progress 골격 + 커밋 계약(staged→Phase11 커밋)" "$r12"
 
 rm -rf "$TMP"
 ```
@@ -533,6 +551,16 @@ lifecycle **꼬리부** 검증. `finishing-a-development-branch-ko` 는 `gh pr v
 `git branch -d` 실제 명령에 의존하며 fixture 에서 실제 PR 머지는 불가하다. 따라서 finishing 의
 **HARD GATE bash 스니펫을 격리 repo 에 재현해 exit code/출력만 단위 검증**한다 (finishing skill
 을 chain 호출하지 않음 — HARD GATE 없는 harness 성격 유지).
+
+> **⚠️ R-1 이 이 블록을 막는다 (20260829 실주행 적발)**: 아래 스니펫은 격리 sandbox 안에서
+> `git commit` 을 4회 부르는데, PreToolUse R-1 은 **명령 문자열**만 보므로 그것이 throwaway
+> repo 대상인지 구분하지 못한다. 세션에 fresh verify 실행 증거가 없으면 S7 전체가 deny 된다.
+> 두 경로 중 하나로 진행한다:
+>   1. 실행 전 `bash scripts/tests/run-all.sh` 로 실행 증거를 만든다 (권장 — 정직 경로), 또는
+>   2. **각 `git commit` 에 인라인**으로 우회를 붙인다. 별도 줄의 `export` 는 소용없다 —
+>      훅은 별도 프로세스라 셸 환경을 못 보고 명령 문자열만 읽는다:
+>      `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='e2e S7 격리 sandbox — throwaway repo 내부 커밋, 플러그인 repo 무접촉' git ... commit ...`
+> S8 의 batch fixture 도 같은 조건이다.
 
 > **검증 경계 (한계 고백)**: dirty-tree gate·unpushed gate·worktree-absent skip·
 > `branch -d` merged/unmerged 분기는 시뮬 **가능**. 그러나 `gh pr view` 가 보고하는

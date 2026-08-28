@@ -14,12 +14,18 @@
   - 한계 고백: **SKILL.md 본문만** 잰다(= 컨텍스트로 로드되는 것). 본문을 보조 파일로 옮기면 수치가 준다 — 그게 의도(온디맨드 읽기)지만 "보조 파일이 정말 온디맨드인가"는 기계가 못 본다. 분할 리뷰에서 사람이 확인해야 한다.
   - 어서션 8건. `T4.a` 가 되돌려-관찰이다 — 실제 skill 을 부풀려 **FAIL 전환을 실측**하고 원복한다(`T4.b` 가 트리 무오염 확인). 래칫이 "있는데 안 무는" 상태가 가장 나쁘고, 그건 위 `skip-tracker` 와 동형이다.
 
+### Fixed
+
+- **E2E V12 가 구현보다 오래된 계약을 들고 있었다 (FID 20260829-e2e-v12-contract)** — `/e2e-test` **실주행으로 적발**했다(PASS=23 FAIL=1). `init-project` Phase 10 은 *"스테이징 완료 … Phase 11 enrich 후 단일 커밋하세요"* 로 커밋을 뒤로 미루는데, `V12` 는 여전히 `git log >= 1` 을 요구해 **기본 경로에서 구조적으로 FAIL** 이었다. `/e2e-test` 가 수동 전용이라 `run-all` 이 못 봤고, 이 repo `doctor` 의 *"부트스트랩 미종결 · init 커밋 0"* 경고도 같은 원인이다.
+  - 정정: 기본 경로는 **staged > 0 · 커밋 0**(현 계약), 커밋 경로는 `SPECOPS_INIT_COMMIT_NOW=1` 로 **따로 실증**한다. 둘 다 봐야 "스테이징만 하고 커밋은 Phase 11" 계약에 이빨이 선다 — 한쪽만 보면 다시 드리프트한다. 실측: 기본 `staged=10 commit=0`, 커밋 경로 `commit=1` → V12 PASS.
+- **E2E S7·S8 이 R-1 에 구조적으로 막혔다** — 두 단계는 `mktemp -d` throwaway repo 안에서 `git commit` 을 부르는데, PreToolUse R-1 은 **명령 문자열**만 보므로 sandbox 인지 구분하지 못한다. 세션에 fresh verify 증거가 없으면 `/e2e-test` 가 S7 에서 통째로 막힌다. 하네스에 두 경로(사전 `run-all` 실행 / 각 `git commit` 에 **인라인** 우회)를 명시했다. 별도 줄의 `export` 는 소용없다는 것도 함께 적었다 — 훅은 별도 프로세스라 셸 환경이 아니라 명령 문자열을 읽는다(실주행에서 실제로 헛짚었다).
+
 ### Changed
 
 - **`e2e-test-ko` 시범 분할 — fixture 본문을 보조 파일로 (FID 20260828-skill-split-pilot)** — `1,018줄 / 37,452 B` → **`729줄 / 30,979 B`**. 사용자 코딩 규칙(800줄 max)을 위반하던 유일한 SKILL.md 였다. 옮긴 것은 lifecycle 산출물 fixture 5종(`spec`·`acceptance-criteria`·`clarifications`·`plan`·`tasks`) 본문 — **순수 페이로드**이고, 해당 스텝에서 한 번 쓰이는 데이터다. `skills/e2e-test-ko/fixtures/*.md` 로 옮기고 SKILL.md 에는 "이 파일을 읽어 `.specops/$FID/<파일>` 에 생성한다" 2줄 포인터만 남겼다.
   - **본문 무손실 실측**: 추출 5건 전부 원본 블록과 **byte-identical**(스크립트로 대조). 포인터가 원래 리드인이 담던 목적지 경로·플레이스홀더 치환 지시를 모두 승계한다 — 초안에서 목적지 경로가 빠진 것을 발견해 복원했다.
   - **신규 skill 디렉토리를 만들지 않았다**: `skills/<name>/SKILL.md` 를 늘리면 `.structure-baseline` 카운트·`used_by`·`chain_consistency`·메타 skill 목록·`readme_counts` 4~5개 게이트를 동시에 건드린다. 기존 선례(`planning-ko/plan-document-reviewer-prompt.md`·`brainstorming-ko/scripts/`)대로 skill 디렉토리 내 보조 파일을 쓴다.
-  - ⚠️ **구조 검증만 — 동작 미검증**: `e2e-test-ko` 는 수동 전용이라 `run-all` 에 없다. `run-all 149/149` 와 `validate-structure` 18항목은 **파일이 파싱되고 링크가 산다**는 것만 말하지, 이 skill 이 여전히 9단계 chain 을 몰고 가는지는 말하지 않는다. 행동 검증은 `/e2e-test` 1회 실주행(토큰 비용)이 유일한 수단이며, 이번 릴리즈에서는 돌리지 않았다. `run-all` green 을 분할 안전의 근거로 제시하지 않는다 — 그건 이 조사가 P1-6 으로 지적한 "테스트가 문구만 확인한다" 를 자기 변경에 적용하는 것이다.
+  - ✅ **행동 검증 완료 (사후)**: `/e2e-test` 1회 실주행으로 확인했다. S1~S4 를 **분할본 지시(fixtures 포인터)** 로 수행해 산출물이 fixture 와 `<FID>`·`<날짜>` 치환만 다른 **byte-identical** 임을 대조했고, `V2`(spec §1·§2·§5)·`V3`(AC 3개)·`V4`·`V5`·`V6`(DAG YAML)·`V8`(DAG leaf) 전부 PASS 했다. 최초 커밋 시점에는 미검증이었고 그렇게 명시했었다 — `run-all` green 은 분할 안전의 근거가 아니다(P1-6 을 자기 변경에 적용하지 않는다).
   - 나머지 chain skill 은 이번에 건드리지 않았다. `specifying-ko`(49.5 KB) 는 lifecycle 진입점이고 진입 분기 7종을 순서 매칭하므로 blast radius 가 가장 크다 — 시범 결과와 행동 검증 수단을 확보한 뒤에 다룬다.
 
 ### Fixed
