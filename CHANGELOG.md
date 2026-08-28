@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **SKILL.md 크기 래칫 (FID 20260828-skill-size-ratchet)** — lifecycle chain 12 skill 의 SKILL.md 합계가 **223,823 B / 3,611 줄**이다(대략 5만 토큰 — bytes÷4.4 기준, 추정치임을 명시한다). 단일 최대는 `specifying-ko` 49.5 KB, 줄 수 최대는 `e2e-test-ko` 1,018 줄. 지시 희석은 이 repo 가 반복해서 겪은 "조용히 잘못되는" 실패의 유력 원인인데, **어떤 게이트도 이 축을 보지 않았다**.
+  - `validate-structure` 신규 검사 `skill_size` — `.skill-size-baseline` 에 skill 별 bytes·lines 와 chain 집계를 기록하고 **초과하면 FAIL**. 늘리려면 `--update-baseline` 으로 명시 갱신해 diff 에 의도를 남긴다.
+  - ★ **임계 경고가 아니라 래칫인 이유**: 이 repo 에는 advisory 가 이빨 없이 방치된 전례가 있다(`skip-tracker` 가 SKIP 71%·근거 없는 SKIP 15건을 경고만 하고 있다). 임계값을 발명하지 않아도 되고, 49.5 KB SKILL.md 를 만든 드리프트 경로를 닫는다.
+  - chain 집계 대상은 `hooks/chain.yaml` 의 from/to 합집합에서 **도출**한다 — 목록을 lint 에 복제하면 edge 변경 시 조용히 stale 이 된다(`chain_consistency` 가 이미 잡는 클래스를 새로 만드는 셈). `T2.b` 가 하드코딩 배열을 금지한다.
+  - **bytes·lines 만 잰다** — 토큰 수는 추정이라 실측 문화의 게이트가 지어낸 수치를 내면 안 된다. 토큰 환산은 산문의 몫이다.
+  - 한계 고백: **SKILL.md 본문만** 잰다(= 컨텍스트로 로드되는 것). 본문을 보조 파일로 옮기면 수치가 준다 — 그게 의도(온디맨드 읽기)지만 "보조 파일이 정말 온디맨드인가"는 기계가 못 본다. 분할 리뷰에서 사람이 확인해야 한다.
+  - 어서션 8건. `T4.a` 가 되돌려-관찰이다 — 실제 skill 을 부풀려 **FAIL 전환을 실측**하고 원복한다(`T4.b` 가 트리 무오염 확인). 래칫이 "있는데 안 무는" 상태가 가장 나쁘고, 그건 위 `skip-tracker` 와 동형이다.
+
 ### Fixed
 
 - **deny 사유가 원인을 거짓으로 말해 BYPASS 를 유도했다 (FID 20260828-deny-cause-truth)** — 러너를 정직하게 완주한 뒤 파일을 고치면 stale 로 막힌다(판정은 옳다). 그런데 문안은 *"이 세션에 러너 실행 기록이 없습니다"* 였다. 사용자는 방금 돌린 수분대 러너를 또 돌리거나, 게이트를 결함으로 의심하고 우회한다.

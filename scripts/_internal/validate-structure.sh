@@ -44,11 +44,47 @@ count_glob() {
   fi
 }
 
+# ── skill 크기 래칫 (20260828-skill-size-ratchet) ────────────────────────────
+# 왜 래칫인가: 임계 경고는 무시된다(이 repo 의 skip-tracker advisory 가 SKIP 71% 를 방치한 전례).
+#   현재 크기를 기록하고 초과하면 FAIL, 늘리려면 --update-baseline 으로 **명시 갱신**한다.
+#   임계값 발명 없이 드리프트만 막는다 — 49.5KB SKILL.md 가 생긴 경로를 닫는다.
+# 왜 bytes·lines 만인가: 토큰 수는 추정이라 게이트가 지어낸 수치를 출력하면 안 된다(실측 문화).
+# 한계 고백: **SKILL.md 본문만** 잰다(= 컨텍스트로 로드되는 것). 본문을 보조 파일로 옮기면
+#   수치가 준다 — 그게 의도(온디맨드 읽기)지만, 보조 파일이 정말 온디맨드인지는 기계가 못 본다.
+SKILL_BASELINE="$script_dir/.skill-size-baseline"
+
+# chain 집계 대상 = hooks/chain.yaml 의 from/to 합집합 (SoT 단일 — 하드코딩 목록 금지).
+#   목록을 여기 복제하면 edge 변경 시 조용히 stale 이 된다 — chain_consistency 가 이미 잡는
+#   클래스의 드리프트를 새로 만드는 셈이다.
+_chain_skills() {
+  [ -f hooks/chain.yaml ] || return 0
+  grep -oE '\{from: [a-z-]+, to: [a-z-]+\}' hooks/chain.yaml \
+    | grep -oE '[a-z-]+-ko' | sort -u
+}
+
+_gen_skill_baseline() {
+  local f n
+  while IFS= read -r f; do
+    n=$(basename "$(dirname "$f")")
+    printf '{"skill":"%s","bytes":%s,"lines":%s}\n' "$n" "$(wc -c <"$f" | tr -d ' ')" "$(wc -l <"$f" | tr -d ' ')"
+  done < <(find skills -name SKILL.md | sort)
+  # chain 집계 — 개별 skill 이 다 baseline 이하여도 총량이 커지는 것을 따로 잠근다
+  local tb=0 tl=0 s p
+  while IFS= read -r s; do
+    p="skills/$s/SKILL.md"; [ -f "$p" ] || continue
+    tb=$((tb + $(wc -c <"$p" | tr -d ' ')))
+    tl=$((tl + $(wc -l <"$p" | tr -d ' ')))
+  done < <(_chain_skills)
+  printf '{"chain_bytes":%s,"chain_lines":%s}\n' "$tb" "$tl"
+}
+
 if [ "$UPDATE_BASELINE" = "1" ]; then
   if [ ! -f "$BASELINE" ]; then
     echo "❌ .structure-baseline 부재 — 초기 생성은 수동 권장 (스크립트가 카테고리 추측 X)" >&2
     exit 1
   fi
+  _gen_skill_baseline > "$SKILL_BASELINE"
+  echo "✅ .skill-size-baseline 갱신 완료."
   tmp=$(mktemp)
   while IFS= read -r line; do
     [ -z "$line" ] && continue
@@ -383,6 +419,49 @@ if [ ${#hg_fail[@]} -eq 0 ]; then
   emit hardgate_classified OK
 else
   emit hardgate_classified FAIL "${hg_fail[*]}"
+fi
+
+# ── skill_size — SKILL.md 크기 래칫 (20260828-skill-size-ratchet) ──────────────
+# 초과 = FAIL. 늘리려면 --update-baseline 으로 명시 갱신하고 diff 로 의도를 남긴다.
+if ! command -v jq >/dev/null 2>&1; then
+  emit skill_size SKIP "jq 미설치 — 한계 고백"
+elif [ ! -f "$SKILL_BASELINE" ]; then
+  # baseline 부재는 SKIP 이다 — FAIL 이 아니다. validate-structure 는 sandbox 최소 트리에서도
+  #   돌고(test-validate-structure 가 그렇게 검증한다), 거기서 FAIL 을 내면 무관한 케이스가 red 가 된다.
+  #   "실 repo 에서 baseline 이 사라지는" 위험은 여기가 아니라 test-skill-size-ratchet T1.a 가 잠근다
+  #   (그쪽은 실 트리를 보므로 삭제 시 FAIL). 게이트마다 관할을 지킨다.
+  emit skill_size SKIP ".skill-size-baseline 부재 — --update-baseline 으로 생성 (실 repo 부재는 test-skill-size-ratchet T1.a 가 적발)"
+else
+  ss_fail=()
+  # 신규 skill 무기록 누수 차단 — baseline 에 없는 skill 은 래칫 밖이라 무제한이 된다
+  while IFS= read -r sf; do
+    sn=$(basename "$(dirname "$sf")")
+    rec=$(jq -sr --arg s "$sn" '[.[] | select(.skill == $s)] | .[0] // empty' "$SKILL_BASELINE")
+    if [ -z "$rec" ]; then ss_fail+=("$sn: baseline 무기록"); continue; fi
+    ab=$(wc -c <"$sf" | tr -d ' '); al=$(wc -l <"$sf" | tr -d ' ')
+    eb=$(printf '%s' "$rec" | jq -r '.bytes'); el=$(printf '%s' "$rec" | jq -r '.lines')
+    [ "$ab" -gt "$eb" ] && ss_fail+=("$sn: ${ab}B > ${eb}B")
+    [ "$al" -gt "$el" ] && ss_fail+=("$sn: ${al}줄 > ${el}줄")
+  done < <(find skills -name SKILL.md | sort)
+  # chain 집계 — 개별이 다 통과해도 총량이 늘 수 있다(작은 skill 여러 개로 분산)
+  cb=$(jq -sr '[.[] | select(.chain_bytes)] | .[0].chain_bytes // empty' "$SKILL_BASELINE")
+  cl=$(jq -sr '[.[] | select(.chain_bytes)] | .[0].chain_lines // empty' "$SKILL_BASELINE")
+  acb=0; acl=0
+  while IFS= read -r cs; do
+    cp="skills/$cs/SKILL.md"; [ -f "$cp" ] || continue
+    acb=$((acb + $(wc -c <"$cp" | tr -d ' ')))
+    acl=$((acl + $(wc -l <"$cp" | tr -d ' ')))
+  done < <(_chain_skills)
+  if [ -z "$cb" ]; then ss_fail+=("chain 집계 baseline 무기록")
+  else
+    [ "$acb" -gt "$cb" ] && ss_fail+=("chain 총량: ${acb}B > ${cb}B")
+    [ "$acl" -gt "$cl" ] && ss_fail+=("chain 총량: ${acl}줄 > ${cl}줄")
+  fi
+  if [ ${#ss_fail[@]} -eq 0 ]; then
+    emit skill_size OK "chain ${acb}B/${acl}줄"
+  else
+    emit skill_size FAIL "${ss_fail[*]} — 의도한 증가면 --update-baseline"
+  fi
 fi
 
 # 출력
