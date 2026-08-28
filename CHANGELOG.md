@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.81.0] — 2026-08-28
+
 > **주제: "조용히 잘못되는" 구조를 없앤다.** 이번 릴리즈의 6건은 전부 같은 병을 고친다 — 게이트가 잡아야 할 것을 놓치면서 **놓쳤다는 사실조차 알리지 않는** 구조다. 계기는 `llm-smoke` mutation job 의 무음 red 였고, 그 조사가 downstream 프로젝트(`Argus`) 실사용 데이터 분석으로 이어져 같은 클래스 결함 3종을 더 찾았다.
 
 ### Fixed
@@ -1292,7 +1294,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.80.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.81.0...HEAD
+[1.81.0]: https://github.com/andyko18/specops-ko/compare/v1.80.0...v1.81.0
 [1.80.0]: https://github.com/andyko18/specops-ko/compare/v1.79.0...v1.80.0
 [1.79.0]: https://github.com/andyko18/specops-ko/compare/v1.78.1...v1.79.0
 [1.78.1]: https://github.com/andyko18/specops-ko/compare/v1.78.0...v1.78.1
