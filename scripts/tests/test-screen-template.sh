@@ -61,4 +61,19 @@ grep -qF 'specops:screen-placeholder' "$T" \
   && ok  "T5.a 템플릿 확장 후에도 껍데기 마커 보존" \
   || nope "T5.a 마커 보존" "확장 중 마커 소실 — 판정 무력화"
 
+
+# T6: screen.html 씨앗 토큰 — 타입/간격 스케일 + §2·§3 대응 주석 (AC-5)
+#   ★ grep -o + sort -u 로 **토큰 종류**를 센다: 한 줄에 여러 토큰이 있어 grep -c(행수)는 과소계수.
+#   ★ `--` 필수: 패턴이 `-` 로 시작해 없으면 grep 이 옵션으로 오파싱 → 영구 FAIL.
+H="$PLUGIN/templates/screen.html"
+_ts=$(grep -o -- '--text-[a-z0-9]*:' "$H" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+{ [ "${_ts:-0}" -ge 5 ] && grep -qF 'DESIGN.md §2 Typography' "$H"; } \
+  && ok  "T6.a screen.html 타입 토큰 ${_ts}종(≥5) + §2 대응 주석" \
+  || nope "T6.a 타입 토큰" "--text-* ${_ts}종 (기대 ≥5) 또는 '§2 Typography' 대응 주석 부재"
+
+_sp=$(grep -o -- '--space-[a-z0-9]*:' "$H" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+{ [ "${_sp:-0}" -ge 4 ] && grep -qF 'DESIGN.md §3 Spacing' "$H"; } \
+  && ok  "T6.b screen.html 간격 토큰 ${_sp}종(≥4) + §3 대응 주석" \
+  || nope "T6.b 간격 토큰" "--space-* ${_sp}종 (기대 ≥4) 또는 '§3 Spacing' 대응 주석 부재"
+
 finish
