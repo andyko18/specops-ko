@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.83.0] — 2026-08-29
+
 ### Fixed
 
 - **테스트 fixture 가 repo 의 활성 FID 를 점거했다 (FID 20260829-fixture-fid-hijack)** — `/e2e-test` 를 한 번 돌리면 그 뒤 **모든 커밋이 fixture 의 verify 상태를 대신 answer** 해야 했다(R-1 ②앵커). 게다가 fixture 테스트는 `.specops/<FID>/*.sh` 라 `run-verification` 실행 whitelist 밖이어서 **구조적으로 PASS 를 낼 수 없다** — 정직한 탈출구가 없어 BYPASS 만 남았다. **이번 세션 BYPASS 3건이 전부 이 하나의 결함에서 나왔다.**
@@ -1391,7 +1393,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.82.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.83.0...HEAD
+[1.83.0]: https://github.com/andyko18/specops-ko/compare/v1.82.0...v1.83.0
 [1.82.0]: https://github.com/andyko18/specops-ko/compare/v1.81.0...v1.82.0
 [1.81.0]: https://github.com/andyko18/specops-ko/compare/v1.80.0...v1.81.0
 [1.80.0]: https://github.com/andyko18/specops-ko/compare/v1.79.0...v1.80.0
