@@ -587,6 +587,47 @@ rm -rf "$_td"
 if [ "$_got" = "code" ]; then PASS=$((PASS+1)); echo "PASS T-plug.k _commit_scope_class 도 code (면제≡분류 불변식)"
 else FAIL=$((FAIL+1)); echo "FAIL T-plug.k 분류=$_got 기대=code (계측이 면제 클래스와 어긋남)"; fi
 
+# ── T-fx.a~e: 테스트 fixture FID 는 활성 FID 후보에서 제외한다 (FID 20260829-fixture-fid-hijack) ──
+# 왜: /e2e-test 는 session-progress 에 fixture FID 섹션을 **prepend** 하고, detect_fid 의 2순위
+#   fallback 은 "첫 ## <FID> 헤더" 다. 그래서 e2e 를 한 번 돌리면 fixture 가 repo 의 활성 FID 가
+#   되고, **이후 모든 커밋이 fixture 의 verify 상태를 대신 answer** 해야 한다(R-1 ②앵커).
+#   게다가 fixture 테스트는 `.specops/<FID>/*.sh` 라 run-verification 실행 whitelist 밖이어서
+#   구조적으로 PASS 를 낼 수 없다 → 빠져나갈 정직 경로가 없다(이번 세션 BYPASS 3건의 원인).
+# 판별자는 `.specops/<FID>/.fixture` 마커 파일이다 — 산문·헤더 파싱이 아니라 파일 존재라서
+#   섹션 포맷 변화에 영향받지 않고, 후보당 test 1회라 hot path 비용이 없다.
+# ★ 1순위 active-fid 마커는 건드리지 않는다: 사용자가 fixture 를 **명시적으로** 지목했다면
+#   그건 의도다(주권). 제외는 "아무도 지목 안 했을 때의 추측"인 2순위에만 적용한다.
+_fid_case() {  # $1 expect $2 label $3 setup
+  local exp="$1" label="$2" setup="$3" got
+  got=$( sb=$(mktemp -d) && cd "$sb" && eval "$setup" \
+         && ( source "$PLUGIN/hooks/governance-lib.sh"; detect_fid ) ; cd /; rm -rf "$sb" )
+  if [ "$got" = "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"
+  else FAIL=$((FAIL+1)); echo "FAIL $label — got='$got' 기대='$exp'"; fi
+}
+
+_sp() {  # 섹션 헤더들을 순서대로 써 넣는다
+  mkdir -p .specops
+  : > .specops/session-progress.md
+  for f in "$@"; do
+    printf '## %s\n\n- 2026-01-01 10:00 /verify PASS\n\n' "$f" >> .specops/session-progress.md
+  done
+}
+
+_fid_case 20260101-real "T-fx.a fixture 마커 없으면 종전대로 첫 헤더" \
+  '_sp 20260101-real 20260102-other; mkdir -p .specops/20260101-real'
+
+_fid_case 20260102-real "T-fx.b ★ 선두가 fixture 면 건너뛰고 다음 실작업 FID" \
+  '_sp 20260101-e2e 20260102-real; mkdir -p .specops/20260101-e2e .specops/20260102-real; : > .specops/20260101-e2e/.fixture'
+
+_fid_case "" "T-fx.c 전부 fixture 면 빈 값 (없는 FID 를 지어내지 않는다)" \
+  '_sp 20260101-e2e 20260102-e2e; mkdir -p .specops/20260101-e2e .specops/20260102-e2e; : > .specops/20260101-e2e/.fixture; : > .specops/20260102-e2e/.fixture'
+
+_fid_case 20260101-e2e "T-fx.d 명시 active-fid 마커는 fixture 라도 존중 (주권)" \
+  '_sp 20260102-real; mkdir -p .specops/20260101-e2e; : > .specops/20260101-e2e/.fixture; printf "<!-- active-fid: 20260101-e2e -->\n%s" "$(cat .specops/session-progress.md)" > .specops/session-progress.md'
+
+_fid_case 20260101-real "T-fx.e .specops/<FID> 디렉토리 부재는 fixture 아님 (오탐 차단)" \
+  '_sp 20260101-real 20260102-other'
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

@@ -73,6 +73,11 @@ FID 패턴: <YYYYMMDD>-greet-cli-e2e  (예: 20260503-greet-cli-e2e)
 PLUGIN="$(pwd)"                       # 플러그인 root 절대경로 (S0/S7 cd 복귀용)
 FID="$(date +%Y%m%d)-greet-cli-e2e"
 mkdir -p ".specops/$FID"
+# ★ fixture 마커 — 이 FID 가 repo 의 **활성 FID 로 승격되지 않게** 한다
+#   (20260829-fixture-fid-hijack). 없으면 detect_fid 2순위(첫 ## 헤더)가 이 섹션을 집어
+#   e2e 이후 모든 커밋이 fixture 의 verify 상태를 대신 answer 하게 된다 — fixture 테스트는
+#   run-verification whitelist 밖이라 PASS 를 낼 수 없어 BYPASS 외 탈출구가 없다(실측 3회).
+: > ".specops/$FID/.fixture"
 echo "FID: $FID"
 
 # 검증 헬퍼 + 카운터 (S0~S7 전 단계 공유)
@@ -694,17 +699,13 @@ rm -rf "$TMP"
 
 ## [REPORT] 결과 출력 + session-progress append
 
-> **⚠️ 실행 후 활성 FID 점거 (20260829 실주행 적발 — 미해결)**: 이 하네스는 `session-progress.md`
-> 에 fixture FID 섹션을 append 하고, `detect_fid` 는 `active-fid` 마커가 없으면 **첫 `## <FID>`
-> 헤더**를 활성 FID 로 본다. 따라서 실행 직후 fixture FID 가 repo 의 활성 FID 가 되고,
-> **이후 모든 `git commit` 이 fixture 의 verify 상태를 대신 answer 해야 한다**(R-1 ②앵커).
-> 게다가 fixture 의 테스트는 `.specops/<FID>/test-greet-cli.sh` 라 `run-verification` 의
-> 실행 whitelist(`bash (scripts|tests)/*.sh`) 밖이어서 `VERIFY: PARTIAL` 로만 끝난다 —
-> 즉 **fixture FID 는 구조적으로 PASS 를 낼 수 없다**.
-> 당장의 회피: 실행 후 `session-progress.md` 상단에 실제 작업 FID 로 `<!-- active-fid: <FID> -->`
-> 마커를 두거나, 후속 커밋에 사유를 병기한 `SPECOPS_GOVERNANCE_BYPASS=1` 를 쓴다.
-> 근본 해결(별건): fixture FID 를 활성 후보에서 제외하거나 whitelist 를 아티팩트 테스트까지
-> 확장할지 결정해야 한다 — 후자는 실행 allowlist 확대라 보안 판단이 필요하다.
+> **활성 FID 점거는 해결됐다 (20260829-fixture-fid-hijack)**: [PRE] 가 `.specops/$FID/.fixture`
+> 마커를 만들고 `detect_fid` 2순위(첫 `## <FID>` 헤더 fallback)가 그 FID 를 건너뛴다 —
+> e2e 이후 커밋은 직전 실작업 FID 를 앵커로 쓴다. 사용자가 `<!-- active-fid: -->` 로 fixture 를
+> **명시 지목**하면 그건 의도로 존중한다(1순위 불변).
+> 남은 한계: fixture 테스트(`.specops/<FID>/test-greet-cli.sh`)는 `run-verification` 실행
+> whitelist 밖이라 이 FID 자체는 여전히 `VERIFY: PARTIAL` 로만 끝난다. whitelist 확대는
+> 실행 allowlist 확장이라 보안 판단이 필요해 별건으로 남긴다.
 
 
 ```bash

@@ -65,10 +65,33 @@ detect_fid() {
     echo "$marker_fid"
     return 0
   fi
-  # 2순위: 첫 ## 헤더 (single-FID fallback)
-  grep -E '^## [0-9]{8}-[a-z0-9-]+' "$progress_file" \
-    | head -1 \
-    | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/'
+  # 2순위: 첫 ## 헤더 (single-FID fallback) — 단, **테스트 fixture FID 는 건너뛴다**.
+  #
+  # 왜 (20260829-fixture-fid-hijack): /e2e-test 는 session-progress 에 fixture 섹션을
+  #   prepend 하므로, 한 번 돌리면 fixture 가 repo 의 활성 FID 가 되고 **이후 모든 커밋이
+  #   fixture 의 verify 상태를 대신 answer** 하게 된다(R-1 ②앵커). 게다가 fixture 테스트는
+  #   `.specops/<FID>/*.sh` 라 run-verification 실행 whitelist 밖이어서 구조적으로 PASS 를
+  #   낼 수 없다 — 빠져나갈 정직 경로가 없어 BYPASS 밖에 안 남는다(실측 3회).
+  #   테스트 픽스처가 repo 의 "현재 작업" 이 되는 것은 어느 각도로도 옳지 않다.
+  #
+  # 판별자가 마커 **파일**인 이유: 섹션 산문·헤더 포맷을 파싱하면 e2e 가 표기를 바꿀 때마다
+  #   조용히 깨진다(이 repo 의 queue 라벨 드리프트와 동형). 파일 존재는 포맷 무관이고
+  #   후보당 test 1회라 hot path 비용이 없다.
+  #
+  # ★ 1순위 active-fid 마커에는 적용하지 않는다: 사용자가 fixture 를 **명시적으로** 지목했다면
+  #   그건 의도다(5원칙 4 주권). 제외는 "아무도 지목 안 했을 때의 추측"인 이 경로에만 건다.
+  # ★ 전부 fixture 면 빈 값을 낸다 — 없는 FID 를 지어내지 않는다. 호출부는 이미 빈 fid 를
+  #   "진행 기록 앵커 없음" 으로 안내한다(pretool _anchor_hint).
+  local cand
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    [ -f ".specops/$cand/.fixture" ] && continue
+    printf '%s' "$cand"
+    return 0
+  done <<EOF
+$(grep -E '^## [0-9]{8}-[a-z0-9-]+' "$progress_file" | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/')
+EOF
+  echo ""
 }
 
 # F-1(5c): session-progress 의 FID 섹션에서 /verify PASS 가 최신 코드변경보다 뒤(위)면 0(verify유효), 아니면 1.

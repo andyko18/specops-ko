@@ -379,5 +379,39 @@ grep -q 'active-fid: 20260606-only' "$_m10/.specops/session-progress.md" \
 
 rm -rf "$_m1" "$_m2" "$_m2b" "$_m3" "$_m4" "$_m7" "$_m8" "$_m9" "$_m10"
 
+
+# ── T-fx.a~c: fixture FID 는 active-fid 마커로 승격하지 않는다 (20260829-fixture-fid-hijack) ──
+# 왜: /e2e-test 가 12스텝 내내 이 스크립트를 부르므로 마커가 fixture 로 덮이고, 이후 모든
+#   커밋이 fixture 의 verify 상태를 대신 answer 해야 한다(R-1 ②앵커). fixture 테스트는
+#   run-verification 실행 whitelist 밖이라 PASS 불가 → BYPASS 외 탈출구가 없다(실측 3회).
+_fxm() {  # $1 = fixture 마커 생성 여부(0/1) → 결과 active-fid 를 stdout
+  local sb; sb=$(mktemp -d)
+  ( cd "$sb" || exit
+    mkdir -p .specops/20260101-real .specops/20260102-e2e
+    printf '<!-- active-fid: 20260101-real -->\n\n## 20260101-real\n\n- x\n' > .specops/session-progress.md
+    [ "$1" = 1 ] && : > .specops/20260102-e2e/.fixture
+    bash "$SCRIPT" 20260102-e2e /verify PASS m f >/dev/null 2>&1
+    grep -m1 -oE 'active-fid: [0-9]{8}-[a-z0-9-]+' .specops/session-progress.md | sed 's/active-fid: //' )
+  rm -rf "$sb"
+}
+_got=$(_fxm 0)
+[ "$_got" = 20260102-e2e ] && ok "T-fx.a 일반 FID 는 종전대로 마커 승격 ($_got)" \
+  || nope "T-fx.a" "got=$_got 기대=20260102-e2e"
+_got=$(_fxm 1)
+[ "$_got" = 20260101-real ] && ok "T-fx.b ★ fixture FID 는 마커 미승격 (직전 실작업 유지: $_got)" \
+  || nope "T-fx.b 점거" "got=$_got 기대=20260101-real"
+
+# 섹션 기록 자체는 남아야 한다 — 막는 것은 활성 지목뿐(증거 보존)
+_sb=$(mktemp -d)
+( cd "$_sb" || exit
+  mkdir -p .specops/20260102-e2e && : > .specops/20260102-e2e/.fixture
+  # `---` 앵커 필수 — append 의 섹션 삽입 지점이다(없으면 조용히 드롭된다: 이 스크립트의
+  #   기존 동작이며 실제 파일은 ensure-session-progress 가 템플릿으로 보장한다)
+  printf '# sp\n\n---\n' > .specops/session-progress.md
+  bash "$SCRIPT" 20260102-e2e /verify PASS m f >/dev/null 2>&1
+  grep -q '^## 20260102-e2e' .specops/session-progress.md )
+[ $? -eq 0 ] && ok "T-fx.c fixture 도 섹션 기록은 남는다 (증거 보존)" || nope "T-fx.c" "섹션 미기록"
+rm -rf "$_sb"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

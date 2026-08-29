@@ -65,6 +65,16 @@ TARGET=".specops/session-progress.md"
 # 실패해도 스크립트를 죽이지 않는다 — 섹션 기록이 1차 목적이고 이미 끝난 뒤 호출된다.
 _upsert_active_fid() {
   local fid="$1" target="$2" tmp
+  # ★ 테스트 fixture 는 활성 FID 로 승격하지 않는다 (20260829-fixture-fid-hijack).
+  #   /e2e-test 는 12스텝 내내 이 스크립트를 부르므로 마커가 fixture 로 덮이고, 그 뒤
+  #   **모든 커밋이 fixture 의 verify 상태를 대신 answer** 해야 한다(R-1 ②앵커). 게다가
+  #   fixture 테스트는 `.specops/<FID>/*.sh` 라 run-verification 실행 whitelist 밖이어서
+  #   구조적으로 PASS 를 낼 수 없다 — 정직한 탈출구가 없어 BYPASS 만 남는다(실측 3회).
+  #   섹션 기록 자체는 그대로 남긴다(증거 보존) — 막는 것은 **활성 지목**뿐이다.
+  #   사람이 마커를 손으로 써서 fixture 를 지목하는 것은 여전히 존중된다(소비자 1순위 불변).
+  if [ -f ".specops/$fid/.fixture" ]; then
+    return 0
+  fi
   tmp=$(mktemp) || { echo "warn: active-fid 마커 갱신 skip (mktemp 실패)" >&2; return 0; }
   # ★ 생산자 앵커는 소비자와 **대칭**이어야 한다 — detect_fid 의 grep 은 무앵커(행 내
   #   아무 위치)라, 생산자만 `^<!--` 로 조이면 **선행 공백이 붙은 마커**(수동 편집 흔적:

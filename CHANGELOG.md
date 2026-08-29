@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **테스트 fixture 가 repo 의 활성 FID 를 점거했다 (FID 20260829-fixture-fid-hijack)** — `/e2e-test` 를 한 번 돌리면 그 뒤 **모든 커밋이 fixture 의 verify 상태를 대신 answer** 해야 했다(R-1 ②앵커). 게다가 fixture 테스트는 `.specops/<FID>/*.sh` 라 `run-verification` 실행 whitelist 밖이어서 **구조적으로 PASS 를 낼 수 없다** — 정직한 탈출구가 없어 BYPASS 만 남았다. **이번 세션 BYPASS 3건이 전부 이 하나의 결함에서 나왔다.**
+  - **원인은 2순위가 아니라 1순위였다**: 처음엔 `detect_fid` 의 "첫 `## <FID>` 헤더" fallback 을 의심했는데, 실측하니 `session-progress-append.sh` 가 append 하는 FID 로 `active-fid` 마커를 **자동 생산**하고 있었다(FID 20260809-active-fid-marker-producer). e2e 는 12스텝 내내 append 를 부르므로 마커가 fixture 로 덮인다. 소비자가 아니라 **생산자**를 고쳐야 하는 문제였다.
+  - 판별자는 `.specops/<FID>/.fixture` 마커 **파일**이다 — 산문·헤더 포맷을 파싱하면 e2e 가 표기를 바꿀 때 조용히 깨진다(이 repo 의 queue 라벨 드리프트와 동형). 파일 존재는 포맷 무관이고 후보당 test 1회라 hot path 비용이 없다.
+  - 두 층 모두에 걸었다: 생산자는 fixture 를 마커로 **승격하지 않고**, 소비자 `detect_fid` 2순위 fallback 도 fixture 를 **건너뛴다**. 사람이 마커를 손으로 써서 fixture 를 지목하는 것은 여전히 존중된다(1순위 불변 — 5원칙 4 주권).
+  - **섹션 기록 자체는 남긴다** — 막는 것은 *활성 지목*뿐이고 증거는 보존된다(T-fx.c).
+  - 어서션 8건(`detect_fid` 5 + `session-progress-append` 3). `T-fx.a`·`T-fx.e` 가 되돌려-관찰 — fixture 마커가 없으면 종전 동작 그대로다(과잉 일반화 차단).
+  - **남은 한계**: fixture FID 자체는 여전히 `VERIFY: PARTIAL` 로만 끝난다(테스트가 실행 whitelist 밖). whitelist 확대는 실행 allowlist 확장이라 **보안 판단**이 필요해 별건으로 남긴다 — 활성 FID 를 점거하지 않게 된 이상 실사용을 막지는 않는다.
+  - 부수 관찰(미수정): `session-progress-append.sh` 는 대상 파일에 `---` 앵커가 없으면 섹션을 **조용히 드롭**하면서 `created new section` 을 출력한다. 실 파일은 `ensure-session-progress` 가 템플릿으로 보장하므로 실사용 영향은 없으나 출력과 실제가 어긋난다.
+  - ★ **직전 커밋에 신설한 `test-mutation-conf-fresh` 가 이 변경에서 즉시 발화했다** — `detect_fid` 편집으로 equivalent conf 3건이 stale 이 됐고 run-all 이 red 로 잡았다. 종전이라면 아무도 몰랐다.
+
 ### Added
 
 - **mutation conf 신선도를 상시 게이트로 (FID 20260829-mutation-coverage)** — `mutation-equivalent.conf` 는 **절대 줄번호**로 equivalent mutant 를 지정한다. target 이 자라면 조용히 어긋나고, 어긋난 항목은 매칭 0건이 되어 정상 변이가 제외되지 못한 채 **score 가 거짓 하락**한다(conf 주석 실측: 64% → 50%). 판정기 `--check-conf` 는 **1초**면 끝나는데 `mutation-score.sh` 가 run-all 명명 규칙(`test-*.sh`) 밖이라 아무도 안 돌렸고, **이번 세션의 `governance-lib.sh` 편집 3건으로 16/18 이 stale** 이 됐다 — 그동안 어떤 게이트도 울지 않았다.
