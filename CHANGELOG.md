@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- **promax 검색 엔진 연결 — DESIGN.md 가 색-only 에서 풀 디자인 시스템이 된다 (FID 20260829-uiux-engine-bridge, PR #16)** — 종전 `/init-project` Phase 6 은 ui-ux-pro-max 45종 자산 중 `colors.csv` 등 **3종만** 소비해 색 15토큰만 확정하고, 타이포·간격·모션·금지사항은 화면마다 즉흥 제작했다. 그것이 "촌스러움"의 구조적 원인이었다(실측). 이제 promax 의 BM25 검색 엔진(`search.py --design-system --json` — 표준 라이브러리만, 네트워크 0)에 위임해 §1 색·§2 폰트+타입 스케일·§3 간격·§5 모션·§8 AVOID·§9 체크리스트 **6개 섹션**을 한 번에 확정한다.
+  - **어댑터 1파일 결합**: `uiux-assets.sh` 에 `uiux::style_candidates`(후보 3종)·`uiux::design_system`(다이얼 3인자) 신설. promax 경로·인터페이스가 바뀌면 이 파일만 고친다. 기존 CSV 함수는 **fallback 강등**(삭제 아님).
+  - **다이얼 UX**: Phase 6 에서 `variance/motion/density [3 3 4 =절제형, 엔터=기본]` 1줄 질문 + 후보 3종 선택(`more` 1회). 무인 모드는 절제형+후보 1번 자동 + `> 자동 선택 (무인 모드)` 투명성 1줄.
+  - **3계층 graceful fallback**: python3 부재 → 기존 색-only 경로(회귀 0, `엔진 미가용` 1줄 고지) · jq 부재 → 동일 · 특정 키 부재 → 그 축만 기본값. e2e·test-init-project 의 stdin 픽스처 **무수정 통과**(신규 read 전부 빈/비정형 입력을 기본값으로 흡수).
+  - **소비측 완결**(gbrain 환류 — 생성측만 강화하고 소비측을 빼먹는 반복 패턴 차단): `templates/screen.html` 에 `--text-xs~4xl` 7종·`--space-1~16` 8종 토큰 자리 + `specifying-ko` Step 5.5 준수 목록에 §2 타이포·§3 간격.
+  - **테스트 격리 계약**(NFR-3): run-all 이 `UIUX_ENGINE_DISABLE=1` 로 실 엔진 호출을 금지하고, 엔진 동작은 stub(`fixtures/uiux-engine/`)으로 검증 — 격리 3점 세트(aggregator export + 스위트 자체 export + 양성 E-케이스 호출별 `=0` 재주입, SAST 선례 동형). `test-uiux-assets.sh` 97케이스.
+  - ★ Phase C 프로브가 prefix-only hex 가드 결함을 실증(`#1&C/` 오염값 주입+성공보고) → 전체검사 가드(`case "$v" in '#'*[!0-9A-Fa-f]*)`) + 회귀 E6d 로 잠금. **부분 검사 가드는 가드가 아니다.**
+  - 실측: 실 엔진 주입 확인(Fira Code/Fira Sans·`#0F172A`), 호출 81ms/61ms ≪ NFR ~1s. 알려진 한계: 실 엔진 `colors` 10키 < CSV 16라벨 — 잔존 6라벨은 파생 규칙(후속 FID). stub 스키마 드리프트는 무음(dogfood 확인 항목).
+
+
 ## [1.85.0] — 2026-08-29
 
 ### Added
