@@ -187,12 +187,58 @@ for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design
   fi
 done
 
-# start-all Phase 2.5-A 가 화면 템플릿을 참조하는가 (AC-2)
-_tmpl_n=$(grep -c 'templates/screen\.html' "$PLUGIN/commands/start-all.md" 2>/dev/null || true)
-if [ "${_tmpl_n:-0}" -ge 1 ]; then
-  ok "U24.j start-all Phase 2.5-A templates/screen.html 참조 (AC-2)"
+# U24.k — 배선줄 § 토큰 집합의 canonical 대칭 (Phase C Important-1, 20260829)
+#   U24.i 는 '알려진 7토큰의 존재'만 본다 → canonical 에 새 축(§4 등)이 늘어도 나머지 3파일은 무음 통과했다
+#   (리뷰어 프로브 P1 실증 20260829: specifying-ko 에만 §4 추가 → 4파일 전부 PASS).
+#   여기서는 존재가 아니라 **집합 동일성**을 잠근다 — 축이 늘든 줄든 4파일이 같이 움직여야 한다.
+#   줄 전체에서 추출한다: start-all 배선줄 꼬리의 batch 부연에는 § 토큰이 0건이다(실측 20260829).
+#   미래에 부연이 §를 달면 여기서 **보이는 FAIL** 이 난다 — 무음 드리프트보다 낫다(§2 앵커와 같은 tripwire 입장).
+_canon_f="skills/specifying-ko/SKILL.md"
+_sect_of() {
+  grep -F '**DESIGN.md 준수**' "$PLUGIN/$1" 2>/dev/null | head -1 \
+    | grep -oE '§[0-9]+(\.[0-9]+)?' | LC_ALL=C sort -u | tr '\n' ' '
+}
+_canon=$(_sect_of "$_canon_f")
+if [ -z "$_canon" ]; then
+  # 추출이 깨지면 빈 집합끼리 같아져 U24.k 가 공허하게 PASS 한다 — 그건 두 번째 스냅샷 잠금일 뿐이다
+  nope "U24.k" "canonical($_canon_f) 배선줄에서 § 토큰 0건 — 추출/배선이 깨졌다"
 else
-  nope "U24.j" "templates/screen.html 참조 0건 — batch 화면이 --text-*/--space-* 토큰을 못 받는다"
+  _sym_bad=""
+  for f in commands/design-screen.md commands/design-screens.md commands/start-all.md; do
+    _o=$(_sect_of "$f")
+    [ "$_o" = "$_canon" ] && continue
+    _miss=""; _extra=""
+    for t in $_canon; do
+      case " $_o " in *" $t "*) ;; *) _miss="$_miss$t " ;; esac
+    done
+    for t in $_o; do
+      case " $_canon " in *" $t "*) ;; *) _extra="$_extra$t " ;; esac
+    done
+    _sym_bad="$_sym_bad$(basename "$f") 누락[${_miss% }] 잉여[${_extra% }]; "
+  done
+  if [ -z "$_sym_bad" ]; then
+    ok "U24.k 배선줄 § 토큰 집합 4파일 대칭 [${_canon% }] (AC-10)"
+  else
+    nope "U24.k" "canonical[${_canon% }] 과 비대칭 — ${_sym_bad%; }"
+  fi
+fi
+
+# start-all **Phase 2.5-A 구간 안**이 화면 템플릿을 참조하는가 (AC-2)
+#   전체 파일 grep 은 위치를 안 잠근다 — 참조를 파일 끝으로 옮겨도 통과했다(프로브 P3 실증 20260829).
+#   AC-2 는 "화면 산출물 생성 문맥 안"을 요구하므로 A~B 구간으로 잘라 본다.
+#   구간 경계가 사라지면 awk 범위가 EOF 까지 흘러 위치 잠금이 되살아난다 → 경계 존재를 먼저 단언한다.
+_sa="$PLUGIN/commands/start-all.md"
+_bnd_a=$(grep -cE '^#### A\.' "$_sa" 2>/dev/null || true)
+_bnd_b=$(grep -cE '^#### B\.' "$_sa" 2>/dev/null || true)
+if [ "${_bnd_a:-0}" -ne 1 ] || [ "${_bnd_b:-0}" -ne 1 ]; then
+  nope "U24.j" "Phase 2.5 구간 경계 소실 (#### A.=${_bnd_a:-0} / #### B.=${_bnd_b:-0}, 각 1건 기대) — 구간 한정 검사 불가"
+else
+  _tmpl_n=$(awk '/^#### A\./,/^#### B\./' "$_sa" | grep -c 'templates/screen\.html' || true)
+  if [ "${_tmpl_n:-0}" -ge 1 ]; then
+    ok "U24.j start-all Phase 2.5-A 구간 내 templates/screen.html 참조 (AC-2)"
+  else
+    nope "U24.j" "Phase 2.5-A 구간 내 templates/screen.html 참조 0건 — batch 화면이 --text-*/--space-* 토큰을 못 받는다"
+  fi
 fi
 
 # ── Task 3: Phase 6 통합 ──
