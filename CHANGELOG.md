@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **pretool mutation 36% → 84% (FID 20260829-pretool-mutation-triage)** — 직전 릴리즈에서 세운 baseline(`killed=9 survived=16`)의 생존 16건을 전수 분류했다. `pretool-governance.sh` 는 **차단 판정 본체**(R-1/R-2 deny)라 여기가 비면 게이트 전체가 신뢰를 잃는다.
+
+  | | 종전 | 현재 |
+  |---|---|---|
+  | killed | 9 | **11** |
+  | survived | 16 | **2** |
+  | equivalent | 0 | **12** |
+  | score | 36% | **84%** |
+
+  - **신규 테스트로 격추 2건** — 둘 다 보안 계약이다. `L219`(`transcript` 부재 시 **fail-open**): 변이가 뒤집으면 transcript 없는 정직한 사용자가 통째로 막힌다. `L397`(`hard` 분기): 변이가 뒤집으면 **hard deny 가 allow 로** 반전되는데 어떤 테스트도 울지 않았다 — `T-batch.b` 는 정직 batch(`any_not_ready=0`)라 L395 에서 반환해 397 에 닿지도 않았다.
+  - ★ **초안 `T-mut.c` 는 tautology 였고 되돌려-관찰이 잡았다**: 산출물 없는 batch 를 쓰면 `_batch_pr_gate` 가 **먼저** deny 해 L397 에 도달조차 안 한다 — 변이를 넣어도 테스트가 통과했다. batch 게이트는 통과시키고(산출물 완비) release-ready 축 하나만(bare SKIP) 깨뜨려 정확히 L397 에 도달시키도록 고쳤다. 테스트가 green 인 것은 변이를 죽인다는 증거가 아니다.
+  - **equivalent 12건은 근거를 확인하고 등재**했다 — `return 0` 10건은 두 게이트 함수가 **bare 호출**(`L132`·`L414`)이라 rc 가 어디에도 안 쓰이고 deny 는 `exit 0` 으로 나간다(호출부 직접 확인). `L19` 는 다음 줄 `cd … || true` 가 실패를 흡수해 `-d` 검사가 중복이다. `L364` 는 파일 부재 시 `eff` 가 빈 값이라 strict 분기에 안 들어간다.
+  - ★ **남은 생존 2건은 정직하게 생존으로 둔다** — equivalent 가 아니라 진짜 미검이다. `L193`(R-1-SCOPE **info 기록** 조건, 판정 무관·계측 데이터만 변함) · `L361`(batch fids 목록을 단일 `detect_fid` 로 덮어쓰는 변이, 목록≠detect_fid 픽스처 부재). 근거 없는 equivalent 등재는 자기발급 면제표이고 이 repo 가 `§auto`·bare SKIP 에서 두 번 없앤 패턴이라, **확인 못 한 것은 등재하지 않는다**.
+
 ## [1.83.0] — 2026-08-29
 
 ### Fixed

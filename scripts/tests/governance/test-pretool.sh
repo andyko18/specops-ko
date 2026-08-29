@@ -434,6 +434,46 @@ bs_ok=$(_mk_batch_sandbox "IMPL_DONE" 1)
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_ok" bash "$HOOK" 2>/dev/null)
 check "T-batch.b ★ 정직한 batch PR → allow" '"continue":true' "$out"
 
+# ── T-mut.a~c: mutation 생존분 봉쇄 (FID 20260829-pretool-mutation-triage) ──
+# 왜: pretool 은 **차단 판정 본체**(R-1/R-2 deny)인데 mutation score 가 36% 였다(실측
+#   killed=9 survived=16). 생존 중 관찰 불가(호출부가 rc 를 안 쓰는 return 0 10건)는
+#   equivalent 로 등재하고, **행동이 실제로 갈리는** 것만 여기서 테스트로 죽인다.
+#   equivalent 로 몰아 점수를 올리는 것은 자기발급 면제표다 — 그 경계를 지킨다.
+
+# T-mut.a (L219 `[ -n $transcript ] && [ -f $transcript ] || allow`) — transcript 부재 = fail-open.
+#   변이(&&→||)는 경로 문자열이 비어있지 않다는 이유만으로 allow 를 건너뛰고 게이트로 진입시킨다.
+#   fail-open 은 보안 계약이다("판정 불가는 차단하지 않는다") — 뒤집히면 정직한 사용자가
+#   transcript 없는 환경에서 통째로 막힌다.
+out=$(mkstdin "git commit -m x" "/nonexistent/transcript.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-mut.a ★ transcript 부재 → allow (fail-open 계약)" '"continue":true' "$out"
+
+# T-mut.b (같은 줄) — 경로가 **빈 문자열**일 때도 fail-open 이어야 한다(원본 첫 조건 false 경로).
+out=$(mkstdin "git commit -m x" "" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-mut.b transcript 빈 경로 → allow (fail-open)" '"continue":true' "$out"
+
+# T-mut.c (L397 `[ "$hard" -eq 1 ]`) — RELEASE_READY **hard deny 분기 자체**가 무테스트였다.
+#   T-batch.b 는 정직 batch(any_not_ready=0)라 L395 에서 반환해 397 에 닿지 않는다.
+#   변이(-eq→-ne)는 hard 를 warn 으로, warn 을 hard 로 뒤집는다 — 차단 여부가 통째로 반전되는데
+#   아무 테스트도 울지 않았다. 뭉개진 batch(=NOT_READY + hard) 로 deny 를 직접 잠근다.
+#   ★ 초안은 tautology 였다(되돌려-관찰로 적발): 산출물 없는 batch 를 쓰면 _batch_pr_gate 가
+#     **먼저** deny 해서 L397 에 닿지도 않는다 — 변이를 넣어도 테스트가 통과했다.
+#     그래서 batch 게이트는 **통과**하되(산출물 완비) release-ready 축 하나만 깨뜨려
+#     (bare SKIP) NOT_READY + hard 상태로 L397 에 정확히 도달시킨다.
+_rr=$(_mk_batch_sandbox "IMPL_DONE" 1 1)
+python3 - "$_rr" <<'PYEOF'
+import sys, glob, os
+root=sys.argv[1]
+for ev in glob.glob(os.path.join(root, '.specops', '*', 'evidence.md')):
+    s=open(ev, encoding='utf-8').read()
+    # 라인 인용을 지워 bare SKIP 으로 만든다 → skip_cite 축 미충족 → NOT_READY
+    s=s.replace('§NFR L8-12 — 성능 임계값 없음', '성능 임계값 없음')
+    open(ev,'w',encoding='utf-8').write(s)
+PYEOF
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_rr" bash "$HOOK" 2>/dev/null)
+check "T-mut.c ★ NOT_READY + hard 분기 → deny (차단 판정 본체)" '"permissionDecision":"deny"' "$out"
+check "T-mut.c2 사유가 RELEASE_READY 경로임을 명시 (batch 게이트 오통과 아님)" 'RELEASE_READY' "$out"
+rm -rf "$_rr"
+
 # ── T-batch.c ★ 인라인 BYPASS 로는 못 뚫는다 (비가역 불변식) ──
 #   security Critical/High 와 동급 — start-all-auto.md L56 선례. 없으면 test1 이 한 그대로 우회된다.
 out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='배치 PR 승인' gh pr create --fill" \
