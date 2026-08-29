@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.88.0] — 2026-08-30
+
 ### Fixed
 
 - **무음 실패 3종 표면화 — 꺼진 강제층이 꺼졌다고 말하게 한다 (FID 20260830-silent-failure-surfacing, PR #18)** — 2026-08-30 적대감사 3건이 실증한 결함이다. 이 플러그인은 "조용히 잘못되는 구조를 없앤다"를 내걸었는데, **강제층 자신이 조용히 사라지는 경로**가 셋 있었다.
@@ -1496,7 +1498,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.87.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.88.0...HEAD
+[1.88.0]: https://github.com/andyko18/specops-ko/compare/v1.87.0...v1.88.0
 [1.87.0]: https://github.com/andyko18/specops-ko/compare/v1.86.0...v1.87.0
 [1.86.0]: https://github.com/andyko18/specops-ko/compare/v1.85.0...v1.86.0
 [1.85.0]: https://github.com/andyko18/specops-ko/compare/v1.84.0...v1.85.0

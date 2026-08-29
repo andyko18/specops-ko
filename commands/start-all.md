@@ -414,4 +414,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v1.72.0 · 2026-08-04 · Phase 2.5 design-reviewer 무거운 설계 리뷰*
+*specops-ko v1.87.0 · 2026-08-04 · Phase 2.5 design-reviewer 무거운 설계 리뷰*
