@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.87.0] — 2026-08-29
+
 ### Fixed
 
 - **DESIGN.md 소비측 배선 대칭화 + 계약을 스냅샷에서 구조로 (FID 20260829-design-consume-sync, PR #17)** — v1.86.0 이 DESIGN.md 에 **§2 타이포·§3 간격** 축을 추가했는데, 그걸 **읽으라는 지시**는 화면 생성 4경로 중 `specifying-ko` Step 5.5 한 곳에만 들어갔다. `/design-screen(s)` 와 `/start-all` Phase 2.5-A 는 새 축을 몰랐다 — batch 는 화면을 한 번에 여러 장 만들어 편차가 가장 큰 경로인데 지시는 가장 약했다.
@@ -1482,7 +1484,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.86.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.87.0...HEAD
+[1.87.0]: https://github.com/andyko18/specops-ko/compare/v1.86.0...v1.87.0
 [1.86.0]: https://github.com/andyko18/specops-ko/compare/v1.85.0...v1.86.0
 [1.85.0]: https://github.com/andyko18/specops-ko/compare/v1.84.0...v1.85.0
 [1.84.0]: https://github.com/andyko18/specops-ko/compare/v1.83.0...v1.84.0
