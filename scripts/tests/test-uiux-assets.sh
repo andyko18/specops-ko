@@ -167,21 +167,33 @@ done <<'SECS'
 SECS
 [ -z "$_sec_miss" ] && ok "U24.h 기존 섹션 제목 보존 (AC-R-3)" || nope "U24.h" "소실:$_sec_miss"
 
-# 배선 리터럴 3파일 (AC-4·AC-5·AC-10)
-for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design-screens.md; do
+# 배선 리터럴 4파일 (AC-1·AC-4·AC-5·AC-10 + 20260829-design-consume-sync AC-1)
+# start-all.md 는 Phase 2.5-A 가 [공통] 블록을 상속하지 않아 별도 기재가 필요하다
+#   (실측 20260829: specifying-ko 만 §2·§3 보유 → batch 화면만 새 축을 몰랐다)
+for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design-screens.md commands/start-all.md; do
   _wire_n=$(grep -cF '**DESIGN.md 준수**' "$PLUGIN/$f" 2>/dev/null || true)
   _line=$(grep -F '**DESIGN.md 준수**' "$PLUGIN/$f" 2>/dev/null | head -1)
   if [ "${_wire_n:-0}" -eq 1 ] \
+     && printf '%s' "$_line" | grep -q '§2 ' \
+     && printf '%s' "$_line" | grep -q '§3 ' \
      && printf '%s' "$_line" | grep -q '§6 ' \
      && printf '%s' "$_line" | grep -q '§6\.1' \
      && printf '%s' "$_line" | grep -q '§7' \
      && printf '%s' "$_line" | grep -q '§8' \
      && printf '%s' "$_line" | grep -q '§9'; then
-    ok "U24.i.$(basename "$f") 배선 1줄 + §6~§9 (AC-10)"
+    ok "U24.i.$(basename "$f") 배선 1줄 + §2·§3·§6~§9 (AC-10)"
   else
     nope "U24.i.$(basename "$f")" "매칭 ${_wire_n:-0}건 / 섹션 참조 불충족"
   fi
 done
+
+# start-all Phase 2.5-A 가 화면 템플릿을 참조하는가 (AC-2)
+_tmpl_n=$(grep -c 'templates/screen\.html' "$PLUGIN/commands/start-all.md" 2>/dev/null || true)
+if [ "${_tmpl_n:-0}" -ge 1 ]; then
+  ok "U24.j start-all Phase 2.5-A templates/screen.html 참조 (AC-2)"
+else
+  nope "U24.j" "templates/screen.html 참조 0건 — batch 화면이 --text-*/--space-* 토큰을 못 받는다"
+fi
 
 # ── Task 3: Phase 6 통합 ──
 #   ★ phases-design.sh 는 **library-only** 다 — 직접 실행하면 함수만 정의하고 rc=0 으로 끝난다.
