@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.85.0] — 2026-08-29
+
 ### Added
 
 - **`chain_consistency` 에 네 번째 출처 — 커맨드 문서 (FID 20260829-chain-4th-source)** — 이 게이트는 같은 주장을 하는 **세 출처**(`chain.yaml` ↔ 각 `SKILL.md` `## 다음 skill` ↔ 메타 skill 화살표 목록)를 대조해 왔는데, **네 번째인 `commands/*.md` 만 빠져 있었다**. 사용자가 흐름을 이해하려고 실제로 읽는 문서가 그것이고, 틀려도 아무도 울지 않았다.
@@ -1455,7 +1457,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.84.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.85.0...HEAD
+[1.85.0]: https://github.com/andyko18/specops-ko/compare/v1.84.0...v1.85.0
 [1.84.0]: https://github.com/andyko18/specops-ko/compare/v1.83.0...v1.84.0
 [1.83.0]: https://github.com/andyko18/specops-ko/compare/v1.82.0...v1.83.0
 [1.82.0]: https://github.com/andyko18/specops-ko/compare/v1.81.0...v1.82.0
