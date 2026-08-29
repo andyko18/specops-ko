@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+> **llm-eval 관측 (20260829, 부분 실행 10/17 — 중단됨)**: `new-1`·`new-2`·`maint-1`·`maint-2` 4건 FAIL(전부 `got=none` — Skill 호출 0회), `new-3`·`none-1~3`·`border-1~2` 6건 PASS.
+> - **회귀 증거 아님**: 직전 전수 baseline(2026-08-13)이 **17건 중 8 FAIL** 이었고 4/10 은 그 밴드 안이다. 이번 릴리즈의 산문 변경은 `e2e-test-ko`·`verifying-evidence-ko` 뿐이고 **chain 진입 산문(`using-specops-ko`·`specifying-ko`)은 무접촉**이다.
+> - **다만 기록해 둘 불일치**: v1.74.0 항목은 *"`new-1` 은 4턴에서 PASS 하던 fixture 다"* 라고 적었는데 현재 설정(4턴)에서 FAIL 했다. 그 주장은 **되돌린 뒤 실 eval 재검증 미실시**였다고 같은 항목이 스스로 밝혔으므로, 이번 실행이 그 주장의 **첫 검증**이며 결과가 어긋난다. 단발·flaky 하네스라 결론은 아니고 **신호로만** 남긴다.
+> - **재실행하지 않는다**: 이 하네스는 자기 문서가 *"신호 감지율을 재고 있지 않다 … eval 이 무엇을 측정할 것인지부터 재정의해야 한다"* 라고 결론 낸 상태다. 재정의 예정인 계측의 숫자를 비용을 들여 선명하게 만드는 것은 낭비다 — 확인은 **재설계 시점**에 한다.
+
 ### Added
 
 - **정체 batch 를 `/doctor` 가 본다 (FID 20260829-batch-stall-visibility)** — argus 실측에서 FR **31건이 `IMPL_DONE` 에 멈춘 채 방치**됐고, 그 사실을 아무도 묻지 않았다. v1.81.0 의 `batch-resume-check` 가 SessionStart 에 표면화했지만 **두 구멍**이 남아 있었다:
