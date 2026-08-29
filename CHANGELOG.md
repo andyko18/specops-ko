@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **DESIGN.md 소비측 배선 대칭화 + 계약을 스냅샷에서 구조로 (FID 20260829-design-consume-sync, PR #17)** — v1.86.0 이 DESIGN.md 에 **§2 타이포·§3 간격** 축을 추가했는데, 그걸 **읽으라는 지시**는 화면 생성 4경로 중 `specifying-ko` Step 5.5 한 곳에만 들어갔다. `/design-screen(s)` 와 `/start-all` Phase 2.5-A 는 새 축을 몰랐다 — batch 는 화면을 한 번에 여러 장 만들어 편차가 가장 큰 경로인데 지시는 가장 약했다.
+  - `commands/design-screen.md`·`design-screens.md`·`start-all.md` 세 곳에 준수 목록을 대칭화하고, `start-all.md` Phase 2.5-A 에 `templates/screen.html` 참조를 명시(`--text-*`·`--space-*` 토큰 상속). `/start-all-auto` 는 Phase 2.5-A 를 위임하므로 자동 반영 — **중복 기재하지 않는다**(그게 drift 원천).
+  - ★ **계약이 같은 방식으로 다시 뚫렸다**: 배선 계약(U24.i)은 v1.75 부터 있었는데도 §2·§3 비대칭을 놓쳤다. Phase C 리뷰 프로브가 **확장한 계약조차** canonical(`specifying-ko`)에만 `§4` 를 더하면 4파일 전부 무음 PASS 함을 실증했다 — 하드코딩 토큰 나열은 **현재 스냅샷 잠금**이지 구조 잠금이 아니다. `U24.k` 신설: canonical 배선줄의 `§` 토큰 **집합 동일성**을 나머지 3파일과 비교해, 다음 축이 추가돼도 한 파일만 갱신하면 red 가 난다.
+  - `U24.j`(템플릿 참조)는 파일 전체 grep 에서 **Phase 2.5-A 구간 한정**(`awk '/^#### A\./,/^#### B\./'`)으로 좁혀 위치까지 계약에 넣었다 + 구간 경계 소실(`#### B.` 삭제·개명) 가드 — 없으면 awk 가 EOF 까지 흘러 위치 잠금이 조용히 되살아난다.
+  - `comm` + process substitution 을 **기각**: `sort` 는 로케일 collation 을 따르고 `comm` 은 아니라 불일치 시 조용히 틀린 답을 낸다 — 무음 드리프트를 잡는 테스트에서 최악의 실패모드. `LC_ALL=C sort -u` 직렬화 + `case` 멤버십으로 처리하고, 추출이 깨져 빈 집합끼리 공허하게 PASS 하는 경로에 별도 가드를 뒀다.
+  - 되돌려-관찰 5종 전부 실측 재현: §2 제거→`FAIL U24.i` · canonical 에만 §4→`FAIL U24.k` · 비-canonical 에만 §5→`FAIL U24.k` · 참조 위치 이동→`FAIL U24.j` · 경계 소실→`FAIL U24.j`. 스위트 97→**100**, run-all 151/151.
+  - 알려진 한계: 이 계층은 계약의 **정적 거동**만 본다(산문 배선의 실제 LLM 소비는 `llm-eval` 소관) · `U24.j` 는 A/B **순서 뒤바뀜**은 못 잡는다(의미상 비현실적이라 미차단) · `§7`~`§9` 무앵커(`§9`→`§90` 오통과, 이번 diff 이전부터 존재) 는 후속 FID.
+
+
 ## [1.86.0] — 2026-08-29
 
 ### Added
