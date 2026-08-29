@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.84.0] — 2026-08-29
+
 > **llm-eval 관측 (20260829, 부분 실행 10/17 — 중단됨)**: `new-1`·`new-2`·`maint-1`·`maint-2` 4건 FAIL(전부 `got=none` — Skill 호출 0회), `new-3`·`none-1~3`·`border-1~2` 6건 PASS.
 > - **회귀 증거 아님**: 직전 전수 baseline(2026-08-13)이 **17건 중 8 FAIL** 이었고 4/10 은 그 밴드 안이다. 이번 릴리즈의 산문 변경은 `e2e-test-ko`·`verifying-evidence-ko` 뿐이고 **chain 진입 산문(`using-specops-ko`·`specifying-ko`)은 무접촉**이다.
 > - **다만 기록해 둘 불일치**: v1.74.0 항목은 *"`new-1` 은 4턴에서 PASS 하던 fixture 다"* 라고 적었는데 현재 설정(4턴)에서 FAIL 했다. 그 주장은 **되돌린 뒤 실 eval 재검증 미실시**였다고 같은 항목이 스스로 밝혔으므로, 이번 실행이 그 주장의 **첫 검증**이며 결과가 어긋난다. 단발·flaky 하네스라 결론은 아니고 **신호로만** 남긴다.
@@ -1425,7 +1427,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.83.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.84.0...HEAD
+[1.84.0]: https://github.com/andyko18/specops-ko/compare/v1.83.0...v1.84.0
 [1.83.0]: https://github.com/andyko18/specops-ko/compare/v1.82.0...v1.83.0
 [1.82.0]: https://github.com/andyko18/specops-ko/compare/v1.81.0...v1.82.0
 [1.81.0]: https://github.com/andyko18/specops-ko/compare/v1.80.0...v1.81.0
