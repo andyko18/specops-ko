@@ -355,5 +355,123 @@ printf '%s' "$_out" | grep -q '작성 완료 (자산:' \
   && nope "U23" "중도 실패인데 자산 성공 보고 — 실패가 전파되지 않는다" \
   || ok "U23 중도 실패 시 자산 성공 보고 없음"
 rm -rf "$_td"
+
+# ── E: 엔진 래퍼 (FID 20260829-uiux-engine-bridge) ──
+# ★ 엔진 전용 픽스처 루트 — engine_py 가 data/ 의 sibling scripts/ 를 보는 해석 규칙에 맞춘 배치.
+#   기존 U-케이스의 export UIUX_ASSET_ROOT="$FX" 를 건드리지 않도록 호출별 env 주입만 쓴다.
+EFX="$PLUGIN/scripts/tests/fixtures/uiux-engine"
+# ★ run-all 이 export UIUX_ENGINE_DISABLE=1 을 상속시킨다(Step 4.5) — stub 은 실 promax 가
+#   아니므로 여기서 **호출별 =0 재주입**으로 되돌린다. SPECOPS_SAST_EXTERNAL 선례의 반쪽
+#   (test-security-scan 이 호출별 =1 재주입)과 동형 — 이 반쪽이 없으면 격리 export 가
+#   자기 스위트 13건을 전멸시킨다 (plan-review 2회차 Critical 실측).
+_c=$(UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" uiux::style_candidates "premium test")
+[ "$(printf '%s\n' "$_c" | grep -c '	')" -eq 3 ] \
+  && ok "E1 후보 3행 (이름<TAB>best_for)" || nope "E1" "행수 불일치: $_c"
+_d=$(UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "premium test" 3 3 4)
+printf '%s\n' "$_d" | grep -q '^colors.primary	#111111$' \
+  && ok "E2 design_system 평탄 행 (colors.primary)" || nope "E2" "$_d"
+printf '%s\n' "$_d" | grep -q '^typography.css_import	@import' \
+  && ok "E3 typography import 행" || nope "E3" "css_import 부재"
+# E4 엔진 비활성 → rc=1 (AC-2 전제 — python3 가림은 PATH 재현이 환경 의존이라 명시 스위치가 정본)
+_rc=0; UIUX_ENGINE_DISABLE=1 UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4 >/dev/null 2>&1 || _rc=$?
+[ "$_rc" -eq 1 ] && ok "E4 엔진 비활성 → rc=1 (fallback 트리거)" || nope "E4" "rc=$_rc"
+# E5 jq 가림 → rc=1 (AC-7c)
+_rc=0; UIUX_ENGINE_DISABLE=0 UIUX_JQ_BIN=/nonexistent UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4 >/dev/null 2>&1 || _rc=$?
+[ "$_rc" -eq 1 ] && ok "E5 jq 부재 → rc=1" || nope "E5" "rc=$_rc"
+# E5b 결손본 — typography 제거해도 rc=0 + colors 행 유지 (AC-4b·AC-7b)
+_d=$(UIUX_ENGINE_DISABLE=0 STUB_DROP=typography UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4)
+{ printf '%s\n' "$_d" | grep -q '^colors.primary	' && ! printf '%s\n' "$_d" | grep -q '^typography.'; } \
+  && ok "E5b 결손본 — 부재 축만 소실, rc=0" || nope "E5b" "$_d"
+# E6 엔진 경로 — DESIGN.md 전 축 채움 + 무인 투명성 (AC-4·AC-6)
+# ★ phases-artifacts.sh 도 source — _kind_label 이 그 파일(L163)에 있다 (파일 간 결합 명시)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+grep -q '#111111' "$_sb/DESIGN.md" && ok "E6 색 주입" || nope "E6" "primary 부재"
+grep -q 'Stub Sans' "$_sb/DESIGN.md" && ok "E7 타이포 주입" || nope "E7" "font 부재"
+grep -q 'Stub Reveal' "$_sb/DESIGN.md" && ok "E8 모션 주입" || nope "E8" "motion 부재"
+grep -q '4, 8, 16, 24, 32, 48' "$_sb/DESIGN.md" && ok "E8a 간격 주입" || nope "E8a" "spacing 부재"
+grep -q 'Excessive animation' "$_sb/DESIGN.md" && ok "E8b AVOID 주입" || nope "E8b" "avoid 부재"
+grep -q 'No emojis as icons' "$_sb/DESIGN.md" && ok "E8c 체크리스트 주입" || nope "E8c" "checklist 부재"
+grep -q '자동 선택 (무인 모드)' "$_sb/DESIGN.md" && ok "E8d 무인 투명성 1줄" || nope "E8d" "투명성 기록 부재"
+rm -rf "$_sb"
+# E6b 잉여 stdin (AC-3) — 기존 픽스처류 N 공급이 기본값으로 흡수되어 완주 + 투명성 미기록(입력 有)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "N\nN\n" | phase_6_design' ) >/dev/null 2>&1
+{ grep -q '#111111' "$_sb/DESIGN.md" && ! grep -q '자동 선택' "$_sb/DESIGN.md"; } \
+  && ok "E6b 잉여 입력 → 기본값 흡수 완주" || nope "E6b" "잉여 입력 처리 실패"
+rm -rf "$_sb"
+# E6c 결손본 통합 (AC-4b) — typography 결손 시 색은 채워지고 [font] 앵커는 잔존
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" STUB_DROP=typography bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+{ grep -q '#111111' "$_sb/DESIGN.md" && grep -q '\[font\], system-ui' "$_sb/DESIGN.md"; } \
+  && ok "E6c 결손본 — 부재 축만 앵커 잔존" || nope "E6c" "부분 실패 처리 오류"
+rm -rf "$_sb"
+# E9 엔진 불가 → 기존 5택 경로 (AC-2: read 미발화 + 종전 산출물)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=1 bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "1\n" | phase_6_design' ) >/dev/null 2>"$_sb/e9.err"
+grep -q '#635BFF' "$_sb/DESIGN.md" && ok "E9 엔진 불가 → 5택 fallback (Stripe)" || nope "E9" "fallback 미동작"
+grep -q '엔진 미가용' "$_sb/e9.err" && ok "E9b 축소 생성 고지 (AC-2 Then)" || nope "E9b" "고지 부재"
+rm -rf "$_sb"
+# E10 소비측 배선 (AC-5)
+grep -q '§2 타이포·§3 간격' "$PLUGIN/skills/specifying-ko/SKILL.md" \
+  && ok "E10 Step 5.5 소비 목록에 §2·§3" || nope "E10" "소비측 미배선"
+grep -q -- '--text-base' "$PLUGIN/templates/screen.html" \
+  && ok "E11 screen.html 타입 토큰" || nope "E11" "토큰 부재"
+grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
+  && ok "E12 screen.html 간격 토큰" || nope "E12" "토큰 부재"
+# E12b css_import 주입 (plan-review 3회차 Minor-3 — T3 이후 시점이라 앵커 실재, 미주입 = 실패)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+grep -q 'family=Stub' "$_sb/DESIGN.md" && ok "E12b Font Import 주입 (§2 완결)" || nope "E12b" "css_import 미주입"
+rm -rf "$_sb"
+# E6d 오염 hex 방어 (Phase C Important-1 회귀 잠금) — 비정형 색값(`#1&C/`)이 DESIGN.md 를
+#   오염시키지 않는다. 가드 전 실측: `| Primary | `#1`#______`CORRUPT/inj` |` + "작성 완료" 보고.
+_sb=$(mktemp -d)
+mkdir -p "$_sb/probe-engine/data" "$_sb/probe-engine/scripts"
+sed 's|"primary": "#111111"|"primary": "#1\&CORRUPT/inj"|' \
+  "$EFX/scripts/search.py" > "$_sb/probe-engine/scripts/search.py"
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$_sb/probe-engine/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+{ ! grep -q 'CORRUPT' "$_sb/DESIGN.md" && grep -q '| Primary | `#______`' "$_sb/DESIGN.md"; } \
+  && ok "E6d 오염 hex → 주입 skip, 앵커 잔존 (오염 0)" || nope "E6d" "$(grep 'Primary' "$_sb/DESIGN.md" | head -1)"
+rm -rf "$_sb"
+
+# E13 run-all 격리 계약 (Critical-2 회귀 잠금)
+grep -qE '^export UIUX_ENGINE_DISABLE=1' "$PLUGIN/scripts/tests/run-all.sh" \
+  && ok "E13 run-all 이 엔진을 끄고 실행" || nope "E13" "격리 export 부재"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

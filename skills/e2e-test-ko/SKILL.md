@@ -115,7 +115,7 @@ TMP="$(mktemp -d)"
   cd "$TMP" && git init -q \
     && git config user.email e2e@test.local && git config user.name e2e
   printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 UIUX_ENGINE_DISABLE=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 
 # V10: root 산출물 3종
@@ -139,7 +139,7 @@ TMP2="$(mktemp -d)"
 (
   cd "$TMP2" && git init -q && git config user.email e2e@test.local && git config user.name e2e
   printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 SPECOPS_INIT_COMMIT_NOW=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 UIUX_ENGINE_DISABLE=1 SPECOPS_INIT_COMMIT_NOW=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 [ "$(git -C "$TMP2" log --oneline 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ] && r12b=0 || r12b=1
 rm -rf "$TMP2"
@@ -167,7 +167,7 @@ TMP="$(mktemp -d)"
   printf '# 브레인스토밍 메모\n## 문제\n사용자 인사 자동화\n' \
     > .specops/memory/brainstorming-$(date +%Y%m%d)-greet.md
   printf 'y\nY\n3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 UIUX_ENGINE_DISABLE=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 
 grep -q '## 브레인스토밍 컨텍스트' "$TMP/PRD.md" 2>/dev/null && r13=0 || r13=1
@@ -194,7 +194,7 @@ TMP="$(mktemp -d)"
   cd "$TMP" && git init -q \
     && git config user.email e2e@test.local && git config user.name e2e
   printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
-    | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
+    | RESUME_MODE=0 UIUX_ENGINE_DISABLE=1 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 ```
 

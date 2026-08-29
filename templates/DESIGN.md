@@ -44,6 +44,8 @@
 
 **Font Stack**: `[primary], -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 
+**Font Import**: [engine 미연결 — /init-project Phase 6 이 채움]
+
 ## 3. Spacing & Layout
 
 - **Base Unit**: `[N]px` (예: 4px 또는 8px)
@@ -92,7 +94,7 @@ Padding:    [N]px
 | Scroll Reveal | [ms] | [easing] | [설명] |
 | Stagger List | [ms] | [easing] | [설명] |
 
-> 값 채움은 **후속 FID** 로 이관 — 자산(motion.csv) 연결은 본 어댑터 범위 밖이다.
+> 엔진 연결됨 (20260829-uiux-engine-bridge) — /init-project Phase 6 이 motion.csv 기반 값을 주입한다.
 
 ## 6. 레이아웃 패턴
 

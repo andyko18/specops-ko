@@ -159,7 +159,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
      - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지).
      - exit 0(껍데기) → 재사용 금지. 아래 생성 루프를 그대로 진행해 덮어쓴다.
    - **`.md` 채움 요건**: `screens/{name}.md` 는 **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지)을 실제 내용으로 완성한다. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 **해당할 때만** 넣는다 — 미해당 섹션을 `—` 로 채우지 않는다. (`/design-screen(s)` 와 동일 요건 — lifecycle 안/밖 비대칭 해소)
-   - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).
+   - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).
    - **저장 시 껍데기 마커 줄을 삭제**한다 (`.md`·`.html` 양쪽). 마커가 남으면 verify backstop 이 껍데기로 경고한다.
 
    **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):

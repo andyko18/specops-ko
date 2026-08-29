@@ -5,7 +5,7 @@
 {"skill":"context-resets-ko","bytes":3949,"lines":60}
 {"skill":"decomposing-ko","bytes":24676,"lines":363}
 {"skill":"dispatching-parallel-agents-ko","bytes":9653,"lines":199}
-{"skill":"e2e-test-ko","bytes":34832,"lines":775}
+{"skill":"e2e-test-ko","bytes":34920,"lines":775}
 {"skill":"file-based-communication-ko","bytes":3656,"lines":82}
 {"skill":"finishing-a-development-branch-ko","bytes":7002,"lines":168}
 {"skill":"gbrain-ko","bytes":5598,"lines":142}
@@ -20,7 +20,7 @@
 {"skill":"release-ko","bytes":3908,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8288,"lines":188}
 {"skill":"security-review-ko","bytes":9170,"lines":190}
-{"skill":"specifying-ko","bytes":49505,"lines":509}
+{"skill":"specifying-ko","bytes":49538,"lines":509}
 {"skill":"sprint-contracts-ko","bytes":4529,"lines":96}
 {"skill":"structured-artifacts-ko","bytes":6622,"lines":142}
 {"skill":"systematic-debugging-ko","bytes":11430,"lines":328}
@@ -28,4 +28,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10149,"lines":292}
 {"skill":"using-specops-ko","bytes":15134,"lines":223}
 {"skill":"verifying-evidence-ko","bytes":20474,"lines":301}
-{"chain_bytes":223823,"chain_lines":3611}
+{"chain_bytes":223856,"chain_lines":3611}

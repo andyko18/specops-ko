@@ -94,6 +94,79 @@ _design_from_assets() {
   return 0
 }
 
+# 엔진 산출(평탄 행)로 DESIGN.md 를 채운다. 성공 rc=0 / 실패 rc=1(호출부 fallback).
+# 축별 부분 실패 허용: 키 부재 축은 앵커 미치환으로 남고 나머지는 채워진다(AC-4b·AC-7b).
+_design_from_engine() {   # $1=target $2=평탄행($'키\t값')
+  local target="$1" flat="$2" k v
+  cp "$PLUGIN/templates/DESIGN.md" "$target" || return 1
+  local style_name="" font_h="" font_b="" css_import="" spacing="" \
+        mo_name="" mo_dur="" mo_ease="" mo_gsap="" avoid1="" avoid2="" primary=""
+  while IFS=$'\t' read -r k v; do
+    case "$k" in
+      style.name)              style_name="$v" ;;
+      typography.heading)      font_h="$v" ;;
+      typography.body)         font_b="$v" ;;
+      typography.css_import)   css_import="$v" ;;
+      spacing.scale)           spacing="$v" ;;
+      motion.name)             mo_name="$v" ;;
+      motion.duration)         mo_dur="$v" ;;
+      motion.easing)           mo_ease="$v" ;;
+      motion.gsap)             mo_gsap="$v" ;;
+      avoid.0)                 avoid1="$v" ;;
+      avoid.1)                 avoid2="$v" ;;
+      colors.primary)          primary="$v" ;;
+    esac
+  done <<< "$flat"
+  [ -n "$primary" ] || return 1   # 색조차 없으면 엔진 산출 무효 — 전체 fallback
+  _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" \
+    "# DESIGN.md — ${PROJECT_NAME} (${style_name:-engine})"
+  # §1 색 — colors.<키> 를 기존 백틱 규약으로 주입 (hex 가드는 _design_from_assets 와 동일)
+  while IFS=$'\t' read -r k v; do
+    case "$k" in colors.*) ;; *) continue ;; esac
+    case "$v" in '#'[0-9A-Fa-f]*) ;; *) continue ;; esac
+    # ★ 전체검사 (Phase C Important-1 프로브 실증): prefix-only 면 `#1&C/` 가 통과해
+    #   awk sub() 의 `&`(매치 재삽입)로 DESIGN.md 를 오염시키고 "작성 완료" 로 보고된다.
+    case "$v" in '#'*[!0-9A-Fa-f]*) continue ;; esac
+    local lbl; lbl=$(_engine_color_label "${k#colors.}") || continue
+    LBL="$lbl" HEX="$v" awk '
+      BEGIN { l = ENVIRON["LBL"]; h = ENVIRON["HEX"] }
+      index($0, "| " l " | `#______`") == 1 { sub(/`#______`/, "`" h "`"); print; next }
+      { print }' "$target" > "$target.tmp" && mv "$target.tmp" "$target" || return 1
+  done <<< "$flat"
+  # §2 타이포
+  # ★ sed 메타문자 가드 — 엔진 값에 `/`·`&`·`\` 가 오면 치환이 오염된다 (색 가드와 동일 이유)
+  case "$font_h" in */*|*'&'*|*'\'*) font_h="" ;; esac
+  [ -n "$font_h" ] && sed -i.bak "s/\[font\], system-ui/${font_h}, system-ui/g" "$target" && rm -f "$target.bak"
+  [ -n "$css_import" ] && _replace_line_prefix "$target" "**Font Import**:" "**Font Import**: \`${css_import}\`"
+  [ -n "$font_b" ] && _replace_line_prefix "$target" "**Font Stack**:" \
+    "**Font Stack**: \`${font_b}, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif\`"
+  # §3 간격 · §5 모션 · §8 AVOID · §9 체크리스트 — 동일 _replace_line_prefix 패턴
+  [ -n "$spacing" ] && _replace_line_prefix "$target" "- **Spacing Scale**:" "- **Spacing Scale**: \`${spacing}px\`"
+  [ -n "$mo_name" ] && _replace_line_prefix "$target" "| Scroll Reveal |" \
+    "| Scroll Reveal | ${mo_dur:-300ms} | ${mo_ease:-ease-out} | ${mo_name} — \`${mo_gsap:-}\` |"
+  [ -n "$avoid1" ] && _replace_line_prefix "$target" "- [금지 패턴 1]" "- ${avoid1}"
+  [ -n "$avoid2" ] && _replace_line_prefix "$target" "- [금지 패턴 2]" "- ${avoid2}"
+  # §9 체크리스트 (checklist.N 행)
+  local ck; ck=$(printf '%s\n' "$flat" | awk -F'\t' '$1 ~ /^checklist\./ { print "- [ ] " $2 }')
+  [ -n "$ck" ] && CK="$ck" awk '
+    { print }
+    /^\*\*컴포넌트 생성 시\*\*:/ && !seen { print ""; print "**납품 체크리스트** (엔진 제공):"; print ENVIRON["CK"]; seen=1 }' \
+    "$target" > "$target.tmp" && mv "$target.tmp" "$target" \
+    || { rm -f "$target.tmp"; return 1; }
+  return 0
+}
+
+_engine_color_label() {   # 엔진 키 → DESIGN.md 라벨 (uiux::palette 의 MAP 과 동일 계열)
+  case "$1" in
+    primary) echo "Primary" ;; on_primary) echo "On Primary" ;;
+    secondary) echo "Secondary" ;; accent) echo "Accent" ;;
+    background) echo "Background" ;; foreground) echo "Text Primary" ;;
+    muted) echo "Muted" ;; border) echo "Border" ;;
+    destructive) echo "Error" ;; ring) echo "Ring" ;;
+    *) return 1 ;;
+  esac
+}
+
 _design_apply_concept() {   # $1=target $2="필드<TAB>값" 행들
   local target="$1" con="$2" k v
   local pattern="" style="" effects="" anti=""
@@ -131,6 +204,54 @@ phase_6_design() {
   #   scripts/_internal/uiux-assets.sh 안에 있다 — 여기서 알면 결합 격리(AC-5)가 깨진다.
   # 실패는 전부 아래 5택 fallback 이 흡수한다 — 부트스트랩 1회 경로라 중단이 치명적이다.
   . "$PLUGIN/scripts/_internal/uiux-assets.sh" 2>/dev/null || true
+  # ── 엔진 경로 (최우선 — FID 20260829-uiux-engine-bridge) ──
+  # ★ 신규 read(다이얼·후보)는 엔진 가용 시에만 발화한다 — 불가 환경(CI·테스트)에선
+  #   read 0개 추가 = 기존 stdin 순서 그대로 (AC-3 구조 보장).
+  if type uiux::design_system >/dev/null 2>&1 \
+     && [ "${UIUX_ENGINE_DISABLE:-0}" != "1" ] \
+     && uiux::engine_py >/dev/null 2>&1 \
+     && command -v python3 >/dev/null 2>&1 && command -v "${UIUX_JQ_BIN:-jq}" >/dev/null 2>&1; then
+    local dv=3 dm=3 dd=4 dial="" pick="" q cands ds
+    printf "[Phase 6] 디자인 방향 variance/motion/density [3 3 4 =절제형, 엔터=기본]: "
+    read -r dial || true
+    set -- $dial
+    case "${1:-}" in [1-9]|10) dv=$1 ;; esac
+    case "${2:-}" in [1-9]|10) dm=$2 ;; esac
+    case "${3:-}" in [1-9]|10) dd=$3 ;; esac
+    q="${PRD_ONELINE:-} $(_kind_label "$PROJECT_KIND")"
+    cands=$(uiux::style_candidates "$q" 3) || cands=""
+    local pick_raw="" style_pick=""
+    if [ -n "$cands" ]; then
+      echo "  스타일 후보:"
+      printf '%s\n' "$cands" | awk -F'\t' '{ printf "  (%d) %s — %s\n", NR, $1, $2 }'
+      printf "선택 [1-3 / more / 엔터=1]: "
+      read -r pick || true
+      pick_raw="$pick"   # ★ 정규화 전 원본 캡처 — 무인(빈 입력) 판정은 이 값으로 한다
+      #   (plan-review Important-1: 정규화 후 검사하면 빈 입력이 "1" 이 돼 투명성 기록이 영원히 안 남는다)
+      if [ "$pick" = "more" ]; then
+        cands=$(uiux::style_candidates "$q" 6) || true
+        printf '%s\n' "$cands" | awk -F'\t' 'NR>3 { printf "  (%d) %s — %s\n", NR, $1, $2 }'
+        printf "선택 [1-6 / 엔터=1]: "
+        read -r pick || true
+      fi
+      case "$pick" in [1-9]) ;; *) pick=1 ;; esac
+      style_pick=$(printf '%s\n' "$cands" | sed -n "${pick}p" | cut -f1)
+      [ -n "$style_pick" ] && q="$q $style_pick"
+    fi
+    if ds=$(uiux::design_system "$q" "$dv" "$dm" "$dd") && [ -n "$ds" ]; then
+      if _design_from_engine "$target" "$ds"; then
+        # 무인/기본값 투명성 — spec §보조 시나리오 문구와 정합 (스타일명 포함)
+        [ -z "$dial" ] && [ -z "$pick_raw" ] \
+          && printf '> 자동 선택 (무인 모드): %s, 다이얼 %s/%s/%s\n' \
+               "${style_pick:-(후보 없음)}" "$dv" "$dm" "$dd" >> "$target"
+        echo "→ ${target} 작성 완료 (엔진: ui-ux-pro-max $(uiux::version), 다이얼 ${dv}/${dm}/${dd})"
+        return
+      fi
+    fi
+    echo "  ⚠️  엔진 산출 실패 — 자산/브랜드 경로로 진행합니다" >&2
+  else
+    echo "  ℹ️  엔진 미가용 — 축소 생성 (자산/브랜드 경로)" >&2
+  fi
   if [ -n "${UIUX_PRODUCT_TYPE:-}" ]; then
     if type uiux::available >/dev/null 2>&1 && uiux::available; then
       uiux::warn_copies || true

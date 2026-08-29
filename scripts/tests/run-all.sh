@@ -14,6 +14,11 @@ export SPECOPS_RUN_ALL=1
 #   99s·8분+ 를 먹거나 통째로 정지했고, pre-push 게이트가 그대로 멈췄다.
 #   외부 스캐너 자체의 동작은 stub 으로 검증한다(test-security-scan AC-4·5·8 이 =1 로 되돌려 쓴다).
 export SPECOPS_SAST_EXTERNAL=0
+# 엔진 금지 계약 (20260829-uiux-engine-bridge): 스위트는 실 promax 엔진을 부르지 않는다.
+#   격리 없으면 test-init-project UI KIND 가 개발기의 실 search.py 를 호출해 결과가
+#   외부 repo 상태에 좌우되고, 신규 read 가 기존 stdin 픽스처를 shift 시킨다.
+#   엔진 동작 자체는 test-uiux-assets 가 stub(fixtures/uiux-engine)으로 검증한다.
+export UIUX_ENGINE_DISABLE=1
 QUIET=false
 [ "${1:-}" = "--quiet" ] && QUIET=true
 
