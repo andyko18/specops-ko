@@ -218,6 +218,18 @@ _JQ_SPLIT='[ split("\n")[] | select(length > 0) ] as $L
   | [ $L[] | fromjson? | objects ] as $J
   | (($L | length) - ($J | length)) as $bad'
 
+# 파일 최종 갱신으로부터 경과일(정수). 판정 불가면 **무출력** — 0 을 돌려주면 "방금 갱신됨"
+#   으로 오독돼 정체를 놓친다(_days_since 와 동일 계약).
+# GNU/BSD `stat` 인자가 갈리므로 두 형태를 순서대로 시도한다.
+_file_age_days() {  # $1=파일
+  local mt now
+  [ -f "$1" ] || return 0
+  mt=$(stat -f %m "$1" 2>/dev/null) || mt=$(stat -c %Y "$1" 2>/dev/null) || return 0
+  case "$mt" in ''|*[!0-9]*) return 0 ;; esac
+  now=$(date -u +%s)
+  echo $(( (now - mt) / 86400 ))
+}
+
 _chk_stale() {
   local now cutoff msgs="" have=0 bad=0 f
   command -v jq >/dev/null 2>&1 || {
@@ -300,6 +312,54 @@ _chk_stale() {
     byp=$(( byp + n ))
   done
   [ "$byp" -ge 3 ] && msgs="${msgs}${msgs:+ · }최근 30일 우회 ${byp}건"
+
+  # ④ batch 정체 — queue 미완 + N일 무갱신 (20260829-batch-stall-visibility)
+  #
+  # 왜 여기인가: argus 실측에서 FR 31건이 IMPL_DONE 에 멈춘 채 방치됐고, 그 사실을 **아무도
+  #   묻지 않았다**. v1.81.0 의 batch-resume-check 가 SessionStart 에 표면화하지만 두 구멍이
+  #   남는다 — ① 나이가 없어 매 세션 같은 줄이 나오고(2주면 벽지가 된다: skip-tracker advisory
+  #   와 같은 형태) ② `ACTIVE` 마커에만 의존해 마커 없이 방치된 미완 queue 는 아예 안 보인다.
+  #   stale 축은 이미 "적체·정체" 를 일수 임계로 모으는 자리라 여기 얹는다.
+  # ★ 한계 고백: 문제 A 자체는 도구로 닫히지 않는다. "세션이 끝나면 이어받을 주체가 없다" 는
+  #   모델이 들고 있는 오케스트레이션 루프의 성질이고, 도구가 살 수 있는 것은 **탐지와 재개성**뿐이다.
+  # 판정: queue 표에서 SKIP 을 분모에서 뺀 뒤 완료(IMPL_DONE|MERGED) 미달이면 미완.
+  #   전 FR 완료 + ACTIVE 잔존 = Phase 3 미실행(argus 상태) 도 미완으로 본다.
+  #   전 FR 완료 + 마커 없음 = Step D 정상 종결 → 보고하지 않는다.
+  # 라벨 정규화는 queue-lib 를 재사용한다 — 여기서 정규식을 새로 쓰면 20260828-queue-label-drift
+  #   가 고친 드리프트를 소비자 하나에 그대로 되살린다.
+  local _qlib="$PLUGIN/scripts/_internal/queue-lib.sh"
+  if [ -f "$_qlib" ]; then
+    # shellcheck source=/dev/null
+    . "$_qlib"
+    local bthr="${DOCTOR_BATCH_STALE_DAYS:-14}" q bdir bid bage bcnt bdone btot stalled=""
+    for q in "$SPECOPS"/batch-*/queue.md; do
+      [ -f "$q" ] || continue
+      have=1
+      bdir=$(dirname "$q"); bid=$(basename "$bdir")
+      bcnt=$(awk -F'|' "$QUEUE_AWK_QNORM"'
+        /^[[:space:]]*\|/ {
+          id = qnorm($2)
+          if (id == "FR-ID" || id !~ /^FR-/) next
+          st = ""
+          for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+          if (st == "SKIP") next
+          total++
+          if (st ~ /^(IMPL_DONE|MERGED)$/) done_n++
+        }
+        END { printf "%d %d", done_n + 0, total + 0 }
+      ' "$q")
+      bdone=${bcnt% *}; btot=${bcnt#* }
+      [ "${btot:-0}" -gt 0 ] || continue
+      # 종결 판정: 전 FR 완료 AND ACTIVE 부재 → 정상 종결, 보고 대상 아님
+      if [ "$bdone" -eq "$btot" ] && [ ! -f "$bdir/ACTIVE" ]; then continue; fi
+      # 나이 — queue.md 최종 갱신 기준(파일시스템만, 네트워크·per-FID spawn 없음)
+      bage=$(_file_age_days "$q")
+      [ -n "$bage" ] || continue                # 판정 불가는 조용히 건너뛴다
+      [ "$bage" -ge "$bthr" ] || continue       # 진행 중인 최근 batch 를 정체로 부르지 않는다
+      stalled="${stalled}${stalled:+, }${bid}(${bdone}/${btot}·${bage}일)"
+    done
+    [ -n "$stalled" ] && msgs="${msgs}${msgs:+ · }정체 batch ${stalled}"
+  fi
 
   if [ "$have" -eq 0 ]; then
     _add stale unknown "적체 지표 판정 불가 (pending·freelog·friction-log 전부 부재)" ""

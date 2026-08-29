@@ -546,4 +546,63 @@ else
 fi
 rm -rf "$SB_M"; SB_M=""
 
+# ── T-bs.a~e: 정체 batch 를 stale 축이 본다 (FID 20260829-batch-stall-visibility) ──
+# 왜: argus 실측에서 FR 31건이 IMPL_DONE 에 멈춘 채 ~30일 방치됐다. v1.81.0 의
+#   batch-resume-check 가 SessionStart 에 표면화하지만 **두 구멍**이 남았다:
+#     ① 나이가 없다 — 매 세션 같은 줄이 나와 2주면 벽지가 된다(이 repo 가 skip-tracker
+#        advisory 에서 이미 겪은 형태다).
+#     ② ACTIVE 마커에만 의존한다 — 마커 없이 방치된 미완 queue 는 **아예 안 보인다**.
+#   doctor 의 stale 축은 이미 "적체·정체" 를 일수 임계로 모으는 자리다. 여기 얹는다.
+# ★ 문제 A 자체는 도구로 완전히 닫히지 않는다 — "세션이 끝나면 이어받을 주체가 없다" 는
+#   모델이 들고 있는 오케스트레이션 루프의 성질이다. 도구가 살 수 있는 건 탐지·재개성뿐이다.
+_mk_batch() {  # $1=repo $2=batch-id $3=queue본문 $4=ACTIVE(1/0) $5=mtime일수전
+  local r="$1" b="$2" body="$3" act="$4" age="$5" d="$1/.specops/$2"
+  mkdir -p "$d"
+  printf '%s' "$body" > "$d/queue.md"
+  [ "$act" = 1 ] && : > "$d/ACTIVE"
+  # mtime 을 과거로 — 나이 판정 대상
+  local ts; ts=$(date -u -v-"${age}"d +%Y%m%d%H%M 2>/dev/null || date -u -d "${age} days ago" +%Y%m%d%H%M)
+  touch -t "$ts" "$d/queue.md"
+}
+_QBODY_INC='| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | a | IMPL_DONE |
+| FR-2 | 20260101-b | b | PLAN_DONE |
+'
+_QBODY_DONE='| FR-ID | FID | 설명 | Status |
+|---|---|---|---|
+| FR-1 | 20260101-a | a | IMPL_DONE |
+| FR-2 | 20260101-b | b | IMPL_DONE |
+'
+
+R="$TMP/bs1"; _mkrepo "$R"; _hooks_ok "$R"
+_mk_batch "$R" batch-20260101 "$_QBODY_INC" 1 40
+_run "$R"
+printf '%s' "$_OUT" | grep -q 'batch' \
+  && ok "T-bs.a ★ 40일 정체 batch → stale 축에 보고" || nope "T-bs.a" "$(printf '%s' "$_OUT" | grep stale)"
+printf '%s' "$_OUT" | grep -qE 'batch-20260101.*(40|3[0-9])일|(40|3[0-9])일.*batch-20260101' \
+  && ok "T-bs.b ★ 나이를 함께 보고 (벽지화 차단)" || nope "T-bs.b 나이" "$(printf '%s' "$_OUT" | grep stale)"
+
+# ★ ACTIVE 마커 없이 방치된 미완 queue 도 본다 (구멍 ②)
+R2="$TMP/bs2"; _mkrepo "$R2"; _hooks_ok "$R2"
+_mk_batch "$R2" batch-20260102 "$_QBODY_INC" 0 40
+_run "$R2"
+printf '%s' "$_OUT" | grep -q 'batch-20260102' \
+  && ok "T-bs.c ★ ACTIVE 마커 없어도 미완 queue 탐지 (마커 의존 탈피)" \
+  || nope "T-bs.c 마커의존" "$(printf '%s' "$_OUT" | grep stale)"
+
+# 되돌려-관찰 ①: 최근 batch 는 경고하지 않는다 (진행 중인 작업을 정체로 부르지 않는다)
+R3="$TMP/bs3"; _mkrepo "$R3"; _hooks_ok "$R3"
+_mk_batch "$R3" batch-20260103 "$_QBODY_INC" 1 1
+_run "$R3"
+printf '%s' "$_OUT" | grep -q 'batch-20260103' \
+  && nope "T-bs.d 오탐" "1일된 batch 를 정체로 보고" || ok "T-bs.d 최근 batch 는 무보고 (오탐 차단)"
+
+# 되돌려-관찰 ②: 전 FR 완료 + 마커 없음 = 정상 종결 → 무보고
+R4="$TMP/bs4"; _mkrepo "$R4"; _hooks_ok "$R4"
+_mk_batch "$R4" batch-20260104 "$_QBODY_DONE" 0 40
+_run "$R4"
+printf '%s' "$_OUT" | grep -q 'batch-20260104' \
+  && nope "T-bs.e 오탐" "종결된 batch 를 정체로 보고" || ok "T-bs.e 종결 batch 는 무보고 (Step D 정상경로)"
+
 finish

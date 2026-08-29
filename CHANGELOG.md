@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **정체 batch 를 `/doctor` 가 본다 (FID 20260829-batch-stall-visibility)** — argus 실측에서 FR **31건이 `IMPL_DONE` 에 멈춘 채 방치**됐고, 그 사실을 아무도 묻지 않았다. v1.81.0 의 `batch-resume-check` 가 SessionStart 에 표면화했지만 **두 구멍**이 남아 있었다:
+  - ① **나이가 없다** — `미완 batch — batch-X: 31/34 완료` 가 매 세션 똑같이 나온다. 2주면 벽지가 된다. 이 repo 가 `skip-tracker` advisory 에서 이미 겪은 형태이고, 이번 릴리즈에서 두 번 더 진단한 것과 같은 병이다.
+  - ② **`ACTIVE` 마커에만 의존한다** — 마커 없이 방치된 미완 queue 는 **아예 안 보인다**. 마커 제거는 Step D 성공 경로라, 그 전에 버려진 batch 는 탐지 밖이었다.
+  - `doctor` 의 `stale` 축(적체·정체·우회)에 얹었다 — 이미 일수 임계로 "가만히 앉아 있는 것" 을 모으는 자리다. 새 `_chk_batch` 를 만들지 않았고, 라벨 정규화는 `queue-lib.sh` 를 재사용한다(자체 정규식을 쓰면 `20260828-queue-label-drift` 가 고친 드리프트를 소비자 하나에 되살린다).
+  - 판정: `SKIP` 을 분모에서 뺀 완료율 미달 = 미완. **전 FR 완료 + `ACTIVE` 잔존 = Phase 3 미실행**(argus 가 정확히 이 상태였다)도 미완으로 본다. 전 FR 완료 + 마커 없음 = Step D 정상 종결이라 보고하지 않는다. 임계 기본 14일(`DOCTOR_BATCH_STALE_DAYS`).
+  - doctor 계약 유지 실측: **0.55초** · 네트워크 0 · 파일시스템만(per-FID spawn 없음) · read-only.
+  - 어서션 5건. `T-bs.d`·`T-bs.e` 가 되돌려-관찰 — 1일된 batch(진행 중)와 종결 batch 를 정체로 부르지 않는다(오탐 차단).
+  - ★ **한계 고백 — 문제 A 는 도구로 닫히지 않는다**: 사례 연구의 일반화가 *"세션이 끝나면 이어받을 주체가 없다"* 인데, 그건 **모델이 들고 있는 오케스트레이션 루프의 성질**이다. `/start-all` 은 산문이고 batch 를 재개시킬 프로세스가 없다. 도구가 살 수 있는 것은 **탐지와 재개성**뿐이며, 이 변경은 그중 탐지를 나이·마커 무관으로 넓힌 것이다. 정체 클래스가 제거됐다고 읽으면 안 된다.
+
 ### Changed
 
 - **pretool mutation 36% → 84% (FID 20260829-pretool-mutation-triage)** — 직전 릴리즈에서 세운 baseline(`killed=9 survived=16`)의 생존 16건을 전수 분류했다. `pretool-governance.sh` 는 **차단 판정 본체**(R-1/R-2 deny)라 여기가 비면 게이트 전체가 신뢰를 잃는다.
