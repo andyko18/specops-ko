@@ -4,7 +4,7 @@ description: specops-ko HUD statusLine을 프로젝트 .claude/settings.json에 
 triggers:
   - "/statusline-install"
 mode: auto
-specops_version: 1.16.0
+specops_version: 1.85.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
