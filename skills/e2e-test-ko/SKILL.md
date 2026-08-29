@@ -482,6 +482,10 @@ greet-cli fixture는 CLI 단일 프로세스로 **코드 변경 표면(SAST 대�
 
 본 단계는 세 skill의 SKIP 결과가 session-progress·evidence.md에 올바르게 기록됐는지 검증한다.
 
+> **★ SKIP 근거는 반드시 spec.md 섹션명+라인번호를 인용한다** (20260829-bare-skip-teeth):
+> `release-ready.sh` 가 근거 없는(bare) SKIP 을 PR 품질 축 미충족으로 **차단**한다.
+> 인용 없는 stub 을 쓰면 이 하네스가 자기 PR 게이트에 걸린다.
+>
 > **주의**: 실제 security-review-ko·integration-test-ko·performance-test-ko skill을 chain 호출하지 않는다 (HARD GATE 없는 harness 성격 유지). 대신 S5 IMPLEMENT 단계에서 생성된 evidence.md에 SKIP 항목을 인라인 주입한 뒤 존재 여부를 검증한다. security-review-ko는 graceful skip 경로(도구 미설치)만 검증한다.
 
 ```bash
@@ -494,7 +498,7 @@ cat >> "$EVIDENCE" <<'SKIP_EOF'
 ## /security-review — e2e-fixture
 
 **결과**: SKIP
-**근거**: greet-cli fixture — semgrep·gitleaks 미설치 graceful skip (도구 미설치는 검증 불가, 거짓 PASS 금지)
+**근거**: §범위 L12-15 — greet-cli fixture, semgrep·gitleaks 미설치 graceful skip (도구 미설치는 검증 불가, 거짓 PASS 금지)
 SKIP_EOF
 
 bash scripts/session-progress-append.sh "$FID" "/security-review" "SKIP" "greet-cli fixture — semgrep·gitleaks 미설치" "greet-cli E2E" 2>/dev/null || true
@@ -505,7 +509,7 @@ cat >> "$EVIDENCE" <<'SKIP_EOF'
 ## /integration-test — e2e-fixture
 
 **결과**: SKIP
-**근거**: greet-cli fixture — §범위: CLI 단일 프로세스, DB·API·외부 IF 없음
+**근거**: §범위 L12-15 — CLI 단일 프로세스, DB·API·외부 IF 없음
 SKIP_EOF
 
 bash scripts/session-progress-append.sh "$FID" "/integration-test" "SKIP" "greet-cli fixture — 통합 표면 없음" "greet-cli E2E" 2>/dev/null || true
@@ -516,7 +520,7 @@ cat >> "$EVIDENCE" <<'SKIP_EOF'
 ## /performance-test — e2e-fixture
 
 **결과**: SKIP
-**근거**: greet-cli fixture — §NFR: 성능 임계값 없음, CLI 도구
+**근거**: §NFR L50-55 — 성능 임계값 없음, CLI 도구
 SKIP_EOF
 
 bash scripts/session-progress-append.sh "$FID" "/performance-test" "SKIP" "greet-cli fixture — 성능 임계값 없음" "greet-cli E2E" 2>/dev/null || true
@@ -689,6 +693,19 @@ rm -rf "$TMP"
 ---
 
 ## [REPORT] 결과 출력 + session-progress append
+
+> **⚠️ 실행 후 활성 FID 점거 (20260829 실주행 적발 — 미해결)**: 이 하네스는 `session-progress.md`
+> 에 fixture FID 섹션을 append 하고, `detect_fid` 는 `active-fid` 마커가 없으면 **첫 `## <FID>`
+> 헤더**를 활성 FID 로 본다. 따라서 실행 직후 fixture FID 가 repo 의 활성 FID 가 되고,
+> **이후 모든 `git commit` 이 fixture 의 verify 상태를 대신 answer 해야 한다**(R-1 ②앵커).
+> 게다가 fixture 의 테스트는 `.specops/<FID>/test-greet-cli.sh` 라 `run-verification` 의
+> 실행 whitelist(`bash (scripts|tests)/*.sh`) 밖이어서 `VERIFY: PARTIAL` 로만 끝난다 —
+> 즉 **fixture FID 는 구조적으로 PASS 를 낼 수 없다**.
+> 당장의 회피: 실행 후 `session-progress.md` 상단에 실제 작업 FID 로 `<!-- active-fid: <FID> -->`
+> 마커를 두거나, 후속 커밋에 사유를 병기한 `SPECOPS_GOVERNANCE_BYPASS=1` 를 쓴다.
+> 근본 해결(별건): fixture FID 를 활성 후보에서 제외하거나 whitelist 를 아티팩트 테스트까지
+> 확장할지 결정해야 한다 — 후자는 실행 allowlist 확대라 보안 판단이 필요하다.
+
 
 ```bash
 echo ""

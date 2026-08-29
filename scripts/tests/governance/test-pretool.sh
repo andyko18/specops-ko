@@ -398,6 +398,8 @@ EOF
     : > "$root/.specops/20260721-login/review-base.sha"
     : > "$root/.specops/20260721-login/review-request.md"
     # Wave B: ACTIVE batch PR 는 RELEASE_READY hard — 정직 fixture는 축 충족해야 false-block 금지
+    # 20260829-bare-skip-teeth: SKIP 근거는 라인 인용 필수(skip_cite 축) — 무인용이면 정직 fixture 가
+    #   NOT_READY 로 떨어져 T-batch.b 가 red 가 된다. 계약 변경에 fixture 를 맞춘 것이지 완화가 아니다.
     cat > "$root/.specops/20260721-login/evidence.md" <<'EOF'
 RUN-VERIFICATION-RESULT: PASS
 
@@ -409,7 +411,7 @@ RUN-VERIFICATION-RESULT: PASS
 
 ## /performance-test SKIP
 **결과**: SKIP
-**근거**: NFR 없음
+**근거**: §NFR L8-12 — 성능 임계값 없음
 EOF
     # reconcile DESYNC 방지 — review-request 있으면 evidence=70, 기록도 review 이상
     printf '## 20260721-login\n\n- 2026-07-21 13:53 /verify PASS (evidence.md)\n- 2026-07-21 14:00 /request-review DONE\n' \

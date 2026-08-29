@@ -60,11 +60,13 @@ tasks:
     inputs: []
     outputs: [.specops/<FID>/greet-cli.sh]
     ac: [AC-1, AC-2, AC-3]
+    test_command: "bash .specops/<FID>/test-greet-cli.sh"
   - id: T2
     depends_on: []
     inputs: [.specops/<FID>/greet-cli.sh]
     outputs: [.specops/<FID>/test-greet-cli.sh]
     ac: [AC-1, AC-2, AC-3]
+    test_command: "bash .specops/<FID>/test-greet-cli.sh"
 ```
 
 ---

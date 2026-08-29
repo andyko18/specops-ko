@@ -395,4 +395,77 @@ echo "$out" | grep -q '"continue":true' \
   || nope "RR-20" "out=$out stderr=$(cat "$ERR")"
 rm -rf "$TD" "$ERR"
 
+# ── RR-cite.a~d: 근거 없는(bare) SKIP 은 PR 품질 축 미충족 (FID 20260829-bare-skip-teeth) ──
+# 왜: 세 후반 게이트는 실측 87회 평가에서 **FAIL 0건**이고 SKIP 이 integration 72%·performance 55% 다.
+#   SKIP 판정 주체가 모델 자신이라, 근거 없는 SKIP 은 v1.45.0 이 제거한 §auto 자기발급 면제표와
+#   같은 클래스다. 세 skill 본문이 이미 "근거 없는 SKIP 은 형식화 — 거부" 를 선언하는데
+#   그 선언에 대응하는 기계 검사가 없었다(skip-tracker 는 advisory).
+# 왜 하드인가: 소급 FAIL 이 실질 0 이다 — bare 보유 FID 8건(전체의 34%)이 **전부 종결**이고
+#   열린 PR 0건이다(실측). check-review-presence 가 35% 소급 FAIL 때문에 warn 으로 남은 것과
+#   숫자는 같지만 **대상이 다르다**: 저건 살아있는 FID 였고 이건 이미 끝난 것들이다.
+_cite_case() {  # $1 expect_rc $2 label $3 evidence-body
+  local exp="$1" label="$2" body="$3" td rc out
+  td=$(mktemp -d) || return
+  _mk_base "$td" 20260829-cite
+  printf '%s' "$body" > "$td/.specops/20260829-cite/evidence.md"
+  out=$( cd "$td" && SPECOPS_ROOT=.specops bash "$RR" 20260829-cite 2>&1 ); rc=$?
+  if [ "$rc" -eq "$exp" ]; then ok "$label"
+  else nope "$label" "rc=$rc 기대=$exp out=$(printf '%s' "$out" | tr '\n' ' ')"; fi
+  rm -rf "$td"
+}
+
+_cite_case 1 "RR-cite.a 근거 없는 SKIP → NOT_READY" 'RUN-VERIFICATION-RESULT: PASS
+
+## /security-review PASS
+**결과**: PASS
+
+## /integration-test SKIP
+**결과**: SKIP
+**근거**: CLI 단일 프로세스라 통합 표면 없음
+
+## /performance-test PASS
+**결과**: PASS
+'
+
+_cite_case 0 "RR-cite.b 라인 인용 SKIP → READY (정직 경로 무손상)" 'RUN-VERIFICATION-RESULT: PASS
+
+## /security-review PASS
+**결과**: PASS
+
+## /integration-test SKIP
+**결과**: SKIP
+**근거**: §범위 L12-15 — CLI 단일 프로세스, DB·API·외부 IF 없음
+
+## /performance-test PASS
+**결과**: PASS
+'
+
+_cite_case 1 "RR-cite.c 세 게이트 전부 bare SKIP → NOT_READY" 'RUN-VERIFICATION-RESULT: PASS
+
+## /security-review SKIP
+**결과**: SKIP
+**근거**: 스캐너 미설치
+
+## /integration-test SKIP
+**결과**: SKIP
+**근거**: 표면 없음
+
+## /performance-test SKIP
+**결과**: SKIP
+**근거**: 임계값 없음
+'
+
+# 되돌려-관찰: PASS 는 근거 인용 대상이 아니다 — 과잉 일반화(모든 판정에 인용 요구) 차단
+_cite_case 0 "RR-cite.d 전 게이트 PASS → READY (PASS 에 인용 요구 안 함)" 'RUN-VERIFICATION-RESULT: PASS
+
+## /security-review PASS
+**결과**: PASS
+
+## /integration-test PASS
+**결과**: PASS
+
+## /performance-test PASS
+**결과**: PASS
+'
+
 finish

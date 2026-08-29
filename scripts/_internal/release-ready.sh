@@ -133,7 +133,26 @@ else
 fi
 
 # ③④⑤ lifecycle tail gates — PASS|SKIP 허용, 부재·FAIL 거부
+#
+# ★ SKIP 은 **근거 라인 인용**을 요구한다 (20260829-bare-skip-teeth).
+#   왜: 이 세 게이트는 실측 87회 평가에서 FAIL 0건이고 SKIP 이 integration 72%·performance 55% 다.
+#   SKIP 판정 주체가 모델 자신이라, 근거 없는 SKIP 은 v1.45.0 이 제거한 §auto 자기발급 면제표와
+#   같은 클래스다 — 라벨만 안 쓸 뿐 "내가 해당 없다고 했으니 넘어간다" 는 동일하다.
+#   세 skill 본문은 이미 "근거 없는 SKIP 은 형식화 — 거부" 를 선언하는데, 그 선언에 대응하는
+#   기계 검사가 없었다(skip-tracker 는 advisory — 이 repo 가 advisory 를 방치한 전례 그 자체다).
+#   판정 SoT 는 skip::cite_status (위에서 source) — 인용 regex 를 여기 다시 쓰면 드리프트한다.
+#
+# 왜 warn 이 아니라 ready=0(하드)인가: 소급 FAIL 이 실질 0 이기 때문이다. bare 보유 FID 는
+#   8건(세 게이트 판정 보유 23건의 34%)인데 **전부 종결**이고 열린 PR 은 0건이다(실측).
+#   check-review-presence 가 35% 소급 FAIL 때문에 warn 으로 남은 것과 숫자는 같지만 대상이 다르다 —
+#   저건 살아있는 FID 였고 이건 이미 끝난 것들이라 앞으로의 PR 에만 걸린다.
+#
+# 한계 고백: 인용 판정은 `L<숫자>`·`§...<숫자>` **토큰 존재**만 본다. `§범위 L999` 처럼 실재하지
+#   않는 라인을 인용해도 통과한다 — 근거를 **쓰게** 만들 뿐, 근거가 **참인지**는 검증하지 않는다.
+#   라인 실재 대조는 spec.md 길이·섹션 파싱이 필요해 별건으로 남긴다.
 ev="$FID_DIR/evidence.md"
+skip_cite=OK
+bare_gates=""
 for gate in security integration performance; do
   v=$(skip::verdicts "$ev" "$gate" 2>/dev/null | tail -1)
   [ -n "$v" ] || v=MISSING
@@ -143,10 +162,17 @@ for gate in security integration performance; do
     performance) performance="$v" ;;
   esac
   case "$v" in
-    PASS|SKIP) ;;
+    PASS) ;;
+    SKIP)
+      if skip::cite_status "$ev" "$gate" 2>/dev/null | grep -qx BARE; then
+        bare_gates="${bare_gates}${bare_gates:+,}$gate"
+        ready=0
+      fi
+      ;;
     *) ready=0 ;;
   esac
 done
+[ -n "$bare_gates" ] && skip_cite="BARE:$bare_gates"
 
 # ⑥ reconcile — DESYNC 문구면 NOT READY (--hook 모드 사용, 기본 출력 불변)
 if [ -f "$RECON_SH" ]; then
@@ -192,5 +218,9 @@ printf '  integration=%s\n' "$integration"
 printf '  performance=%s\n' "$performance"
 printf '  reconcile=%s\n' "$reconcile"
 printf '  crit_high=%s\n' "$crit_high"
+# 축 이름을 따로 찍는다 — `integration=SKIP` 만 보면 왜 막혔는지 알 수 없다(원인 오안내가
+#   BYPASS 를 부르는 것은 이 repo 가 두 번 겪은 실패 형태다).
+printf '  skip_cite=%s\n' "$skip_cite"
+[ "$skip_cite" = OK ] || printf '  ↳ SKIP 근거에 spec.md 섹션명+라인번호를 인용하세요 (예: §범위 L12-15)\n'
 
 [ "$ready" -eq 1 ] && exit 0 || exit 1

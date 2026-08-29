@@ -42,10 +42,20 @@ skip::cite_status() {  # <file> <gate> → CITED|BARE per SKIP (라인인용 §.
   local file="$1" gate="$2"
   [ -f "$file" ] || return 0
   awk -v hdr="^## /$(skip::header "$gate")" -v cite='L[0-9]|§[^ ]*[0-9]' '
+    # ★ 헤더가 SKIP 을 달고 있어도 **즉시 판정하지 않는다** (20260829-bare-skip-teeth).
+    #   evidence 실물은 두 형태가 섞인다: `## /gate` + `**결과**: SKIP` (템플릿) 와
+    #   `## /gate SKIP` (헤더 겸용). 종전 코드는 후자에서 헤더 한 줄만 보고 BARE 로 확정해,
+    #   바로 다음 `**근거**: §범위 L12-15` 를 **읽지도 않고** 정직한 인용을 bare 로 셌다.
+    #   그 오판정이 그대로 계측에 들어가 bare 건수를 부풀렸다(이 게이트를 하드로 올리기 직전
+    #   실측에서 적발 — advisory 였을 때는 아무도 틀렸다는 걸 몰랐다).
+    #   헤더 자체에 인용이 있으면 CITED 확정, 없으면 근거 줄까지 유예한다.
     $0 ~ hdr {
       if (skipwait) { print "BARE"; skipwait=0 }
-      if ($0 ~ /SKIP/) { print ($0 ~ cite) ? "CITED" : "BARE"; pending=0; skipwait=0 }
-      else            { pending=1; skipwait=0 }
+      if ($0 ~ /SKIP/) {
+        if ($0 ~ cite) { print "CITED"; skipwait=0 } else { skipwait=1 }
+        pending=0
+      }
+      else { pending=1; skipwait=0 }
       next
     }
     /^## / { if (skipwait) { print "BARE"; skipwait=0 } pending=0; next }

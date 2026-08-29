@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **근거 없는 SKIP 을 PR 게이트에서 차단한다 (FID 20260829-bare-skip-teeth)** — lifecycle 후반 3게이트(security·integration·performance)는 실측 **87회 평가에서 FAIL 0건**이고 SKIP 비율이 integration 72%·performance 55% 다. SKIP 판정 주체가 **모델 자신**이라, 근거 없는 SKIP 은 v1.45.0 이 제거한 `§auto` 자기발급 면제표와 같은 클래스다 — 라벨만 안 쓸 뿐 "내가 해당 없다고 했으니 넘어간다"는 동일하다. 세 skill 본문은 이미 *"근거 없는 SKIP 은 형식화 — 거부"* 를 선언하는데, **그 선언에 대응하는 기계 검사가 없었다**(`skip-tracker` 는 advisory — 이 repo 가 advisory 를 방치한 전례 그 자체다).
+  - `release-ready.sh` 에 `skip_cite` 축 신설 — `SKIP` 은 `**근거**` 에 `L<번호>`·`§…<번호>` 인용을 요구하고, 없으면 `NOT_READY`. `_release_ready_gate`(R-2 / `gh pr create`)의 기존 hard/warn 분할을 그대로 탄다(strict FID·ACTIVE batch → hard).
+  - ★ **왜 verify 관문이 아니라 PR 게이트인가**: chain 순서상 `/verify` 는 세 게이트보다 **먼저** 온다(`verifying-evidence → … → security → integration → performance`). verify 시점엔 evidence.md 에 세 섹션이 아직 없다 — 거기 걸면 항상 통과하거나 항상 오탐한다. 세 판정이 모두 존재하는 유일한 순간이 PR 직전이다.
+  - ★ **왜 warn 이 아니라 하드인가**: 소급 FAIL 이 **실질 0** 이다. bare 보유 FID 8건(판정 보유 23건의 34%)이 **전부 종결**이고 열린 PR 0건이다(실측). `check-review-presence` 가 35% 소급 FAIL 때문에 warn 으로 남은 것과 숫자는 같지만 **대상이 다르다** — 저건 살아있는 FID 였고 이건 이미 끝난 것들이라 앞으로의 PR 에만 걸린다.
+  - **부수 결함 적발**: `skip::cite_status` 가 헤더 겸용 형태(`## /gate SKIP`)에서 **헤더 한 줄만 보고 BARE 로 확정**해, 바로 다음 `**근거**: §범위 L12-15` 를 읽지도 않고 정직한 인용을 bare 로 세고 있었다. advisory 였을 때는 아무도 틀렸다는 걸 몰랐다 — **하드로 올리는 순간 자기 테스트 fixture 6건이 깨져서 드러났다**. 계측기를 게이트로 승격하면 계측기의 거짓말이 드러난다.
+  - 인용 SoT 는 `skip::cite_status` 하나다 — `skip-citation-sot` 원장이 소비자 3곳(release-ready·e2e stub)을 결속한다. e2e S6.5 stub 도 인용하도록 고쳤다(안 고치면 하네스가 자기 PR 게이트에 걸린다).
+  - **한계 고백**: 인용 판정은 `L<숫자>` **토큰 존재**만 본다. `§범위 L999` 처럼 실재하지 않는 라인을 인용해도 통과한다 — 근거를 **쓰게** 만들 뿐 근거가 **참인지**는 검증하지 않는다. 라인 실재 대조는 별건으로 남긴다.
+  - **후속 backlog (미해결, 문서화만)**: `/e2e-test` 실행 후 fixture FID 가 repo 의 **활성 FID 를 점거**한다 — `detect_fid` 가 `active-fid` 마커 부재 시 첫 `## <FID>` 헤더를 쓰기 때문이다. 게다가 fixture 테스트는 `.specops/<FID>/test-greet-cli.sh` 라 `run-verification` 실행 whitelist(`bash (scripts|tests)/*.sh`) 밖이어서 **구조적으로 PASS 를 낼 수 없다**. 결과: e2e 이후 모든 커밋이 fixture 의 verify 상태를 대신 answer 하며 R-1 ②앵커에 막힌다(이번 세션에서 2회 실측). 하네스에 회피책을 적었고, 근본 해결(활성 후보 제외 vs 실행 allowlist 확대)은 보안 판단이 필요해 별건으로 남긴다.
+  - 어서션 4건(RR-cite.a~d). `RR-cite.d` 가 되돌려-관찰 — `PASS` 판정에는 인용을 요구하지 않는다(과잉 일반화 차단).
+
 ## [1.82.0] — 2026-08-29
 
 ### Added
