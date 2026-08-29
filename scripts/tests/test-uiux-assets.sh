@@ -355,5 +355,32 @@ printf '%s' "$_out" | grep -q '작성 완료 (자산:' \
   && nope "U23" "중도 실패인데 자산 성공 보고 — 실패가 전파되지 않는다" \
   || ok "U23 중도 실패 시 자산 성공 보고 없음"
 rm -rf "$_td"
+
+# ── E: 엔진 래퍼 (FID 20260829-uiux-engine-bridge) ──
+# ★ 엔진 전용 픽스처 루트 — engine_py 가 data/ 의 sibling scripts/ 를 보는 해석 규칙에 맞춘 배치.
+#   기존 U-케이스의 export UIUX_ASSET_ROOT="$FX" 를 건드리지 않도록 호출별 env 주입만 쓴다.
+EFX="$PLUGIN/scripts/tests/fixtures/uiux-engine"
+# ★ run-all 이 export UIUX_ENGINE_DISABLE=1 을 상속시킨다(Step 4.5) — stub 은 실 promax 가
+#   아니므로 여기서 **호출별 =0 재주입**으로 되돌린다. SPECOPS_SAST_EXTERNAL 선례의 반쪽
+#   (test-security-scan 이 호출별 =1 재주입)과 동형 — 이 반쪽이 없으면 격리 export 가
+#   자기 스위트 13건을 전멸시킨다 (plan-review 2회차 Critical 실측).
+_c=$(UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" uiux::style_candidates "premium test")
+[ "$(printf '%s\n' "$_c" | grep -c '	')" -eq 3 ] \
+  && ok "E1 후보 3행 (이름<TAB>best_for)" || nope "E1" "행수 불일치: $_c"
+_d=$(UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "premium test" 3 3 4)
+printf '%s\n' "$_d" | grep -q '^colors.primary	#111111$' \
+  && ok "E2 design_system 평탄 행 (colors.primary)" || nope "E2" "$_d"
+printf '%s\n' "$_d" | grep -q '^typography.css_import	@import' \
+  && ok "E3 typography import 행" || nope "E3" "css_import 부재"
+# E4 엔진 비활성 → rc=1 (AC-2 전제 — python3 가림은 PATH 재현이 환경 의존이라 명시 스위치가 정본)
+_rc=0; UIUX_ENGINE_DISABLE=1 UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4 >/dev/null 2>&1 || _rc=$?
+[ "$_rc" -eq 1 ] && ok "E4 엔진 비활성 → rc=1 (fallback 트리거)" || nope "E4" "rc=$_rc"
+# E5 jq 가림 → rc=1 (AC-7c)
+_rc=0; UIUX_ENGINE_DISABLE=0 UIUX_JQ_BIN=/nonexistent UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4 >/dev/null 2>&1 || _rc=$?
+[ "$_rc" -eq 1 ] && ok "E5 jq 부재 → rc=1" || nope "E5" "rc=$_rc"
+# E5b 결손본 — typography 제거해도 rc=0 + colors 행 유지 (AC-4b·AC-7b)
+_d=$(UIUX_ENGINE_DISABLE=0 STUB_DROP=typography UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4)
+{ printf '%s\n' "$_d" | grep -q '^colors.primary	' && ! printf '%s\n' "$_d" | grep -q '^typography.'; } \
+  && ok "E5b 결손본 — 부재 축만 소실, rc=0" || nope "E5b" "$_d"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

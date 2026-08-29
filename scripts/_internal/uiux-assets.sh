@@ -134,3 +134,41 @@ for k,v in pairs:
     print(f"Rule:{k}\t{v}")
 PY
 }
+
+# ── 엔진 래퍼 (FID 20260829-uiux-engine-bridge) ─────────────────────────────
+# promax 의 BM25 엔진(search.py)을 위임 호출한다 — CSV 직접 파싱(uiux::palette 등)은
+#   엔진 불가 시의 fallback 으로 강등되며 삭제하지 않는다.
+# 반환 프로토콜: `키<TAB>값` 평탄 행 — 호출부가 jq·JSON 스키마를 모르게 한다(결합 격리 AC-5 계승).
+# 실패는 전부 rc=1 — 호출부 fallback 체인이 흡수한다.
+# UIUX_ENGINE_DISABLE=1: 테스트·비상용 명시 차단 스위치 (python3 가림 재현이 환경 의존이라 스위치가 정본)
+# UIUX_JQ_BIN: jq 경로 주입 (부재 재현용 — warn_copies 의 인자 주입과 같은 이유)
+
+uiux::engine_py() {   # → search.py 절대경로 (data/ 의 sibling scripts/)
+  local r; r=$(uiux::root) || return 1
+  local py; py="$(dirname "$r")/scripts/search.py"
+  [ -f "$py" ] || return 1
+  printf '%s' "$py"
+}
+
+uiux::style_candidates() {   # $1=질의 [$2=개수(기본3)] → "이름<TAB>best_for" 행
+  [ "${UIUX_ENGINE_DISABLE:-0}" = "1" ] && return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  local jqbin="${UIUX_JQ_BIN:-jq}"; command -v "$jqbin" >/dev/null 2>&1 || return 1
+  local py; py=$(uiux::engine_py) || return 1
+  python3 "$py" "$1" --domain style --max-results "${2:-3}" --json 2>/dev/null \
+    | "$jqbin" -r '.results[]? | [(.["Style Category"] // "?"), (.["Best For"] // "")] | @tsv' 2>/dev/null \
+    | grep .   # 빈 출력 = rc=1
+}
+
+uiux::design_system() {   # $1=질의 $2=variance $3=motion $4=density → "키.경로<TAB>값" 평탄 행
+  [ "${UIUX_ENGINE_DISABLE:-0}" = "1" ] && return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  local jqbin="${UIUX_JQ_BIN:-jq}"; command -v "$jqbin" >/dev/null 2>&1 || return 1
+  local py; py=$(uiux::engine_py) || return 1
+  python3 "$py" "$1" --design-system --json \
+      --variance "$2" --motion "$3" --density "$4" 2>/dev/null \
+    | "$jqbin" -r '
+        .design_system // {} | [paths(scalars) as $p | [($p|join(".")), (getpath($p)|tostring)]]
+        | .[] | @tsv' 2>/dev/null \
+    | grep .
+}
