@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/statusline-install` 이 인자를 아예 안 봤다 — `--help` 로도 설치됐다 (FID 20260829-statusline-check)** — 커맨드 24개 전수 점검 중 실측으로 적발했다. `--help` 를 줬더니 그대로 설치가 실행돼 `.claude/settings.json` 이 바뀌었다(확인하려다 설치됨). `.claude/` 는 gitignore 라 `git status` 에도 안 보여서 **파일을 직접 열기 전엔 알 수 없다**.
+  - 이 repo 의 다른 도구는 전부 미리보기 경로를 갖는다 — `design-screen --check` · `release --dry-run` · `mutation-score --check-conf` · `validate-structure --json`. **하필 부작용이 사용자 설정인 설치기만 없었다.**
+  - `--check` 신설: 변경 예정 내용(대상 파일·현재값·변경값·백업 여부)만 표시하고 **파일시스템에 손대지 않는다** — `mkdir` 조차 안 한다. "확인" 이 디렉토리를 만들면 그 자체가 부작용이고 옵션의 존재 이유를 깬다(T3·T7 이 잠근다). exit 0 = 이미 동일 · 1 = 변경 예정(`--check-conf` 의 0/1 관용구와 동일 — 1 은 에러가 아니라 차이).
+  - `--help` 추가 · **미지 인자는 `exit 2` 로 거부**한다. 오타가 사용자 설정을 바꾸면 안 된다.
+  - 어서션 **7건 신규** — 이 스크립트는 **테스트가 0건이었다**(`test-statusline.sh` 는 `statusline.sh` 용이다). `T5`·`T6` 이 기존 동작(무인자 설치·멱등·`.bak` 백업) 회귀 잠금이다.
+
+### Changed
+
+- **커맨드 24개 전수 점검** — 정적 참조 무결성 24/24(frontmatter + 본문이 참조하는 `scripts`·`hooks`·`templates`·`specops-ko:*` 대상 실재), 스크립트 진입점 실행 17/17 `rc=0`, 진입 약속어 계약 8/8(`/start*`·`/maintain*` 의 `<!-- entry: ... -->` 가 `specifying-ko`·`analyzing-ko` 분기까지 전달되는지). LLM 이 수행하는 명령은 실행이 곧 lifecycle 개시라 계약 검증으로 갈음했다 — 그 한계를 명시한다.
+
 ## [1.84.0] — 2026-08-29
 
 > **llm-eval 관측 (20260829, 부분 실행 10/17 — 중단됨)**: `new-1`·`new-2`·`maint-1`·`maint-2` 4건 FAIL(전부 `got=none` — Skill 호출 0회), `new-3`·`none-1~3`·`border-1~2` 6건 PASS.
