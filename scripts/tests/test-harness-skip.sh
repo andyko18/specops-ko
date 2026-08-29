@@ -95,4 +95,21 @@ else
   nope "T2.b" "exit=$rcode last=$rlast — R-1/R-2 면제가 막혀 전 사용자 커밋이 잠긴다"
 fi
 
+# ── T5: 환경 조건부 skip 5건이 ok() 가 아니라 skip() 을 부른다 (AC-6) ──
+# 헬퍼만 만들고 호출부를 안 고치면 소비자 없는 배선이 된다 — 이 저장소가 반복해서 겪은 패턴.
+for f in test-extract-plan-from-transcript.sh test-git-hooks.sh test-init-project-split.sh \
+         test-ensure-session-progress.sh test-trivial-new-shortcut.sh; do
+  # AC-6 은 양·음 두 조건이다 — skip( 존재 AND 환경조건부 ok "…SKIP 부재.
+  # 양성만 보면 skip 을 추가하고 기존 ok 를 남겨둔 반쪽 전환이 통과한다.
+  _has_skip=$(grep -c 'skip "' "$PLUGIN/scripts/tests/$f" 2>/dev/null || true)
+  # 패턴은 5파일 **현행 자구 실측** 기반이다 — `ok "GH-8 SKIP (…` 처럼 괄호가 오는 형태가
+  # 2/5 파일이라 `SKIP —` 만 보면 그 둘에서 음성 잠금이 공허해진다(plan-review 2회차 Minor).
+  _left_ok=$(grep -c 'ok ".*SKIP —\|ok ".*SKIP (\|ok ".*미설치\|ok ".*부재 —\|ok ".*skipped' "$PLUGIN/scripts/tests/$f" 2>/dev/null || true)
+  if [ "${_has_skip:-0}" -ge 1 ] && [ "${_left_ok:-0}" -eq 0 ]; then
+    ok "T5.$f skip() 전환됨 + 잔존 ok-SKIP 0 (AC-6)"
+  else
+    nope "T5.$f" "skip=${_has_skip:-0} 잔존ok=${_left_ok:-0} — 반쪽 전환이면 축소 실행이 여전히 PASS 로 위장된다"
+  fi
+done
+
 finish

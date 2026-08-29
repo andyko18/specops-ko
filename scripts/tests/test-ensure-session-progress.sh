@@ -39,7 +39,7 @@ rm -rf "$tmp"
 # disable 시뮬레이션 자체가 불가. project 패턴 일관 — validate-structure.sh:98
 # 도 동일 graceful SKIP 사용.
 if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
-  ok "T1.b skipped — python3+pyyaml 부재 (is-hook-enabled disable 시뮬레이션 불가)"
+  skip "T1.b (python3+pyyaml 부재 — is-hook-enabled disable 시뮬레이션 불가)"
 else
   tmp=$(mktemp -d)
   cat > "$tmp/config.yaml" <<'YAML'

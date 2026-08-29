@@ -99,7 +99,7 @@ if source "$PLUGIN/hooks/governance-lib.sh" 2>/dev/null && command -v apply_advi
   rm -f "$TR"
 else
   # governance-lib 미로드(jq 부재 등)면 정직 SKIP
-  ok "AC-EXEC-3 SKIP (governance-lib/jq 미가용 — 한계 고백)"
+  skip "AC-EXEC-3 (governance-lib/jq 미가용 — 한계 고백)"
 fi
 
 # ── AC-GATE-MERGE: trivial 스펙승인 게이트 통합 배선 (20260716 dogfood 관찰 A) ──
