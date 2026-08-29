@@ -139,6 +139,16 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 - `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
 - `<!-- entry: auto -->` — 무인 단독(`§auto: true`). git-branch 유지, clarify/plan 수행.
 
+## `/doctor` 의 memory·bootstrap ⚠️ 는 정상이다 (정책의 알려진 결과)
+
+이 repo 에서 `doctor` 는 `memory: 문서 0건` 과 `bootstrap: 미종결` 을 **항상** 경고한다. 둘 다 **정확한 보고**이며 고칠 결함이 아니다 — `.specops/` 를 **전량 로컬 전용**으로 돌린 정책(`3061f93`)의 직접적 결과다:
+
+- `.specops/` 가 `.gitignore` 되어 project memory(`constitution`·`requirements`·`test-strategy`)가 **커밋되지 않는다** → `memory ⚠️`
+- `/init-project` 를 이 repo 에 돌린 적이 없다(이 repo 가 곧 플러그인이다) → `chore(init):` 커밋 부재 → `bootstrap ⚠️`
+- `init-finalize.sh` 를 돌려도 **no-op** 이다 — 대상이 전부 ignore 되거나 이미 tracked-clean 이다.
+
+**`doctor.sh` 를 고쳐 이 경고를 끄지 않는다.** 플러그인 저장소를 예외 처리하면, Claude Code 플러그인을 만들면서 specops 를 쓰는 하류 사용자의 **진짜 경고까지 죽는다**. 경고를 무시하는 것과 방향만 반대인 같은 병이다. 정책을 뒤집을 근거가 생기면(=memory 를 공유·버전관리할 이유) 그때 `.gitignore` 예외를 논의한다.
+
 ## 구조 검증이 FAIL나면
 
 ```bash

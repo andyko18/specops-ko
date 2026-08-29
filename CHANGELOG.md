@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### Added
+
+- **mutation conf 신선도를 상시 게이트로 (FID 20260829-mutation-coverage)** — `mutation-equivalent.conf` 는 **절대 줄번호**로 equivalent mutant 를 지정한다. target 이 자라면 조용히 어긋나고, 어긋난 항목은 매칭 0건이 되어 정상 변이가 제외되지 못한 채 **score 가 거짓 하락**한다(conf 주석 실측: 64% → 50%). 판정기 `--check-conf` 는 **1초**면 끝나는데 `mutation-score.sh` 가 run-all 명명 규칙(`test-*.sh`) 밖이라 아무도 안 돌렸고, **이번 세션의 `governance-lib.sh` 편집 3건으로 16/18 이 stale** 이 됐다 — 그동안 어떤 게이트도 울지 않았다.
+  - 신규 `test-mutation-conf-fresh.sh` — 무거운 mutation 실행은 수동으로 두고 **1초짜리 정합만** run-all 에 넣는다. conf 신선도(T2) + targets 경로 실재(T3, 오타 시 "대상 0건 조용한 통과" 차단) + 게이트 핵심 3종 커버 강제(T4).
+  - stale 16건은 이전 정상 리비전의 앵커 블록으로 **재정렬**해 18/18 복구했다(추측 아님 — 옛 파일에서 5줄 블록을 떠 현재 파일에서 유일 매칭을 찾았고, 실패 0건).
+- **mutation 측정 대상 2종 추가 + baseline 실측** — 종전 대상은 2파일뿐이었다.
+
+  | 대상 | killed | survived | score | 소요 |
+  |---|---|---|---|---|
+  | `scripts/_internal/run-bounded.sh` | 2 | 0 | **100%** | 17s |
+  | `hooks/pretool-governance.sh` | 9 | 16 | **36%** | 431s |
+
+  - `pretool-governance.sh` 는 **차단 판정 본체**(R-1/R-2 deny)인데 36% 다. 커버 스위트는 `test-pretool`+`test-rules`+`test-hooks` 를 묶었다 — 좁게 잡으면 `governance-lib` 이 겪은 "32% false rot" 이 재발한다.
+  - ★ **생존 16건을 equivalent 로 몰아 점수를 올리지 않았다** — 근거 없는 equivalent 등재는 자기발급 면제표이고, 이 repo 가 `§auto`·bare SKIP 에서 두 번 없앤 바로 그 패턴이다. 생존 분류는 별건 backlog 로 남겼다(`&&` 5건·`-eq` 1건이 우선 후보, `return 0` 11건은 stdout-contract 계열 가능성).
+
+### Changed
+
+- **`/doctor` 의 memory·bootstrap ⚠️ 는 정책의 알려진 결과임을 CLAUDE.md 에 명시** — 두 경고는 **정확한 보고**다. `.specops/` 전량 로컬 전용 정책(`3061f93`)의 직접적 결과이고, `init-finalize.sh` 를 돌려도 대상이 전부 ignore/tracked-clean 이라 **no-op** 이다. `doctor.sh` 를 고쳐 끄지 않는다 — 플러그인을 만들면서 specops 를 쓰는 하류 사용자의 **진짜 경고까지 죽는다**. 경고를 무시하는 것과 방향만 반대인 같은 병이다.
+
 ### Changed
 
 - **근거 없는 SKIP 을 PR 게이트에서 차단한다 (FID 20260829-bare-skip-teeth)** — lifecycle 후반 3게이트(security·integration·performance)는 실측 **87회 평가에서 FAIL 0건**이고 SKIP 비율이 integration 72%·performance 55% 다. SKIP 판정 주체가 **모델 자신**이라, 근거 없는 SKIP 은 v1.45.0 이 제거한 `§auto` 자기발급 면제표와 같은 클래스다 — 라벨만 안 쓸 뿐 "내가 해당 없다고 했으니 넘어간다"는 동일하다. 세 skill 본문은 이미 *"근거 없는 SKIP 은 형식화 — 거부"* 를 선언하는데, **그 선언에 대응하는 기계 검사가 없었다**(`skip-tracker` 는 advisory — 이 repo 가 advisory 를 방치한 전례 그 자체다).
