@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **무음 실패 3종 표면화 — 꺼진 강제층이 꺼졌다고 말하게 한다 (FID 20260830-silent-failure-surfacing, PR #18)** — 2026-08-30 적대감사 3건이 실증한 결함이다. 이 플러그인은 "조용히 잘못되는 구조를 없앤다"를 내걸었는데, **강제층 자신이 조용히 사라지는 경로**가 셋 있었다.
+  - **`doctor` 6→8항목**: `governance`(훅 4종 활성 질의)·`deps`(jq·python3/pyyaml). 종전엔 `.specops/config.yaml` 4줄(`enforce_all_disabled: true`)로 훅이 전부 꺼져도 표가 **전부 정상 보고**했고, 어떤 항목도 이를 보지 않았다. `deps` 는 두 부재의 **다른 귀결**을 구분한다 — jq 부재는 훅 전면 fail-open, pyyaml 부재는 `is-hook-enabled` 가 default enabled 로 답해 **governance 항목이 킬스위치를 탐지하지 못하는** 상태다. 뭉뚱그리면 항목 자체가 부정확한 보고가 된다(jq 가 있으면 훅은 정상 동작하므로 "거버넌스 비활성" 은 거짓).
+  - **훅 3종 jq 가드**: jq 부재를 `stdin JSON parse 실패` 로 **오진**하며 전면 fail-open 했다. 선택 도구(semgrep·gitleaks)는 `command -v` 가드로 명시 skip 하는데 정작 **필수 의존만 조용히 통과**하는 방향 반대 불일치였다. 동작(통과)은 그대로 두고 원인만 정확히 말한다 — fail-closed 는 jq 없는 사용자의 모든 커밋을 막고 그게 BYPASS 관성을 만든다(실측 24건/30일, 사용자 결정).
+  - **`harness.skip()` + `run-all` SKIP 집계**: `harness.sh` 에 skip 헬퍼가 없어 환경 조건부 skip 이 전부 `ok()`(PASS)로 계상됐다 — 실측으로 한 스위트가 jq 없는 PATH 에서 **15 어서션 → 가짜 PASS 1개로 붕괴**하는데 aggregator 는 스위트 수만 출력해 열화가 보이지 않았고, R-1 실행-근거 게이트는 그 `VERIFY: PASS` 를 그대로 인정했다. 기존 5건 전환 포함. `c323e23`(source 실패 false-PASS 봉쇄)와 **같은 클래스의 두 번째 발현**이다.
+  - ★ **불변 계약 2종**: `finish` 는 SKIP=0 일 때 출력이 **바이트 동일**(91 스위트가 tail 로 읽는다), `run-all` 의 `VERIFY: PASS` 는 문구·발생 조건(`FAIL -gt 0`)·마지막 줄 위치 **불변**(R-1/R-2 면제 토큰 — 바꾸면 정직한 커밋이 전량 deny 된다). SKIP 요약행은 VERIFY 블록 **앞**에 둔다. 양쪽 다 diff/A-B 로 실증.
+  - **리뷰 중 발견해 함께 고친 것 3건**: ① `mutation-equivalent.conf` 의 `|117|` **false-match** — `check-conf` 는 해당 줄에 pattern 존재만 보므로 줄번호 앨리어싱(A→B, B→C)이 생기면 STALE 을 피하면서 엉뚱한 줄을 가리키고, 그 상태는 진짜 mutant 를 equivalent 로 오분류해 **탐지력을 조용히 없앤다**(일괄 `+5` 금지, 전 항목 개별 대조) ② **F-doc2 가 문서 행 삭제를 못 잡음** — `deps` 행 산문의 백틱 언급 때문에 행을 지워도 카운트가 유지됐다(표 행 앵커로 강화, 3종 교란 실증). 함께 있던 `4항목` 잔존 검사는 그 문자열이 존재한 적 없어 **영원히 0을 반환하는 죽은 코드**였다 ③ **`_chk_governance` 자신의 거짓 ✅** — `SPECOPS_CONFIG` 미전달로 `SPECOPS_ROOT` 불일치 시 꺼진 프로젝트를 `✅ 훅 4종 활성` 로 보고했다. 표면화 장치가 같은 병에 걸린 상태였다.
+  - 검증: `run-all` **152/152** `VERIFY: PASS` · Phase B AC 8/8 MET · Phase C Critical 0 · **변이 5종**이 각각 의도한 테스트만 격추(특히 rc 뭉뚱그림 복원이 오귀속 행을 재현해 Minor 가 실제 결함임을 확정).
+  - 알려진 한계: NFR-4(훅 hot path 800ms) 단독 계측 미수행(벤치 스위트 PASS 로 간접 확인) · 개발기는 도구가 다 있어 skip 5분기가 dead 라 실배선은 **jq 가림 실행**으로만 실증 · backlog 3건(`doctor --json` + jq 부재 시 무음 공백(main 기존 동작) · `brew install jq` macOS 전용 문구 · `SPECOPS_GOVERNANCE_PROFILE` env 가 CONFIG 읽기 전 단락해 이번 수정을 무효화하는 경로).
+
+
 ## [1.87.0] — 2026-08-29
 
 ### Fixed
