@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체 6항목 read-only 점검
+description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체·거버넌스 훅 활성·필수 의존 8항목 read-only 점검
 triggers:
   - "/doctor"
 mode: ask
@@ -33,6 +33,8 @@ reference_upstream: specops-ko 독자 추가
 | `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 (**디렉터리째 없는 FID 는 아카이브로 제외**) |
 | `bootstrap` | `/init-project` 부트스트랩이 **커밋으로 종결**됐는가 — `chore(init)` 커밋 부재 시 ⚠️ (조치: `init-finalize.sh`). `.specops/memory` 부재·비-git 은 `unknown` |
 | `stale` | 무음 실패 — pending 적체(>7일) · freelog 정체(>14일 + 그 사이 커밋) · 최근 30일 우회 ≥3건 |
+| `governance` | 거버넌스 훅 4종(`pretool-governance`·`posttool-governance`·`stop-governance`·`session-start`)이 실제로 켜져 있는가 — 전부 활성이면 `훅 4종 활성`, 아니면 `훅 N/4 비활성: <목록>` (조치: `.specops/config.yaml` 의 profile/hooks 설정 확인) |
+| `deps` | 거버넌스가 의존하는 도구. **두 부재의 귀결이 다르다** — `jq` 부재 → 훅이 전면 fail-open(거버넌스 비활성) · `python3`/`pyyaml` 부재 → `is-hook-enabled` 가 default enabled 로 답해 위 `governance` 항목이 config 킬스위치를 **탐지하지 못한다**. `jq` 가 있고 pyyaml 만 없으면 훅 자체는 정상 동작한다 |
 
 ## 계약
 

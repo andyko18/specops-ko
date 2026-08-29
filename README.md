@@ -160,7 +160,7 @@ FID 포맷은 `YYYYMMDD-kebab-slug`.
 | 슬래시 | 용도 |
 |---|---|
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 |
-| `/doctor` | 설치·환경 건강 진단 6항목 (read-only) |
+| `/doctor` | 설치·환경 건강 진단 8항목 (read-only) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
 | `/security-scan` | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |

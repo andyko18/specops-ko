@@ -79,7 +79,9 @@ printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q '20260201-gap' \
   && ok "T5 progress 불일치 검출" || nope "T5" "out=$_OUT"
 
-# T6 (AC-6): 최악 상태(6항목 전부 ⚠️)에서도 exit 0
+# T6 (AC-6): 점검 8항목 중 6항목이 ⚠️ 인 악상태에서도 exit 0
+#   "전부" 가 아니다 — governance·deps 는 픽스처가 아니라 **호스트 환경**(훅 활성·jq/python3 설치)에
+#   달려 있어 이 repo 픽스처로는 ✅ 로만 나온다. 그 둘의 ⚠️ 경로는 T-gov.* · T-deps.* 가 전담한다.
 # 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 6항목 ⚠️ 가 아니다.
 R="$TMP/r6"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260101-orphan"; printf '# spec\n' > "$R/.specops/20260101-orphan/spec.md"
@@ -87,7 +89,7 @@ mkdir -p "$R/.specops/memory"; printf '# doc\n\n- **버전**: <버전>\n' > "$R/
 printf '# Session Progress\n\n## 20260101-orphan\n\n- 2026-01-01 10:00 /verify PASS\n' \
   > "$R/.specops/session-progress.md"
 # stale 도 **진짜 warn** 으로 재현한다 — 소스 3종 부재면 unknown 이라 ⚠️ 개수는 6이 되지만
-#   T6 의 의도("전 항목이 진짜 warn")와 어긋나 픽스처 충실도가 떨어진다. 8일 전 pending 1건.
+#   T6 의 의도("6항목이 진짜 warn")와 어긋나 픽스처 충실도가 떨어진다. 8일 전 pending 1건.
 printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
   "$(python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(days=8)).strftime('%Y-%m-%dT%H:%M:%SZ'))")" \
   > "$R/.specops/pending-capture.jsonl"
@@ -95,7 +97,7 @@ _run "$R"
 # 픽스처 재현과 본 단언을 **한 어서션**으로 묶는다 — 분리하면 미재현 시 총 개수가 12→13 으로 흔들린다.
 warns=$(printf '%s' "$_OUT" | grep -c '⚠️')
 [ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 6 ] \
-  && ok "T6 6항목 전부 ⚠️ 인 최악 상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
+  && ok "T6 8항목 중 6항목 ⚠️ 인 악상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
 
 # T7 (AC-7): .specops 부재 → 안내 + exit 0
 R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
@@ -103,10 +105,10 @@ _run "$R"
 [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
 
-# T8 (AC-8): --json 6항목 status
+# T8 (AC-8): --json 8항목 status  ← governance·deps 2항목 추가(FID 20260830 T3)
 R="$TMP/r8"; _mkrepo "$R"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==6 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==8 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
   ok "T8 --json 스키마"
 else
   nope "T8" "rc=$_RC out=$_OUT"
@@ -138,7 +140,7 @@ else
   nope "T10" "commands/doctor.md 누락·필드 미비"
 fi
 
-# T11 (AC-11): 정상 상태에서도 6행 전부 출력
+# T11 (AC-11): 정상 상태에서도 8행 전부 출력
 R="$TMP/r11"; _mkrepo "$R"; _hooks_ok "$R"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n' > "$R/.specops/session-progress.md"
@@ -152,11 +154,11 @@ printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
 git -C "$R" add -A >/dev/null 2>&1
 git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩 (픽스처)" >/dev/null 2>&1
 _run "$R"
-rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale) ')
+rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale|governance|deps) ')
 oks=$(printf '%s' "$_OUT" | grep -c '✅')
-# AC-11 Then 은 2절이다 — "6행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 6행도 통과한다.
-[ "${rows:-0}" -eq 6 ] && [ "${oks:-0}" -eq 6 ] \
-  && ok "T11 정상 상태 6행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
+# AC-11 Then 은 2절이다 — "8행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 8행도 통과한다.
+[ "${rows:-0}" -eq 8 ] && [ "${oks:-0}" -eq 8 ] \
+  && ok "T11 정상 상태 8행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
 
 # ── Phase C 수습 (리뷰 T3-C / T4-C) ─────────────────────────────────────────
 
@@ -182,7 +184,7 @@ R="$TMP/r14"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260401-a|b|c"; printf '# spec\n' > "$R/.specops/20260401-a|b|c/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==6
+   | jq -e '(.checks|length)==8
             and ((.checks[]|select(.id=="orphan_fid")|.fix)=="진행하거나 정리하세요")' >/dev/null 2>&1; then
   ok "T14 파이프 인젝션에도 JSON 필드 정합 유지 (fix 문구 무손실)"
 else
@@ -194,12 +196,12 @@ NLDIR=$(printf '20260402-x\ny')
 R="$TMP/r14b"; _mkrepo "$R"
 mkdir -p "$R/.specops/$NLDIR"; printf '# spec\n' > "$R/.specops/$NLDIR/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 6행이라 헛통과한다 — 고아 검출까지 함께 고정.
+# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 8행이라 헛통과한다 — 고아 검출까지 함께 고정.
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==6
+   | jq -e '(.checks|length)==8
             and ((.checks[]|select(.id=="orphan_fid")|.status)=="warn")
             and ((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260402-x"))' >/dev/null 2>&1; then
-  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 6행 고정)"
+  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 8행 고정)"
 else
   nope "T14b" "rc=$_RC out=$_OUT"
 fi
@@ -327,7 +329,7 @@ fi
   && ok "T25 승계 명시 + 원 FID 계약서 무수정" \
   || nope "T25" "doc=$t25_doc old_untouched=$t25_old"
 
-# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 6건 · schema_version 1 · warn_count 정합)
+# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 8건 · schema_version 1 · warn_count 정합)
 R="$TMP/r23"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
 printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
@@ -337,8 +339,8 @@ _n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
 _sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
 _wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
 _actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
-[ "$_n" = "6" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
-  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=6 · warn_count=$_wc)" \
+[ "$_n" = "8" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=8 · warn_count=$_wc)" \
   || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
 
 # T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
@@ -604,5 +606,94 @@ _mk_batch "$R4" batch-20260104 "$_QBODY_DONE" 0 40
 _run "$R4"
 printf '%s' "$_OUT" | grep -q 'batch-20260104' \
   && nope "T-bs.e 오탐" "종결된 batch 를 정체로 보고" || ok "T-bs.e 종결 batch 는 무보고 (Step D 정상경로)"
+
+# ── T-gov (AC-1): 거버넌스 비활성이 doctor 에 ⚠️ 로 보인다 ──
+# 종전엔 어떤 항목도 이걸 보지 않아, config.yaml 4줄로 전 훅이 꺼져도 표가 정상 보고했다.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  _mkrepo "$TMP/gov-off"
+  printf 'profile: none\nprofiles:\n  none:\n    enforce_all_disabled: true\n' \
+    > "$TMP/gov-off/.specops/config.yaml"
+  _run "$TMP/gov-off"
+  gline=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+  if printf '%s' "$gline" | grep -q '⚠️' && printf '%s' "$gline" | grep -q '비활성'; then
+    ok "T-gov.a config 킬스위치 → governance ⚠️ + 비활성 표기 (AC-1)"
+  else
+    nope "T-gov.a" "행='$gline' — 거버넌스가 꺼져도 정상 보고한다"
+  fi
+  if printf '%s' "$gline" | grep -q 'config.yaml'; then
+    ok "T-gov.b 조치란이 config.yaml 을 지목 (AC-1 조치)"
+  else
+    nope "T-gov.b" "조치 부재 — 사용자가 해제 방법을 모른다"
+  fi
+
+  _mkrepo "$TMP/gov-on"
+  _run "$TMP/gov-on"
+  gline2=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+  if printf '%s' "$gline2" | grep -q '✅'; then
+    ok "T-gov.c config 부재 → governance ✅ (오탐 없음)"
+  else
+    nope "T-gov.c" "행='$gline2' — 정상 상태를 경고로 오탐한다"
+  fi
+else
+  skip "T-gov (python3+pyyaml 부재 — config 킬스위치 시뮬레이션 불가)"
+  skip "T-gov.b (동상)"
+  skip "T-gov.c (동상)"
+fi
+
+# ── T-deps (AC-2·AC-7): 필수 의존 부재가 보인다 ──
+_mkrepo "$TMP/deps"
+_run "$TMP/deps"
+dline=$(printf '%s\n' "$_OUT" | grep '^| deps |')
+if printf '%s' "$dline" | grep -q '✅'; then
+  ok "T-deps.a 의존 완비 → deps ✅ (AC-7 정상 경로)"
+else
+  nope "T-deps.a" "행='$dline' — 개발기는 jq·pyyaml 이 있어야 한다"
+fi
+
+# jq 만 제외한 최소 PATH — 통째 교체는 bash 자체를 못 찾는다(과거 실측 함정).
+# python3 를 **포함**해야 "jq 단독 부재" 분기가 실제로 실행된다 — 빼면 jq+pyyaml 동시 부재가 되어
+# 단독 분기(`미설치: jq — 거버넌스 비활성`)를 어느 테스트도 밟지 않는다(plan-review 3회차 Minor).
+maskdir=$(mktemp -d) || exit 1
+for b in bash sh cat grep sed awk date mkdir rm git dirname basename tr head tail wc cut sort uniq find printf ls stat python3; do
+  bp=$(command -v "$b" 2>/dev/null) && ln -sf "$bp" "$maskdir/$b"
+done
+_MOUT=$(cd "$TMP/deps" && SPECOPS_ROOT=".specops" PATH="$maskdir" bash "$SH" 2>&1)
+mline=$(printf '%s\n' "$_MOUT" | grep '^| deps |')
+if printf '%s' "$mline" | grep -q '⚠️' && printf '%s' "$mline" | grep -q 'jq'; then
+  ok "T-deps.b jq 가림 → deps ⚠️ + jq 지목 (AC-2)"
+else
+  nope "T-deps.b" "행='$mline' — jq 부재가 표면화되지 않는다"
+fi
+if printf '%s' "$mline" | grep -q '거버넌스 비활성'; then
+  ok "T-deps.c jq 부재의 귀결(거버넌스 비활성)을 명시 (AC-2 Then)"
+else
+  nope "T-deps.c" "귀결 미표기 — 사용자가 심각도를 모른다"
+fi
+
+# ── T-deps.d/e (AC-7 3번째 케이스): python3 단독 가림 — jq 는 있다 ──
+# 두 부재의 귀결이 다르다. jq 가 있으면 훅은 정상 동작하므로 "거버넌스 비활성" 은 거짓 보고다.
+pydir=$(mktemp -d) || exit 1
+for b in bash sh cat grep sed awk date mkdir rm git dirname basename tr head tail wc cut sort uniq find printf ls stat jq; do
+  bp=$(command -v "$b" 2>/dev/null) && ln -sf "$bp" "$pydir/$b"
+done
+_POUT=$(cd "$TMP/deps" && SPECOPS_ROOT=".specops" PATH="$pydir" bash "$SH" 2>&1)
+pline=$(printf '%s\n' "$_POUT" | grep '^| deps |')
+if printf '%s' "$pline" | grep -q '⚠️' && printf '%s' "$pline" | grep -q '탐지 못 함'; then
+  ok "T-deps.d python3 가림 → deps ⚠️ + 탐지 무력화 명시 (AC-7)"
+else
+  nope "T-deps.d" "행='$pline' — pyyaml 부재의 귀결이 표면화되지 않는다"
+fi
+# ★ 음성 단언은 대상이 존재할 때만 의미가 있다 — 행이 없으면 grep 불매치로 **공허 통과**한다.
+# 현행 doctor 엔 deps 행이 아예 없으므로, 전제조건 없이 쓰면 RED 에서 거짓 PASS 가 난다
+# (plan-review 3회차 실측: 예상 8건 vs 실제 7건의 원인이 정확히 이것이었다).
+if [ -z "$pline" ]; then
+  nope "T-deps.e" "deps 행 부재 — 음성 단언의 대상이 없다(공허 통과 방지)"
+elif printf '%s' "$pline" | grep -q '거버넌스 비활성'; then
+  nope "T-deps.e" "행='$pline' — jq 가 있는데 '거버넌스 비활성' 은 거짓 보고다"
+else
+  ok "T-deps.e pyyaml 단독 부재를 '거버넌스 비활성' 으로 오보하지 않음 (AC-7 구분)"
+fi
+rm -rf "$pydir"
+rm -rf "$maskdir"
 
 finish
