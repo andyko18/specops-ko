@@ -21,6 +21,11 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR:-}" ]; then
 fi
 
 input=$(cat 2>/dev/null || echo "")
+# jq 는 거버넌스 판정의 필수 의존이다. 부재 시 종전엔 아래 jq 실패가
+# "stdin JSON parse 실패" 로 **오진**되어, 원인을 모른 채 전면 fail-open 했다.
+# 동작(통과)은 그대로 두고 원인만 정확히 말한다 — fail-closed 로 바꾸면
+# jq 없는 사용자의 모든 커밋이 막히고, 그건 BYPASS 관성을 만든다(실측 24건/30일).
+command -v jq >/dev/null 2>&1 || safe_exit "jq 미설치 — 거버넌스 비활성 (설치: brew install jq)"
 echo "$input" | jq -e . >/dev/null 2>&1 || safe_exit "stdin JSON parse 실패"
 
 tool_name=$(echo "$input" | jq -r '.tool_name // empty')
