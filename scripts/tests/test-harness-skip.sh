@@ -70,4 +70,29 @@ fi
   finish >/dev/null ) && ok "T1.f SKIP=9 여도 FAIL=0 이면 rc=0 (판정 무관여)" \
   || nope "T1.f" "SKIP 이 판정을 바꿨다 — VERIFY: PASS 가 막혀 전 사용자 커밋이 잠긴다"
 
+# ── T2: run-all 이 스위트 출력의 SKIP 을 합산하고, VERIFY 토큰은 불변 (AC-5) ──
+TMP=$(mktemp -d) || exit 1
+trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/scripts/tests" "$TMP/scripts/_internal"
+cp "$PLUGIN/scripts/tests/run-all.sh" "$TMP/scripts/tests/run-all.sh"
+cp "$PLUGIN/scripts/_internal/run-bounded.sh" "$TMP/scripts/_internal/run-bounded.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/scripts/_internal/validate-structure.sh"
+printf '#!/usr/bin/env bash\necho "SKIP a1"\necho "SKIP a2"\necho "PASS a3"\nexit 0\n' > "$TMP/scripts/tests/test-s1.sh"
+printf '#!/usr/bin/env bash\necho "SKIP b1"\necho "PASS b2"\nexit 0\n' > "$TMP/scripts/tests/test-s2.sh"
+
+rout=$(bash "$TMP/scripts/tests/run-all.sh" --quiet 2>&1); rcode=$?
+rlast=$(printf '%s\n' "$rout" | tail -1)
+
+if printf '%s\n' "$rout" | grep -q 'SKIP.*3'; then
+  ok "T2.a run-all 이 SKIP 3건을 합산 보고 (AC-5 a)"
+else
+  nope "T2.a" "SKIP 합계 미표시 — 축소 실행이 green 뒤에 숨는다"
+fi
+
+if [ "$rcode" -eq 0 ] && [ "$rlast" = "VERIFY: PASS" ]; then
+  ok "T2.b SKIP 존재해도 마지막 줄 'VERIFY: PASS' + exit 0 (AC-5 b · AC-R-1)"
+else
+  nope "T2.b" "exit=$rcode last=$rlast — R-1/R-2 면제가 막혀 전 사용자 커밋이 잠긴다"
+fi
+
 finish

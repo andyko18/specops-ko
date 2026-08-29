@@ -53,7 +53,7 @@ for f in "$PLUGIN"/scripts/tests/test-*.sh \
   SUITES+=("${f#"$PLUGIN"/}")
 done
 
-PASS=0; FAIL=0; FAILED_SUITES=()
+PASS=0; FAIL=0; SKIPPED=0; FAILED_SUITES=()
 for suite in "${SUITES[@]}"; do
   if $QUIET; then
     out=$(cd "$PLUGIN" && bounded_run "$SUITE_TIMEOUT" bash "$suite" 2>&1); rc=$?
@@ -68,6 +68,10 @@ for suite in "${SUITES[@]}"; do
 FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과 (무한 정지 차단). 재현: bash $suite"
     printf '%s\n' "⏱  TIMEOUT: $suite (>${SUITE_TIMEOUT}s)" >&2
   fi
+  # 스위트 내부 SKIP 집계 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
+  # `grep -c` 는 0건에 "0" 출력 + rc=1 이라 `|| true` 로 rc 만 흡수한다(`|| echo 0` 금지 — 이중 출력).
+  _s=$(printf '%s\n' "$out" | grep -c '^SKIP ' || true)
+  SKIPPED=$((SKIPPED + ${_s:-0}))
   if [ $rc -eq 0 ]; then
     PASS=$((PASS+1))
   else
@@ -78,6 +82,9 @@ done
 
 echo ""
 echo "==== run-all: suites PASS=$PASS FAIL=$FAIL (total=${#SUITES[@]}) ===="
+if [ "$SKIPPED" -gt 0 ]; then
+  echo "==== run-all: SKIP된 케이스 ${SKIPPED}건 — 도구·환경 부재로 미실행 (green 이 곧 전량 실행은 아니다) ===="
+fi
 # VERIFY 토큰 — R-1/R-2 실행-근거 게이트(governance-lib _verify_exec_evidence)가 transcript 에서
 # 이 토큰으로 실행증거를 판정한다 (러너 계약: PASS 만 인정, FAIL/PARTIAL 불인정). 20260716 false-block fix.
 if [ $FAIL -gt 0 ]; then
