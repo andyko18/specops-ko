@@ -378,16 +378,37 @@ _chk_stale() {
 # 거버넌스 훅이 실제로 켜져 있는가 — 종전엔 어떤 항목도 이걸 보지 않아,
 # .specops/config.yaml 4줄로 전 훅이 꺼져도 표가 전부 ✅/⚠️ 로 정상 보고했다.
 _chk_governance() {
-  local h off="" n=0
+  # ★ SPECOPS_CONFIG 를 넘기지 않으면 is-hook-enabled 는 자기 기본값(cwd 의 .specops/config.yaml)을
+  #   본다 — SPECOPS_ROOT 가 다른 곳을 가리키면 **한 리포트 안에 root 가 2개**가 되고, 실제로
+  #   꺼진 프로젝트가 `✅ 훅 4종 활성` 로 보고된다(Phase C Important 1 실측: 표면화 장치의 거짓 ✅).
+  #   사용자가 이미 export 한 SPECOPS_CONFIG 는 존중한다(`:-`). 기본 root 에선 값이 동일해 무변경.
+  # ★ rc 를 뭉뚱그리면 판정기 부재(127)·사용법 오류(2)까지 "비활성" 으로 계상돼 **원인 귀속이 틀린다**
+  #   — 사용자가 엉뚱하게 config.yaml 만 뒤진다(Phase C Minor 1). rc=1 만 진짜 비활성이고
+  #   그 외 비-0 은 판정 불가(unknown)다.
+  local h rc off="" n=0 bad="" nbad=0
   for h in pretool-governance posttool-governance stop-governance session-start; do
-    if ! bash "$PLUGIN/scripts/_internal/is-hook-enabled.sh" "$h" >/dev/null 2>&1; then
+    if SPECOPS_CONFIG="${SPECOPS_CONFIG:-$SPECOPS/config.yaml}" \
+       bash "$PLUGIN/scripts/_internal/is-hook-enabled.sh" "$h" >/dev/null 2>&1; then
+      rc=0
+    else
+      rc=$?
+    fi
+    if [ "$rc" -eq 1 ]; then
       off="${off}${off:+,}${h}"; n=$((n+1))
+    elif [ "$rc" -ne 0 ]; then
+      bad="${bad}${bad:+,}${h}(rc=${rc})"; nbad=$((nbad+1))
     fi
   done
-  if [ "$n" -eq 0 ]; then
+  if [ "$n" -eq 0 ] && [ "$nbad" -eq 0 ]; then
     _add governance ok "훅 4종 활성" ""
-  else
+  elif [ "$nbad" -eq 0 ]; then
     _add governance warn "훅 ${n}/4 비활성: ${off}" ".specops/config.yaml 의 profile/hooks 설정을 확인하세요"
+  elif [ "$n" -eq 0 ]; then
+    _add governance unknown "훅 ${nbad}/4 판정 불가 (is-hook-enabled 실행 실패): ${bad}" \
+      "scripts/_internal/is-hook-enabled.sh 가 실행 가능한지 확인하세요"
+  else
+    _add governance warn "훅 ${n}/4 비활성: ${off} · ${nbad}종 판정 불가: ${bad}" \
+      ".specops/config.yaml 설정과 is-hook-enabled.sh 실행 가능 여부를 함께 확인하세요"
   fi
 }
 

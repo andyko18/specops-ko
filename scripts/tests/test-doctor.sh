@@ -634,10 +634,97 @@ if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; t
   else
     nope "T-gov.c" "행='$gline2' — 정상 상태를 경고로 오탐한다"
   fi
+
+  # T-gov.d/e (Phase C Minor 4): **부분** 비활성 경로. 전부-off/전부-on 만 잠그면
+  #   N/4 카운트와 대상 훅 지목이 무검증으로 남는다 — 전부-off 픽스처는 카운트 로직이
+  #   틀려도(예: n 을 항상 4로) 4/4 로 맞아떨어져 T-gov.a 가 그대로 통과하기 때문이다.
+  _mkrepo "$TMP/gov-partial"
+  printf 'hooks:\n  stop-governance:\n    enabled: false\n' \
+    > "$TMP/gov-partial/.specops/config.yaml"
+  _run "$TMP/gov-partial"
+  gline3=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+  if [ -z "$gline3" ]; then
+    nope "T-gov.d" "governance 행 부재 — 단언 대상이 없다(공허 통과 방지)"
+  elif printf '%s' "$gline3" | grep -q '⚠️' \
+     && printf '%s' "$gline3" | grep -q '1/4' \
+     && printf '%s' "$gline3" | grep -q 'stop-governance'; then
+    ok "T-gov.d 부분 비활성 → '훅 1/4 비활성: stop-governance' (Minor 4)"
+  else
+    nope "T-gov.d" "행='$gline3' — 부분 비활성의 개수·대상이 정확히 표기되지 않는다"
+  fi
+  # ★ 음성 단언이 있어야 이빨이 선다 — 이게 없으면 4종을 전부 나열하는 망가진 카운트도
+  #   위 단언(1/4·stop-governance 부분일치)을 통과한다. 활성 훅을 비활성으로 지목하면
+  #   사용자는 멀쩡한 설정을 뒤진다. 행 부재 시엔 명시 실패(T-deps.e 와 같은 이유).
+  if [ -z "$gline3" ]; then
+    nope "T-gov.e" "governance 행 부재 — 음성 단언의 대상이 없다"
+  elif printf '%s' "$gline3" | grep -q 'pretool-governance'; then
+    nope "T-gov.e" "행='$gline3' — 꺼지지 않은 훅까지 비활성으로 지목한다"
+  else
+    ok "T-gov.e 활성 훅은 비활성 목록에 없음 (부분 비활성 오탐 없음)"
+  fi
+
+  # T-gov.f (Phase C Important 1): SPECOPS_ROOT 가 cwd 밖을 가리켜도 **그 프로젝트의**
+  #   config 를 본다. 다른 전 케이스는 cwd == 프로젝트 루트라 is-hook-enabled 의 자기
+  #   기본값과 우연히 일치해, root 불일치 시의 거짓 ✅ 를 아무도 잡지 못했다(리뷰어 실측).
+  #   _run 은 cd 하므로 여기서는 의도적으로 **상위 디렉토리에서** 호출한다.
+  mkdir -p "$TMP/govroot"; _mkrepo "$TMP/govroot/proj"
+  printf 'profile: none\nprofiles:\n  none:\n    enforce_all_disabled: true\n' \
+    > "$TMP/govroot/proj/.specops/config.yaml"
+  _OUT=$(cd "$TMP/govroot" && SPECOPS_ROOT="proj/.specops" bash "$SH" 2>&1)
+  gline4=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+  if [ -z "$gline4" ]; then
+    nope "T-gov.f" "governance 행 부재 — 단언 대상이 없다(공허 통과 방지)"
+  elif printf '%s' "$gline4" | grep -q '⚠️' && printf '%s' "$gline4" | grep -q '비활성'; then
+    ok "T-gov.f SPECOPS_ROOT 불일치에서도 킬스위치 탐지 (Important 1)"
+  else
+    nope "T-gov.f" "행='$gline4' — 꺼진 프로젝트를 ✅ 로 보고한다(표면화 장치의 거짓 ✅)"
+  fi
+  # ★ 사용자가 export 한 SPECOPS_CONFIG 는 존중해야 한다 — `:-` 를 무조건 대입으로 바꾸면
+  #   이 단언이 깨진다(명시 지정이 SPECOPS_ROOT 파생값에 덮이는 조용한 무시).
+  _OUT=$(cd "$TMP/govroot" && SPECOPS_CONFIG="$TMP/govroot/absent.yaml" \
+    SPECOPS_ROOT="proj/.specops" bash "$SH" 2>&1)
+  gline5=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+  if [ -z "$gline5" ]; then
+    nope "T-gov.g" "governance 행 부재 — 단언 대상이 없다"
+  elif printf '%s' "$gline5" | grep -q '✅'; then
+    ok "T-gov.g 사용자 지정 SPECOPS_CONFIG 를 존중 (덮어쓰기 없음)"
+  else
+    nope "T-gov.g" "행='$gline5' — 명시 지정한 SPECOPS_CONFIG 가 무시된다"
+  fi
 else
   skip "T-gov (python3+pyyaml 부재 — config 킬스위치 시뮬레이션 불가)"
   skip "T-gov.b (동상)"
   skip "T-gov.c (동상)"
+  skip "T-gov.d (동상)"
+  skip "T-gov.e (동상)"
+  skip "T-gov.f (동상)"
+  skip "T-gov.g (동상)"
+fi
+
+# T-gov.h (Phase C Minor 1): 판정기 실행 실패는 "비활성" 이 아니라 **판정 불가**다.
+#   rc 를 뭉뚱그리면 rc=127(판정기 부재)도 4/4 비활성으로 계상돼 조치란이 config.yaml 을
+#   지목하고, 사용자는 멀쩡한 config 를 뒤진다 — 무음은 아니나 원인 귀속이 틀린 보고다.
+#   doctor.sh 를 scripts/_internal 형제 없는 곳에 복사하면 그 호출이 rc=127 이 된다.
+#   (pyyaml 불요 — 판정기가 애초에 실행되지 않는다.)
+mkdir -p "$TMP/nojudge/scripts" "$TMP/nojudge/run/.specops"
+cp "$SH" "$TMP/nojudge/scripts/doctor.sh"
+_OUT=$(cd "$TMP/nojudge/run" && SPECOPS_ROOT=".specops" bash "$TMP/nojudge/scripts/doctor.sh" 2>&1)
+gline6=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+if [ -z "$gline6" ]; then
+  nope "T-gov.h" "governance 행 부재 — 단언 대상이 없다(공허 통과 방지)"
+elif ! printf '%s' "$gline6" | grep -q '판정 불가'; then
+  nope "T-gov.h" "행='$gline6' — 판정 실패가 판정 불가로 표기되지 않는다"
+elif printf '%s' "$gline6" | grep -q '비활성'; then
+  nope "T-gov.h" "행='$gline6' — 판정 실패를 '비활성' 으로 오귀속한다(config 를 뒤지게 만든다)"
+else
+  ok "T-gov.h 판정기 실행 실패 → '판정 불가' (비활성으로 오귀속 없음, Minor 1)"
+fi
+# 기계 계약(--json)에서도 status 가 warn 이 아니라 unknown 이어야 한다.
+_JOUT=$(cd "$TMP/nojudge/run" && SPECOPS_ROOT=".specops" bash "$TMP/nojudge/scripts/doctor.sh" --json 2>&1)
+if printf '%s' "$_JOUT" | jq -e '.checks[]|select(.id=="governance")|.status=="unknown"' >/dev/null 2>&1; then
+  ok "T-gov.i --json status=unknown (기계 계약도 판정 불가를 구분)"
+else
+  nope "T-gov.i" "json='$_JOUT' — 판정 불가가 기계 계약에서 구분되지 않는다"
 fi
 
 # ── T-deps (AC-2·AC-7): 필수 의존 부재가 보인다 ──
