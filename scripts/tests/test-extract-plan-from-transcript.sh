@@ -8,7 +8,7 @@ source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SCRIPT="$PLUGIN/scripts/_internal/extract-plan-from-transcript.sh"
 
-command -v jq >/dev/null 2>&1 || { ok "T1 (SKIP — jq 미설치)"; finish; exit; }
+command -v jq >/dev/null 2>&1 || { skip "T1 (jq 미설치)"; finish; exit; }
 
 TD=$(mktemp -d) || exit 1
 trap 'rm -rf "$TD"' EXIT

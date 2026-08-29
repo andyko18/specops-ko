@@ -800,5 +800,37 @@ mkstdin "$_G $_C -m x" "$FIX/pretool-no-verify.jsonl" \
 check "T-fsc.f R-1 block staged 없음 → empty (AC-3)" '^empty$' "$(_fsc_class "$_sb" R-1)"
 rm -rf "$_sb"
 
+# ── P-jq (AC-3): jq 부재를 정확히 보고하고 fail-open 유지 — 훅 3종 각각 ──
+# PATH 통째 교체는 bash·dirname 자체를 못 찾는다. 훅은 :7-8 에서 dirname 을 쓰므로
+# 그것이 빠지면 plugin_root 가 비어 :10 에서 무음 종료하고 가드 지점(:24)에 영원히 미도달한다(실측).
+jqdir=$(mktemp -d) || exit 1
+for b in bash sh cat grep sed awk date mkdir rm git dirname basename tr head tail wc cut sort uniq find printf ls stat; do
+  bp=$(command -v "$b" 2>/dev/null) && ln -sf "$bp" "$jqdir/$b"
+done
+
+for hk in pretool-governance posttool-governance stop-governance; do
+  jout=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' \
+    | PATH="$jqdir" bash "$PLUGIN/hooks/$hk.sh" 2>"$jqdir/err.$hk"); jrc=$?
+  jerr=$(cat "$jqdir/err.$hk")
+
+  check "P-jq.a.$hk jq 부재 원인 명시" "jq" "$jerr"
+  check "P-jq.a2.$hk 미설치 표기" "미설치" "$jerr"
+
+  # 음성 단언 — check() 는 양성 grep 전용이라 인라인으로 카운터를 직접 증감한다(:9 규약과 동형)
+  if printf '%s' "$jerr" | grep -q 'stdin JSON parse 실패'; then
+    echo "FAIL P-jq.b.$hk — 여전히 오진: $jerr"; fail=$((fail+1))
+  else
+    echo "PASS P-jq.b.$hk 오진 메시지 미출력"; pass=$((pass+1))
+  fi
+
+  # fail-open 유지 (clarify Q1) — fail-closed 로 바뀌면 jq 없는 사용자의 모든 커밋이 막힌다
+  if [ "$jrc" -eq 0 ] && printf '%s' "$jout" | grep -q '"continue"'; then
+    echo "PASS P-jq.c.$hk fail-open 유지 (rc=0 + continue)"; pass=$((pass+1))
+  else
+    echo "FAIL P-jq.c.$hk — rc=$jrc out='$jout'"; fail=$((fail+1))
+  fi
+done
+rm -rf "$jqdir"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

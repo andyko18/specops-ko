@@ -11,6 +11,7 @@
 #   ok   "<desc>"            → PASS++ , "PASS <desc>"
 #   fail "<desc>"            → FAIL++ , "FAIL <desc>"
 #   nope "<desc>" [<detail>] → FAIL++ , "FAIL <desc> — <detail>"  (detail 없으면 "FAIL <desc>")
+#   skip "<desc>"            → SKIP++ , "SKIP <desc>"  (PASS/FAIL 불변 — 판정 무관여)
 #   run  "<desc>" <cmd...>   → cmd 성공 시 ok, 실패 시 fail (stderr 억제)
 #   finish                   → "PASS=N FAIL=M" 출력 + FAIL==0 이면 exit 0, 아니면 1
 #
@@ -18,9 +19,18 @@
 
 : "${PASS:=0}"
 : "${FAIL:=0}"
+: "${SKIP:=0}"
 
 ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
 fail() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 nope() { FAIL=$((FAIL+1)); echo "FAIL $1${2:+ — $2}"; }
+skip() { SKIP=$((SKIP+1)); echo "SKIP $1"; }
 run()  { local d="$1"; shift; if "$@" 2>/dev/null; then ok "$d"; else fail "$d"; fi; }
-finish() { echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]; }
+finish() {
+  # SKIP=0 이면 종전 출력과 바이트 동일해야 한다 — 91 스위트가 이 줄을 tail 로 읽고,
+  # run-all 은 `tail -1` 로, test-run-all-verify-token 은 마지막 줄 완전일치로 단언한다.
+  local extra=""
+  [ "${SKIP:-0}" -gt 0 ] && extra=" SKIP=$SKIP"
+  echo "PASS=$PASS FAIL=$FAIL$extra"
+  [ "$FAIL" -eq 0 ]
+}

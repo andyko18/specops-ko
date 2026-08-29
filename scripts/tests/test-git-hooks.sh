@@ -90,7 +90,7 @@ if [ -x "$PRE_COMMIT" ] && (cd "$PLUGIN" && git cat-file -e 44cd095:commands/sta
   trap - EXIT
   [ "$rc" -ne 0 ] && ok "GH-8 44cd095 파손 리비전 → pre-commit 차단" || nope "GH-8" "rc=$rc (차단 실패)"
 else
-  ok "GH-8 SKIP (44cd095 미도달 — shallow clone)"
+  skip "GH-8 (44cd095 미도달 — shallow clone)"
 fi
 
 # GH-9: 설치 스크립트가 core.hooksPath 를 .githooks 로 설정

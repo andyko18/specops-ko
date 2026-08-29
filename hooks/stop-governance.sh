@@ -26,6 +26,8 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR:-}" ]; then
 fi
 
 input=$(cat 2>/dev/null || echo "")
+# jq 부재를 오진하지 않는다 (pretool 과 동일 계약 — 20260830-silent-failure-surfacing)
+command -v jq >/dev/null 2>&1 || safe_exit "jq 미설치 — 거버넌스 비활성 (설치: brew install jq)"
 if ! echo "$input" | jq -e . >/dev/null 2>&1; then
   safe_exit "stdin JSON parse 실패"
 fi

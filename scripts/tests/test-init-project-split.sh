@@ -74,7 +74,7 @@ if command -v gawk >/dev/null 2>&1; then
     && ok "T-pn.gawk gawk+UTF-8 로케일에서도 보존 (Linux 거동 재현)" \
     || nope "T-pn.gawk" "got='$_g' — gawk 문자 단위 index() 로 절단됨"
 else
-  ok "T-pn.gawk gawk 부재 — SKIP (CI Linux 가 실제 커버)"
+  skip "T-pn.gawk (gawk 부재 — CI Linux 가 실제 커버)"
 fi
 
 # 부재 번호는 빈 문자열

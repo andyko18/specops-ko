@@ -375,6 +375,67 @@ _chk_stale() {
   fi
 }
 
+# 거버넌스 훅이 실제로 켜져 있는가 — 종전엔 어떤 항목도 이걸 보지 않아,
+# .specops/config.yaml 4줄로 전 훅이 꺼져도 표가 전부 ✅/⚠️ 로 정상 보고했다.
+_chk_governance() {
+  # ★ SPECOPS_CONFIG 를 넘기지 않으면 is-hook-enabled 는 자기 기본값(cwd 의 .specops/config.yaml)을
+  #   본다 — SPECOPS_ROOT 가 다른 곳을 가리키면 **한 리포트 안에 root 가 2개**가 되고, 실제로
+  #   꺼진 프로젝트가 `✅ 훅 4종 활성` 로 보고된다(Phase C Important 1 실측: 표면화 장치의 거짓 ✅).
+  #   사용자가 이미 export 한 SPECOPS_CONFIG 는 존중한다(`:-`). 기본 root 에선 값이 동일해 무변경.
+  # ★ rc 를 뭉뚱그리면 판정기 부재(127)·사용법 오류(2)까지 "비활성" 으로 계상돼 **원인 귀속이 틀린다**
+  #   — 사용자가 엉뚱하게 config.yaml 만 뒤진다(Phase C Minor 1). rc=1 만 진짜 비활성이고
+  #   그 외 비-0 은 판정 불가(unknown)다.
+  local h rc off="" n=0 bad="" nbad=0
+  for h in pretool-governance posttool-governance stop-governance session-start; do
+    if SPECOPS_CONFIG="${SPECOPS_CONFIG:-$SPECOPS/config.yaml}" \
+       bash "$PLUGIN/scripts/_internal/is-hook-enabled.sh" "$h" >/dev/null 2>&1; then
+      rc=0
+    else
+      rc=$?
+    fi
+    if [ "$rc" -eq 1 ]; then
+      off="${off}${off:+,}${h}"; n=$((n+1))
+    elif [ "$rc" -ne 0 ]; then
+      bad="${bad}${bad:+,}${h}(rc=${rc})"; nbad=$((nbad+1))
+    fi
+  done
+  if [ "$n" -eq 0 ] && [ "$nbad" -eq 0 ]; then
+    _add governance ok "훅 4종 활성" ""
+  elif [ "$nbad" -eq 0 ]; then
+    _add governance warn "훅 ${n}/4 비활성: ${off}" ".specops/config.yaml 의 profile/hooks 설정을 확인하세요"
+  elif [ "$n" -eq 0 ]; then
+    _add governance unknown "훅 ${nbad}/4 판정 불가 (is-hook-enabled 실행 실패): ${bad}" \
+      "scripts/_internal/is-hook-enabled.sh 가 실행 가능한지 확인하세요"
+  else
+    _add governance warn "훅 ${n}/4 비활성: ${off} · ${nbad}종 판정 불가: ${bad}" \
+      ".specops/config.yaml 설정과 is-hook-enabled.sh 실행 가능 여부를 함께 확인하세요"
+  fi
+}
+
+# 거버넌스가 의존하는 도구 — jq 부재는 훅 전체를 fail-open 시키고,
+# python3/pyyaml 부재는 is-hook-enabled 를 default enabled 로 만들어
+# 위 governance 항목이 config 킬스위치를 **탐지하지 못하게** 한다(표면화 장치의 무력화).
+_chk_deps() {
+  # ★ 두 부재의 귀결이 다르다 — 뭉뚱그리면 이 항목 자체가 부정확한 보고가 된다(plan-review 2회차).
+  #   jq 부재      → 훅이 전면 fail-open (거버넌스 비활성)
+  #   pyyaml 부재  → is-hook-enabled 가 default enabled 로 답해 governance 항목이 킬스위치를 못 봄
+  #   pyyaml 만 없고 jq 는 있으면 훅은 **정상 동작**한다 — "거버넌스 비활성" 은 거짓이다.
+  local miss="" note="" fixcmd=""
+  if ! command -v jq >/dev/null 2>&1; then
+    miss="jq"; note=" — 거버넌스 비활성"; fixcmd="brew install jq"
+  fi
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
+    miss="${miss}${miss:+,}python3/pyyaml"
+    note="${note} · governance 항목이 config 킬스위치를 탐지 못 함"
+    fixcmd="${fixcmd}${fixcmd:+ · }pip3 install pyyaml"
+  fi
+  if [ -z "$miss" ]; then
+    _add deps ok "jq · python3/pyyaml 확인" ""
+  else
+    _add deps warn "미설치: ${miss}${note}" "$fixcmd"
+  fi
+}
+
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -394,6 +455,8 @@ _chk_orphan
 _chk_progress
 _chk_bootstrap
 _chk_stale
+_chk_governance
+_chk_deps
 
 if [ "$JSON" -eq 1 ]; then
   printf '%s' "$ROWS" | jq -Rs '
