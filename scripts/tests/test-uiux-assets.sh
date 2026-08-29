@@ -382,5 +382,61 @@ _rc=0; UIUX_ENGINE_DISABLE=0 UIUX_JQ_BIN=/nonexistent UIUX_ASSET_ROOT="$EFX/data
 _d=$(UIUX_ENGINE_DISABLE=0 STUB_DROP=typography UIUX_ASSET_ROOT="$EFX/data" uiux::design_system "q" 3 3 4)
 { printf '%s\n' "$_d" | grep -q '^colors.primary	' && ! printf '%s\n' "$_d" | grep -q '^typography.'; } \
   && ok "E5b 결손본 — 부재 축만 소실, rc=0" || nope "E5b" "$_d"
+# E6 엔진 경로 — DESIGN.md 전 축 채움 + 무인 투명성 (AC-4·AC-6)
+# ★ phases-artifacts.sh 도 source — _kind_label 이 그 파일(L163)에 있다 (파일 간 결합 명시)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+grep -q '#111111' "$_sb/DESIGN.md" && ok "E6 색 주입" || nope "E6" "primary 부재"
+grep -q 'Stub Sans' "$_sb/DESIGN.md" && ok "E7 타이포 주입" || nope "E7" "font 부재"
+grep -q 'Stub Reveal' "$_sb/DESIGN.md" && ok "E8 모션 주입" || nope "E8" "motion 부재"
+grep -q '4, 8, 16, 24, 32, 48' "$_sb/DESIGN.md" && ok "E8a 간격 주입" || nope "E8a" "spacing 부재"
+grep -q 'Excessive animation' "$_sb/DESIGN.md" && ok "E8b AVOID 주입" || nope "E8b" "avoid 부재"
+grep -q 'No emojis as icons' "$_sb/DESIGN.md" && ok "E8c 체크리스트 주입" || nope "E8c" "checklist 부재"
+grep -q '자동 선택 (무인 모드)' "$_sb/DESIGN.md" && ok "E8d 무인 투명성 1줄" || nope "E8d" "투명성 기록 부재"
+rm -rf "$_sb"
+# E6b 잉여 stdin (AC-3) — 기존 픽스처류 N 공급이 기본값으로 흡수되어 완주 + 투명성 미기록(입력 有)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "N\nN\n" | phase_6_design' ) >/dev/null 2>&1
+{ grep -q '#111111' "$_sb/DESIGN.md" && ! grep -q '자동 선택' "$_sb/DESIGN.md"; } \
+  && ok "E6b 잉여 입력 → 기본값 흡수 완주" || nope "E6b" "잉여 입력 처리 실패"
+rm -rf "$_sb"
+# E6c 결손본 통합 (AC-4b) — typography 결손 시 색은 채워지고 [font] 앵커는 잔존
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" STUB_DROP=typography bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+{ grep -q '#111111' "$_sb/DESIGN.md" && grep -q '\[font\], system-ui' "$_sb/DESIGN.md"; } \
+  && ok "E6c 결손본 — 부재 축만 앵커 잔존" || nope "E6c" "부분 실패 처리 오류"
+rm -rf "$_sb"
+# E9 엔진 불가 → 기존 5택 경로 (AC-2: read 미발화 + 종전 산출물)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=1 bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "1\n" | phase_6_design' ) >/dev/null 2>"$_sb/e9.err"
+grep -q '#635BFF' "$_sb/DESIGN.md" && ok "E9 엔진 불가 → 5택 fallback (Stripe)" || nope "E9" "fallback 미동작"
+grep -q '엔진 미가용' "$_sb/e9.err" && ok "E9b 축소 생성 고지 (AC-2 Then)" || nope "E9b" "고지 부재"
+rm -rf "$_sb"
+# E13 run-all 격리 계약 (Critical-2 회귀 잠금)
+grep -qE '^export UIUX_ENGINE_DISABLE=1' "$PLUGIN/scripts/tests/run-all.sh" \
+  && ok "E13 run-all 이 엔진을 끄고 실행" || nope "E13" "격리 export 부재"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

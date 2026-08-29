@@ -7,6 +7,12 @@ PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+
+# 엔진 격리 (20260829-uiux-engine-bridge): 이 스위트의 stdin 픽스처는 엔진 read 를 모른다.
+#   개발기의 실 promax 가 엔진 경로를 활성화하면 read 2회가 시퀀스를 shift 시키고
+#   실 엔진 호출로 결과가 외부 repo 상태에 좌우된다. run-all 밖 단독 실행도 지켜야
+#   하므로 **스위트 자신이** 끈다 (run-all export 에만 기대지 않는다).
+export UIUX_ENGINE_DISABLE=1
 SCRIPT="$PLUGIN/scripts/_internal/init-project.sh"
 
 # ── 헬퍼 ──────────────────────────────────────
