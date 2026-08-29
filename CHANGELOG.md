@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.86.0] — 2026-08-29
+
 ### Added
 
 - **promax 검색 엔진 연결 — DESIGN.md 가 색-only 에서 풀 디자인 시스템이 된다 (FID 20260829-uiux-engine-bridge, PR #16)** — 종전 `/init-project` Phase 6 은 ui-ux-pro-max 45종 자산 중 `colors.csv` 등 **3종만** 소비해 색 15토큰만 확정하고, 타이포·간격·모션·금지사항은 화면마다 즉흥 제작했다. 그것이 "촌스러움"의 구조적 원인이었다(실측). 이제 promax 의 BM25 검색 엔진(`search.py --design-system --json` — 표준 라이브러리만, 네트워크 0)에 위임해 §1 색·§2 폰트+타입 스케일·§3 간격·§5 모션·§8 AVOID·§9 체크리스트 **6개 섹션**을 한 번에 확정한다.
@@ -1469,7 +1471,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.85.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.86.0...HEAD
+[1.86.0]: https://github.com/andyko18/specops-ko/compare/v1.85.0...v1.86.0
 [1.85.0]: https://github.com/andyko18/specops-ko/compare/v1.84.0...v1.85.0
 [1.84.0]: https://github.com/andyko18/specops-ko/compare/v1.83.0...v1.84.0
 [1.83.0]: https://github.com/andyko18/specops-ko/compare/v1.82.0...v1.83.0
