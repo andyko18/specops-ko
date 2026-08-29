@@ -124,6 +124,9 @@ _design_from_engine() {   # $1=target $2=평탄행($'키\t값')
   while IFS=$'\t' read -r k v; do
     case "$k" in colors.*) ;; *) continue ;; esac
     case "$v" in '#'[0-9A-Fa-f]*) ;; *) continue ;; esac
+    # ★ 전체검사 (Phase C Important-1 프로브 실증): prefix-only 면 `#1&C/` 가 통과해
+    #   awk sub() 의 `&`(매치 재삽입)로 DESIGN.md 를 오염시키고 "작성 완료" 로 보고된다.
+    case "$v" in '#'*[!0-9A-Fa-f]*) continue ;; esac
     local lbl; lbl=$(_engine_color_label "${k#colors.}") || continue
     LBL="$lbl" HEX="$v" awk '
       BEGIN { l = ENVIRON["LBL"]; h = ENVIRON["HEX"] }
@@ -148,7 +151,8 @@ _design_from_engine() {   # $1=target $2=평탄행($'키\t값')
   [ -n "$ck" ] && CK="$ck" awk '
     { print }
     /^\*\*컴포넌트 생성 시\*\*:/ && !seen { print ""; print "**납품 체크리스트** (엔진 제공):"; print ENVIRON["CK"]; seen=1 }' \
-    "$target" > "$target.tmp" && mv "$target.tmp" "$target"
+    "$target" > "$target.tmp" && mv "$target.tmp" "$target" \
+    || { rm -f "$target.tmp"; return 1; }
   return 0
 }
 
@@ -239,7 +243,7 @@ phase_6_design() {
         # 무인/기본값 투명성 — spec §보조 시나리오 문구와 정합 (스타일명 포함)
         [ -z "$dial" ] && [ -z "$pick_raw" ] \
           && printf '> 자동 선택 (무인 모드): %s, 다이얼 %s/%s/%s\n' \
-               "${style_pick:-후보1}" "$dv" "$dm" "$dd" >> "$target"
+               "${style_pick:-(후보 없음)}" "$dv" "$dm" "$dd" >> "$target"
         echo "→ ${target} 작성 완료 (엔진: ui-ux-pro-max $(uiux::version), 다이얼 ${dv}/${dm}/${dd})"
         return
       fi

@@ -453,6 +453,23 @@ _sb=$(mktemp -d)
     printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
 grep -q 'family=Stub' "$_sb/DESIGN.md" && ok "E12b Font Import 주입 (§2 완결)" || nope "E12b" "css_import 미주입"
 rm -rf "$_sb"
+# E6d 오염 hex 방어 (Phase C Important-1 회귀 잠금) — 비정형 색값(`#1&C/`)이 DESIGN.md 를
+#   오염시키지 않는다. 가드 전 실측: `| Primary | `#1`#______`CORRUPT/inj` |` + "작성 완료" 보고.
+_sb=$(mktemp -d)
+mkdir -p "$_sb/probe-engine/data" "$_sb/probe-engine/scripts"
+sed 's|"primary": "#111111"|"primary": "#1\&CORRUPT/inj"|' \
+  "$EFX/scripts/search.py" > "$_sb/probe-engine/scripts/search.py"
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$_sb/probe-engine/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+{ ! grep -q 'CORRUPT' "$_sb/DESIGN.md" && grep -q '| Primary | `#______`' "$_sb/DESIGN.md"; } \
+  && ok "E6d 오염 hex → 주입 skip, 앵커 잔존 (오염 0)" || nope "E6d" "$(grep 'Primary' "$_sb/DESIGN.md" | head -1)"
+rm -rf "$_sb"
+
 # E13 run-all 격리 계약 (Critical-2 회귀 잠금)
 grep -qE '^export UIUX_ENGINE_DISABLE=1' "$PLUGIN/scripts/tests/run-all.sh" \
   && ok "E13 run-all 이 엔진을 끄고 실행" || nope "E13" "격리 export 부재"
