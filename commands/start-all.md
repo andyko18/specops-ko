@@ -198,6 +198,8 @@ reference_upstream: specops-ko 독자 추가
    - **이미 있고**(비-셸) `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상) → **재사용**.
    - **이미 있고** exit 0(껍데기) → **재사용 금지**. 통합 design system으로 덮어쓰고 **껍데기 마커 줄을 삭제**한다.
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
+   - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip). `/start`·`/maintain` 의 Step 5.5 `[공통]` 과 동일 요건 — batch 라고 축이 줄지 않는다.
+   - **템플릿 기반**: 각 `.html` 은 `templates/screen.html` 을 기반으로 생성한다 — `--text-*`·`--space-*` 토큰 자리가 DESIGN.md §2·§3 과 1:1 대응한다.
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
