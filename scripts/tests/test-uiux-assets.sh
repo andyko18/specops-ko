@@ -435,6 +435,24 @@ _sb=$(mktemp -d)
 grep -q '#635BFF' "$_sb/DESIGN.md" && ok "E9 엔진 불가 → 5택 fallback (Stripe)" || nope "E9" "fallback 미동작"
 grep -q '엔진 미가용' "$_sb/e9.err" && ok "E9b 축소 생성 고지 (AC-2 Then)" || nope "E9b" "고지 부재"
 rm -rf "$_sb"
+# E10 소비측 배선 (AC-5)
+grep -q '§2 타이포·§3 간격' "$PLUGIN/skills/specifying-ko/SKILL.md" \
+  && ok "E10 Step 5.5 소비 목록에 §2·§3" || nope "E10" "소비측 미배선"
+grep -q -- '--text-base' "$PLUGIN/templates/screen.html" \
+  && ok "E11 screen.html 타입 토큰" || nope "E11" "토큰 부재"
+grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
+  && ok "E12 screen.html 간격 토큰" || nope "E12" "토큰 부재"
+# E12b css_import 주입 (plan-review 3회차 Minor-3 — T3 이후 시점이라 앵커 실재, 미주입 = 실패)
+_sb=$(mktemp -d)
+( cd "$_sb" && PROJECT_KIND=1 PROJECT_NAME=t PRD_ONELINE="test app" PLUGIN="$PLUGIN" \
+  UIUX_ENGINE_DISABLE=0 UIUX_ASSET_ROOT="$EFX/data" bash -c '
+    . "$PLUGIN/scripts/_internal/init-project/lib.sh"
+    . "$PLUGIN/scripts/_internal/uiux-assets.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh"
+    . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+    printf "\n\n" | phase_6_design' ) >/dev/null 2>&1
+grep -q 'family=Stub' "$_sb/DESIGN.md" && ok "E12b Font Import 주입 (§2 완결)" || nope "E12b" "css_import 미주입"
+rm -rf "$_sb"
 # E13 run-all 격리 계약 (Critical-2 회귀 잠금)
 grep -qE '^export UIUX_ENGINE_DISABLE=1' "$PLUGIN/scripts/tests/run-all.sh" \
   && ok "E13 run-all 이 엔진을 끄고 실행" || nope "E13" "격리 export 부재"
