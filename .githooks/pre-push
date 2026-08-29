@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-ko push 전 전체 스위트 게이트 (~330s — 147 스위트 실측)
+# specops-ko push 전 전체 스위트 게이트 (~340s — 152 스위트 실측)
 #
 # pre-commit 은 5초짜리 정합만 본다(로컬 반복 비용). 원격에 나가기 직전 한 번,
 # run-all.sh(=릴리즈 pre-flight 와 동일 게이트) 전체를 돌린다.
