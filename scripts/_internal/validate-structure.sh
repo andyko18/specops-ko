@@ -341,6 +341,22 @@ for line in meta.splitlines():
         if (a, b) not in declared:
             issues.append(f"메타목록 미선언 edge: {a} → {b}")
 
+# 네 번째 출처 — commands/*.md 의 chain 서술 (20260829-chain-4th-source).
+#   왜 추가하나: 위 세 출처(chain.yaml · SKILL.md · 메타목록)를 대조하면서, **사용자가 흐름을
+#   이해하려고 실제로 읽는 문서**만 빠져 있었다. 커맨드 문서의 chain 이 틀려도 아무도 울지 않았다.
+#   비대칭은 메타목록과 **동일**하다: 요약 문서이므로 생략은 허용하고, chain.yaml 에 **없는 edge 를
+#   주장할 때만** FAIL 한다 — /start-all 이 3 edge 만 적는 것은 batch 가 decompose 에서 멈춰서지
+#   오류가 아니다. 이 방향이라 오탐 위험이 낮다(같은 규칙이 메타목록에서 이미 검증됐다).
+for path in sorted(glob.glob('commands/*.md')):
+    for line in open(path, encoding='utf-8'):
+        if '→' not in line or '-ko' not in line:
+            continue
+        toks = [t for t in (re.fullmatch(r'([a-z][a-z-]*-ko)\b.*', s.strip()) for s in line.split('→')) if t]
+        names = [t.group(1) for t in toks]
+        for a, b in zip(names, names[1:]):
+            if (a, b) not in declared:
+                issues.append(f"{path} 미선언 edge: {a} → {b}")
+
 if issues:
     print('; '.join(issues)); sys.exit(1)
 PYEOF

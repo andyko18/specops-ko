@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`chain_consistency` 에 네 번째 출처 — 커맨드 문서 (FID 20260829-chain-4th-source)** — 이 게이트는 같은 주장을 하는 **세 출처**(`chain.yaml` ↔ 각 `SKILL.md` `## 다음 skill` ↔ 메타 skill 화살표 목록)를 대조해 왔는데, **네 번째인 `commands/*.md` 만 빠져 있었다**. 사용자가 흐름을 이해하려고 실제로 읽는 문서가 그것이고, 틀려도 아무도 울지 않았다.
+  - 새 게이트가 아니라 **기존 게이트의 미완성**을 채운 것이다 — 새 스크립트·baseline·임계값 없이 기존 python 블록에 glob 하나 추가.
+  - **비대칭은 메타목록과 동일**: 요약 문서이므로 **생략은 허용**하고 `chain.yaml` 에 **없는 edge 를 주장할 때만** FAIL 한다. `/start-all` 이 3 edge 만 적는 것은 batch 가 decompose 에서 멈춰서지 오류가 아니다. 같은 규칙이 메타목록에서 이미 검증돼 있어 오탐 위험이 낮다.
+  - 도입 시점 실측: 4개 핵심 커맨드의 chain 서술 **20 edge 전부 정상**(`/start` 10 · `/start-foundation` 7 · `/start-all` 3). 즉 **결함을 고친 게 아니라 무방비였던 면을 덮었다**.
+  - 어서션 3건. `T-cc4.b` 가 되돌려-관찰(구현 무력화 시 실제로 red 전환 실측), `T-cc4.c` 가 과잉 차단 방지(생략 허용).
+  - ★ 초안 픽스처가 `흐름: ` 접두를 붙여 첫 토큰이 추출 규칙(각 `→` 세그먼트가 skill 명으로 시작)에서 빠졌고, **구현이 정상인데도 RED 가 재현되지 않았다**. 픽스처가 계약을 안 지킨 경우다 — 이번 세션에서 tautology 를 잡은 것과 같은 형태다.
+
+### Changed
+
+- **핵심 커맨드 4종 정밀 점검 — 결함 0** (`/init-project` · `/start-foundation` · `/start-all` · `/start`). 전부 `mktemp -d` sandbox, 실 repo 무접촉.
+  - `/init-project`: **KIND 6종 전부 실행**해 산출물 집합이 분기 로직(`1|4|5`→frontend, `2|4`→backend·api-spec)과 일치함을 실측. Phase 번호 문서↔스크립트 일치(`phase_1`~`phase_10` + 8a~8h 전 8종, Phase 11/11.5 는 설계상 LLM). 정본 13종(root 4 + memory 9)도 문서와 일치.
+  - `/start-all`: 문서가 명령형으로 지시하는 **16개 호출을 그대로 실행**해 전부 문서가 약속한 판정을 확인. foundation baseline 불변식 4종을 **되돌려-관찰**로 실증 — 셸/IF 변조 시 `FAIL`, **마커 바깥 append 는 `PASS`** 라는 정밀 경계까지 그 입도로 동작한다.
+  - foundation 게이트 6종: `/start-all` 4참조 · `/start-foundation` 0참조로 비대칭이지만 **죽은 게이트는 0** — `manifest`→`run-verification`·`planning-ko`, `reuse`→`emit-context`·`decomposing-ko` 로 배선돼 있다. `/start-foundation` 은 생산자, `/start-all` 은 소비자라는 설계다.
+
 ### Fixed
 
 - **`/statusline-install` 이 인자를 아예 안 봤다 — `--help` 로도 설치됐다 (FID 20260829-statusline-check)** — 커맨드 24개 전수 점검 중 실측으로 적발했다. `--help` 를 줬더니 그대로 설치가 실행돼 `.claude/settings.json` 이 바뀌었다(확인하려다 설치됨). `.claude/` 는 gitignore 라 `git status` 에도 안 보여서 **파일을 직접 열기 전엔 알 수 없다**.

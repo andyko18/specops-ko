@@ -656,5 +656,43 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-hg.e 복원 trap 부재 또는 시그널이 EXIT 단독이 아님 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}'"
 fi
 
+ok(){ PASS=$((PASS+1)); echo "PASS $1"; }
+nope(){ FAIL=$((FAIL+1)); echo "FAIL $1 — ${2:-}"; }
+
+# ── T-cc4.a~c: chain_consistency 가 **커맨드 문서**의 chain 서술도 본다 (FID 20260829-chain-4th-source) ──
+# 왜: 세 출처(chain.yaml ↔ SKILL.md `## 다음 skill` ↔ 메타 skill 화살표)를 대조하면서
+#   같은 주장을 하는 **네 번째 출처 commands/*.md 만 빠져 있었다**. 사용자가 흐름을 이해하려고
+#   읽는 것이 바로 그 문서다 — 틀려도 아무도 울지 않았다(전수 대조 결과 현재 20/20 정상).
+# ★ 비대칭은 메타 skill 목록과 동일 규칙: 요약이라 생략은 허용하고, chain.yaml 에 없는 edge 를
+#   주장할 때만 FAIL 한다. /start-all 이 3 edge 만 적는 것은 batch 가 decompose 에서 멈춰서다.
+_cc4=$(mktemp -d)
+for d in hooks skills commands scripts agents templates docs; do cp -R "$PLUGIN/$d" "$_cc4/" 2>/dev/null; done
+cp "$PLUGIN"/*.md "$_cc4"/ 2>/dev/null
+mkdir -p "$_cc4/.claude-plugin"; cp "$PLUGIN"/.claude-plugin/*.json "$_cc4/.claude-plugin/" 2>/dev/null
+
+_cc4_run() { ( cd "$_cc4" && bash scripts/_internal/validate-structure.sh 2>&1 | grep chain_consistency ); }
+
+out=$(_cc4_run)
+case "$out" in ✅*) ok "T-cc4.a 사본 기준선 chain_consistency OK" ;; *) nope "T-cc4.a 기준선" "$out" ;; esac
+
+# 주입 형태는 실제 문서와 같아야 한다 — 각 `→` 세그먼트가 **skill 명으로 시작**해야 추출된다
+#   (메타목록과 동일 규칙). 초안은 `흐름: ` 접두를 붙여 첫 토큰이 매칭에서 빠졌고, 그래서
+#   구현이 정상인데도 RED 가 재현되지 않았다 — 픽스처가 계약을 안 지킨 경우다.
+printf '\nspecifying-ko → performance-test-ko\n' >> "$_cc4/commands/start.md"
+out=$(_cc4_run)
+case "$out" in ❌*) ok "T-cc4.b ★ 커맨드 문서의 미선언 edge 주장 → FAIL" ;;
+                *) nope "T-cc4.b 미탐" "없는 edge 를 주장해도 통과: $out" ;; esac
+
+cp "$PLUGIN/commands/start.md" "$_cc4/commands/start.md"
+python3 - "$_cc4/commands/start-all.md" <<'PYEOF'
+import sys, re
+p=sys.argv[1]; s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(re.sub(r'[a-z][a-z-]*-ko( *→ *[a-z][a-z-]*-ko)+', '(생략)', s))
+PYEOF
+out=$(_cc4_run)
+case "$out" in ✅*) ok "T-cc4.c 커맨드 문서 chain 생략은 허용 (요약 문서 — 과잉 차단 방지)" ;;
+                *) nope "T-cc4.c 오탐" "$out" ;; esac
+rm -rf "$_cc4"
+
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL
