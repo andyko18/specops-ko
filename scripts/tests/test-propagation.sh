@@ -30,7 +30,10 @@ else
 fi
 
 # P3: checker green on repo
-out=$(bash "$CHK" 2>&1); rc=$?
+# ★ env 를 **의도적으로 비운다** — P4·P5·P9 가 픽스처를 물리려고 열어둔 문이라, 셸에
+#   SPECOPS_PROPAGATION_MATRIX 가 잔류하면 이 양성 케이스가 1-edge 픽스처로 PASS 해
+#   **run-all 이 오염 하에서 vacuous** 해진다 (.githooks/pre-commit 과 동일 클래스).
+out=$(SPECOPS_PROPAGATION_MATRIX= bash "$CHK" 2>&1); rc=$?
 if [ "$rc" -eq 0 ] && echo "$out" | grep -q 'PROPAGATION: PASS'; then
   ok "P3 check-propagation PASS"
 else

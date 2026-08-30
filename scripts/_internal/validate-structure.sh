@@ -79,6 +79,21 @@ _gen_skill_baseline() {
   printf '{"chain_bytes":%s,"chain_lines":%s}\n' "$tb" "$tl"
 }
 
+# 산문 HARD GATE 검출의 **단일 SoT** — 마커 없이 `HARD GATE` 를 선언하는 skill 이름을 한 줄씩.
+#   writer(--update-baseline)와 checker(래칫)가 같은 판정을 써야 한다. 로직이 2벌이면 한쪽만
+#   넓어질 때 불필요한 이름이 baseline 에 등재되며 **무음 완화**가 된다(T3 Phase C Important 2).
+#   iteration 순서(glob)와 이름 산출 방식은 committed baseline 과 바이트 동일해야 하므로 정렬하지 않는다.
+_hardgate_outside_skills() {
+  local f
+  for f in skills/*/SKILL.md; do
+    [ -f "$f" ] || continue
+    grep -q '<HARD-GATE>' "$f" 2>/dev/null && continue
+    grep -qE 'HARD GATE|HARD-GATE' "$f" 2>/dev/null || continue
+    basename "$(dirname "$f")"
+  done
+  return 0  # 마지막 iteration 의 grep 상태가 함수 종료코드로 새지 않게 (미래에 set -e 도입 대비)
+}
+
 if [ "$UPDATE_BASELINE" = "1" ]; then
   if [ ! -f "$BASELINE" ]; then
     echo "❌ .structure-baseline 부재 — 초기 생성은 수동 권장 (스크립트가 카테고리 추측 X)" >&2
@@ -86,12 +101,10 @@ if [ "$UPDATE_BASELINE" = "1" ]; then
   fi
   _gen_skill_baseline > "$SKILL_BASELINE"
   echo "✅ .skill-size-baseline 갱신 완료."
-  for f in skills/*/SKILL.md; do
-    [ -f "$f" ] || continue
-    grep -q '<HARD-GATE>' "$f" 2>/dev/null && continue
-    grep -qE 'HARD GATE|HARD-GATE' "$f" 2>/dev/null || continue
-    printf '{"skill":"%s"}\n' "$(basename "$(dirname "$f")")"
-  done > "$HARDGATE_BASELINE"
+  while IFS= read -r hg_name; do
+    [ -n "$hg_name" ] || continue
+    printf '{"skill":"%s"}\n' "$hg_name"
+  done < <(_hardgate_outside_skills) > "$HARDGATE_BASELINE"
   echo "✅ .hardgate-baseline 갱신 완료."
   tmp=$(mktemp)
   while IFS= read -r line; do
@@ -448,15 +461,19 @@ done
   hg_marker=0; hg_outside=0
   for f in skills/*/SKILL.md; do
     [ -f "$f" ] || continue
-    if grep -q '<HARD-GATE>' "$f" 2>/dev/null; then hg_marker=$((hg_marker+1)); continue; fi
-    grep -qE 'HARD GATE|HARD-GATE' "$f" 2>/dev/null || continue
+    grep -q '<HARD-GATE>' "$f" 2>/dev/null && hg_marker=$((hg_marker+1))
+  done
+  # ★ 검출은 _hardgate_outside_skills() 하나만 쓴다 — writer 와 같은 판정(위 정의 참조).
+  #   grep -qF 의 **닫는 따옴표**가 계약이다: 없으면 baseline 이름의 접두인 신규 skill
+  #   (`planning-k` ⊂ `planning-ko`)이 등재된 것처럼 매치돼 조용히 숨는다 (H6.b 가 잠금).
+  while IFS= read -r sn; do
+    [ -n "$sn" ] || continue
     hg_outside=$((hg_outside+1))
-    sn=$(basename "$(dirname "$f")")
     if [ -f "$HARDGATE_BASELINE" ] \
        && ! grep -qF "\"skill\":\"$sn\"" "$HARDGATE_BASELINE" 2>/dev/null; then
       hg_fail+=("$sn(래칫: baseline 밖 신규 산문 HARD GATE — 마커+분류를 달거나 --update-baseline 으로 등록)")
     fi
-  done
+  done < <(_hardgate_outside_skills)
   hg_total=$(find skills -name SKILL.md | wc -l | tr -d ' ')
   hg_note="마커 ${hg_marker}/${hg_total} · 규칙밖 ${hg_outside}"
   if [ ! -f "$HARDGATE_BASELINE" ]; then

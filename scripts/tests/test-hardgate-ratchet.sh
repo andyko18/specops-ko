@@ -98,4 +98,39 @@ else
   nope "H5.a" "$(printf '%s' "$out5" | grep hardgate)"
 fi
 
+# ── H6 (T3 Phase C Minor): 접두 이름 계약 — checker grep 의 **닫는 따옴표** 잠금 ──
+# 계약: `grep -qF "\"skill\":\"$sn\""` 의 닫는 따옴표가 baseline 이름과의 **접두 오매치**를
+#   막는다. 방향이 하나뿐이라는 것이 실측의 핵심이다:
+#     · H6.b `planning-k`(**신규 ⊂ baseline**) — 닫는 따옴표를 빼면 패턴 `"skill":"planning-k` 가
+#       `{"skill":"planning-ko"}` 에 매치돼 신규 산문 HARD GATE 가 **조용히 등재된 척** 숨는다.
+#       닫는 따옴표가 지키는 방향은 이쪽 **하나뿐**이다(실측: 따옴표 제거 → H6.b 만 FAIL).
+#       리뷰 보고의 "닫는 따옴표가 양방향 차단(`planning-ko-v2` 격추 실측)" 은 원인 오귀속이다 —
+#       격추는 사실이나 따옴표 덕이 아니다. 그 예시 1건만으로 만든 테스트는 vacuous 했을 것이다.
+#     · H6.a `planning-ko-v2`(**baseline ⊂ 신규**) — 닫는 따옴표에는 둔감하지만 vacuous 하지 않다.
+#       매칭을 baseline 쪽 접두 의미로 "단순화"하는 변이(예: `case "$sn" in "$bl"*)`)를 잡는
+#       유일한 케이스다. 그 변이에서 H4(`__ratchet_probe__`)·H6.b 는 여전히 발화하고 H6.a 만 숨는다.
+#       두 방향은 서로 다른 변이를 잠근다 — 어느 쪽도 지우지 마라.
+# ★ 중단 안전: probe 잔류 시 이후 모든 validate-structure 가 FAIL 한다. EXIT 단독(H4 와 동일).
+h6a_dir="$PLUGIN/skills/planning-ko-v2"   # baseline `planning-ko` 를 접두로 갖는 더 긴 이름
+h6b_dir="$PLUGIN/skills/planning-k"       # baseline `planning-ko` 의 접두인 더 짧은 이름
+# shellcheck disable=SC2064
+trap "rm -rf '$h6a_dir' '$h6b_dir'" EXIT
+mkdir -p "$h6a_dir" "$h6b_dir"
+printf -- '---\nname: planning-ko-v2\n---\n\ntest-hardgate-ratchet H6 probe (자동 생성·자동 삭제 — 잔류 시 지워도 된다).\n산문에서 HARD GATE 를 선언한다.\n' > "$h6a_dir/SKILL.md"
+printf -- '---\nname: planning-k\n---\n\ntest-hardgate-ratchet H6 probe (자동 생성·자동 삭제 — 잔류 시 지워도 된다).\n산문에서 HARD GATE 를 선언한다.\n' > "$h6b_dir/SKILL.md"
+out6=$(cd "$PLUGIN" && bash "$VS" 2>&1)
+rm -rf "$h6a_dir" "$h6b_dir"
+trap - EXIT
+hg6=$(printf '%s\n' "$out6" | grep hardgate_classified)
+if printf '%s' "$hg6" | grep -qF 'planning-ko-v2(래칫'; then
+  ok "H6.a baseline⊂신규(planning-ko-v2) → 래칫 FAIL — baseline 쪽 접두 매칭 변이 잠금"
+else
+  nope "H6.a" "$hg6"
+fi
+if printf '%s' "$hg6" | grep -qF 'planning-k(래칫'; then
+  ok "H6.b baseline 이름의 **접두**(planning-k) → 래칫 FAIL — 닫는 따옴표 계약"
+else
+  nope "H6.b" "접두 이름이 baseline 항목에 숨었다(닫는 따옴표 소실 의심): $hg6"
+fi
+
 finish
