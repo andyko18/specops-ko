@@ -52,6 +52,7 @@ count_glob() {
 # 한계 고백: **SKILL.md 본문만** 잰다(= 컨텍스트로 로드되는 것). 본문을 보조 파일로 옮기면
 #   수치가 준다 — 그게 의도(온디맨드 읽기)지만, 보조 파일이 정말 온디맨드인지는 기계가 못 본다.
 SKILL_BASELINE="$script_dir/.skill-size-baseline"
+HARDGATE_BASELINE="$script_dir/.hardgate-baseline"
 
 # chain 집계 대상 = hooks/chain.yaml 의 from/to 합집합 (SoT 단일 — 하드코딩 목록 금지).
 #   목록을 여기 복제하면 edge 변경 시 조용히 stale 이 된다 — chain_consistency 가 이미 잡는
@@ -78,6 +79,21 @@ _gen_skill_baseline() {
   printf '{"chain_bytes":%s,"chain_lines":%s}\n' "$tb" "$tl"
 }
 
+# 산문 HARD GATE 검출의 **단일 SoT** — 마커 없이 `HARD GATE` 를 선언하는 skill 이름을 한 줄씩.
+#   writer(--update-baseline)와 checker(래칫)가 같은 판정을 써야 한다. 로직이 2벌이면 한쪽만
+#   넓어질 때 불필요한 이름이 baseline 에 등재되며 **무음 완화**가 된다(T3 Phase C Important 2).
+#   iteration 순서(glob)와 이름 산출 방식은 committed baseline 과 바이트 동일해야 하므로 정렬하지 않는다.
+_hardgate_outside_skills() {
+  local f
+  for f in skills/*/SKILL.md; do
+    [ -f "$f" ] || continue
+    grep -q '<HARD-GATE>' "$f" 2>/dev/null && continue
+    grep -qE 'HARD GATE|HARD-GATE' "$f" 2>/dev/null || continue
+    basename "$(dirname "$f")"
+  done
+  return 0  # 마지막 iteration 의 grep 상태가 함수 종료코드로 새지 않게 (미래에 set -e 도입 대비)
+}
+
 if [ "$UPDATE_BASELINE" = "1" ]; then
   if [ ! -f "$BASELINE" ]; then
     echo "❌ .structure-baseline 부재 — 초기 생성은 수동 권장 (스크립트가 카테고리 추측 X)" >&2
@@ -85,6 +101,11 @@ if [ "$UPDATE_BASELINE" = "1" ]; then
   fi
   _gen_skill_baseline > "$SKILL_BASELINE"
   echo "✅ .skill-size-baseline 갱신 완료."
+  while IFS= read -r hg_name; do
+    [ -n "$hg_name" ] || continue
+    printf '{"skill":"%s"}\n' "$hg_name"
+  done < <(_hardgate_outside_skills) > "$HARDGATE_BASELINE"
+  echo "✅ .hardgate-baseline 갱신 완료."
   tmp=$(mktemp)
   while IFS= read -r line; do
     [ -z "$line" ] && continue
@@ -431,10 +452,46 @@ for f in skills/*/SKILL.md; do
 $(grep -oE 'scripts/_internal/check-[A-Za-z0-9._-]+\.sh' "$f" 2>/dev/null | sort -u)
 EOF
 done
-if [ ${#hg_fail[@]} -eq 0 ]; then
-  emit hardgate_classified OK
+  # ── 래칫: 마커 없이 산문으로 HARD GATE 를 선언하는 skill 감시 ──
+  # 규칙이 꺾쇠 마커 보유 파일만 봤기 때문에 **회피법이 "마커를 안 쓰는 것"** 이었다.
+  # 전부를 규칙 안으로 넣는 대신(마커를 기계적으로 붙여 경고를 끄는 ritual 이 된다 —
+  #   §auto 자기발급 면제표 선례) 현 상태를 baseline 에 이름으로 고정하고 증가만 막는다.
+  # ★ 검출은 **파일 단위**다(clarify Q2) — 선언형 패턴만 세면 새 표기법을 놓쳐 조용히
+  #   미탐한다. 오탐은 baseline 1줄 등록으로 끝나고 그 결정이 diff 에 남는다.
+  hg_marker=0; hg_outside=0
+  for f in skills/*/SKILL.md; do
+    [ -f "$f" ] || continue
+    grep -q '<HARD-GATE>' "$f" 2>/dev/null && hg_marker=$((hg_marker+1))
+  done
+  # ★ 검출은 _hardgate_outside_skills() 하나만 쓴다 — writer 와 같은 판정(위 정의 참조).
+  #   grep -qF 의 **닫는 따옴표**가 계약이다: 없으면 baseline 이름의 접두인 신규 skill
+  #   (`planning-k` ⊂ `planning-ko`)이 등재된 것처럼 매치돼 조용히 숨는다 (H6.b 가 잠금).
+  while IFS= read -r sn; do
+    [ -n "$sn" ] || continue
+    hg_outside=$((hg_outside+1))
+    if [ -f "$HARDGATE_BASELINE" ] \
+       && ! grep -qF "\"skill\":\"$sn\"" "$HARDGATE_BASELINE" 2>/dev/null; then
+      hg_fail+=("$sn(래칫: baseline 밖 신규 산문 HARD GATE — 마커+분류를 달거나 --update-baseline 으로 등록)")
+    fi
+  done < <(_hardgate_outside_skills)
+  hg_total=$(find skills -name SKILL.md | wc -l | tr -d ' ')
+  hg_note="마커 ${hg_marker}/${hg_total} · 규칙밖 ${hg_outside}"
+  if [ ! -f "$HARDGATE_BASELINE" ]; then
+    # baseline 부재는 SKIP 이다 — FAIL 이 아니다. validate-structure 는 sandbox 최소 트리에서도
+    #   돌고, 거기서 FAIL 을 내면 무관한 케이스가 red 가 된다(skill_size 와 동일 관할 규약).
+    #   실 repo 삭제는 test-hardgate-ratchet H1.a 가 잡는다.
+    emit hardgate_classified SKIP ".hardgate-baseline 부재 — --update-baseline 으로 생성 ($hg_note)"
+    hg_skip=1
+  fi
+
+# ★ baseline 부재(SKIP)라도 **기존 마커 검사의 FAIL 은 삼키지 않는다** — FR-6 은 마커
+#   검사 무변경을 요구하고, 래칫 baseline 유무는 그것과 독립이다(plan-review 2회차 제안).
+if [ "${hg_skip:-0}" = "1" ] && [ ${#hg_fail[@]} -eq 0 ]; then
+  :
+elif [ ${#hg_fail[@]} -eq 0 ]; then
+  emit hardgate_classified OK "$hg_note"
 else
-  emit hardgate_classified FAIL "${hg_fail[*]}"
+  emit hardgate_classified FAIL "${hg_fail[*]} ($hg_note)"
 fi
 
 # ── skill_size — SKILL.md 크기 래칫 (20260828-skill-size-ratchet) ──────────────

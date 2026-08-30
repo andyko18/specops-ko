@@ -5,7 +5,9 @@
 set -uo pipefail
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-MATRIX="$PLUGIN/scripts/_internal/propagation-matrix.jsonl"
+# MATRIX 경로는 env 로 덮을 수 있다 — 테스트가 픽스처를 물려 **실제 체커의 FAIL 경로**를
+#   실행하기 위해서다. 기본값은 종전과 동일하다(.githooks/pre-commit 이 매 커밋 무인자 호출).
+MATRIX="${SPECOPS_PROPAGATION_MATRIX:-$PLUGIN/scripts/_internal/propagation-matrix.jsonl}"
 [ -f "$MATRIX" ] || { echo "PROPAGATION: FAIL matrix 부재 ($MATRIX)" >&2; exit 1; }
 
 fail=0

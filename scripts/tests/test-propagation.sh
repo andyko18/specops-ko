@@ -30,37 +30,36 @@ else
 fi
 
 # P3: checker green on repo
-out=$(bash "$CHK" 2>&1); rc=$?
+# ★ env 를 **의도적으로 비운다** — P4·P5·P9 가 픽스처를 물리려고 열어둔 문이라, 셸에
+#   SPECOPS_PROPAGATION_MATRIX 가 잔류하면 이 양성 케이스가 1-edge 픽스처로 PASS 해
+#   **run-all 이 오염 하에서 vacuous** 해진다 (.githooks/pre-commit 과 동일 클래스).
+out=$(SPECOPS_PROPAGATION_MATRIX= bash "$CHK" 2>&1); rc=$?
 if [ "$rc" -eq 0 ] && echo "$out" | grep -q 'PROPAGATION: PASS'; then
   ok "P3 check-propagation PASS"
 else
   nope "P3" "rc=$rc out=$out"
 fi
 
-# P4: 의도적 깨짐 — 존재하지 않는 path → FAIL
-TD=$(mktemp -d) || exit 1
-trap 'rm -rf "$TD"' EXIT
-mkdir -p "$TD/scripts/_internal"
-cp "$MATRIX" "$TD/scripts/_internal/propagation-matrix.jsonl"
-# 가짜 PLUGIN 루트 — checker 가 dirname 기준이라 복사본으로 실행
-# checker 는 자신의 상대 PLUGIN 을 쓰므로, 임시 매트릭스만으로는 깨지지 않는다.
-# 대신: 매트릭스에 가짜 edge 한 줄 append 한 뒤 실제 checker 의 MATRIX 경로를
-# 환경으로 못 바꾸므로, 인라인 미니 체크로 동일 로직을 검증한다.
-fake_path="scripts/_internal/__no_such_propagation__.md"
-if [ ! -f "$PLUGIN/$fake_path" ] && ! grep -Eq 'never-match-zzz' "$PLUGIN/hooks/pretool-governance.sh"; then
-  ok "P4 negative fixture paths 유효(부재·미매치)"
+# ── P4 (AC-2): 파일 부재 edge → 체커가 실제로 FAIL 한다 ──
+# 종전엔 검출 로직을 여기서 재구현해 자기 자신을 검사했다(체커를 지워도 green).
+# 이제 픽스처를 물려 **실제 체커**를 부른다.
+FX="$PLUGIN/scripts/tests/fixtures/propagation"
+p4_out=$(SPECOPS_PROPAGATION_MATRIX="$FX/missing-path.jsonl" bash "$CHK" 2>&1); p4_rc=$?
+if [ "$p4_rc" -eq 1 ] && printf '%s' "$p4_out" | grep -q 'missing file'; then
+  ok "P4 파일 부재 edge → 체커 rc=1 + missing file (AC-2)"
 else
-  nope "P4" "fixture 가정 깨짐"
+  nope "P4" "rc=$p4_rc out=$p4_out"
 fi
-# 직접: missing file → FAIL 분기
-if ! grep -Eq 'never-match-zzz-wave-c' "$PLUGIN/hooks/pretool-governance.sh"; then
-  # simulate fail count logic
-  miss=0
-  [ -f "$PLUGIN/$fake_path" ] || miss=$((miss+1))
-  grep -Eq 'never-match-zzz-wave-c' "$PLUGIN/hooks/pretool-governance.sh" || miss=$((miss+1))
-  [ "$miss" -eq 2 ] && ok "P5 missing/mismatch 검출 로직" || nope "P5" "miss=$miss"
+
+# ── P5 (AC-2): 패턴 불일치 edge → 체커가 실제로 FAIL 한다 ──
+p5_out=$(SPECOPS_PROPAGATION_MATRIX="$FX/mismatch-pattern.jsonl" bash "$CHK" 2>&1); p5_rc=$?
+# 'missing /<pat>/' 는 런타임 조립이라 통짜 리터럴로 잠그지 않는다 — 두 정적 조각으로 나눈다
+#   ('missing /' 는 체커 소스에, 패턴 문자열은 픽스처 파일에 각각 실재).
+if [ "$p5_rc" -eq 1 ] && printf '%s' "$p5_out" | grep -q 'missing /' \
+   && printf '%s' "$p5_out" | grep -q 'never-match-zzz-wave-c'; then
+  ok "P5 패턴 불일치 edge → 체커 rc=1 + missing pattern (AC-2)"
 else
-  nope "P5" "pattern unexpectedly present"
+  nope "P5" "rc=$p5_rc out=$p5_out"
 fi
 
 # P6: README 에 매트릭스 유지 안내
@@ -88,5 +87,43 @@ for want in skills/implementing-ko/SKILL.md skills/requesting-code-review-ko/SKI
   case ",$el_paths," in *",$want,"*) ;; *) nope "P8" "end-loaded-skip 에 $want 누락"; el_missing=1 ;; esac
 done
 [ -z "${el_missing:-}" ] && ok "P8 end-loaded 계약 4자 전파" || true
+
+# ── P9 (AC-1): MATRIX env override — 기본값 불변 + 픽스처 지정 동작 ──
+# 왜: 체커의 MATRIX 가 하드코딩이라 테스트가 픽스처를 물릴 수 없었고, 그래서 P4/P5 가
+#   검출 로직을 테스트 안에 재구현해 자기 자신을 검사했다(체커를 지워도 green).
+p9_tmp=$(mktemp -d) || exit 1
+printf '%s\n' '{"id":"p9-probe","edges":[{"path":"scripts/_internal/check-propagation.sh","must_match":"PROPAGATION"}]}' \
+  > "$p9_tmp/one-edge.jsonl"
+p9_out=$(SPECOPS_PROPAGATION_MATRIX="$p9_tmp/one-edge.jsonl" bash "$CHK" 2>&1); p9_rc=$?
+# 어서션은 **정적 존재 문자열**로 구성한다 — 'PASS (1 edges)' 는 런타임 조립이라
+#   사전검사(check-plan-predispatch)가 dangling-lock 으로 잡는다. OK 줄 수로 edge 수를 센다.
+p9_ok=$(printf '%s' "$p9_out" | grep -c 'PROPAGATION: OK')
+if [ "$p9_rc" -eq 0 ] && [ "${p9_ok:-0}" -eq 1 ]; then
+  ok "P9.a MATRIX override 적용 — 픽스처 1 edge 로 판정 (AC-1 b)"
+else
+  nope "P9.a" "rc=$p9_rc ok줄=${p9_ok:-0} out=$p9_out"
+fi
+rm -rf "$p9_tmp"
+
+# ── P10: 소비측 env 핀 — pre-commit 게이트가 잔류 오염에 지배되지 않는다 ──
+# 왜 이 케이스가 필요한가: P9 가 연 override 문은 **테스트용**인데, 셸에 export 가 잔류하면
+#   .githooks/pre-commit 의 `cp_out=$(... )` 가 rc=0 경로에서 출력을 삼켜 **173 edge 게이트가
+#   무음으로 1 edge** 가 된다. 그 핀(`SPECOPS_PROPAGATION_MATRIX= bash "$CP"`)은 pre-commit 과
+#   위 P3 **두 곳에** 사는 계약인데, 지워도 깨끗한 셸에서는 아무 스위트도 FAIL 하지 않았다 —
+#   즉 픽스에 이빨이 없었다. 오염을 실제로 주입해 그 상태에서만 갈리게 한다.
+# 픽스처는 T2 의 mismatch(1 edge · 반드시 FAIL)를 재사용한다 — 핀이 없으면 훅이 이걸 보고
+#   rc=1 + `PROPAGATION: FAIL` 을 뱉고, 핀이 있으면 전량 매트릭스를 보아 rc=0 무출력이다.
+P10_HOOK="$PLUGIN/.githooks/pre-commit"
+if [ ! -f "$P10_HOOK" ]; then
+  skip "P10 .githooks/pre-commit 부재 — 소비측 핀 검증 불가"
+else
+  p10_out=$(cd "$PLUGIN" && SPECOPS_PROPAGATION_MATRIX="$FX/mismatch-pattern.jsonl" \
+    bash "$P10_HOOK" 2>&1); p10_rc=$?
+  if [ "$p10_rc" -eq 0 ] && ! printf '%s' "$p10_out" | grep -q 'PROPAGATION: FAIL'; then
+    ok "P10 pre-commit 이 잔류 SPECOPS_PROPAGATION_MATRIX 를 무시 — 무음 vacuous 차단"
+  else
+    nope "P10" "오염이 게이트를 지배한다(핀 소실 의심): rc=$p10_rc out=$p10_out"
+  fi
+fi
 
 finish
