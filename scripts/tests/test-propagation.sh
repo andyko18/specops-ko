@@ -37,30 +37,26 @@ else
   nope "P3" "rc=$rc out=$out"
 fi
 
-# P4: 의도적 깨짐 — 존재하지 않는 path → FAIL
-TD=$(mktemp -d) || exit 1
-trap 'rm -rf "$TD"' EXIT
-mkdir -p "$TD/scripts/_internal"
-cp "$MATRIX" "$TD/scripts/_internal/propagation-matrix.jsonl"
-# 가짜 PLUGIN 루트 — checker 가 dirname 기준이라 복사본으로 실행
-# checker 는 자신의 상대 PLUGIN 을 쓰므로, 임시 매트릭스만으로는 깨지지 않는다.
-# 대신: 매트릭스에 가짜 edge 한 줄 append 한 뒤 실제 checker 의 MATRIX 경로를
-# 환경으로 못 바꾸므로, 인라인 미니 체크로 동일 로직을 검증한다.
-fake_path="scripts/_internal/__no_such_propagation__.md"
-if [ ! -f "$PLUGIN/$fake_path" ] && ! grep -Eq 'never-match-zzz' "$PLUGIN/hooks/pretool-governance.sh"; then
-  ok "P4 negative fixture paths 유효(부재·미매치)"
+# ── P4 (AC-2): 파일 부재 edge → 체커가 실제로 FAIL 한다 ──
+# 종전엔 검출 로직을 여기서 재구현해 자기 자신을 검사했다(체커를 지워도 green).
+# 이제 픽스처를 물려 **실제 체커**를 부른다.
+FX="$PLUGIN/scripts/tests/fixtures/propagation"
+p4_out=$(SPECOPS_PROPAGATION_MATRIX="$FX/missing-path.jsonl" bash "$CHK" 2>&1); p4_rc=$?
+if [ "$p4_rc" -eq 1 ] && printf '%s' "$p4_out" | grep -q 'missing file'; then
+  ok "P4 파일 부재 edge → 체커 rc=1 + missing file (AC-2)"
 else
-  nope "P4" "fixture 가정 깨짐"
+  nope "P4" "rc=$p4_rc out=$p4_out"
 fi
-# 직접: missing file → FAIL 분기
-if ! grep -Eq 'never-match-zzz-wave-c' "$PLUGIN/hooks/pretool-governance.sh"; then
-  # simulate fail count logic
-  miss=0
-  [ -f "$PLUGIN/$fake_path" ] || miss=$((miss+1))
-  grep -Eq 'never-match-zzz-wave-c' "$PLUGIN/hooks/pretool-governance.sh" || miss=$((miss+1))
-  [ "$miss" -eq 2 ] && ok "P5 missing/mismatch 검출 로직" || nope "P5" "miss=$miss"
+
+# ── P5 (AC-2): 패턴 불일치 edge → 체커가 실제로 FAIL 한다 ──
+p5_out=$(SPECOPS_PROPAGATION_MATRIX="$FX/mismatch-pattern.jsonl" bash "$CHK" 2>&1); p5_rc=$?
+# 'missing /<pat>/' 는 런타임 조립이라 통짜 리터럴로 잠그지 않는다 — 두 정적 조각으로 나눈다
+#   ('missing /' 는 체커 소스에, 패턴 문자열은 픽스처 파일에 각각 실재).
+if [ "$p5_rc" -eq 1 ] && printf '%s' "$p5_out" | grep -q 'missing /' \
+   && printf '%s' "$p5_out" | grep -q 'never-match-zzz-wave-c'; then
+  ok "P5 패턴 불일치 edge → 체커 rc=1 + missing pattern (AC-2)"
 else
-  nope "P5" "pattern unexpectedly present"
+  nope "P5" "rc=$p5_rc out=$p5_out"
 fi
 
 # P6: README 에 매트릭스 유지 안내
