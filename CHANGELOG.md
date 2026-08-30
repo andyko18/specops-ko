@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **검사기가 검사되지 않던 두 곳에 이빨을 단다 (FID 20260830-metalayer-teeth, PR #19)** — 2026-08-30 적대감사 teeth 감사가 짚은 메타층 결함 2건이다. 둘 다 "게이트는 있는데 그 게이트가 망가져도 아무도 모르는" 같은 클래스다.
+  - **`check-propagation` 의 FAIL 경로가 한 번도 실행되지 않았다** — `test-propagation.sh` 의 음성 케이스 P4/P5 가 검출 로직을 **테스트 안에 재구현**해 자기 자신을 검사했고, `$TD` 샌드박스는 아무도 안 쓰는 dead setup 이었다. 체커를 4줄 거짓말쟁이(`echo PASS; exit 0`)로 바꿔도 스위트가 **8/8 green**. 근본 원인은 체커의 MATRIX 가 하드코딩이라 **테스트가 픽스처를 물릴 수 없던 것** — 테스트하기 어려운 구조가 곧 테스트되지 않는 구조였다. `SPECOPS_PROPAGATION_MATRIX` env override 를 열고 P4/P5 를 **실제 체커 호출**로 전환했다. 이 체커는 `pre-commit` 의 한 축이고, Claude Code PreToolUse 훅이 다른 도구의 커밋에 발화하지 않으므로 **도구 무관 게이트는 이 층뿐**이다.
+  - **`hardgate_classified` 가 꺾쇠 마커 보유 파일만 봤다** — 산문 "HARD GATE" 56개 중 40개(71%)가 규칙 밖이었고 마커 부착을 강제하는 층은 0곳. 즉 규칙의 회피법이 "마커를 안 쓰는 것"이었다. **전부를 규칙 안으로 넣는 방식은 기각** — 40곳에 마커를 기계적으로 다는 ritual 은 제거된 `§auto` 자기발급 면제표와 같은 실패 형태다. `.skill-size-baseline` 과 동형의 **래칫**으로 설계했다: 현 8건을 **개수가 아니라 이름 JSONL** 로 고정하고 증가만 막는다 — 예외 등록이 `--update-baseline` diff 에 남아 결정이 추적된다. 검출은 **파일 단위**(선언형 패턴 카운트는 새 표기법을 놓친다).
+  - ★ **리뷰 반영 중 같은 클래스의 신규 벡터를 스스로 열었다가 닫았다** — 테스트용으로 연 override 가 셸에 잔류하면 `pre-commit` 의 `cp_out=$(...)` 이 rc=0 경로에서 출력을 삼켜 **173-edge 게이트가 무음으로 1 edge** 가 된다(실측: 수정 전 훅이 1-edge FAIL 픽스처에 지배돼 rc=1). 소비측 2곳(`pre-commit`·P3)을 빈 env 로 고정했다. **그 핀 자체에도 이빨이 없어** 한 번 더 고쳤다 — 핀을 지워도 153 스위트가 전부 green 이었다(`test-git-hooks` 는 존재만 grep 하므로 구조적으로 둔감). 오염을 실제 주입하는 P10 을 넣고서야 변이가 갈린다.
+  - **산문 HARD GATE 검출 2벌 복제 제거** — writer(`--update-baseline`)와 checker 가 같은 판정을 각자 구현하고 있었다(한쪽만 넓어지면 무음 완화). `_hardgate_outside_skills()` 단일 SoT 로 통합하고 출력 **바이트 동일** + committed baseline 재생성 `cmp` 동일로 검증.
+  - **되돌려-관찰 5종 전부 실측**: 체커 무력화 → `PASS=7 FAIL=3`(종전 8/8 green) · baseline 밖 신규 산문 HARD GATE → `hardgate_classified: FAIL` + 이름 표시 · checker grep 닫는 따옴표 제거 → `H6.b` 만 FAIL · `pre-commit` 핀 제거 → `P10` 만 FAIL · P3 핀 제거 + 오염 export → `P3` 만 FAIL.
+  - **리뷰 판정 1건 정정**: Phase C 가 닫는 따옴표를 "양방향 차단"이라 보고하며 `planning-ko-v2` 격추를 근거로 들었으나, 실측 결과 그 방향은 따옴표에 **둔감**하다(원인 오귀속). 이빨은 `planning-k`(신규 ⊂ baseline) 방향에만 있다. v2 케이스는 baseline 쪽 접두로 매칭을 "단순화"하는 **별개 변이**를 잡으므로 함께 남겼다 — 두 방향이 서로 다른 변이를 잠근다.
+  - **안전 3장치**: `check-propagation.sh` 무인자 출력이 main 대비 **바이트 동일**(매 커밋 실행 경로) · baseline 초기값이 현재 실측이라 도입 즉시 green · **baseline 부재 시 SKIP**(FAIL 아님 — sandbox·revert 안전). 기존 마커 검사는 한 줄도 안 바꿨다(FR-6).
+  - 검증: `run-all` **153/153** `VERIFY: PASS`(스위트 151→153) · Phase B AC 7/7 MET · Phase C Critical 0 · `REVIEW-AUDIT: PASS (8건 대조)` · CI 3종(Linux·macOS run-all + shellcheck) 통과.
+  - 알려진 한계: **semgrep 이 rc=2 + stdout·stderr 양쪽 빈 출력으로 실패**해 외부 SAST 축은 미반영이다 — self-check + gitleaks 2종만이 `crit=0 high=0` 을 지지한다(도구 부재는 "검증 불가"이지 "안전"이 아님). `.githooks/pre-push` 는 stdin ref 계약이라 경계 왕복으로 확인하지 않고 `run-all` 실행으로 대신했다. backlog: **env 핀 계약이 `propagation-matrix.jsonl` 에 미등재**(두 곳에 사는 계약인데 매트릭스가 모른다 — 총계 파문을 한 FID 안에서 반복하지 않으려 후속으로 이관) · `scripts/README.md` 의 env 미문서화 · placeholder 스캐너가 백틱 안 꺾쇠를 오탐.
+
+
 ## [1.88.0] — 2026-08-30
 
 ### Fixed
