@@ -89,4 +89,21 @@ for want in skills/implementing-ko/SKILL.md skills/requesting-code-review-ko/SKI
 done
 [ -z "${el_missing:-}" ] && ok "P8 end-loaded 계약 4자 전파" || true
 
+# ── P9 (AC-1): MATRIX env override — 기본값 불변 + 픽스처 지정 동작 ──
+# 왜: 체커의 MATRIX 가 하드코딩이라 테스트가 픽스처를 물릴 수 없었고, 그래서 P4/P5 가
+#   검출 로직을 테스트 안에 재구현해 자기 자신을 검사했다(체커를 지워도 green).
+p9_tmp=$(mktemp -d) || exit 1
+printf '%s\n' '{"id":"p9-probe","edges":[{"path":"scripts/_internal/check-propagation.sh","must_match":"PROPAGATION"}]}' \
+  > "$p9_tmp/one-edge.jsonl"
+p9_out=$(SPECOPS_PROPAGATION_MATRIX="$p9_tmp/one-edge.jsonl" bash "$CHK" 2>&1); p9_rc=$?
+# 어서션은 **정적 존재 문자열**로 구성한다 — 'PASS (1 edges)' 는 런타임 조립이라
+#   사전검사(check-plan-predispatch)가 dangling-lock 으로 잡는다. OK 줄 수로 edge 수를 센다.
+p9_ok=$(printf '%s' "$p9_out" | grep -c 'PROPAGATION: OK')
+if [ "$p9_rc" -eq 0 ] && [ "${p9_ok:-0}" -eq 1 ]; then
+  ok "P9.a MATRIX override 적용 — 픽스처 1 edge 로 판정 (AC-1 b)"
+else
+  nope "P9.a" "rc=$p9_rc ok줄=${p9_ok:-0} out=$p9_out"
+fi
+rm -rf "$p9_tmp"
+
 finish
