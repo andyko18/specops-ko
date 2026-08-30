@@ -105,4 +105,25 @@ else
 fi
 rm -rf "$p9_tmp"
 
+# ── P10: 소비측 env 핀 — pre-commit 게이트가 잔류 오염에 지배되지 않는다 ──
+# 왜 이 케이스가 필요한가: P9 가 연 override 문은 **테스트용**인데, 셸에 export 가 잔류하면
+#   .githooks/pre-commit 의 `cp_out=$(... )` 가 rc=0 경로에서 출력을 삼켜 **173 edge 게이트가
+#   무음으로 1 edge** 가 된다. 그 핀(`SPECOPS_PROPAGATION_MATRIX= bash "$CP"`)은 pre-commit 과
+#   위 P3 **두 곳에** 사는 계약인데, 지워도 깨끗한 셸에서는 아무 스위트도 FAIL 하지 않았다 —
+#   즉 픽스에 이빨이 없었다. 오염을 실제로 주입해 그 상태에서만 갈리게 한다.
+# 픽스처는 T2 의 mismatch(1 edge · 반드시 FAIL)를 재사용한다 — 핀이 없으면 훅이 이걸 보고
+#   rc=1 + `PROPAGATION: FAIL` 을 뱉고, 핀이 있으면 전량 매트릭스를 보아 rc=0 무출력이다.
+P10_HOOK="$PLUGIN/.githooks/pre-commit"
+if [ ! -f "$P10_HOOK" ]; then
+  skip "P10 .githooks/pre-commit 부재 — 소비측 핀 검증 불가"
+else
+  p10_out=$(cd "$PLUGIN" && SPECOPS_PROPAGATION_MATRIX="$FX/mismatch-pattern.jsonl" \
+    bash "$P10_HOOK" 2>&1); p10_rc=$?
+  if [ "$p10_rc" -eq 0 ] && ! printf '%s' "$p10_out" | grep -q 'PROPAGATION: FAIL'; then
+    ok "P10 pre-commit 이 잔류 SPECOPS_PROPAGATION_MATRIX 를 무시 — 무음 vacuous 차단"
+  else
+    nope "P10" "오염이 게이트를 지배한다(핀 소실 의심): rc=$p10_rc out=$p10_out"
+  fi
+fi
+
 finish
