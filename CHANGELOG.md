@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.89.0] — 2026-08-31
+
 ### Fixed
 
 - **검사기가 검사되지 않던 두 곳에 이빨을 단다 (FID 20260830-metalayer-teeth, PR #19)** — 2026-08-30 적대감사 teeth 감사가 짚은 메타층 결함 2건이다. 둘 다 "게이트는 있는데 그 게이트가 망가져도 아무도 모르는" 같은 클래스다.
@@ -1512,7 +1514,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.88.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.89.0...HEAD
+[1.89.0]: https://github.com/andyko18/specops-ko/compare/v1.88.0...v1.89.0
 [1.88.0]: https://github.com/andyko18/specops-ko/compare/v1.87.0...v1.88.0
 [1.87.0]: https://github.com/andyko18/specops-ko/compare/v1.86.0...v1.87.0
 [1.86.0]: https://github.com/andyko18/specops-ko/compare/v1.85.0...v1.86.0
