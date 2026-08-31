@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.90.0] — 2026-08-31
+
 ### Fixed
 
 - **env 핀 계약을 원장에 등재 — 기록되지 않은 계약은 조용히 증발한다 (FID 20260831-propagation-contract-record, PR #20)** — v1.89.0 이 `SPECOPS_PROPAGATION_MATRIX` **빈-env 핀**을 만들었다(셸에 그 env 가 잔류하면 `pre-commit` 이 rc=0 경로에서 체커 출력을 삼켜 전량 게이트가 무음으로 1 edge 가 되는 벡터). 그런데 **그 핀 계약 자체는 원장에 넣지 않았다** — 계약이 `pre-commit` 과 `test-propagation` P3 **두 곳에 사는데** 매트릭스가 몰랐고, 한쪽만 지워지면 다른 쪽이 조용히 무의미해진다. v1.89.0 이 "기록되지 않은 계약은 조용히 증발한다"를 명제로 걸었으므로 자기모순이었고, 그 evidence.md backlog 1·2 가 이 FID 다.
@@ -1528,7 +1530,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.89.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.90.0...HEAD
+[1.90.0]: https://github.com/andyko18/specops-ko/compare/v1.89.0...v1.90.0
 [1.89.0]: https://github.com/andyko18/specops-ko/compare/v1.88.0...v1.89.0
 [1.88.0]: https://github.com/andyko18/specops-ko/compare/v1.87.0...v1.88.0
 [1.87.0]: https://github.com/andyko18/specops-ko/compare/v1.86.0...v1.87.0
