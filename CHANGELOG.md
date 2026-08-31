@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **env 핀 계약을 원장에 등재 — 기록되지 않은 계약은 조용히 증발한다 (FID 20260831-propagation-contract-record, PR #20)** — v1.89.0 이 `SPECOPS_PROPAGATION_MATRIX` **빈-env 핀**을 만들었다(셸에 그 env 가 잔류하면 `pre-commit` 이 rc=0 경로에서 체커 출력을 삼켜 전량 게이트가 무음으로 1 edge 가 되는 벡터). 그런데 **그 핀 계약 자체는 원장에 넣지 않았다** — 계약이 `pre-commit` 과 `test-propagation` P3 **두 곳에 사는데** 매트릭스가 몰랐고, 한쪽만 지워지면 다른 쪽이 조용히 무의미해진다. v1.89.0 이 "기록되지 않은 계약은 조용히 증발한다"를 명제로 걸었으므로 자기모순이었고, 그 evidence.md backlog 1·2 가 이 FID 다.
+  - `propagation-env-pin` 레코드 **5 edge** (173→178): 핀 2곳 · **핀의 이빨(P10)** · **판별력 스위트 자체** · README 규약. 3·4번째가 설계의 핵심이다 — 핀만 잠그면 **감시자가 지워졌을 때 핀은 남고 이빨만 사라진 상태**가 무음이 된다.
+  - **어려움은 등재가 아니라 판별력에 있었다.** `check-propagation` 은 파일 전체를 `grep -Eq` 하므로 패턴이 잠금 대상 파일 안에 **텍스트로 존재하기만 하면** 실제 배선을 지워도 통과한다. 순진한 후보 2종을 실측 기각했다 — 평문 토큰은 `test-propagation:111` **주석**에 매치하고, 넓은 형태(`out=$(SPECOPS_…`)는 P4·P5·P9 의 **픽스처 대입**까지 잡는다. 채택은 행두 앵커(`^cp_out=`·`^out=`) — 비앵커면 `cp_out=` 이 `out=` 패턴을 부분문자열로 뚫는다.
+  - ★ **같은 함정을 세 번 밟았고 세 번 다 리뷰가 잡았다.** ① **plan 1회차 Critical ×3** — 변이 테스트를 `test-propagation.sh` **안에** 두어 테스트가 쓴 변이 문자열이 잠금 패턴에 매치했다(리뷰어 실측 `adopted=2`). 실제 핀을 지워도 green — 없애려는 상태를 테스트가 스스로 만들었다. 리뷰어의 문자열 쪼개기(`'P10_''HOOK'`) 제안은 미래에 "정리"되면 조용히 깨지는 하드코딩이라 **기각**하고 구조로 고쳤다: **잠금을 시험하는 코드는 잠금 대상 밖에 산다**(`test-propagation-teeth.sh` 분리, `test-hardgate-ratchet.sh` 동형). ② **plan 2회차 Important** — 5번째 edge 도입이 AC-1 의 `4·177` 문면과 어긋나 `/verify` 가 틀린 기준으로 must 를 판정할 상태였다(clarify Q3 → AC-7 승계). ③ **Phase C Important** — `T1.e` 가 앵커를 **총계로만** 세서, 핀을 비앵커화하며 다른 edge 에 `^` 를 붙이면 총계 2 가 유지돼 **PASS 인 채 보호만 사라졌다**. path·접두·env 토큰 3중 개별 단언으로 교체.
+  - **되돌려-관찰 8종 전부 실측**: 핀 2곳·이빨 각각 제거 → **해당 edge 1건만** FAIL · 핀 제거 후 패턴 대조(채택 0 / 기각 ≥1 생존 — 절대 건수를 세지 않는다) · 레코드 통째 제거 → `PASS=1 FAIL=4` · 앵커 드리프트 A·B·C **3종 전부 격추**(셋 다 구 방식이면 통과) · 백업 `cp` 실패 주입 → `rc=97` 시끄러운 FAIL + 대상 무변조 · README 핀 예시만 제거 → README edge **단독** FAIL.
+  - **중단 안전의 한계를 고백한다**: 변이 활성 창에서 SIGTERM·SIGINT 는 완전 복원되나 **SIGKILL 은 잔류**한다(trap 의 본질적 한계). 사후 안전망은 이 FID 가 추가한 원장 edge — 다음 `pre-commit` 이 격추함을 실측했다. 주석에 예외를 명시해 과장된 안전 주장을 남기지 않았다.
+  - **기각**: 원장 경로 env override. 구현자가 전용 변수 `SPECOPS_TEETH_MATRIX` 를 제안했고 소비측 변수 재사용을 피한 판단은 옳았으나(`run-all` 이 env 를 핀하지 않아 이 스위트가 유일한 비핀 소비자가 됐을 것 — 실측 0건), **이름만 다를 뿐 run-all 이 돌리는 스위트에 비핀 override 문을 새로 뚫는 것**이라 같은 클래스다. 자기 자신은 핀할 수 없다.
+  - **주석의 개수 하드코딩 제거**: `pre-commit:39`·`test-propagation:110` 의 `173 edge` 는 메커니즘 설명에 박힌 개수라 원장이 늘 때마다 틀린 말이 된다 → `전량 edge`. 반면 `CLAUDE.md`·`pre-push` 의 스위트 수는 **사람에게 비용 규모를 알리는 추정치**라 갱신이 정상 운용(153→154, run-all 실측 총계).
+  - 검증: `run-all` **154/154** `VERIFY: PASS` · AC **8/8 MET** · Phase B/C Critical 0 · `REVIEW-AUDIT: PASS (6건 대조)` · CI 3종(Linux·macOS·shellcheck) 통과 · **AC-R-1**: main 원장 대조에서 신규 5줄+총계줄 **외 차이 0**.
+  - 알려진 한계: semgrep 이 rc=2 + 빈 출력으로 실패해 외부 SAST 축 미반영(v1.89.0 과 동일 관찰, 미규명) — self-check + gitleaks 2종만이 `crit=0 high=0` 을 지지한다. `pre-push` 는 stdin ref 계약이라 경계 왕복 미검증(`run-all` 실행으로 대체). backlog: `must_match` 판별력 기계 검사기(전 원장 대상 — 이번에 사람이 세 번 잡은 것을 기계화) · placeholder 스캐너가 백틱 안 꺾쇠를 오탐.
+
+
 ## [1.89.0] — 2026-08-31
 
 ### Fixed
