@@ -22,7 +22,7 @@ MATRIX="${1:-$PLUGIN/scripts/_internal/propagation-matrix.jsonl}"
 [ -f "$MATRIX" ] || { echo "MATRIX-PATTERN: FAIL matrix 부재 ($MATRIX)" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "MATRIX-PATTERN: SKIP jq 미설치" >&2; exit 0; }
 
-fail=0; checked=0; skipped=0
+fail=0; checked=0; skipped=0; unclassified=0
 
 while IFS= read -r line; do
   [ -n "$line" ] || continue
@@ -36,11 +36,16 @@ while IFS= read -r line; do
     i=$((i+1))
     f="$PLUGIN/$path"
     [ -f "$f" ] || continue   # 파일 부재는 check-propagation 의 관할 — 여기서 중복 보고 안 한다
-    # 게이팅: 코드 파일만. `.md` 는 **전체가 산문**이라 "주석 전용"이 정의되지 않는다.
-    #   실측 분포(2026-08-31): .sh 109 · 확장자없음 2(훅) · .md 67
+    # 게이팅 3분류 — 방향이 **산문 allowlist** 다(코드 allowlist 아님). 검사할 확장자만
+    #   열거하면, 미래에 `.bash`·`.zsh` 같은 새 스크립트가 원장에 오를 때 "산문 skip" 으로
+    #   **무음 분류**되고 카운터만 오른다 — 무음을 잡으러 온 lint 가 자기 게이팅에서 무음을
+    #   만드는 구조다. 그래서 산문만 닫고, 나머지 미지의 것은 반드시 어딘가로 **드러낸다**.
+    # ★ 미분류는 **FAIL 이 아니다**: 새 확장자는 정당할 수 있어 차단하면 false-block 이고,
+    #   목적은 차단이 아니라 **보이게 하는 것**이다(출력에 숫자로 노출 — 사람이 분류표를 갱신).
     case "$path" in
-      *.sh|.githooks/*) ;;
-      *) skipped=$((skipped+1)); continue ;;
+      *.md|*.txt|*.rst) skipped=$((skipped+1)); continue ;;              # 산문: 주석 문법이 없어 "주석 전용"이 정의되지 않는다
+      *.sh|*.bash|*.zsh|*.py|*.rb|*.yaml|*.yml|*.toml|.githooks/*) ;;    # `#` 주석 계열: 검사한다
+      *) unclassified=$((unclassified+1)); continue ;;                   # 그 외: 조용히 넘기지 않고 표면화
     esac
     checked=$((checked+1))
     # 선언형 주석 앵커 — 의도적으로 주석을 잠그는 경우다. **면제 필드가 아니라 패턴 자체가
@@ -57,8 +62,8 @@ while IFS= read -r line; do
 done < "$MATRIX"
 
 if [ "$fail" -gt 0 ]; then
-  echo "MATRIX-PATTERN: FAIL ($fail 위반 · 검사 $checked · 산문 skip $skipped)"
+  echo "MATRIX-PATTERN: FAIL ($fail 위반 · 검사 $checked · 산문 skip $skipped · 미분류 $unclassified)"
   exit 1
 fi
-echo "MATRIX-PATTERN: OK (검사 $checked · 산문 skip $skipped)"
+echo "MATRIX-PATTERN: OK (검사 $checked · 산문 skip $skipped · 미분류 $unclassified)"
 exit 0

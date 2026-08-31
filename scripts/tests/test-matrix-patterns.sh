@@ -79,14 +79,55 @@ else
 fi
 
 # ── M6: 게이팅 계약 — 실 원장의 검사/skip 건수가 실측 분포와 일치 (AC-2) ──
-#   숫자를 박지 않는다(원장이 늘면 stale). **검사+skip = 전체 edge 수** 항등만 단언한다.
+#   숫자를 박지 않는다(원장이 늘면 stale). **검사+skip+미분류 = 전체 edge 수** 항등만 단언한다.
 tot=$(jq -rs 'map(.edges|length)|add' "$PLUGIN/scripts/_internal/propagation-matrix.jsonl")
 n_chk=$(printf '%s' "$m5" | sed -n 's/.*검사 \([0-9]*\) .*/\1/p')
 n_skp=$(printf '%s' "$m5" | sed -n 's/.*skip \([0-9]*\).*/\1/p')
-if [ -n "${n_chk:-}" ] && [ -n "${n_skp:-}" ] && [ $((n_chk + n_skp)) -eq "${tot:-0}" ]; then
-  ok "M6 검사+skip = 전체 edge 수 ($n_chk + $n_skp = $tot) — 조용히 빠뜨린 edge 0 (AC-2)"
+n_unc=$(printf '%s' "$m5" | sed -n 's/.*미분류 \([0-9]*\).*/\1/p')
+#   ★ 미분류 파티션을 항등에 **포함**한다. 빼면 정당한 새 확장자 1건이 원장에 오르는 순간
+#     M6 가 FAIL 하고 pre-push 가 막힌다 — lint 에서 치운 false-block 을 스위트로 옮기는 꼴이다.
+#     불변식("조용히 빠뜨린 edge 0")은 그대로고 파티션만 3분할을 따라간다.
+if [ -n "${n_chk:-}" ] && [ -n "${n_skp:-}" ] && [ -n "${n_unc:-}" ] \
+   && [ $((n_chk + n_skp + n_unc)) -eq "${tot:-0}" ]; then
+  ok "M6 검사+skip+미분류 = 전체 edge 수 ($n_chk + $n_skp + $n_unc = $tot) — 조용히 빠뜨린 edge 0 (AC-2)"
 else
-  nope "M6" "검사=$n_chk skip=$n_skp 전체=$tot — 합이 안 맞으면 어딘가 조용히 누락됐다"
+  nope "M6" "검사=$n_chk skip=$n_skp 미분류=$n_unc 전체=$tot — 합이 안 맞으면 어딘가 조용히 누락됐다"
+fi
+
+# ── M7: 미분류 확장자 → 조용히 산문 skip 하지 않고 별도 카운터로 표면화 (Phase C) ──
+#   게이팅이 코드 allowlist 방향이면 `.jsonl` 같은 미지 확장자가 "산문 skip" 으로 무음 분류되고
+#   **어떤 어서션도 깨지지 않는다**(M6 항등조차 성립). 산문 allowlist 로 뒤집었으니 여기서는
+#   미분류 1 로 **드러나야** 한다. 차단(FAIL)이 아니라 rc=0 + 노출이 계약이다.
+printf '%s\n' '{"id":"fx-unclassified","edges":[{"path":"scripts/_internal/propagation-matrix.jsonl","must_match":"must_match"}]}' > "$tmp/unclassified.jsonl"
+m7=$(_lint_run "$tmp/unclassified.jsonl"); m7_rc=$?
+#   숫자를 **파싱해 비교**한다 — 출력 문구는 런타임 조립이라 통짜 리터럴 grep 은 금지(M4 동일).
+m7_chk=$(printf '%s' "$m7" | sed -n 's/.*검사 \([0-9]*\) .*/\1/p')
+m7_skp=$(printf '%s' "$m7" | sed -n 's/.*skip \([0-9]*\).*/\1/p')
+m7_unc=$(printf '%s' "$m7" | sed -n 's/.*미분류 \([0-9]*\).*/\1/p')
+if [ "$m7_rc" -eq 0 ] \
+   && [ "${m7_chk:-x}" -eq 0 ] 2>/dev/null \
+   && [ "${m7_skp:-x}" -eq 0 ] 2>/dev/null \
+   && [ "${m7_unc:-0}" -eq 1 ] 2>/dev/null; then
+  ok "M7 미분류 확장자 → 산문 skip 으로 삼키지 않고 미분류 1 로 표면화 (Phase C)"
+else
+  nope "M7" "rc=$m7_rc 검사=${m7_chk:-미파싱} skip=${m7_skp:-미파싱} 미분류=${m7_unc:-미파싱} / $m7"
+fi
+
+# ── M8: 주석 계열 판정 — 확장자 없는 훅이 검사 대상으로 남는다 (Phase C) ──
+#   M1~M6 은 `.sh` 만 덮는다. 확장자가 없어 **경로로만** 분류되는 `.githooks/*` 가 3분류
+#   재작성 후에도 미분류로 미끄러지지 않는지 본다. `^cp_out=` 는 훅의 실코드 줄이다(주석 아님).
+printf '%s\n' '{"id":"fx-hook","edges":[{"path":".githooks/pre-commit","must_match":"^cp_out="}]}' > "$tmp/hook.jsonl"
+m8=$(_lint_run "$tmp/hook.jsonl"); m8_rc=$?
+m8_chk=$(printf '%s' "$m8" | sed -n 's/.*검사 \([0-9]*\) .*/\1/p')
+m8_skp=$(printf '%s' "$m8" | sed -n 's/.*skip \([0-9]*\).*/\1/p')
+m8_unc=$(printf '%s' "$m8" | sed -n 's/.*미분류 \([0-9]*\).*/\1/p')
+if [ "$m8_rc" -eq 0 ] \
+   && [ "${m8_chk:-0}" -eq 1 ] 2>/dev/null \
+   && [ "${m8_skp:-x}" -eq 0 ] 2>/dev/null \
+   && [ "${m8_unc:-x}" -eq 0 ] 2>/dev/null; then
+  ok "M8 확장자 없는 훅(.githooks/*) → 주석 계열로 분류돼 검사 1 (Phase C)"
+else
+  nope "M8" "rc=$m8_rc 검사=${m8_chk:-미파싱} skip=${m8_skp:-미파싱} 미분류=${m8_unc:-미파싱} / $m8"
 fi
 
 finish
