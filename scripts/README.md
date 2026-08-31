@@ -278,3 +278,12 @@ bash scripts/_internal/check-propagation.sh
 신규 게이트·allowlist·Critical cap 등 **소비처가 있는 계약**을 추가·변경할 때 `propagation-matrix.jsonl`에 edge 행을 함께 갱신합니다. `scripts/tests/test-propagation.sh`가 run-all에 포함됩니다.
 
 **edge 는 계약 토큰이 아니라 소비 문자열까지 잡아야 합니다.** 실측(44cd095): `batch-review-skip` edge 가 토큰만 요구해, revert 가 `commands/start-all.md`에서 `risk-profile.json` 경로만 떨어뜨렸을 때 스캔은 통과하고 `test-screen-generation-gate` T1.e 만 하루 red 로 남았습니다. 소비처가 **읽는 파일 경로·필드명**을 edge 에 포함하세요.
+
+**`SPECOPS_PROPAGATION_MATRIX`** — 매트릭스 경로를 덮는 env 입니다. **테스트가 픽스처를 물려 체커의 FAIL 경로를 실제로 실행**하려고 열어 뒀습니다(`test-propagation.sh` P4·P5·P9). 그래서 **소비측은 반드시 빈 값으로 핀해야 합니다** — 셸에 이 env 가 잔류하면 전량 매트릭스 대신 1-edge 픽스처를 보게 되고, `pre-commit` 은 rc=0 경로에서 체커 출력을 삼키므로 **게이트가 무음으로 축소**됩니다.
+
+```bash
+# 소비측 의무 — 빈 대입으로 핀한다. `:-` 가 unset 과 empty 를 같게 취급하므로 기본 매트릭스로 fallback 한다.
+cp_out=$(SPECOPS_PROPAGATION_MATRIX= bash "$CP" 2>&1)
+```
+
+이 핀 계약 자체는 `propagation-env-pin` 레코드가 잠급니다 — 핀 2곳과 그 이빨(`test-propagation.sh` P10)과 판별력 스위트(`test-propagation-teeth.sh`)와 이 문단까지 5 edge. 패턴은 **행두 앵커**입니다: 비앵커면 `cp_out=` 이 `out=` 패턴을 뚫고, 평문 토큰은 이 문단 같은 **산문에 false-match** 해 잠금이 무음 사망합니다.
