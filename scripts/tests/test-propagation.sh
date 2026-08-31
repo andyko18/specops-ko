@@ -14,7 +14,7 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 
 # P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="ac-format-switch,active-fid-producer,assumption-digest-deterministic,batch-gate-propagation,batch-id-active-resume,batch-queue-init,batch-review-skip,bounded-run-watchdog,decisions-ledger-resolved,declared-testcmd-anchor,design-critical-cap,doctor-readonly-always-zero,end-loaded-skip,foundation-before-batch,foundation-fr-boundary,foundation-if-baseline,foundation-manifest-gate,foundation-merged-before-batch,foundation-shell-baseline,friction-aggregate-default,friction-scope-class,gbrain-confidence-example,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,p2t-generator-wiring,p2t-must-ac-gate,predispatch-check-wiring,r1-docs-only-scope,receipt-mandatory,reconcile-review-skip,regression-ac-gate,release-push-recursion-guard,release-ready-hard,review-audit-structured,review-presence-warn,review-verdict-contract,skip-citation-sot,tdd-red-observation,template-example-detectable,uiux-asset-adapter"
+expected="ac-format-switch,active-fid-producer,assumption-digest-deterministic,batch-gate-propagation,batch-id-active-resume,batch-queue-init,batch-review-skip,bounded-run-watchdog,decisions-ledger-resolved,declared-testcmd-anchor,design-critical-cap,doctor-readonly-always-zero,end-loaded-skip,foundation-before-batch,foundation-fr-boundary,foundation-if-baseline,foundation-manifest-gate,foundation-merged-before-batch,foundation-shell-baseline,friction-aggregate-default,friction-scope-class,gbrain-confidence-example,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,p2t-generator-wiring,p2t-must-ac-gate,predispatch-check-wiring,propagation-env-pin,r1-docs-only-scope,receipt-mandatory,reconcile-review-skip,regression-ac-gate,release-push-recursion-guard,release-ready-hard,review-audit-structured,review-presence-warn,review-verdict-contract,skip-citation-sot,tdd-red-observation,template-example-detectable,uiux-asset-adapter"
 if [ "$ids" = "$expected" ]; then
   ok "P1 matrix id 정렬 일치"
 else
@@ -107,7 +107,7 @@ rm -rf "$p9_tmp"
 
 # ── P10: 소비측 env 핀 — pre-commit 게이트가 잔류 오염에 지배되지 않는다 ──
 # 왜 이 케이스가 필요한가: P9 가 연 override 문은 **테스트용**인데, 셸에 export 가 잔류하면
-#   .githooks/pre-commit 의 `cp_out=$(... )` 가 rc=0 경로에서 출력을 삼켜 **173 edge 게이트가
+#   .githooks/pre-commit 의 `cp_out=$(... )` 가 rc=0 경로에서 출력을 삼켜 **전량 edge 게이트가
 #   무음으로 1 edge** 가 된다. 그 핀(`SPECOPS_PROPAGATION_MATRIX= bash "$CP"`)은 pre-commit 과
 #   위 P3 **두 곳에** 사는 계약인데, 지워도 깨끗한 셸에서는 아무 스위트도 FAIL 하지 않았다 —
 #   즉 픽스에 이빨이 없었다. 오염을 실제로 주입해 그 상태에서만 갈리게 한다.

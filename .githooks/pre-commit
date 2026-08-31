@@ -36,7 +36,7 @@ fi
 # ★ SPECOPS_PROPAGATION_MATRIX 를 **의도적으로 비운다** — 지우지 마라.
 #   env 는 테스트가 픽스처를 물리려고 열어둔 문인데, 셸에 export 가 잔류하면 이 게이트가
 #   1-edge 픽스처를 보고 `PASS (1 edges)` 로 통과한다. 아래 rc=0 경로는 출력을 삼키므로
-#   **173 edge 게이트가 무음으로 1 edge** 가 된다(실측: 오염 export 시 pre-commit rc=0 무출력).
+#   **전량 edge 게이트가 무음으로 1 edge** 가 된다(실측: 오염 export 시 pre-commit rc=0 무출력).
 #   빈 문자열이면 체커의 `${SPECOPS_PROPAGATION_MATRIX:-<기본경로>}` 가 기본 매트릭스로
 #   fallback 한다(`:-` 는 unset 과 empty 를 같게 취급). 게이트는 항상 전량을 본다.
 cp_out=$(SPECOPS_PROPAGATION_MATRIX= bash "$CP" 2>&1); cp_rc=$?

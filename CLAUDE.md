@@ -8,7 +8,7 @@ specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이�
 
 ## 테스트 명령
 
-> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(~340s — 153 스위트 실측, 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
+> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(~340s — 154 스위트 실측, 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
 
 ```bash
 # 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
