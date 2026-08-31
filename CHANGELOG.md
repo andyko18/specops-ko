@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.91.0] — 2026-08-31
+
 ### Added
 
 - **원장 패턴 판별력 lint — 사람이 세 번 잡은 것을 기계가 본다 (FID 20260831-matrix-pattern-lint, PR #21)** — `must_match` 가 대상 파일의 **주석 줄에서만** 매치하면 그 edge 는 **실제 배선을 지우고 주석만 남겨도 통과**한다. 태어날 때부터 무음이다. gbrain `20260814` 가 이 클래스를 기록했는데 **강제층이 0곳**이라 원장에 2건이 살아남았고, 직전 두 FID 에서도 사람(plan-reviewer·Phase C·advisor)이 같은 클래스를 세 번 잡았다 — 인사이트가 있어도 기계화되지 않으면 반복된다.
@@ -1548,7 +1550,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.90.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.91.0...HEAD
+[1.91.0]: https://github.com/andyko18/specops-ko/compare/v1.90.0...v1.91.0
 [1.90.0]: https://github.com/andyko18/specops-ko/compare/v1.89.0...v1.90.0
 [1.89.0]: https://github.com/andyko18/specops-ko/compare/v1.88.0...v1.89.0
 [1.88.0]: https://github.com/andyko18/specops-ko/compare/v1.87.0...v1.88.0
