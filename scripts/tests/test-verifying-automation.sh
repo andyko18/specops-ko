@@ -559,6 +559,44 @@ for token in "npx" "exec" "cd " "bare"; do
 done
 [ "$pass_h" = 1 ] && ok "T-subdir.h SKIP 힌트 새 지원형 광고 (Imp2)" || nope "T-subdir.h" "hint='$hint'"
 
+# ── T-wl: whitelist 접두·플래그 확장 (FID 20260903-runner-whitelist-prefix) ──
+#   정규식은 **파일에서 읽는다** — 테스트가 자기 사본을 들면 그게 4번째 드리프트 지점이 된다.
+_wl_pat=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/scripts/_internal/run-verification.sh" | head -1)
+_wl_chk() {  # <cmd> <기대 PASS|BLOCK> <id>
+  local c="$1" want="$2" id="$3" got
+  if [[ "$c" =~ $_wl_pat ]] && [[ "$c" != *..* ]]; then got=PASS; else got=BLOCK; fi
+  if [ "$got" = "$want" ]; then
+    PASS=$((PASS+1)); echo "PASS $id ($want) $c"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL $id 기대 $want 실제 $got — $c"
+  fi
+}
+# AC-1 관측 3계열
+_wl_chk 'pnpm --dir frontend test chart-wiring'                  PASS  T-wl.a
+_wl_chk 'pnpm --filter @ssl-portal/web test'                     PASS  T-wl.b
+_wl_chk 'poetry run pytest tests/unit/test_scheduler.py -q'      PASS  T-wl.c
+# AC-2 미관측 3형태
+_wl_chk 'uv run pytest tests/unit -q'                            PASS  T-wl.d
+_wl_chk 'npm run test:unit'                                      PASS  T-wl.e
+_wl_chk 'yarn workspace web test'                                PASS  T-wl.f
+# AC-3 우회 차단
+_wl_chk 'pnpm --dir ../evil test'                                BLOCK T-wl.g
+_wl_chk 'pnpm --dir /etc test'                                   BLOCK T-wl.h
+_wl_chk 'pnpm --filter -rf test'                                 BLOCK T-wl.i
+# AC-3 보강 — -w 는 매니저별 의미 충돌로 의도적 제외 (plan-review I-2)
+_wl_chk 'pnpm -w test'                                           BLOCK T-wl.j
+# AC-R-1 baseline 6형태 불변
+_wl_chk 'bash scripts/tests/run-all.sh'                          PASS  T-wl.k
+_wl_chk 'pytest tests/unit -q'                                   PASS  T-wl.l
+_wl_chk 'npm test'                                               PASS  T-wl.m
+_wl_chk 'npm run test'                                           PASS  T-wl.n
+_wl_chk 'cd apps/web && npx vitest run'                          PASS  T-wl.o
+_wl_chk 'pnpm exec vitest run'                                   PASS  T-wl.p
+# 음성 회귀
+_wl_chk 'echo pytest'                                            BLOCK T-wl.q
+_wl_chk 'rm -rf /'                                               BLOCK T-wl.r
+_wl_chk 'pnpm vitest'                                            BLOCK T-wl.s
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
