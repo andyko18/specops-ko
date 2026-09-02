@@ -2,7 +2,7 @@
 # specops-ko — DAG 파서 (Sourced library)
 #
 # 7 함수 namespace:
-#   dag::extract_yaml      <tasks.md>                        — `## 의존 그래프` 섹션의 YAML fenced block stdout
+#   dag::extract_yaml      <tasks.md>                        — DAG YAML fenced block stdout (2단 탐색: 헤더 → tasks: 키)
 #   dag::list_leaves       <yaml-string>                     — depends_on=[] 인 task id (newline 구분)
 #   dag::outputs_disjoint  <yaml-string> <id1> <id2>         — id1·id2 outputs 교집합 0이면 exit 0
 #   dag::find_independent_batch <yaml-string>                — 절대 leaf 2개+ + outputs disjoint 인 batch (newline)
@@ -31,22 +31,59 @@ __dag_check_python() {
 }
 
 # dag::extract_yaml <tasks.md>
-# `## 의존 그래프` 섹션 안의 ```yaml ... ``` fenced block 본문만 stdout
-# 섹션 또는 yaml block 부재 시 빈 출력 + stderr WARN
+# DAG YAML fenced block 본문만 stdout. 2단 탐색:
+#   1단 — `## 의존 그래프` 섹션 안의 ```yaml ... ``` 펜스 (기존 경로 · 바이트 무변화)
+#   2단 — 1단이 빈손일 때만: 문서 전체의 ```yaml 펜스 중 `tasks:` 키를 가진 첫 번째
+#         (후보 2개 이상이면 첫 번째 채택 + stderr WARN 1줄 · stdout 은 오염하지 않는다)
+# 둘 다 빈손이면 빈 출력 + exit 0 (WARN 없음 — 호출측 sequential fallback).
+# 2단 한계 2가지 (문서-코드 격차 방지 — FID 20260902-dag-yaml-header-free):
+#   - `tasks:` 판별은 `^tasks:[[:space:]]*$` 엄격 매칭 — `tasks: []`·`tasks:  # 주석` 은 후보 아님.
+#   - 중첩 펜스 미인식 — ````markdown 외곽 펜스 안의 ```yaml 예시도 후보로 센다 (^``` 행두 매칭).
 dag::extract_yaml() {
   local md="$1"
   if [ ! -f "$md" ]; then
     echo "dag::extract_yaml: 파일 없음 — $md" >&2
     return 1
   fi
-  # awk: ## 의존 그래프 헤더 발견 후 ```yaml ~ ``` 블록 추출
-  awk '
+  # 1단: ## 의존 그래프 헤더 발견 후 ```yaml ~ ``` 블록 추출 (기존 awk 무변화)
+  #   trailing newline 보존을 위해 'X' sentinel — AC-2 바이트 동일 계약.
+  local out
+  out=$(awk '
     /^## 의존 그래프/ { in_section = 1; next }
     /^## / && in_section { in_section = 0 }
     in_section && /^```yaml/ { in_yaml = 1; next }
     in_yaml && /^```/ { in_yaml = 0; exit }
     in_yaml { print }
-  ' "$md"
+  ' "$md"; printf 'X')
+  out=${out%X}
+  if [ -n "$out" ]; then printf '%s' "$out"; return 0; fi
+
+  # 2단: 헤더 부재 — 문서 전체의 ```yaml 펜스 중 `tasks:` 키를 가진 첫 번째
+  #   (산문 헤더가 파서의 진입 조건이던 결함 — 20260902-dag-yaml-header-free)
+  local cand
+  cand=$(awk '
+    /^```yaml/ { n++; inb = 1; buf = ""; has = 0; next }
+    inb && /^```/ {
+      inb = 0
+      if (has) { print "@@BLOCK@@" n; printf "%s", buf }
+      next
+    }
+    inb {
+      buf = buf $0 "\n"
+      if ($0 ~ /^tasks:[[:space:]]*$/) has = 1
+    }
+  ' "$md")
+  [ -n "$cand" ] || return 0
+
+  local count
+  count=$(printf '%s\n' "$cand" | grep -c '^@@BLOCK@@')
+  if [ "$count" -gt 1 ]; then
+    echo "dag::extract_yaml: WARN — tasks: 후보 yaml 펜스 ${count}개, 첫 번째 채택 ($md)" >&2
+  fi
+  printf '%s\n' "$cand" | awk '
+    /^@@BLOCK@@/ { seen++; next }
+    seen == 1 { print }
+  '
 }
 
 # dag::list_leaves <yaml-string>

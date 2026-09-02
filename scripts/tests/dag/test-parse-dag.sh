@@ -28,6 +28,42 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b"
 fi
 
+# T1.c — 헤더 부재 + tasks: 키 펜스 → 추출 성공 (AC-1)
+yaml=$(dag::extract_yaml "$FIXTURES/08-no-header.md")
+if printf '%s' "$yaml" | grep -q 'id: T1' && printf '%s' "$yaml" | grep -q 'test_command'; then
+  PASS=$((PASS+1)); echo "PASS T1.c 헤더 부재 fixture → tasks: 펜스 채택"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.c 헤더 부재 fixture 추출 실패"
+fi
+
+# T1.d — 헤더 부재 + tasks: 키 없는 펜스 → 빈 출력 (AC-3 오탐 차단)
+yaml=$(dag::extract_yaml "$FIXTURES/09-no-header-no-taskskey.md")
+if [ -z "$yaml" ]; then
+  PASS=$((PASS+1)); echo "PASS T1.d tasks: 키 없는 펜스는 미채택"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.d 무관 펜스를 DAG 로 오인"
+fi
+
+# T1.e — 후보 복수 → 첫 번째 채택 + stderr WARN, stdout 무오염 (AC-4)
+err=$(mktemp)
+yaml=$(dag::extract_yaml "$FIXTURES/10-no-header-multi.md" 2>"$err")
+if printf '%s' "$yaml" | grep -q 'id: FIRST' \
+   && ! printf '%s' "$yaml" | grep -q 'id: SECOND' \
+   && grep -q 'WARN' "$err"; then
+  PASS=$((PASS+1)); echo "PASS T1.e 복수 후보 → 첫 펜스 + stderr WARN"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.e 복수 후보 처리"
+fi
+rm -f "$err"
+
+# T1.f — 헤더 있으면 기존 경로 우선 (AC-2 회귀)
+yaml=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md")
+if printf '%s' "$yaml" | grep -q 'tasks:' && ! printf '%s' "$yaml" | grep -q '^## '; then
+  PASS=$((PASS+1)); echo "PASS T1.f 헤더 경로 우선 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.f 헤더 경로 회귀"
+fi
+
 # --- T2: list_leaves ---
 # T2.a — fixture 01 두 leaf
 yaml=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md")
