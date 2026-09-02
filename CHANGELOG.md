@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **산문 헤더가 DAG 파서의 진입 조건이던 결함 (FID 20260902-dag-yaml-header-free)** — `dag::extract_yaml` 은 `## 의존 그래프` 헤더 아래의 yaml 펜스만 찾았다. 헤더 없이 `tasks:` 키 펜스만 가진 `tasks.md` 는 **DAG 가 없는 문서로 취급**돼 조용히 지나갔다. 이제 헤더가 없으면 문서 전체의 yaml 펜스 중 `tasks:` 키(`^tasks:` 행두 앵커)를 가진 **첫 번째**를 채택한다(후보 복수면 stderr WARN 1회, stdout 무오염). 헤더가 있으면 기존 경로가 그대로 우선하고 출력은 **바이트 동일**하다.
+  - ★ **하류 거동 변화 — 종전 무음 통과가 FAIL 로 바뀔 수 있다.** 헤더 없는 `tasks.md` 가 이 릴리즈부터 **DAG 로 인식**되므로, 그 문서에 대해 `check-foundation-reuse.sh`·`record-task-receipt.sh` 가 **비로소 실제 판정을 내리기 시작한다**. 특히 `foundation-manifest.md` 를 가진 하류 프로젝트에서는 종전 `PASS rc=0`(DAG 없음 → 검사 대상 없음) 이던 문서가 `FAIL rc=1` 로 바뀌어 **구현 진입이 막힐 수 있다**. 계약상 정당한 판정이지만 사용자에게는 회귀로 보인다 — 실측(Phase C, 호출자 6곳 구/신 대조)에서 확인된 유일한 새 FAIL 경로다. FAIL 이 나면 그 `tasks.md` 의 foundation 재사용 선언을 실제로 채우면 된다.
+  - 나머지 호출자는 무해: `extract-test-commands` 는 의도한 개선(0건 rc=1 → 명령 출력 rc=0), `check-task-receipt`·`risk-profile` 은 무변화, `check-tdd-red` 는 fail-open 유지. **새 fail-open 0건.**
+  - 이 저장소 안에도 눈멀어 있던 문서가 1건 있었다 — `.specops/20260713-heredoc-false-block/tasks.md` (구 0B → 신 160B 진짜 DAG). 결함 클래스가 가설이 아니라 실재였음의 증거다.
+  - ★ **되돌려-관찰 5종 격추**(Phase C 지적 I-1 반영): 1단 무력화(`if false`) → **T1.g·T1.i FAIL** · `X` sentinel 을 처방 코드(`printf '%s\n' "$out"`)로 되돌림 → **T1.i FAIL**(37B vs 39B) · WARN 2회(별도 2줄/한 줄 2회 **양쪽**) → **T1.e FAIL** · WARN 조건 `-gt 1`→`-gt 0` → **T1.c FAIL** · `^tasks:` 앵커 제거 → **T1.d FAIL**. 직전 스위트는 이 5종이 **전부 생존**했다 — AC-2(헤더 우선·바이트 동일)를 아무도 잠그지 않았다는 뜻이라, 헤더 앞에 별개 `tasks:` 펜스를 둔 fixture 와 펜스 끝 빈 줄을 담은 골든 파일(`cmp` 39B)을 신설했다.
+  - **`grep -c` 가 아니라 등장 횟수로 센다** — WARN 을 한 줄에 두 번 출력하는 변이는 줄 수 세기로는 잡히지 않는다.
+
 ## [1.91.0] — 2026-08-31
 
 ### Added

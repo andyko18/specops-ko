@@ -39,6 +39,8 @@ __dag_check_python() {
 # 2단 한계 2가지 (문서-코드 격차 방지 — FID 20260902-dag-yaml-header-free):
 #   - `tasks:` 판별은 `^tasks:[[:space:]]*$` 엄격 매칭 — `tasks: []`·`tasks:  # 주석` 은 후보 아님.
 #   - 중첩 펜스 미인식 — ````markdown 외곽 펜스 안의 ```yaml 예시도 후보로 센다 (^``` 행두 매칭).
+#   - 2단은 **닫힌 펜스만** 채택하고(닫는 ``` 이 없으면 후보 아님), 1단은 EOF 까지 출력한다.
+#     비대칭이나 안전 방향 — 2단이 미닫힘 펜스로 문서 꼬리를 통째로 YAML 로 오인하지 않는다.
 dag::extract_yaml() {
   local md="$1"
   if [ ! -f "$md" ]; then
