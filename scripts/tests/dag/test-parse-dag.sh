@@ -28,6 +28,86 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T1.b"
 fi
 
+# T1.c — 헤더 부재 + tasks: 키 펜스 → 추출 성공 (AC-1)
+#   후보가 1개뿐이면 stderr 는 비어 있어야 한다 — WARN 조건 `-gt 1` 잠금
+#   (조건을 `-gt 0` 으로 느슨하게 바꾸면 여기서 잡힌다).
+err=$(mktemp)
+yaml=$(dag::extract_yaml "$FIXTURES/08-no-header.md" 2>"$err")
+if printf '%s' "$yaml" | grep -q 'id: T1' && printf '%s' "$yaml" | grep -q 'test_command' \
+   && [ ! -s "$err" ]; then
+  PASS=$((PASS+1)); echo "PASS T1.c 헤더 부재 fixture → tasks: 펜스 채택 (stderr 무오염)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.c 헤더 부재 fixture 추출 실패 — stderr=$(cat "$err")"
+fi
+rm -f "$err"
+
+# T1.d — 헤더 부재 + tasks: 키 없는 펜스 → 빈 출력 (AC-3 오탐 차단)
+yaml=$(dag::extract_yaml "$FIXTURES/09-no-header-no-taskskey.md")
+if [ -z "$yaml" ]; then
+  PASS=$((PASS+1)); echo "PASS T1.d tasks: 키 없는 펜스는 미채택"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.d 무관 펜스를 DAG 로 오인"
+fi
+
+# T1.e — 후보 복수 → 첫 번째 채택 + stderr WARN, stdout 무오염 (AC-4)
+#   WARN 은 **정확히 1회** — 줄 수가 아니라 등장 횟수로 센다 (한 줄에 2회 출력하는
+#   변이는 `grep -c` 로는 잡히지 않는다).
+err=$(mktemp)
+yaml=$(dag::extract_yaml "$FIXTURES/10-no-header-multi.md" 2>"$err")
+if printf '%s' "$yaml" | grep -q 'id: FIRST' \
+   && ! printf '%s' "$yaml" | grep -q 'id: SECOND' \
+   && [ "$(grep -o 'WARN' "$err" | wc -l | tr -d ' ')" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.e 복수 후보 → 첫 펜스 + stderr WARN 정확히 1회"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.e 복수 후보 처리"
+fi
+rm -f "$err"
+
+# T1.f — 헤더 있으면 기존 경로 우선 (AC-2 회귀)
+yaml=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md")
+if printf '%s' "$yaml" | grep -q 'tasks:' && ! printf '%s' "$yaml" | grep -q '^## '; then
+  PASS=$((PASS+1)); echo "PASS T1.f 헤더 경로 우선 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.f 헤더 경로 회귀"
+fi
+
+# T1.g — 헤더 **앞**에도 tasks: 펜스가 있으면 헤더 섹션이 이긴다 (AC-2)
+#   1단(`## 의존 그래프` awk)을 무력화하면 2단이 문서 첫 펜스(id: EARLY)를 집는다.
+#   T1.f 의 fixture 는 tasks: 펜스가 하나뿐이라 1단/2단을 구분하지 못한다 — 이 케이스가 그 결손을 메운다.
+err=$(mktemp)
+yaml=$(dag::extract_yaml "$FIXTURES/11-header-with-early-fence.md" 2>"$err")
+if printf '%s' "$yaml" | grep -q 'id: HEADER' \
+   && ! printf '%s' "$yaml" | grep -q 'id: EARLY' \
+   && [ ! -s "$err" ]; then
+  PASS=$((PASS+1)); echo "PASS T1.g 헤더 앞 펜스 무시 → 헤더 섹션 블록 채택 (1단 우선 잠금)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.g 1단 우선 붕괴 — yaml=$(printf '%s' "$yaml" | tr '\n' '|') stderr=$(cat "$err")"
+fi
+rm -f "$err"
+
+# T1.h — 골든 파일 무결성 (39 bytes)
+#   골든은 펜스 끝 빈 줄 2개를 담는다. 편집기·lint 가 trailing 개행을 정규화하면
+#   T1.i 가 애매하게 깨지므로, 여기서 먼저 loud 하게 잡는다.
+GOLDEN="$PLUGIN/scripts/tests/dag/fixtures/golden/12-header-trailing-blank.yaml"
+gsize=$(wc -c < "$GOLDEN" | tr -d ' ')
+if [ "$gsize" -eq 39 ]; then
+  PASS=$((PASS+1)); echo "PASS T1.h 골든 파일 39B 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.h 골든 파일 ${gsize}B (기대 39B) — trailing 빈 줄 정규화 의심"
+fi
+
+# T1.i — 펜스 끝 빈 줄까지 바이트 동일 (AC-2)
+#   $() 캡처는 검사 대상인 trailing 개행을 정확히 삭제하므로 **파일 리다이렉트**로 받는다.
+#   1단을 처방 코드(out=$(awk …); printf '%s\n' "$out")로 되돌리면 개행 3 → 1 로 줄어 cmp 가 깨진다.
+outf=$(mktemp)
+dag::extract_yaml "$FIXTURES/12-header-trailing-blank.md" > "$outf" 2>/dev/null
+if cmp -s "$outf" "$GOLDEN"; then
+  PASS=$((PASS+1)); echo "PASS T1.i 펜스 끝 빈 줄 보존 → 골든과 바이트 동일"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.i 바이트 불일치 ($(wc -c < "$outf" | tr -d ' ')B vs 39B) — X sentinel 소실 의심"
+fi
+rm -f "$outf"
+
 # --- T2: list_leaves ---
 # T2.a — fixture 01 두 leaf
 yaml=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md")
