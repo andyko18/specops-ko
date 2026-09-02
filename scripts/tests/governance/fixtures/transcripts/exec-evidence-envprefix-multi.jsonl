@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_env2","name":"Bash","input":{"command":"FOO=1 CLAUDE_BIN=\"/tmp/stub.sh\" bash scripts/_internal/run-verification.sh 20260902-x"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_env2","content":"RUN-VERIFICATION-RESULT: PASS\nVERIFY: PASS"}]}}

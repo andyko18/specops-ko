@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_env1","name":"Bash","input":{"command":"SPECOPS_SUITE_TIMEOUT=600 bash scripts/tests/run-all.sh"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_env1","content":"==== run-all: suites PASS=155 FAIL=0 ====\nVERIFY: PASS"}]}}

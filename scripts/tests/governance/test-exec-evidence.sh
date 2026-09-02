@@ -513,5 +513,37 @@ bash scripts/tests/frontend.sh
 _verify_exec_evidence "$_tx3" "$_D3"; ck "T58 cd + 열린 따옴표 앞줄 → 1 (완화 잠금)" 1 $?
 rm -f "$_tx3"; rm -rf "$_D3"
 
+
+# ── T59~T62: env 접두 러너 인식 (FID 20260902-runner-anchor-env-prefix) ──
+#   왜: 앵커가 `KEY=VALUE` 접두를 못 읽어 정직한 검증 실행이 deny 됐다(false-deny →
+#   BYPASS 관성). T59·T60 = RED 드라이버 / T61 = 기존 인정형 무손상 / T62 = 위조 잠금.
+
+_verify_exec_evidence "$FIX/exec-evidence-envprefix.jsonl"
+ck "T59 env 접두 1개 러너 → 0 (false-deny 해소)" 0 $?
+
+_verify_exec_evidence "$FIX/exec-evidence-envprefix-multi.jsonl"
+ck "T60 env 접두 다중 + 쌍따옴표 값 → 0" 0 $?
+
+# T61 — 기존 인정 형태 4종 무손상 (무접두 · 파이프 · cd&& · 명령치환)
+_t61=$(mktemp); _t61rc=0
+for _c in 'bash scripts/tests/run-all.sh' \
+          'bash scripts/tests/run-all.sh | tail -20' \
+          'cd /x && bash scripts/tests/run-all.sh' \
+          'out=$(bash scripts/tests/run-all.sh)'; do
+  jq -nc --arg c "$_c" '{type:"assistant",message:{content:[{type:"tool_use",id:"toolu_k",name:"Bash",input:{command:$c}}]}}' > "$_t61"
+  jq -nc '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"toolu_k",content:"VERIFY: PASS"}]}}' >> "$_t61"
+  _verify_exec_evidence "$_t61" || _t61rc=1
+done
+rm -f "$_t61"
+ck "T61 기존 인정 4형태 무손상 → 0" 0 $_t61rc
+
+# T62 — env 접두 위장 차단: `echo` 는 `=` 가 없어 반복군이 0회 매칭되고 그 자리에서
+#   `bash` 를 요구하는데 `echo` 라 불일치한다. 넓히기가 위조를 통과시키지 않는 증거.
+_t62=$(mktemp)
+jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"toolu_f",name:"Bash",input:{command:"echo SPECOPS=1 bash scripts/tests/run-all.sh"}}]}}' > "$_t62"
+jq -nc '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"toolu_f",content:"VERIFY: PASS"}]}}' >> "$_t62"
+_verify_exec_evidence "$_t62"; _t62rc=$?
+rm -f "$_t62"
+ck "T62 env 접두 위장(echo) → 1 (앵커 의미 유지)" 1 $_t62rc
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]
