@@ -513,5 +513,55 @@ bash scripts/tests/frontend.sh
 _verify_exec_evidence "$_tx3" "$_D3"; ck "T58 cd + 열린 따옴표 앞줄 → 1 (완화 잠금)" 1 $?
 rm -f "$_tx3"; rm -rf "$_D3"
 
+
+# ── T59~T62: env 접두 러너 인식 (FID 20260902-runner-anchor-env-prefix) ──
+#   왜: 앵커가 `KEY=VALUE` 접두를 못 읽어 정직한 검증 실행이 deny 됐다(false-deny →
+#   BYPASS 관성). T59·T60 = RED 드라이버 / T61 = 기존 인정형 무손상 / T62 = 위조 잠금.
+
+_verify_exec_evidence "$FIX/exec-evidence-envprefix.jsonl"
+ck "T59 env 접두 1개 러너 → 0 (false-deny 해소)" 0 $?
+
+_verify_exec_evidence "$FIX/exec-evidence-envprefix-multi.jsonl"
+ck "T60 env 접두 다중 + 쌍따옴표 값 → 0" 0 $?
+
+# T61 — 기존 인정 형태 4종 무손상 (무접두 · 파이프 · cd&& · 명령치환)
+_t61=$(mktemp); _t61rc=0
+for _c in 'bash scripts/tests/run-all.sh' \
+          'bash scripts/tests/run-all.sh | tail -20' \
+          'cd /x && bash scripts/tests/run-all.sh' \
+          'out=$(bash scripts/tests/run-all.sh)'; do
+  jq -nc --arg c "$_c" '{type:"assistant",message:{content:[{type:"tool_use",id:"toolu_k",name:"Bash",input:{command:$c}}]}}' > "$_t61"
+  jq -nc '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"toolu_k",content:"VERIFY: PASS"}]}}' >> "$_t61"
+  _verify_exec_evidence "$_t61" || _t61rc=1
+done
+rm -f "$_t61"
+ck "T61 기존 인정 4형태 무손상 → 0" 0 $_t61rc
+
+# T62 — env 접두 위장 차단: `echo` 는 `=` 가 없어 반복군이 0회 매칭되고 그 자리에서
+#   `bash` 를 요구하는데 `echo` 라 불일치한다. 넓히기가 위조를 통과시키지 않는 증거.
+_t62=$(mktemp)
+jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"toolu_f",name:"Bash",input:{command:"echo SPECOPS=1 bash scripts/tests/run-all.sh"}}]}}' > "$_t62"
+jq -nc '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"toolu_f",content:"VERIFY: PASS"}]}}' >> "$_t62"
+_verify_exec_evidence "$_t62"; _t62rc=$?
+rm -f "$_t62"
+ck "T62 env 접두 위장(echo) → 1 (앵커 의미 유지)" 1 $_t62rc
+
+# T63 — 비-bash 러너 + env 접두 (Phase C I-1: 커버리지 공백)
+#   왜: 반복군은 6종 러너 대안 전부에 걸리는데 그 **범위**를 잠그는 것이 없었다. 반복군을
+#   `bash` 분기 안으로만 옮기면 `CI=true npm test` 류가 조용히 false-deny 로 되돌아가는데
+#   스위트 69/69 PASS · 원장 0/4 FAIL 로 아무도 못 본다(Phase C 실측 N5). 하필 이 집단이
+#   20260809-runner-anchor-downstream 이 "외부 4개 프로젝트 BYPASS 77건" 근거로 삼은
+#   downstream 러너다 — 고치려던 병이 그 집단에서 무음 재발한다.
+_t63=$(mktemp); _t63rc=0
+for _c in 'CI=true npm test' \
+          'SPECOPS=1 pytest -q' \
+          'GOFLAGS=-count=1 go test ./...' \
+          'RUST_BACKTRACE=1 cargo test'; do
+  jq -nc --arg c "$_c" '{type:"assistant",message:{content:[{type:"tool_use",id:"toolu_n",name:"Bash",input:{command:$c}}]}}' > "$_t63"
+  jq -nc '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"toolu_n",content:"VERIFY: PASS"}]}}' >> "$_t63"
+  _verify_exec_evidence "$_t63" || _t63rc=1
+done
+rm -f "$_t63"
+ck "T63 비-bash 러너 4종 + env 접두 → 0 (범위 잠금)" 0 $_t63rc
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

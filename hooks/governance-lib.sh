@@ -168,6 +168,14 @@ _verify_evidence_stamp() {
 #   .specops/ 아티팩트 Write(evidence.md 마무리 등)는 정직한 verify 후 흐름이라 제외.
 #   한계(F-1 동류 heuristic): Bash 경유 파일수정(sed -i·리다이렉트)은 미탐 — honest-mistake 의
 #   지배 경로는 Edit/Write 이고, 의도적 우회는 F-3 wrapper 클래스로 수용.
+# [실행 경로] 앵커와 러너 사이의 `KEY=VALUE ` 접두는 0개 이상 허용한다 (20260902-runner-anchor-env-prefix).
+#   ※ 아래 `_extract_declared_cmds` 의 [선언 경로] 는 반대다 — 거기선 env 접두를 인식하지 않는다.
+#   왜: `SPECOPS_SUITE_TIMEOUT=600 bash …` 는 이 repo 의 정상 관용구인데(136a763 이 도입),
+#   앵커가 못 읽어 정직한 실행이 deny 됐다 — false-deny 는 BYPASS 관성을 만든다.
+#   값은 `[^[:space:]]*` 라 리터럴 공백이 든 값(`FOO='a b'`)은 여전히 미인정이다(실측 0건).
+#   반대로 값이 셸 메타문자(`;`·`|`·`$(..)`)를 삼키므로 `FOO=a;b <러너>` 도 인정된다 —
+#   셸 의미로는 러너가 안 도는 형태지만, 안 돈 러너는 `VERIFY: PASS` 를 못 찍어 무해하다
+#   (F-3 결합날조 클래스. Phase C 실측).
 # ── 선언 test_command 추출 (FID 20260809-runner-anchor-downstream) ──
 # 왜 필요한가: 실행-근거 앵커가 specops 자신의 러너 형태(run-verification·tests/run-all·
 #   pytest·npm test·go/cargo test)를 전제해, downstream 이 테스트를 실제로 돌려도 게이트가
@@ -241,11 +249,13 @@ _verify_exec_evidence() {
     #   run-all.sh 인식 (20260716 false-block): self-maintenance 의 정식 러너는 전체 스위트
     #   run-all.sh 다 — 성공 시 스스로 `VERIFY: PASS` 토큰을 출력해 기존 토큰 계약으로 판정된다.
     #   앵커는 `tests/run-all\.sh` 로 좁힌다(downstream 의 무관한 ./run-all.sh 불인정 — T15 잠금).
+    #   env 접두(`KEY=VAL `)는 0개 이상 허용 — 위조는 막힌다(`echo SPECOPS=1 bash …` 는
+    #   `echo` 에 `=` 가 없어 반복군 0회 → 그 자리에서 bash 불일치. T62 가 잠근다).
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
@@ -263,7 +273,7 @@ _verify_exec_evidence() {
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("Output is being written to: "))
@@ -322,7 +332,7 @@ _verify_exec_evidence() {
              #   ★ 폐쇄의 범위는 **어휘적 열림**까지다. `export PATH=/tmp/evil` · `cd /가짜repo`
              #   처럼 **환경·경로를 바꿔 가짜 러너를 심는** 것은 화이트리스트를 통과한다 —
              #   F-3(의도 위조) 클래스로 설계상 수용된 범위이지 이 가드가 막는 대상이 아니다.
-             #   (위 162행이 same-line env 접두를 "미인식" 이라 적은 것과 비대칭이다: 그건
+             #   (`_extract_declared_cmds` 헤더가 same-line env 접두를 "미인식" 이라 적은 것과 비대칭이다: 그건
              #   앵커가 줄 첫 토큰을 요구해서지 env 조작을 막아서가 아니다.)
              #   `set -euo pipefail`·`set -o pipefail` 은 `pipefail` 토큰 때문에 막힌다(미탐).
              #   후행 순수 옵션어 허용은 어휘 문자가 없어 안전하나, **인용값 허용**
@@ -405,7 +415,7 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
@@ -440,7 +450,7 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("Output is being written to: "))
