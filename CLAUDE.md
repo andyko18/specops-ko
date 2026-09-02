@@ -139,6 +139,22 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 - `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
 - `<!-- entry: auto -->` — 무인 단독(`§auto: true`). git-branch 유지, clarify/plan 수행.
 
+### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
+
+`~/.claude/rules/coding-style.md` 의 "파일 800줄 max" 는 TypeScript/React **앱 코드** 기준이다.
+`hooks/governance-lib.sh`(1370줄 · 함수 32개)에는 **적용하지 않는다** — 32개 함수가 하나의
+판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 **응집도가 곧
+목적**이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다.
+
+**분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병("강제층 자신이 조용히
+사라지던 경로 셋")의 재발이다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을
+실증하며** 나눈다 — 이 예외는 분할 검토를 영구 금지하는 것이 아니라, 근거 없는 분할을 막는다.
+
+**크기가 공짜라는 뜻은 아니다**: gbrain `20260807-governance-lib-freefix` 는 이 파일을
+"훅 4종 공용이라 lifecycle 밖 즉흥 수정이 잦은 핫스팟"으로 기록했다. 예외는
+`hooks/governance-lib.sh` **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다
+(참고: 800줄 초과는 repo 전체 3개 — 나머지 둘은 테스트 스위트다).
+
 ## `/doctor` 의 memory·bootstrap ⚠️ 는 정상이다 (정책의 알려진 결과)
 
 이 repo 에서 `doctor` 는 `memory: 문서 0건` 과 `bootstrap: 미종결` 을 **항상** 경고한다. 둘 다 **정확한 보고**이며 고칠 결함이 아니다 — `.specops/` 를 **전량 로컬 전용**으로 돌린 정책(`3061f93`)의 직접적 결과다:
