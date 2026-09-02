@@ -19,3 +19,7 @@ skills/brainstorming-ko/scripts/node_modules/
 .claude/
 scripts/docs/
 .specops-cache/
+
+# Orca worktree 도구 설정 (로컬 dev 도구 — 배포 불포함, .claude/ 와 동일 정책)
+orca.yaml
+.worktreeinclude
