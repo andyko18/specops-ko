@@ -10,6 +10,7 @@
 - **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다.
 
 > **도입을 검토 중이라면** → [docs/architecture.md](docs/architecture.md) — 무엇을 보장하고, **어떤 장치로** 보장하며, 무엇을 보장하지 **않는지**를 실측 수치와 함께 정리했다.
+> 이 도구가 **자기 결함을 어떻게 다루는가**가 궁금하다면 → [docs/audit/](docs/audit/) — 저자가 동일 루브릭으로 5회 반복 측정한 평가서(현재 7.3/10)와 개선 제안·이후 경과.
 
 ---
 
@@ -184,7 +185,7 @@ specops-ko/
 │                              design-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 34건 (lifecycle 19 + /init-project 산출 13 + 기타)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
-├── docs/               설계 노트 · 갭 분석 · upstream drift log
+├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷)
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md
 ```
 
