@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+### Added
+
+- **MIT LICENSE — 공개 저장소의 전권 유보 상태 해소 (PR #28)** — 2026-08-11 에 저장소를 공개했으나 LICENSE 가 없었다. 라이선스 없는 공개 코드는 법적으로 **모든 권리 저작자 보유**라, 설치는 되지만 사용·수정 권리가 명시되지 않는다(`gh repo view --json licenseInfo` → `null`). 5회차 자기평가가 온보딩 축의 미조치 항목으로 **5회 연속** 지적한 건이다.
+  - **MIT 근거**: 지배적 상류(`obra/superpowers`)가 MIT 라 파생 귀속이 깨끗하고, 이 repo 는 bash+markdown 이라 Apache-2.0 의 특허 조항이 사실상 무의미하며, 플러그인의 목적이 도입이므로 마찰을 낮추는 쪽이 맞다.
+  - ★ **`plugin.json` 동반 수정이 핵심이다** — `"license": "UNLICENSED"` 가 박혀 있어서 LICENSE 파일만 넣으면 **기계 판독 선언과 사람이 읽는 파일이 모순**된다. 같은 커밋에서 `MIT` 로 고쳤다.
+  - `README.md` 라이선스·출처 섹션 신설 — `reference_upstream` frontmatter **실측 54건** 요약, 원본 코드 복사(vendoring) 없음 명시. **한계 고백**: 표에서 라이선스를 `—` 로 둔 프로젝트는 **확인하지 않았다는 뜻**이다.
+
+- **자기 평가·제안을 `docs/audit/` 로 공개 (PR #27)** — `.specops/` 는 정책상 전량 로컬 전용이라 clone 하면 평가서·제안서가 사라진다. 그런데 **델타 평가는 후속 평가자가 이전 회차를 읽어야 성립**하고(루브릭·축·가중·사전 등록 트리거), 제안서는 도입 검토자가 "이 도구가 자기 결함을 어떻게 다루는가"를 판단하는 근거다. **의도적 예외**로 두 문서만 `docs/audit/` 에 둔다 — FID 아티팩트·리뷰 리포트·gbrain 은 여전히 로컬 전용이다.
+  - **날짜 고정 스냅샷 규약** — 사본을 갱신하지 않는다(원본과 드리프트하지 않는 이유). 사실이 바뀌면 새 회차를 추가하지 기존 회차를 고치지 않는다.
+  - 5회차 종합 평가 **7.3/10**(1~4회차 델타 포함) + 개선 제안 6건 + 이후 경과.
+
+### Changed
+
+- **`metrics.jsonl` 죽은 스키마 필드 6개 제거 — `schema_version` 1→2 (FID 20260903-metrics-dead-fields, PR #29)** — 한 번도 값이 들어간 적 없는 필드가 6개 있었다. 빈 칸은 "우리 이걸 측정하고 있다"는 착시를 주지만 실제로는 아무것도 재고 있지 않다. **실측 150 레코드**: `tokens.{input,output,cache_read,cache_write}` **150 null** · `fixed` **150 null** · `timeout` **150 전부 `false`**(상수). 넘기는 프로덕션 호출자는 **0곳**이고 bash 는 Claude 토큰을 관측할 수 없다(구조적).
+  - **대조군은 `fallback`** 이다 — 같은 boolean 인데 120 false / **30 true** 로 실제 작동한다. `timeout` 이 전부 false 인 건 "타임아웃이 없었다"가 아니라 **아무도 넘기지 않았다**는 뜻이다.
+  - 이 repo 는 같은 병을 이미 진단했다 — gbrain `20260813-friction-staged-record`: *"계측 필드는 **소비자를 함께 만들지 않으면 write-only 로 썩는다**"*. `metrics.jsonl` 은 **두 번째 발현**이고 friction-log 의 `evidence_snippet`·`principle`·`transcript_offset` 이 아직 살아 있는 세 번째다.
+  - 제거된 플래그를 넘기면 **비0 종료**한다(조용히 무시하지 않는다 — 조용히 무시하면 호출자가 값이 기록된 줄 안다). 기존 레코드는 `schema_version:1` 로 그대로 남는다(읽는 프로덕션 코드 0곳이라 안전).
+  - ★ **제거 작업의 부작용을 네 번 만났다** — ① jq `--argjson` 인자와 필드 짝 ② 잔존 검증 줄 2개(`$timeout`·`$fixed`) ③ `for` 루프가 대상 1개가 되어 **SC2066 error** ④ **`M5` 의 `.tokens.input == null` 이 항상 참**. 넷째가 가장 위험했다 — jq 는 없는 키를 null 로 체이닝하므로 **테스트가 조용히 무력해졌고 전량 회귀가 초록인 채 통과**했다(`echo '{"a":1}' | jq -e '.tokens.input == null'` → rc=0). `has("tokens") | not` 으로 교체.
+  - **`M1d` 루프도 heredoc 이 비면 아무것도 시험하지 않고 PASS** 했다(Phase C 가 비워서 실증). 시행 횟수를 판정에 넣어 하네스 고장과 SUT 속성을 구분한다.
+  - **AC-2 판별력 교정**: 처음엔 `--input-tokens x`(무효값)를 썼는데 **구 구현에서도 rc=1** 이라 구/신을 가르지 못했다(RED 에서 혼자 PASS 해서 드러남). 유효값이어야 구(rc=0)/신(rc=1)이 갈린다.
+
+- **`.specops/` 로컬 전용 정책은 유지하되 `orca.yaml`·`.worktreeinclude` 를 ignore 에 추가 (PR #24)** — Orca worktree 도구의 로컬 설정이다. 플러그인 repo 는 tracked 파일이 그대로 배포되므로 기존 `.claude/` 와 같은 "로컬 dev 도구·배포 불포함" 정책을 적용했다.
+  - 동반: `CLAUDE.md` 의 `governance-lib.sh` 줄수 주장 `1370` → `1380` 동기화. **#22 와 #23 은 merge-base 가 갈려 각자 CI 초록이었으나 머지 결과에서만 주장이 거짓이 됐다** — 어느 게이트도 볼 수 없는 semantic conflict 라 수동 갱신했다.
+
 ### Fixed
 
 - **산문 헤더가 DAG 파서의 진입 조건이던 결함 (FID 20260902-dag-yaml-header-free)** — `dag::extract_yaml` 은 `## 의존 그래프` 헤더 아래의 yaml 펜스만 찾았다. 헤더 없이 `tasks:` 키 펜스만 가진 `tasks.md` 는 **DAG 가 없는 문서로 취급**돼 조용히 지나갔다. 이제 헤더가 없으면 문서 전체의 yaml 펜스 중 `tasks:` 키(`^tasks:` 행두 앵커)를 가진 **첫 번째**를 채택한다(후보 복수면 stderr WARN 1회, stdout 무오염). 헤더가 있으면 기존 경로가 그대로 우선하고 출력은 **바이트 동일**하다.
@@ -12,6 +36,20 @@
   - 이 저장소 안에도 눈멀어 있던 문서가 1건 있었다 — `.specops/20260713-heredoc-false-block/tasks.md` (구 0B → 신 160B 진짜 DAG). 결함 클래스가 가설이 아니라 실재였음의 증거다.
   - ★ **되돌려-관찰 5종 격추**(Phase C 지적 I-1 반영): 1단 무력화(`if false`) → **T1.g·T1.i FAIL** · `X` sentinel 을 처방 코드(`printf '%s\n' "$out"`)로 되돌림 → **T1.i FAIL**(37B vs 39B) · WARN 2회(별도 2줄/한 줄 2회 **양쪽**) → **T1.e FAIL** · WARN 조건 `-gt 1`→`-gt 0` → **T1.c FAIL** · `^tasks:` 앵커 제거 → **T1.d FAIL**. 직전 스위트는 이 5종이 **전부 생존**했다 — AC-2(헤더 우선·바이트 동일)를 아무도 잠그지 않았다는 뜻이라, 헤더 앞에 별개 `tasks:` 펜스를 둔 fixture 와 펜스 끝 빈 줄을 담은 골든 파일(`cmp` 39B)을 신설했다.
   - **`grep -c` 가 아니라 등장 횟수로 센다** — WARN 을 한 줄에 두 번 출력하는 변이는 줄 수 세기로는 잡히지 않는다.
+
+- **러너 whitelist 가 워크스페이스·의존성관리자 접두를 인식한다 (false-block 10호 · FID 20260903-runner-whitelist-prefix, PR #26)** — 하류 실제 `test_command` **22종**이 차단되고 있었다: `pnpm --dir <d> test`(Argus 10) · `pnpm --filter <pkg> test`(ssl-portal 6) · `poetry run pytest`(Argus 6). 차단되면 `VERIFY: PARTIAL` → 실행-근거 게이트 불인정 → **정직한 사용자가 BYPASS 로 몰린다**(4회차 평가가 실증한 경로 — false-block 9호가 외부 완주 1건에서 BYPASS 9회 유발).
+  - 정규식 확장 2지점: `(cd … && )?` 뒤에 `((poetry|uv|pdm|rye) run )?` 접두 그룹 + npm/pnpm/yarn 브랜치에 `((--dir|--filter|-C|workspace) SAFE )*` 반복군 및 콜론 스크립트명 `test(:[…])?`. `SAFE` 선두 클래스가 `-`·`/` 를 배제해 **옵션·절대경로 주입을 막는다**.
+  - **3사본 동시 수정** (`run-verification.sh` · `record-task-receipt.sh` · `governance-lib.sh`) — 부분 수정 시 "실행은 되는데 커밋이 막힌다"는 무음 비대칭이 난다. `_extract_declared_cmds` 가 사본을 재사용하므로 **whitelist 확장만으로 R-1 선언경로 앵커도 함께 넓어진다**(회귀 T26·T28 이 보증). 내장 러너 앵커(`governance-lib.sh:258·276·418`)는 **건드리지 않았다** — 거기 넣으면 선언되지 않은 명령으로도 R-1 이 열린다.
+  - **`-w` 는 의도적 제외** — npm `-w <pkg>` 는 값을 받지만 pnpm `-w` 는 boolean 이라 `pnpm -w test` 가 BLOCK 된다. 지원한다고 광고하면 pnpm 사용자가 **다시 false-block 을 학습**한다.
+  - **잠금 두 겹**: `test-exec-evidence` T49 를 3사본 비교로 확장(사본 간 어긋남) + propagation 원장 `runner-whitelist-prefix` 신설(셋을 **함께** 되돌림 — T49 는 identity 가 유지돼 못 잡는다). 상보 구조를 변이로 실증했다.
+  - ★ **원장 앵커에서 같은 병을 세 번 만났다** — ① 무앵커 `poetry|uv|pdm|rye` 가 같은 파일 **주석의 `uvu`** 에 매치해 되돌려도 PASS(무음) ② `((poetry` 는 ERE 그룹 여는 괄호라 정상 파일에도 nomatch(**항상 FAIL**) ③ `\(--dir\|…` 가 **L141 주석**에 매치(vacuous). 최종 `\(\(poetry\|…` · `\(\(--dir\|…` — 여는 괄호 2개는 정규식에만 있다. **②가 가장 위험하다: 변이 전후가 둘 다 FAIL 이라 baseline 을 먼저 확인하지 않으면 "잡힌다"로 오판한다.**
+  - 원장에 레코드를 더하면 `test-propagation` P1 **로스터도 동반 갱신**해야 한다(`friction-scope-class` 선례와 동일).
+
+- **러너 앵커가 env 접두 호출을 인정한다 — false-deny 가 BYPASS 를 만들던 경로 (FID 20260902-runner-anchor-env-prefix, PR #22)** — `SPECOPS_X=1 bash scripts/tests/run-all.sh` 처럼 env 접두가 붙은 정직한 실행을 실행-근거 게이트가 인식하지 못했다. 앵커에 env 접두 반복군을 추가하고 계약을 원장에 등재했다.
+
+### Documentation
+
+- **`governance-lib.sh` 800줄 규칙 예외 명문화 (PR #23)** — `~/.claude/rules/coding-style.md` 의 "파일 800줄 max" 를 이 repo 는 `hooks/governance-lib.sh` **한 파일에 한해** 적용하지 않는다. 32개 함수가 하나의 판정 계약(transcript 조인·면제 클래스·마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이다. **분할의 위험**을 함께 적었다 — 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다. 예외는 이 한 파일에만 적용되며 다른 파일의 비대화를 정당화하지 않는다.
 
 ## [1.91.0] — 2026-08-31
 
