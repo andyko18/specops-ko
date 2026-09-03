@@ -52,9 +52,13 @@ fi
 #   ★ 값은 반드시 **유효한 것**을 쓴다 — 잘못된 값(예: --input-tokens x)은 구 구현에서도
 #     값 검증에 걸려 비0 이라 구/신을 가리지 못한다(판별력 0). 유효값이어야 "플래그가
 #     사라졌는가" 만 시험한다. (실측: 무효값 판은 구 구현에서도 PASS 했다.)
-_bad=0
+#   ★ 시행 횟수를 함께 세어 단언한다 — heredoc 이 비면 `_bad=0` 이라 **아무것도 시험하지
+#     않고 PASS** 가 난다(Phase C 가 heredoc 을 비워 실증). 하네스 고장과 SUT 속성을
+#     구분하려면 "몇 건을 실제로 돌렸는가" 가 판정에 들어가야 한다.
+_bad=0; _ran=0
 while IFS='|' read -r _f _v; do
   [ -n "$_f" ] || continue
+  _ran=$((_ran+1))
   if (cd "$TD" && bash "$REC" --fid 20260803-metrics --phase verify "$_f" "$_v" >/dev/null 2>&1); then
     _bad=$((_bad+1)); echo "  (수락됨: $_f $_v)"
   fi
@@ -63,7 +67,11 @@ done <<'EOF_FLAGS'
 --timeout|false
 --fixed|true
 EOF_FLAGS
-[ "$_bad" -eq 0 ] && ok "M1d 제거된 플래그 3종 거부" || nope "M1d" "수락된 플래그 ${_bad}건"
+if [ "$_ran" -eq 3 ] && [ "$_bad" -eq 0 ]; then
+  ok "M1d 제거된 플래그 3종 거부 (시행 ${_ran}/3)"
+else
+  nope "M1d" "시행=${_ran}/3 수락=${_bad}"
+fi
 
 # 원문을 받을 수 있는 임의 필드는 거부한다.
 if (cd "$TD" && bash "$REC" --fid 20260803-metrics --phase verify --prompt "secret" >/dev/null 2>&1); then
@@ -109,9 +117,13 @@ source "$PLUGIN/hooks/governance-lib.sh"
 mkdir -p "$TD/.specops/20260803-bypass"
 (cd "$TD" && _record_bypass_metric 20260803-bypass)
 BLOG="$TD/.specops/20260803-bypass/metrics.jsonl"
+#   ★ 종전엔 `(.tokens.input == null)` 로 "원문 미기록" 을 단언했으나, tokens 키가
+#     스키마에서 사라진 뒤로는 **항상 참**이다 — jq 는 없는 키를 null 로 체이닝한다
+#     (실증: `echo '{"a":1}' | jq -e '.tokens.input == null'` → rc=0).
+#     `has()` 로 키 부재를 직접 단언해야 실패할 수 있는 assertion 이 된다.
 if [ -f "$BLOG" ] && jq -e '
   .phase == "governance-bypass" and .fallback == true
-  and .verdict == null and (.tokens.input == null)
+  and .verdict == null and (has("tokens") | not)
 ' "$BLOG" >/dev/null; then
   ok "M5 BYPASS 계측(식별자만)"
 else
