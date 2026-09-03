@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.92.0] — 2026-09-03
+
 ### Added
 
 - **MIT LICENSE — 공개 저장소의 전권 유보 상태 해소 (PR #28)** — 2026-08-11 에 저장소를 공개했으나 LICENSE 가 없었다. 라이선스 없는 공개 코드는 법적으로 **모든 권리 저작자 보유**라, 설치는 되지만 사용·수정 권리가 명시되지 않는다(`gh repo view --json licenseInfo` → `null`). 5회차 자기평가가 온보딩 축의 미조치 항목으로 **5회 연속** 지적한 건이다.
@@ -1597,7 +1599,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.91.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.92.0...HEAD
+[1.92.0]: https://github.com/andyko18/specops-ko/compare/v1.91.0...v1.92.0
 [1.91.0]: https://github.com/andyko18/specops-ko/compare/v1.90.0...v1.91.0
 [1.90.0]: https://github.com/andyko18/specops-ko/compare/v1.89.0...v1.90.0
 [1.89.0]: https://github.com/andyko18/specops-ko/compare/v1.88.0...v1.89.0
