@@ -427,16 +427,21 @@ bash scripts/tests/frontend.sh' "PASS 12/12"
 _verify_exec_evidence "$_tx2" "$_D2"; ck "T48 정직한 cd+러너 멀티라인 → 0 (과차단 방지)" 0 $?
 rm -f "$_tx2"; rm -rf "$_D2"
 
-# T49 — whitelist 두 벌 byte-identity 잠금 (Phase C Important 1)
+# T49 — whitelist 세 벌 byte-identity 잠금 (Phase C Important 1 · 20260903 3사본 확장)
 #   propagation edge 는 `test_command` 문자열 존재만 본다 — 한쪽만 조여지는 drift 를
 #   자동으로 못 잡는다. T25 방식으로 **패턴 자체**의 동일성을 잠근다.
+#   ★ 20260903: 종전엔 gl·rc 두 벌만 비교해 **run-verification.sh 사본의 drift 가 무음**이었다
+#     (FID 20260903-runner-whitelist-prefix — 세 벌이 바이트 동일해야 게이트가 대칭이다).
+#     이 잠금은 "사본끼리 어긋남"을 잡고, "셋을 함께 되돌림"은 propagation 원장
+#     `runner-whitelist-prefix` 레코드가 잡는다 — 둘은 상보적이다.
 _p_gl=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/hooks/governance-lib.sh" | head -1)
 _p_rc=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/scripts/_internal/record-task-receipt.sh" | head -1)
-if [ -n "$_p_gl" ] && [ "$_p_gl" = "$_p_rc" ]; then
-  ck "T49 whitelist 패턴 byte-identity (drift 잠금)" 0 0
+_p_rv=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$PLUGIN/scripts/_internal/run-verification.sh" | head -1)
+if [ -n "$_p_gl" ] && [ "$_p_gl" = "$_p_rc" ] && [ "$_p_gl" = "$_p_rv" ]; then
+  ck "T49 whitelist 패턴 byte-identity 3사본 (drift 잠금)" 0 0
 else
-  echo "  (gl 길이=${#_p_gl} · rc 길이=${#_p_rc} — 두 벌이 어긋났다)"
-  ck "T49 whitelist 패턴 byte-identity (drift 잠금)" 0 1
+  echo "  (gl=${#_p_gl} · rc=${#_p_rc} · rv=${#_p_rv} — 세 벌이 어긋났다)"
+  ck "T49 whitelist 패턴 byte-identity 3사본 (drift 잠금)" 0 1
 fi
 
 

@@ -137,12 +137,20 @@ mkdir -p "$(dirname "$EVIDENCE")"
 # subdir/러너형: 선택적 `cd <상대subdir> && ` 접두 + `npx <bin>`·`pnpm|yarn exec <bin>` 러너형 인정
 #   (false-block 9호 — monorepo `cd apps/web && npx vitest run`). subdir 첫 문자 '/' 불허(절대경로 차단)
 #   + `*..*` 가드로 트래버설 차단. bare `pnpm|yarn <bin>`(예 `pnpm vitest`)는 미지원 (clarify Q1=(2)).
-_WHITELIST_PAT='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+(run[[:blank:]]+)?test([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
+# 워크스페이스 플래그/의존성관리자 접두 (false-block 10호 — 하류 실제 test_command 22종이 차단됐다):
+#   `(poetry|uv|pdm|rye) run ` 접두 + `(npm|pnpm|yarn) (--dir|--filter|-C|workspace) <값> … test[:name]`.
+#   플래그 값 선두 클래스는 [A-Za-z0-9_.@] — '-'·'/' 를 배제해 옵션주입·절대경로를 막고 `..` 는 별도 가드.
+#   `-w` 는 의도적 제외: npm 은 값을 받고 pnpm 은 boolean 이라 의미가 충돌한다(plan-review I-2).
+#     지원한다고 광고하면 pnpm 사용자가 false-block 을 학습하므로 WARN 힌트에도 넣지 않는다.
+#   알려진 한계(false-block 11호 후보): `test(:[…])?` 는 콜론 1회라 `npm run test:unit:watch` 는 여전히
+#     BLOCK 이다. `--filter=web` 같은 '=' 결합형도 미지원(값이 별도 토큰이어야 한다).
+#   매니저×플래그 교차곱은 제한하지 않는다 — whitelist 는 권한 경계지 문법 검사기가 아니다(clarify Q1).
+_WHITELIST_PAT='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?((poetry|uv|pdm|rye)[[:blank:]]+run[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+((--dir|--filter|-C|workspace)[[:blank:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:blank:]]+)*(run[[:blank:]]+)?test(:[A-Za-z0-9._-]+)?([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
 
 while IFS= read -r cmd; do
   [ -z "$cmd" ] && continue
   if [[ ! "$cmd" =~ $_WHITELIST_PAT ]] || [[ "$cmd" == *..* ]]; then
-    echo "WARN: SKIP '$cmd' — whitelist 미통과. 허용: bash (scripts|tests)/*.sh · pytest · npm/pnpm/yarn (run) test · go test · cargo test · npx <bin> · pnpm|yarn exec <bin>, 선택적 'cd <상대subdir> && ' 접두. 힌트: bare 'pnpm|yarn <러너>'(예 pnpm vitest)는 미지원 → 'pnpm exec <러너>' 를 쓸 것. '..' 포함 경로·절대경로는 차단(예 'go test ./...' 미지원 — 개별 패키지 경로를 쓸 것)" >&2
+    echo "WARN: SKIP '$cmd' — whitelist 미통과. 허용: bash (scripts|tests)/*.sh · pytest · npm/pnpm/yarn (run) test[:name] · go test · cargo test · npx <bin> · pnpm|yarn exec <bin>. 선택적 접두: 'cd <상대subdir> && ' · '(poetry|uv|pdm|rye) run '. 워크스페이스 플래그: '--dir|--filter|-C|workspace <값>' (값은 상대경로·패키지명만 — 선두 '-'·'/' 불가). 미지원: bare 'pnpm|yarn <러너>'(예 pnpm vitest)는 → 'pnpm exec <러너>' 를 쓸 것 · 다중 콜론 'test:a:b' · '=' 결합형 '--filter=web' · pnpm '-w'(boolean 이라 값 없음). '..' 포함 경로·절대경로는 차단(예 'go test ./...' 미지원 — 개별 패키지 경로를 쓸 것)" >&2
     {
       echo "### \`$cmd\`"
       echo '> WARN: SKIP — whitelist 미통과'
