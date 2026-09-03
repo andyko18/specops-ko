@@ -246,11 +246,12 @@ bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=
 ```bash
 bash scripts/_internal/record-metric.sh \
   --fid <FID> --task T1 --phase implement --model <model> \
-  --input-tokens 100 --output-tokens 20 --wall-ms 1200 \
-  --retry-count 0 --timeout false --fallback false --verdict PASS
+  --wall-ms 1200 --retry-count 0 --fallback false --verdict PASS
 ```
 
-`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김). Evaluator `fable` 불가 재dispatch는 `phase=evaluator-degradation --fallback true --model <override>`를 남깁니다(`implementing-ko` · `start-all` Phase 2.5-D).
+`.specops/<FID>/metrics.jsonl`에 고정 스키마만 기록합니다(`schema_version: 2`).
+
+> **v2 에서 제거된 필드** (FID `20260903-metrics-dead-fields`): `tokens.{input,output,cache_read,cache_write}` · `timeout` · `fixed`. 실측 150 레코드에서 토큰 4필드와 `fixed` 는 **전부 null**, `timeout` 은 **전부 상수 `false`** 였고 넘기는 프로덕션 호출자가 0곳이었다 — bash 는 Claude 토큰을 관측할 수 없다. 빈 칸은 "측정하고 있다"는 착시를 준다. 제거된 플래그를 넘기면 **비0 종료**한다(조용히 무시하지 않는다). 기존 v1 레코드는 그대로 남는다. 프롬프트·응답 원문을 받는 옵션은 제공하지 않으며, 미등록 필드는 거부합니다. `run-verification.sh`는 `phase=verify`를, 거버넌스 BYPASS 경로는 `phase=governance-bypass`를 자동 append합니다(사유 원문은 friction-log에만 남김). Evaluator `fable` 불가 재dispatch는 `phase=evaluator-degradation --fallback true --model <override>`를 남깁니다(`implementing-ko` · `start-all` Phase 2.5-D).
 
 ## install-git-hooks.sh — 2단 git hook 게이트 (도구 무관)
 
