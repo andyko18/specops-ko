@@ -13,17 +13,29 @@ _mkrepo() {  # $1=repo 경로 — git init + .specops 생성
   git -C "$1" init -q 2>/dev/null
   git -C "$1" config user.email t@t.io; git -C "$1" config user.name t
 }
-_hooks_ok() {  # $1=repo — 2단 hook 완비
+_plugin_shape() {  # $1=repo — 플러그인 repo 형상 부여 (처방 대상 실재)
+  # doctor 의 관할 판정은 "처방(install-git-hooks.sh)이 이 repo 에서 실행 가능한가" 다.
+  # 실물 installer 를 복사하지 않고 존재만 만든다 — 판정은 존재만 본다.
+  mkdir -p "$1/scripts/_internal" "$1/.githooks"
+  printf '#!/bin/sh\nexit 0\n' > "$1/scripts/_internal/install-git-hooks.sh"
+}
+_noop_hooks() {  # $1=repo — 실행가능 훅 2개 + hooksPath. **installer 없음**(= 하류 형상)
   mkdir -p "$1/.githooks"
   printf '#!/bin/sh\nexit 0\n' > "$1/.githooks/pre-commit"
   printf '#!/bin/sh\nexit 0\n' > "$1/.githooks/pre-push"
   chmod +x "$1/.githooks/pre-commit" "$1/.githooks/pre-push"
   git -C "$1" config core.hooksPath .githooks
 }
+_hooks_ok() {  # $1=repo — 2단 hook 완비 (플러그인 repo 형상 포함)
+  # ★ 형상을 여기 내장한다 — 사용처가 7곳이라 호출부마다 한 줄씩 더하면 누락이 재발한다
+  #   (실측: T11 누락 시 rows=8 oks=7 FAIL). 하류 no-op 픽스처는 _noop_hooks 를 쓴다.
+  _plugin_shape "$1"
+  _noop_hooks "$1"
+}
 _run() { _OUT=$(cd "$1" && SPECOPS_ROOT=".specops" bash "$SH" "${@:2}" 2>&1); _RC=$?; }
 
 # T1 (AC-1): hooksPath 미설정 → git hook ⚠️ + 조치 명령
-R="$TMP/r1"; _mkrepo "$R"
+R="$TMP/r1"; _mkrepo "$R"; _plugin_shape "$R"
 _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
@@ -41,6 +53,45 @@ _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q 'pre-push' \
   && ok "T12 pre-push 누락 검출" || nope "T12" "out=$_OUT"
+
+# T-ds.a (AC-1): 하류 repo(처방 대상 부재) → ⚠️ + 부재를 기술 + install-git-hooks.sh 미처방
+R="$TMP/rds1"; _mkrepo "$R"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q 'specops 2단 게이트 미설치' \
+  && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
+  && ok "T-ds.a 하류 → ⚠️ + 부재 기술 + 죽은 처방 없음" || nope "T-ds.a" "out=$_OUT"
+
+# T-ds.b (AC-2·AC-4): 하류 --json 계약 — status=warn · fix 빈 문자열 · 4키 유지
+R="$TMP/rds2"; _mkrepo "$R"
+_run "$R" --json
+printf '%s' "$_OUT" | jq -e '(.checks[]|select(.id=="git_hooks")|.status)=="warn"
+  and ((.checks[]|select(.id=="git_hooks")|.fix)=="")
+  and ((.checks[]|select(.id=="git_hooks")|keys|sort)==["detail","fix","id","status"])' >/dev/null 2>&1 \
+  && ok "T-ds.b 하류 JSON: warn · fix 빈 문자열 · 4키" || nope "T-ds.b" "out=$_OUT"
+
+# T-ds.c (AC-R-2): 하류에 no-op 훅이 걸려 있어도 ✅ 로 보고하지 않는다
+#   현 코드는 core.hooksPath=.githooks + 실행가능 훅 2개면 ✅ 였다. 그 훅이 자기면제 본문(exit 0)
+#   이어도 마찬가지였다 — 즉 죽은 처방을 따라간 사용자가 **거짓 ✅** 를 받는 경로가 있었다.
+R="$TMP/rds3"; _mkrepo "$R"; _noop_hooks "$R"   # .githooks + hooksPath 설정, installer 는 없음(=하류)
+_run "$R"
+! printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '✅' \
+  && ok "T-ds.c 하류 no-op 훅 → ✅ 아님 (거짓 ✅ 경로 차단)" || nope "T-ds.c" "out=$_OUT"
+
+# T-ds.e (AC-1): installer 는 있으나 `.githooks/` 가 없는 repo 도 하류다
+#   관할 판정은 `! -f installer || ! -d .githooks` 라 **OR 의 두 피연산자**를 다 덮어야 한다.
+#   T-ds.a/b/c 는 installer 부재 쪽만 밟아서, `|| [ ! -d ".githooks" ]` 를 통째로 지우는 변이가
+#   생존했다(Phase C 실측 M1). 이 픽스처가 그 변이를 죽인다.
+#   실무 근거: installer 자신이 `.githooks/` 부재 시 설치를 거부하므로(2df6de6), 이 형상에
+#   처방을 내면 그 처방은 반드시 실패한다 — 정확히 이 FID 가 없애려는 죽은 처방이다.
+R="$TMP/rds5"; _mkrepo "$R"
+mkdir -p "$R/scripts/_internal"
+printf '#!/bin/sh\nexit 0\n' > "$R/scripts/_internal/install-git-hooks.sh"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q 'specops 2단 게이트 미설치' \
+  && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
+  && ok "T-ds.e installer 만 있고 .githooks 부재 → 하류 판정" || nope "T-ds.e" "out=$_OUT"
 
 # T3 (AC-3): memory 에 placeholder 잔존 → ⚠️
 R="$TMP/r3"; _mkrepo "$R"; mkdir -p "$R/.specops/memory"
@@ -782,5 +833,11 @@ else
 fi
 rm -rf "$pydir"
 rm -rf "$maskdir"
+
+# T-ds.d (AC-5): 문서 SoT 가 관할 축을 기술한다
+DOC="$PLUGIN/commands/doctor.md"
+grep -qE '^\|[[:space:]]*`git_hooks`[[:space:]]*\|' "$DOC" \
+  && grep -q '플러그인 관할 밖' "$DOC" \
+  && ok "T-ds.d 문서 SoT 가 하류 관할 판정을 기술" || nope "T-ds.d" "doc 미동기"
 
 finish
