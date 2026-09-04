@@ -92,5 +92,27 @@ grep -q '비-PostgreSQL 주의' "$PLUGIN/templates/data-model.md" \
   && grep -q 'jsonSchema' "$PLUGIN/templates/data-model.md" \
   && ok "AC-19 gap6 data-model 비-PG 조건부화" || nope "AC-19" "gap6 배선 누락"
 
+# ── description 관할 한정 (FID 20260904-design-cmd-scope-desc) ──
+# AC-20: description 2건이 관할(lifecycle 밖) + lifecycle 안 담당자를 밝힌다
+_d_di=$(grep -m1 '^description:' "$DI"); _d_dis=$(grep -m1 '^description:' "$DIS")
+printf '%s' "$_d_di"  | grep -q 'lifecycle 밖' \
+  && printf '%s' "$_d_di"  | grep -q 'Step 5.6' && printf '%s' "$_d_di"  | grep -q 'Phase 2.5-B' \
+  && printf '%s' "$_d_dis" | grep -q 'lifecycle 밖' \
+  && printf '%s' "$_d_dis" | grep -q 'Step 5.6' && printf '%s' "$_d_dis" | grep -q 'Phase 2.5-B' \
+  && [ "$(grep -c '^description:' "$DI")" = 1 ] && [ "$(grep -c '^description:' "$DIS")" = 1 ] \
+  && ok "AC-20[spec AC-1·2·4] IF description 관할+담당+1행" || nope "AC-20[spec AC-1·2·4]" "범위 한정 누락 또는 description 다중 행"
+
+# AC-21: 복수 파일 **본문**(frontmatter 제외)에도 분업이 있다
+#   ★ frontmatter 를 잘라내는 이유: 안 자르면 description 만 고쳐도 통과해,
+#     이 FID 가 발견한 "복수 본문 공백"을 다시 놓친다.
+#   ★ 앵커는 `^> **분업**:` 로 **고정**한다 — 느슨한 `grep -m1 '분업'` 은 본문 기존
+#     "분업 기준은 …" 줄을 잡고, 거기엔 Step 5.6·Phase 2.5-B 가 없어 항상 FAIL 한다.
+_body_dis=$(awk 'BEGIN{c=0} /^---$/{c++; next} c>=2' "$DIS")
+_l_dis=$(printf '%s' "$_body_dis" | grep -m1 '^> \*\*분업\*\*:')
+printf '%s' "$_l_dis" | grep -q 'Step 5.6' \
+  && printf '%s' "$_l_dis" | grep -q 'Phase 2.5-B' \
+  && printf '%s' "$_l_dis" | grep -q 'design-interface.md' \
+  && ok "AC-21[spec AC-3] design-interfaces 본문 분업(frontmatter 제외)" || nope "AC-21[spec AC-3]" "본문 분업 누락"
+
 echo "── test-interface-routing-doc: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]
