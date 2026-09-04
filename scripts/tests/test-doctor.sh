@@ -78,6 +78,21 @@ _run "$R"
 ! printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '✅' \
   && ok "T-ds.c 하류 no-op 훅 → ✅ 아님 (거짓 ✅ 경로 차단)" || nope "T-ds.c" "out=$_OUT"
 
+# T-ds.e (AC-1): installer 는 있으나 `.githooks/` 가 없는 repo 도 하류다
+#   관할 판정은 `! -f installer || ! -d .githooks` 라 **OR 의 두 피연산자**를 다 덮어야 한다.
+#   T-ds.a/b/c 는 installer 부재 쪽만 밟아서, `|| [ ! -d ".githooks" ]` 를 통째로 지우는 변이가
+#   생존했다(Phase C 실측 M1). 이 픽스처가 그 변이를 죽인다.
+#   실무 근거: installer 자신이 `.githooks/` 부재 시 설치를 거부하므로(2df6de6), 이 형상에
+#   처방을 내면 그 처방은 반드시 실패한다 — 정확히 이 FID 가 없애려는 죽은 처방이다.
+R="$TMP/rds5"; _mkrepo "$R"
+mkdir -p "$R/scripts/_internal"
+printf '#!/bin/sh\nexit 0\n' > "$R/scripts/_internal/install-git-hooks.sh"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q '도구 무관 게이트 없음' \
+  && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
+  && ok "T-ds.e installer 만 있고 .githooks 부재 → 하류 판정" || nope "T-ds.e" "out=$_OUT"
+
 # T3 (AC-3): memory 에 placeholder 잔존 → ⚠️
 R="$TMP/r3"; _mkrepo "$R"; mkdir -p "$R/.specops/memory"
 printf '# IF 설계서\n\n- **버전**: <버전>\n' > "$R/.specops/memory/api-spec.md"

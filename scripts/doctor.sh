@@ -36,7 +36,9 @@ _chk_hooks() {
   #   installer 는 `.githooks/` 없는 repo 를 거부한다(2df6de6). 둘 중 하나라도 없으면
   #   플러그인 2단 게이트는 이 repo 의 것이 아니고, 처방해도 죽는다(실측: 하류에서
   #   `No such file or directory`). 게다가 절대경로로 설치에 성공하더라도 두 훅 본문이
-  #   하류에서 자기면제(`pre-commit:22`·`pre-push:15`)라 **no-op 훅**이 걸리고, 종전 판정은
+  #   하류에서 자기면제(`pre-commit` 의 `[ -f "$VS" ] && [ -f "$CP" ] || exit 0` · `pre-push` 의
+  #   `[ -f "$RUN_ALL" ] || exit 0` — 라인번호 대신 문구로 적는다, 훅 편집 시 드리프트하므로)라
+  #   **no-op 훅**이 걸리고, 종전 판정은
   #   그것을 `✅` 로 보고했다 — 처방이 거짓 ✅ 를 직접 만드는 경로였다.
   #   조치는 **비운다**: 하류용 도구 무관 게이트 본문은 아직 제공하지 않는다(별건).
   if [ ! -f "scripts/_internal/install-git-hooks.sh" ] || [ ! -d ".githooks" ]; then
