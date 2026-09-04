@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.93.0] — 2026-09-04
+
 ### 진단·안내가 자기 검사 범위를 넘어 말하던 두 곳을 고쳤다 (#30 · #31)
 
 두 결함은 형태가 같다 — **도구가 실제로 아는 것보다 넓게 단언**했다. 하나는 실행 불가능한 명령을 처방했고, 다른 하나는 자기 관할 밖을 자기 담당인 것처럼 보이게 했다.
@@ -1639,7 +1641,8 @@
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.92.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.93.0...HEAD
+[1.93.0]: https://github.com/andyko18/specops-ko/compare/v1.92.0...v1.93.0
 [1.92.0]: https://github.com/andyko18/specops-ko/compare/v1.91.0...v1.92.0
 [1.91.0]: https://github.com/andyko18/specops-ko/compare/v1.90.0...v1.91.0
 [1.90.0]: https://github.com/andyko18/specops-ko/compare/v1.89.0...v1.90.0

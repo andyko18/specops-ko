@@ -34,4 +34,4 @@ reference_upstream: specops-ko 독자 추가
 
 ---
 
-*specops-ko v1.37.0 · 2026-07-10 · 복수 인터페이스 일괄 설계 오케스트레이터*
+*specops-ko v1.92.0 · 2026-07-10 · 복수 인터페이스 일괄 설계 오케스트레이터*
