@@ -27,7 +27,7 @@ reference_upstream: specops-ko 독자 추가
 
 | 항목 | 판정 |
 |---|---|
-| `git_hooks` | `core.hooksPath=.githooks` + `pre-commit`·`pre-push` 실행 가능 |
+| `git_hooks` | 플러그인 repo(`scripts/_internal/install-git-hooks.sh` + `.githooks/` 실재)면 `core.hooksPath=.githooks` + `pre-commit`·`pre-push` 실행 가능. 하류 repo 면 ⚠️ + 조치 없음 — 플러그인 2단 게이트는 **이 repo 대상 아님**(하류용 게이트 미제공) |
 | `memory` | `.specops/memory/*.md` placeholder 잔존 (판정 SoT = `scan-enrich-placeholders.sh`) |
 | `orphan_fid` | `spec.md` 만 있고 `tasks.md`·`evidence.md` 둘 다 없는 FID |
 | `progress` | `/verify PASS` 기록인데 `evidence.md` 부재 (**디렉터리째 없는 FID 는 아카이브로 제외**) |
@@ -61,5 +61,5 @@ reference_upstream: specops-ko 독자 추가
 ## 참조
 
 - `scripts/doctor.sh` — 진단 본체
-- `scripts/_internal/install-git-hooks.sh` — `git_hooks` ⚠️ 조치
+- `scripts/_internal/install-git-hooks.sh` — `git_hooks` ⚠️ 조치 (**플러그인 repo 한정** — 하류엔 처방하지 않는다)
 - `commands/status.md` — FID 진행 상황 (역할 구분)

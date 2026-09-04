@@ -819,4 +819,10 @@ fi
 rm -rf "$pydir"
 rm -rf "$maskdir"
 
+# T-ds.d (AC-5): 문서 SoT 가 관할 축을 기술한다
+DOC="$PLUGIN/commands/doctor.md"
+grep -qE '^\|[[:space:]]*`git_hooks`[[:space:]]*\|' "$DOC" \
+  && grep -q '이 repo 대상 아님' "$DOC" \
+  && ok "T-ds.d 문서 SoT 가 하류 관할 판정을 기술" || nope "T-ds.d" "doc 미동기"
+
 finish
