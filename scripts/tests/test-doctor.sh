@@ -58,7 +58,7 @@ printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
 R="$TMP/rds1"; _mkrepo "$R"
 _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
-  && printf '%s' "$_OUT" | grep -q '도구 무관 게이트 없음' \
+  && printf '%s' "$_OUT" | grep -q 'specops 2단 게이트 미설치' \
   && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
   && ok "T-ds.a 하류 → ⚠️ + 부재 기술 + 죽은 처방 없음" || nope "T-ds.a" "out=$_OUT"
 
@@ -89,7 +89,7 @@ mkdir -p "$R/scripts/_internal"
 printf '#!/bin/sh\nexit 0\n' > "$R/scripts/_internal/install-git-hooks.sh"
 _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
-  && printf '%s' "$_OUT" | grep -q '도구 무관 게이트 없음' \
+  && printf '%s' "$_OUT" | grep -q 'specops 2단 게이트 미설치' \
   && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
   && ok "T-ds.e installer 만 있고 .githooks 부재 → 하류 판정" || nope "T-ds.e" "out=$_OUT"
 
@@ -837,7 +837,7 @@ rm -rf "$maskdir"
 # T-ds.d (AC-5): 문서 SoT 가 관할 축을 기술한다
 DOC="$PLUGIN/commands/doctor.md"
 grep -qE '^\|[[:space:]]*`git_hooks`[[:space:]]*\|' "$DOC" \
-  && grep -q '이 repo 대상 아님' "$DOC" \
+  && grep -q '플러그인 관할 밖' "$DOC" \
   && ok "T-ds.d 문서 SoT 가 하류 관할 판정을 기술" || nope "T-ds.d" "doc 미동기"
 
 finish

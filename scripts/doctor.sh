@@ -42,7 +42,7 @@ _chk_hooks() {
   #   그것을 `✅` 로 보고했다 — 처방이 거짓 ✅ 를 직접 만드는 경로였다.
   #   조치는 **비운다**: 하류용 도구 무관 게이트 본문은 아직 제공하지 않는다(별건).
   if [ ! -f "scripts/_internal/install-git-hooks.sh" ] || [ ! -d ".githooks" ]; then
-    _add git_hooks warn "도구 무관 게이트 없음 — 플러그인 2단 게이트는 이 repo 대상 아님" ""
+    _add git_hooks warn "specops 2단 게이트 미설치 — 이 repo 는 플러그인 관할 밖" ""
     return
   fi
   local hp missing=""
