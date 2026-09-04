@@ -54,6 +54,30 @@ printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q 'pre-push' \
   && ok "T12 pre-push 누락 검출" || nope "T12" "out=$_OUT"
 
+# T-ds.a (AC-1): 하류 repo(처방 대상 부재) → ⚠️ + 부재를 기술 + install-git-hooks.sh 미처방
+R="$TMP/rds1"; _mkrepo "$R"
+_run "$R"
+printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
+  && printf '%s' "$_OUT" | grep -q '도구 무관 게이트 없음' \
+  && ! printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
+  && ok "T-ds.a 하류 → ⚠️ + 부재 기술 + 죽은 처방 없음" || nope "T-ds.a" "out=$_OUT"
+
+# T-ds.b (AC-2·AC-4): 하류 --json 계약 — status=warn · fix 빈 문자열 · 4키 유지
+R="$TMP/rds2"; _mkrepo "$R"
+_run "$R" --json
+printf '%s' "$_OUT" | jq -e '(.checks[]|select(.id=="git_hooks")|.status)=="warn"
+  and ((.checks[]|select(.id=="git_hooks")|.fix)=="")
+  and ((.checks[]|select(.id=="git_hooks")|keys|sort)==["detail","fix","id","status"])' >/dev/null 2>&1 \
+  && ok "T-ds.b 하류 JSON: warn · fix 빈 문자열 · 4키" || nope "T-ds.b" "out=$_OUT"
+
+# T-ds.c (AC-R-2): 하류에 no-op 훅이 걸려 있어도 ✅ 로 보고하지 않는다
+#   현 코드는 core.hooksPath=.githooks + 실행가능 훅 2개면 ✅ 였다. 그 훅이 자기면제 본문(exit 0)
+#   이어도 마찬가지였다 — 즉 죽은 처방을 따라간 사용자가 **거짓 ✅** 를 받는 경로가 있었다.
+R="$TMP/rds3"; _mkrepo "$R"; _noop_hooks "$R"   # .githooks + hooksPath 설정, installer 는 없음(=하류)
+_run "$R"
+! printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '✅' \
+  && ok "T-ds.c 하류 no-op 훅 → ✅ 아님 (거짓 ✅ 경로 차단)" || nope "T-ds.c" "out=$_OUT"
+
 # T3 (AC-3): memory 에 placeholder 잔존 → ⚠️
 R="$TMP/r3"; _mkrepo "$R"; mkdir -p "$R/.specops/memory"
 printf '# IF 설계서\n\n- **버전**: <버전>\n' > "$R/.specops/memory/api-spec.md"
