@@ -28,5 +28,28 @@ awk '/^5\.5\./,/^6\. /' "$SP" | grep -q '§auto' && ok "AC-R-1b §auto 분기 �
 # AC-R-2: design-screen Process 보존
 grep -q '^## Process' "$DS" && grep -q 'design-screen.sh' "$DS" && ok "AC-R-2 Process 보존" || nope "AC-R-2" "Process 소실"
 
+# AC-5: description 2건이 관할(lifecycle 밖) + lifecycle 안 담당자를 밝힌다
+_d_ds=$(grep -m1 '^description:' "$DS"); _d_dss=$(grep -m1 '^description:' "$DSS")
+printf '%s' "$_d_ds"  | grep -q 'lifecycle 밖' \
+  && printf '%s' "$_d_ds"  | grep -q 'Step 5.5' && printf '%s' "$_d_ds"  | grep -q 'Phase 2.5-A' \
+  && printf '%s' "$_d_dss" | grep -q 'lifecycle 밖' \
+  && printf '%s' "$_d_dss" | grep -q 'Step 5.5' && printf '%s' "$_d_dss" | grep -q 'Phase 2.5-A' \
+  && [ "$(grep -c '^description:' "$DS")" = 1 ] && [ "$(grep -c '^description:' "$DSS")" = 1 ] \
+  && ok "AC-5[spec AC-1·2·4] 화면 description 관할+담당+1행" || nope "AC-5[spec AC-1·2·4]" "범위 한정 누락 또는 description 다중 행"
+
+# AC-6: 복수 파일 **본문**(frontmatter 제외)에도 분업이 있다
+#   ★ frontmatter 를 잘라내는 이유: 안 자르면 description 만 고쳐도 통과해,
+#     이 FID 가 발견한 "복수 본문 공백"을 다시 놓친다.
+#   ★ 세 토큰을 **같은 한 줄**에서 요구한다 — 파일 전역 grep 이면 `design-screen.md`
+#     conjunct 가 tautology 다(본문에 이미 존재).
+#   ★★ 앵커는 `^> **분업**:` 로 **고정**한다 — 느슨한 `grep -m1 '분업'` 은 본문의
+#     기존 cross-ref 줄을 잡을 수 있어 판정 대상이 조용히 바뀐다(IF 경로에서 실측).
+_body_dss=$(awk 'BEGIN{c=0} /^---$/{c++; next} c>=2' "$DSS")
+_l_dss=$(printf '%s' "$_body_dss" | grep -m1 '^> \*\*분업\*\*:')
+printf '%s' "$_l_dss" | grep -q 'Step 5.5' \
+  && printf '%s' "$_l_dss" | grep -q 'Phase 2.5-A' \
+  && printf '%s' "$_l_dss" | grep -q 'design-screen.md' \
+  && ok "AC-6[spec AC-3] design-screens 본문 분업(frontmatter 제외)" || nope "AC-6[spec AC-3]" "본문 분업 누락"
+
 echo "── test-screen-routing-doc: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

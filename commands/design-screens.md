@@ -1,10 +1,10 @@
 ---
 name: design-screens
-description: 기능 설명으로 복수 화면을 일괄 디자인 — 목록 자동 판단·승인 게이트·화면별 순차 대화 루프
+description: "[lifecycle 밖] 복수 화면 일괄 설계 — 목록 자동판단·승인 게이트·순차 루프. lifecycle 안은 Step 5.5·Phase 2.5-A 가 자동 처리"
 triggers:
   - "/design-screens"
 mode: ask
-specops_version: 1.80.0
+specops_version: 1.92.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -12,6 +12,8 @@ reference_upstream: specops-ko 독자 추가
 # /design-screens [기능 설명]
 
 여러 화면을 한 번에 standalone 으로 디자인하는 오케스트레이터. 기능 설명을 입력받아 ① 필요한 화면 목록을 자동 판단하고 ② 사용자 승인 게이트를 거친 뒤 ③ 각 화면을 기존 `/design-screen` 대화 루프로 순차 디자인한다.
+
+> **분업**: lifecycle 안에서는 **Step 5.5**(단일 `/start`·`/maintain`)·**Phase 2.5-A**(`/start-all` batch)가 자동 처리한다 — 본 슬래시는 **lifecycle 밖 전용**이다. 분업 기준 SoT: `commands/design-screen.md` §화면 설계 경로 분업
 
 ## Step 1: 화면 목록 자동 판단 + 승인 게이트
 
