@@ -27,6 +27,7 @@ FID 아티팩트·리뷰 리포트·gbrain 기록이 커밋되지 않는다. `/d
 |---|---|
 | [2026-09-02-plugin-evaluation-5th.md](2026-09-02-plugin-evaluation-5th.md) | 5회차 종합 평가 **7.3/10** (5축 고정 루브릭, 1~4회차 델타 포함) |
 | [2026-09-02-improvement-proposals.md](2026-09-02-improvement-proposals.md) | 개선 제안 6건 + 이후 경과(1·2순위 해소, 3순위 자체 강등) |
+| [2026-09-04-plugin-evaluation-6th.md](2026-09-04-plugin-evaluation-6th.md) | 6회차 종합 평가 **7.3/10** (±0 — 5회차 계측 오류 2건 정정: 강제력 과소·가치 과대) |
 
 ## 이전 회차 (로컬 전용)
 
