@@ -13,17 +13,29 @@ _mkrepo() {  # $1=repo 경로 — git init + .specops 생성
   git -C "$1" init -q 2>/dev/null
   git -C "$1" config user.email t@t.io; git -C "$1" config user.name t
 }
-_hooks_ok() {  # $1=repo — 2단 hook 완비
+_plugin_shape() {  # $1=repo — 플러그인 repo 형상 부여 (처방 대상 실재)
+  # doctor 의 관할 판정은 "처방(install-git-hooks.sh)이 이 repo 에서 실행 가능한가" 다.
+  # 실물 installer 를 복사하지 않고 존재만 만든다 — 판정은 존재만 본다.
+  mkdir -p "$1/scripts/_internal" "$1/.githooks"
+  printf '#!/bin/sh\nexit 0\n' > "$1/scripts/_internal/install-git-hooks.sh"
+}
+_noop_hooks() {  # $1=repo — 실행가능 훅 2개 + hooksPath. **installer 없음**(= 하류 형상)
   mkdir -p "$1/.githooks"
   printf '#!/bin/sh\nexit 0\n' > "$1/.githooks/pre-commit"
   printf '#!/bin/sh\nexit 0\n' > "$1/.githooks/pre-push"
   chmod +x "$1/.githooks/pre-commit" "$1/.githooks/pre-push"
   git -C "$1" config core.hooksPath .githooks
 }
+_hooks_ok() {  # $1=repo — 2단 hook 완비 (플러그인 repo 형상 포함)
+  # ★ 형상을 여기 내장한다 — 사용처가 7곳이라 호출부마다 한 줄씩 더하면 누락이 재발한다
+  #   (실측: T11 누락 시 rows=8 oks=7 FAIL). 하류 no-op 픽스처는 _noop_hooks 를 쓴다.
+  _plugin_shape "$1"
+  _noop_hooks "$1"
+}
 _run() { _OUT=$(cd "$1" && SPECOPS_ROOT=".specops" bash "$SH" "${@:2}" 2>&1); _RC=$?; }
 
 # T1 (AC-1): hooksPath 미설정 → git hook ⚠️ + 조치 명령
-R="$TMP/r1"; _mkrepo "$R"
+R="$TMP/r1"; _mkrepo "$R"; _plugin_shape "$R"
 _run "$R"
 printf '%s' "$_OUT" | grep -E '^\| git_hooks ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q 'install-git-hooks.sh' \
