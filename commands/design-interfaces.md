@@ -1,10 +1,10 @@
 ---
 name: design-interfaces
-description: 기능 설명·화면으로 복수 인터페이스를 일괄 설계 — 목록 자동판단·승인 게이트·순차 대화 루프
+description: "[lifecycle 밖] 복수 인터페이스 일괄 설계 — 목록 자동판단·승인 게이트·순차 루프. lifecycle 안은 Step 5.6·Phase 2.5-B 가 자동 처리"
 triggers:
   - "/design-interfaces"
 mode: ask
-specops_version: 1.37.0
+specops_version: 1.92.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -12,6 +12,8 @@ reference_upstream: specops-ko 독자 추가
 # /design-interfaces [기능 설명]
 
 여러 인터페이스를 한 번에 설계하는 오케스트레이터. ① 필요 인터페이스 목록을 자동 판단하고 ② 승인 게이트를 거쳐 ③ 각 인터페이스를 `/design-interface` 대화 루프로 순차 설계한다. 분업 기준은 `§인터페이스 설계 경로 분업`(단수 `commands/design-interface.md`) 참조.
+
+> **분업**: lifecycle 안에서는 **Step 5.6**(단일 `/start`·`/maintain`)·**Phase 2.5-B**(`/start-all` batch)가 자동 처리한다 — 본 슬래시는 **lifecycle 밖 전용**이다. 분업 기준 SoT: `commands/design-interface.md` §인터페이스 설계 경로 분업
 
 ## Step 1: 인터페이스 목록 자동 판단 + 승인 게이트
 

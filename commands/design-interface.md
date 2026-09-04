@@ -1,6 +1,6 @@
 ---
 name: design-interface
-description: API 엔드포인트·DB 테이블 1개를 api-spec.md·data-model.md 마스터에 설계 반영 — 화면 대칭 인터페이스 설계
+description: "[lifecycle 밖] 인터페이스 1개 설계 — api-spec.md·data-model.md 마스터 반영. lifecycle 안은 Step 5.6(단일)·Phase 2.5-B(batch) 가 자동 처리"
 triggers:
   - "/design-interface"
 mode: ask

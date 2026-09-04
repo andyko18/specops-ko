@@ -1,6 +1,6 @@
 ---
 name: design-screen
-description: 화면 스펙(.md) + HTML 미리보기(.html) 쌍을 screens/ 에 생성/수정 — 프로젝트 UI 화면 설계
+description: "[lifecycle 밖] 화면 1개 설계 — screens/ 에 .md+.html 쌍 생성/수정. lifecycle 안은 Step 5.5(단일)·Phase 2.5-A(batch) 가 자동 처리"
 triggers:
   - "/design-screen"
 mode: ask
