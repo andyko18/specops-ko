@@ -55,6 +55,8 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 - `templates/foundation-manifest.md` — manifest 템플릿
 - `commands/start.md` — 기능 단위 구현 진입 슬래시 (미러링 패턴 참조)
 - `scripts/_internal/check-fr-table.sh` — `[공통]` → `foundation-scope` SKIP (start-all Phase 0)
+- `scripts/_internal/check-foundation-manifest.sh` — **verify HARD 게이트**. §유형=foundation FID 완료 시 `.specops/memory/foundation-manifest.md` 존재·채움을 검사해 미산출이면 `VERIFY: FAIL` (`run-verification.sh` 가 호출)
+- `scripts/_internal/check-spec-label-compat.sh` — **verify HARD 게이트**. `§유형=foundation` 과 `§batch` hybrid 라벨을 금지 (emit-context·verify 양쪽에서 FAIL)
 
 ---
 
