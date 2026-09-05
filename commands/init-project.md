@@ -1,6 +1,6 @@
 ---
 name: init-project
-description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 13종 산출물 자동 부트스트랩
+description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 13종(풀스택 기준 · 종류·선택별 6~13종) 산출물 자동 부트스트랩
 triggers:
   - "/init-project"
 mode: ask
@@ -13,7 +13,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 ## 목적
 
-프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
+프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**(풀스택 기준 — 종류·선택별 6~13종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
 
 **축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. 화면 껍데기는 만들지 않음(본설계는 `/start-all` Phase 2.5).
 
@@ -45,7 +45,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
-   - Phase 1: 사전검사 (git/.specops/memory 검사 + 13종 파일별 표 + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
+   - Phase 1: 사전검사 (git/.specops/memory 검사 + 13종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
    - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
@@ -53,7 +53,9 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — **자산 우선**: ui-ux-pro-max 의 제품유형별 팔레트(16토큰 + Success 미제공 사유행)·컨셉을 주입. 자산 부재·스키마 불일치 시 brand-pick(Stripe/Notion/Linear/Claude/직접)으로 graceful fallback + 사유 출력
      - **★ LLM 레이어 선행 (한국어 입력 경로)**: 자산의 제품 유형 목록은 **전량 영문**이다(한글 0건 실측). bash 호출 **전에** 사용자 한국어 입력·PRD 로 영문 제품 유형을 정해 `UIUX_PRODUCT_TYPE` 환경변수로 넘긴다(Phase 0 `.init-prd-fields` 패턴과 동형). 후보 조회는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/uiux-assets.sh` 를 source 해 `uiux::match <영문키워드>` 로 한다. 미지정이면 bash 가 brand-pick 으로 진행하므로 무해하다.
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
-   - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/test-strategy)
+     - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신). **`/start-all` Phase 2.5-A 는 이 목록을 읽지 않고** 각 FR 의 spec §참조에서 화면을 취합한다 — **어느 FR 도 언급하지 않은 화면은 batch 에서 설계되지 않는다.**
+   - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy)
+     - `api-spec-consumer.md`(8g)는 **13종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
    - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
@@ -144,7 +146,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 → Phase 6 디자인 브랜드 (1 = Stripe)
 → Phase 7 화면 이름 (home, login, dashboard) — overview만
 → Phase 8e DB? (y) · 8f API? (2 = OpenAPI)
-→ 13종 골격 + 원장 골격 스테이징
+→ 13종 골격(해당 KIND 활성분) + 원장 골격 스테이징
 → Phase 11.5 인터뷰 ≤5 → Light enrich → 게이트 1회 [y]
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
 → "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요"
@@ -160,7 +162,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 ## 참조
 
 - `scripts/_internal/init-project.sh` — 본 슬래시의 오케스트레이터
-- `templates/{constitution,PRD,CLAUDE,README,DESIGN,project-context,decisions,...}.md` — 13종+원장 템플릿
+- `templates/{constitution,PRD,CLAUDE,README,DESIGN,project-context,decisions,...}.md` — 13종+원장 템플릿(전체 목록 — KIND 별 부분 활성)
 - `skills/using-specops-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)
 

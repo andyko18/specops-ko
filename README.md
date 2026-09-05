@@ -35,7 +35,7 @@ claude plugin install specops-ko@specops-ko
 ## 빠른 시작
 
 ```bash
-/init-project 재고관리          # 새 프로젝트 — 표준 문서 13종 부트스트랩 (1회)
+/init-project 재고관리          # 새 프로젝트 — 표준 문서 13종(풀스택 기준 · 종류·선택별 6~13종) 부트스트랩 (1회)
 /start-foundation "라우팅·인증"  # 공통 인프라 먼저 (선택, 1회)
 /start "CSV 줄 수 세기 CLI"      # 기능 1건 구현
 /maintain "auth.js 토큰 만료"    # 기존 코드 수정
@@ -50,7 +50,7 @@ claude plugin install specops-ko@specops-ko
 
 | 슬래시 | 용도 |
 |---|---|
-| `/init-project` | 프로젝트 초기화 — 표준 산출물 13종 부트스트랩 (1회) |
+| `/init-project` | 프로젝트 초기화 — 표준 산출물 13종(풀스택 기준 · 종류·선택별 6~13종) 부트스트랩 (1회) |
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
 | `/start` | 신규 기능 1건 — 표준 경로 (대화형) |
 | `/start-lite` | 신규 기능 경량 — clarify·plan 생략, 화면/IF·리뷰·verify 유지 |
