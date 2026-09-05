@@ -129,6 +129,38 @@ check "T15 committed 단어경계 → allow" '"continue":true' "$out"
 out=$(mkstdin "git commit-tree abc123" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T15b commit-tree plumbing(over-match 해소) → allow" '"continue":true' "$out"
 
+# T15c~f 래퍼 접두 인식 (20260905-r12-wrapper-prefix)
+#   왜: 트리거 정규식이 git/gh 앞에 VAR=값·env 만 허용해, 명령 래퍼가 붙으면
+#   governance-lib.sh:985 가 미매칭으로 즉시 return 0 한다 — 강제층이 조용히 사라진다.
+for _w in "rtk" "rtk proxy" "sudo" "nice" "time" "command"; do
+  out=$(mkstdin "$_w git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+  check "T15c 래퍼 접두 deny ($_w)" '"permissionDecision":"deny"' "$out"
+done
+
+# T15d 오탐 대조군 — 래퍼 이름이 접두 위치가 아니면 걸리지 않는다
+out=$(mkstdin "echo rtk git commit" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
+check "T15d echo 안 래퍼 문자열 → allow" '"continue":true' "$out"
+
+# T15e R-1·R-2 접두 절 동일성 — R-1 에서 파생한 접두로 R-2 를 검사(자르는 위치 하드코딩 없음)
+#   왜 LCP+grep 이 아닌가: LCP 에 'rtk' 포함만 보면 그룹 뒷부분 비대칭을 놓친다
+#   (실측: R-2 에서만 |command 제거 → LCP 151, rtk 잔존 → 오판 PASS).
+_r1=$(jq -rs '.[]|select(.id=="R-1")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
+_r2=$(jq -rs '.[]|select(.id=="R-2")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
+_pre="${_r1%%git\[\[:space:\]\]+*}"
+_grp='(rtk[[:space:]]+(proxy[[:space:]]+)?|(sudo|nice|time|command)[[:space:]]+)?'
+case "$_pre" in
+  *"$_grp"*)
+    case "$_r2" in
+      "$_pre"*) echo "PASS T15e R-1·R-2 접두 절 동일 + 래퍼 그룹 존재"; pass=$((pass+1)) ;;
+      *)        echo "FAIL T15e R-2 가 R-1 접두 절로 시작하지 않음 (drift)"; fail=$((fail+1)) ;;
+    esac ;;
+  *) echo "FAIL T15e R-1 접두 절에 래퍼 그룹 부재"; fail=$((fail+1)) ;;
+esac
+
+# T15f R-2 래퍼 대칭 — gh pr create 쪽도 잠근다
+out=$(mkstdin "rtk gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T15f 래퍼 접두 pr create → deny" '"permissionDecision":"deny"' "$out"
+
 # T16 docs-only(.md staged) → allow [면제, AC-R-1]
 dgit=$(mktemp -d) || exit 1; ( cd "$dgit" && git init -q && echo x > CHANGELOG.md && git add CHANGELOG.md )
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$dgit" bash "$HOOK" 2>/dev/null)
