@@ -21,7 +21,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 0. **init 원장 우선** — `.specops/memory/project-context.md`·`decisions.md`가 있으면 clarifying이 이미 확정된 스택·인증·배포를 **재질문하지 않는다**(clarifying-ko 결정 원장 HARD). init 없이 진입했고 architecture placeholder만 있으면 기존 BLOCKING 게이트 유지.
 1. `specops-ko:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
-2. specifying-ko 가 foundation 분기 감지 → Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지) → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
+2. specifying-ko 가 foundation 분기 감지 → Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지) → **Step 5.6 인터페이스 design-first** — 이번 공통부가 **API 엔드포인트(제공)·DB 스키마(테이블·필드)·클라이언트 영속 데이터(localStorage·IndexedDB) 중 하나를 신설·변경할 때만** 적용한다(순수 토큰·컴포넌트 foundation 은 skip). 공통부는 DB 스키마·공통 API 의 **본진**이라 design-first 가 가장 중요하다 → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
 3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트 — 원장에 없으면) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
 
 ## 사용 예
@@ -31,6 +31,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 → specifying-ko 호출 (args 첫 줄: <!-- entry: foundation -->)
 → foundation 분기 진입 → Step 5.5 셸(app-shell 등) → 공통부 spec 작성
+→ Step 5.6: 공통 API·테이블을 api-spec.md·data-model.md 에 먼저 반영 (foundation-baseline 마커 안에)
 → clarifying-ko: 기술 프레임워크 BLOCKING 확정
 → planning-ko: 공통부 구현 + foundation-manifest.md 산출
 → decomposing-ko: 재사용 HARD GATE 활성
