@@ -41,17 +41,19 @@ printf '%s' "$out" | grep -q 'MASTER-ONLY: settings' \
   && printf '%s' "$out" | grep -q 'SCREENS-OVERVIEW: DIFF' && [ "$rc" -eq 0 ] \
   && ok "S2 diff 양방향 + rc=0" || nope "S2" "rc=$rc out=$out"
 
-# S3: sync 가 실제로 행을 추가한다 (added 보고만 하고 안 쓰는 결함 차단)
-_run sync "$d" >/dev/null
+# S3: sync 가 실제로 행을 추가한다 (added 보고만 하고 안 쓰는 결함 차단) + rc=0
+#   ★ rc 단언은 sync **성공 경로**(유일한 쓰기 모드 · Phase 2.5-A Step 4 호출부)의
+#     "전 모드 rc=0" 계약을 잠근다 — S6 은 마스터 부재 SKIP 경로만 통과해 여기 닿지 않는다.
+_run sync "$d" >/dev/null; rc3=$?
 after=$(_run list "$d")
-printf '%s' "$after" | grep -qx 'login' \
-  && ok "S3 sync 가 마스터에 실제 기록" || nope "S3" "after=$after"
+printf '%s' "$after" | grep -qx 'login' && [ "$rc3" -eq 0 ] \
+  && ok "S3 sync 가 마스터에 실제 기록 (rc=0)" || nope "S3" "after=$after rc=$rc3"
 
-# S4: sync 멱등 — 2회차 added=0, 행 수 불변
+# S4: sync 멱등 — 2회차 added=0, 행 수 불변, rc=0
 n1=$(_run list "$d" | wc -l | tr -d ' ')
-out=$(_run sync "$d"); n2=$(_run list "$d" | wc -l | tr -d ' ')
-printf '%s' "$out" | grep -q 'added=0' && [ "$n1" = "$n2" ] \
-  && ok "S4 sync 멱등 (added=0 · 행수 $n1 유지)" || nope "S4" "out=$out n1=$n1 n2=$n2"
+out=$(_run sync "$d"); rc4=$?; n2=$(_run list "$d" | wc -l | tr -d ' ')
+printf '%s' "$out" | grep -q 'added=0' && [ "$n1" = "$n2" ] && [ "$rc4" -eq 0 ] \
+  && ok "S4 sync 멱등 (added=0 · 행수 $n1 유지 · rc=0)" || nope "S4" "out=$out n1=$n1 n2=$n2 rc=$rc4"
 
 # S5: fence 밖 무접촉
 grep -q 'ghost-example' "$d/.specops/memory/screens-overview.md" \
@@ -78,5 +80,37 @@ out=$( cd "$g" && env -u SPECOPS_SCREENS_OVERVIEW -u SPECOPS_SCREENS_DIR bash "$
 [ "$(printf '%s\n' "$out" | grep -c .)" = "2" ] \
   && ok "S7 env 없이 cwd 기본 경로로 마스터를 찾는다" || nope "S7" "out=$out"
 rm -rf "$g"
+
+# S8: ★ start 마커 부재 → sync 는 SKIP · 행 추가 0 · rc=0 (I1 격추 축)
+#   end 만 보고 append 하면 추가분을 _master_names 가 못 읽어(fence 미형성) 매 실행 재추가된다 —
+#   start-all.md 의 "멱등(2회 실행해도 중복 없음)" 계약이 degenerate 마스터에서 거짓이 되고,
+#   기록분은 `list` 에도 안 잡혀 Phase 2.5-A Step 1 합류에서 사라진다.
+#   실측(되돌려-관찰): sync 의 fence start 가드를 지우면 sync ×3 → login 3행·dashboard 4행 → 이 축 FAIL.
+h=$(mktemp -d); _fixture "$h"
+M8="$h/.specops/memory/screens-overview.md"
+grep -v '^<!-- screens-table:start -->' "$M8" > "$M8.x" && mv "$M8.x" "$M8"
+o8=""; rc8=0
+for _i in 1 2 3; do o8=$(_run sync "$h"); [ $? -eq 0 ] || rc8=1; done
+n8_login=$(grep -c '^| login' "$M8" || true)
+n8_dash=$(grep -c '^| dashboard' "$M8" || true)
+printf '%s' "$o8" | grep -q 'SCREENS-OVERVIEW: SKIP' \
+  && [ "$n8_login" = "0" ] && [ "$n8_dash" = "1" ] && [ "$rc8" -eq 0 ] \
+  && ok "S8 start 부재 → sync SKIP · 행 추가 0 · rc=0" \
+  || nope "S8" "out=$o8 login=$n8_login dashboard=$n8_dash rc=$rc8"
+rm -rf "$h"
+
+# S9: ★ end 마커 부재 → list 빈 출력 · sync SKIP · rc=0 (_master_names end 가드 잠금)
+#   end 가 없으면 fence 가 파일 끝까지 열려 표 밖 ghost-example 을 실 화면으로 읽는다(07ef42e 클래스).
+#   실측(되돌려-관찰): _master_names 의 end 가드를 지우면 list 가 3줄(ghost 포함) → 이 축 FAIL.
+k=$(mktemp -d); _fixture "$k"
+M9="$k/.specops/memory/screens-overview.md"
+grep -v '^<!-- screens-table:end -->' "$M9" > "$M9.x" && mv "$M9.x" "$M9"
+l9=$(_run list "$k"); rc9l=$?
+o9=$(_run sync "$k"); rc9s=$?
+[ "$(printf '%s' "$l9" | grep -c .)" = "0" ] && [ "$rc9l" -eq 0 ] \
+  && printf '%s' "$o9" | grep -q 'SCREENS-OVERVIEW: SKIP' && [ "$rc9s" -eq 0 ] \
+  && ok "S9 end 부재 → list 빈 출력 · sync SKIP · rc=0" \
+  || nope "S9" "list=$l9 out=$o9 rc=$rc9l/$rc9s"
+rm -rf "$k"
 
 finish

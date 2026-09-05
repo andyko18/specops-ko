@@ -187,7 +187,7 @@ reference_upstream: specops-ko 독자 추가
      - 출력 이름을 FR 취합 결과와 **합집합**으로 화면셋을 정한다.
      - 마스터에만 있는 이름은 queue 상단에 `화면 마스터 전용: <name>… (FR 미언급 — 이번 batch 설계 대상 여부 판단)` **헤더 산문 줄**로 기록한다(**`|` 로 시작 금지** — `batch-state.sh` 가 표 행으로 오인한다).
      - 마스터 부재(미부트스트랩)면 빈 출력 — **그대로 진행**(비차단).
-   - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
+   - **신호 없음(순수 API·CLI·데이터 batch)** — **합집합 기준**이다(FR 신호가 0 이어도 마스터 전용 이름이 있으면 **신호 있음**) → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출. **graceful 안전망**: ui-ux-pro-max 미감지 시 `DESIGN.md` 토큰 fallback + marketplace 안내. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
 3. **★ foundation 셸 baseline 불변 (20260812)**: 화면 생성 **직전** snapshot → **직후** verify. allowlist(`app-shell`·`layout`·`login`) ∩ `<!-- foundation-shell -->` 파일 해시가 바뀌면 FAIL → Phase 2.5 중단.
    ```bash

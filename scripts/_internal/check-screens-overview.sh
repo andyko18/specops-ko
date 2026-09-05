@@ -21,11 +21,23 @@ MODE="${1:-diff}"
 
 # fence 안 name 컬럼만 — design-screen.sh:142-147 과 동일 관용구.
 #   fence 밖 예시 행·name 헤더를 실데이터로 세면 유령 화면이 된다(07ef42e).
+# fence 가 **양쪽 다** 성립해야 표로 인정한다 (Phase C I1).
+#   end 만 검사하면 두 방향으로 깨진다 —
+#   ① start 부재: awk 가 이름을 0개 뽑아 `list` 는 비는데, sync 는 그 빈 목록을
+#      기준으로 차집합을 내므로 **매 실행마다 같은 행을 다시 추가**한다(실측: 3회 → 3행).
+#      start-all.md 가 약속한 "멱등" 이 거짓이 되고, 그 행들은 `list` 가 못 읽어
+#      Step 1 합류에도 안 들어간다 — 쓰기는 되는데 아무도 못 보는 상태.
+#   ② end 부재: fence 가 파일 끝까지 열려 무관한 표를 흡수한다(07ef42e 클래스).
+#   `2>/dev/null` — 마스터가 읽기 불가일 때 stderr 노이즈 없이 "fence 불성립" 으로
+#   일관 처리한다. 비차단 계약이라 어느 쪽이든 rc=0 이다.
+_fence_ok() {
+  [ -f "$OVERVIEW" ] || return 1
+  grep -q '^<!-- screens-table:start -->' "$OVERVIEW" 2>/dev/null || return 1
+  grep -q '^<!-- screens-table:end -->'   "$OVERVIEW" 2>/dev/null || return 1
+}
+
 _master_names() {
-  [ -f "$OVERVIEW" ] || return 0
-  # start 만 있고 end 가 없으면 fence 가 파일 끝까지 열려 무관한 표를 흡수한다 —
-  #   list 는 Step 1 합류에 그대로 흘러가므로 유령 화면이 된다(07ef42e 클래스).
-  grep -q '^<!-- screens-table:end -->' "$OVERVIEW" || return 0
+  _fence_ok || return 0
   awk '
     /^<!-- screens-table:start -->/ { inside=1; next }
     /^<!-- screens-table:end -->/   { inside=0; next }
@@ -54,6 +66,9 @@ case "$MODE" in
       if [ -n "$only_s" ]; then
         # ★ awk -v 로 다중행을 넘기지 않는다 — BSD awk 가 "newline in string" 으로 죽는데
         #   호출부는 그걸 모르고 added 를 그대로 보고한다(실측: 보고 1, 실제 기록 0).
+        # ★ end 줄번호만 보지 않는다 — start 가 없으면 위 _master_names 가 빈 목록을
+        #   내므로 차집합이 매번 전량이 되어 중복이 쌓인다(Phase C I1).
+        _fence_ok || { echo "SCREENS-OVERVIEW: SKIP (fence 없음)"; exit 0; }
         end_ln=$(grep -n '^<!-- screens-table:end -->' "$OVERVIEW" | head -1 | cut -d: -f1)
         [ -n "$end_ln" ] || { echo "SCREENS-OVERVIEW: SKIP (fence 없음)"; exit 0; }
         # ★ mktemp 를 쓰지 않는다 — 기본 모드 0600 이 mv 로 넘어가 마스터 퍼미션이 바뀌고,
