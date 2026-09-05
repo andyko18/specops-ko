@@ -126,4 +126,35 @@ else
   fi
 fi
 
+# P11: 산문 계약 앵커의 **술어 토큰** 락 — 앵커가 키워드로 되돌아가는 것을 막는다
+#     계기 20260905-prose-contract-anchors: 산문 앵커 6건이 키워드 하나만 걸어
+#     계약 문장을 지워도 통과했다(변이 실측). 이를 계약 문장 앵커로 조였는데,
+#     ★ 그 형태를 잠그는 어서션이 어디에도 없었다 — P1 은 id 목록, P8 은 path,
+#     test-exec-evidence 는 id 존재만 본다. 6 앵커를 옛 키워드로 되돌려도
+#     전 스위트가 green 이었다(Phase C I-5 실측). P7 과 동형으로 잠근다.
+#
+#     각 record 의 must_match 가 **계약의 술어**를 담는지 본다. 주어(§lite·review_mode
+#     같은 키워드)만으로는 통과 못 한다 — 그게 이 FID 가 고친 결함 자체다.
+#     한계: 술어 토큰의 존재만 보므로 "앵커가 실제로 무엇을 잡는가"는 검사하지 않는다
+#     (그건 변이 실행이 필요하고, 이 스위트는 매트릭스를 읽기만 한다).
+_p11_fail=0
+_p11_check(){  # $1=record id  $2=술어 토큰 정규식
+  if jq -es --arg id "$1" --arg tok "$2" \
+       'map(select(.id==$id).edges[] | select(.must_match|test($tok))) | length > 0' \
+       "$MATRIX" >/dev/null 2>&1; then :; else
+    _p11_fail=1; printf '  P11 미충족: %s 앵커에 술어 토큰 /%s/ 없음\n' "$1" "$2" >&2
+  fi
+}
+_p11_check design-critical-cap     '정지|자동통과 금지'
+_p11_check lite-clarify-plan-skip  '호출 금지|호출하지 않'
+_p11_check lite-screen-if-keep     '제외 금지'
+_p11_check lite-bc-mandatory       '유지'
+_p11_check end-loaded-skip         '1회'
+_p11_check declared-testcmd-anchor '필수|게이트'
+if [ "$_p11_fail" -eq 0 ]; then
+  ok "P11 산문 계약 앵커 6건이 술어 토큰 유지 (키워드 회귀 차단)"
+else
+  nope "P11" "앵커가 계약 술어를 잃었다 — 키워드로 되돌아갔는지 확인"
+fi
+
 finish
