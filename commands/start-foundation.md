@@ -48,7 +48,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 ## 참조
 
-- `skills/specifying-ko/SKILL.md` — foundation 분기 처리 (Step 5.5 셸 전용, §유형=foundation)
+- `skills/specifying-ko/SKILL.md` — foundation 분기 처리 (Step 5.5 셸 전용 · Step 5.6 적용, §유형=foundation)
 - `skills/clarifying-ko/SKILL.md` — 기술스택 BLOCKING 게이트
 - `skills/planning-ko/SKILL.md` — foundation-manifest.md 산출 지시
 - `skills/decomposing-ko/SKILL.md` — 재사용 HARD GATE 조건
