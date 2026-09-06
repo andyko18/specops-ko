@@ -667,10 +667,15 @@ fi
 _thgb=$(awk '/^# T-hg\.b:/{f=1} f{print} f && /^fi$/{exit}' "$0" 2>/dev/null)
 _thgb_trap=$(printf '%s\n' "$_thgb" | grep -E '^ *trap .*rm -rf .*\$T' | head -1)
 _thgb_sig=$(printf '%s' "$_thgb_trap" | sed 's/.*"[[:space:]]*//')
-if [ -n "$_thgb_trap" ] && [ "$_thgb_sig" = EXIT ]; then
-  PASS=$((PASS+1)); echo "PASS T-hg.e T-hg.b 가 사본 정리 trap 을 EXIT 단독으로 보유 (tmpdir 누수 방지)"
+#   ★ (Phase C Minor-1) trap 만 보면 **실 파일 변이+복원 형태로의 회귀**를 못 본다 —
+#     복원되므로 ISO 축의 지문은 동일하고, 위 trap 검사는 정리 줄만 본다. 그래서 python
+#     변이 **대상**이 사본 하위(`"$T/`)임을 함께 잠근다. `"$PLUGIN/skills/…` 로 되돌리는
+#     변이는 여기서 FAIL 한다 (`\$` 는 단일 인용 ERE 안의 리터럴 `$` 다 — 끝 앵커가 아니다).
+_thgb_py=$(printf '%s\n' "$_thgb" | grep -cE '^ *python3 - "\$T/' || true)
+if [ -n "$_thgb_trap" ] && [ "$_thgb_sig" = EXIT ] && [ "$_thgb_py" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T-hg.e T-hg.b 가 사본 정리 trap 을 EXIT 단독으로 보유 + 변이 대상이 사본 하위 (tmpdir 누수·실파일 변이 방지)"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T-hg.e 사본 정리 trap 부재 또는 시그널이 EXIT 단독이 아님 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}'"
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.e 사본 정리 trap 부재/시그널 비-EXIT 또는 변이 대상이 사본 밖 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}' 사본변이대상=$_thgb_py(기대1)"
 fi
 
 ok(){ PASS=$((PASS+1)); echo "PASS $1"; }
