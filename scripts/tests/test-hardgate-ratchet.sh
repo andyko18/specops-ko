@@ -10,6 +10,20 @@ PASS=0; FAIL=0
 BL="$PLUGIN/scripts/_internal/.hardgate-baseline"
 VS="$PLUGIN/scripts/_internal/validate-structure.sh"
 
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+  || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
+
+# ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않음을 스스로 단언한다.
+#   trap 은 **중단** 안전을 담당하고, 이 어서션은 **정상 실행 중** 무변이를 담당한다 —
+#   역할이 겹치지 않는다.
+# ★ porcelain 만으로는 **이미 M 인 tracked 파일의 내용 변화**를 못 본다(실측: ' M x' 상태에서
+#   v1→v2 로 바꿔도 sha 동일 7e3de7179805). T2 구현 중엔 두 스위트가 정확히 M 상태다.
+#   git diff HEAD 를 병기해 내용까지 지문에 넣는다.
+_iso_paths='scripts/_internal/.hardgate-baseline skills/specifying-ko/SKILL.md commands/start-all.md skills scripts/tests'
+_iso_fp(){ ( cd "$PLUGIN" && { git status --porcelain; git diff HEAD -- $_iso_paths; } | shasum | cut -c1-12 ); }
+_iso_before=$(_iso_fp)
+
 # ── H1 (AC-4 a): baseline 실재 + 현재 트리에서 OK ──
 if [ -f "$BL" ]; then
   ok "H1.a .hardgate-baseline 실재"
@@ -24,17 +38,19 @@ else
 fi
 
 # ── H2 (AC-5): baseline 부재 → SKIP (FAIL 아님) — revert 안전 ──
-# ★ 중단 안전: baseline 이 옮겨진 채 중단되면 이후 래칫이 무음 SKIP 이 된다. EXIT 단독.
-mv "$BL" "$BL.h2bak"
-# shellcheck disable=SC2064
-trap "[ -f '$BL.h2bak' ] && mv '$BL.h2bak' '$BL'" EXIT
-out2=$(cd "$PLUGIN" && bash "$VS" 2>&1)
-mv "$BL.h2bak" "$BL"
-trap - EXIT
-if printf '%s' "$out2" | grep -qE 'hardgate_classified.*(SKIP|baseline 부재)'; then
-  ok "H2.a baseline 부재 → SKIP (AC-5)"
-else
-  nope "H2.a" "$(printf '%s' "$out2" | grep hardgate)"
+# ★ 격리 사본에서 지운다. 실 트리의 baseline 을 mv 하면 그 창에 다른 프로세스의
+#   validate-structure 가 무음 SKIP 이 되어 래칫이 사라진 것처럼 보인다(20260906 실측).
+T=$(iso::make_tree) || { nope "H2.a" "격리 사본 생성 실패"; T=""; }
+if [ -n "$T" ]; then
+  trap 'rm -rf "$T"' EXIT   # 중단 시 tmpdir 누출 방지 (AC-9)
+  rm -f "$T/scripts/_internal/.hardgate-baseline"
+  out2=$(cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1)
+  rm -rf "$T"; trap - EXIT
+  if printf '%s' "$out2" | grep -qE 'hardgate_classified.*(SKIP|baseline 부재)'; then
+    ok "H2.a baseline 부재 → SKIP (AC-5)"
+  else
+    nope "H2.a" "$(printf '%s' "$out2" | grep hardgate)"
+  fi
 fi
 
 # ── H3 (AC-6 b): 비율 노출 ──
@@ -50,52 +66,47 @@ else
 fi
 
 # ── H4 (AC-4 b): baseline 밖 신규 산문 HARD GATE → FAIL ──
-# 래칫이 실제로 무는지 확인한다. 임시 skill 을 만들고 반드시 제거한다.
-h4_dir="$PLUGIN/skills/__ratchet_probe__"
-# ★ 중단 안전: probe 가 잔류하면 이후 **모든** validate-structure 가 4건 FAIL 한다
-#   (file_counts·skill_conventions·readme_counts·skill_size — 리뷰어 실측). EXIT 단독.
-# shellcheck disable=SC2064
-trap "rm -rf '$h4_dir'" EXIT
-mkdir -p "$h4_dir"
-printf -- '---\nname: __ratchet_probe__\n---\n\n산문에서 HARD GATE 를 선언한다.\n' > "$h4_dir/SKILL.md"
-out4=$(cd "$PLUGIN" && bash "$VS" 2>&1)
-rm -rf "$h4_dir"
-trap - EXIT
-if printf '%s' "$out4" | grep -qE 'hardgate_classified.*__ratchet_probe__'; then
-  ok "H4.a baseline 밖 신규 산문 HARD GATE → FAIL + 이름 표시 (AC-4 b)"
-else
-  nope "H4.a" "$(printf '%s' "$out4" | grep hardgate)"
+# ★ probe 를 실 트리에 만들면 그 창의 모든 validate-structure 가 4건 FAIL 한다
+#   (file_counts·skill_conventions·readme_counts·skill_size). 사본에만 만든다.
+T=$(iso::make_tree) || { nope "H4.a" "격리 사본 생성 실패"; T=""; }
+if [ -n "$T" ]; then
+  trap 'rm -rf "$T"' EXIT
+  mkdir -p "$T/skills/__ratchet_probe__"
+  printf -- '---\nname: __ratchet_probe__\n---\n\n산문에서 HARD GATE 를 선언한다.\n' \
+    > "$T/skills/__ratchet_probe__/SKILL.md"
+  out4=$(cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1)
+  rm -rf "$T"; trap - EXIT
+  if printf '%s' "$out4" | grep -qE 'hardgate_classified.*__ratchet_probe__'; then
+    ok "H4.a baseline 밖 신규 산문 HARD GATE → FAIL + 이름 표시 (AC-4 b)"
+  else
+    nope "H4.a" "$(printf '%s' "$out4" | grep hardgate)"
+  fi
 fi
 
 # ── H5 (AC-6 a): 기존 마커 검사 무손상 ──
-# ★ 한 문구만 지우는 변이는 **vacuous** 다 — hardgate_classified 는 파일 **전체**에서
-#   분류 토큰을 찾으므로(validate-structure.sh:422), specifying-ko:19 의 `대화 게이트` 를
-#   지워도 :219 의 `판정 SoT` 가 규칙을 만족시켜 변이가 통과한다(20260807 실측 —
-#   test-validate-structure T-hg.b 가 같은 함정을 주석으로 기록). **세 토큰을 모두** 치환한다.
-h5_f="$PLUGIN/skills/specifying-ko/SKILL.md"
-h5_bak=$(mktemp)
-cp "$h5_f" "$h5_bak"
-# ★ 중단 안전 (20260809-mutation-test-trap): 이 블록은 **실 파일**을 변이한다. 중단되면
-#   손상이 워킹트리에 남고 다음 run-all 이 원인 불명 FAIL 을 낸다 — 2026-08-09 실제 발생
-#   (git push 타임아웃이 pre-push 의 run-all 을 죽였고 SKILL.md 규약 문구가 깨졌다).
-#   ★ EXIT **단독**이다. INT/TERM 을 함께 잡으면 셸 기본 종료가 사라져 핸들러가
-#     포그라운드 명령 종료까지 지연되고 그 사이 손상이 남는다(T-hg.d 대조 실측).
-# shellcheck disable=SC2064
-trap "cp '$h5_bak' '$h5_f'; rm -f '$h5_bak'" EXIT
-python3 - "$h5_f" <<'PYEOF2'
+# ★ 한 문구만 지우는 변이는 vacuous 다 — hardgate_classified 는 파일 **전체**에서
+#   분류 토큰을 찾으므로(validate-structure.sh:422) 세 토큰을 **모두** 치환한다.
+# ★ 사본에서 변이하므로 실 SKILL.md 는 손대지 않는다 — 종전엔 이 블록이 실 파일을
+#   변이해 20260809 에 중단 시 손상이 남았고(주석 기록), 정상 실행 중에도 다른
+#   프로세스에 `M` 으로 보였다(20260906 실측).
+T=$(iso::make_tree) || { nope "H5.a" "격리 사본 생성 실패"; T=""; }
+if [ -n "$T" ]; then
+  trap 'rm -rf "$T"' EXIT
+  python3 - "$T/skills/specifying-ko/SKILL.md" <<'PYEOF2'
 import sys
-p=sys.argv[1]; s=open(p,encoding="utf-8").read()
+p=sys.argv[1]; s=open(p,encoding="utf-8").read(); o=s
 for tok in ("판정 SoT", "기계화 불가", "대화 게이트"):
     s = s.replace(tok, "설명")
+assert s != o, "EDIT-FAILED: 치환 대상 토큰이 없다"
 open(p,"w",encoding="utf-8").write(s)
 PYEOF2
-out5=$(cd "$PLUGIN" && bash "$VS" 2>&1)
-cp "$h5_bak" "$h5_f"; rm -f "$h5_bak"
-trap - EXIT
-if printf '%s' "$out5" | grep -qE 'hardgate_classified.*specifying-ko\(미분류\)'; then
-  ok "H5.a 기존 마커 검사 무손상 — 3토큰 제거 시 여전히 FAIL (AC-6 a)"
-else
-  nope "H5.a" "$(printf '%s' "$out5" | grep hardgate)"
+  out5=$(cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1)
+  rm -rf "$T"; trap - EXIT
+  if printf '%s' "$out5" | grep -qE 'hardgate_classified.*specifying-ko\(미분류\)'; then
+    ok "H5.a 마커 3토큰 치환 → 미분류 검출 (AC-6 a)"
+  else
+    nope "H5.a" "$(printf '%s' "$out5" | grep hardgate)"
+  fi
 fi
 
 # ── H6 (T3 Phase C Minor): 접두 이름 계약 — checker grep 의 **닫는 따옴표** 잠금 ──
@@ -110,27 +121,32 @@ fi
 #       매칭을 baseline 쪽 접두 의미로 "단순화"하는 변이(예: `case "$sn" in "$bl"*)`)를 잡는
 #       유일한 케이스다. 그 변이에서 H4(`__ratchet_probe__`)·H6.b 는 여전히 발화하고 H6.a 만 숨는다.
 #       두 방향은 서로 다른 변이를 잠근다 — 어느 쪽도 지우지 마라.
-# ★ 중단 안전: probe 잔류 시 이후 모든 validate-structure 가 FAIL 한다. EXIT 단독(H4 와 동일).
-h6a_dir="$PLUGIN/skills/planning-ko-v2"   # baseline `planning-ko` 를 접두로 갖는 더 긴 이름
-h6b_dir="$PLUGIN/skills/planning-k"       # baseline `planning-ko` 의 접두인 더 짧은 이름
-# shellcheck disable=SC2064
-trap "rm -rf '$h6a_dir' '$h6b_dir'" EXIT
-mkdir -p "$h6a_dir" "$h6b_dir"
-printf -- '---\nname: planning-ko-v2\n---\n\ntest-hardgate-ratchet H6 probe (자동 생성·자동 삭제 — 잔류 시 지워도 된다).\n산문에서 HARD GATE 를 선언한다.\n' > "$h6a_dir/SKILL.md"
-printf -- '---\nname: planning-k\n---\n\ntest-hardgate-ratchet H6 probe (자동 생성·자동 삭제 — 잔류 시 지워도 된다).\n산문에서 HARD GATE 를 선언한다.\n' > "$h6b_dir/SKILL.md"
-out6=$(cd "$PLUGIN" && bash "$VS" 2>&1)
-rm -rf "$h6a_dir" "$h6b_dir"
-trap - EXIT
-hg6=$(printf '%s\n' "$out6" | grep hardgate_classified)
-if printf '%s' "$hg6" | grep -qF 'planning-ko-v2(래칫'; then
-  ok "H6.a baseline⊂신규(planning-ko-v2) → 래칫 FAIL — baseline 쪽 접두 매칭 변이 잠금"
-else
-  nope "H6.a" "$hg6"
+# ★ probe 를 사본에만 만든다 — 실 트리에 잔류하면 이후 모든 validate-structure 가 FAIL 한다.
+#   H6.a·H6.b 는 **같은 validate-structure 실행 출력**을 읽는 현행 구조를 유지한다(사본 1개).
+#   Q-b 의 "축마다 새 사본" 은 **논리 축 단위**이지 어서션 단위가 아니다.
+T=$(iso::make_tree) || { nope "H6.a" "격리 사본 생성 실패"; nope "H6.b" "격리 사본 생성 실패"; T=""; }
+if [ -n "$T" ]; then
+  trap 'rm -rf "$T"' EXIT
+  mkdir -p "$T/skills/planning-ko-v2" "$T/skills/planning-k"
+  printf -- '---\nname: planning-ko-v2\n---\n\ntest-hardgate-ratchet H6 probe.\n산문에서 HARD GATE 를 선언한다.\n' \
+    > "$T/skills/planning-ko-v2/SKILL.md"
+  printf -- '---\nname: planning-k\n---\n\ntest-hardgate-ratchet H6 probe.\n산문에서 HARD GATE 를 선언한다.\n' \
+    > "$T/skills/planning-k/SKILL.md"
+  out6=$(cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1)
+  rm -rf "$T"; trap - EXIT
+  hg6=$(printf '%s\n' "$out6" | grep hardgate_classified)
+  printf '%s' "$hg6" | grep -qF 'planning-ko-v2(래칫' \
+    && ok "H6.a baseline⊂신규(planning-ko-v2) → 래칫 FAIL — baseline 쪽 접두 매칭 변이 잠금" \
+    || nope "H6.a" "$hg6"
+  printf '%s' "$hg6" | grep -qF 'planning-k(래칫' \
+    && ok "H6.b baseline 이름의 **접두**(planning-k) → 래칫 FAIL — 닫는 따옴표 계약" \
+    || nope "H6.b" "접두 이름이 baseline 항목에 숨었다(닫는 따옴표 소실 의심): $hg6"
 fi
-if printf '%s' "$hg6" | grep -qF 'planning-k(래칫'; then
-  ok "H6.b baseline 이름의 **접두**(planning-k) → 래칫 FAIL — 닫는 따옴표 계약"
-else
-  nope "H6.b" "접두 이름이 baseline 항목에 숨었다(닫는 따옴표 소실 의심): $hg6"
-fi
+
+# ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않았음을 스스로 단언한다.
+_iso_after=$(_iso_fp)
+[ "$_iso_before" = "$_iso_after" ] \
+  && ok "ISO 실 트리 무변이 (실행 전후 git status 불변)" \
+  || nope "ISO" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스) — before=$_iso_before after=$_iso_after"
 
 finish
