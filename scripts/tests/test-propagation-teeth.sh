@@ -11,6 +11,12 @@ PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::fingerprint >/dev/null 2>&1 \
+  || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
+# ISO pathspec = _mutate_run 호출부 3곳이 넘기는 두 파일
+_iso_paths='.githooks/pre-commit scripts/tests/test-propagation.sh'
+_iso_before=$(iso::fingerprint $_iso_paths)
 
 CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 # 원장 경로는 **env 로 덮을 수 없다** — 하드코딩이 의도다.
@@ -26,29 +32,25 @@ HK=".githooks/pre-commit"
 [ -f "$CHK" ] || { nope "T0" "checker 부재"; finish; }
 [ -f "$MATRIX" ] || { nope "T0" "matrix 부재"; finish; }
 
-bak=$(mktemp) || exit 1
-
-# 변이 → 체커 실행 → 복원. $1=대상(PLUGIN 상대 경로) $2=python 치환 본문
-# ★ 중단 안전(한계 명시): 실 트리를 건드리므로 백업 + EXIT 단독 trap
-#   (INT/TERM 병기 금지 — handler delay 를 유발한다. 20260809 실측)
-#   SIGTERM·SIGINT 는 복원되지만 **SIGKILL 은 trap 자체를 가로챌 수 없어 변이가 잔류한다**(실측).
-#   잔류 시 사후 안전망은 원장 edge — 다음 pre-commit 의 check-propagation 이 격추한다.
+# 변이 → 체커 실행 → 사본 폐기. $1=대상(PLUGIN 상대 경로) $2=python 치환 본문
+# ★ 시그니처 불변(인자 2개) — 호출부 :63·:72·:84 무수정.
+#   실 트리를 더 이상 건드리지 않는다: 사본을 만들고 그 안에서 변이한 뒤 **사본의 체커**를 돈다
+#   (check-propagation.sh:7 이 BASH_SOURCE 로 루트를 잡으므로 사본이 사본을 검사한다).
+#   rc=97 = 사본 생성 실패 = 변이 미실행 (종전 "백업 실패" 와 동일 의미 — 호출부 nope 문면 유지).
 _mutate_run() {
-  # 백업 실패 시 변이하지 않고 이탈 — stale/빈 bak 을 실파일 위에 복원하면
-  #   최악의 경우 빈 pre-commit(게이트 무음 사망)이 남는다. rc=97 = 백업 실패, 변이 미실행.
-  #   (nope 를 여기서 부르면 명령치환 서브셸이라 카운터가 전파되지 않는다 → return 방식)
-  cp "$PLUGIN/$1" "$bak" || return 97
+  local T out rc
+  T=$(iso::make_tree "$PLUGIN") || return 97
   # shellcheck disable=SC2064
-  trap "cp '$bak' '$PLUGIN/$1'" EXIT
-  python3 - "$PLUGIN/$1" <<PYEOF
+  trap "rm -rf '$T'" EXIT
+  python3 - "$T/$1" <<PYEOF
 import sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8').read()
 $2
 open(p, 'w', encoding='utf-8').write(s)
 PYEOF
-  out=$(cd "$PLUGIN" && SPECOPS_PROPAGATION_MATRIX= bash "$CHK" 2>&1); rc=$?
-  cp "$bak" "$PLUGIN/$1"
+  out=$(cd "$T" && SPECOPS_PROPAGATION_MATRIX= bash "$T/scripts/_internal/check-propagation.sh" 2>&1); rc=$?
+  rm -rf "$T"
   trap - EXIT
   printf '%s' "$out"
   return "$rc"
@@ -59,7 +61,7 @@ PYEOF
 _faillines() { printf '%s\n' "$1" | grep 'PROPAGATION: FAIL' | grep 'missing'; }
 
 # ── T1.a: pre-commit 핀 제거 → 그 edge 만 격추 ──
-#   (rc=97 = _mutate_run 백업 실패 = 변이 미실행. 아래 nope 의 rc 값이 원인을 가리킨다)
+#   (rc=97 = _mutate_run 사본 생성 실패 = 변이 미실행. 아래 nope 의 rc 값이 원인을 가리킨다)
 m=$(_mutate_run "$HK" 's = s.replace("cp_out=$(SPECOPS_PROPAGATION_MATRIX= bash", "cp_out=$(bash")'); rc=$?
 fl=$(_faillines "$m"); n=$(printf '%s\n' "$fl" | grep -c .)
 if [ "$rc" -ne 0 ] && [ "${n:-0}" -eq 1 ] && printf '%s' "$fl" | grep -q 'githooks/pre-commit'; then
@@ -127,5 +129,8 @@ else
   nope "T1.e" "^cp_out= 핀 ${cp_n:-0}건(기대 1) · ^out= 핀 ${out_n:-0}건(기대 1) — 앵커+env 토큰 중 하나라도 빠지면 자기참조 매치가 열린다"
 fi
 
-rm -f "$bak"
+[ "$_iso_before" = "$(iso::fingerprint $_iso_paths)" ] \
+  && ok "ISO 실 트리 전후 지문 불변" \
+  || nope "ISO" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스)"
+
 finish
