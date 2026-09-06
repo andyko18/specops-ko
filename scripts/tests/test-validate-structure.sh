@@ -8,6 +8,13 @@ PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 SCRIPT="$PLUGIN/scripts/_internal/validate-structure.sh"
 
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::fingerprint >/dev/null 2>&1 \
+  || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
+# ISO pathspec = T-hg.b 가 (격리 전) 변이하던 유일한 실 파일
+_iso_paths='skills/specifying-ko/SKILL.md'
+_iso_before=$(iso::fingerprint $_iso_paths)
+
 # T1 현재 플러그인 실행 — 모든 항목 OK 또는 INFO/SKIP, FAILS=0
 out=$(bash "$SCRIPT" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '✅ directories: OK' && echo "$out" | grep -q '✅ file_counts: OK'; then
@@ -546,17 +553,22 @@ else
 fi
 
 # T-hg.b: 분류 문구를 지우면 적발 (비-vacuous — 메타 규칙이 실제로 본다)
-_bak=$(mktemp)
-cp "$PLUGIN/skills/specifying-ko/SKILL.md" "$_bak"
-# ★ 중단 안전 (20260809-mutation-test-trap): 이 블록은 **실 파일**을 변이한다. 중단되면
-#   손상이 워킹트리에 남고 다음 run-all 이 원인 불명 FAIL 을 낸다 — 2026-08-09 실제 발생
-#   (git push 180s 타임아웃이 pre-push 의 run-all 을 죽였고 SKILL.md 규약 문구가 깨졌다).
-#   ★ EXIT **단독**이다. INT/TERM 을 함께 잡으면 셸 기본 종료가 사라져 핸들러가
-#     포그라운드 명령 종료까지 지연되고 그 사이 손상이 남는다(실측 — T-hg.d 대조).
-#   한계: SIGKILL 은 트랩 불가. 그때는 git checkout skills/specifying-ko/SKILL.md 로 복구.
-# shellcheck disable=SC2064
-trap "cp '$_bak' '$PLUGIN/skills/specifying-ko/SKILL.md'; rm -f '$_bak'" EXIT
-python3 - "$PLUGIN/skills/specifying-ko/SKILL.md" <<'PYEOF'
+#   ★ 격리 (FID 20260906-test-isolation-completion): 실 SKILL.md 를 변이하지 않는다.
+#     종전 주석의 2026-08-09 손상 사건(git push 180s 타임아웃이 pre-push 의 run-all 을
+#     죽였고 SKILL.md 규약 문구가 깨졌다)은 **실 파일 변이**가 전제였고, 사본에선 성립하지
+#     않는다. trap 이 못 막던 것도 그것이다 — 정상 실행 중 변이 창에 남이 트리를 읽는 것.
+#   ★ 사본 **안의** validate-structure 를 돌린다. $SCRIPT 를 부르면 실 트리를 검사해
+#     격리가 무의미해진다(변이는 사본에만 있으니 vacuous PASS 도 아니고 그냥 FAIL 이다).
+#   ★ trap 은 이제 **사본 정리** 용이다(복원 대상 없음). tmpdir 누수가 새 위험이고
+#     T-hg.e 가 그것을 잠근다. EXIT **단독** 요구는 그대로다(T-hg.d 대조 — 지연 핸들러).
+#   ★ T="" 후에는 블록 전체를 건넌다. `cd ""` 는 no-op 이라 빈 경로로 진행하면
+#     사본이 아니라 **실 트리**에 스크립트를 돌리게 된다(T3 의 ARM B2 실측).
+T=$(iso::make_tree "$PLUGIN") || { FAIL=$((FAIL+1)); echo "FAIL T-hg.b 격리 사본 생성 실패"; T=""; }
+if [ -n "$T" ]; then
+  # shellcheck disable=SC2064   # $T 는 **지금** 확장돼야 한다 (해제 후 정리 대상이 사라짐)
+  trap "rm -rf '$T'" EXIT
+  ISO_VS="$T/scripts/_internal/validate-structure.sh"
+  python3 - "$T/skills/specifying-ko/SKILL.md" <<'PYEOF'
 import sys
 # hardgate_classified 는 **파일 전체**에서 분류 토큰을 찾는다(블록 스코프 아님).
 #   따라서 한 문구만 지우면 같은 파일의 다른 `판정 SoT` 언급이 규칙을 만족시켜
@@ -568,13 +580,14 @@ for tok in ("판정 SoT", "기계화 불가", "대화 게이트"):
     s = s.replace(tok, "설명")
 open(p,"w",encoding="utf-8").write(s)
 PYEOF
-out2=$(bash "$SCRIPT" 2>&1)
-cp "$_bak" "$PLUGIN/skills/specifying-ko/SKILL.md"; rm -f "$_bak"
-trap - EXIT
-if echo "$out2" | grep -q 'hardgate_classified: FAIL'; then
-  PASS=$((PASS+1)); echo "PASS T-hg.b 분류 제거 시 적발 (비-vacuous)"
-else
-  FAIL=$((FAIL+1)); echo "FAIL T-hg.b 메타 규칙 무반응"
+  out2=$(bash "$ISO_VS" 2>&1)
+  rm -rf "$T"; trap - EXIT
+  # ★ ok/nope 는 이 파일 아래쪽에서 정의된다 — 여기선 아직 없으니 직접 관용구를 쓴다.
+  if echo "$out2" | grep -q 'hardgate_classified: FAIL'; then
+    PASS=$((PASS+1)); echo "PASS T-hg.b 분류 제거 시 적발 (비-vacuous · 사본 격리)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL T-hg.b 메타 규칙 무반응"
+  fi
 fi
 
 # T-hg.c: 판정 SoT 로 주장한 스크립트는 실재해야 한다 (dangling 인용 금지)
@@ -638,22 +651,26 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-hg.d 중단 복원 — trap판='$_with'(기대 ORIGINAL) · 무trap판='$_without'(기대 MUTATED)"
 fi
 
-# T-hg.e: T-hg.b **자신**이 그 패턴을 쓰는가 (실 파일 잠금)
+# T-hg.e: T-hg.b **자신**이 그 패턴을 쓰는가 (사본 정리 trap 잠금)
 #   T-hg.d 는 패턴 지식만 잠근다. 실제 블록이 안 고쳐지면 결함은 그대로다.
+#   ★ 잠그는 대상이 바뀌었다 (FID 20260906-test-isolation-completion): T-hg.b 가 사본 격리로
+#     넘어가면서 **복원** trap(실 파일 되돌리기)은 사라지고 **사본 정리** trap 이 그 자리를 받았다.
+#     남은 위험은 손상 잔존이 아니라 tmpdir 누수다 — 사본 경로(`$T`)를 포함한 정리 줄을 특정한다.
 #   ★ **설치** trap 만 본다. `^ *trap .+ EXIT *$` 로 느슨하게 잡으면 해제 줄(`trap - EXIT`)이
 #     그 조건을 만족시켜, 설치 trap 을 통째로 지워도 통과한다(구현 중 변이 M1 이 실증).
-#     복원 대상 경로를 포함한 줄을 특정한다.
+#   ★ 패턴은 **단일 인용**이다. 이중 인용이면 bash 가 `\$` → `$` 로 풀어 ERE 끝 앵커가 되고
+#     매치가 0건이 된다 — 무변이인데 T-hg.e 가 FAIL 한다(T6 구현 중 실측).
 #   ★ 시그널 목록은 **등식**으로 본다. " EXIT 로 끝나는가" 로 보면 `trap "…" INT TERM EXIT` 가
 #     통과한다 — EXIT 로 끝나면서 INT/TERM 을 잡는 형태이고, 이건 다중 시그널 trap 의 가장
-#     관용적 표기다(Phase C 리뷰어 실측). 그러면 본 FID 가 고친 지연-핸들러 결함이
+#     관용적 표기다(Phase C 리뷰어 실측). 그러면 20260809 FID 가 고친 지연-핸들러 결함이
 #     "견고화" 명목으로 조용히 부활한다. 마지막 따옴표 뒤 전체가 정확히 `EXIT` 여야 한다.
 _thgb=$(awk '/^# T-hg\.b:/{f=1} f{print} f && /^fi$/{exit}' "$0" 2>/dev/null)
-_thgb_trap=$(printf '%s\n' "$_thgb" | grep -E "^ *trap .*cp .*specifying-ko/SKILL\.md" | head -1)
+_thgb_trap=$(printf '%s\n' "$_thgb" | grep -E '^ *trap .*rm -rf .*\$T' | head -1)
 _thgb_sig=$(printf '%s' "$_thgb_trap" | sed 's/.*"[[:space:]]*//')
 if [ -n "$_thgb_trap" ] && [ "$_thgb_sig" = EXIT ]; then
-  PASS=$((PASS+1)); echo "PASS T-hg.e T-hg.b 가 복원 trap 을 EXIT 단독으로 보유 (중단 안전)"
+  PASS=$((PASS+1)); echo "PASS T-hg.e T-hg.b 가 사본 정리 trap 을 EXIT 단독으로 보유 (tmpdir 누수 방지)"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T-hg.e 복원 trap 부재 또는 시그널이 EXIT 단독이 아님 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}'"
+  FAIL=$((FAIL+1)); echo "FAIL T-hg.e 사본 정리 trap 부재 또는 시그널이 EXIT 단독이 아님 — 시그널='${_thgb_sig:-없음}' 줄='${_thgb_trap:-없음}'"
 fi
 
 ok(){ PASS=$((PASS+1)); echo "PASS $1"; }
@@ -693,6 +710,14 @@ out=$(_cc4_run)
 case "$out" in ✅*) ok "T-cc4.c 커맨드 문서 chain 생략은 허용 (요약 문서 — 과잉 차단 방지)" ;;
                 *) nope "T-cc4.c 오탐" "$out" ;; esac
 rm -rf "$_cc4"
+
+# ── ISO 자가점검 (AC-5): 이 스위트가 실 트리를 변이하지 않음을 스스로 단언한다 ──
+#   trap 은 **중단** 안전을, 이 어서션은 **정상 실행 중** 무변이를 담당한다.
+if [ "$_iso_before" = "$(iso::fingerprint $_iso_paths)" ]; then
+  PASS=$((PASS+1)); echo "PASS ISO 실 트리 전후 지문 불변"
+else
+  FAIL=$((FAIL+1)); echo "FAIL ISO 실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스)"
+fi
 
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL
