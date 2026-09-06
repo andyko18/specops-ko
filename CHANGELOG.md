@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.94.0] — 2026-09-07
+
 ### 테스트가 실 트리를 변이하던 마지막 3종을 격리했다 (#39)
 
 PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로 "부분 개선" 이라 적었다**. 이번에 남은 3종을 마저 옮겨 **실 트리에 쓰는 스위트를 0으로** 만들었다.
@@ -1684,7 +1686,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.93.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.94.0...HEAD
+[1.94.0]: https://github.com/andyko18/specops-ko/compare/v1.93.0...v1.94.0
 [1.93.0]: https://github.com/andyko18/specops-ko/compare/v1.92.0...v1.93.0
 [1.92.0]: https://github.com/andyko18/specops-ko/compare/v1.91.0...v1.92.0
 [1.91.0]: https://github.com/andyko18/specops-ko/compare/v1.90.0...v1.91.0

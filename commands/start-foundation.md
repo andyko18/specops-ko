@@ -60,4 +60,4 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 ---
 
-*specops-ko v1.72.0 · 2026-06-04 · foundation 분기 진입 슬래시*
+*specops-ko v1.94.0 · 2026-06-04 · foundation 분기 진입 슬래시*
