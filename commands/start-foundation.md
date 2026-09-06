@@ -4,7 +4,7 @@ description: "[공통부·대화형] specops-ko 한국어 자율 Lifecycle — �
 triggers:
   - "/start-foundation"
 mode: ask
-specops_version: 1.72.0
+specops_version: 1.94.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
