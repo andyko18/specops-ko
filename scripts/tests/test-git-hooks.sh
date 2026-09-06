@@ -13,6 +13,20 @@ PRE_COMMIT="$PLUGIN/.githooks/pre-commit"
 PRE_PUSH="$PLUGIN/.githooks/pre-push"
 INSTALLER="$PLUGIN/scripts/_internal/install-git-hooks.sh"
 
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+  || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
+
+# ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않음을 스스로 단언한다.
+#   trap 은 **중단** 안전을 담당하고, 이 어서션은 **정상 실행 중** 무변이를 담당한다 —
+#   역할이 겹치지 않는다.
+# ★ porcelain 만으로는 **이미 M 인 tracked 파일의 내용 변화**를 못 본다(실측: ' M x' 상태에서
+#   v1→v2 로 바꿔도 sha 동일 7e3de7179805). T2 구현 중엔 두 스위트가 정확히 M 상태다.
+#   git diff HEAD 를 병기해 내용까지 지문에 넣는다.
+_iso_paths='scripts/_internal/.hardgate-baseline skills/specifying-ko/SKILL.md commands/start-all.md skills scripts/tests'
+_iso_fp(){ ( cd "$PLUGIN" && { git status --porcelain; git diff HEAD -- $_iso_paths; } | shasum | cut -c1-12 ); }
+_iso_before=$(_iso_fp)
+
 # GH-1: 훅 파일 존재 + 실행권한
 [ -f "$PRE_COMMIT" ] && [ -x "$PRE_COMMIT" ] \
   && ok "GH-1 .githooks/pre-commit 존재+실행권한" \
@@ -79,16 +93,22 @@ fi
 
 # GH-8: 실제 드리프트 차단 실증 — 44cd095(파손 리비전)의 start-all.md 복원 시 exit 1
 #       (이 커밋이 run-all 없이 나가 T1.e 를 하루 red 로 남긴 그 변경이다)
+# ★ 격리 사본에서 한다 — 종전엔 실 commands/start-all.md 를 파손 리비전으로 덮어썼고,
+#   그 창에 다른 프로세스가 파일을 읽으면 431→300줄에 앵커 10개 소실로 보였다
+#   (20260906 실측: check-propagation FAIL (14/208), 원인 규명에 여러 단계 소요).
+# ★ iso::make_git_tree 를 쓴다 — git repo 가 아니면 pre-commit 이 관할 판정에서
+#   빠져나가 rc=0(면제)을 내고 "차단됐다" 판정이 조용히 거짓이 된다(실측).
 if [ -x "$PRE_COMMIT" ] && (cd "$PLUGIN" && git cat-file -e 44cd095:commands/start-all.md 2>/dev/null); then
-  BAK=$(mktemp)
-  cp "$PLUGIN/commands/start-all.md" "$BAK"
-  # shellcheck disable=SC2064
-  trap "cp '$BAK' '$PLUGIN/commands/start-all.md'; rm -f '$BAK'" EXIT
-  (cd "$PLUGIN" && git show 44cd095:commands/start-all.md > commands/start-all.md)
-  (cd "$PLUGIN" && bash "$PRE_COMMIT" >/dev/null 2>&1); rc=$?
-  cp "$BAK" "$PLUGIN/commands/start-all.md"; rm -f "$BAK"
-  trap - EXIT
-  [ "$rc" -ne 0 ] && ok "GH-8 44cd095 파손 리비전 → pre-commit 차단" || nope "GH-8" "rc=$rc (차단 실패)"
+  G=$(iso::make_git_tree) || G=""
+  if [ -z "$G" ]; then
+    nope "GH-8" "격리 git 사본 생성 실패"
+  else
+    trap 'rm -rf "$G"' EXIT
+    (cd "$PLUGIN" && git show 44cd095:commands/start-all.md) > "$G/commands/start-all.md"
+    (cd "$G" && bash .githooks/pre-commit >/dev/null 2>&1); rc=$?
+    rm -rf "$G"; trap - EXIT
+    [ "$rc" -ne 0 ] && ok "GH-8 44cd095 파손 리비전 → pre-commit 차단" || nope "GH-8" "rc=$rc (차단 실패)"
+  fi
 else
   skip "GH-8 (44cd095 미도달 — shallow clone)"
 fi
@@ -384,5 +404,11 @@ fi
 grep -q 'check-ci-status' "$PLUGIN/scripts/README.md" && grep -q 'CI 상태 경고' "$PLUGIN/CLAUDE.md" \
   && ok "GH-ci.doc CLAUDE.md·scripts/README gh 의존 고지" \
   || nope "GH-ci.doc" "문서 고지 부재"
+
+# ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않았음을 스스로 단언한다.
+_iso_after=$(_iso_fp)
+[ "$_iso_before" = "$_iso_after" ] \
+  && ok "ISO 실 트리 무변이 (실행 전후 git status 불변)" \
+  || nope "ISO" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스) — before=$_iso_before after=$_iso_after"
 
 finish
