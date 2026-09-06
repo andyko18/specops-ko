@@ -100,12 +100,18 @@ for tok in ("판정 SoT", "기계화 불가", "대화 게이트"):
 assert s != o, "EDIT-FAILED: 치환 대상 토큰이 없다"
 open(p,"w",encoding="utf-8").write(s)
 PYEOF2
+  _py_rc=$?
+  if [ "$_py_rc" -ne 0 ]; then
+    nope "H5.a" "EDIT-FAILED — 치환 대상 토큰 부재 (python rc=$_py_rc · 변이 미적용)"
+    rm -rf "$T"; trap - EXIT; T=""
+  else
   out5=$(cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1)
   rm -rf "$T"; trap - EXIT
   if printf '%s' "$out5" | grep -qE 'hardgate_classified.*specifying-ko\(미분류\)'; then
     ok "H5.a 마커 3토큰 치환 → 미분류 검출 (AC-6 a)"
   else
     nope "H5.a" "$(printf '%s' "$out5" | grep hardgate)"
+  fi
   fi
 fi
 
