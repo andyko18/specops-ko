@@ -15,6 +15,7 @@ INSTALLER="$PLUGIN/scripts/_internal/install-git-hooks.sh"
 
 source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
 command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+  && command -v iso::fingerprint >/dev/null 2>&1 \
   || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
 
 # ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않음을 스스로 단언한다.
@@ -24,8 +25,7 @@ command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev
 #   v1→v2 로 바꿔도 sha 동일 7e3de7179805). T2 구현 중엔 두 스위트가 정확히 M 상태다.
 #   git diff HEAD 를 병기해 내용까지 지문에 넣는다.
 _iso_paths='scripts/_internal/.hardgate-baseline skills/specifying-ko/SKILL.md commands/start-all.md skills scripts/tests'
-_iso_fp(){ ( cd "$PLUGIN" && { git status --porcelain; git diff HEAD -- $_iso_paths; } | shasum | cut -c1-12 ); }
-_iso_before=$(_iso_fp)
+_iso_before=$(iso::fingerprint $_iso_paths)
 
 # GH-1: 훅 파일 존재 + 실행권한
 [ -f "$PRE_COMMIT" ] && [ -x "$PRE_COMMIT" ] \
@@ -406,7 +406,7 @@ grep -q 'check-ci-status' "$PLUGIN/scripts/README.md" && grep -q 'CI 상태 경�
   || nope "GH-ci.doc" "문서 고지 부재"
 
 # ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않았음을 스스로 단언한다.
-_iso_after=$(_iso_fp)
+_iso_after=$(iso::fingerprint $_iso_paths)
 [ "$_iso_before" = "$_iso_after" ] \
   && ok "ISO 실 트리 무변이 (실행 전후 git status 불변)" \
   || nope "ISO" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스) — before=$_iso_before after=$_iso_after"

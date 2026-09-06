@@ -8,12 +8,12 @@ source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
 command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+  && command -v iso::fingerprint >/dev/null 2>&1 \
   || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
 
 # 실 트리 지문 (I5 용) — 절대값이 아니라 전후 비교
 _iso_paths='scripts/_internal/.hardgate-baseline skills/specifying-ko/SKILL.md commands/start-all.md skills scripts/tests templates'
-_iso_fp(){ ( cd "$PLUGIN" && { git status --porcelain; git diff HEAD -- $_iso_paths; } | shasum | cut -c1-12 ); }
-_iso_before=$(_iso_fp)
+_iso_before=$(iso::fingerprint $_iso_paths)
 
 # I1: make_tree 가 사본을 만들고 그 안에서 validate-structure 가 ❌ 0건
 T=$(iso::make_tree) || { nope "I1" "사본 생성 실패"; finish; exit 1; }
@@ -58,7 +58,7 @@ rm -rf "$G"
 #     158 중 1건이 상시 red 면 pre-push 가 무의미해지고 `--no-verify` 관성이 생긴다 —
 #     이 repo 가 이미 겪은 실패 모드다(CLAUDE.md). 우리가 볼 것은 "깨끗한가" 가 아니라
 #     "이 스위트가 바꿨는가" 다.
-[ "$_iso_before" = "$(_iso_fp)" ] \
+[ "$_iso_before" = "$(iso::fingerprint $_iso_paths)" ] \
   && ok "I5 헬퍼 테스트가 실 트리를 변이하지 않았다 (전후 지문 불변)" \
   || nope "I5" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스)"
 

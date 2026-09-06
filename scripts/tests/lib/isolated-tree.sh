@@ -11,6 +11,7 @@
 # 사용:
 #   source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
 #   command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+#     && command -v iso::fingerprint >/dev/null 2>&1 \
 #     || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
 #   T=$(iso::make_tree) || { nope "..." "사본 실패"; finish; exit 1; }
 #   trap "rm -rf '$T'" EXIT      # 정리는 호출자 책임
@@ -19,10 +20,10 @@
 #   자기 BASH_SOURCE 기준(script_dir/../..)으로 잡으므로, 사본의 스크립트를 부르면
 #   사본을 검사한다. $PLUGIN 의 스크립트를 부르면 실 트리를 검사해 격리가 무의미해진다.
 
-# iso::make_tree — tracked 파일을 **워킹트리 내용 그대로** tmpdir 에 복사, 경로 echo
+# iso::make_tree [root] — tracked 파일을 **워킹트리 내용 그대로** tmpdir 에 복사, 경로 echo.
+#   root 기본값은 **$PLUGIN**(cwd 아님).
 #   ★ git archive HEAD 를 쓰지 않는다: 커밋된 트리라 미커밋 수정이 검사에서 빠져
 #     래칫이 약해진다(현행은 워킹트리를 검사한다).
-# iso::make_tree [root] — root 기본값은 **$PLUGIN**(cwd 아님).
 #   ★ 현행 두 스위트는 `cd "$PLUGIN"` 을 명시해 cwd 에 무관했다. cwd 기준으로 잡으면
 #     `cd /tmp && bash $PLUGIN/scripts/tests/...` 같은 호출에서 git rev-parse 가 fatal 이 되고,
 #     cwd 가 **다른 git repo** 면 그 repo 를 복사한다(plan-review 2회차 I4).
@@ -36,6 +37,8 @@ iso::make_tree() {
   #   `test-hardgate-ratchet.sh` 는 없다. 워킹트리에서 **삭제된** tracked 파일이 있으면
   #   `tar -c` 가 에러를 내는데, pipefail 유무에 따라 한쪽만 return 1 이 되어 동작이 갈린다.
   #   실측: 삭제 1건 있는 repo — pipefail 없으면 naive OK / 있으면 naive rc≠0, guarded 는 양쪽 OK.
+  #   ★ 부분 tar 실패 시: 외부 파이프 rc 는 `tar -x` 의 rc 다(pipefail 없는 호출자 기준) —
+  #     즉 **안전 방향**으로 기운다(추출이 깨지면 아래 sentinel 검사가 잡는다).
   ( set +o pipefail
     cd "$root" && git ls-files -z \
       | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done \
@@ -62,4 +65,14 @@ iso::make_git_tree() {
     rm -rf "$tmp"; return 1
   }
   printf '%s\n' "$tmp"
+}
+
+# iso::fingerprint [경로...] — 실 트리($PLUGIN) 지문. 인자 = git diff pathspec.
+#   ★ 경로를 **인자로** 받는다(고정 목록 아님): 호출자가 "내가 건드릴 수 있는 경로" 를 선언한다.
+#     _mutate_run 은 호출자가 넘긴 임의 파일을 변이하므로 고정 목록으로는 선언할 수 없다.
+#   porcelain 절반은 "파일이 더럽다"만 보고 **이미 M 인 파일의 내용 변화는 못 본다** —
+#     git diff 절반이 그 backstop 이라 pathspec 이 곧 사각지대의 경계다(I6 이 이를 잠근다).
+iso::fingerprint() {
+  ( cd "${PLUGIN:?iso::fingerprint — PLUGIN 미설정}" \
+    && { git status --porcelain; git diff HEAD -- "$@"; } | shasum | cut -c1-12 )
 }
