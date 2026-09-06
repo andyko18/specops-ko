@@ -53,7 +53,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — **자산 우선**: ui-ux-pro-max 의 제품유형별 팔레트(16토큰 + Success 미제공 사유행)·컨셉을 주입. 자산 부재·스키마 불일치 시 brand-pick(Stripe/Notion/Linear/Claude/직접)으로 graceful fallback + 사유 출력
      - **★ LLM 레이어 선행 (한국어 입력 경로)**: 자산의 제품 유형 목록은 **전량 영문**이다(한글 0건 실측). bash 호출 **전에** 사용자 한국어 입력·PRD 로 영문 제품 유형을 정해 `UIUX_PRODUCT_TYPE` 환경변수로 넘긴다(Phase 0 `.init-prd-fields` 패턴과 동형). 후보 조회는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/uiux-assets.sh` 를 source 해 `uiux::match <영문키워드>` 로 한다. 미지정이면 bash 가 brand-pick 으로 진행하므로 무해하다.
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
-     - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신). **`/start-all` Phase 2.5-A 는 이 목록을 읽지 않고** 각 FR 의 spec §참조에서 화면을 취합한다 — **어느 FR 도 언급하지 않은 화면은 batch 에서 설계되지 않는다.**
+     - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
    - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy)
      - `api-spec-consumer.md`(8g)는 **13종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
    - Phase 9: README.md 자동 생성 (PRD §1 인용)

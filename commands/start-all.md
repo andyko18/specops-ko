@@ -180,7 +180,14 @@ reference_upstream: specops-ko 독자 추가
 #### A. 통합 화면 설계 (UI 기능 시)
 
 1. **UI 표면 검출** — 전 FID `.specops/<FID>/spec.md` §참조·§범위에서 화면 신호(`screens/<name>` 목록·화면 렌더·사용자 흐름)를 취합한다.
-   - **신호 없음(순수 API·CLI·데이터 batch)** → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
+   - **★ 화면 목록 마스터 합류 (20260906)**: FR 취합에 더해 `/init-project` 가 정의한 마스터를 **읽는다** — 마스터에만 있는 화면은 어느 FR 도 언급하지 않으면 **조용히 누락**된다(PR #32 가 한계로 기록한 것을 본 배선이 해소).
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh list
+     ```
+     - 출력 이름을 FR 취합 결과와 **합집합**으로 화면셋을 정한다.
+     - 마스터에만 있는 이름은 queue 상단에 `화면 마스터 전용: <name>… (FR 미언급 — 이번 batch 설계 대상 여부 판단)` **헤더 산문 줄**로 기록한다(**`|` 로 시작 금지** — `batch-state.sh` 가 표 행으로 오인한다).
+     - 마스터 부재(미부트스트랩)면 빈 출력 — **그대로 진행**(비차단).
+   - **신호 없음(순수 API·CLI·데이터 batch)** — **합집합 기준**이다(FR 신호가 0 이어도 마스터 전용 이름이 있으면 **신호 있음**) → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
 2. **ui-ux-pro-max 1회 통합 호출** — 취합된 **전체 화면셋**에 대해 `ui-ux-pro-max:ui-ux-pro-max` Skill 을 **1회만** 호출 → batch 공통 design system 산출. **graceful 안전망**: ui-ux-pro-max 미감지 시 `DESIGN.md` 토큰 fallback + marketplace 안내. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
 3. **★ foundation 셸 baseline 불변 (20260812)**: 화면 생성 **직전** snapshot → **직후** verify. allowlist(`app-shell`·`layout`·`login`) ∩ `<!-- foundation-shell -->` 파일 해시가 바뀌면 FAIL → Phase 2.5 중단.
    ```bash
@@ -200,6 +207,13 @@ reference_upstream: specops-ko 독자 추가
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip). `/start`·`/maintain` 의 Step 5.5 `[공통]` 과 동일 요건 — batch 라고 축이 줄지 않는다.
    - **템플릿 기반**: 각 `.html` 은 `templates/screen.html` 을 기반으로 생성한다 — `--text-*`·`--space-*` 토큰 자리가 DESIGN.md §2·§3 과 1:1 대응한다.
+   - **★ 마스터 갱신 + 잔여 고지 (20260906)**: 생성 완료 후 **기계로** 마스터를 갱신한다(모델이 손으로 행을 쓰지 않는다 — 빼먹으면 마스터가 다시 낡는다).
+     ```bash
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh sync
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh diff
+     ```
+     - `sync` 는 fence **안에만** 추가하고 멱등이다(2회 실행해도 중복 없음).
+     - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
