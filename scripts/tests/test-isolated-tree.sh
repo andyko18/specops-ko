@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# test-isolated-tree.sh — 격리 사본 헬퍼 계약
+# ★ 루트 배치 필수 — lib/ 에 두면 test-run-all-glob-completeness T1.a 가 FAIL 한다(실측).
+set -u
+PASS=0; FAIL=0
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::make_git_tree >/dev/null 2>&1 \
+  || { echo "FATAL: isolated-tree 미로드(또는 반쯤 로드)" >&2; exit 1; }
+
+# 실 트리 지문 (I5 용) — 절대값이 아니라 전후 비교
+_iso_paths='scripts/_internal/.hardgate-baseline skills/specifying-ko/SKILL.md commands/start-all.md skills scripts/tests templates'
+_iso_fp(){ ( cd "$PLUGIN" && { git status --porcelain; git diff HEAD -- $_iso_paths; } | shasum | cut -c1-12 ); }
+_iso_before=$(_iso_fp)
+
+# I1: make_tree 가 사본을 만들고 그 안에서 validate-structure 가 ❌ 0건
+T=$(iso::make_tree) || { nope "I1" "사본 생성 실패"; finish; exit 1; }
+trap 'rm -rf "${T:-}" "${T3:-}" "${G:-}"' EXIT   # 중단 시 tmpdir 누출 방지
+n=$( cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1 | grep -c '❌' || true )
+[ "$n" = "0" ] && ok "I1 사본에서 validate-structure ❌ 0건" || nope "I1" "❌ ${n}건"
+
+# I2: 사본을 변이해도 실 트리는 무오염 (격리의 본질)
+before=$(cd "$PLUGIN" && git status --porcelain | shasum | cut -c1-12)
+mkdir -p "$T/skills/__iso_probe__"
+printf -- '---\nname: __iso_probe__\n---\n\n산문에서 HARD GATE 를 선언한다.\n' > "$T/skills/__iso_probe__/SKILL.md"
+m=$( cd "$T" && bash scripts/_internal/validate-structure.sh 2>&1 | grep -c '❌' || true )
+after=$(cd "$PLUGIN" && git status --porcelain | shasum | cut -c1-12)
+[ "$m" -gt 0 ] && [ "$before" = "$after" ] \
+  && ok "I2 사본 변이가 사본에만 반영 (사본 ❌${m}건 · 실 트리 불변)" \
+  || nope "I2" "사본❌=$m before=$before after=$after"
+rm -rf "$T"
+
+# I3: **워킹트리 내용**을 복사한다 (git archive HEAD 가 아님) — AC-2 핵심
+#   ★ 실 트리에 프로브를 쓰지 않는다(자기참조 위반). git 사본 안에서 tracked 파일을
+#     미커밋 수정하고, 그 안에서 다시 make_tree 를 돌려 수정분이 따라오는지 본다.
+G=$(iso::make_git_tree) || { nope "I3" "git 사본 실패"; finish; exit 1; }
+printf '\n<!-- iso-worktree-marker -->\n' >> "$G/templates/spec.md"
+# ★ `source … &&` 를 넣지 않는다 — 함수는 서브셸에 상속되고, Step 4 시점엔 헬퍼가 아직
+#   untracked 라 `$G`(git ls-files 사본)에 그 파일이 없어 source 가 실패하고 && 로 단락된다
+#   (실측: T3 빈값 → "HEAD 를 복사하고 있다" 로 원인이 잘못 표기됨).
+# ★ 인자 명시 — 없으면 실 트리를 복사해 거짓 PASS 가 된다.
+T3=$( iso::make_tree "$G" )
+grep -q 'iso-worktree-marker' "$T3/templates/spec.md" 2>/dev/null \
+  && ok "I3 미커밋 수정이 사본에 반영 (워킹트리 복사 — archive HEAD 아님)" \
+  || nope "I3" "미커밋 수정이 사본에 없다 — HEAD 를 복사하고 있다"
+rm -rf "$T3" "$G"
+
+# I4: make_git_tree 는 git repo 를 만든다 (pre-commit vacuous 차단)
+G=$(iso::make_git_tree) || { nope "I4" "git 사본 실패"; finish; exit 1; }
+( cd "$G" && git rev-parse --show-toplevel >/dev/null 2>&1 ) \
+  && ok "I4 make_git_tree 사본이 git repo 다" || nope "I4" "git repo 아님"
+rm -rf "$G"
+
+# I5: 실 트리 무오염 — **before/after 지문 비교** (절대값 검사 금지)
+#   ★ `porcelain == 0` 을 요구하면 **WIP 가 있는 dev 머신에서 무조건 FAIL** 한다.
+#     158 중 1건이 상시 red 면 pre-push 가 무의미해지고 `--no-verify` 관성이 생긴다 —
+#     이 repo 가 이미 겪은 실패 모드다(CLAUDE.md). 우리가 볼 것은 "깨끗한가" 가 아니라
+#     "이 스위트가 바꿨는가" 다.
+[ "$_iso_before" = "$(_iso_fp)" ] \
+  && ok "I5 헬퍼 테스트가 실 트리를 변이하지 않았다 (전후 지문 불변)" \
+  || nope "I5" "실 트리가 변이됐다 (이 스위트 또는 동시 실행 중인 다른 프로세스)"
+
+finish
