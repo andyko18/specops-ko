@@ -118,6 +118,45 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T13.f"
 fi
 
+# ── T13.g: T13.a·T13.d **자신**이 사본 훅을 부르는가 (호출부 자기잠금) ──
+#   `test-validate-structure.sh` 의 T-hg.e 동형.
+#   ★ 왜 필요한가: AC-10 ① (`_ac10a`·`_ac10c`) 은 `ISO_POSTTOOL`/`ISO_STOP` **문자열**이
+#     `$T/` 하위인지만 본다. 그 값은 **두 줄 위**에서 `"$T/hooks/…"` 로 조립되므로
+#     `$T` 가 비어있지 않은 한 항상 참이다 — **대입줄에만 참, 호출줄엔 거짓**이다.
+#     실제 회귀면은 `bash "$ISO_…"` 호출줄이고, `POSTTOOL`·`STOP`(`:9-10`)은
+#     T13.b/c/e/f 가 쓰느라 **여전히 정의돼 있다**. 호출줄만 실 훅으로 되돌리면
+#     **무음 통과**한다(Phase C 리뷰어 실측: `PASS T13.a …` / `PASS=7 FAIL=0`).
+#   ★ 상보 관계 — 둘 다 필요하다. 대입줄을 `"$PLUGIN/…"` 으로 되돌리는 변이는
+#     T13.g 를 통과하고 AC-10 ① 이 잡는다. 호출줄 변이는 AC-10 ① 을 통과하고
+#     T13.g 가 잡는다. 어느 한쪽만으로는 두 면을 덮지 못한다.
+#   ★ 왜 정적 축인가: 실 훅은 rules 유무와 무관하게 `rc=0 {"continue":true}` 를 내고
+#     stderr 마커도 없다(`posttool-governance.sh:45`·`stop-governance.sh:47`).
+#     프로덕션 훅 무수정 조건에서 **출력으로는 A/B 를 가를 수 없고**, 정적 자기잠금이
+#     유일한 축이다. 이 FID 가 AC-10 을 "관측" 이 아니라 "구성" 으로 설계한 것과 같은 이유.
+#   ★ 자기 경로는 `$0` 이 아니라 **`$PLUGIN` 파생 절대경로**다. `$0` 은 호출 형태·cwd 에
+#     따라 상대경로가 되고(run-all 은 `cd "$PLUGIN" && bash scripts/tests/…`), 그러면
+#     standalone 은 PASS 하는데 run-all 에서만 추출 0줄로 FAIL 하는 유령이 생긴다.
+#     또 `$PLUGIN` 은 `${BASH_SOURCE[0]}` 파생이라(`:8`) 격리 사본에서 실행하면
+#     **사본 자신의 파일**을 읽는다 — 실 트리를 읽으면 사본 변이가 통과해 vacuous 다.
+#   ★ awk 는 블록 첫 줄(`^# T13.a ` / `^# T13.d `)부터 **바깥** `fi`(`^fi$`)까지 뜬다.
+#     안쪽 판정 `fi` 는 들여쓰여 있어 걸리지 않는다.
+#   ★ grep 은 `-F` 고정문자열이다. 이중 인용 ERE 면 bash 가 `$` 를 풀어 끝 앵커가 되고
+#     매치 0 이 된다(T6 실측). 또 `bash "$POSTTOOL"` 은 `bash "$ISO_POSTTOOL"` 의
+#     부분문자열이 **아니다**(`ISO_` 접두가 끊는다) — 0건 단언이 vacuous 하지 않다.
+_SELF="$PLUGIN/scripts/tests/governance/test-failure-modes.sh"
+_t13a_blk=$(awk '/^# T13\.a /{f=1} f{print} f && /^fi$/{exit}' "$_SELF" 2>/dev/null)
+_t13d_blk=$(awk '/^# T13\.d /{f=1} f{print} f && /^fi$/{exit}' "$_SELF" 2>/dev/null)
+_g_iso_p=$(printf '%s\n' "$_t13a_blk" | grep -cF 'bash "$ISO_POSTTOOL"' || true)
+_g_raw_p=$(printf '%s\n' "$_t13a_blk" | grep -cF 'bash "$POSTTOOL"' || true)
+_g_iso_s=$(printf '%s\n' "$_t13d_blk" | grep -cF 'bash "$ISO_STOP"' || true)
+_g_raw_s=$(printf '%s\n' "$_t13d_blk" | grep -cF 'bash "$STOP"' || true)
+if [ "$_g_iso_p" -eq 1 ] && [ "$_g_raw_p" -eq 0 ] \
+   && [ "$_g_iso_s" -eq 1 ] && [ "$_g_raw_s" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T13.g 호출부 자기잠금 — T13.a·T13.d 가 사본 훅만 호출"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T13.g 호출부가 실 훅으로 회귀 — T13.a(사본훅=$_g_iso_p 기대1 · 실훅=$_g_raw_p 기대0) T13.d(사본훅=$_g_iso_s 기대1 · 실훅=$_g_raw_s 기대0)"
+fi
+
 if [ "$_iso_before" = "$(iso::fingerprint $_iso_paths)" ]; then
   PASS=$((PASS+1)); echo "PASS ISO 실 트리 전후 지문 불변"
 else
