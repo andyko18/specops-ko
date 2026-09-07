@@ -4,6 +4,89 @@
 
 ## [Unreleased]
 
+### 러너 앵커와 whitelist 가 어긋나 있었다 — 정직한 실행이 커밋에서 막혔다 (#40)
+
+`_WHITELIST_PAT`(실행을 **허용**하는가)과 러너 앵커(실행 사실을 **인정**하는가)는 같은 질문에 답하는
+두 정규식인데, **서로 다른 커밋에서 각자 넓혀졌다.** `#22`(09-02)가 앵커에 env 접두를, `#26`(09-03)이
+whitelist 에 poetry·워크스페이스를 넣고 **서로 맞추지 않았다.** 각 계열 내부는 잠겨 있었다(T25·T49) —
+**두 계열 사이를 잠그는 검사가 없었다.**
+
+실측: 12종 중 **6종이 `whitelist 허용 ∧ 앵커 불인정`** — `poetry run pytest` · `uv run pytest` ·
+`pnpm --dir … test` · `pnpm --filter … test` · `npx vitest run` · `pnpm exec vitest`.
+하류 4 repo 의 `test_command` 에 이 형태가 **306건**(auto-company 189 · Argus 57 · gobiseo 32 · ssl-portal 28)
+있었고, 전부 **정직하게 테스트를 돌려도 커밋이 막히는** 상태였다. #26 커밋 메시지가 스스로 경고한
+*"실행은 되는데 커밋이 막힌다"* 가 문자 그대로 성립했다.
+
+- **앵커 리터럴 4사본 → 셸 변수 1개**(`_RUNNER_ANCHOR_PAT`), `jq --arg` raw 주입(백슬래시 한 겹 차이)
+- **커버리지 정렬** — whitelist 의 비-bash 러너군과 동치
+- **★ 본 산출물은 정규식이 아니라 `T70`** — 공유 코퍼스(`scripts/tests/fixtures/runner-commands.txt` 18종)를
+  두 판정기에 통과시켜 `whitelist 허용 ∧ 앵커 불인정 = 0` 을 강제한다. 이 검사가 있었으면 #22·#26 의
+  비대칭을 그 자리에서 잡았다. 정규식 확장은 일회성이고 이 잠금이 재발을 막는다.
+- 역방향(`앵커 인정 ∧ whitelist 차단`)은 FAIL 로 세지 않는다 — 넓어지는 쪽이라 사용자를 막지 않는다.
+
+### 잠금은 계획 3곳이었는데 실제로 4곳이었다 — 층마다 다른 것을 잡았다
+
+리터럴을 세던 검사를 **완화가 아니라 이관**했다. 넷을 한 커밋에 넣지 않으면 `record-task-receipt.sh` 가
+receipt 를 거부해 **R-1 이 커밋을 차단**하고, `hooks/*` 는 플러그인 런타임이라 docs-only 면제도 없다 —
+**정직한 경로가 전부 닫힌다.**
+
+| 잠금 | 이관 형태 | 발견한 층 |
+|---|---|---|
+| `test-exec-evidence.sh` **T25** | 리터럴 0 · 변수 참조 **`-eq 4`**(`-ge 3` 은 사이트 1곳 소실을 놓친다) | 계획 |
+| 같은 파일 **T38**(AC-13) | **`_anchor_sites` 헬퍼 공유** | plan-reviewer 2회차 |
+| `test-run-all-verify-token.sh` **T3** | **상수 대입줄 결속** | plan-reviewer 2회차 |
+| **`mutation-equivalent.conf`** | 절대 줄번호 키 **3회 재번호**(+22/+6/+4) | **구현자 `NEEDS_CONTEXT`** |
+
+T25·T38 이 헬퍼를 공유하는 이유는 **같은 명제를 여러 곳에 복제해 함께 낡은 것이 이 결함의 원인**이어서다.
+T3 은 자유 grep 이 **산문 주석에 걸려** M3 변이가 생존하므로(실측: 매칭 2곳 = 상수 249 + 주석 283)
+대입줄에 결속했다. `mutation-equivalent.conf` 는 **코드가 아니라 주석만 고쳐도** 재번호가 따라온다 —
+구현자가 우회안(상수를 파일 끝에 배치)을 스스로 기각했다: *"잠금을 이관하지 않고 코드를 옮겨
+무력화하는 것은 이 FID 가 고치는 실패 형태 자체다."*
+
+### ★ 커버리지 진술을 3회 틀렸다 — 매번 다른 층이 잡았다
+
+주석 하나를 고치는 동안 같은 클래스 오류를 세 번 냈다. 기록으로 남긴다.
+
+| # | 진술 | 실제 | 잡은 층 |
+|---|---|---|---|
+| 1 | `bash …/tests/run-all.sh` 는 "whitelist 차단" | `허용 ∧ 인정` | T2 구현자 |
+| 2 | 정정하며 "역방향 사례는 하나도 없다" | `CI=true pytest -q` 가 역방향 | Phase B |
+| 3 | 그 주석의 `_WHITELIST_PAT` | 이 파일에 없는 이름(`local pat`) | Phase C |
+
+전부 **두 판정기에 실제 명령을 넣어 보지 않고 쓴 것**이다. 3차 정정에서 실측값을 주석에 박고
+*"커버리지 진술은 반드시 양쪽에 넣어 보고 쓴다"* 를 남겼다. 같은 파일이 이미
+*"검증 없는 안전 주장은 다음 결함의 씨앗"* 이라고 적어둔 자리 바로 옆이다.
+
+### 전파 edge 가 산문 주석에 걸려 판별력이 0이었다 (Phase C I-2)
+
+`propagation-matrix.jsonl:47` edge 2 의 `must_match` 가 코드와 주석 **양쪽**에 매치해, 앵커 대입줄에서
+`run-all` 절을 지워도 통과했다. T3 테스트가 잡아주지만 그건 run-all/pre-push 층이고
+**pre-commit 은 `validate-structure` + `check-propagation` 뿐**이라 커밋 시점엔 눈을 감는다.
+`^_RUNNER_ANCHOR_PAT=.*` 로 결속 — 변이 검증 `FAIL (1/208)` → 복원 `PASS (208)`.
+
+### 검증
+
+- `run-all` **158/158** · CI **Linux·macOS 양쪽 pass**(spec §NFR 의 "Linux 미검증" 한계를 CI 가 메웠다)
+- 모듈 경계 통합 **373 tests · 0 failures**(`test-pretool` 155 · `test-lib` 120 · `test-rules` 88 · `test-hooks` 10)
+- 변이 3종 **전부 killed** — 각각 **다른 파일**의 테스트를 FAIL 시켜 교차 배선 실증
+- 성능 `_verify_exec_evidence` **56ms**(pretool 예산 ~1s 의 5.6%) — 정규식 307→561자 증가에도 **baseline 과 동일**
+- 보안 `crit=0 high=0`(gitleaks 실행 0건 · **semgrep 은 네트워크 차단으로 미실행** — "안전" 이 아니라 "검증 불가")
+
+### ⚠️ 함께 나가는 알려진 결함 (무음 이월 금지)
+
+- **일반 앵커 분기에 heredoc 가드가 없다** — `cat <<EOF | tee evidence.md` 형태로 **정직하게 증거 문서를
+  쓰는 행위가 게이트를 연다.** baseline vs HEAD 7종 중 **4종이 rc=1→0** 이고 `npx <단어>` 는 산문 줄까지 인정한다.
+  **이번 변경이 만든 결함은 아니다** — H1(baseline 어휘 `pytest`)도 rc=0 이라 원인은 어휘가 아니라 **가드 부재**이고
+  이 PR 을 전부 revert 해도 안 닫힌다. **다만 통과 어휘를 넓혀 악화시킨 것은 사실이다.**
+  실사용 패턴(`cat >> file <<EOF`, 리다이렉트)에서는 **열리지 않음을 실측 확인**했다. **다음 사이클 1순위.**
+- **`npx <bin>`·`(pnpm|yarn) exec <bin>` 이 임의 바이너리를 인정한다** — `npx cowsay VERIFY` 도 통과.
+  whitelist 동치 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
+- **bash 스크립트 클래스는 여전히 false-deny** — `bash tests/unit.sh` 류는 whitelist 허용 ∧ 앵커 불인정.
+  T15(파일명 제한)를 깨지 않으려 fixture `#!skip` 3건으로 **명시** 제외(사유 출력). 이번 작업 중
+  **저자가 직접 4회 밟았다** — 개별 스위트로는 R-1 이 열리지 않아 매번 758s 전체 실행을 강요당했다.
+- **`mutation-equivalent.conf` 절대 줄번호 키** — `--check-conf` 가 "그 줄에 `return 0` 이 있는가" 만 보므로
+  잘못 착지해도 무음이다. 키 구조 변경은 별도 FID.
+
 ## [1.94.0] — 2026-09-07
 
 ### 테스트가 실 트리를 변이하던 마지막 3종을 격리했다 (#39)
