@@ -229,8 +229,14 @@ EOF_TC
 # 커버리지 계약: _extract_declared_cmds 의 whitelist(위 `local pat=`) 의 **비-bash 러너군**과
 #   동치다 — "whitelist 허용 ∧ 앵커 불인정" 이 0건이어야 하고 T70 이 강제한다.
 #   두 가지는 **동치가 아니며 의도적이다**:
-#     · 역방향(앵커 인정 ∧ whitelist 차단): `bash …/tests/run-all.sh` — 전체 스위트는
-#       tasks.md 의 test_command 로 선언되지 않는다. 정당.
+#     · 역방향(앵커 인정 ∧ whitelist 차단)은 **FAIL 로 세지 않는다** — 넓어지는 쪽이라
+#       "실행은 되는데 커밋이 막힌다" 를 만들지 않기 때문이다.
+#       ★ 정정(20260907, T2 구현자 실측): 이 자리에 `bash …/tests/run-all.sh` 를 역방향
+#       사례로 적었으나 **거짓이었다** — whitelist 의 `bash (scripts|tests?)/….sh` 절이
+#       그 명령을 허용하므로 실제 판정은 `허용 ∧ 인정` 이다(run-verification.sh 도 동일).
+#       역방향 사례는 현재 **하나도 확인되지 않았다**. 방향을 하나만 검사하는 결정은
+#       그대로 유효하지만, 근거를 실재하지 않는 예시에 두지 않는다 —
+#       검증 없는 안전 주장은 다음 결함의 씨앗이다(:635 와 같은 이유).
 #     · bash 스크립트 일반(`bash tests/unit.sh` 류): whitelist 는 허용하나 앵커는 불인정.
 #       T15 가 "tests/ 밖 run-all.sh 불인정"을 잠그고 있어 파일명 일반화는 위장 표면을 연다.
 #       **미해결 결함으로 인지하고 별도 FID 로 미룬다** — T70 fixture 가 `#!skip` 으로 명시 제외한다.
