@@ -595,5 +595,68 @@ for _c in 'CI=true npm test' \
 done
 rm -f "$_t63"
 ck "T63 비-bash 러너 4종 + env 접두 → 0 (범위 잠금)" 0 $_t63rc
+
+# T70 — cross-family 커버리지 동치 (AC-3, FID 20260907-false-deny-anchor-scope)
+#   왜 byte-identity 가 아닌가: whitelist(_extract_declared_cmds 의 `local pat=`) 는 `^…$`
+#   전체일치이고 앵커는 줄시작 부분일치 + env 접두 반복군이다. 구조가 달라 T49 식 문자열
+#   비교를 두 계열 사이에 걸 수 없다. 잠글 대상은 문자열이 아니라 **커버리지** 다.
+#   검사 방향은 하나다 — "whitelist 허용 ∧ 앵커 불인정" 이 0건. 역방향(앵커 인정 ∧
+#   whitelist 차단)은 정당한 비대칭이라 FAIL 로 세지 않는다.
+_ROOT2="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+_FIX_CMDS="$_ROOT2/scripts/tests/fixtures/runner-commands.txt"
+_wl_pat=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$_ROOT2/hooks/governance-lib.sh" | head -1)
+# ★ `:-` 로 받아 로컬에 고정한다 — 이 파일은 `set -u` 다. 앵커 변수가 없는(미구현) 트리에서
+#   `${#_RUNNER_ANCHOR_PAT}` 를 직접 쓰면 unbound 로 **셸이 즉사**해 ck 가 아예 안 돌고
+#   FAIL 줄조차 남지 않는다. 진단 문구와 jq 인자 모두 이 사본을 쓴다.
+_anchor="${_RUNNER_ANCHOR_PAT:-}"
+# ★ 빈 값 가드 — 둘 중 하나라도 비면 `grep -qE ""` 가 전건 매치하거나 jq test("") 가
+#   전건 참이 되어 **T70 이 조용히 껍데기로 격하**된다. 이 FID 가 고치는 병과 동형이다.
+if [ -z "$_wl_pat" ] || [ -z "$_anchor" ] || [ ! -r "$_FIX_CMDS" ]; then
+  echo "  (whitelist 추출=${#_wl_pat}자 · 앵커 변수=${#_anchor}자 · fixture=$_FIX_CMDS)"
+  echo "  → 판정기나 코퍼스를 못 읽으면 동치를 검사할 수 없다. 통과시키지 않는다."
+  ck "T70 cross-family 커버리지 동치" 0 1
+else
+  _viol=0; _viol_list=""; _skipped=0; _checked=0
+  while IFS= read -r _line; do
+    case "$_line" in
+      '#!skip'*) _skipped=$((_skipped+1)); echo "  (skip) ${_line#\#!skip }"; continue ;;
+      ''|'#'*) continue ;;
+    esac
+    printf '%s' "$_line" | grep -qE "$_wl_pat" || continue        # whitelist 차단 → 대상 아님
+    _checked=$((_checked+1))
+    if ! printf '%s' "$_line" | jq -e --arg re "$_anchor" -Rr 'test($re)' >/dev/null 2>&1; then
+      _viol=$((_viol+1)); _viol_list="$_viol_list
+    - $_line"
+    fi
+  done < "$_FIX_CMDS"
+  # 코퍼스가 통째로 비거나 whitelist 가 전건 차단하면 위반 0 이 자동 성립한다 — 그 통과는 무의미하다.
+  #
+  # ★ 왜 건수에 하한·상한을 거는가: `_checked`·`_skipped` 를 **찍기만 하면** 잠금이 우회된다.
+  #   ① 비대칭 러너가 새로 나왔을 때 앵커를 넓히는 대신 `#!skip` 한 줄을 붙이면 T70 은 계속 green 이고
+  #      사유는 한 번 출력되고 아무도 안 읽는다. ② 코퍼스가 17줄 줄어 1건만 남아도 위반 0 이라 통과한다.
+  #   같은 파일 T25 가 `-ge 3` 대신 `-eq 4` 를 고른 이유("사이트 1곳이 조용히 사라져도 통과한다")가
+  #   그대로 적용된다. 비대칭 경계인 이유:
+  #     · `_checked -ge 18` — 코퍼스는 자유롭게 **늘 수** 있어야 한다(fixture 헤더의 "한 줄 추가"
+  #       무마찰 계약). 줄어드는 것만 막는다. 18 = 현 코퍼스의 whitelist 통과 건수.
+  #     · `_skipped -le 3`  — 새 무음 제외를 막는다. 미뤄둔 bash 계열 FID 가 착지하면 0 으로 **내려가고**
+  #       그때도 통과한다. 3 = 현재 의도적 제외 건수.
+  #   경계를 의도적으로 바꿀 땐 이 두 숫자를 함께 고치라는 뜻이다.
+  if [ "$_checked" -eq 0 ]; then
+    echo "  (검사 대상 0건 — fixture 가 비었거나 whitelist 가 전건 차단했다)"
+    ck "T70 cross-family 커버리지 동치" 0 1
+  elif [ "$_viol" -ne 0 ]; then
+    echo "  ★ whitelist 는 실행을 허용하는데 앵커가 실행 사실을 인정하지 않는다 ($_viol 건):$_viol_list"
+    echo "  → 정직하게 테스트를 돌린 사용자가 커밋에서 막힌다. 두 정규식의 커버리지를 맞추라."
+    ck "T70 cross-family 커버리지 동치" 0 1
+  elif [ "$_checked" -lt 18 ] || [ "$_skipped" -gt 3 ]; then
+    echo "  (검사 ${_checked}건 [하한 18] · 의도적 제외 ${_skipped}건 [상한 3])"
+    echo "  → 위반 0 이지만 코퍼스가 줄었거나 제외가 늘었다. 앵커를 넓히는 대신 #!skip 으로"
+    echo "     덮으면 이 잠금이 껍데기가 된다. 경계를 바꿀 근거가 있으면 위 두 숫자를 함께 고쳐라."
+    ck "T70 cross-family 커버리지 동치" 0 1
+  else
+    ck "T70 cross-family 커버리지 동치 (검사 ${_checked}건 · 위반 0 · 의도적 제외 ${_skipped}건)" 0 0
+  fi
+fi
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]
