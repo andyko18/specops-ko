@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.95.0] — 2026-09-07
+
 ### 러너 앵커와 whitelist 가 어긋나 있었다 — 정직한 실행이 커밋에서 막혔다 (#40)
 
 `_WHITELIST_PAT`(실행을 **허용**하는가)과 러너 앵커(실행 사실을 **인정**하는가)는 같은 질문에 답하는
@@ -1769,7 +1771,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.94.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.95.0...HEAD
+[1.95.0]: https://github.com/andyko18/specops-ko/compare/v1.94.0...v1.95.0
 [1.94.0]: https://github.com/andyko18/specops-ko/compare/v1.93.0...v1.94.0
 [1.93.0]: https://github.com/andyko18/specops-ko/compare/v1.92.0...v1.93.0
 [1.92.0]: https://github.com/andyko18/specops-ko/compare/v1.91.0...v1.92.0
