@@ -227,17 +227,42 @@ jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"m1",name:"Multi
 if [ -z "$(_bg_pending_path "$_stf2")" ]; then ck "T24c bg 후 MultiEdit → 안내 억제" 0 0; else ck "T24c bg 후 MultiEdit → 안내 억제" 0 1; fi
 rm -f "$_stf" "$_stf2"
 
-# T25 — 러너 앵커 regex drift 잠금 (Phase C Important 2)
-#   앵커가 $lasthit·$bghit·_bg_pending_path 3곳에 복제돼 있다. drift 하면 인정 판정과
-#   deny 안내가 어긋난다(판정은 안 여는데 "감지됐다"고 하거나 그 역). 동일성을 잠근다.
+# T64 — 확장 러너 6종이 인정된다 (AC-1, FID 20260907-false-deny-anchor-scope)
+_t64d=$(mktemp -d)
+_mk_run_tx() {  # $1=명령 · $2=tool_result 출력 → transcript 경로를 stdout 으로
+  local f="$_t64d/tx-$RANDOM.jsonl"
+  jq -nc --arg c "$1" '{type:"assistant",message:{content:[{type:"tool_use",id:"r1",name:"Bash",input:{command:$c}}]}}' > "$f"
+  jq -nc --arg o "$2" '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"r1",is_error:false,content:$o}]}}' >> "$f"
+  printf '%s' "$f"
+}
+for _c in 'poetry run pytest tests/ -q' 'uv run pytest -q' 'pnpm --dir frontend test chart' \
+          'pnpm --filter web test' 'npx vitest run' 'pnpm exec vitest'; do
+  _tx=$(_mk_run_tx "$_c" "1 passed
+VERIFY: PASS")
+  _verify_exec_evidence "$_tx"; ck "T64 확장 러너 인정: $_c" 0 $?
+done
+rm -rf "$_t64d"
+
+# T25 — 앵커 리터럴 재등장 감지 (변수화 역행 잠금)
+#   ★ 종전 T25("리터럴 4사본이 서로 같은가")의 **이관**이지 완화가 아니다.
+#   종전 형태는 리터럴이 4개일 때만 성립했고, 변수화로 0개가 되면 조건 자체가 사라진다.
+#   조건을 새 shape 에 맞춰 낮추면 잠금이 증발한다 — 잠글 대상을 둘로 나눠 옮겼다:
+#     · 계열 간 커버리지 동치 → T70 (AC-3)
+#     · 사본 재발생 방지      → 이 검사
+#   ★ `-eq 4` 로 조인다 — `-ge 3` 이면 **사이트 1곳이 조용히 사라져도** 통과한다.
+#     사이트를 의도적으로 늘리거나 줄이면 이 기대값을 함께 갱신하라는 뜻이다.
 _GL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/hooks/governance-lib.sh"
-_anchor_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | wc -l | tr -d ' ')
-_anchor_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | sort -u | wc -l | tr -d ' ')
-if [ "$_anchor_n" -ge 3 ] && [ "$_anchor_u" -eq 1 ]; then
-  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 0
+_anchor_sites() {   # T25·T38 공용 — 같은 명제를 두 번 쓰지 않는다
+  _lit_n=$(grep -c 'select(\.cmd | test("' "$_GL" || true)
+  _var_n=$(grep -c 'select(\.cmd | test($anchor))' "$_GL" || true)
+}
+_anchor_sites
+if [ "$_lit_n" -eq 0 ] && [ "$_var_n" -eq 4 ]; then
+  ck "T25 앵커 리터럴 0 · 변수 참조 4곳 (변수화 역행 잠금)" 0 0
 else
-  echo "  (앵커 출현=$_anchor_n · 고유 패턴=$_anchor_u — 고유는 1이어야 함)"
-  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 1
+  echo "  (리터럴 잔존=$_lit_n · 변수 참조=$_var_n — 리터럴 0 · 참조 정확히 4 여야 함)"
+  echo "  → 앵커를 다시 리터럴로 인라인하면 사본이 함께 낡는 결함이 재발한다."
+  ck "T25 앵커 리터럴 0 · 변수 참조 4곳 (변수화 역행 잠금)" 0 1
 fi
 
 
@@ -372,14 +397,16 @@ _decl_tx "$_tx" "npx vitest run" "Tests  12 passed"
 _verify_exec_evidence "$_tx" "$_M"; ck "T37 다중 선언 중 1개 실행 → 0 (AC-10)" 0 $?
 rm -f "$_tx"; rm -rf "$_M"
 
-# T38 — AC-13: 앵커 리터럴 3곳 무수정 (T25 보존의 명시 재확인)
-_a_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | wc -l | tr -d ' ')
-_a_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | sort -u | wc -l | tr -d ' ')
-if [ "$_a_n" -ge 3 ] && [ "$_a_u" -eq 1 ]; then
-  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 0
+# T38 — AC-13: 앵커 배선 무수정 (T25 와 동일 명제 — 헬퍼 공유)
+#   ★ 종전엔 "리터럴 3곳 이상 · 고유 1" 이었다. 변수화로 리터럴이 0 이 되므로
+#   T25 와 같은 방식으로 이관한다. 두 검사가 같은 헬퍼를 쓰는 이유는,
+#   1회차·2회차 리뷰가 드러낸 결함이 정확히 "같은 명제를 여러 곳에 복제해 함께 낡은 것" 이기 때문이다.
+_anchor_sites
+if [ "$_lit_n" -eq 0 ] && [ "$_var_n" -eq 4 ]; then
+  ck "T38 선언 경로 추가 후에도 앵커 배선 유지 — 변수 참조 4곳 (AC-13)" 0 0
 else
-  echo "  (출현=$_a_n · 고유=$_a_u — 신규 경로가 기존 select 를 건드렸다)"
-  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 1
+  echo "  (리터럴 잔존=$_lit_n · 변수 참조=$_var_n — 신규 경로가 기존 배선을 건드렸다)"
+  ck "T38 선언 경로 추가 후에도 앵커 배선 유지 — 변수 참조 4곳 (AC-13)" 0 1
 fi
 
 

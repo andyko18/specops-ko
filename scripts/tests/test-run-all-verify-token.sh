@@ -39,7 +39,13 @@ else
 fi
 
 # ── T3: 게이트 러너 앵커 계약 — governance-lib 정규식이 tests/run-all.sh 를 러너로 인식 (배선 grep) ──
-n=$(grep -c 'tests/run-all\\\\\.sh' "$PLUGIN/hooks/governance-lib.sh")
+#   ★ 20260907: 앵커가 jq 리터럴에서 셸 변수로 이관되며 백슬래시가 한 겹 벗겨졌다
+#     (jq 문자열 이스케이프 `\\.` → --arg raw `\.`). 패턴을 단일 백슬래시로 맞춘다.
+#   ★ `^_RUNNER_ANCHOR_PAT=` 로 **상수 대입 줄에 결속**한다 — 자유 grep 은 산문 주석
+#     ("앵커는 `tests/run-all\.sh` 로 좁힌다")에도 걸려, 앵커에서 run-all 절을 제거해도
+#     통과했다(구현자 M3 변이 실측: 자유 grep 은 ★생존 · 결속 grep 은 1→0). 껍데기 잠금은
+#     이 FID 가 고치는 결함 그 자체라 느슨한 쪽을 쓰지 않는다.
+n=$(grep -c '^_RUNNER_ANCHOR_PAT=.*tests/run-all\\\.sh' "$PLUGIN/hooks/governance-lib.sh")
 [ "$n" -ge 1 ] && ok "T3 governance-lib 러너 클래스에 tests/run-all.sh 앵커 존재 ($n)" \
   || nope "T3 앵커 배선" "governance-lib 에 tests/run-all 앵커 없음"
 
