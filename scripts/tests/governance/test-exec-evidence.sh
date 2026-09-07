@@ -227,17 +227,42 @@ jq -nc '{type:"assistant",message:{content:[{type:"tool_use",id:"m1",name:"Multi
 if [ -z "$(_bg_pending_path "$_stf2")" ]; then ck "T24c bg 후 MultiEdit → 안내 억제" 0 0; else ck "T24c bg 후 MultiEdit → 안내 억제" 0 1; fi
 rm -f "$_stf" "$_stf2"
 
-# T25 — 러너 앵커 regex drift 잠금 (Phase C Important 2)
-#   앵커가 $lasthit·$bghit·_bg_pending_path 3곳에 복제돼 있다. drift 하면 인정 판정과
-#   deny 안내가 어긋난다(판정은 안 여는데 "감지됐다"고 하거나 그 역). 동일성을 잠근다.
+# T64 — 확장 러너 6종이 인정된다 (AC-1, FID 20260907-false-deny-anchor-scope)
+_t64d=$(mktemp -d)
+_mk_run_tx() {  # $1=명령 · $2=tool_result 출력 → transcript 경로를 stdout 으로
+  local f="$_t64d/tx-$RANDOM.jsonl"
+  jq -nc --arg c "$1" '{type:"assistant",message:{content:[{type:"tool_use",id:"r1",name:"Bash",input:{command:$c}}]}}' > "$f"
+  jq -nc --arg o "$2" '{type:"user",message:{content:[{type:"tool_result",tool_use_id:"r1",is_error:false,content:$o}]}}' >> "$f"
+  printf '%s' "$f"
+}
+for _c in 'poetry run pytest tests/ -q' 'uv run pytest -q' 'pnpm --dir frontend test chart' \
+          'pnpm --filter web test' 'npx vitest run' 'pnpm exec vitest'; do
+  _tx=$(_mk_run_tx "$_c" "1 passed
+VERIFY: PASS")
+  _verify_exec_evidence "$_tx"; ck "T64 확장 러너 인정: $_c" 0 $?
+done
+rm -rf "$_t64d"
+
+# T25 — 앵커 리터럴 재등장 감지 (변수화 역행 잠금)
+#   ★ 종전 T25("리터럴 4사본이 서로 같은가")의 **이관**이지 완화가 아니다.
+#   종전 형태는 리터럴이 4개일 때만 성립했고, 변수화로 0개가 되면 조건 자체가 사라진다.
+#   조건을 새 shape 에 맞춰 낮추면 잠금이 증발한다 — 잠글 대상을 둘로 나눠 옮겼다:
+#     · 계열 간 커버리지 동치 → T70 (AC-3)
+#     · 사본 재발생 방지      → 이 검사
+#   ★ `-eq 4` 로 조인다 — `-ge 3` 이면 **사이트 1곳이 조용히 사라져도** 통과한다.
+#     사이트를 의도적으로 늘리거나 줄이면 이 기대값을 함께 갱신하라는 뜻이다.
 _GL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/hooks/governance-lib.sh"
-_anchor_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | wc -l | tr -d ' ')
-_anchor_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$_GL" | sort -u | wc -l | tr -d ' ')
-if [ "$_anchor_n" -ge 3 ] && [ "$_anchor_u" -eq 1 ]; then
-  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 0
+_anchor_sites() {   # T25·T38 공용 — 같은 명제를 두 번 쓰지 않는다
+  _lit_n=$(grep -c 'select(\.cmd | test("' "$_GL" || true)
+  _var_n=$(grep -c 'select(\.cmd | test($anchor))' "$_GL" || true)
+}
+_anchor_sites
+if [ "$_lit_n" -eq 0 ] && [ "$_var_n" -eq 4 ]; then
+  ck "T25 앵커 리터럴 0 · 변수 참조 4곳 (변수화 역행 잠금)" 0 0
 else
-  echo "  (앵커 출현=$_anchor_n · 고유 패턴=$_anchor_u — 고유는 1이어야 함)"
-  ck "T25 러너 앵커 regex 복제 동일성 (drift 잠금)" 0 1
+  echo "  (리터럴 잔존=$_lit_n · 변수 참조=$_var_n — 리터럴 0 · 참조 정확히 4 여야 함)"
+  echo "  → 앵커를 다시 리터럴로 인라인하면 사본이 함께 낡는 결함이 재발한다."
+  ck "T25 앵커 리터럴 0 · 변수 참조 4곳 (변수화 역행 잠금)" 0 1
 fi
 
 
@@ -372,14 +397,16 @@ _decl_tx "$_tx" "npx vitest run" "Tests  12 passed"
 _verify_exec_evidence "$_tx" "$_M"; ck "T37 다중 선언 중 1개 실행 → 0 (AC-10)" 0 $?
 rm -f "$_tx"; rm -rf "$_M"
 
-# T38 — AC-13: 앵커 리터럴 3곳 무수정 (T25 보존의 명시 재확인)
-_a_n=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | wc -l | tr -d ' ')
-_a_u=$(grep -o 'select(\.cmd | test("[^"]*"))' "$PLUGIN/hooks/governance-lib.sh" | sort -u | wc -l | tr -d ' ')
-if [ "$_a_n" -ge 3 ] && [ "$_a_u" -eq 1 ]; then
-  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 0
+# T38 — AC-13: 앵커 배선 무수정 (T25 와 동일 명제 — 헬퍼 공유)
+#   ★ 종전엔 "리터럴 3곳 이상 · 고유 1" 이었다. 변수화로 리터럴이 0 이 되므로
+#   T25 와 같은 방식으로 이관한다. 두 검사가 같은 헬퍼를 쓰는 이유는,
+#   1회차·2회차 리뷰가 드러낸 결함이 정확히 "같은 명제를 여러 곳에 복제해 함께 낡은 것" 이기 때문이다.
+_anchor_sites
+if [ "$_lit_n" -eq 0 ] && [ "$_var_n" -eq 4 ]; then
+  ck "T38 선언 경로 추가 후에도 앵커 배선 유지 — 변수 참조 4곳 (AC-13)" 0 0
 else
-  echo "  (출현=$_a_n · 고유=$_a_u — 신규 경로가 기존 select 를 건드렸다)"
-  ck "T38 선언 경로 추가 후에도 앵커 리터럴 3/1 유지 (AC-13)" 0 1
+  echo "  (리터럴 잔존=$_lit_n · 변수 참조=$_var_n — 신규 경로가 기존 배선을 건드렸다)"
+  ck "T38 선언 경로 추가 후에도 앵커 배선 유지 — 변수 참조 4곳 (AC-13)" 0 1
 fi
 
 
@@ -568,5 +595,72 @@ for _c in 'CI=true npm test' \
 done
 rm -f "$_t63"
 ck "T63 비-bash 러너 4종 + env 접두 → 0 (범위 잠금)" 0 $_t63rc
+
+# T70 — cross-family 커버리지 동치 (AC-3, FID 20260907-false-deny-anchor-scope)
+#   왜 byte-identity 가 아닌가: whitelist(_extract_declared_cmds 의 `local pat=`) 는 `^…$`
+#   전체일치이고 앵커는 줄시작 부분일치 + env 접두 반복군이다. 구조가 달라 T49 식 문자열
+#   비교를 두 계열 사이에 걸 수 없다. 잠글 대상은 문자열이 아니라 **커버리지** 다.
+#   검사 방향은 하나다 — "whitelist 허용 ∧ 앵커 불인정" 이 0건. 역방향(앵커 인정 ∧
+#   whitelist 차단)은 정당한 비대칭이라 FAIL 로 세지 않는다.
+_ROOT2="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+_FIX_CMDS="$_ROOT2/scripts/tests/fixtures/runner-commands.txt"
+_wl_pat=$(grep -oE "\^\(cd\[\[:blank:\]\]\+.*\)\\\$" "$_ROOT2/hooks/governance-lib.sh" | head -1)
+# ★ `:-` 로 받아 로컬에 고정한다 — 이 파일은 `set -u` 다. 앵커 변수가 없는(미구현) 트리에서
+#   `${#_RUNNER_ANCHOR_PAT}` 를 직접 쓰면 unbound 로 **셸이 즉사**해 ck 가 아예 안 돌고
+#   FAIL 줄조차 남지 않는다. 진단 문구와 jq 인자 모두 이 사본을 쓴다.
+_anchor="${_RUNNER_ANCHOR_PAT:-}"
+# ★ 빈 값 가드 — 둘 중 하나라도 비면 `grep -qE ""` 가 전건 매치하거나 jq test("") 가
+#   전건 참이 되어 **T70 이 조용히 껍데기로 격하**된다. 이 FID 가 고치는 병과 동형이다.
+if [ -z "$_wl_pat" ] || [ -z "$_anchor" ] || [ ! -r "$_FIX_CMDS" ]; then
+  echo "  (whitelist 추출=${#_wl_pat}자 · 앵커 변수=${#_anchor}자 · fixture=$_FIX_CMDS)"
+  echo "  → 판정기나 코퍼스를 못 읽으면 동치를 검사할 수 없다. 통과시키지 않는다."
+  ck "T70 cross-family 커버리지 동치" 0 1
+else
+  _viol=0; _viol_list=""; _skipped=0; _checked=0
+  while IFS= read -r _line; do
+    case "$_line" in
+      '#!skip'*) _skipped=$((_skipped+1)); echo "  (skip) ${_line#\#!skip }"; continue ;;
+      ''|'#'*) continue ;;
+    esac
+    printf '%s' "$_line" | grep -qE "$_wl_pat" || continue        # whitelist 차단 → 대상 아님
+    _checked=$((_checked+1))
+    if ! printf '%s' "$_line" | jq -e --arg re "$_anchor" -Rr 'test($re)' >/dev/null 2>&1; then
+      _viol=$((_viol+1)); _viol_list="$_viol_list
+    - $_line"
+    fi
+  done < "$_FIX_CMDS"
+  # 코퍼스가 통째로 비거나 whitelist 가 전건 차단하면 위반 0 이 자동 성립한다 — 그 통과는 무의미하다.
+  #
+  # ★ 왜 건수에 하한·상한을 거는가: `_checked`·`_skipped` 를 **찍기만 하면** 잠금이 우회된다.
+  #   ① 비대칭 러너가 새로 나왔을 때 앵커를 넓히는 대신 `#!skip` 한 줄을 붙이면 T70 은 계속 green 이고
+  #      사유는 한 번 출력되고 아무도 안 읽는다. ② 코퍼스가 17줄 줄어 1건만 남아도 위반 0 이라 통과한다.
+  #   같은 파일 T25 가 `-ge 3` 대신 `-eq 4` 를 고른 이유("사이트 1곳이 조용히 사라져도 통과한다")가
+  #   그대로 적용된다. 비대칭 경계인 이유:
+  #     · `_checked -ge 18` — 코퍼스는 자유롭게 **늘 수** 있어야 한다(fixture 헤더의 "한 줄 추가"
+  #       무마찰 계약). 줄어드는 것만 막는다. 18 = 현 코퍼스의 whitelist 통과 건수.
+  #     · `_skipped -le 3`  — 새 무음 제외를 막는다. 미뤄둔 bash 계열 FID 가 착지하면 0 으로 **내려가고**
+  #       그때도 통과한다. 3 = 현재 의도적 제외 건수.
+  # ★ M-3(Phase C): 두 경계를 **한 곳**에서 선언한다. 조건절과 메시지에 각각 리터럴로 쓰면
+  #   "두 숫자를 함께 고쳐라" 는 지시가 네 곳을 고치라는 뜻이 되고, 그때 한 곳이 빠진다.
+  _T70_MIN_CHECKED=18   # fixture 유효 코퍼스 하한 (늘어나는 것은 자유, 줄면 FAIL)
+  _T70_MAX_SKIP=3       # `#!skip` 상한 (bash 계열 FID 착지 시 0 으로 내려가도 통과)
+  #   경계를 의도적으로 바꿀 땐 이 두 숫자를 함께 고치라는 뜻이다.
+  if [ "$_checked" -eq 0 ]; then
+    echo "  (검사 대상 0건 — fixture 가 비었거나 whitelist 가 전건 차단했다)"
+    ck "T70 cross-family 커버리지 동치" 0 1
+  elif [ "$_viol" -ne 0 ]; then
+    echo "  ★ whitelist 는 실행을 허용하는데 앵커가 실행 사실을 인정하지 않는다 ($_viol 건):$_viol_list"
+    echo "  → 정직하게 테스트를 돌린 사용자가 커밋에서 막힌다. 두 정규식의 커버리지를 맞추라."
+    ck "T70 cross-family 커버리지 동치" 0 1
+  elif [ "$_checked" -lt "$_T70_MIN_CHECKED" ] || [ "$_skipped" -gt "$_T70_MAX_SKIP" ]; then
+    echo "  (검사 ${_checked}건 [하한 ${_T70_MIN_CHECKED}] · 의도적 제외 ${_skipped}건 [상한 ${_T70_MAX_SKIP}])"
+    echo "  → 위반 0 이지만 코퍼스가 줄었거나 제외가 늘었다. 앵커를 넓히는 대신 #!skip 으로"
+    echo "     덮으면 이 잠금이 껍데기가 된다. 경계를 바꿀 근거가 있으면 위 두 숫자를 함께 고쳐라."
+    ck "T70 cross-family 커버리지 동치" 0 1
+  else
+    ck "T70 cross-family 커버리지 동치 (검사 ${_checked}건 · 위반 0 · 의도적 제외 ${_skipped}건)" 0 0
+  fi
+fi
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

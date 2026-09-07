@@ -1,0 +1,29 @@
+# 두 판정기(_extract_declared_cmds 의 whitelist · _RUNNER_ANCHOR_PAT) 공용 코퍼스
+# FID 20260907-false-deny-anchor-scope
+#
+# 기대값을 적지 않는다. 명제는 "두 판정기가 서로 같은 답을 낸다" 이지
+# "각각이 정해진 답을 낸다" 가 아니다. 기대값을 적으면 드리프트 원본이 하나 더 생긴다.
+# 신규 러너 형태를 발견하면 한 줄 추가하는 것으로 두 계열이 함께 검사된다.
+#
+# `#!skip <사유> | <명령>` 은 **의도적 제외**다. 조용히 빼지 않고 사유와 함께 출력한다.
+pytest -q
+python -m pytest tests/
+poetry run pytest tests/ -q
+uv run pytest -q
+pdm run pytest
+rye run pytest
+npm run test
+npm run test:unit
+pnpm test
+yarn test
+pnpm --dir frontend test chart
+pnpm --filter web test
+npm -C packages/api test
+go test
+cargo test
+npx vitest run
+pnpm exec vitest
+yarn exec jest
+#!skip bash 스크립트 일반은 앵커가 T15 로 파일명을 제한한다 — 별도 FID | bash tests/unit.sh
+#!skip 동일 | bash scripts/ci/lint.sh
+#!skip 동일 | bash tests/run.sh

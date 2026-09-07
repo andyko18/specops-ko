@@ -216,6 +216,38 @@ EOF_TC
   printf '%s' "$out" | jq -Rs 'split("\n") | map(select(length > 0)) | unique' 2>/dev/null || echo '[]'
 }
 
+# ── 러너 앵커 패턴 (단일 SoT — 20260907-false-deny-anchor-scope) ──────────────
+# 왜 변수인가: 이 패턴은 _verify_exec_evidence(2곳 — $lasthit·$bghit) · _verify_stale_cause ·
+#   _bg_pending_path **네 곳**에서 쓰인다. (줄번호로 적지 않는다 — 이 상수 블록을 넣는 것만으로
+#   그 번호가 낡는다. 낡은 사본 참조가 바로 이 FID 가 고치는 결함이다.)
+#   리터럴 4사본 시절 T25·T38 은 "넷이 서로 같음" 만 잠갔고 **넷이 함께 낡는 것**은 못 막았다 —
+#   #22 가 앵커에 env 접두를, #26 이 whitelist 에 poetry/워크스페이스를 각각 넣고 서로 맞추지
+#   않아 실제로 어긋났다. 변수화로 사본을 없애고, 계열 간 동치는 test-exec-evidence.sh T70 이 잠근다.
+# 왜 --arg 인가: jq 프로그램 리터럴에 넣으면 jq 문자열 이스케이프가 한 겹 더 걸려
+#   (`\\n`·`\\S`) 셸 변수와 형태가 달라진다. --arg 는 raw 전달이라 백슬래시 1개가 맞다.
+#   ★ 이 한 겹 차이가 `test-run-all-verify-token.sh` T3 의 grep 패턴에도 걸린다 — 함께 갱신했다.
+# 커버리지 계약: _extract_declared_cmds 의 whitelist(위 `local pat=`) 의 **비-bash 러너군**과
+#   동치다 — "whitelist 허용 ∧ 앵커 불인정" 이 0건이어야 하고 T70 이 강제한다.
+#   두 가지는 **동치가 아니며 의도적이다**:
+#     · 역방향(앵커 인정 ∧ whitelist 차단)은 **FAIL 로 세지 않는다** — 넓어지는 쪽이라
+#       "실행은 되는데 커밋이 막힌다" 를 만들지 않기 때문이다.
+#       ★ 정정 2회(20260907): 이 자리에 **거짓 진술이 두 번 들어갔다**. 실측을 박아 둔다.
+#         1차 오류 — `bash …/tests/run-all.sh` 를 역방향 사례로 적었다. whitelist 의
+#           `bash (scripts|tests?)/….sh` 절이 그 명령을 허용하므로 실제는 `허용 ∧ 인정` 이다.
+#         2차 오류 — 그것을 고치며 "역방향 사례는 하나도 없다" 고 적었다. 이것도 거짓이다.
+#       **실측 역방향(Phase B 재현)**: `CI=true pytest -q` · `FOO=1 npx vitest run`
+#         → `whitelist 차단 ∧ 앵커 인정`. whitelist 는 env 접두를 모르고(#26 은 poetry·
+#         워크스페이스만 넓혔다), 앵커는 #22 로 env 접두를 인정한다. 두 계열이 **양방향으로**
+#         어긋나 있으며, T70 이 한쪽만 검사하는 것은 그 방향만 사용자를 막기 때문이다.
+#       교훈: 이 주석을 고치는 동안 같은 병을 두 번 저질렀다 — 커버리지 진술은 반드시
+#         whitelist(`_extract_declared_cmds` 의 `local pat`) 와 `_RUNNER_ANCHOR_PAT` 양쪽에 넣어 보고 쓴다.
+#     · bash 스크립트 일반(`bash tests/unit.sh` 류): whitelist 는 허용하나 앵커는 불인정.
+#       T15 가 "tests/ 밖 run-all.sh 불인정"을 잠그고 있어 파일명 일반화는 위장 표면을 연다.
+#       **미해결 결함으로 인지하고 별도 FID 로 미룬다** — T70 fixture 가 `#!skip` 으로 명시 제외한다.
+# 한계: `npx <bin>`·`(pnpm|yarn) exec <bin>` 은 임의 바이너리를 받는다(`npx cowsay VERIFY` 도 인정).
+#   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
+_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
+
 _verify_exec_evidence() {
   local transcript="$1" fiddir="${2:-}"
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
@@ -227,7 +259,7 @@ _verify_exec_evidence() {
     decl=$(_extract_declared_cmds "$fiddir/tasks.md")
   fi
   local out uses hits
-  out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" '
+  out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" --arg anchor "$_RUNNER_ANCHOR_PAT" '
     # ★ C-A: $all 은 **전체 tool_use** 를 센다 (name 무관). $uses(Bash 한정)로 세면
     #   Bash 가 없는 transcript(Edit-only·Skill-only = 위조 표현)가 0건이 되어 rc=2 fail-open 으로
     #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
@@ -255,7 +287,7 @@ _verify_exec_evidence() {
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test($anchor))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
@@ -273,7 +305,7 @@ _verify_exec_evidence() {
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test($anchor))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("Output is being written to: "))
@@ -405,7 +437,7 @@ _verify_exec_evidence() {
 _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 문자열
   [ -n "${1:-}" ] && [ -f "$1" ] || return 0
   command -v jq >/dev/null 2>&1 || return 0
-  jq -rn --slurpfile a "$1" '
+  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" '
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -415,7 +447,7 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test($anchor))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
@@ -440,7 +472,7 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
 #   경로에서만 일어나므로 여기서 jq 를 1회 더 도는 비용은 hot path 에 영향이 없다.
 _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열)
   [ -n "${1:-}" ] && [ -f "$1" ] || return 0
-  jq -rn --slurpfile a "$1" '
+  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" '
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -450,7 +482,7 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
          | $tus[$i]
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
-         | select(.cmd | test("(^|[;&|(\\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(bash[[:space:]]+\\S*(run-verification\\.sh|tests/run-all\\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+(run[[:space:]]+)?test|go[[:space:]]+test|cargo[[:space:]]+test)"))
+         | select(.cmd | test($anchor))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("Output is being written to: "))
