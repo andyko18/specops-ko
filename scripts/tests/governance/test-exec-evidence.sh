@@ -640,6 +640,10 @@ else
   #       무마찰 계약). 줄어드는 것만 막는다. 18 = 현 코퍼스의 whitelist 통과 건수.
   #     · `_skipped -le 3`  — 새 무음 제외를 막는다. 미뤄둔 bash 계열 FID 가 착지하면 0 으로 **내려가고**
   #       그때도 통과한다. 3 = 현재 의도적 제외 건수.
+  # ★ M-3(Phase C): 두 경계를 **한 곳**에서 선언한다. 조건절과 메시지에 각각 리터럴로 쓰면
+  #   "두 숫자를 함께 고쳐라" 는 지시가 네 곳을 고치라는 뜻이 되고, 그때 한 곳이 빠진다.
+  _T70_MIN_CHECKED=18   # fixture 유효 코퍼스 하한 (늘어나는 것은 자유, 줄면 FAIL)
+  _T70_MAX_SKIP=3       # `#!skip` 상한 (bash 계열 FID 착지 시 0 으로 내려가도 통과)
   #   경계를 의도적으로 바꿀 땐 이 두 숫자를 함께 고치라는 뜻이다.
   if [ "$_checked" -eq 0 ]; then
     echo "  (검사 대상 0건 — fixture 가 비었거나 whitelist 가 전건 차단했다)"
@@ -648,8 +652,8 @@ else
     echo "  ★ whitelist 는 실행을 허용하는데 앵커가 실행 사실을 인정하지 않는다 ($_viol 건):$_viol_list"
     echo "  → 정직하게 테스트를 돌린 사용자가 커밋에서 막힌다. 두 정규식의 커버리지를 맞추라."
     ck "T70 cross-family 커버리지 동치" 0 1
-  elif [ "$_checked" -lt 18 ] || [ "$_skipped" -gt 3 ]; then
-    echo "  (검사 ${_checked}건 [하한 18] · 의도적 제외 ${_skipped}건 [상한 3])"
+  elif [ "$_checked" -lt "$_T70_MIN_CHECKED" ] || [ "$_skipped" -gt "$_T70_MAX_SKIP" ]; then
+    echo "  (검사 ${_checked}건 [하한 ${_T70_MIN_CHECKED}] · 의도적 제외 ${_skipped}건 [상한 ${_T70_MAX_SKIP}])"
     echo "  → 위반 0 이지만 코퍼스가 줄었거나 제외가 늘었다. 앵커를 넓히는 대신 #!skip 으로"
     echo "     덮으면 이 잠금이 껍데기가 된다. 경계를 바꿀 근거가 있으면 위 두 숫자를 함께 고쳐라."
     ck "T70 cross-family 커버리지 동치" 0 1
