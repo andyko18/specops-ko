@@ -8,6 +8,7 @@ CMD="$PLUGIN/commands/init-project.md"
 BM_SKILL="$PLUGIN/skills/brainstorming-ko/SKILL.md"
 BM_CMD="$PLUGIN/commands/brainstorming.md"
 E2E_SKILL="$PLUGIN/skills/e2e-test-ko/SKILL.md"
+INTENT_TPL="$PLUGIN/templates/intent.md"
 PASS=0; FAIL=0
 t() { # $1=id $2=desc $3=ERE pattern $4=file
   if grep -qE "$3" "$4"; then
@@ -25,6 +26,9 @@ t T1.e "단일 커밋"                  '부트스트랩\+enrich|단일 커밋' 
 # AC-2 PRD 초안 합성
 t T2.a "PRD 6필드 초안 합성"        '6필드 초안'                                       "$CMD"
 t T2.b "근거문서 부재 fallback"     '(메모 부재|다 부재).*(수동|현행)'                 "$CMD"   # 개수 비의존 — 경로가 늘 때마다 깨지지 않게(2→3: 20260716 · 3→4: 20260820 plan 0-b2)
+# AC-1·AC-2 intent 템플릿 (프로세스 단위 — 화면별 아님)
+t T13.a "intent 7요소 골격"        '트리거·행위자·화면·API·테이블·결과·예외'          "$INTENT_TPL"
+t T13.b "intent 예시 마커 격리"     'specops:example:start|예시 없음'                  "$INTENT_TPL"
 # AC-3 사실성·상세성 계약 (Karpathy)
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
 t T3.b "boilerplate 금지"          '(일반론|boilerplate).*금지'                        "$CMD"
