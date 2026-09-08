@@ -9,6 +9,7 @@ BM_SKILL="$PLUGIN/skills/brainstorming-ko/SKILL.md"
 BM_CMD="$PLUGIN/commands/brainstorming.md"
 E2E_SKILL="$PLUGIN/skills/e2e-test-ko/SKILL.md"
 INTENT_TPL="$PLUGIN/templates/intent.md"
+SPEC_SKILL="$PLUGIN/skills/specifying-ko/SKILL.md"
 PASS=0; FAIL=0
 t() { # $1=id $2=desc $3=ERE pattern $4=file
   if grep -qE "$3" "$4"; then
@@ -36,6 +37,8 @@ t T13.e "allowlist 3종 미생성"      '(app-shell|셸 3종).*생성하지 않�
 t T13.f "화면 .html 동시+마커삭제"  '`screens/<name>\.html` 을 \*\*함께\*\* 생성'      "$CMD"
 t T13.g "overview 상태 셀 갱신"     'init 보강 \(미확정'                               "$CMD"
 t T13.h "intent KIND 무관"          'intent\.md.*KIND 무관|KIND 무관 항상 산출'         "$CMD"
+# AC-6 소비측 배선 — 생성측(Phase 11)만 강화하고 읽는 쪽을 빼먹는 패턴 차단
+t T13.i "specifying 이 intent 소비"  '\| `intent\.md` \|'                               "$SPEC_SKILL"
 t T13.j "화면 보강 DESIGN.md 준수"  'DESIGN\.md.*(§6\.1|화면 원형)'                    "$CMD"
 # AC-3 사실성·상세성 계약 (Karpathy)
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
@@ -177,6 +180,15 @@ if ! printf '%s\n' "_$_shallow_block" | grep -q 'PRD\.md'; then
   printf 'PASS %-6s %s\n' "T12.b2" "PRD.md 가 얕게/스킵에 중복 배정 안 됨"; PASS=$((PASS+1))
 else
   printf 'FAIL %-6s %s\n' "T12.b2" "PRD.md 가 얕게/스킵에 중복 배정 안 됨"; FAIL=$((FAIL+1))
+fi
+# screens-overview.md 는 얕게 쪽에만 — 깊게로 승격되면 Phase 7 bash 소유권(표 본문)과 충돌한다.
+# T12.b2 는 `PRD\.md` 만 보므로 이 배치를 감시하지 못한다(plan §7-4 의 서술은 실측과 달랐다).
+# 블록을 재계산한다 — 위 지역 변수 재사용보다 스코프 독립이 안전하다.
+_shallow2=$(awk '/^\*\*얕게\/스킵\*\*/{f=1;next} f&&/^$/{exit} f' "$CMD")
+if printf '%s\n' "$_shallow2" | grep -q 'screens-overview\.md'; then
+  printf 'PASS %-6s %s\n' "T13.k" "screens-overview.md 가 얕게/스킵에 유지"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T13.k" "screens-overview.md 가 얕게/스킵에 유지"; FAIL=$((FAIL+1))
 fi
 # Phase 4 확정분(§1~2)은 보강이 덮지 않는다는 경계 명시
 t T12.c "Phase 4 확정분 보존 경계"    'Phase 4 확정|§1.*보존|사용자 응답.*덮어쓰기 금지' "$CMD"
