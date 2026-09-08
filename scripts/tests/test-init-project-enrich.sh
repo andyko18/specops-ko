@@ -37,6 +37,15 @@ t T13.e "allowlist 3종 미생성"      '(app-shell|셸 3종).*생성하지 않�
 t T13.f "화면 .html 동시+마커삭제"  '`screens/<name>\.html` 을 \*\*함께\*\* 생성'      "$CMD"
 t T13.g "overview 상태 셀 갱신"     'init 보강 \(미확정'                               "$CMD"
 t T13.h "intent KIND 무관"          'intent\.md.*KIND 무관|KIND 무관 항상 산출'         "$CMD"
+# T13.l — intent 골격의 출처·대상 경로 (T13.f 의 화면판과 대칭).
+# `intent.md` 는 bash 비생성분이라 이 산문이 유일한 생성 경로다 — 빠지면 LLM 이 7요소
+# 골격 없이 자유 작성하거나 skip 한다. 리터럴 `templates/intent.md` 는 `:78` 불릿에만 둔다
+# (헤더에도 두면 불릿을 지워도 통과하는 공허 매칭이 된다 — T13.e 가 겪은 거짓 격추).
+t T13.l "intent 골격 출처·대상 경로" 'templates/intent\.md` 기반으로 `\.specops/memory/intent\.md'  "$CMD"
+# T13.m — 미확정 마커 수 **상한 없음** (사용자 결정 Q3 · AC-11 마지막 문장).
+# T13.g 는 `init 보강 (미확정` 만 보므로 "최대 3개" 가 삽입돼도 통과한다 — 같은 줄이라
+# 변이 실증 시 상한 문구만 지워야 T13.m 단독 격추가 확인된다.
+t T13.m "마커 수 상한 없음"          '마커 수 상한.*두지 않는'                          "$CMD"
 # AC-6 소비측 배선 — 생성측(Phase 11)만 강화하고 읽는 쪽을 빼먹는 패턴 차단
 t T13.i "specifying 이 intent 소비"  '\| `intent\.md` \|'                               "$SPEC_SKILL"
 t T13.j "화면 보강 DESIGN.md 준수"  'DESIGN\.md.*(§6\.1|화면 원형)'                    "$CMD"
