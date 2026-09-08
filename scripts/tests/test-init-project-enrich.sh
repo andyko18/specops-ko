@@ -29,6 +29,14 @@ t T2.b "근거문서 부재 fallback"     '(메모 부재|다 부재).*(수동|�
 # AC-1·AC-2 intent 템플릿 (프로세스 단위 — 화면별 아님)
 t T13.a "intent 7요소 골격"        '트리거·행위자·화면·API·테이블·결과·예외'          "$INTENT_TPL"
 t T13.b "intent 예시 마커 격리"     'specops:example:start|예시 없음'                  "$INTENT_TPL"
+# AC-4·5·9·10·11 Phase 11 화면·프로세스 보강 계약
+# T13.e 는 헤더가 아니라 **계약 본문**을 잡는다 — 초안 `…(생성하지 않는|제외)` 는 같은 줄 헤더
+# `**셸 3종 제외**:` 만으로 매칭돼 본문을 지워도 PASS 했다(plan-reviewer 2회차 실측: 거짓 격추).
+t T13.e "allowlist 3종 미생성"      '(app-shell|셸 3종).*생성하지 않는'                "$CMD"
+t T13.f "화면 .html 동시+마커삭제"  '`screens/<name>\.html` 을 \*\*함께\*\* 생성'      "$CMD"
+t T13.g "overview 상태 셀 갱신"     'init 보강 \(미확정'                               "$CMD"
+t T13.h "intent KIND 무관"          'intent\.md.*KIND 무관|KIND 무관 항상 산출'         "$CMD"
+t T13.j "화면 보강 DESIGN.md 준수"  'DESIGN\.md.*(§6\.1|화면 원형)'                    "$CMD"
 # AC-3 사실성·상세성 계약 (Karpathy)
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
 t T3.b "boilerplate 금지"          '(일반론|boilerplate).*금지'                        "$CMD"
@@ -172,6 +180,18 @@ else
 fi
 # Phase 4 확정분(§1~2)은 보강이 덮지 않는다는 경계 명시
 t T12.c "Phase 4 확정분 보존 경계"    'Phase 4 확정|§1.*보존|사용자 응답.*덮어쓰기 금지' "$CMD"
+
+# ── T13.c/T13.d: 화면·intent 가 '깊게' 불릿 항목인지 (블록 추출) ──────────────
+# 줄 grep 은 인접 언급(Phase 7 의 screens 서술 등)에 공허 통과한다 — T12.b 와 동일 이유.
+_deep2=$(awk '/^\*\*깊게\*\*/{f=1;next} f&&/^$/{exit} f' "$CMD")
+for _pair in 'T13.c|screens/<name>\.md|화면이' 'T13.d|intent\.md|프로세스가'; do
+  _id=${_pair%%|*}; _rest=${_pair#*|}; _pat=${_rest%%|*}; _what=${_rest#*|}
+  if printf '%s\n' "$_deep2" | grep -qE "^- \`$_pat\`"; then
+    printf 'PASS %-6s %s\n' "$_id" "$_what '깊게' 불릿 항목으로 명시"; PASS=$((PASS+1))
+  else
+    printf 'FAIL %-6s %s\n' "$_id" "$_what '깊게' 불릿 항목으로 명시"; FAIL=$((FAIL+1))
+  fi
+done
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
