@@ -405,6 +405,88 @@ grep -q 'check-ci-status' "$PLUGIN/scripts/README.md" && grep -q 'CI 상태 경�
   && ok "GH-ci.doc CLAUDE.md·scripts/README gh 의존 고지" \
   || nope "GH-ci.doc" "문서 고지 부재"
 
+# ── 20260908 full-suite 마커 (생산측) ────────────────────────────────
+RUNALL="$PLUGIN/scripts/tests/run-all.sh"
+# ★ regex 는 삽입 코드와 문자 단위로 맞춘다. 마커 경로는 코드에서
+#   `${SPECOPS_ROOT:-.specops}/.full-suite-pass` 라 `.specops/.full-suite-pass` 로는 **매칭되지 않는다**.
+MARKER_LIT='full-suite-pass'
+_g() { grep -qE "$1" "$2"; }   # -E 필수 — 아래 교대(|) 패턴이 BRE 에서 불일치
+
+_g "$MARKER_LIT" "$RUNALL"                        && ok "T20.a run-all 마커 경로 선언"      || nope "T20.a run-all 마커 경로 선언"
+_g '_FSP_TREE=.*workspace_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 workspace_fingerprint" || nope "T20.b 지문 캡처가 workspace_fingerprint"
+_g 'printf .*_FSP_TREE.*>.*_FSP_MARKER' "$RUNALL" && ok "T20.c 성공 시 기록"                || nope "T20.c 성공 시 기록"
+_g 'rm -f .*_FSP_MARKER' "$RUNALL"                && ok "T20.d FAIL 시 마커 제거"           || nope "T20.d FAIL 시 마커 제거"
+_g 'mkdir -p .*_FSP_MARKER' "$RUNALL"             && ok "T20.e 마커 디렉터리 보장"          || nope "T20.e 마커 디렉터리 보장"
+# VERIFY 토큰 불변 — R-1/R-2 실행-근거 게이트가 transcript 에서 파싱한다
+_g '^echo "VERIFY: PASS"' "$RUNALL"               && ok "T20.f VERIFY: PASS 토큰 보존"      || nope "T20.f VERIFY: PASS 토큰 보존"
+_g '^  echo "VERIFY: FAIL"' "$RUNALL"             && ok "T20.g VERIFY: FAIL 토큰 보존"      || nope "T20.g VERIFY: FAIL 토큰 보존"
+
+# ★ AC-1 "실행 **시작 시점**의 지문" 은 grep 만으로 증명되지 않는다 — T20.b 는 캡처가
+#   루프 **뒤**에 있어도 통과하고, T20.h 도 (스위트가 트리를 안 더럽히면) 구분하지 못한다.
+#   루프 뒤 캡처는 fail-**open** 방향이다: 트리를 더럽힌 스위트의 종료 지문이 마커가 되어
+#   pre-push 가 그 더러운 트리를 skip 한다. 줄번호 대소로 잠근다(T21.i 와 동형).
+_ln_fsp=$(grep -n '_FSP_TREE=' "$RUNALL" | head -1 | cut -d: -f1)
+_ln_loop=$(grep -n '^for suite in' "$RUNALL" | head -1 | cut -d: -f1)
+if [ -n "$_ln_fsp" ] && [ -n "$_ln_loop" ] && [ "$_ln_fsp" -lt "$_ln_loop" ]; then
+  ok "T20.b1 지문 캡처가 스위트 루프보다 앞"
+else
+  nope "T20.b1 지문 캡처가 스위트 루프보다 앞" "fsp=${_ln_fsp:-없음} loop=${_ln_loop:-없음}"
+fi
+
+# ── 생산측 행위 검증 (AC-1·AC-2·AC-7) ────────────────────────────────
+# 정적 grep 만으로는 "그 줄이 FAIL 경로에 있는지" 를 증명하지 못한다.
+# 사본에서 스위트를 다 걷어내고 더미 1개만 남겨 run-all 을 **수 초**에 돌린다.
+_t20_dead() { nope "$1" "fixture 미성립"; }
+_p=$(iso::make_git_tree) || _p=""
+if [ -z "$_p" ] || [ ! -d "$_p" ]; then
+  nope "T20.h fixture 생성"
+  _t20_dead "T20.i1 run-all 실패 → exit 1"
+  _t20_dead "T20.i run-all 실패 → 마커 삭제"
+  _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
+else
+trap 'rm -rf "$_p"' EXIT
+find "$_p/scripts/tests" -name 'test-*.sh' -delete 2>/dev/null
+printf '#!/usr/bin/env bash\nexit ${DUMMY_RC:-0}\n' > "$_p/scripts/tests/test-dummy.sh"
+chmod +x "$_p/scripts/tests/test-dummy.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$_p/scripts/_internal/validate-structure.sh"
+
+# ★ 스위트 정리가 조용히 실패하면 중첩 run-all 이 이 스위트를 **재귀 실행**한다(fork bomb).
+#   개수를 단언해 그 사고를 FAIL 로 바꾼다 — 사본이 정리 안 됐으면 run-all 을 아예 돌리지 않는다.
+_p_ntests=$(find "$_p/scripts/tests" -name 'test-*.sh' | wc -l | tr -d ' ')
+if [ "$_p_ntests" != "1" ]; then
+  nope "T20.h fixture 스위트 정리" "test-*.sh ${_p_ntests}개 (중첩 run-all 방지 — 1개여야 한다)"
+  _t20_dead "T20.i1 run-all 실패 → exit 1"
+  _t20_dead "T20.i run-all 실패 → 마커 삭제"
+  _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
+else
+
+_p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' ); }
+
+# 성공 → 마커가 지문과 일치
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+if [ "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null)" = "$(_p_fp)" ]; then
+  ok "T20.h run-all 성공 → 마커==지문"
+else nope "T20.h run-all 성공 → 마커==지문"; fi
+
+# 실패 → 마커 삭제 (낡은 통과가 새 실패를 덮지 않는다 — clarify Q1)
+# ★ 마커를 **다시 심고** 시작한다 — T20.h 가 남긴 것에 의존하면 공허 통과 여지가 있고,
+#   AC-7 검증 방법("마커를 미리 심고")과도 어긋난다.
+# ★ mkdir -p 가 **필수**다: `.specops/` 는 .gitignore 라 사본에 없다. 없으면 이 seed 리다이렉트가
+#   조용히 실패해 T20.i 가 "삭제됐다" 가 아니라 "애초에 없다" 로 공허 통과한다(AC-7 미검증).
+mkdir -p "$_p/.specops"
+_p_fp > "$_p/.specops/.full-suite-pass"
+( cd "$_p" && DUMMY_RC=1 bash scripts/tests/run-all.sh >/dev/null 2>&1 ); _p_rc=$?
+[ "$_p_rc" -eq 1 ] && ok "T20.i1 run-all 실패 → exit 1" || nope "T20.i1 run-all 실패 → exit 1" "rc=$_p_rc"
+[ ! -f "$_p/.specops/.full-suite-pass" ] && ok "T20.i run-all 실패 → 마커 삭제" || nope "T20.i run-all 실패 → 마커 삭제"
+
+# stdout 토큰 불변 (R4 — 거버넌스 파싱 대상)
+_p_out=$( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh 2>&1 | tail -1 )
+[ "$_p_out" = "VERIFY: PASS" ] && ok "T20.j 마지막 줄이 VERIFY: PASS" || nope "T20.j 마지막 줄이 VERIFY: PASS ($_p_out)"
+
+fi
+rm -rf "$_p"; trap - EXIT
+fi
+
 # ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않았음을 스스로 단언한다.
 _iso_after=$(iso::fingerprint $_iso_paths)
 [ "$_iso_before" = "$_iso_after" ] \
