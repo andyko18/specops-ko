@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 ~330s)
+# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 ~12분, 동일 트리면 마커 skip)
 # 계기: 44cd095 revert 가 run-all 없이 나가 main 이 하루 red.
 #       Claude Code PreToolUse 훅은 Cursor 등 다른 도구의 커밋에 발화하지 않는다 —
 #       git hook 은 도구 무관하게 걸리는 유일한 층이다.
@@ -485,6 +485,133 @@ _p_out=$( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh 2>&1 | tail -1 )
 
 fi
 rm -rf "$_p"; trap - EXIT
+fi
+
+# ── 20260908 full-suite 마커 (소비측) ────────────────────────────────
+PREPUSH="$PLUGIN/.githooks/pre-push"
+READMES="$PLUGIN/scripts/README.md"
+INSTALLSH="$PLUGIN/scripts/_internal/install-git-hooks.sh"
+
+_g "$MARKER_LIT" "$PREPUSH"                    && ok "T21.a pre-push 마커 대조"    || nope "T21.a pre-push 마커 대조"
+_g 'SPECOPS_FORCE_FULL' "$PREPUSH"             && ok "T21.b 강제 실행 env"         || nope "T21.b 강제 실행 env"
+_g '동일 트리.*통과|이미 통과.*건너' "$PREPUSH" && ok "T21.c skip 고지에 사유"      || nope "T21.c skip 고지에 사유"
+_g 'SPECOPS_FORCE_FULL=1' "$PREPUSH"           && ok "T21.d skip 고지에 강제 방법" || nope "T21.d skip 고지에 강제 방법"
+
+# 낡은 수치 잔존 금지 — **3파일 전수**. 실측으로 **6곳**이다:
+#   pre-push:2(~340s) · pre-push:31(~330s) · pre-push:37(~5.5분) · README:266(~330s) · README:270(~330s) · install:34(~330s)
+for _f in "$PREPUSH" "$READMES" "$INSTALLSH"; do
+  if grep -qE '~(330|340)s|5\.5분' "$_f"; then
+    nope "T21.h 낡은 수치 잔존: $(basename "$_f")"
+  else
+    ok "T21.h 낡은 수치 제거: $(basename "$_f")"
+  fi
+done
+
+# 삽입 순서 계약 — 마커 대조가 면제 4종 뒤인가 (줄번호 대소, 개수 비의존)
+_ln_recur=$(grep -n 'SPECOPS_RUN_ALL' "$PREPUSH" | head -1 | cut -d: -f1)
+_ln_ci=$(grep -n 'check-ci-status' "$PREPUSH" | head -1 | cut -d: -f1)
+_ln_marker=$(grep -n 'full-suite-pass' "$PREPUSH" | head -1 | cut -d: -f1)
+if [ -n "$_ln_marker" ] && [ -n "$_ln_ci" ] && [ -n "$_ln_recur" ] \
+   && [ "$_ln_marker" -gt "$_ln_ci" ] && [ "$_ln_ci" -gt "$_ln_recur" ]; then
+  ok "T21.i 마커 대조가 면제 4종 뒤"
+else
+  nope "T21.i 마커 대조가 면제 4종 뒤" "marker=${_ln_marker:-없음} ci=${_ln_ci:-없음} recur=${_ln_recur:-없음}"
+fi
+
+# ── fail-closed 경로 (AC-4·AC-9) ─────────────────────────────────────
+# ★ fixture 실패 시 나머지를 **공허 통과시키지 않는다**: _fc="" 면 _fc_run 의 `cd ""` 가 실패해
+#   부작용 파일이 안 생기고 전 케이스가 SKIPPED 로 보고돼 T22.b 만 통과하는 거짓 green 이 된다.
+#   T20.h 의 _t20_dead 패턴과 동형으로 전부 FAIL 로 떨어뜨린다.
+_t22_dead() { nope "$1" "fixture 미성립"; }
+_fc=$(iso::make_git_tree) || _fc=""
+if [ -z "$_fc" ] || [ ! -d "$_fc" ]; then
+  nope "T22 fixture 생성"
+  _t22_dead "T22.a 마커 부재 → 전체 실행"
+  _t22_dead "T22.b 지문 일치 → skip"
+  _t22_dead "T22.b1 skip 고지 — 사유 출력"
+  _t22_dead "T22.b2 skip 고지 — 강제 방법 출력"
+  _t22_dead "T22.c 지문 불일치 → 전체 실행"
+  _t22_dead "T22.d 마커 손상 → 전체 실행"
+  _t22_dead "T22.e 빈 마커 → 전체 실행"
+  _t22_dead "T22.f 권한 없음 → 전체 실행"
+  _t22_dead "T22.g NO_GIT → 전체 실행"
+  _t22_dead "T22.h FORCE_FULL → 전체 실행"
+else
+trap 'rm -rf "$_fc"' EXIT
+
+cat > "$_fc/scripts/tests/run-all.sh" <<'STUB'
+#!/usr/bin/env bash
+touch "${SPECOPS_ROOT:-.specops}/.ran"
+exit 0
+STUB
+chmod +x "$_fc/scripts/tests/run-all.sh"
+mkdir -p "$_fc/.specops"
+
+# ★ SPECOPS_RUN_ALL= 로 재귀 가드를 비운다 (가드는 = "1" 비교라 빈값이면 통과).
+#   이 스위트가 run-all 아래서 돌면 run-all.sh:10 의 export 를 상속해 pre-push:18 이
+#   **마커 로직 앞에서** exit 0 하고 T22.* 가 전건 SKIPPED 로 무너진다.
+_fc_run() {
+  ( cd "$_fc" && mkdir -p .specops && rm -f .specops/.ran \
+    && printf 'refs/heads/main aaa111 refs/heads/main bbb222\n' \
+       | env SPECOPS_RUN_ALL= "$@" bash .githooks/pre-push >/dev/null 2>&1
+    [ -f .specops/.ran ] && echo RAN || echo SKIPPED )
+}
+_fc_fp() { ( cd "$_fc" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' ); }
+_fc_case() { # $1=id $2=desc $3=기대(RAN|SKIPPED) $4...=env
+  local _id="$1" _d="$2" _want="$3"; shift 3
+  local _got; _got=$(_fc_run "$@")
+  [ "$_got" = "$_want" ] && ok "$_id $_d" || nope "$_id $_d" "기대=$_want 실제=$_got"
+}
+
+# ① 마커 부재 → 전체 실행
+rm -f "$_fc/.specops/.full-suite-pass"
+_fc_case T22.a "마커 부재 → 전체 실행" RAN
+
+# ② 지문 일치 → skip  ★ 이게 통과해야 나머지가 의미를 갖는다
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+_fc_case T22.b "지문 일치 → skip" SKIPPED
+# skip 고지를 **런타임으로** 잠근다 (T21.c/d 는 소스 grep 이라 실제 출력은 안 본다 — AC-3·AC-8).
+# T22.b 의 SKIPPED 는 "부작용 파일 부재" 라 어떤 조기 exit 와도 구분되지 않는다 —
+# 마커 고유 문구를 stderr 에서 확인하는 b1·b2 가 그 공허 통과를 막는 유일한 층이다.
+_fc_err=$( cd "$_fc" && printf 'refs/heads/main a refs/heads/main b\n' \
+  | env SPECOPS_RUN_ALL= bash .githooks/pre-push 2>&1 >/dev/null )
+printf '%s' "$_fc_err" | grep -qE '동일 트리.*통과|이미 통과.*건너' \
+  && ok "T22.b1 skip 고지 — 사유 출력" || nope "T22.b1 skip 고지 — 사유 출력"
+printf '%s' "$_fc_err" | grep -q 'SPECOPS_FORCE_FULL=1' \
+  && ok "T22.b2 skip 고지 — 강제 방법 출력" || nope "T22.b2 skip 고지 — 강제 방법 출력"
+
+# ③ 트리 1바이트 변경 → 불일치 → 전체 실행
+printf '\n# fc mutate\n' >> "$_fc/README.md"
+_fc_case T22.c "지문 불일치 → 전체 실행" RAN
+
+# ④ 마커 내용 손상 → 전체 실행 (③ 로 트리가 이미 바뀌었으니 **재기록 후** 손상해야 성립)
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+printf 'not-a-tree-hash\n' > "$_fc/.specops/.full-suite-pass"
+_fc_case T22.d "마커 손상 → 전체 실행" RAN
+
+# ⑤ 빈 마커 → 전체 실행 (AC-4 ② 읽기 실패 축 — 결정적)
+: > "$_fc/.specops/.full-suite-pass"
+_fc_case T22.e "빈 마커 → 전체 실행" RAN
+
+# ⑥ 읽기 권한 없음 → 전체 실행 (root 면 읽히므로 skip)
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+chmod 000 "$_fc/.specops/.full-suite-pass" 2>/dev/null
+if [ "$(id -u)" = "0" ]; then
+  skip "T22.f 권한 없음 → 전체 실행 (root 는 읽힌다)"
+else
+  _fc_case T22.f "권한 없음 → 전체 실행" RAN
+fi
+chmod 644 "$_fc/.specops/.full-suite-pass" 2>/dev/null
+
+# ⑦ NO_GIT → 전체 실행 (TMPDIR 파괴로 vs:: 의 mktemp 를 실패시킨다)
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+_fc_case T22.g "NO_GIT → 전체 실행" RAN TMPDIR=/nonexistent/zz
+
+# ⑧ SPECOPS_FORCE_FULL=1 → 지문 일치해도 전체 실행
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+_fc_case T22.h "FORCE_FULL → 전체 실행" RAN SPECOPS_FORCE_FULL=1
+
+rm -rf "$_fc"; trap - EXIT
 fi
 
 # ★ 자가점검 (AC-10): 이 스위트가 실 트리를 변이하지 않았음을 스스로 단언한다.
