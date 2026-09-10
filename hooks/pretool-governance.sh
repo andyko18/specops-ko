@@ -311,6 +311,7 @@ while IFS= read -r rule; do
       res=$(apply_lookback_rule "$rule" "$transcript" "$tool_name" "$tool_cmd" 2>/dev/null || true)
       if [ -n "$res" ]; then
         violation="$rid"
+        violation_res="$res"     # 축 B: deny 메시지 조립에서 cause 를 읽는다
         principle=$(echo "$rule" | jq -r '.principle')
         snippet=$(echo "$res" | jq -r '.evidence_snippet')
         offset=$(echo "$res" | jq -r '.offset')
@@ -344,6 +345,19 @@ if [ -n "$violation" ]; then
   # 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다(실측: 수분대 러너 재실행 낭비).
   # ★ 부모 스코프에서 계산한다 — _verify_exec_evidence 는 `res=$(apply_lookback_rule ...)`
   #   서브셸 안에서 돌아 그 안의 변수 설정이 여기로 전파되지 않는다(Phase B 적발).
+  # ── 축 B: 원인 구분 (20260910-receipt-window-close) ─────────────────────────
+  # 종전엔 ①·②·receipt 세 블록이 **무조건** 출력됐다. 구조적으로 닫힌 경로까지 성실히
+  # 안내하므로, 안내를 그대로 이행할수록 BYPASS 로 몰린다(20260910 실측 — 커밋 2건).
+  # cause 는 판정기가 이미 아는 사실만 실어 온다. 부재·파싱 실패면 종전 문안 그대로 —
+  # 미탐 방향으로만 떨어진다(진단 실패가 차단을 무력화하지 않는다).
+  # ★ 배치 주의: 이 블록은 _anchor_hint·_evidence_hint 산출보다 **앞**이어야 한다. _anchor_hint 가
+  #   파일에서 먼저 나오므로 뒤에 두면 `set -u` 하에서 _cause_ok unbound → 훅이 JSON 을 못 내고
+  #   모든 deny 가 fail-open allow 로 뒤집힌다.
+  _c_exec=$(printf '%s' "${violation_res:-}" | jq -r '.cause.exec // empty' 2>/dev/null || true)
+  _c_anchor=$(printf '%s' "${violation_res:-}" | jq -r '.cause.anchor // empty' 2>/dev/null || true)
+  _c_receipt=$(printf '%s' "${violation_res:-}" | jq -r '.cause.receipt // empty' 2>/dev/null || true)
+  _cause_ok=0
+  [ -n "$_c_exec" ] && [ -n "$_c_anchor" ] && [ -n "$_c_receipt" ] && _cause_ok=1
   _EXEC_BG_PENDING_PATH=$(_bg_pending_path "$transcript" 2>/dev/null || true)
   _bg_hint=""   # 메인 흐름(함수 밖) — local 불가
   if [ -n "${_EXEC_BG_PENDING_PATH:-}" ]; then
@@ -355,12 +369,17 @@ if [ -n "$violation" ]; then
   fi
 
   _anchor_hint=""   # 메인 흐름(함수 밖) — local 불가
-  if [ -z "${fid:-}" ]; then
-    _anchor_hint="② 진행 기록 앵커가 없습니다 — .specops/session-progress.md 에 \`## <FID>\` 섹션이 하나도 없습니다.
+  if [ "$_cause_ok" -eq 1 ] && [ "$_c_anchor" = "ok" ]; then
+    _anchor_hint="✔ ② 진행 기록 앵커: 확인됩니다."
+  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_anchor" = "stale" ]; then
+    _anchor_hint="✘ ② 진행 기록 앵커: /verify PASS 줄보다 **더 최신인 코드 변경 기록**이 있습니다.
+   검증 이후의 코드로 다시 verify 해야 앵커가 유효해집니다."
+  elif [ -z "${fid:-}" ]; then
+    _anchor_hint="✘ ② 진행 기록 앵커가 없습니다 — .specops/session-progress.md 에 \`## <FID>\` 섹션이 하나도 없습니다.
    FID 는 YYYYMMDD-kebab-slug 형식이어야 합니다(batch-<날짜> 같은 BATCH_ID 는 인식되지 않습니다).
    bash scripts/session-progress-append.sh <FID> /verify PASS 로 기록하세요."
   else
-    _anchor_hint="② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
+    _anchor_hint="✘ ② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
    또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다."
   fi
   # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
@@ -383,21 +402,56 @@ if [ -n "$violation" ]; then
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
    bash scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
+    _evidence_hint="✔ ① 실행 증거: 이 세션에서 러너 PASS 가 확인됩니다 — **다시 실행할 필요가 없습니다**."
   else
-    _evidence_hint="① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
+    # cause 부재(FR-6 fallback)와 exec=missing 이 같은 문안을 쓴다. `✘ ` 접두만 추가되므로
+    # AC-6 의 "변경 전과 동일" 은 **본문 동일 + 상태 접두 추가**를 뜻한다(부분 문자열 단언으로 잠근다).
+    _evidence_hint="✘ ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
    bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  fi
+  # ① 이 충족이면 백그라운드 안내는 소음이다 — 그때만 끈다.
+  [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ] && _bg_hint=""
+  # receipt 대안은 R-1 이고 창이 열려 있을 때만 실제로 열리는 경로다. 닫혔으면 권하지 않는다.
+  if [ "$_cause_ok" -eq 1 ]; then
+    case "$_c_receipt" in
+      open-missing)
+        _receipt_hint="
+▶ 지금 열리는 유일한 경로 — receipt (R-1 implement 창):
+   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   그리고 커밋 메시지에 T#/Task: T# 를 넣으세요 (staged ⊆ task outputs, receipt 이후 코드 변경 없음)." ;;
+      open-invalid)
+        _receipt_hint="
+▶ receipt 경로는 열려 있으나 **기록된 receipt 가 유효하지 않습니다**:
+   staged 파일이 해당 task 의 outputs 안에 있는지, receipt 기록 이후 코드가 바뀌지 않았는지 확인하세요.
+   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#> 로 다시 기록할 수 있습니다." ;;
+      closed-verified)
+        # ★ 어느 verdict 인지 **단정하지 않는다**. 창은 PASS·STALE·WAIVED(+판정불가) 전부에서 닫히는데
+        #   (governance-lib.sh `_receipt_window_open` case), 초안 문안 "verify 가 이미 유효 PASS 이므로" 는
+        #   그중 하나에서만 참이었다 — STALE 은 PASS 후 코드가 바뀐 상태고 WAIVED 는 verify 가 돌지도
+        #   않았다. 세 상태 중 하나에서만 참인 문장을 셋 다에 출력하는 것이 바로 이 FID 가 없애려는
+        #   병(거짓 deny 문안 → BYPASS)이다. 아래는 네 상태 전부에서 참인 진술 + 실제 verdict 조회 안내다.
+        _receipt_hint="
+※ receipt 경로는 이 FID 에서 **닫혀 있습니다** — receipt 는 verify 결과가 NOT_RUN·PARTIAL·FAIL 인
+   implement 창에서만 열립니다(PASS·STALE·WAIVED 는 닫힘 — 특히 STALE 은 검증 이후 코드가 바뀐
+   상태라 receipt 로 우회하지 않습니다). 지금은 ①·② 로 통과해야 합니다.
+   현재 verdict 확인: bash scripts/_internal/verification-state.sh current ${fid:-<FID>}" ;;
+      *) _receipt_hint="" ;;   # n/a (R-2)
+    esac
+  else
+    _receipt_hint="
+implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
+   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   로 receipt를 남기고, 커밋 메시지에 T#/Task: T# 를 넣으면 FID 전체 verify 없이 열릴 수 있습니다
+   (staged ⊆ task outputs, receipt 이후 코드 변경 없음)."   # cause 부재 → 종전 문안
   fi
   reason="$act 차단 — verify 면제 조건 2가지 중 최소 하나가 미충족입니다.
 
 $_evidence_hint
 $_bg_hint
 $_anchor_hint
-
-implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
-   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
-   로 receipt를 남기고, 커밋 메시지에 T#/Task: T# 를 넣으면 FID 전체 verify 없이 열릴 수 있습니다
-   (staged ⊆ task outputs, receipt 이후 코드 변경 없음).
+$_receipt_hint
 
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
