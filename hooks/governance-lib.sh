@@ -138,8 +138,8 @@ _verify_evidence_stamp() {
   local ev=".specops/$fid/evidence.md"
   local state=".specops/$fid/verification-state.json"
   if [ -f "$state" ] && [ -f "$_VERIFICATION_STATE_SH" ]; then
-    local verdict
-    verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+    local verdict                                    # FR-7 캐시 — 상세는 _vs_verdict_cached 참조
+    verdict=$(_vs_verdict_cached "$fid") || return 1
     [ "$verdict" = "PASS" ] && return 0 || return 1
   fi
   [ -f "$ev" ] || return 1
@@ -1165,6 +1165,45 @@ apply_lookback_rule() {
     jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
       '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
   fi
+}
+
+# ── receipt 창 판정 (20260910-receipt-window-close) ──────────────────────────
+# 창 = "verify 가 아직 유효 PASS 에 도달하지 않은 구간". 종전엔 `evidence.md 부재` 였는데,
+#   그 파일은 /verify 전용이 아니다 — 구현 중 실험 태스크가 쓰면 남은 태스크의 receipt 경로가
+#   스스로 닫혔다(20260910 실측: T4 가 14:39 작성 → T5·T6 커밋이 전 경로 폐쇄 → BYPASS 2건).
+# STALE 을 창에서 **제외**한다: 17f8617(20260828)이 "verify PASS 후 코드 수정은 차단하고
+#   그렇게 말한다" 를 계약으로 세웠고, 여기서 열면 receipt 가 그 계약의 우회로가 된다.
+# 반환: 0=열림(NOT_RUN|PARTIAL|FAIL) · 1=닫힘(PASS|STALE|WAIVED·판정불가 — 보수)
+# 부수효과: $_VS_VERDICT_CACHE(+_FID)를 채워 같은 호출의 _verify_evidence_stamp 가 재사용한다(FR-7).
+#   NFR-6: verdict/tree_hash 판정을 여기 복제하지 않는다 — verification-state.sh 가 SoT.
+# 배치 주의: 이 블록은 apply_lookback_rule **뒤**에 있어야 한다. 앞으로 옮기면
+#   mutation-equivalent.conf 의 절대 라인핀 1077·1084 가 밀려 등가변이 제외가 무음 사망한다.
+_receipt_window_open() {
+  local fid="$1" verdict
+  [ -n "$fid" ] || return 1
+  verdict=$(_vs_verdict_cached "$fid") || return 1
+  case "$verdict" in
+    NOT_RUN|PARTIAL|FAIL) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# verify 판정 조회 1회 캐시 (FR-7). 훅 hot path 에서 vs::current 가 두 번 도는 것을 막는다 —
+#   그 명령은 verdict=PASS 경로에서 write-tree 를 돌려 ~109 ms(실측), state 부재면 ~6.3 ms.
+#   FID 를 함께 태그한다: 같은 프로세스에서 다른 FID 를 조회했을 때 잔여값이 새면 안 된다.
+#   NFR-6: verdict/tree_hash/WAIVED 만료 규칙을 여기 복제하지 않는다 — verification-state.sh 가 SoT.
+#   호출 실패·빈 출력은 rc=1 로 돌려보내 호출측이 보수(닫힘) 판정하게 한다.
+_vs_verdict_cached() {
+  local fid="$1" verdict
+  [ -n "$fid" ] || return 1
+  if [ -n "${_VS_VERDICT_CACHE:-}" ] && [ "${_VS_VERDICT_CACHE_FID:-}" = "$fid" ]; then
+    printf '%s' "$_VS_VERDICT_CACHE"; return 0
+  fi
+  [ -f "$_VERIFICATION_STATE_SH" ] || return 1
+  verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+  [ -n "$verdict" ] || return 1
+  _VS_VERDICT_CACHE="$verdict"; _VS_VERDICT_CACHE_FID="$fid"
+  printf '%s' "$verdict"
 }
 
 # R-3 매처 — Skill 호출 직전 N assistant 메시지에 선언 부재 확인 (AC-9, v0.4-pre W1 확장)

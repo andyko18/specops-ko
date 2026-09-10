@@ -187,4 +187,58 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T13 vp=1+stamp 차단됨(면제 회귀)"
 fi
 
+# === _receipt_window_open (AC-1, FR-1) — verdict 6종 진리표 ===
+# 왜 이 함수인가: 종전 창 조건은 `evidence.md 부재` 였다. /verify 가 아니라 **구현 중 태스크**가
+#   그 파일을 쓰면 남은 태스크의 receipt 경로가 스스로 닫혔다(20260910 실측 — BYPASS 2건).
+_RWO_SB=$(mktemp -d) || exit 1
+mkdir -p "$_RWO_SB/.specops/20260910-x"
+: > "$_RWO_SB/.specops/20260910-x/tasks.md"
+_rwo_case() {   # $1=verdict $2=기대rc $3=라벨
+  cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<JSON
+{"verdict":"$1","tree_hash":"NO_GIT","executed":1,"skipped":0,"failed":0}
+JSON
+  if [ "$1" = "WAIVED" ]; then
+    cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<JSON
+{"verdict":"WAIVED","tree_hash":"NO_GIT","waiver":{"reason":"r","approved_by":"a","expires_at":"2099-01-01T00:00:00Z"}}
+JSON
+  fi
+  (cd "$_RWO_SB" && _receipt_window_open 20260910-x); local got=$?
+  if [ "$got" -eq "$2" ]; then PASS=$((PASS+1)); echo "PASS T-rwo.$3 $1 → rc=$2"
+  else FAIL=$((FAIL+1)); echo "FAIL T-rwo.$3 $1 → rc=$got (기대 $2)"; fi
+}
+_rwo_case NOT_RUN 0 a
+_rwo_case PARTIAL 0 b
+_rwo_case FAIL    0 c
+_rwo_case PASS    1 d
+_rwo_case WAIVED  1 e
+# STALE: verdict=PASS 인데 기록 tree_hash 가 현재와 다르면 vs::current 가 STALE 을 낸다.
+#   NO_GIT 은 vs::current 가 STALE 판정에서 제외하므로 실제 해시를 심어야 한다(가짜 값이면 STALE).
+cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<'JSON'
+{"verdict":"PASS","tree_hash":"0000000000000000000000000000000000000000","executed":1,"skipped":0,"failed":0}
+JSON
+(cd "$_RWO_SB" && git init -q . 2>/dev/null; _receipt_window_open 20260910-x); _rwo_rc=$?
+[ "$_rwo_rc" -eq 1 ] && { PASS=$((PASS+1)); echo "PASS T-rwo.f STALE → rc=1 (닫힘)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-rwo.f STALE → rc=$_rwo_rc (기대 1)"; }
+# 빈 FID → 닫힘 (보수)
+_receipt_window_open "" && { FAIL=$((FAIL+1)); echo "FAIL T-rwo.g 빈 FID 열림"; } \
+  || { PASS=$((PASS+1)); echo "PASS T-rwo.g 빈 FID → 닫힘"; }
+
+# === FR-7 캐시 공유 — _verify_evidence_stamp 가 같은 FID 캐시를 재사용한다 ===
+# 왜: vs::current 는 PASS 경로에서 write-tree 를 돌려 ~109 ms. 훅 hot path 에서 2회 호출 금지.
+_VS_VERDICT_CACHE_FID="20260910-x"; _VS_VERDICT_CACHE="PASS"
+(cd "$_RWO_SB" && rm -f .specops/20260910-x/verification-state.json
+ cat > .specops/20260910-x/verification-state.json <<'JSON'
+{"verdict":"FAIL","tree_hash":"NO_GIT","executed":1,"skipped":0,"failed":1}
+JSON
+ _verify_evidence_stamp 20260910-x) \
+  && { PASS=$((PASS+1)); echo "PASS T-rwo.h 캐시(PASS) 재사용 — 디스크 FAIL 무시"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-rwo.h 캐시 미재사용"; }
+# 다른 FID 면 캐시를 쓰지 않는다 (오염 차단)
+_VS_VERDICT_CACHE_FID="other-fid"; _VS_VERDICT_CACHE="PASS"
+(cd "$_RWO_SB" && _verify_evidence_stamp 20260910-x) \
+  && { FAIL=$((FAIL+1)); echo "FAIL T-rwo.i 타 FID 캐시 오염"; } \
+  || { PASS=$((PASS+1)); echo "PASS T-rwo.i 타 FID 캐시 무시 — 디스크 FAIL 반영"; }
+_VS_VERDICT_CACHE_FID=""; _VS_VERDICT_CACHE=""
+rm -rf "$_RWO_SB"
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
