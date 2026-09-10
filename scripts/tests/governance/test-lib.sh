@@ -208,6 +208,77 @@ _clsf_case 0 "T-docs.as 멀티라인 인용 -m 축소(false-block 방지)" "$_G 
 
 body'"
 
+# T-docs.pre.*: C-1 안전 prelude 소비 (20260910-commit-scope-prelude)
+_HERE=$(pwd)
+_clsf_case 0 "T-docs.pre.a cd 절대(현재 repo) 선행 축소"  "cd $_HERE
+$_G $_C -m 'docs: x'"
+_clsf_case 0 "T-docs.pre.b cd 상대 선행 축소"             "cd skills
+$_G $_C -m 'docs: x'"
+# `$PWD/` 접두 벗김 경로(:cd 분기 `"$PWD"/*`)를 잠근다 — 이 줄을 지우면 그 밖의 `/*` 규칙에
+#   걸려 보수로 떨어진다(false-block 방향, MD 변이 실측). 한글·공백 repo 경로 사용자의 회수율 축.
+_clsf_case 0 "T-docs.pre.a2 cd \$PWD/하위 선행 축소"      "cd $_HERE/skills
+$_G $_C -m 'docs: x'"
+_clsf_case 0 "T-docs.pre.c VAR= 선행 축소"                "MSG=/tmp/m.txt
+$_G $_C -F \"\$MSG\""
+_clsf_case 0 "T-docs.pre.d cd+VAR 2줄 선행 축소"          "cd $_HERE
+MSG=/tmp/m.txt
+$_G $_C -F \"\$MSG\""
+_clsf_case 1 "T-docs.pre.e cd .. 보수"                    "cd ..
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.f cd - 보수"                     "cd -
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.g bare cd 보수"                  "cd
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.h cd 타repo 절대 보수"           "cd /tmp/other-repo
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.i VAR=명령치환 보수"             "MSG=\$(pwd)
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.i2 VAR=백틱 보수"                "MSG=\`pwd\`
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.j cd 다중토큰 보수"              "cd a b
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.k cd 뒤 add -A 보수(false-open 축)" "cd $_HERE
+$_G add -A
+$_G $_C -m x"
+_clsf_case 0 "T-docs.pre.l prelude 8줄 축소"              "$(for i in 1 2 3 4 5 6 7 8; do echo "V$i=$i"; done)
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.m prelude 9줄 보수(상한)"        "$(for i in 1 2 3 4 5 6 7 8 9; do echo "V$i=$i"; done)
+$_G $_C -m x"
+# 인용 껍데기·변수 경로 — Critical-1 실측으로 추가된 false-open 축
+_clsf_case 1 "T-docs.pre.n cd 인용 타repo 보수"           "cd \"/tmp/other-repo\"
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.o VAR= 뒤 cd \$VAR 보수"         "DIR=/tmp/other-repo
+cd \$DIR
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.p cd 빈인용 보수"                "cd \"\"
+$_G $_C -m x"
+# 역슬래시 **1개**. 앞선 `*'\\'*` 패턴은 2개만 잡아 이 줄이 안전으로 새어나갔다(실측 rc=0).
+_clsf_case 1 "T-docs.pre.p2 VAR= 단일 역슬래시 보수"      "VAR=a\\b
+$_G $_C -m x"
+# spec §3 주 시나리오 — prelude ↔ heredoc 멀티라인 검사 상호작용 (current-state §5 회귀 표면)
+_clsf_case 0 "T-docs.pre.q cd + heredoc -F - 축소"        "cd $_HERE
+$_G $_C -q -F - <<'HD'
+docs: x
+HD"
+_clsf_case 1 "T-docs.pre.r cd + heredoc 뒤 add -A 보수"   "cd $_HERE
+$_G $_C -q -F - <<'HD'
+docs: x
+HD
+$_G add -A"
+# T-docs.pre.s: `*=*` 분기의 `[ -z "$rest" ] || return 1` 를 잠근다 (Phase C Important-1 실측 —
+#   그 줄을 지운 변이에서 test-lib 140/140 이 그대로 생존했고, `VAR=x git add -A` ⏎ `git commit`
+#   이 축소 승인(false-open)으로 뚫렸다). 기존 T-docs.ae 는 **단일 줄**이라 prelude 루프에
+#   진입조차 하지 않아 이 축을 보지 못한다 — 반드시 2줄이어야 판별력이 생긴다.
+_clsf_case 1 "T-docs.pre.s env 접두+명령 prelude 보수(false-open 축)" "VAR=x $_G add -A
+$_G $_C -m x"
+# T-docs.pre.t·u: prelude 가 약속한 불변식(어느 git · 어디서)을 직접 깨는 두 이름 (Important-3,
+#   사용자 결정). 수정 전에는 둘 다 안전 prelude 로 통과해 `PATH=/tmp/evil` ⏎ 커밋이 rc=0 이었다.
+_clsf_case 1 "T-docs.pre.t PATH= 선행 보수(어느 git 인지 변조)"  "PATH=/tmp/evil
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.u CDPATH= 선행 보수(cd 목적지 변조)"    "CDPATH=/tmp
+cd other-repo
+$_G $_C -m x"
+
 # T-docs.ah~ak: is_docs_only_change 스코프 분기 (sandbox — staged=docs + unstaged 코드)
 _scope_sandbox() {  # $1 expect_rc  $2 label  $3 cmd(빈 문자열이면 무인자 호출)
   local td rc; td=$(mktemp -d)

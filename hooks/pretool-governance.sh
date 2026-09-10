@@ -136,6 +136,21 @@ FR 하나를 BATCH_ID 디렉토리에 통합해 돌리면 per-FR 근거가 사�
 }
 _batch_pr_gate
 
+# 명령 위치(줄시작 또는 셸 메타문자 직후)의 env 접두 할당인가 — **앵커 단일 출처**.
+#   $1 검사할 명령 · $2 리터럴 VAR=VAL · $3(선택) 그 앞에 올 수 있는 접두 그룹 정규식.
+# 왜 함수인가: 이 앵커는 T37 사고("메시지 내 토큰 언급은 우회로 인정하지 않는다")의 산물인데,
+#   소비자가 늘 때마다 정규식을 복제하면 한쪽만 고쳐지는 drift 가 곧 다음 결함이다 (실제로
+#   20260910 SPECOPS_DRYRUN 초안이 무앵커 glob 으로 들어와 `echo SPECOPS_DRYRUN=1 && git commit`
+#   을 조회로 오인했다 — false-deny 는 이 repo 가 두 번 겪은 BYPASS 관성 경로다).
+#   선행자 클래스([;&|({`] + 줄시작)와 후행 공백 요구는 아래 인라인 BYPASS 주석의 근거를 승계한다.
+# ★ 정의 위치가 파일 상단(allow/safe_exit 옆)이 아닌 이유: scripts/tests/mutation-equivalent.conf 가
+#   이 파일의 equivalent mutant 를 **절대 줄번호**로 고정한다(:85·:108·:109 = _batch_pr_gate 내부).
+#   위쪽에 줄을 끼우면 그 고정이 통째로 stale 이 되고 mutation score 가 거짓 하락한다
+#   (test-mutation-conf-fresh.sh T2.a 실측). 첫 소비자 바로 앞이 co-location 측면에서도 낫다.
+_is_cmd_pos_env() {
+  printf '%s' "$1" | grep -Eq "(^|[;&|({\`])[[:space:]]*${3:-}$2[[:space:]]"
+}
+
 # 인라인 BYPASS 는 사유(SPECOPS_BYPASS_REASON) 병기 필수 (20260716-batch-dogfood: 첫 deny 후 모델이
 #   무사유 BYPASS 를 커밋 3회+PR 생성에 관성 사용 — 사유 없는 friction-log 는 우회 횟수만 남는 무정보 감사
 #   기록이 된다. 사유는 명령 원문째 friction-log evidence_snippet 에 남는다). 세션 env(위 줄)는 사용자 전용
@@ -144,7 +159,8 @@ _batch_pr_gate
 #   REASON='...' git commit`(compound)·`B() { BYPASS=1 ...; }`(wrapper) 가 ^줄시작 앵커에 걸려 사유까지
 #   정직 병기한 우회가 false-deny 됐다. 단순 공백 선행(메시지 내 토큰 언급, T37)은 여전히 불인정.
 _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
-if printf '%s' "$tool_cmd" | grep -Eq "(^|[;&|({\`])[[:space:]]*(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?SPECOPS_GOVERNANCE_BYPASS=1[[:space:]]"; then
+if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
+     "(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?"; then
   # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
   #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
   if printf '%s' "$tool_cmd" | grep -Eq -- "-m[[:space:]]+[\"']?BYPASS"; then
@@ -185,6 +201,67 @@ fi
 # M2 관할 가드: .specops 부재 = specops 미사용 repo → verify-before-commit 강제 면제 (5원칙 4 주권 — 플러그인은
 #   자기 관할 repo 만 통제, 무관 repo 월권 금지). lifecycle 진행 중(.specops 존재)이면 그대로 강제 — 보호 손실 0.
 [ -d ".specops" ] || allow
+# SPECOPS_DRYRUN — "이 커밋은 면제됩니까" 조회 (C-1, 20260910). **실행하지 않는다.**
+#   ★ 두 가지 위치 계약:
+#     ① BYPASS 분기 **뒤**다 — 앞에 두면 조회 플래그가 BYPASS 기록을 건너뛴다.
+#     ② **deny 전용**이다 — allow 를 늘리지 않으므로 조회가 우회로 전용될 수 없다.
+#        (초안은 allow 였고, 그건 커밋을 실행시키면서 friction-log 기록이 0인
+#         무음 우회 클래스였다 — plan-reviewer Important, 사용자 결정으로 교체.)
+#   실판정 경로를 그대로 태운다 — 별도 판정 로직을 만들면 훅과 조회의 답이 갈라진다(#40).
+#   scripts/_internal/scope-explain.sh 를 **호출하지 않는다**: REASON 필드는
+#   is_docs_only_change 가 in-process 로 세팅하는 $_SPECOPS_SCOPE_FILES 를 읽어 만드는데,
+#   서브프로세스는 그 부수효과를 돌려줄 수 없다 → 파일목록 재유도(판정 사본, AC-5 금지) 또는
+#   필드 누락 둘 중 하나가 된다. 같은 lib 함수를 직접 부르는 편이 단일 판정기에 더 가깝다.
+_dryrun=0
+_dry_cmd="$tool_cmd_scan"
+[ "${SPECOPS_DRYRUN:-}" = "1" ] && _dryrun=1
+# 인라인 형태는 형제 BYPASS 분기와 **같은 판정기**(_is_cmd_pos_env)로 인식한다 — 무앵커
+#   `*SPECOPS_DRYRUN=1*` 은 `echo SPECOPS_DRYRUN=1 && git commit -m x` 같은 단순 언급을
+#   조회로 오인해 커밋을 false-deny 한다. 사용자는 왜 막혔는지 모른 채 BYPASS 로 간다.
+#   (경계는 BYPASS 와 동일하다 — `FOO=bar SPECOPS_DRYRUN=1 git commit` 처럼 다른 env 가
+#    선행하면 인식되지 않는다. 그 경우 조회가 아니라 **평시 판정**으로 흐르므로 게이트
+#    보호는 그대로다 = allow 확대 0. 형제와 같은 경계를 공유하는 편을 택했다.)
+if _is_cmd_pos_env "$tool_cmd_scan" "SPECOPS_DRYRUN=1"; then
+  _dryrun=1
+  # 인라인 형태는 **접두를 벗긴 뒤** 판정한다 (2회차 Important 실측): 벗기지 않으면
+  #   C2(`git commit` 으로 시작)에서 걸려 항상 `SCOPE=conservative` 가 나온다 —
+  #   조회가 실제 커밋과 **다른 답**을 내면 조회로서 무가치하다(AC-6 "인라인도 동일 판정").
+  # ★ 벗김 기준은 **줄 시작**이다 (3회차 Important-2 실측). 종전 `case SPECOPS_DRYRUN=1[[:space:]]*)`
+  #   는 명령 **첫 줄**만 봤는데, 인식기 `_is_cmd_pos_env` 는 grep 이라 줄 단위다 — prelude 뒤
+  #   둘째 줄의 인라인도 조회로 인식된다. 그 결과 접두가 남은 채 판정돼
+  #   `cd sub` ⏎ `SPECOPS_DRYRUN=1 git commit -m x` 가 실제 커밋(SCOPE=staged)과 달리
+  #   항상 conservative 를 답했다(실측). deny 전용 경로라 안전 영향은 0, **정확성** 결함이었다.
+  #   범위 한계(추정이 아니라 인식기와 대조해 적는다): 인식기는 `[;&|({\`]` 뒤 인라인도 인정하지만
+  #   이 sed 는 줄 시작만 벗긴다. 그 형태(`git add -A && SPECOPS_DRYRUN=1 git commit`)는 접두를
+  #   벗기든 말든 compound 라 C1 에서 보수로 떨어지고, 접두를 뺀 실제 커밋도 같은 이유로 보수다
+  #   → 두 답이 갈라지지 않는다. 또한 sed 쪽이 종전 case 보다 인식기에 **더 가깝다**: 인식기는
+  #   앵커 뒤 선행 공백을 허용하는데 case 는 문자열 정확 시작만 매칭했다.
+  _dry_cmd=$(printf '%s\n' "$tool_cmd_scan" | sed -E 's/^[[:space:]]*SPECOPS_DRYRUN=1[[:space:]]+//')
+fi
+if [ "$_dryrun" = "1" ]; then
+  if _commit_scope_is_staged "$_dry_cmd"; then _dry_scope=staged; else _dry_scope=conservative; fi
+  if is_docs_only_change "$_dry_cmd"; then _dry_ex=yes; else _dry_ex=no; fi
+  _dry_files=${_SPECOPS_SCOPE_FILES:-}
+  if [ -n "$_dry_files" ]; then
+    _dry_n=$(printf '%s' "$_dry_files" | grep -c . 2>/dev/null || true)
+    _dry_cls=$(_commit_scope_class "$_dry_files")
+  else
+    # ★ 빈 문자열을 **인자로** 넘기면 안 된다: _commit_scope_class 는 `$# -gt 0` 이면 그 인자를
+    #   그대로 쓰므로(:622) 항상 `empty` 를 반환한다 — git 판정 실패(판정불가)와 "커밋 범위가
+    #   실제로 비었음"이 같은 문자열로 나온다. AC-5 가 금지한 판정불가 위장과 같은 클래스다.
+    #   인자 **없이** 부르면 git-authoritative 로 둘을 구분한다: 판정불가는 빈 출력(:631 의
+    #   `return 0`), 진짜 빈 범위는 `empty`. 파일 수도 `?`(미상) 와 `0`(빈) 을 구별해 적는다.
+    _dry_cls=$(_commit_scope_class)
+    if [ -n "$_dry_cls" ]; then _dry_n=0; else _dry_cls="판정불가"; _dry_n="?"; fi
+  fi
+  printf 'SCOPE=%s EXEMPT=%s REASON=%s(%s files)\n' "$_dry_scope" "$_dry_ex" "$_dry_cls" "$_dry_n" >&2
+  # deny 방출 — 훅에 `deny()` 헬퍼는 **없다**(정의된 것은 `allow()`·`safe_exit()` 뿐, :13-14).
+  #   기존 5곳(:134·:154·:182·:328·:412)과 **동형**의 인라인 jq 를 쓴다.
+  _dry_reason="SPECOPS_DRYRUN 조회 — 실행하지 않았습니다. SCOPE=$_dry_scope EXEMPT=$_dry_ex REASON=$_dry_cls($_dry_n files). 실제 커밋은 SPECOPS_DRYRUN 없이 재실행하세요."
+  jq -nc --arg r "$_dry_reason" \
+    '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+  exit 0
+fi
 # tool_cmd_scan 을 넘긴다(원문 tool_cmd 아님) — :40-41 에서 heredoc 본문·인용 문자열이 이미 제거돼
 #   판정 오염이 없다. :112 batch 게이트는 인자 없이 호출해 현행 동작을 유지한다(범위 밖).
 #
