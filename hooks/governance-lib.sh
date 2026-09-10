@@ -645,12 +645,70 @@ _commit_scope_class() {
 #
 # 왜 화이트리스트인가: #255 가 "이름 나열"식 접근의 3회 반복 실패를 기록한다. 위험 형태를 나열하면
 #   나열 밖이 뚫린다. 안전 형태만 통과시키면 나열 밖은 전부 **보수 쪽(false-block 방향)** 으로 넘어진다.
+# C-1 (20260910): 커밋 명령 앞에 올 수 있는 **index 를 바꾸지 않는** 선행 줄인가.
+#   0 = 안전(소비) · 1 = 아님(그 줄을 커밋 후보로 넘긴다 → 기존 C2 가 판정한다).
+# 왜 "건너뛰기"가 아니라 "소비"인가: gbrain 20260813-r1-docs-only-scope 가 남긴 교훈 —
+#   입력에서 정보를 버리면 검증도 함께 버려진다. 여기서는 **2형태만** 벗겨내고 나머지는
+#   그대로 기존 파이프라인에 넘긴다. `cd` 뒤의 `git add -A` 가 커밋 후보가 되어 C2 에서
+#   보수로 떨어지는 것이 이 구조의 요점이다(false-open 차단축).
+# 순수 문자열 판정을 유지한다 — git·realpath 호출 0(사용자 결정 20260910: 심볼릭링크
+#   구별 불가라는 비용을 감수하고 파일시스템 의존을 만들지 않는다).
+_is_safe_prelude_line() {
+  local l="$1" tok rest
+  l=${l#"${l%%[![:space:]]*}"}; l=${l%"${l##*[![:space:]]}"}
+  [ -n "$l" ] || return 1
+  case "$l" in *'&&'*|*'||'*|*';'*|*'|'*|*'$('*|*'`'*) return 1 ;; esac
+  tok=${l%%[[:space:]]*}; rest=${l#"$tok"}
+  rest=${rest#"${rest%%[![:space:]]*}"}
+  case "$tok" in
+    cd)
+      [ -n "$rest" ] || return 1                          # bare cd = HOME 이동
+      # ★ 문자 화이트리스트 (plan-reviewer 1회차 Critical-1 실측): `_strip_quoted_strings` 는
+      #   인용 **본문**만 지우고 껍데기(`""`·`''`)를 남긴다 — `cd "/tmp/other-repo"` 가
+      #   `rest='""'` 가 되어 `/*` 매칭을 비껴가고 상대경로로 오인돼 **타 repo cd 가 열렸다**.
+      #   `$HOME`·`$DIR`·`{a,b}`·`>x`·`cd a b`(공백) 도 같은 클래스다. 위험 문자를 나열하는
+      #   대신 **허용 문자만** 통과시킨다(나열 밖은 전부 보수 — 이 파일의 화이트리스트 철학).
+      #   ⚠️ 엄밀 ASCII 아님: bash 3.2 UTF-8 locale 에서 `[A-Za-z]` 가 `é` 류를 통과시킨다
+      #   (실측). 셸 메타문자가 아니라 안전 영향은 없다.
+      #   ★ `$PWD` 접두는 **벗겨낸 뒤** 나머지에만 적용한다 (2회차 Minor-1): repo 경로에
+      #   한글·공백이 있으면 `cd "$PWD"` 자신이 막혀 그 사용자는 C-1 회수가 0 이 된다.
+      case "$rest" in
+        "$PWD")   return 0 ;;
+        "$PWD"/*) rest=${rest#"$PWD"/} ;;
+        /*)       return 1 ;;                              # 그 밖의 절대경로 = 타 repo
+      esac
+      case "$rest" in *[!A-Za-z0-9_./-]*) return 1 ;; esac
+      case "$rest" in -*|*'..'*) return 1 ;; esac           # cd - · 옵션 · 상위 탈출
+      return 0
+      ;;
+    *=*)
+      [ -z "$rest" ] || return 1                           # 동일 줄 env 접두(T-docs.ae 불변)
+      case "${tok%%=*}" in ''|*[!A-Za-z0-9_]*) return 1 ;; esac
+      case "${tok%%=*}" in [0-9]*) return 1 ;; esac
+      # 리다이렉션·이스케이프(Minor-4). ★ `*\\*` 는 **역슬래시 1개**를 잡는다 — 앞선
+      #   `*'\\'*` 는 single-quote 안이라 역슬래시 **2개**만 매칭해 `VAR=a\b` 가 새어
+      #   안전(rc=0)으로 판정됐다(실측 rc=0→1). shellcheck SC1003 도 함께 해소된다.
+      case "$tok" in *'>'*|*'<'*|*\\*) return 1 ;; esac
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 _commit_scope_is_staged() {
-  local s first resid tok extra rest skip=0
+  local s first resid tok extra rest skip=0 _NL=$'\n' _pre=0 _line
   [ -n "${1:-}" ] || return 1
   # 스트리퍼 재사용 — heredoc 본문·인용 내용이 판정을 오염시키지 않도록 (pretool 과 동일 전처리).
   s=$(_strip_heredoc_bodies "$1")
   s=$(_strip_quoted_strings "$s")
+  # C-1: 안전 prelude 줄을 최대 8줄까지 벗긴다. 9줄째면 보수(입력 크기 방어 — AC-9).
+  while :; do
+    case "$s" in *"$_NL"*) _line=${s%%"$_NL"*} ;; *) break ;; esac
+    _is_safe_prelude_line "$_line" || break
+    [ "$_pre" -ge 8 ] && return 1
+    _pre=$((_pre+1))
+    s=${s#*"$_NL"}
+  done
   # C1(개행): **개행은 `;` 와 동등한 명령 분리자다.** 첫 줄만 남기고 잔여를 무검증 폐기하면
   #   C1(연산자)·C2(단일 커밋) 가 둘째 줄부터 적용되지 않는다 — `git commit -m 'docs'` ⏎ `git add -A`
   #   ⏎ `git commit -am 'code'` 가 축소 승인으로 뚫렸다(Phase B false-allow 실측, 구코드는 deny).
