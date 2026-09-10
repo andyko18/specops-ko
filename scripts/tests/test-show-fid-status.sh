@@ -132,6 +132,72 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T10 (rc=$rc recon='$recon')"
 fi
 
+
+# === 단계 소요 표 (20260911-stage-timing-derive) ===
+_TS_FID=20260911-tsfix
+mkdir -p "$TMPDIR_TEST/.specops/$_TS_FID"
+# 원장은 **역순**(최신 우선)으로 쓰인다 — 정렬 없이 계산하면 음수가 나온다.
+# 자정 경계(23:59 → 00:09)를 일부러 포함한다 — 직전 FID 에 실재하는 형태다.
+cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TSEOF
+<!-- active-fid: $_TS_FID -->
+## $_TS_FID
+- 2026-09-11 00:09 /security-review DONE (x)
+- 2026-09-10 23:59 /verify PASS (x)
+- 2026-09-10 21:09 /implement DONE (x)
+- 2026-09-10 20:12 /implement 진행 (x)
+- 2026-09-10 19:12 /specify 완료 (x)
+TSEOF
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS_FID" 2>&1)
+
+# AC-1: 인접 구간이 나온다 (specify→implement 60m · implement→implement 57m
+#       · implement→verify 170m · verify→security-review 10m)
+if printf '%s' "$out" | grep -q '/specify' && printf '%s' "$out" | grep -q '/implement'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.a 소요 표에 단계 쌍 출력"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.a 단계 쌍 없음"; fi
+
+# AC-5: 자정 경계 — 23:59 → 00:09 는 10m 이어야 한다 (음수·거대값 금지)
+if printf '%s' "$out" | grep -qE '/verify +→ +/security-review +10m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.b 자정 경계 10m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.b 자정 경계: $(printf '%s' "$out" | grep -E '/verify.*security' || echo '(행 없음)')"; fi
+
+# AC-8: 60분 미만 = Nm · 이상 = XhYm
+if printf '%s' "$out" | grep -qE '/implement +→ +/implement +57m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.c 60분 미만 = 57m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.c 57m 표기"; fi
+if printf '%s' "$out" | grep -qE '/implement +→ +/verify +2h50m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.d 60분 이상 = 2h50m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.d 2h50m 표기: $(printf '%s' "$out" | grep -E '/implement.*verify' || echo '(행 없음)')"; fi
+# 경계값 정확히 60분 → 1h0m (specify 19:12 → implement 20:12)
+if printf '%s' "$out" | grep -qE '/specify +→ +/implement +1h0m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.e 경계 60분 = 1h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.e 1h0m 표기"; fi
+
+# AC-7: 플래그 없이 기본 출력 + 헤더가 측정 기준·해상도·경과시간 단서를 말한다
+if printf '%s' "$out" | grep -q '인접 행 차이' \
+   && printf '%s' "$out" | grep -q '분 해상도' \
+   && printf '%s' "$out" | grep -q '경과 시간'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.f 헤더가 측정 기준·해상도·경과시간 명시"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.f 헤더 단서 누락"; fi
+
+# AC-4: 행 1건 → 표 생략 + 사유 1줄 (빈 표 금지)
+_TS1=20260911-tsone
+mkdir -p "$TMPDIR_TEST/.specops/$_TS1"
+cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TS1EOF
+## $_TS1
+- 2026-09-11 00:09 /analyze 완료 (x)
+TS1EOF
+out1=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS1" 2>&1)
+if printf '%s' "$out1" | grep -q '구간 없음'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.g 1행 → 표 생략 + 사유"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.g 1행 처리"; fi
+# AC-4 는 "0행·1행 2종" 을 요구한다 — 0행도 잠근다(진행 이력 자체가 없는 FID).
+_TS0=20260911-tszero
+mkdir -p "$TMPDIR_TEST/.specops/$_TS0"
+: > "$TMPDIR_TEST/.specops/session-progress.md"
+out0=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS0" 2>&1)
+if printf '%s' "$out0" | grep -q '구간 없음'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.g0 0행 → 표 생략 + 사유"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.g0 0행 처리"; fi
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
