@@ -202,6 +202,55 @@ out0=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS0" 2>&1)
 if printf '%s' "$out0" | grep -q '구간 없음'; then
   PASS=$((PASS+1)); echo "PASS T-ts.g0 0행 → 표 생략 + 사유"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.g0 0행 처리"; fi
+
+# === 측정 불가 구간 (20260911-stage-timing-derive Task 2) ===
+# ★ 원장을 **다시 쓴다** — Task 1 의 T-ts.g·T-ts.g0 이 같은 경로를
+#   (`$TMPDIR_TEST/.specops/session-progress.md`) 1행·0행으로 덮어썼다. 재작성 없이
+#   `$_TS_FID` 를 다시 돌리면 섹션이 없어 T-ts.h·T-ts.j 가 **GREEN 에서도 FAIL** 한다
+#   (plan-reviewer 실측: `PASS=20 FAIL=3`). 픽스처는 Task 1 선두와 동일 내용이다.
+cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TS2EOF
+<!-- active-fid: $_TS_FID -->
+## $_TS_FID
+- 2026-09-11 00:09 /security-review DONE (x)
+- 2026-09-10 23:59 /verify PASS (x)
+- 2026-09-10 21:09 /implement DONE (x)
+- 2026-09-10 20:12 /implement 진행 (x)
+- 2026-09-10 19:12 /specify 완료 (x)
+TS2EOF
+
+# AC-3: fid-start 기록이 없으면 첫 단계 이전 구간을 '측정 불가'로 **명시**한다.
+#   0m·공백으로 두면 "첫 단계는 즉시 끝났다"로 오독된다 — 계기판이 거짓말하면 안 된다.
+out2=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS_FID" 2>&1)
+# ★ 소요 표 섹션으로 스코프를 좁히고, 기대 branch 를 **같은 행**으로 고정한다.
+#   `측정 불가` 를 내는 branch 는 3개(시각 불일치·ts 파싱 실패·fid-start 미기록)라
+#   전체 grep 이면 (c) 대신 (b) 로 잘못 빠져도 통과한다. `$out` 이 아니라 `$out2` 에서
+#   새로 추출해야 한다 — T1 의 `_ts_sec` 를 재사용하면 T1 출력을 단언하게 된다.
+_ts_sec2=$(printf '%s\n' "$out2" | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f')
+if printf '%s' "$_ts_sec2" | grep 'FID 시작' | grep -q '측정 불가'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.h fid-start 부재 → 측정 불가 명시"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.h 측정 불가 표기 없음"; fi
+# 그 구간을 0m 으로 내지 않는다 (음성 단언 — 양성 대조는 위 T-ts.b~e 가 담당)
+# plan-reviewer 적발: 초안은 `'이전 +0m'` 을 봤는데 출력에 `이전` 토큰이 없어 **공허**했다.
+#   실제 출력 행(`(FID 시작) → …`)을 한정해서 본다.
+if printf '%s' "$out2" | grep 'FID 시작' | grep -qE ' 0m'; then
+  FAIL=$((FAIL+1)); echo "FAIL T-ts.i 측정 불가 구간을 0m 으로 표기"
+else PASS=$((PASS+1)); echo "PASS T-ts.i 0m 오표기 없음"; fi
+# fid-start 가 있으면 그 구간이 실제 값으로 나온다
+# ★ TZ 를 **비UTC로 고정**해 오프셋 결함을 노출시킨다. 둘 다 UTC 인 픽스처는 결함을 가린다
+#   (plan-reviewer 실측: UTC 픽스처는 통과하는데 실 시계로는 5m 이 9h5m 으로 나왔다).
+#   fid-start 는 UTC(record-metric 계약), 원장 행은 로컬(session-progress 계약)이다.
+#   TZ=Asia/Seoul(+0900) 에서 로컬 19:12 = UTC 10:12 이므로, 30m 전은 UTC 09:42 다.
+mkdir -p "$TMPDIR_TEST/.specops/$_TS_FID"
+printf '{"ts":"2026-09-10T09:42:00Z","fid":"%s","phase":"fid-start","schema_version":2}\n' "$_TS_FID" \
+  > "$TMPDIR_TEST/.specops/$_TS_FID/metrics.jsonl"
+out3=$(TZ=Asia/Seoul SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS_FID" 2>&1)
+if printf '%s' "$out3" | grep -qE 'fid-start +→ +/specify +30m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.j fid-start 있으면 첫 구간 측정"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.j 첫 구간: $(printf '%s' "$out3" | grep -E 'fid-start' || echo '(행 없음)')"; fi
+# TZ 보정이 빠지면 +0900 만큼 틀린다 — 그 값을 음성 단언으로 직접 막는다(오프셋 회귀 잠금).
+if printf '%s' "$out3" | grep -qE 'fid-start.*9h30m'; then
+  FAIL=$((FAIL+1)); echo "FAIL T-ts.j2 TZ 오프셋 미보정 (9h30m)"
+else PASS=$((PASS+1)); echo "PASS T-ts.j2 TZ 오프셋 보정됨"; fi
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

@@ -56,6 +56,51 @@ if [ "${_ts_n:-0}" -lt 2 ]; then
 else
   printf '  측정: 완료시각 기준 **인접 행 차이** · **분 해상도** · **경과 시간**이지 작업량이 아닙니다\n'
   printf '        (대기·중단 시간이 포함됩니다 — 사람 응답 대기가 최대 구간인 경우가 실제로 있습니다)\n\n'
+  # fid-start(metrics.jsonl)가 있으면 첫 구간을 계산하고, 없으면 **명시**한다.
+  #   과거 FID 는 이 기록이 영구 부재다(소급 변환 금지 — 원장은 append-only 사실 기록).
+  #
+  # ★ TZ 불일치를 보정한다 — 이 FID 가 없애려는 '틀린 계기판' 그 자체다.
+  #   record-metric.sh:58 은 `date -u`(UTC), session-progress-append.sh:120 은 **로컬**이다.
+  #   행 간 인접 차이는 오프셋이 상쇄돼 무해하지만, UTC fid-start 와 로컬 첫 행을 그냥 빼면
+  #   오프셋만큼 틀린다. 실측(plan-reviewer, +0900): 정답 5m 이 **9h5m** 으로 나왔다.
+  #   `date +%z` 로 오프셋을 1회 읽어 UTC 기준값에 더해 로컬로 맞춘다.
+  _ts_z=$(date +%z)                                  # 예: +0900 / -0500
+  _ts_zs=${_ts_z%"${_ts_z#?}"}                       # 부호 1글자
+  _ts_zm=$(( 10#${_ts_z:1:2} * 60 + 10#${_ts_z:3:2} ))
+  [ "$_ts_zs" = "-" ] && _ts_zm=$(( -_ts_zm ))
+  _ts_start=""
+  if [ -f "$FID_DIR/metrics.jsonl" ]; then
+    _ts_start=$(grep '"phase":"fid-start"' "$FID_DIR/metrics.jsonl" 2>/dev/null \
+      | head -1 | sed -n 's/.*"ts":"\([^"]*\)".*/\1/p')
+  fi
+  if [ -n "$_ts_start" ]; then
+    _ts_se=$(bash "$(dirname "${BASH_SOURCE[0]}")/epoch.sh" "$_ts_start" 2>/dev/null)
+    _ts_first=$(printf '%s\n' "$_ts_rows" | head -1)
+    _ts_fd=${_ts_first%% *}; _ts_frest=${_ts_first#* }
+    _ts_fhm=${_ts_frest%% *}; _ts_fcmd=${_ts_frest#* }
+    _ts_fb=$(bash "$(dirname "${BASH_SOURCE[0]}")/epoch.sh" "${_ts_fd}T00:00:00Z" 2>/dev/null)
+    if [ -n "$_ts_se" ] && [ -n "$_ts_fb" ]; then
+      # 첫 행은 로컬, fid-start 는 UTC → UTC 쪽에 오프셋을 더해 같은 기준으로 만든다.
+      _ts_d0=$(( _ts_fb / 60 + 10#${_ts_fhm%%:*} * 60 + 10#${_ts_fhm##*:} - (_ts_se / 60 + _ts_zm) ))
+      if [ "$_ts_d0" -lt 0 ]; then
+        # fid-start 가 첫 행보다 **뒤**다(시계 오차·재실행·수동 편집). 음수 분을 그대로
+        #   내면 `-3m` 같은 값이 표에 박혀 계기판이 또 거짓말한다 — 사유를 밝힌다.
+        printf '  %-20s → %-20s %8s   (fid-start 가 첫 행보다 나중 — 시각 불일치)\n' \
+          "fid-start" "$_ts_fcmd" "측정 불가"
+      elif [ "$_ts_d0" -ge 60 ]; then
+        printf '  %-20s → %-20s %8s\n' "fid-start" "$_ts_fcmd" "$(( _ts_d0 / 60 ))h$(( _ts_d0 % 60 ))m"
+      else
+        printf '  %-20s → %-20s %8s\n' "fid-start" "$_ts_fcmd" "${_ts_d0}m"
+      fi
+    else
+      # 변환 실패를 조용히 삼키면 **행이 아예 사라져** "fid-start 기록이 없다"와
+      #   구별되지 않는다. 기록은 있고 변환만 실패했음을 밝힌다(한계 고백).
+      printf '  %-20s → %-20s %8s   (fid-start ts 파싱 실패: %s)\n' \
+        "fid-start" "$_ts_fcmd" "측정 불가" "$_ts_start"
+    fi
+  else
+    printf '  %-20s → %-20s %8s   (fid-start 미기록 FID)\n' "(FID 시작)" "$(printf '%s\n' "$_ts_rows" | head -1 | sed 's/.* //')" "측정 불가"
+  fi
   _ts_prev_cmd=""; _ts_prev_min=""
   _ts_cache_date=""; _ts_cache_base=""
   printf '%s\n' "$_ts_rows" | while IFS= read -r _ts_line; do
