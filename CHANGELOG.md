@@ -3,6 +3,61 @@
 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 포맷. [SemVer](https://semver.org/lang/ko/) 준수.
 
 ## [Unreleased]
+### evidence.md 를 쓴 태스크가 남은 태스크의 탈출구를 닫았다 (#44)
+
+R-1 의 receipt 탈출구가 열리는 창이 `tasks.md 존재 ∧ evidence.md 부재` 였다. 그런데 `evidence.md` 는
+`/verify` 전용이 아니다 — **구현 중 태스크도 쓴다.** #43 에서 실제로 났다: 실험 태스크가 14:39 에 그 파일을
+쓰자 T5(15:46)·T6(16:45) 커밋이 `/verify`(16:56) 전이라 자기보고 앵커도 없어 **세 경로가 전부 닫혔고
+커밋 2건이 BYPASS 로 나갔다**.
+
+- **창을 파일 존재가 아니라 verify 상태로 정의** — `_receipt_window_open` 이 `verification-state` verdict 가
+  `NOT_RUN`·`PARTIAL`·`FAIL` 일 때만 연다. **`STALE` 은 제외**했다: 그걸 열면 `17f8617` 의 "verify PASS 후
+  코드 수정은 차단한다" 계약을 receipt 가 우회하는 길이 된다. `bffe021` 의 의도(implement 창 fallthrough
+  폐지)는 보존하고 **경계 기준만** 바꿨다. 판정 사본 0 — `verification-state.sh` 를 SoT 로 호출한다.
+- **deny 문안이 세 조건의 실제 상태를 말한다** — 위반 emit 에 `cause{exec,anchor,receipt}` 3축을 실어
+  보내고 pretool 이 ①·②·receipt 를 조건부 렌더한다. 종전엔 셋 다 **무조건** 출력돼, 구조적으로 닫힌
+  경로까지 성실히 안내했다 — **안내를 이행할수록 BYPASS 로 몰린다.** 진단은 판정에 관여하지 않고
+  (`_verify_stale_cause`·`_bg_pending_path` 와 동일 계약), `cause` 부재·파싱 실패는 종전 문안 + deny 유지다.
+
+### ★ 거짓 문안을 고치다가 두 번 연속 새 거짓을 넣었다
+
+| 회차 | 문안 | 왜 거짓인가 | 잡은 주체 |
+|---|---|---|---|
+| 초안 | `verify 가 이미 유효 PASS 이므로` | 창은 `PASS`·`STALE`·`WAIVED`·판정불가 **넷 다**에서 닫힌다 | 구현자 자진 보고 |
+| 수정 | `러너를 다시 실행해도 이 차단은 풀리지 않습니다` | 재실행하면 state 가 PASS 로 기록돼 **실제로 열린다** | Phase C 2회차 프로브(P1→P2) |
+
+원인이 같다 — **문안은 판정 로직 전체를 알아야 참이 되는데, 고치는 쪽은 방금 본 분기만 보고 쓴다.**
+그래서 문안마다 **행위 반증 어서션**을 붙였다(그 문장이 거짓이 되는 상태를 재현한 위에서 음성 단언).
+
+### 리뷰가 잡은 것 — 자기 검증이 놓친 축
+
+- **FR-7 캐시가 프로덕션에서 한 번도 채워지지 않았다.** `verdict=$(_vs_verdict_cached …)` 가 명령치환
+  **서브셸**이라 대입이 전파되지 않았고, 주석은 "캐시를 채워 재사용한다" 고 적혀 있었다(거짓 진술).
+  통과한 이유가 본질이다 — 테스트가 캐시 변수를 **손으로 세팅해 읽기 쪽만** 검사했다.
+- **`_VS_VERDICT_CACHE=PASS` env 선주입으로 게이트가 열렸다.** 사유·감사 기록이 없어 `SPECOPS_GOVERNANCE_BYPASS`
+  보다 **약한 통제**였다. source 시점 무조건 초기화로 차단.
+- **판정 불가(rc=2)를 "러너 PASS 확인" 으로 단정**했다 — 새 세션의 첫 Bash 가 커밋이면 도달한다.
+
+### 회귀 안전
+
+- 되돌려-관찰 **M1~M8 8/8 격추 · 등가 변이 0** (+ ORD·MA·MB). 주입기가 정확 리터럴 1회 치환 +
+  `occurrences==1` 단언이라 "미적용을 등가로 오보고" 하는 경로가 없다.
+- 스위트 `test-pretool` 169→**197** · `test-verify-progress` 23→**33** · `test-rules` 88→**93** ·
+  `test-task-receipt` 12→**15**. `run-all` **159/0**.
+- **`apply_lookback_rule` 1072 불변**(줄수 중립 계약) — 위쪽이 밀리면 `mutation-equivalent.conf` 의 절대
+  라인핀이 다른 `return 0` 로 표류하고 `--check-conf` 는 **내용만 대조**해 그걸 못 잡는다.
+- 라인핀 **14건 재계산** 중 선존재 오지정 1건 발견·정정: conf 17행이 `apply_advisor_section_rule` 대상을
+  `apply_assertion_without_test_rule` 내부 줄에 핀했는데 내용이 같아 **18/18 PASS** 였다. 델타 가산이 아니라
+  함수 경계부터 재탐색해서 드러났다(균일 +79/+54 중 유일 이탈 +150).
+- 훅 지연 **×1.018** (baseline 1707 → 1738 ms/call, 상한 ×1.10). FR-7 캐시 수정이 진단 추가분을 상쇄했다.
+
+**함께 나가는 알려진 한계**: **라이브 게이트는 아직 검증되지 않았다** — 개발 세션의 훅은 마지막 릴리즈본
+(플러그인 캐시)이라 이 수정이 반영되지 않는다. 모든 실증은 repo 코드 기준이고, 릴리즈·재설치 후에야
+사고 재현 시나리오를 실제 게이트에서 확인할 수 있다 · `evidence.md` 존재 ∧ verdict `PARTIAL`/`FAIL`
+조합은 실사용 표본이 없어 픽스처로만 검증 · `cause.exec` 가 rc=2(판정 불가)를 `ok` 로 묶는다(문안은 참이나
+열거값 추가는 별건) · **semgrep 검증 불가** — `p/bash` 원격 룰셋을 받는 `semgrep.dev` TLS 인증서 검증이
+실패한다(환경 제약, gitleaks 는 clean). 도구 부재는 안전이 아니다 · false-open 미발견은 **부재의 증명이 아니다**.
+
 ### 실사용 커밋 형태 대다수가 면제 경로에 진입조차 못 했다 (#43)
 
 `_commit_scope_is_staged` 는 커밋 명령이 **staged 만** 커밋하는 안전 형태일 때만 면제 스코프를 좁힌다.
