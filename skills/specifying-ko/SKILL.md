@@ -64,6 +64,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
        | `backend-architecture.md` | 백엔드 아키텍처 — `.specops/memory/backend-architecture.md` |
        | `api-spec.md` | IF 설계서 — `.specops/memory/api-spec.md` |
        | `data-model.md` | 테이블 설계서 — `.specops/memory/data-model.md` |
+       | `intent.md` | 프로세스 설계서 — `.specops/memory/intent.md` |
        | `screens-overview.md` | 화면 목록 마스터 — `.specops/memory/screens-overview.md` |
        | `test-strategy.md` | 테스트 전략 — `.specops/memory/test-strategy.md` |
        | `project-context.md` | 프로젝트 컨텍스트 — `.specops/memory/project-context.md` |

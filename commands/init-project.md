@@ -69,15 +69,18 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 **문서별 보강 깊이 (Light enrich) — 최소 깊이 기준**:
 
-**깊게** (생성분·해당 KIND만):
+**깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외 2건: `screens/<name>.md`·`intent.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. 그중 `intent.md` 는 KIND 조건도 붙지 않는다):
 - `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
 - `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — 남기면 유령 스키마가 설계 계약이 되고 `scan-enrich-placeholders.sh` 가 미채움 판정).
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
+- `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약
+- `intent.md` — 업무 프로세스 설계. `templates/intent.md` 기반으로 `.specops/memory/intent.md` 를 **생성**한다(bash 10 Phase 의 memory 템플릿 복사 목록에 없어 보강이 아니라 생성이다). **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
 - `DESIGN.md` — **UI KIND일 때만**
 
 **얕게/스킵** (골격·placeholder 유지 허용):
-- `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md` · `screens-overview.md`
+- `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
+- `screens-overview.md` — 골격 유지. **예외: 화면을 보강한 행의 상태 셀만** 갱신(아래 §화면 보강 규약). 표 본문(이름·제목·링크)은 Phase 7 bash 소유라 건드리지 않는다
 
 **Phase 11.5 — 단일 라운드 사전 인터뷰** (보강 전 — 대화형 전용):
 - 보강 **직전**, 근거 부족으로 `가정:`·미확정 마커가 될 **결정급**만 질문으로 변환한다.
@@ -85,6 +88,16 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - 객관식 우선. **모든 질문에 "모름/나중에" 선택지 필수** — 해당 답변은 미확정 마커로 남긴다.
 - 답변은 근거 ④(인터뷰 응답)로 편입 — 마커/가정 대신 실값 기재.
 - **질문 스킵 주권**: 사용자가 "질문 스킵" 응답 시 인터뷰 없이 아래 현행 흐름(가정:/마커)으로 진행.
+
+**§화면 보강 규약** (UI KIND 전용 — `/design-screen(s)`·`specifying-ko` Step 5.5 와 동일 계약):
+
+- **입력**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh list` 로 마스터 화면 이름을 얻는다.
+- **셸 3종 제외**: `app-shell`·`layout`·`login` 은 **생성하지 않는다** — `/start-foundation` Step 5.5 의 몫이고 그쪽만 `<!-- foundation-shell -->` 마커를 단다. init 이 먼저 만들면 foundation 이 덮어써 이름이 충돌한다. 표에는 이름만 남는다.
+- **산출**: `templates/screen.md` 기반으로 `screens/<name>.md` 를, `templates/screen.html` 기반으로 `screens/<name>.html` 을 **함께** 생성한다. 양쪽의 `<!-- specops:screen-placeholder ... -->` 줄을 **삭제**한다 — `.html` 은 `design-screen.sh` 가 **마커만** 보므로 이 삭제가 곧 채움 선언이다.
+- **채움**: 필수 8섹션(목적·Layout·Components·States·Interactions·필드 정의표·데이터 소스·에러 메시지)을 **모두** 둔다. PRD 로 도출되지 않는 항목은 `<미확정 — 근거 필요>` 로 채운다 — 이 마커는 `design-screen.sh` 의 "헤더+본문 존재" 판정을 통과하고 `scan-enrich-placeholders.sh` 제외 ①에도 걸리므로 **두 게이트가 함께 통과**한다. 조건부 4섹션(RBAC·반응형·접근성·진입/이탈)은 해당할 때만 넣는다.
+- **DESIGN.md 준수**: `DESIGN.md` §6.1 화면 원형 · §7 상태 표현을 읽고 따른다(부재 시 skip). `/design-screen(s)` 와 동일 의무다.
+- **표 상태 셀 갱신**: 보강한 화면의 `screens-overview.md` 행에서 상태 셀 `예정 — /start-all Phase 2.5` 를 `init 보강 (미확정 <N>)` 으로 바꾼다(`<N>` = 그 화면에 남은 미확정 마커 수). **마커 수 상한은 두지 않는다** — 상한은 근거 없는 숫자이고, 남은 미확정은 `/start-all` Phase 2.5 가 FR 확정 후 메운다.
+- **비UI KIND**: 화면 보강 전체를 graceful skip 한다(FAIL 아님).
 
 **사실성 계약 (Karpathy 원칙 — karpathy-ko)**:
 - 서술 근거는 **근거 4원**만: ① 사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서) ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.

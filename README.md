@@ -183,7 +183,7 @@ specops-ko/
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
 ├── agents/             ← 8건  implementer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · red-team · blue-team · auditor
-├── templates/          ← 34건 (lifecycle 19 + /init-project 산출 13 + 기타)
+├── templates/          ← 35건 (lifecycle 19 + /init-project 산출 14 + 기타)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
 ├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷)
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md
