@@ -4,6 +4,42 @@
 
 ## [Unreleased]
 
+### IF·테이블은 실설계로 채우는데 화면만 그 층에 없었다 — 프로세스는 산출물조차 없었다 (#41)
+
+`/init-project` Phase 11 Light enrich 는 `api-spec.md`·`data-model.md` 를 **PRD 기반 실설계**로 채운다
+(하류 실측: auto-company 첫 커밋에 HTTP 12 엔드포인트 · Postgres RPC 2건 · 5테이블 ERD).
+**화면은 Phase 7 이 이름 목록만 남기고 본설계를 `/start-all` Phase 2.5 로 미뤘고, 업무 프로세스는
+`templates/` 34종 중 관련 0건 · 13종 매트릭스에도 없었다.** 세 설계축 중 둘만 서 있었다.
+
+- **`templates/intent.md` 신설** — 업무 프로세스 단위(트리거·행위자·화면·API·테이블·결과·예외).
+  **화면별이 아니다** — `screens/<name>.md` §목적이 이미 화면 intent 라, 병존시키면 하나가 반드시
+  stale 해진다(하류 `.html` desync 41% 와 같은 병).
+- **Phase 11 §화면 보강 규약** — 셸 3종(`app-shell`·`layout`·`login`)은 foundation Step 5.5 몫이라 제외 ·
+  `.md`+`.html` 동시 생성 + 마커 삭제 · 필수 8섹션을 채우되 PRD 미도출분은 `<미확정 — 근거 필요>` ·
+  overview 상태 셀을 `init 보강 (미확정 N)` 으로 갱신.
+- **소비측 배선** — `specifying-ko` Step 1 감지 표에 `intent.md` 행. gbrain
+  `20260821-design-pattern-library`("생성측만 강화하고 소비측을 빼먹는 패턴이 화면 파이프라인에서
+  반복됐다")의 직접 적용이다.
+- **Phase 7(bash)은 무변경** — `init-project.md:160` 안티패턴("Phase 7 에서 screens 껍데기 생성 금지")
+  보존. enrich 는 껍데기가 아니라 본설계라 그 안티패턴의 대상이 아니다.
+- doc-lock 어서션 **11건**(`T13.a`~`T13.m`) · 새 스크립트 0개 · 변이 **14종 전부 격추**.
+
+**두 게이트가 양립함을 실증**: `screen_missing_sections` 는 "헤더 존재 + 본문 비지 않음" 만 보고,
+`scan-enrich-placeholders.sh` 제외 ① 은 `미확정 — 근거 필요` 줄을 허용한다 → 8섹션을 미확정 마커로
+채우면 양쪽 다 통과한다. **대조군**(본문 비움 → `rc=0 PLACEHOLDER 8섹션`)으로 확인했다.
+
+Phase C 가 잡은 실질 결함: `phases-artifacts.sh` 의 memory 템플릿 `cp` 목록에 `intent.md` 가 없어
+bash 가 그 파일을 만들지 않는데 Phase 11 산문이 **출처·대상을 말하지 않았다** — 성공지표의 유일한 경로가
+비어 있었다. 출처(`templates/intent.md`)·대상(`.specops/memory/intent.md`)을 명시하고 `T13.l` 로 잠갔다.
+
+**함께 나가는 알려진 한계**(`evidence.md` §L1~L6):
+**성공지표 3개 중 1개만 달성** — "화면 8섹션 존재"·"`intent.md` 산출" 2개는 실제 `/init-project` 를 돌려
+검증하지 않았다(doc-lock 은 계약 문구를 잠그지 실산출을 보증하지 않는다). 실산출 검증엔 **UI KIND e2e
+fixture** 가 필요하고 현 V21 fixture 는 CLI KIND 라 후속 FID 범위다 ·
+`scan-enrich-placeholders.sh` `_PH` 의 **locale 의존**(`LC_ALL=C` 에서 한글 placeholder 대부분 미검출)은
+**선재 조건**이고 신규 어서션 11건 중 스캐너 의존은 0건 — 별도 FID ·
+`T13.k` 는 깊게에 **중복 추가**하는 변이를 통과(Minor).
+
 ## [1.96.0] — 2026-09-10
 
 ### 같은 트리에 full 스위트를 3번 돌렸다 — pre-push 12분이 2초가 됐다 (#42)
