@@ -403,7 +403,7 @@ if [ -n "$violation" ]; then
    bash scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
-    _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다 — 이 세션 transcript 기준 미충족이 아닙니다(실행 증거 있음, 또는 판정 불가로 fail-open). **러너를 다시 실행해도 이 차단은 풀리지 않습니다.**"
+    _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다(이 세션 transcript 기준 실행 증거 있음, 또는 판정 불가로 fail-open). 차단 사유는 아래 ②·receipt 입니다."
   else
     # cause 부재(FR-6 fallback)와 exec=missing 이 같은 문안을 쓴다. `✘ ` 접두만 추가되므로
     # AC-6 의 "변경 전과 동일" 은 **본문 동일 + 상태 접두 추가**를 뜻한다(부분 문자열 단언으로 잠근다).
@@ -418,7 +418,7 @@ if [ -n "$violation" ]; then
     case "$_c_receipt" in
       open-missing)
         _receipt_hint="
-▶ 지금 열리는 유일한 경로 — receipt (R-1 implement 창):
+▶ 지금 열려 있는 경로 — receipt (R-1 implement 창):
    bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
    그리고 커밋 메시지에 T#/Task: T# 를 넣으세요 (staged ⊆ task outputs, receipt 이후 코드 변경 없음)." ;;
       open-invalid)

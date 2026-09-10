@@ -1130,5 +1130,45 @@ _nocheck "T-cause.h-2 receipt 부재 → 무효 문안 미출력" '기록된 rec
 check "T-cause.h-3 receipt 부재 → 기록 안내" 'record-task-receipt.sh' "$msg6"
 rm -rf "$_PTI" "$_PTC"
 
+
+# === I-A/I-B 잠금 (Phase C 2회차 지적) ===
+# I-A: ① 축 문안이 "러너 재실행 무용" 을 단정하면 거짓이다 — 러너는 verification-state 를
+#   기록하므로 PASS 시 _verify_evidence_stamp 경로로 실제로 열린다(리뷰어 P1→P2 프로브 반증).
+#   거짓 deny 문안은 BYPASS 관성을 만든다 — 본 FID 가 없애려는 병이다.
+# I-B: 캐시 변수를 훅 프로세스 env 로 선주입하면 사유·감사 기록 없이 게이트가 열렸다.
+#   SPECOPS_GOVERNANCE_BYPASS 보다 약한 통제라 무조건 초기화로 막는다.
+_IAB=$(mktemp -d) || exit 1
+mkdir -p "$_IAB/.specops/20260910-p"
+cat > "$_IAB/.specops/20260910-p/tasks.md" <<'IABTK'
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash scripts/tests/test-foo.sh"
+    depends_on: []
+    inputs: []
+    outputs: [a.sh]
+    ac: [AC-1]
+```
+IABTK
+printf '<!-- active-fid: 20260910-p -->\n## 20260910-p\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
+  > "$_IAB/.specops/session-progress.md"
+( cd "$_IAB" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init >/dev/null \
+    && printf 'zz\n' >> a.sh && git add a.sh )
+: > "$_IAB/empty.jsonl"        # tool_use 0건 → _verify_exec_evidence rc=2 (판정 불가)
+( cd "$_IAB" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" \
+    record 20260910-p FAIL --executed 1 --failed 1 ) >/dev/null 2>&1
+_in_iab=$(mkstdin 'git commit -m x' "$_IAB/empty.jsonl")
+msg_ia=$(_deny_msg "$_IAB" "$HOOK" "$_in_iab")
+check "T-cause.j-4a rc=2 창 열림에서 deny 유지" 'verify 면제 조건' "$msg_ia"
+check "T-cause.j-4b ① 축 표기 존재(대조군)" '✔ ① 실행 증거' "$msg_ia"
+_nocheck "T-cause.j-4c ① 이 러너 재실행 무용을 단정 안 함" '풀리지 않습니다' "$msg_ia"
+_nocheck "T-cause.j-4d receipt 를 '유일한' 경로라 단정 안 함" '유일한 경로' "$msg_ia"
+# I-B: env 선주입이 게이트를 열지 못한다
+_msg_env=$(printf '%s' "$_in_iab" | _VS_VERDICT_CACHE=PASS _VS_VERDICT_CACHE_FID=20260910-p \
+  CLAUDE_PROJECT_DIR="$_IAB" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecisionReason // ""')
+check "T-cause.j-4e 캐시 env 선주입으로 열리지 않는다" 'verify 면제 조건' "$_msg_env"
+rm -rf "$_IAB"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
