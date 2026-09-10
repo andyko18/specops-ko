@@ -139,7 +139,7 @@ _verify_evidence_stamp() {
   local state=".specops/$fid/verification-state.json"
   if [ -f "$state" ] && [ -f "$_VERIFICATION_STATE_SH" ]; then
     local verdict                                    # FR-7 캐시 — 상세는 _vs_verdict_cached 참조
-    verdict=$(_vs_verdict_cached "$fid") || return 1
+    _vs_verdict_cached "$fid" >/dev/null || return 1; verdict=${_VS_VERDICT_CACHE:-}
     [ "$verdict" = "PASS" ] && return 0 || return 1
   fi
   [ -f "$ev" ] || return 1
@@ -1183,7 +1183,7 @@ apply_lookback_rule() {
 _receipt_window_open() {
   local fid="$1" verdict
   [ -n "$fid" ] || return 1
-  verdict=$(_vs_verdict_cached "$fid") || return 1
+  _vs_verdict_cached "$fid" >/dev/null || return 1; verdict=${_VS_VERDICT_CACHE:-}
   case "$verdict" in
     NOT_RUN|PARTIAL|FAIL) return 0 ;;
     *) return 1 ;;
