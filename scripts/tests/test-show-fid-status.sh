@@ -151,7 +151,11 @@ out=$(SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TS_FID" 2>&1)
 
 # AC-1: 인접 구간이 나온다 (specify→implement 60m · implement→implement 57m
 #       · implement→verify 170m · verify→security-review 10m)
-if printf '%s' "$out" | grep -q '/specify' && printf '%s' "$out" | grep -q '/implement'; then
+# ★ 출력 전체를 grep 하면 **공허하다** — `/specify`·`/implement` 토큰은 소요 표 위의
+#   '진행 이력' 섹션에 이미 있어서, 소요 표가 통째로 없어도 통과한다(T1 구현자 실측:
+#   RED 에서 이 케이스만 PASS). 소요 표 섹션으로 스코프를 좁히고 화살표 쌍을 요구한다.
+_ts_sec=$(printf '%s\n' "$out" | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f')
+if printf '%s' "$_ts_sec" | grep -qE '/specify +→ +/implement'; then
   PASS=$((PASS+1)); echo "PASS T-ts.a 소요 표에 단계 쌍 출력"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.a 단계 쌍 없음"; fi
 
