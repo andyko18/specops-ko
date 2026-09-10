@@ -50,6 +50,9 @@ _record_result() { # <verdict>
       --duration-ms "$duration_ms" 2>/dev/null; then
     echo "WARN: verification-state 기록 실패 (FID=$FID)" >&2
   fi
+  # wall_ms 는 **tasks.md test_command 실행 구간**만 잰다 — 부모가 별도로 돌린 러너
+  #   (예: run-all.sh 전체)는 포함하지 않는다. 실측 사례: 같은 verify 단계에서 wall_ms=35000
+  #   인데 부모의 run-all 은 ~570s 였다. 이 값을 "verify 단계 총 소요"로 읽으면 틀린다.
   if ! bash "$METRIC_SH" --fid "$FID" --phase verify --wall-ms "$duration_ms" \
       --verdict "$verdict" 2>/dev/null; then
     echo "WARN: verify metric 기록 실패 (FID=$FID)" >&2

@@ -413,5 +413,27 @@ _sb=$(mktemp -d)
 [ $? -eq 0 ] && ok "T-fx.c fixture 도 섹션 기록은 남는다 (증거 보존)" || nope "T-fx.c" "섹션 미기록"
 rm -rf "$_sb"
 
+# R-1 앵커 형식 잠금 (20260911-stage-timing-derive AC-R-1)
+#   governance-lib.sh:122-126 이 `^- YYYY-MM-DD HH:MM /command` 를 하드코딩한다.
+#   초를 붙이면 `:SS` 가 ` /` 자리에 와서 매칭이 0 이 되고 R-1 앵커가 무음으로 죽는다
+#   (false-deny). 그 계약을 여기서 잠근다 — 실제 append 결과를 그 정규식으로 단언한다.
+# ★ `SPECOPS_ROOT` 로는 격리되지 않는다 — session-progress-append.sh:52 가
+#   `TARGET=".specops/session-progress.md"` 를 **하드코딩**해 cwd 기준으로 쓴다.
+#   run-all.sh:76 이 `cd "$PLUGIN"` 을 하므로 그대로 두면 (a) 항상 FAIL 이고
+#   (b) **실 repo 원장에 `## 20260911-lock` 섹션이 prepend 되고 `active-fid` 마커가
+#   탈취된다**(20260829-fixture-fid-hijack 재발). 반드시 `cd` 로 격리한다.
+#   `---` 앵커도 필수다 — 없으면 섹션이 조용히 드롭된다(이 파일 T-fx.c 와 동일 관행).
+_sp_lock=$(mktemp -d)
+mkdir -p "$_sp_lock/.specops"
+printf '# sp\n\n---\n' > "$_sp_lock/.specops/session-progress.md"
+( cd "$_sp_lock" && bash "$SCRIPT" 20260911-lock /verify PASS "x" >/dev/null 2>&1 )
+if grep -qE '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} /verify PASS' \
+     "$_sp_lock/.specops/session-progress.md"; then
+  ok "T-lock R-1 앵커 형식(분 해상도) 유지"
+else
+  nope "T-lock" "R-1 앵커 형식 이탈 — governance-lib.sh:122-126 매칭이 죽는다"
+fi
+rm -rf "$_sp_lock"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
