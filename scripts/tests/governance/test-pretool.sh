@@ -1049,6 +1049,28 @@ rm -f "$_PTC/.specops/20260910-y/verification-state.json"
 msg3=$(_deny_msg "$_PTC" "$HOOK" "$_in")
 check "T-cause.f 앵커 stale 을 stale 로 표기" '더 최신인 코드 변경 기록' "$msg3"
 
+# === I-2 잠금: rc=2(판정 불가)를 "실행 확인" 으로 단정하지 않는다 ===
+# 왜: exec 축은 `rc≠1` 을 ok 로 접는다(AC-8 의 2값 열거 `ok|missing` — 유지). 그런데 rc=2 는
+#   transcript 부재·tool_use 0건·jq 실패 = **판정 불가**(fail-open)지 "러너가 돌았다" 가 아니다.
+#   실제 도달 경로: 새 세션의 첫 Bash 호출이 커밋이면 tool_use 0건 → rc=2. 그 상태에서 "러너 PASS 가
+#   확인됩니다" 는 거짓이고, 거짓 deny 문안이 곧 이 FID 가 없애려는 병이다(BYPASS 관성).
+printf '%s\n' \
+  '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"커밋해줘"}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"네, 커밋하겠습니다."}]}}' \
+  > "$_PTC/no-tooluse.jsonl"
+# ★ 선검사 — 픽스처가 실제로 rc=2 인지 먼저 확인한다. rc=1 이면 아래 단언이 다른 상태를 재게 된다.
+_ercc=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; \
+        _verify_exec_evidence "$_PTC/no-tooluse.jsonl" "" >/dev/null 2>&1; echo $?)
+[ "$_ercc" = "2" ] && { echo "PASS T-cause.j-0 픽스처 rc=2(판정 불가) 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-cause.j-0 픽스처 _verify_exec_evidence rc=$_ercc (2 아님)"; fail=$((fail+1)); }
+_in_j=$(mkstdin 'git commit -m "feat: x"' "$_PTC/no-tooluse.jsonl")
+msgj=$(_deny_msg "$_PTC" "$HOOK" "$_in_j")
+# 양성 대조 2건 — 빈 msgj(allow 회귀)나 ① 블록 증발을 음성 단언이 흡수하지 못하게 한다.
+check "T-cause.j-1 rc=2 에서도 deny 유지" 'verify 면제 조건' "$msgj"
+check "T-cause.j-2 ① 축 표기 양성(대조군)" '✔ ① 실행 증거' "$msgj"
+# 핵심 음성 단언: 판정 불가를 확인으로 단정하는 문구가 없다.
+_nocheck "T-cause.j-3 rc=2 를 실행 확인으로 단정 안 함" '러너 PASS 가 확인' "$msgj"
+
 # === AC-6: cause 부재 → 종전 문안 + deny 유지 (행동 검증 — 소스 grep 아님) ===
 # 왜 사본인가: 프로덕션에 테스트용 뒷문(env 로 cause 제거)을 내면 그 자체가 우회 표면이다.
 #   hooks 만 복사하고 scripts/templates 는 심볼릭으로 붙인다(governance-lib 이 ../scripts 를 참조).

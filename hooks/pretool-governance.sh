@@ -302,7 +302,7 @@ fid=$(detect_fid)
 
 rules_path="$plugin_root/hooks/rules.jsonl"
 [ -f "$rules_path" ] || allow
-violation=""
+violation=""; _cause_ok=0   # _cause_ok 선초기화 — parse 블록 이동 시 fail-open 대신 fallback deny
 while IFS= read -r rule; do
   [ -z "$rule" ] && continue
   rid=$(echo "$rule" | jq -r '.id')
@@ -350,9 +350,9 @@ if [ -n "$violation" ]; then
   # 안내하므로, 안내를 그대로 이행할수록 BYPASS 로 몰린다(20260910 실측 — 커밋 2건).
   # cause 는 판정기가 이미 아는 사실만 실어 온다. 부재·파싱 실패면 종전 문안 그대로 —
   # 미탐 방향으로만 떨어진다(진단 실패가 차단을 무력화하지 않는다).
-  # ★ 배치 주의: 이 블록은 _anchor_hint·_evidence_hint 산출보다 **앞**이어야 한다. _anchor_hint 가
-  #   파일에서 먼저 나오므로 뒤에 두면 `set -u` 하에서 _cause_ok unbound → 훅이 JSON 을 못 내고
-  #   모든 deny 가 fail-open allow 로 뒤집힌다.
+  # ★ 배치 주의: 이 블록은 _anchor_hint·_evidence_hint 산출보다 **앞**이어야 한다. 뒤로 옮기면
+  #   cause 3축이 미산출 상태로 읽혀 진단이 통째로 종전 문안(FR-6 fallback)으로 퇴화한다 —
+  #   차단 자체는 유지된다(L305 `_cause_ok=0` 선초기화가 unbound→fail-open allow 를 막는다).
   _c_exec=$(printf '%s' "${violation_res:-}" | jq -r '.cause.exec // empty' 2>/dev/null || true)
   _c_anchor=$(printf '%s' "${violation_res:-}" | jq -r '.cause.anchor // empty' 2>/dev/null || true)
   _c_receipt=$(printf '%s' "${violation_res:-}" | jq -r '.cause.receipt // empty' 2>/dev/null || true)
@@ -403,7 +403,7 @@ if [ -n "$violation" ]; then
    bash scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
-    _evidence_hint="✔ ① 실행 증거: 이 세션에서 러너 PASS 가 확인됩니다 — **다시 실행할 필요가 없습니다**."
+    _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다 — 이 세션 transcript 기준 미충족이 아닙니다(실행 증거 있음, 또는 판정 불가로 fail-open). **러너를 다시 실행해도 이 차단은 풀리지 않습니다.**"
   else
     # cause 부재(FR-6 fallback)와 exec=missing 이 같은 문안을 쓴다. `✘ ` 접두만 추가되므로
     # AC-6 의 "변경 전과 동일" 은 **본문 동일 + 상태 접두 추가**를 뜻한다(부분 문자열 단언으로 잠근다).
