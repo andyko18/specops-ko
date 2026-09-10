@@ -1096,13 +1096,16 @@ apply_lookback_rule() {
   _verify_exec_evidence "$transcript" "${_efid:+.specops/$_efid}"; _exec_rc=$?
 
   # ★ R-1 implement 창: task receipt 필수 (Wave A — downstream-dogfood 병렬 wave BYPASS 관성 제거)
-  #   tasks.md 존재 ∧ evidence.md 부재 = implement 창. FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지.
+  #   tasks.md 존재 ∧ verify 미완료(_receipt_window_open) = implement 창.
+  #   창 조건은 20260910 에 `evidence.md 부재` 에서 바뀌었다 — 그 파일은 /verify 전용이 아니라
+  #   구현 중 태스크도 쓰므로, 먼저 쓴 태스크가 남은 태스크의 탈출구를 스스로 닫았다.
+  #   FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지는 그대로다(bffe021 의도 보존).
   #   유효 receipt(staged⊆outputs·tree 신선·test_command hash)만 면제. T# 없음·부재·무효 → deny.
-  #   evidence.md 이후(post-verify)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
+  #   verify 유효 PASS 이후(창 닫힘)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
   if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
     _rfid="$_efid"          # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
-    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && [ ! -f ".specops/$_rfid/evidence.md" ]; then
+    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && _receipt_window_open "$_rfid"; then
       _rtask=$(_infer_commit_task "$tool_cmd")
       _rrc=2
       if [ -n "$_rtask" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
