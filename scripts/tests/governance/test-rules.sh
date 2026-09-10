@@ -908,6 +908,43 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R8 (pat=[$r8_pat] — posttool R-3 하드코딩 drift?)"
 fi
 
+# === AC-3 / AC-8: emit JSON 의 cause 3축 열거값 ===
+# 왜: deny 메시지가 세 조건 중 무엇이 닫혔는지 말하려면 판정기가 그 사실을 실어 보내야 한다.
+#   진단은 판정에 관여하지 않는다(_verify_stale_cause·_bg_pending_path 와 동일 계약).
+# ★ 빈 cwd 격리 — 실 repo 에서 부르면 detect_fid 가 진행 중 FID 를 집어 cause 가 오염된다.
+_cz=$(mktemp -d) || exit 1; _cz_orig=$PWD; cd "$_cz" || exit 1
+out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git commit -m "feat: x"')
+if echo "$out" | jq -e '(.cause.exec | IN("ok","missing")) and (.cause.anchor | IN("ok","missing","stale","no-fid")) and (.cause.receipt | IN("open-missing","open-invalid","closed-verified","n/a"))' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T6.cause-1 R-1 cause 3축 열거값"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.cause-1 R-1 cause: $(echo "$out" | jq -c '.cause // "부재"')"
+fi
+# 빈 cwd = FID 도 tasks.md 도 없다 → receipt 경로가 **성립하지 않는다**. closed-verified 는 거짓이다.
+if echo "$out" | jq -e '.cause.receipt == "n/a" and .cause.anchor == "no-fid"' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T6.cause-1b FID·tasks.md 부재 → receipt=n/a (closed-verified 아님)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.cause-1b $(echo "$out" | jq -c '.cause')"
+fi
+out=$(apply_lookback_rule "$rule_r2" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'gh pr create --title "x"')
+if echo "$out" | jq -e '.cause.receipt == "n/a"' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T6.cause-2 R-2 receipt=n/a"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.cause-2 R-2 receipt: $(echo "$out" | jq -c '.cause.receipt // "부재"')"
+fi
+# 기존 3필드 무변경 (NFR-3)
+if echo "$out" | jq -e 'has("rule_id") and has("evidence_snippet") and has("offset")' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T6.cause-3 기존 3필드 보존"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.cause-3 기존 필드 손상"
+fi
+# FR-4 잠금: 판정기는 _verify_stale_cause 를 부르지 않는다 (전수 스캔 391 ms 중복 금지)
+if ! sed -n '/^apply_lookback_rule() {/,/^}/p' "$PLUGIN/hooks/governance-lib.sh" | grep -q '_verify_stale_cause'; then
+  PASS=$((PASS+1)); echo "PASS T6.cause-4 판정기가 _verify_stale_cause 미호출 (중복 스캔 금지)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6.cause-4 판정기가 _verify_stale_cause 호출 — pretool 과 전수 스캔 2회"
+fi
+cd "$_cz_orig" || exit 1; rm -rf "$_cz"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
