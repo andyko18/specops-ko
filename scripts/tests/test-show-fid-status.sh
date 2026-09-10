@@ -287,6 +287,17 @@ if printf '%s' "$_ts_secg3" | grep -q '구간 없음' \
   PASS=$((PASS+1)); echo "PASS T-ts.g3 0행+fid-start → 표 미개방 (빈 대상 행 없음)"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.g3 0행+fid-start: $(printf '%s' "$_ts_secg3" | tr '\n' '|')"; fi
 
+# AC-9: 두 진입 경로 모두 fid-start 를 남긴다. 한쪽만 있으면 그 경로의 FID 는
+#   첫 구간이 영구 미측정이 되어 AC-6 의 가치가 절반이다.
+_ts_miss=0
+for _sk in analyzing-ko specifying-ko; do
+  if ! grep -q 'phase fid-start' "$PLUGIN/skills/$_sk/SKILL.md" 2>/dev/null; then
+    _ts_miss=$((_ts_miss+1)); echo "  누락: skills/$_sk/SKILL.md"
+  fi
+done
+if [ "$_ts_miss" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T-ts.k 두 진입 경로에 fid-start 지시 기재"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.k fid-start 지시 누락 ${_ts_miss}건"; fi
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

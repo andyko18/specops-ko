@@ -36,6 +36,8 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    FID="YYYYMMDD-<slug>"
    mkdir -p .specops/$FID
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh $FID
+   # 단계 소요 측정의 기준점 — 실패해도 chain 을 막지 않는다(graceful).
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid $FID --phase fid-start >/dev/null 2>&1 || true
    ```
 
    기존 `.specops/<FID>/` 디렉토리가 있으면 (유지보수 분기 재진입) 스킵.
