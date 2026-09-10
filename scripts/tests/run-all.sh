@@ -8,6 +8,23 @@ set -uo pipefail
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # 재귀 가드: test-release.sh 의 release.sh dry-run 이 pre-flight 로 run-all 을 재호출하는 무한 재귀 차단
 export SPECOPS_RUN_ALL=1
+# ── full-suite 마커 (20260908) ────────────────────────────────────────
+# 지문은 **스위트 실행 전** 트리다 — "이 트리가 통과했다" 가 정확한 진술이다.
+# 스위트가 트리를 더럽히면 종료 후 지문이 달라져 다음 push 가 전체 실행된다(fail-safe).
+# source 는 자식 프로세스를 오염시키지 않는다(실측: 자식에서 SPECOPS unset · vs:: none).
+# 경로·지문 모두 $PLUGIN 앵커 — run-all 은 최상단에서 cd 하지 않으므로 다른 cwd 에서
+# 호출되면 마커가 엉뚱한 곳에 남거나 NO_GIT 이 된다(fail-closed 방향이나 skip 이 성립 안 함).
+_FSP_MARKER="$PLUGIN/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
+# 헬퍼 부재(트리밍된 트리·sandbox)는 NO_GIT 으로 떨어뜨린다 = 마커 미기록 = 다음 push 전체 실행.
+#   가드 없이 source 하면 실측으로 stderr 2줄을 뱉고 **빈 마커**를 남긴다(sandbox 재현).
+#   run-bounded 부재와 달리 WARN 하지 않는 이유: 이 경로의 degradation 은 fail-**closed** 라
+#   "보호받고 있다" 는 착각을 만들지 않는다(스위트 상한 부재와 방향이 반대다).
+_FSP_TREE=NO_GIT
+if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$PLUGIN/scripts/_internal/verification-state.sh"
+  _FSP_TREE=$( cd "$PLUGIN" && vs::workspace_fingerprint )
+fi
 # 네트워크 금지 계약 (20260828-sast-timeout): 스위트는 외부 SAST 스캐너를 부르지 않는다.
 #   왜: test-security-scan·test-self-config-collect 가 실 `semgrep --config auto` 를 불렀고,
 #   그건 레지스트리 왕복이라 **테스트 결과가 네트워크 상태에 좌우**됐다 — 실측으로 이 두 스위트가
@@ -89,8 +106,16 @@ fi
 # 이 토큰으로 실행증거를 판정한다 (러너 계약: PASS 만 인정, FAIL/PARTIAL 불인정). 20260716 false-block fix.
 if [ $FAIL -gt 0 ]; then
   printf 'FAILED: %s\n' "${FAILED_SUITES[@]}"
+  # 낡은 통과가 새 실패를 덮지 않게 마커를 제거한다 (clarify Q1)
+  rm -f "$_FSP_MARKER"
   echo "VERIFY: FAIL"
   exit 1
 fi
+# 지문이 NO_GIT 이면 기록하지 않는다 — 대조 불가한 값으로 skip 이 열리면 안 된다
+if [ "$_FSP_TREE" != "NO_GIT" ]; then
+  mkdir -p "$(dirname "$_FSP_MARKER")" 2>/dev/null || true
+  printf '%s\n' "$_FSP_TREE" > "$_FSP_MARKER" 2>/dev/null || true
+fi
+
 echo "VERIFY: PASS"
 exit 0
