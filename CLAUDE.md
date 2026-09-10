@@ -8,7 +8,7 @@ specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이�
 
 ## 테스트 명령
 
-> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(~600s+ — **158 스위트** 실측, 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
+> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**159 스위트** 실측 — 한산 ~570s, 머신이 바쁘면 ~980s 까지. 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
 
 ```bash
 # 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
@@ -64,6 +64,8 @@ chain 의 primary edge 는 `hooks/chain.yaml` 이 단일 Source of Truth 다 —
 - `Stop` → 3 훅 발화: `ensure-session-progress.sh`(session-progress.md 보장) + `stop-governance.sh`(거버넌스: R-4 성공 주장 + 테스트 미실행, R-5 plan 수정 + Advisor 협의 누락(협의를 **주장**하면 transcript 실호출 증거 요구 — `server_tool_use`(advisor)↔`advisor_tool_result` 또는 `critic-ask.sh`. `해당 없음` 정직 선언은 증거 불요), R-6 `/verify` + evidence.md 후 gbrain-append 호출 부재 — 비활성) + `freecomment-capture.sh`(자유 코멘트 자동 캡처 — pending 적재, SessionStart 에서 LLM 요약→freelog.md)
 
 R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된다(면제·fail-open 시 posttool audit trail 보존). 그 외 위반은 `.specops/<FID>/friction-log.jsonl`에 Soft Warn으로 기록된다.
+
+> **면제 조회 — "이 커밋은 면제됩니까"를 미리 묻는다**: `bash scripts/_internal/scope-explain.sh '<커밋 명령>'`(인자, 또는 stdin 파이프)이 훅과 **같은 판정 함수**를 불러 `SCOPE=staged|conservative EXEMPT=yes|no REASON=<class>(<N> files)` 1줄로 답한다. rc 계약: **0=판정 성공 · 2=입력 없음/읽기 불가 · 3=판정기 로드 불가** — 판정 불가를 그럴듯한 1줄로 위장하지 않는다. 훅 경로에서 묻고 싶으면 `SPECOPS_DRYRUN=1`(env 또는 **명령 선두 인라인**)을 붙인다: 같은 1줄을 stderr 로 내고 **deny 한다** — 조회이므로 커밋을 실행하지 않는다(allow 를 한 건도 늘리지 않는 deny 전용 경로). 커밋 명령 **앞의** `cd <repo 내부 경로>`·bare `VAR=값` 선행 줄은 **최대 8줄까지** 안전 prelude 로 인정해 그 뒤 커밋을 판정한다(그 밖의 선행 줄 — `cd ..`·`cd -`·타 repo 절대경로·명령치환·`git add -A` 등 — 은 보수 판정).
 
 **실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
 
@@ -141,11 +143,11 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 
-`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1380줄 · 함수 32개) 한 파일에 한해 적용하지 않는다** — 32개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
+`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1470줄 · 함수 33개) 한 파일에 한해 적용하지 않는다** — 33개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
 
 **분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다 — 그 릴리즈는 "강제층 자신이 조용히 사라지는 경로가 셋 있었다"를 다뤘다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다.
 
-**크기가 공짜라는 뜻은 아니다**: gbrain `20260807-governance-lib-freefix`(confidence: low — 근거는 자유 수정 2회 관측)는 이 파일을 훅 4종 공용이라 lifecycle 밖 즉흥 수정이 잦은 핫스팟으로 기록했다. 예외는 이 **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다. (참고: `git ls-files` 기준 800줄 초과는 4개이고 **프로덕션 코드는 이 파일 하나**다 — 나머지는 테스트 스위트 2종과 `CHANGELOG.md`. 둘째 프로덕션 파일이 800 을 넘으면 이 문장은 거짓이 되니 그때 갱신한다.)
+**크기가 공짜라는 뜻은 아니다**: gbrain `20260807-governance-lib-freefix`(confidence: low — 근거는 자유 수정 2회 관측)는 이 파일을 훅 4종 공용이라 lifecycle 밖 즉흥 수정이 잦은 핫스팟으로 기록했다. 예외는 이 **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다. (참고: `git ls-files` 기준 800줄 초과는 5개이고 **프로덕션 코드는 이 파일 하나**다 — 나머지는 테스트 스위트 3종(`test-pretool.sh`·`test-rules.sh`·`test-doctor.sh`)과 `CHANGELOG.md`. 둘째 프로덕션 파일이 800 을 넘으면 이 문장은 거짓이 되니 그때 갱신한다.)
 
 ## `/doctor` 의 memory·bootstrap ⚠️ 는 정상이다 (정책의 알려진 결과)
 
