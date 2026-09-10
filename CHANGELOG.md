@@ -3,6 +3,8 @@
 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 포맷. [SemVer](https://semver.org/lang/ko/) 준수.
 
 ## [Unreleased]
+
+## [1.97.0] — 2026-09-11
 ### evidence.md 를 쓴 태스크가 남은 태스크의 탈출구를 닫았다 (#44)
 
 R-1 의 receipt 탈출구가 열리는 창이 `tasks.md 존재 ∧ evidence.md 부재` 였다. 그런데 `evidence.md` 는
@@ -1967,7 +1969,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.96.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.97.0...HEAD
+[1.97.0]: https://github.com/andyko18/specops-ko/compare/v1.96.0...v1.97.0
 [1.96.0]: https://github.com/andyko18/specops-ko/compare/v1.95.0...v1.96.0
 [1.95.0]: https://github.com/andyko18/specops-ko/compare/v1.94.0...v1.95.0
 [1.94.0]: https://github.com/andyko18/specops-ko/compare/v1.93.0...v1.94.0
