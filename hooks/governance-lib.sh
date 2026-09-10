@@ -9,7 +9,7 @@ _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
 
-: "${_SPECOPS_SCOPE_FILES:=}"   # is_docs_only_change 가 판정한 커밋 범위 (계측용, set -u 가드)
+: "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
