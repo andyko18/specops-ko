@@ -864,5 +864,88 @@ for hk in pretool-governance posttool-governance stop-governance; do
 done
 rm -rf "$jqdir"
 
+# T-dry.*: SPECOPS_DRYRUN 은 실행하지 않는 조회다 — 항상 deny + 판정 1줄 (AC-6)
+#   ★ 대조군 필수: 어서션이 "구조적 항상통과" 가 아님을 baseline deny 로 먼저 보인다.
+_dry_in=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl")
+_dry_base=$(printf '%s' "$_dry_in" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-dry.0 baseline deny(대조군)" '"permissionDecision":"deny"' "$_dry_base"
+
+_dry_out=$(printf '%s' "$_dry_in" | SPECOPS_DRYRUN=1 CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-dry.a DRYRUN deny 유지" '"permissionDecision":"deny"' "$_dry_out"
+
+_dry_err=$(printf '%s' "$_dry_in" | SPECOPS_DRYRUN=1 CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>&1 >/dev/null)
+check "T-dry.b 판정 1줄 stderr" 'SCOPE=.* EXEMPT=' "$_dry_err"
+
+# T-dry.c: **면제 대상**(docs-only staged) 이어도 DRYRUN 이면 실행되지 않는다 = allow 확대 0
+_drydocs=$(mktemp -d)
+( cd "$_drydocs" && git init -q && echo x > a.md && git add a.md && mkdir .specops )
+_dry_allow=$(printf '%s' "$_dry_in" | CLAUDE_PROJECT_DIR="$_drydocs" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$_dry_allow" | grep -q '"permissionDecision":"deny"'; then
+  echo "FAIL T-dry.c-pre 면제형 baseline 이 deny — 대조군 무효"; fail=$((fail+1))
+else
+  echo "PASS T-dry.c-pre 면제형 baseline allow(대조군)"; pass=$((pass+1))
+fi
+_dry_docs_out=$(printf '%s' "$_dry_in" | SPECOPS_DRYRUN=1 CLAUDE_PROJECT_DIR="$_drydocs" bash "$HOOK" 2>/dev/null)
+check "T-dry.c 면제형도 DRYRUN 이면 deny" '"permissionDecision":"deny"' "$_dry_docs_out"
+rm -rf "$_drydocs"
+
+# T-dry.d: 인라인 문자열 형태도 동일 판정 (env 미설정)
+_dry_inline=$(mkstdin "SPECOPS_DRYRUN=1 git commit -m x" "$FIX/pretool-no-verify.jsonl")
+_dry_inl_out=$(printf '%s' "$_dry_inline" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-dry.d 인라인 형태 deny" '"permissionDecision":"deny"' "$_dry_inl_out"
+
+# T-dry.d2: 인라인 형태의 **판정이 실제 커밋과 같은가** (deny 만 보면 못 잡는 축)
+_dry2=$(mktemp -d)
+( cd "$_dry2" && git init -q && echo x > a.md && git add a.md && mkdir .specops )
+_dry_inl_err=$(printf '%s' "$_dry_inline" | CLAUDE_PROJECT_DIR="$_dry2" bash "$HOOK" 2>&1 >/dev/null)
+check "T-dry.d2 인라인도 SCOPE=staged" 'SCOPE=staged ' "$_dry_inl_err"
+rm -rf "$_dry2"
+
+# T-dry.f: **비인용 언급은 조회가 아니다** — 무앵커 glob false-deny 차단 (T37 과 같은 클래스)
+#   `echo SPECOPS_DRYRUN=1 && git commit -m x` 는 실제 커밋이다. 이걸 조회로 오인해 deny 하면
+#   사용자는 왜 막혔는지 모른 채 BYPASS 로 간다. 여기서는 **면제형 sandbox** 를 쓴다 —
+#   codesandbox 는 어차피 deny 라 오인해도 결과가 같아 이 축을 관측할 수 없기 때문이다.
+_dryf=$(mktemp -d)
+( cd "$_dryf" && git init -q && echo x > a.md && git add a.md && mkdir .specops )
+_dry_mention=$(mkstdin "echo SPECOPS_DRYRUN=1 && git commit -m x" "$FIX/pretool-no-verify.jsonl")
+_dry_mention_out=$(printf '%s' "$_dry_mention" | CLAUDE_PROJECT_DIR="$_dryf" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$_dry_mention_out" | grep -q 'SPECOPS_DRYRUN 조회'; then
+  echo "FAIL T-dry.f 비인용 언급을 조회로 오인 — false-deny: $_dry_mention_out"; fail=$((fail+1))
+else
+  echo "PASS T-dry.f 비인용 언급은 조회 아님"; pass=$((pass+1))
+fi
+# T-dry.f2 양성 대조군 — 같은 sandbox·같은 어서션에서 **정상 인라인**은 조회로 인식돼야 한다
+#   (f 가 "아무것도 조회로 안 봄" 으로 통과하는 구조적 항상통과를 배제한다)
+_dry_pos_out=$(printf '%s' "$_dry_inline" | CLAUDE_PROJECT_DIR="$_dryf" bash "$HOOK" 2>/dev/null)
+check "T-dry.f2 정상 인라인은 조회로 인식(양성 대조군)" 'SPECOPS_DRYRUN 조회' "$_dry_pos_out"
+rm -rf "$_dryf"
+
+# T-dry.g: **판정불가 ≠ 빈 커밋범위** — 두 상태가 같은 문자열로 나오면 안 된다 (AC-5 위장 금지 동형)
+#   g-1 non-git + .specops → git 판정 실패 = 판정불가 · g-2 빈 git repo → 커밋 범위 실제로 빔 = empty
+_drynog=$(mktemp -d); mkdir -p "$_drynog/.specops"          # git init 없음 — git 판정 실패 유도
+_dry_nog_err=$(printf '%s' "$_dry_in" | SPECOPS_DRYRUN=1 CLAUDE_PROJECT_DIR="$_drynog" bash "$HOOK" 2>&1 >/dev/null)
+check "T-dry.g1 git 판정 실패는 판정불가로 표기" 'REASON=판정불가' "$_dry_nog_err"
+rm -rf "$_drynog"
+_dryempty=$(mktemp -d)
+( cd "$_dryempty" && git init -q && mkdir .specops )        # git repo 지만 staged 0건
+_dry_emp_err=$(printf '%s' "$_dry_in" | SPECOPS_DRYRUN=1 CLAUDE_PROJECT_DIR="$_dryempty" bash "$HOOK" 2>&1 >/dev/null)
+# check() 는 grep(BRE) 이라 괄호는 리터럴이다 — `\(` 로 이스케이프하면 그룹이 되어 매칭 실패한다(실측)
+check "T-dry.g2 빈 커밋범위는 empty 로 표기" 'REASON=empty(0 files)' "$_dry_emp_err"
+if printf '%s' "$_dry_emp_err" | grep -q '판정불가'; then
+  echo "FAIL T-dry.g3 빈 범위를 판정불가로 오표기: $_dry_emp_err"; fail=$((fail+1))
+else
+  echo "PASS T-dry.g3 두 상태가 구별됨"; pass=$((pass+1))
+fi
+rm -rf "$_dryempty"
+
+# T-dry.e: 분기 순서 — BYPASS 가 DRYRUN 보다 앞이다 (게이트 무음 무력화 금지)
+_ln_bypass=$(grep -n 'SPECOPS_GOVERNANCE_BYPASS:-' "$HOOK" | head -1 | cut -d: -f1)
+_ln_dry=$(grep -n 'SPECOPS_DRYRUN:-' "$HOOK" | head -1 | cut -d: -f1)   # env 판정 줄만 — 주석 오판 방지
+if [ -n "$_ln_bypass" ] && [ -n "$_ln_dry" ] && [ "$_ln_bypass" -lt "$_ln_dry" ]; then
+  echo "PASS T-dry.e BYPASS < DRYRUN 순서"; pass=$((pass+1))
+else
+  echo "FAIL T-dry.e (bypass=$_ln_bypass dry=$_ln_dry)"; fail=$((fail+1))
+fi
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
