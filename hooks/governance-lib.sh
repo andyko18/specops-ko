@@ -9,7 +9,7 @@ _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
 
-: "${_SPECOPS_SCOPE_FILES:=}"   # is_docs_only_change 가 판정한 커밋 범위 (계측용, set -u 가드)
+: "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
@@ -138,8 +138,8 @@ _verify_evidence_stamp() {
   local ev=".specops/$fid/evidence.md"
   local state=".specops/$fid/verification-state.json"
   if [ -f "$state" ] && [ -f "$_VERIFICATION_STATE_SH" ]; then
-    local verdict
-    verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+    local verdict                                    # FR-7 캐시 — 상세는 _vs_verdict_cached 참조
+    _vs_verdict_cached "$fid" >/dev/null || return 1; verdict=${_VS_VERDICT_CACHE:-}
     [ "$verdict" = "PASS" ] && return 0 || return 1
   fi
   [ -f "$ev" ] || return 1
@@ -1096,13 +1096,16 @@ apply_lookback_rule() {
   _verify_exec_evidence "$transcript" "${_efid:+.specops/$_efid}"; _exec_rc=$?
 
   # ★ R-1 implement 창: task receipt 필수 (Wave A — downstream-dogfood 병렬 wave BYPASS 관성 제거)
-  #   tasks.md 존재 ∧ evidence.md 부재 = implement 창. FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지.
+  #   tasks.md 존재 ∧ verify 미완료(_receipt_window_open) = implement 창.
+  #   창 조건은 20260910 에 `evidence.md 부재` 에서 바뀌었다 — 그 파일은 /verify 전용이 아니라
+  #   구현 중 태스크도 쓰므로, 먼저 쓴 태스크가 남은 태스크의 탈출구를 스스로 닫았다.
+  #   FID 전체 VERIFY: PASS·실행증거 fallthrough 폐지는 그대로다(bffe021 의도 보존).
   #   유효 receipt(staged⊆outputs·tree 신선·test_command hash)만 면제. T# 없음·부재·무효 → deny.
-  #   evidence.md 이후(post-verify)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
+  #   verify 유효 PASS 이후(창 닫힘)는 아래 자기보고/Skill lookback. R-2 는 receipt 로 열지 않는다.
   if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
     _rfid="$_efid"          # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
-    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && [ ! -f ".specops/$_rfid/evidence.md" ]; then
+    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && _receipt_window_open "$_rfid"; then
       _rtask=$(_infer_commit_task "$tool_cmd")
       _rrc=2
       if [ -n "$_rtask" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
@@ -1112,17 +1115,16 @@ apply_lookback_rule() {
       if [ "$_rrc" -eq 0 ]; then
         return 0
       fi
-      local offset
-      offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
-        [inputs] as $all
-        | ([ $all | to_entries[]
-             | select(.value.type == "assistant")
-             | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
-             | .key ] | last) // ($all | length)
-      ' "$transcript" 2>/dev/null)
-      [ -z "$offset" ] && offset=0
-      jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
-        '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+      # 창은 열렸는데 receipt 가 없거나(T# 미기재·파일 부재) 무효다. rc 의미는 check-task-receipt.sh:
+      #   2 = receipt 파일 부재(또는 인자 부적합) · 1 = 파일은 있으나 무효(verdict·staged·tree).
+      #   초기값 _rrc=2 라 T# 미기재도 여기로 떨어진다 — 없는 receipt 를 "무효" 라 부르면
+      #   pretool 이 "staged 를 확인하라" 고 오안내한다(축 B 가 다시 거짓말하는 경로).
+      local _cr
+      [ "$_rrc" -eq 1 ] && _cr="open-invalid" || _cr="open-missing"
+      _emit_violation "$rule_id" "$tool_cmd" \
+        "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
+        "$([ "$_exec_rc" -eq 1 ] && printf 'missing' || printf 'ok')" \
+        "$(_cause_anchor "$_rfid")" "$_cr"
       return 0
     fi
   fi
@@ -1150,21 +1152,98 @@ apply_lookback_rule() {
       | head -1)
   fi
   if [ -z "$found" ]; then
-    # triggering Bash tool_use 이벤트의 transcript 라인 번호 (0-based)
-    # PostToolUse 는 현재 triggering 이벤트 직후 발화 → 마지막 매칭이 현재 이벤트
-    # perf: 단일 jq 패스 — 줄단위 echo|jq fork 루프 제거 (2000줄 기준 수 초 → 수십 ms)
-    local offset
-    offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
-      [inputs] as $all
-      | ([ $all | to_entries[]
-           | select(.value.type == "assistant")
-           | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
-           | .key ] | last) // ($all | length)
-    ' "$transcript" 2>/dev/null)
-    [ -z "$offset" ] && offset=0
-    jq -nc --arg id "$rule_id" --arg snippet "$tool_cmd" --argjson offset "$offset" \
-      '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+    # offset = triggering Bash tool_use 이벤트의 transcript 라인 번호 (0-based). _violation_offset 이
+    #   두 emit 경로의 공통 구현이다 — PostToolUse 는 triggering 이벤트 직후 발화하므로 마지막 매칭.
+    # receipt 축: R-2 는 그 경로 자체가 없다(n/a). R-1 도 **FID·tasks.md 가 없으면 n/a** 다 —
+    #   창이 "닫힌" 게 아니라 애초에 receipt 경로가 성립하지 않는다. 여기서 closed-verified 를
+    #   찍으면 "② 앵커가 없습니다" 와 "verify 가 이미 유효 PASS 이므로" 가 동시에 나온다(모순).
+    #   closed-verified 는 창 판정이 실제로 닫힘을 돌려준 경우로 한정한다.
+    local _cr2="n/a"
+    if [ "$rule_id" = "R-1" ] && [ -n "$_efid" ] && [ -f ".specops/$_efid/tasks.md" ]; then
+      _receipt_window_open "$_efid" || _cr2="closed-verified"
+    fi
+    _emit_violation "$rule_id" "$tool_cmd" \
+      "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
+      "$([ "$_exec_rc" -eq 1 ] && printf 'missing' || printf 'ok')" \
+      "$(_cause_anchor "$_efid")" "$_cr2"
   fi
+}
+
+# ── receipt 창 판정 (20260910-receipt-window-close) ──────────────────────────
+# 창 = "verify 가 아직 유효 PASS 에 도달하지 않은 구간". 종전엔 `evidence.md 부재` 였는데,
+#   그 파일은 /verify 전용이 아니다 — 구현 중 실험 태스크가 쓰면 남은 태스크의 receipt 경로가
+#   스스로 닫혔다(20260910 실측: T4 가 14:39 작성 → T5·T6 커밋이 전 경로 폐쇄 → BYPASS 2건).
+# STALE 을 창에서 **제외**한다: 17f8617(20260828)이 "verify PASS 후 코드 수정은 차단하고
+#   그렇게 말한다" 를 계약으로 세웠고, 여기서 열면 receipt 가 그 계약의 우회로가 된다.
+# 반환: 0=열림(NOT_RUN|PARTIAL|FAIL) · 1=닫힘(PASS|STALE|WAIVED·판정불가 — 보수)
+# 부수효과: $_VS_VERDICT_CACHE(+_FID)를 채워 같은 호출의 _verify_evidence_stamp 가 재사용한다(FR-7).
+#   NFR-6: verdict/tree_hash 판정을 여기 복제하지 않는다 — verification-state.sh 가 SoT.
+# 배치 주의: 이 블록은 apply_lookback_rule **뒤**에 있어야 한다. 앞으로 옮기면
+#   mutation-equivalent.conf 의 절대 라인핀 1077·1084 가 밀려 등가변이 제외가 무음 사망한다.
+_receipt_window_open() {
+  local fid="$1" verdict
+  [ -n "$fid" ] || return 1
+  _vs_verdict_cached "$fid" >/dev/null || return 1; verdict=${_VS_VERDICT_CACHE:-}
+  case "$verdict" in
+    NOT_RUN|PARTIAL|FAIL) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# verify 판정 조회 1회 캐시 (FR-7). 훅 hot path 에서 vs::current 가 두 번 도는 것을 막는다 —
+#   그 명령은 verdict=PASS 경로에서 write-tree 를 돌려 ~109 ms(실측), state 부재면 ~6.3 ms.
+#   FID 를 함께 태그한다: 같은 프로세스에서 다른 FID 를 조회했을 때 잔여값이 새면 안 된다.
+#   NFR-6: verdict/tree_hash/WAIVED 만료 규칙을 여기 복제하지 않는다 — verification-state.sh 가 SoT.
+#   호출 실패·빈 출력은 rc=1 로 돌려보내 호출측이 보수(닫힘) 판정하게 한다.
+_vs_verdict_cached() {
+  local fid="$1" verdict
+  [ -n "$fid" ] || return 1
+  if [ -n "${_VS_VERDICT_CACHE:-}" ] && [ "${_VS_VERDICT_CACHE_FID:-}" = "$fid" ]; then
+    printf '%s' "$_VS_VERDICT_CACHE"; return 0
+  fi
+  [ -f "$_VERIFICATION_STATE_SH" ] || return 1
+  verdict=$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" current "$fid" 2>/dev/null) || return 1
+  [ -n "$verdict" ] || return 1
+  _VS_VERDICT_CACHE="$verdict"; _VS_VERDICT_CACHE_FID="$fid"
+  printf '%s' "$verdict"
+}
+
+# 위반 이벤트의 transcript 줄번호(0-based). 두 emit 경로가 같은 jq 를 복제하고 있었다 — 통일한다.
+_violation_offset() {
+  local transcript="$1" trigger_tool="$2" trigger_pattern="$3" offset
+  offset=$(jq -n --arg t "$trigger_tool" --arg pat "$trigger_pattern" '
+    [inputs] as $all
+    | ([ $all | to_entries[]
+         | select(.value.type == "assistant")
+         | select([.value.message.content[]? | select(.type == "tool_use" and .name == $t and ((.input.command // "") | test($pat)))] | any)
+         | .key ] | last) // ($all | length)
+  ' "$transcript" 2>/dev/null)
+  [ -z "$offset" ] && offset=0
+  printf '%s' "$offset"
+}
+
+# ② 앵커 축 진단 — 판정과 같은 함수를 부른다(사본 0). 판정에 관여하지 않는다.
+#   _verify_passed_in_progress: 0=유효 · 1=verify 줄 부재(inconclusive) · 2=affirmative-stale
+_cause_anchor() {
+  local fid="$1"
+  [ -n "$fid" ] || { printf 'no-fid'; return 0; }
+  _verify_passed_in_progress "$fid"
+  case $? in
+    0) printf 'ok' ;;
+    2) printf 'stale' ;;
+    *) if _verify_evidence_stamp "$fid"; then printf 'ok'; else printf 'missing'; fi ;;
+  esac
+}
+
+# 위반 emit — 기존 3필드 + cause 진단 3축. cause 는 **진단 전용**이라 allow/deny 를 바꾸지 않는다.
+#   exec 은 ok|missing 2값만 낸다: stale 승격은 pretool 이 이미 호출하는 _verify_stale_cause 로
+#   병합한다(그 함수는 20,109줄 transcript 에서 391 ms — 여기서 또 부르면 전수 스캔이 2회다).
+_emit_violation() {
+  local rule_id="$1" snippet="$2" offset="$3" c_exec="$4" c_anchor="$5" c_receipt="$6"
+  jq -nc --arg id "$rule_id" --arg snippet "$snippet" --argjson offset "$offset" \
+    --arg ce "$c_exec" --arg ca "$c_anchor" --arg cr "$c_receipt" \
+    '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset,
+       cause: { exec: $ce, anchor: $ca, receipt: $cr } }'
 }
 
 # R-3 매처 — Skill 호출 직전 N assistant 메시지에 선언 부재 확인 (AC-9, v0.4-pre W1 확장)

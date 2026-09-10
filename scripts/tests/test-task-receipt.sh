@@ -167,4 +167,49 @@ hit=$(_infer_commit_task 'git commit -m "feat(T3): x"')
 hit=$(_infer_commit_task 'git commit -m "Task: T12 done"')
 [ "$hit" = "T12" ] && ok "TR-11b infer Task: T12" || nope "TR-11b" "hit=$hit"
 
+
+# === AC-2 / AC-R-1: evidence.md 를 쓴 태스크가 다른 태스크의 receipt 경로를 닫지 않는다 ===
+# 사고 재현(20260910-commit-scope-prelude): T4 가 14:39 evidence.md 작성 → T5(15:46)·T6(16:45)
+#   커밋이 /verify(16:56) 이전이라 자기보고 앵커도 없어 전 경로 폐쇄 → BYPASS 2건.
+# ★ 픽스처는 반드시 _setup_fid(이 파일 L15-33)를 쓴다. 손으로 만들면 세 곳이 조용히 깨진다
+#   (plan-reviewer 실측): ① session-progress 부재 → detect_fid 빈값 → R-1 창 분기 **미진입**
+#   ② tasks.md 에 test_command 부재 → record-task-receipt.sh:34 exit 1 → receipt 미기록
+#   ③ `git add -A` 가 .specops/* 를 staged → check-task-receipt.sh staged⊄outputs → rc=1
+_RWC=$(mktemp -d) || exit 1
+_rwc_fid=20260910-rwc
+_setup_fid "$_RWC" "$_rwc_fid"
+printf 'updated\n' > "$_RWC/src/foo.sh"          # 커밋 가능한 변경 (clean tree 면 staged 공집합)
+# ★ 사고 조건: evidence.md 는 있고 verify 는 아직 안 돌았다
+#   (verification-state.json 부재 + RUN-VERIFICATION-RESULT 스탬프 없음 → vs::current = NOT_RUN)
+printf '# 실험 관찰 기록\n변이 M1 격추\n' > "$_RWC/.specops/$_rwc_fid/evidence.md"
+(cd "$_RWC" && git add src && bash "$REC" "$_rwc_fid" T1) >/dev/null 2>&1
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+if [ -z "$out" ]; then ok "T-rwc.a evidence.md 존재 + verify 미실행 → receipt 면제"
+else nope "T-rwc.a" "창이 닫혔다: $out"; fi
+
+# === AC-R-2: STALE 대조군 — verify PASS 후 코드 수정이면 유효 receipt 가 있어도 차단 ===
+# 17f8617(20260828) 계약 보존 실증. 이 케이스가 면제되면 축 A 가 계약을 약화시킨 것이다.
+# ★ verification-state.json 을 손으로 쓰지 않는다 — SoT 스크립트로 기록해야 tree_hash 가 실물이다
+#   (손으로 쓴 빈/가짜 해시는 vs::current 가 STALE 검사를 skip 해 픽스처가 항상 통과한다 — 리뷰어 실측).
+(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" \
+   record "$_rwc_fid" PASS --executed 1 --failed 0) >/dev/null 2>&1
+printf 'stale-inducing edit\n' >> "$_RWC/src/foo.sh"      # ← 기록 이후 코드 변경 → STALE
+_rwc_v=$(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current "$_rwc_fid")
+[ "$_rwc_v" = "STALE" ] || nope "T-rwc.b-pre" "픽스처가 STALE 이 아니다: $_rwc_v"
+(cd "$_RWC" && git add src && bash "$REC" "$_rwc_fid" T1) >/dev/null 2>&1   # receipt 는 유효하게 갱신
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+if [ -n "$out" ]; then ok "T-rwc.b STALE → 유효 receipt 여도 차단(17f8617 계약 보존)"
+else nope "T-rwc.b" "STALE 인데 면제됨 — 계약 약화"; fi
+
+# === PASS(신선) 대조군 — 창이 닫히고 자기보고 경로로 넘어간다 ===
+# 위 STALE 편집 이후 다시 record 하면 현재 트리 지문이 기록돼 신선 PASS 가 된다.
+(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" \
+   record "$_rwc_fid" PASS --executed 1 --failed 0) >/dev/null 2>&1
+_rwc_v=$(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current "$_rwc_fid")
+[ "$_rwc_v" = "PASS" ] || nope "T-rwc.c-pre" "픽스처가 신선 PASS 가 아니다: $_rwc_v"
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+if [ -z "$out" ]; then ok "T-rwc.c verify PASS 신선 → 자기보고 경로로 면제(창 닫힘)"
+else nope "T-rwc.c" "PASS 신선인데 차단: $out"; fi
+rm -rf "$_RWC"
+
 finish

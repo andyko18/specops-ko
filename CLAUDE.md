@@ -69,6 +69,8 @@ R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된�
 
 **실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
 
+> **①만으로는 열리지 않는다** — 실행 증거(`_exec_rc ≠ 1` — `0`=러너 실행 확인 · `2`=판정 불가 fail-open)는 자기보고 3경로를 **여는 전제조건**이지 단독 면제가 아니다. 앵커가 하나도 없으면 러너를 몇 번 돌려도 통과하지 않는다. R-1 의 implement 창은 FID 에 `tasks.md` 가 있고 **verify 가 아직 유효 PASS 가 아닐 때**(`verification-state` 가 `NOT_RUN`·`PARTIAL`·`FAIL`) 열리며 receipt 로 면제된다 — 종전의 `evidence.md 부재` 조건은 구현 중 태스크가 그 파일을 쓰면 남은 태스크의 탈출구를 닫았다(20260910 실측). `STALE`·`WAIVED` 는 창이 닫힌다. deny 메시지는 세 조건(①·②·receipt)의 **실제 상태**를 표시한다(`cause` 진단이 없거나 파싱 실패면 종전 무조건 3블록 문안으로 떨어지고 deny 는 유지된다).
+
 ### 서브에이전트 리뷰 패턴 (Generator ↔ Evaluator 분리)
 
 Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한다. `agents/` 의 서브에이전트는 용도가 나뉜다:
@@ -143,7 +145,7 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 
-`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1479줄 · 함수 33개) 한 파일에 한해 적용하지 않는다** — 33개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
+`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1558줄 · 함수 38개) 한 파일에 한해 적용하지 않는다** — 38개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
 
 **분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다 — 그 릴리즈는 "강제층 자신이 조용히 사라지는 경로가 셋 있었다"를 다뤘다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다.
 

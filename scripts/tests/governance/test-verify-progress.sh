@@ -187,4 +187,80 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T13 vp=1+stamp 차단됨(면제 회귀)"
 fi
 
+# === _receipt_window_open (AC-1, FR-1) — verdict 6종 진리표 ===
+# 왜 이 함수인가: 종전 창 조건은 `evidence.md 부재` 였다. /verify 가 아니라 **구현 중 태스크**가
+#   그 파일을 쓰면 남은 태스크의 receipt 경로가 스스로 닫혔다(20260910 실측 — BYPASS 2건).
+_RWO_SB=$(mktemp -d) || exit 1
+mkdir -p "$_RWO_SB/.specops/20260910-x"
+: > "$_RWO_SB/.specops/20260910-x/tasks.md"
+_rwo_case() {   # $1=verdict $2=기대rc $3=라벨
+  cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<JSON
+{"verdict":"$1","tree_hash":"NO_GIT","executed":1,"skipped":0,"failed":0}
+JSON
+  if [ "$1" = "WAIVED" ]; then
+    cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<JSON
+{"verdict":"WAIVED","tree_hash":"NO_GIT","waiver":{"reason":"r","approved_by":"a","expires_at":"2099-01-01T00:00:00Z"}}
+JSON
+  fi
+  (cd "$_RWO_SB" && _receipt_window_open 20260910-x); local got=$?
+  if [ "$got" -eq "$2" ]; then PASS=$((PASS+1)); echo "PASS T-rwo.$3 $1 → rc=$2"
+  else FAIL=$((FAIL+1)); echo "FAIL T-rwo.$3 $1 → rc=$got (기대 $2)"; fi
+}
+_rwo_case NOT_RUN 0 a
+_rwo_case PARTIAL 0 b
+_rwo_case FAIL    0 c
+_rwo_case PASS    1 d
+_rwo_case WAIVED  1 e
+# STALE: verdict=PASS 인데 기록 tree_hash 가 현재와 다르면 vs::current 가 STALE 을 낸다.
+#   NO_GIT 은 vs::current 가 STALE 판정에서 제외하므로 실제 해시를 심어야 한다(가짜 값이면 STALE).
+cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<'JSON'
+{"verdict":"PASS","tree_hash":"0000000000000000000000000000000000000000","executed":1,"skipped":0,"failed":0}
+JSON
+(cd "$_RWO_SB" && git init -q . 2>/dev/null; _receipt_window_open 20260910-x); _rwo_rc=$?
+[ "$_rwo_rc" -eq 1 ] && { PASS=$((PASS+1)); echo "PASS T-rwo.f STALE → rc=1 (닫힘)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-rwo.f STALE → rc=$_rwo_rc (기대 1)"; }
+# 빈 FID → 닫힘 (보수)
+_receipt_window_open "" && { FAIL=$((FAIL+1)); echo "FAIL T-rwo.g 빈 FID 열림"; } \
+  || { PASS=$((PASS+1)); echo "PASS T-rwo.g 빈 FID → 닫힘"; }
+
+# === FR-7 캐시 공유 — _verify_evidence_stamp 가 같은 FID 캐시를 재사용한다 ===
+# 왜: vs::current 는 PASS 경로에서 write-tree 를 돌려 ~109 ms. 훅 hot path 에서 2회 호출 금지.
+_VS_VERDICT_CACHE_FID="20260910-x"; _VS_VERDICT_CACHE="PASS"
+(cd "$_RWO_SB" && rm -f .specops/20260910-x/verification-state.json
+ cat > .specops/20260910-x/verification-state.json <<'JSON'
+{"verdict":"FAIL","tree_hash":"NO_GIT","executed":1,"skipped":0,"failed":1}
+JSON
+ _verify_evidence_stamp 20260910-x) \
+  && { PASS=$((PASS+1)); echo "PASS T-rwo.h 캐시(PASS) 재사용 — 디스크 FAIL 무시"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-rwo.h 캐시 미재사용"; }
+# 다른 FID 면 캐시를 쓰지 않는다 (오염 차단)
+_VS_VERDICT_CACHE_FID="other-fid"; _VS_VERDICT_CACHE="PASS"
+(cd "$_RWO_SB" && _verify_evidence_stamp 20260910-x) \
+  && { FAIL=$((FAIL+1)); echo "FAIL T-rwo.i 타 FID 캐시 오염"; } \
+  || { PASS=$((PASS+1)); echo "PASS T-rwo.i 타 FID 캐시 무시 — 디스크 FAIL 반영"; }
+_VS_VERDICT_CACHE_FID=""; _VS_VERDICT_CACHE=""
+
+# === FR-7 캐시 **쓰기** 경로 — 창 판정이 실제로 캐시를 채운다 ===
+# 왜 톱레벨 호출인가: 위 진리표는 `( cd … && _receipt_window_open … )` 서브셸이라 캐시 대입이
+#   호출자로 전파되지 않는다. h·i 는 캐시를 손으로 세팅해 **읽기** 쪽만 쟀고, 그래서 쓰기 경로가
+#   프로덕션에서 한 번도 동작하지 않는데도 green 이었다(Phase C I-1 — 공허한 테스트).
+# 캐시를 먼저 비운다 — h·i 의 잔여값이 남으면 이 단언이 항상통과로 위장된다.
+cat > "$_RWO_SB/.specops/20260910-x/verification-state.json" <<'JSON'
+{"verdict":"FAIL","tree_hash":"NO_GIT","executed":1,"skipped":0,"failed":1}
+JSON
+_VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""
+cd "$_RWO_SB" || { echo "FAIL T-rwo.j cd 실패"; exit 1; }
+_receipt_window_open 20260910-x; _rwo_wrc=$?
+cd "$TMP" || { echo "FAIL T-rwo.j cd 복귀 실패"; exit 1; }
+# FID 만 보면 하드코딩 대입도 통과한다 — verdict 값까지 함께 단언한다.
+if [ "$_rwo_wrc" -eq 0 ] && [ "${_VS_VERDICT_CACHE_FID:-}" = "20260910-x" ] \
+   && [ "${_VS_VERDICT_CACHE:-}" = "FAIL" ]; then
+  PASS=$((PASS+1)); echo "PASS T-rwo.j 창 판정이 캐시를 채운다(FID+verdict)"
+else
+  FAIL=$((FAIL+1))
+  echo "FAIL T-rwo.j 캐시 미기록 — rc=$_rwo_wrc fid='${_VS_VERDICT_CACHE_FID:-}' verdict='${_VS_VERDICT_CACHE:-}'"
+fi
+_VS_VERDICT_CACHE_FID=""; _VS_VERDICT_CACHE=""
+rm -rf "$_RWO_SB"
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

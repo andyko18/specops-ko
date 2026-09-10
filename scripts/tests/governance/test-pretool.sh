@@ -969,5 +969,206 @@ else
   echo "FAIL T-dry.e (bypass=$_ln_bypass dry=$_ln_dry)"; fail=$((fail+1))
 fi
 
+# === 축 B (20260910-receipt-window-close): 조건부 렌더 + fallback ===
+# 공용: 훅을 격리 샌드박스에서 돌린다
+# ★ 이 파일은 harness 를 source 하지 않는다 — 헬퍼는 check/pass/fail/mkstdin, 픽스처는 $FIX 다.
+#   ok·nope·$FIXTURES·finish 는 **없다**. 쓰면 `command not found` 로 어서션이 조용히 증발하고
+#   RED 가 green 이 된다(plan-reviewer 실측: 7개 어서션 증발 + PASS=169 FAIL=0 rc=0).
+# ★ CLAUDE_PROJECT_DIR 필수 — pretool-governance.sh:19-21 이 그 변수로 cd 한다. 누락하면 실 repo 를 판정한다.
+_deny_msg() {   # $1=프로젝트 디렉토리 $2=훅 파일 $3=입력 JSON
+  printf '%s' "$3" | CLAUDE_PROJECT_DIR="$1" bash "$2" 2>/dev/null \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason // ""'
+}
+_nocheck() {   # $1=id $2=없어야 할 문자열 $3=대상  — check 의 음성판
+  if printf '%s' "$3" | grep -q "$2"; then echo "FAIL $1 — unexpected '$2' in: $3"; fail=$((fail+1));
+  else echo "PASS $1"; pass=$((pass+1)); fi
+}
+
+# ①=ok ②=missing 상태: 러너 PASS 가 transcript 에 있고 session-progress 에 /verify PASS 줄이 없다
+_PTC=$(mktemp -d) || exit 1
+mkdir -p "$_PTC/.specops/20260910-y"
+: > "$_PTC/.specops/20260910-y/tasks.md"
+printf '# ok\n' > "$_PTC/.specops/20260910-y/evidence.md"
+printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
+  > "$_PTC/.specops/session-progress.md"
+# ★ 초기 커밋 필수 — unborn HEAD 면 vs::workspace_fingerprint 가 NO_GIT 을 돌리고
+#   vs::current 는 recorded=NO_GIT 일 때 STALE 검사를 **건너뛴다** → STALE 픽스처가 성립하지 않는다
+#   (부모 로컬 실측에서 T-cause.e-1 이 이 이유로 FAIL 했다 — 판정이 아니라 픽스처가 틀렸었다).
+( cd "$_PTC" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init >/dev/null )
+_in=$(mkstdin 'git commit -m "feat: x"' "$FIX/exec-evidence-pass.jsonl")
+msg=$(_deny_msg "$_PTC" "$HOOK" "$_in")
+check "T-cause.pre deny 발생" 'verify 면제 조건' "$msg"
+
+# === AC-4: ① 충족 시 거짓 안내를 하지 않고, 충족 사실을 표시한다 ===
+# 왜: 이 문안이 거짓일 때 사용자는 방금 돌린 수분대 러너를 또 돌리거나 게이트를 결함으로
+#   의심해 BYPASS 한다(20260828 실측 24건 중 15건). 이번 FID 의 분석자 본인도 같은 함정에 빠졌다.
+_nocheck "T-cause.a ①충족 시 거짓 안내 미출력" '이 세션에 러너 실행 기록이 없습니다' "$msg"
+# ★ 금지문구 부재만으로는 부족하다 — stale 분기도 그 문구가 없다. 충족 표기를 **양성으로** 단언한다.
+check "T-cause.b ① 충족 표기 양성" '✔ ① 실행 증거' "$msg"
+check "T-cause.c ② 미충족 표기 양성" '✘ ② 진행 기록 앵커' "$msg"
+
+# === AC-5: 창이 열렸으면 receipt 안내를 하고, 닫혔으면 하지 않는다 ===
+check "T-cause.d 창 열림(NOT_RUN) → receipt 안내" 'record-task-receipt.sh' "$msg"
+( cd "$_PTC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" \
+    record 20260910-y PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+( cd "$_PTC" && printf 'stale\n' >> a.sh && git add a.sh )   # 기록 이후 변경 → STALE, staged 유지
+msg2=$(_deny_msg "$_PTC" "$HOOK" "$_in")
+# ★ 픽스처가 실제로 STALE 인지 먼저 확인한다 — 아니면 아래 두 어서션이 다른 상태를 재게 된다.
+_v=$(cd "$_PTC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260910-y)
+[ "$_v" = "STALE" ] && { echo "PASS T-cause.e-0 픽스처 STALE 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-cause.e-0 픽스처 verdict=$_v (STALE 아님)"; fail=$((fail+1)); }
+# ★ 빈 msg2(=allow 회귀)를 PASS 로 흡수하지 않는다 — deny 는 유지돼야 한다.
+check "T-cause.e-1 창 닫힘에서도 deny 유지" 'verify 면제 조건' "$msg2"
+_nocheck "T-cause.e-2 창 닫힘(STALE) → receipt 안내 미출력" 'record-task-receipt.sh' "$msg2"
+
+# === M-truth 잠금: 창이 닫힌 **이유**를 단정하지 않는다 (PASS·STALE·WAIVED 공통 참) ===
+# 왜: _receipt_window_open 은 PASS·STALE·WAIVED(+판정불가) 전부에서 닫는데, 초안 문안은
+#   "verify 가 이미 유효 PASS 이므로" 라고 단정했다 — STALE 에서는 거짓(PASS 후 코드가 바뀐 상태),
+#   WAIVED 에서도 거짓(verify 가 돌지 않았다). 세 상태 중 하나에서만 참인 문장을 전부에 출력했다.
+#   그 거짓이 곧 이 FID 가 없애려는 병이다(deny 메시지가 거짓을 말한다 → BYPASS).
+#   T-cause.f 는 verdict 가 NOT_RUN 이라 이 모순을 못 잡는다 → STALE + 앵커 stale 조합으로 잡는다.
+printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 09:00 /verify PASS (evidence.md)\n- 2026-09-10 11:00 /implement DONE (T1)\n' \
+  > "$_PTC/.specops/session-progress.md"
+# verification-state.json 은 **그대로 둔다** — PASS 기록 + 트리 변조 = STALE(창 닫힘 유지).
+# ★ e-0 과 같은 선검사 — 픽스처가 실제로 STALE 인지 먼저 확인한다(NOT_RUN 이면 다른 상태를 재게 된다).
+_v2=$(cd "$_PTC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260910-y)
+[ "$_v2" = "STALE" ] && { echo "PASS T-cause.i-0 픽스처 STALE+앵커stale 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-cause.i-0 픽스처 verdict=$_v2 (STALE 아님)"; fail=$((fail+1)); }
+msg2b=$(_deny_msg "$_PTC" "$HOOK" "$_in")
+check "T-cause.i-1 창 닫힘 표기 유지" 'receipt 경로는 이 FID 에서' "$msg2b"
+check "T-cause.i-2 앵커 stale 동시 표기(모순 성립 조건)" '더 최신인 코드 변경 기록' "$msg2b"
+# 핵심 음성 단언: 어느 verdict 인지 **단정**하지 않는다. STALE 에서 "유효 PASS" 는 거짓이다.
+_nocheck "T-cause.i-3 verdict 단정 문구 미출력" '유효 PASS' "$msg2b"
+
+# === AC-4/M4: 앵커 stale 을 stale 이라 말한다 ===
+# /verify PASS 줄보다 /implement 줄이 더 최신이면 _verify_passed_in_progress rc=2(affirmative-stale).
+printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 09:00 /verify PASS (evidence.md)\n- 2026-09-10 11:00 /implement DONE (T1)\n' \
+  > "$_PTC/.specops/session-progress.md"
+rm -f "$_PTC/.specops/20260910-y/verification-state.json"
+msg3=$(_deny_msg "$_PTC" "$HOOK" "$_in")
+check "T-cause.f 앵커 stale 을 stale 로 표기" '더 최신인 코드 변경 기록' "$msg3"
+
+# === I-2 잠금: rc=2(판정 불가)를 "실행 확인" 으로 단정하지 않는다 ===
+# 왜: exec 축은 `rc≠1` 을 ok 로 접는다(AC-8 의 2값 열거 `ok|missing` — 유지). 그런데 rc=2 는
+#   transcript 부재·tool_use 0건·jq 실패 = **판정 불가**(fail-open)지 "러너가 돌았다" 가 아니다.
+#   실제 도달 경로: 새 세션의 첫 Bash 호출이 커밋이면 tool_use 0건 → rc=2. 그 상태에서 "러너 PASS 가
+#   확인됩니다" 는 거짓이고, 거짓 deny 문안이 곧 이 FID 가 없애려는 병이다(BYPASS 관성).
+printf '%s\n' \
+  '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"커밋해줘"}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"네, 커밋하겠습니다."}]}}' \
+  > "$_PTC/no-tooluse.jsonl"
+# ★ 선검사 — 픽스처가 실제로 rc=2 인지 먼저 확인한다. rc=1 이면 아래 단언이 다른 상태를 재게 된다.
+_ercc=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; \
+        _verify_exec_evidence "$_PTC/no-tooluse.jsonl" "" >/dev/null 2>&1; echo $?)
+[ "$_ercc" = "2" ] && { echo "PASS T-cause.j-0 픽스처 rc=2(판정 불가) 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-cause.j-0 픽스처 _verify_exec_evidence rc=$_ercc (2 아님)"; fail=$((fail+1)); }
+_in_j=$(mkstdin 'git commit -m "feat: x"' "$_PTC/no-tooluse.jsonl")
+msgj=$(_deny_msg "$_PTC" "$HOOK" "$_in_j")
+# 양성 대조 2건 — 빈 msgj(allow 회귀)나 ① 블록 증발을 음성 단언이 흡수하지 못하게 한다.
+check "T-cause.j-1 rc=2 에서도 deny 유지" 'verify 면제 조건' "$msgj"
+check "T-cause.j-2 ① 축 표기 양성(대조군)" '✔ ① 실행 증거' "$msgj"
+# 핵심 음성 단언: 판정 불가를 확인으로 단정하는 문구가 없다.
+_nocheck "T-cause.j-3 rc=2 를 실행 확인으로 단정 안 함" '러너 PASS 가 확인' "$msgj"
+
+# === AC-6: cause 부재 → 종전 문안 + deny 유지 (행동 검증 — 소스 grep 아님) ===
+# 왜 사본인가: 프로덕션에 테스트용 뒷문(env 로 cause 제거)을 내면 그 자체가 우회 표면이다.
+#   hooks 만 복사하고 scripts/templates 는 심볼릭으로 붙인다(governance-lib 이 ../scripts 를 참조).
+_FB=$(mktemp -d) || exit 1
+cp -R "$PLUGIN/hooks" "$_FB/hooks"
+ln -sfn "$PLUGIN/scripts" "$_FB/scripts"; ln -sfn "$PLUGIN/templates" "$_FB/templates" 2>/dev/null || true
+cat >> "$_FB/hooks/governance-lib.sh" <<'FBEOF'
+# 테스트 전용 재정의 — cause 없는 legacy emit 재현 (뒤 정의가 이긴다)
+_emit_violation() {
+  jq -nc --arg id "$1" --arg snippet "$2" --argjson offset "$3" \
+    '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset }'
+}
+FBEOF
+printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
+  > "$_PTC/.specops/session-progress.md"
+msg4=$(_deny_msg "$_PTC" "$_FB/hooks/pretool-governance.sh" "$_in")
+check "T-cause.g-1 cause 부재에도 deny 유지" 'verify 면제 조건' "$msg4"
+check "T-cause.g-2 cause 부재 → ① 종전 문안" '러너 실행 기록이 없습니다' "$msg4"
+check "T-cause.g-3 cause 부재 → receipt 종전 안내" 'record-task-receipt.sh' "$msg4"
+rm -rf "$_FB"
+
+# === M5b 잠금: receipt 부재와 무효를 구별한다 (1회차 I2 수정분) ===
+# 왜: _cr 매핑을 뒤집는 변이가 세 스위트를 전부 통과했다(plan-reviewer 실측 M5b 생존).
+#   없는 receipt 를 "무효" 라 부르면 "staged 를 확인하라" 는 오안내가 된다 — 축 B 의 재발.
+_PTI=$(mktemp -d) || exit 1
+mkdir -p "$_PTI/.specops/20260910-z/receipts" "$_PTI/scripts/tests" "$_PTI/src"
+printf 'echo ok\n' > "$_PTI/scripts/tests/test-foo.sh"; chmod +x "$_PTI/scripts/tests/test-foo.sh"
+printf 'x\n' > "$_PTI/src/foo.sh"; printf 'y\n' > "$_PTI/other.sh"
+# ★ `## 의존 그래프` 헤더를 넣지 않는다 — 픽스처 소비측(record-task-receipt)은 2단 fallback 이
+#   `tasks:` 키로 찾으므로 헤더가 불필요하다(헤더가 있으면 dag::extract_yaml 오인 위험).
+cat > "$_PTI/.specops/20260910-z/tasks.md" <<'TKEOF'
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash scripts/tests/test-foo.sh"
+    depends_on: []
+    inputs: []
+    outputs: [src/foo.sh]
+    ac: [AC-1]
+```
+TKEOF
+printf '<!-- active-fid: 20260910-z -->\n## 20260910-z\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
+  > "$_PTI/.specops/session-progress.md"
+( cd "$_PTI" && git init -q && git add src scripts other.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init \
+    && printf 'z\n' >> src/foo.sh && git add src \
+    && bash "$PLUGIN/scripts/_internal/record-task-receipt.sh" 20260910-z T1 ) >/dev/null 2>&1
+# receipt 는 유효하게 기록됐다. 이제 outputs **밖** 파일을 staged 해 무효화한다.
+( cd "$_PTI" && printf 'w\n' >> other.sh && git add other.sh ) >/dev/null 2>&1
+_in_i=$(mkstdin 'git commit -m "fix: x (Task: T1)"' "$FIX/exec-evidence-pass.jsonl")
+msg5=$(_deny_msg "$_PTI" "$HOOK" "$_in_i")
+check "T-cause.h-1 receipt 무효 → 무효 문안" '기록된 receipt 가 유효하지 않습니다' "$msg5"
+# 대조군: receipt 자체가 없으면 무효 문안이 아니라 기록 안내가 나와야 한다.
+rm -f "$_PTI/.specops/20260910-z/receipts/T1.json"
+msg6=$(_deny_msg "$_PTI" "$HOOK" "$_in_i")
+_nocheck "T-cause.h-2 receipt 부재 → 무효 문안 미출력" '기록된 receipt 가 유효하지 않습니다' "$msg6"
+check "T-cause.h-3 receipt 부재 → 기록 안내" 'record-task-receipt.sh' "$msg6"
+rm -rf "$_PTI" "$_PTC"
+
+
+# === I-A/I-B 잠금 (Phase C 2회차 지적) ===
+# I-A: ① 축 문안이 "러너 재실행 무용" 을 단정하면 거짓이다 — 러너는 verification-state 를
+#   기록하므로 PASS 시 _verify_evidence_stamp 경로로 실제로 열린다(리뷰어 P1→P2 프로브 반증).
+#   거짓 deny 문안은 BYPASS 관성을 만든다 — 본 FID 가 없애려는 병이다.
+# I-B: 캐시 변수를 훅 프로세스 env 로 선주입하면 사유·감사 기록 없이 게이트가 열렸다.
+#   SPECOPS_GOVERNANCE_BYPASS 보다 약한 통제라 무조건 초기화로 막는다.
+_IAB=$(mktemp -d) || exit 1
+mkdir -p "$_IAB/.specops/20260910-p"
+cat > "$_IAB/.specops/20260910-p/tasks.md" <<'IABTK'
+```yaml
+tasks:
+  - id: T1
+    test_command: "bash scripts/tests/test-foo.sh"
+    depends_on: []
+    inputs: []
+    outputs: [a.sh]
+    ac: [AC-1]
+```
+IABTK
+printf '<!-- active-fid: 20260910-p -->\n## 20260910-p\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
+  > "$_IAB/.specops/session-progress.md"
+( cd "$_IAB" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init >/dev/null \
+    && printf 'zz\n' >> a.sh && git add a.sh )
+: > "$_IAB/empty.jsonl"        # tool_use 0건 → _verify_exec_evidence rc=2 (판정 불가)
+( cd "$_IAB" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" \
+    record 20260910-p FAIL --executed 1 --failed 1 ) >/dev/null 2>&1
+_in_iab=$(mkstdin 'git commit -m x' "$_IAB/empty.jsonl")
+msg_ia=$(_deny_msg "$_IAB" "$HOOK" "$_in_iab")
+check "T-cause.j-4a rc=2 창 열림에서 deny 유지" 'verify 면제 조건' "$msg_ia"
+check "T-cause.j-4b ① 축 표기 존재(대조군)" '✔ ① 실행 증거' "$msg_ia"
+_nocheck "T-cause.j-4c ① 이 러너 재실행 무용을 단정 안 함" '풀리지 않습니다' "$msg_ia"
+_nocheck "T-cause.j-4d receipt 를 '유일한' 경로라 단정 안 함" '유일한 경로' "$msg_ia"
+# I-B: env 선주입이 게이트를 열지 못한다
+_msg_env=$(printf '%s' "$_in_iab" | _VS_VERDICT_CACHE=PASS _VS_VERDICT_CACHE_FID=20260910-p \
+  CLAUDE_PROJECT_DIR="$_IAB" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecisionReason // ""')
+check "T-cause.j-4e 캐시 env 선주입으로 열리지 않는다" 'verify 면제 조건' "$_msg_env"
+rm -rf "$_IAB"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]
