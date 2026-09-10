@@ -197,13 +197,14 @@ else
 fi
 rm -rf "$_sb2"
 
-# T6.B3 (AC-3): evidence.md 존재 → implement 창 닫힘 → verify 앵커 없으면 매칭(deny)
+# T6.B3 (AC-3): evidence.md 가 있어도 verify 미실행이면 창은 열려 있고, receipt 부재로 매칭(deny)
+#   (20260910-receipt-window-close: 종전 "evidence.md 존재 = 창 닫힘" 계약은 폐기 — 창은 verify verdict 가 정한다)
 _sb3=$(mktemp -d); _b_setup "$_sb3" yes
 out=$(cd "$_sb3" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-pass.jsonl" "Bash" 'git commit -m "feat: T1"')
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then
-  PASS=$((PASS+1)); echo "PASS T6.B3 (AC-3) evidence.md 존재 시 implement receipt 경로 닫힘"
+  PASS=$((PASS+1)); echo "PASS T6.B3 (AC-3) evidence.md 존재해도 verify 미실행이면 창 열림 — receipt 부재로 deny"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T6.B3 (AC-3) evidence 존재해도 면제 — out: $out"
+  FAIL=$((FAIL+1)); echo "FAIL T6.B3 (AC-3) receipt 부재인데 면제됨 — out: $out"
 fi
 rm -rf "$_sb3"
 
