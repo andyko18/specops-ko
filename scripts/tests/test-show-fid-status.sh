@@ -251,6 +251,42 @@ else FAIL=$((FAIL+1)); echo "FAIL T-ts.j 첫 구간: $(printf '%s' "$out3" | gre
 if printf '%s' "$out3" | grep -qE 'fid-start.*9h30m'; then
   FAIL=$((FAIL+1)); echo "FAIL T-ts.j2 TZ 오프셋 미보정 (9h30m)"
 else PASS=$((PASS+1)); echo "PASS T-ts.j2 TZ 오프셋 보정됨"; fi
+# AC-3/AC-4 경계: 원장 1행 + fid-start 기록 → **측정 가능한 구간이 1개 있다**.
+#   종전 `_ts_n -lt 2` 게이트는 이 경우 표를 통째로 닫아 '구간 없음' 이라 **거짓말**했다
+#   (T2 구현자 실측 발견). T3 이 진입 시점에 fid-start 를 기록하기 시작하면 신규 FID 의
+#   첫 `/status` 마다 나오는 상태다. 아래 두 케이스가 게이트의 양쪽을 잠근다.
+_TSG1=20260911-tsg1
+mkdir -p "$TMPDIR_TEST/.specops/$_TSG1"
+cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TSG1EOF
+<!-- active-fid: $_TSG1 -->
+## $_TSG1
+- 2026-09-11 09:30 /analyze 완료 (x)
+TSG1EOF
+printf '{"ts":"2026-09-11T00:00:00Z","fid":"%s","phase":"fid-start","schema_version":2}\n' "$_TSG1" \
+  > "$TMPDIR_TEST/.specops/$_TSG1/metrics.jsonl"
+outg1=$(TZ=Asia/Seoul SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TSG1" 2>&1)
+_ts_secg1=$(printf '%s\n' "$outg1" | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f')
+if printf '%s' "$_ts_secg1" | grep -qE 'fid-start +→ +/analyze +30m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.g1 1행+fid-start → 구간 1개 출력"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.g1 1행+fid-start: $(printf '%s' "$_ts_secg1" | tr '\n' '|')"; fi
+# 그 경우 '구간 없음' 이라고 말하면 안 된다 (음성 단언 — 게이트가 닫혀 있으면 격추)
+if printf '%s' "$_ts_secg1" | grep -q '구간 없음'; then
+  FAIL=$((FAIL+1)); echo "FAIL T-ts.g2 측정 가능한 구간을 '구간 없음' 으로 보고"
+else PASS=$((PASS+1)); echo "PASS T-ts.g2 '구간 없음' 오보 없음"; fi
+# 반대쪽: 0행 + fid-start → 잴 대상(첫 행)이 없으므로 표를 열지 않는다.
+#   열면 대상 칸이 빈 행이 찍힌다(advisor 적발 — hoist 로 도달 가능해진 상태).
+_TSG3=20260911-tsg3
+mkdir -p "$TMPDIR_TEST/.specops/$_TSG3"
+: > "$TMPDIR_TEST/.specops/session-progress.md"
+printf '{"ts":"2026-09-11T00:00:00Z","fid":"%s","phase":"fid-start","schema_version":2}\n' "$_TSG3" \
+  > "$TMPDIR_TEST/.specops/$_TSG3/metrics.jsonl"
+outg3=$(TZ=Asia/Seoul SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TSG3" 2>&1)
+_ts_secg3=$(printf '%s\n' "$outg3" | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f')
+if printf '%s' "$_ts_secg3" | grep -q '구간 없음' \
+   && ! printf '%s' "$_ts_secg3" | grep -q 'fid-start  *→'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.g3 0행+fid-start → 표 미개방 (빈 대상 행 없음)"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.g3 0행+fid-start: $(printf '%s' "$_ts_secg3" | tr '\n' '|')"; fi
+
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

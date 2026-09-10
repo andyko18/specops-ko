@@ -51,8 +51,27 @@ if [ -f "$PROGRESS" ] && grep -qE "^## $FID([[:space:]]|$)" "$PROGRESS"; then
     | sed 's/^- //' | sort)
 fi
 _ts_n=$(printf '%s' "$_ts_rows" | grep -c . )
-if [ "${_ts_n:-0}" -lt 2 ]; then
-  printf '  (구간 없음 — 진행 기록 %s행. 소요는 인접 2행부터 계산됩니다)\n\n' "${_ts_n:-0}"
+# fid-start 조회를 게이트 **위로** 올린다 — 아래 게이트가 이 값을 봐야 한다.
+_ts_start=""
+if [ -f "$FID_DIR/metrics.jsonl" ]; then
+  _ts_start=$(grep '"phase":"fid-start"' "$FID_DIR/metrics.jsonl" 2>/dev/null \
+    | head -1 | sed -n 's/.*"ts":"\([^"]*\)".*/\1/p')
+fi
+# 구간 수 = 인접 쌍(n-1) + fid-start 구간(행이 1개 이상 **이면서** fid-start 기록이 있을 때 1).
+#   종전 `-lt 2` 게이트는 fid-start 행을 통째로 삼켰다 — 원장 1행 + fid-start 인 FID 는
+#   `fid-start → 행1` 이라는 **측정 가능한 구간**이 있는데도 '구간 없음' 이 나왔다(실측).
+#   T3 이 진입 시점에 fid-start 를 기록하기 시작하면 신규 FID 의 첫 `/status` 마다 나온다.
+#   계기판이 "없다"고 거짓말하는 것은 이 FID 가 없애려는 병 그 자체다.
+#   n=0 + fid-start 는 **표를 열지 않는다** — 잴 대상(첫 행)이 없어서 빈 대상 행이 찍힌다.
+_ts_seg=0
+[ "${_ts_n:-0}" -gt 0 ] && _ts_seg=$(( _ts_n - 1 ))
+if [ "${_ts_n:-0}" -ge 1 ] && [ -n "$_ts_start" ]; then _ts_seg=$(( _ts_seg + 1 )); fi
+if [ "$_ts_seg" -lt 1 ]; then
+  if [ "${_ts_n:-0}" -eq 1 ]; then
+    printf '  (구간 없음 — 진행 기록 1행, fid-start 기록도 없음. 인접 2행 또는 fid-start 가 있어야 계산됩니다)\n\n'
+  else
+    printf '  (구간 없음 — 진행 기록 %s행. 소요는 인접 2행부터 계산됩니다)\n\n' "${_ts_n:-0}"
+  fi
 else
   printf '  측정: 완료시각 기준 **인접 행 차이** · **분 해상도** · **경과 시간**이지 작업량이 아닙니다\n'
   printf '        (대기·중단 시간이 포함됩니다 — 사람 응답 대기가 최대 구간인 경우가 실제로 있습니다)\n\n'
@@ -68,11 +87,7 @@ else
   _ts_zs=${_ts_z%"${_ts_z#?}"}                       # 부호 1글자
   _ts_zm=$(( 10#${_ts_z:1:2} * 60 + 10#${_ts_z:3:2} ))
   [ "$_ts_zs" = "-" ] && _ts_zm=$(( -_ts_zm ))
-  _ts_start=""
-  if [ -f "$FID_DIR/metrics.jsonl" ]; then
-    _ts_start=$(grep '"phase":"fid-start"' "$FID_DIR/metrics.jsonl" 2>/dev/null \
-      | head -1 | sed -n 's/.*"ts":"\([^"]*\)".*/\1/p')
-  fi
+  # `_ts_start` 는 게이트 위에서 이미 조회했다(중복 호출 제거).
   if [ -n "$_ts_start" ]; then
     _ts_se=$(bash "$(dirname "${BASH_SOURCE[0]}")/epoch.sh" "$_ts_start" 2>/dev/null)
     _ts_first=$(printf '%s\n' "$_ts_rows" | head -1)
