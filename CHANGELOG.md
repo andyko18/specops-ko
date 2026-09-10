@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.96.0] — 2026-09-10
+
 ### 같은 트리에 full 스위트를 3번 돌렸다 — pre-push 12분이 2초가 됐다 (#42)
 
 `.githooks/pre-push` 는 `run-all.sh`(158 스위트)를 **무조건** 돌렸다. 직전 FID(`20260908-init-enrich-screens-intent`) 하나에서
@@ -1816,7 +1818,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.95.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.96.0...HEAD
+[1.96.0]: https://github.com/andyko18/specops-ko/compare/v1.95.0...v1.96.0
 [1.95.0]: https://github.com/andyko18/specops-ko/compare/v1.94.0...v1.95.0
 [1.94.0]: https://github.com/andyko18/specops-ko/compare/v1.93.0...v1.94.0
 [1.93.0]: https://github.com/andyko18/specops-ko/compare/v1.92.0...v1.93.0
