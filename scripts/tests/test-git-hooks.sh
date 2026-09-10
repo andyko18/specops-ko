@@ -425,7 +425,11 @@ _g '^  echo "VERIFY: FAIL"' "$RUNALL"             && ok "T20.g VERIFY: FAIL 토�
 #   루프 **뒤**에 있어도 통과하고, T20.h 도 (스위트가 트리를 안 더럽히면) 구분하지 못한다.
 #   루프 뒤 캡처는 fail-**open** 방향이다: 트리를 더럽힌 스위트의 종료 지문이 마커가 되어
 #   pre-push 가 그 더러운 트리를 skip 한다. 줄번호 대소로 잠근다(T21.i 와 동형).
-_ln_fsp=$(grep -n '_FSP_TREE=' "$RUNALL" | head -1 | cut -d: -f1)
+# ★ 패턴은 **캡처 대입**(`$(`)에 고정한다 — `_FSP_TREE=` 만 보면 :22 의 초기화
+#   `_FSP_TREE=NO_GIT` 에 첫매치해, 초기화는 두고 캡처 블록만 루프 뒤로 옮기는
+#   분할 변이(C1b)가 통과한다. 그 변이는 실제 fail-open 이다(Phase C 행위 실증:
+#   marker==더럽힌 종료지문). 실측: 원본 fsp=26 PASS · C1b fsp=97 FAIL.
+_ln_fsp=$(grep -n '_FSP_TREE=\$(' "$RUNALL" | head -1 | cut -d: -f1)
 _ln_loop=$(grep -n '^for suite in' "$RUNALL" | head -1 | cut -d: -f1)
 if [ -n "$_ln_fsp" ] && [ -n "$_ln_loop" ] && [ "$_ln_fsp" -lt "$_ln_loop" ]; then
   ok "T20.b1 지문 캡처가 스위트 루프보다 앞"
@@ -519,9 +523,10 @@ else
 fi
 
 # ── fail-closed 경로 (AC-4·AC-9) ─────────────────────────────────────
-# ★ fixture 실패 시 나머지를 **공허 통과시키지 않는다**: _fc="" 면 _fc_run 의 `cd ""` 가 실패해
-#   부작용 파일이 안 생기고 전 케이스가 SKIPPED 로 보고돼 T22.b 만 통과하는 거짓 green 이 된다.
-#   T20.h 의 _t20_dead 패턴과 동형으로 전부 FAIL 로 떨어뜨린다.
+# ★ fixture 미성립 시 **케이스 수·라벨을 고정**한다. if/else 구조가 이미 선형 실행을 막으므로
+#   가드 없이도 "T22.b 만 공허 통과" 는 생기지 않는다(1 FAIL + 나머지 10건 **부재**).
+#   문제는 그 '부재' 다 — AC-R-1 의 라벨 대조가 누락을 세려면 케이스가 이름을 갖고 FAIL 해야 한다.
+#   T20.h 의 _t20_dead 와 동형. (Phase C M-2 가 원 주석의 과장을 지적해 취지로 정정)
 _t22_dead() { nope "$1" "fixture 미성립"; }
 _fc=$(iso::make_git_tree) || _fc=""
 if [ -z "$_fc" ] || [ ! -d "$_fc" ]; then

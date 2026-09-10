@@ -38,6 +38,8 @@ CI_CHECK="scripts/_internal/check-ci-status.sh"
 #   run-all 이 통과시킨 트리와 지금 트리가 같으면 12분을 다시 물지 않는다.
 #   fail-closed: 부재·읽기실패·NO_GIT·불일치·FORCE_FULL 은 전부 전체 실행이다.
 FSP_MARKER="${SPECOPS_ROOT:-.specops}/.full-suite-pass"
+# SPECOPS_FORCE_FULL 은 **값 무관** — 비어있지 않으면 전부 강제 실행이다(=0 포함).
+# spec 은 =1 만 정의했으나 상위집합이고 fail-closed 방향이라 그대로 둔다.
 if [ -z "${SPECOPS_FORCE_FULL:-}" ] && [ -f "$FSP_MARKER" ]; then
   VS_LIB="scripts/_internal/verification-state.sh"
   if [ -f "$VS_LIB" ]; then
