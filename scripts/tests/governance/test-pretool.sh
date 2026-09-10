@@ -901,6 +901,28 @@ _dry_inl_err=$(printf '%s' "$_dry_inline" | CLAUDE_PROJECT_DIR="$_dry2" bash "$H
 check "T-dry.d2 인라인도 SCOPE=staged" 'SCOPE=staged ' "$_dry_inl_err"
 rm -rf "$_dry2"
 
+# T-dry.d3: **prelude + 인라인** 조합 (3회차 Important-2 실측). 접두 벗김이 명령 **첫 줄**만 보던
+#   판본에서는, 인식기(_is_cmd_pos_env = grep, 줄 단위)가 둘째 줄의 인라인을 조회로 인정하면서도
+#   접두가 남은 채 판정돼 `cd sub` ⏎ `SPECOPS_DRYRUN=1 git commit` 이 **항상 conservative** 였다
+#   (실측 BEFORE: `SCOPE=conservative` / AFTER: `SCOPE=staged`, 실제 커밋은 allow=staged 쪽).
+#   ★ `SCOPE=staged` 를 하드코딩하지 않고 **prelude 없는 형태와 1줄 전체를 대조**한다:
+#     _dry_cmd 의 둘째 소비자가 is_docs_only_change 라 같은 결함이 EXEMPT·REASON 도 움직인다.
+#     "prelude 가 답을 바꾸지 않는다"가 곧 이 케이스의 계약이므로 대조가 정확한 어서션이다.
+_dry3=$(mktemp -d)
+( cd "$_dry3" && git init -q && echo x > a.md && git add a.md && mkdir -p .specops sub )
+_d3_base=$(printf '%s' "$_dry_inline" | CLAUDE_PROJECT_DIR="$_dry3" bash "$HOOK" 2>&1 >/dev/null | grep '^SCOPE=')
+_dry_pre_in=$(mkstdin "cd sub
+SPECOPS_DRYRUN=1 git commit -m x" "$FIX/pretool-no-verify.jsonl")
+_d3_pre=$(printf '%s' "$_dry_pre_in" | CLAUDE_PROJECT_DIR="$_dry3" bash "$HOOK" 2>&1 >/dev/null | grep '^SCOPE=')
+if [ -z "$_d3_base" ]; then
+  echo "FAIL T-dry.d3-pre 기준선 판정 1줄 부재 — 대조 무효"; fail=$((fail+1))
+elif [ "$_d3_pre" = "$_d3_base" ]; then
+  echo "PASS T-dry.d3 prelude+인라인이 prelude 없는 형태와 동일 판정 ($_d3_pre)"; pass=$((pass+1))
+else
+  echo "FAIL T-dry.d3 판정 불일치 — prelude=[$_d3_pre] 기준=[$_d3_base]"; fail=$((fail+1))
+fi
+rm -rf "$_dry3"
+
 # T-dry.f: **비인용 언급은 조회가 아니다** — 무앵커 glob false-deny 차단 (T37 과 같은 클래스)
 #   `echo SPECOPS_DRYRUN=1 && git commit -m x` 는 실제 커밋이다. 이걸 조회로 오인해 deny 하면
 #   사용자는 왜 막혔는지 모른 채 BYPASS 로 간다. 여기서는 **면제형 sandbox** 를 쓴다 —

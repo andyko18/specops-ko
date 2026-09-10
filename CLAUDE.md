@@ -65,7 +65,7 @@ chain 의 primary edge 는 `hooks/chain.yaml` 이 단일 Source of Truth 다 —
 
 R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된다(면제·fail-open 시 posttool audit trail 보존). 그 외 위반은 `.specops/<FID>/friction-log.jsonl`에 Soft Warn으로 기록된다.
 
-> **면제 조회 — "이 커밋은 면제됩니까"를 미리 묻는다**: `bash scripts/_internal/scope-explain.sh '<커밋 명령>'`(인자, 또는 stdin 파이프)이 훅과 **같은 판정 함수**를 불러 `SCOPE=staged|conservative EXEMPT=yes|no REASON=<class>(<N> files)` 1줄로 답한다. rc 계약: **0=판정 성공 · 2=입력 없음/읽기 불가 · 3=판정기 로드 불가** — 판정 불가를 그럴듯한 1줄로 위장하지 않는다. 훅 경로에서 묻고 싶으면 `SPECOPS_DRYRUN=1`(env 또는 **명령 선두 인라인**)을 붙인다: 같은 1줄을 stderr 로 내고 **deny 한다** — 조회이므로 커밋을 실행하지 않는다(allow 를 한 건도 늘리지 않는 deny 전용 경로). 커밋 명령 **앞의** `cd <repo 내부 경로>`·bare `VAR=값` 선행 줄은 **최대 8줄까지** 안전 prelude 로 인정해 그 뒤 커밋을 판정한다(그 밖의 선행 줄 — `cd ..`·`cd -`·타 repo 절대경로·명령치환·`git add -A` 등 — 은 보수 판정).
+> **면제 조회 — "이 커밋은 면제됩니까"를 미리 묻는다**: `bash scripts/_internal/scope-explain.sh '<커밋 명령>'`(인자, 또는 stdin 파이프)이 훅과 **같은 판정 함수**를 불러 `SCOPE=staged|conservative EXEMPT=yes|no REASON=<class>(<N> files)` 1줄로 답한다. rc 계약: **0=판정 성공 · 2=입력 없음/읽기 불가 · 3=판정기 로드 불가** — 판정 불가를 그럴듯한 1줄로 위장하지 않는다. 훅 경로에서 묻고 싶으면 `SPECOPS_DRYRUN=1`(env 또는 **명령 선두 인라인**)을 붙인다: 같은 1줄을 stderr 로 내고 **deny 한다** — 조회이므로 커밋을 실행하지 않는다(allow 를 한 건도 늘리지 않는 deny 전용 경로). 커밋 명령 **앞의** `cd <repo 내부 경로>`·bare `VAR=값` 선행 줄은 **최대 8줄까지** 안전 prelude 로 인정해 그 뒤 커밋을 판정한다(그 밖의 선행 줄 — `cd ..`·`cd -`·타 repo 절대경로·명령치환·`git add -A` 등 — 은 보수 판정). ⚠️ **DRYRUN 의 관할 경계**: `.specops/` 부재 repo 와 **사유를 병기한** `SPECOPS_GOVERNANCE_BYPASS=1`(무사유는 deny 라 실행되지 않는다) 사용 시에는 훅이 **그 앞 분기에서 이미 빠져나가** DRYRUN 이 무시되고 커밋이 **실제로 실행된다**(실측: 두 경우 모두 `{"continue":true}`) — 조회 의도였다면 커밋이 나간 뒤에야 알게 되므로, 그 두 상황에서는 `scope-explain.sh` 를 쓴다.
 
 **실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
 
@@ -143,7 +143,7 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 
-`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1470줄 · 함수 33개) 한 파일에 한해 적용하지 않는다** — 33개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
+`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1479줄 · 함수 33개) 한 파일에 한해 적용하지 않는다** — 33개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
 
 **분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다 — 그 릴리즈는 "강제층 자신이 조용히 사라지는 경로가 셋 있었다"를 다뤘다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다.
 

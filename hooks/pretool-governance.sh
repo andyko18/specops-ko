@@ -223,14 +223,20 @@ _dry_cmd="$tool_cmd_scan"
 #    보호는 그대로다 = allow 확대 0. 형제와 같은 경계를 공유하는 편을 택했다.)
 if _is_cmd_pos_env "$tool_cmd_scan" "SPECOPS_DRYRUN=1"; then
   _dryrun=1
-  case "$tool_cmd_scan" in
-    SPECOPS_DRYRUN=1[[:space:]]*)
-      # 인라인 형태는 **접두를 벗긴 뒤** 판정한다 (2회차 Important 실측): 벗기지 않으면
-      #   C2(`git commit` 으로 시작)에서 걸려 항상 `SCOPE=conservative` 가 나온다 —
-      #   조회가 실제 커밋과 **다른 답**을 내면 조회로서 무가치하다(AC-6 "인라인도 동일 판정").
-      _dry_cmd=${tool_cmd_scan#SPECOPS_DRYRUN=1}
-      _dry_cmd=${_dry_cmd#"${_dry_cmd%%[![:space:]]*}"} ;;
-  esac
+  # 인라인 형태는 **접두를 벗긴 뒤** 판정한다 (2회차 Important 실측): 벗기지 않으면
+  #   C2(`git commit` 으로 시작)에서 걸려 항상 `SCOPE=conservative` 가 나온다 —
+  #   조회가 실제 커밋과 **다른 답**을 내면 조회로서 무가치하다(AC-6 "인라인도 동일 판정").
+  # ★ 벗김 기준은 **줄 시작**이다 (3회차 Important-2 실측). 종전 `case SPECOPS_DRYRUN=1[[:space:]]*)`
+  #   는 명령 **첫 줄**만 봤는데, 인식기 `_is_cmd_pos_env` 는 grep 이라 줄 단위다 — prelude 뒤
+  #   둘째 줄의 인라인도 조회로 인식된다. 그 결과 접두가 남은 채 판정돼
+  #   `cd sub` ⏎ `SPECOPS_DRYRUN=1 git commit -m x` 가 실제 커밋(SCOPE=staged)과 달리
+  #   항상 conservative 를 답했다(실측). deny 전용 경로라 안전 영향은 0, **정확성** 결함이었다.
+  #   범위 한계(추정이 아니라 인식기와 대조해 적는다): 인식기는 `[;&|({\`]` 뒤 인라인도 인정하지만
+  #   이 sed 는 줄 시작만 벗긴다. 그 형태(`git add -A && SPECOPS_DRYRUN=1 git commit`)는 접두를
+  #   벗기든 말든 compound 라 C1 에서 보수로 떨어지고, 접두를 뺀 실제 커밋도 같은 이유로 보수다
+  #   → 두 답이 갈라지지 않는다. 또한 sed 쪽이 종전 case 보다 인식기에 **더 가깝다**: 인식기는
+  #   앵커 뒤 선행 공백을 허용하는데 case 는 문자열 정확 시작만 매칭했다.
+  _dry_cmd=$(printf '%s\n' "$tool_cmd_scan" | sed -E 's/^[[:space:]]*SPECOPS_DRYRUN=1[[:space:]]+//')
 fi
 if [ "$_dryrun" = "1" ]; then
   if _commit_scope_is_staged "$_dry_cmd"; then _dry_scope=staged; else _dry_scope=conservative; fi

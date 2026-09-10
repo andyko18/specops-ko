@@ -685,6 +685,15 @@ _is_safe_prelude_line() {
       [ -z "$rest" ] || return 1                           # 동일 줄 env 접두(T-docs.ae 불변)
       case "${tok%%=*}" in ''|*[!A-Za-z0-9_]*) return 1 ;; esac
       case "${tok%%=*}" in [0-9]*) return 1 ;; esac
+      # ★ 이름 나열 예외 2건 (사용자 결정 20260910, Phase C Important-3). 이 파일은 위험 이름을
+      #   나열하지 않는 화이트리스트 철학이지만, `PATH`·`CDPATH` 두 이름만은 거부한다 — 둘은
+      #   이 함수의 전제("index 를 바꾸지 않는 줄") 자체를 거짓으로 만든다:
+      #   `PATH=/tmp/evil` 은 뒤에 올 줄의 `git` 이 **어느 바이너리**인지를, `CDPATH=/tmp` 는
+      #   `cd sub` 가 **어느 디렉터리**로 가는지를 바꾼다. 즉 prelude 가 약속한 불변식(어느 git·어디서)을
+      #   직접 깨부수는 유이한 이름이라 예외로 둔다(실측: 둘 다 이 줄 이전에는 안전 prelude 로 통과했다).
+      #   나열을 넓히지 않는다: `HOME`·`GIT_*`·`LD_*` 등은 본 FID 범위 밖이며 여전히 안전으로
+      #   통과한다 — **알려진 한계**다(spec §7 에는 아직 기재되지 않았다).
+      case "${tok%%=*}" in PATH|CDPATH) return 1 ;; esac
       # 리다이렉션·이스케이프(Minor-4). ★ `*\\*` 는 **역슬래시 1개**를 잡는다 — 앞선
       #   `*'\\'*` 는 single-quote 안이라 역슬래시 **2개**만 매칭해 `VAR=a\b` 가 새어
       #   안전(rc=0)으로 판정됐다(실측 rc=0→1). shellcheck SC1003 도 함께 해소된다.

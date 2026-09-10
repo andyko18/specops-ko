@@ -214,6 +214,10 @@ _clsf_case 0 "T-docs.pre.a cd 절대(현재 repo) 선행 축소"  "cd $_HERE
 $_G $_C -m 'docs: x'"
 _clsf_case 0 "T-docs.pre.b cd 상대 선행 축소"             "cd skills
 $_G $_C -m 'docs: x'"
+# `$PWD/` 접두 벗김 경로(:cd 분기 `"$PWD"/*`)를 잠근다 — 이 줄을 지우면 그 밖의 `/*` 규칙에
+#   걸려 보수로 떨어진다(false-block 방향, MD 변이 실측). 한글·공백 repo 경로 사용자의 회수율 축.
+_clsf_case 0 "T-docs.pre.a2 cd \$PWD/하위 선행 축소"      "cd $_HERE/skills
+$_G $_C -m 'docs: x'"
 _clsf_case 0 "T-docs.pre.c VAR= 선행 축소"                "MSG=/tmp/m.txt
 $_G $_C -F \"\$MSG\""
 _clsf_case 0 "T-docs.pre.d cd+VAR 2줄 선행 축소"          "cd $_HERE
@@ -261,6 +265,19 @@ $_G $_C -q -F - <<'HD'
 docs: x
 HD
 $_G add -A"
+# T-docs.pre.s: `*=*` 분기의 `[ -z "$rest" ] || return 1` 를 잠근다 (Phase C Important-1 실측 —
+#   그 줄을 지운 변이에서 test-lib 140/140 이 그대로 생존했고, `VAR=x git add -A` ⏎ `git commit`
+#   이 축소 승인(false-open)으로 뚫렸다). 기존 T-docs.ae 는 **단일 줄**이라 prelude 루프에
+#   진입조차 하지 않아 이 축을 보지 못한다 — 반드시 2줄이어야 판별력이 생긴다.
+_clsf_case 1 "T-docs.pre.s env 접두+명령 prelude 보수(false-open 축)" "VAR=x $_G add -A
+$_G $_C -m x"
+# T-docs.pre.t·u: prelude 가 약속한 불변식(어느 git · 어디서)을 직접 깨는 두 이름 (Important-3,
+#   사용자 결정). 수정 전에는 둘 다 안전 prelude 로 통과해 `PATH=/tmp/evil` ⏎ 커밋이 rc=0 이었다.
+_clsf_case 1 "T-docs.pre.t PATH= 선행 보수(어느 git 인지 변조)"  "PATH=/tmp/evil
+$_G $_C -m x"
+_clsf_case 1 "T-docs.pre.u CDPATH= 선행 보수(cd 목적지 변조)"    "CDPATH=/tmp
+cd other-repo
+$_G $_C -m x"
 
 # T-docs.ah~ak: is_docs_only_change 스코프 분기 (sandbox — staged=docs + unstaged 코드)
 _scope_sandbox() {  # $1 expect_rc  $2 label  $3 cmd(빈 문자열이면 무인자 호출)
