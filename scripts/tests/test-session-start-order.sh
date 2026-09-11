@@ -34,8 +34,8 @@ make_ctx(){ # $1=sandbox dir  $2=with_optional(1|0)
 
 # 오프셋은 **decode 된 additionalContext** 기준으로 잰다. harness 절단이 인코딩 원문
 # 기준일 수 있으나, 인코딩 기준 실측(436B)도 상한 대비 여유가 커서 어느 기준이든 계약이 선다.
-SB=$(mktemp -d); SB2=""
-trap 'rm -rf "$SB" "$SB2"' EXIT
+SB=$(mktemp -d); SB2=""; SB3=""; SB4=""
+trap 'rm -rf "$SB" "$SB2" "$SB3" "$SB4"' EXIT
 make_ctx "$SB" 1
 CTX="$SB/ctx.txt"
 
@@ -121,6 +121,83 @@ case "$root_path" in
       else ng "T-pend.b 플러그인 루트" "scripts/freework-resolve-fid.sh 부재: $root_path"; fi ;;
   *) ng "T-pend.b 플러그인 루트" "치환 지시/절대경로 미발견: '${root_path}'" ;;
 esac
+
+# 전 조건부 블록 샌드박스 — make_ctx(…, 1) 에 미완 batch 1건을 더하고, $2=1 이면 최상단 FID 블록을
+#   20,000자 이상으로 부풀린다. 채움 줄에는 단계 표기(/specify 등)를 넣지 않는다 — reconcile 판정을
+#   바꾸지 않아야 두 샌드박스의 앞 블록이 같아진다.
+mk_full(){ # $1=sandbox  $2=giant(0|1)
+  make_ctx "$1" 1
+  mkdir -p "$1/.specops/batch-20260828-0900"
+  printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-1 | 20260101-d1 | d | IMPL_DONE |\n| FR-p1 | TBD | p | PENDING |\n' \
+    > "$1/.specops/batch-20260828-0900/queue.md"
+  : > "$1/.specops/batch-20260828-0900/ACTIVE"
+  if [ "$2" = "1" ]; then
+    local i
+    for i in $(seq 1 450); do
+      printf '  메모 %03d: 가나다라마바사아자차카타파하 세션 기록 누적 확인용 한글 채움 문장입니다\n' "$i"
+    done >> "$1/.specops/session-progress.md"
+  fi
+  ctx_j "$1"
+}
+SB3=$(mktemp -d); mk_full "$SB3" 1
+SB4=$(mktemp -d); mk_full "$SB4" 0
+reh_of(){ sed -n '/^<session-progress-rehydrate>/,/^<\/session-progress-rehydrate>/p' "$1"; }
+pre_of(){ awk '/^<session-progress-rehydrate>/{ exit } { print }' "$1"; }
+OMIT='(이하 생략 — 전체: .specops/session-progress.md)'
+
+# T-bud.b 전 조건부 블록 + 거대 rehydrate 에서도 9,500자 이하 (AC-2)
+#   ★ 공허 가드: 픽스처가 정말 전 블록을 냈는지·원문이 20,000자를 넘는지 먼저 확인한다.
+n_b=$(chars_of "$SB3/ctxj.txt"); src_b=$(chars_of "$SB3/.specops/session-progress.md")
+blocks_b=$(grep -cE '^<(freecomment-pending|session-progress-reconcile|batch-resume|session-progress-rehydrate)>' "$SB3/ctxj.txt")
+if [ "$blocks_b" -eq 4 ] && [ "$src_b" -ge 20000 ] && [ "${n_b:-99999}" -le 9500 ] \
+   && jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' "$SB3/outj.json" >/dev/null 2>&1; then
+  ok "T-bud.b 전 블록+거대 rehydrate(원문 ${src_b}자) → ${n_b}자 <= 9500, JSON 유효"
+else
+  ng "T-bud.b 거대 rehydrate 예산" "chars=${n_b:-없음} limit=9500 원문=$src_b 블록=$blocks_b/4"
+fi
+
+# T-bud.c 절단 시 rehydrate 태그 안 끝에 생략 포인터 + 앞 블록은 절단 없는 경우와 문자 단위 동일 (AC-2 ②③)
+if reh_of "$SB3/ctxj.txt" | tail -2 | head -1 | grep -qF -- "$OMIT" \
+   && [ "$(pre_of "$SB3/ctxj.txt")" = "$(pre_of "$SB4/ctxj.txt")" ]; then
+  ok "T-bud.c 생략 포인터가 rehydrate 끝 + 앞 블록 불변"
+else
+  ng "T-bud.c 절단 형태" "끝줄='$(reh_of "$SB3/ctxj.txt" | tail -2 | head -1)' 앞블록동일=$([ "$(pre_of "$SB3/ctxj.txt")" = "$(pre_of "$SB4/ctxj.txt")" ] && echo y || echo n)"
+fi
+
+# T-bud.d 예산 이내면 rehydrate 무절단 — 포인터 없음 + 최상단 블록 끝 줄 포함 (AC-3)
+n_d=$(chars_of "$SB4/ctxj.txt")
+if [ "${n_d:-99999}" -le 9500 ] && ! grep -qF -- "$OMIT" "$SB4/ctxj.txt" \
+   && reh_of "$SB4/ctxj.txt" | grep -qF -- '/specify 완료 (spec.md)'; then
+  ok "T-bud.d 예산 이내(${n_d}자) → rehydrate 무절단"
+else
+  ng "T-bud.d 무절단" "chars=${n_d:-없음} 포인터=$(grep -cF -- "$OMIT" "$SB4/ctxj.txt")"
+fi
+
+# T-bud.e 문자 계산은 locale 무관 — UTF-8 locale 과 C locale 에서 거대 픽스처 출력이 바이트 동일 (AC-3)
+#   ${#var} 같은 locale 의존 계산이면 C 에서 바이트로 세어 한글 픽스처의 절단점이 달라진다.
+u8=$(locale -a 2>/dev/null | grep -iE '^(en_US|C)\.(utf-?8)$' | head -1)
+( cd "$SB3" && LC_ALL=C LANG=C bash "$HOOK" 2>/dev/null ) > "$SB3/out_c.json"
+if [ ! -s "$SB3/out_c.json" ]; then
+  ng "T-bud.e locale 비교" "C locale 출력이 비었다 — 둘 다 비면 cmp 가 공허 PASS 한다"
+elif [ -n "$u8" ]; then
+  ( cd "$SB3" && LC_ALL="$u8" LANG="$u8" bash "$HOOK" 2>/dev/null ) > "$SB3/out_u.json"
+  if cmp -s "$SB3/out_c.json" "$SB3/out_u.json"; then ok "T-bud.e locale 무관 ($u8 == C)"
+  else ng "T-bud.e locale 의존" "$u8 과 C 출력이 다름"; fi
+else
+  cmp -s "$SB3/out_c.json" "$SB3/outj.json" && ok "T-bud.e locale 무관 (UTF-8 locale 부재 — 기본 == C 비교)" \
+    || ng "T-bud.e locale 의존" "기본과 C 출력이 다름"
+fi
+
+# T-bud.f progress_block 을 조기 종료 소비자(head·grep -q)로 파이프하지 않는다 (plan-reviewer C-1 — 정적 잠금)
+#   set -euo pipefail 하에서 블록이 파이프 버퍼보다 크면 printf 가 SIGPIPE(rc 141)로 죽고 set -e 가 훅을
+#   **무출력 종료**시킨다(실측: 병렬 24회 중 2회 JSON 0바이트). 레이스라 동적 테스트로는 결정적으로 못 잡는다.
+#   주석 행은 제외한다(설명문의 `progress_block … | head` 오탐 방지 — plan-reviewer 2회차 Minor).
+early_pipe=$(grep -nE 'progress_block"?[^|]*\|[[:space:]]*(head|grep[[:space:]]+-[a-zA-Z]*q)' "$HOOK" | grep -vE '^[0-9]+:[[:space:]]*#' || true)
+if [ -n "$early_pipe" ]; then
+  ng "T-bud.f progress_block 조기 종료 파이프" "$(printf '%s\n' "$early_pipe" | head -1)"
+else
+  ok "T-bud.f progress_block 조기 종료 파이프 없음 (SIGPIPE 무출력 경로 차단)"
+fi
 
 # --- 문서 계약 (AC-5) ---------------------------------------------------------
 # 조립 순서는 코드에만 있으면 다음 편집자가 모른다. 순서를 서술하는 문서 3곳이
