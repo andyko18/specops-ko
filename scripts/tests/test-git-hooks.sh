@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-all: serial — GH-ci.5·5b 가 워치독 1s 타임아웃을 < 3s(초 단위)로 잰다(CPU 경합 시 초과)
-# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 — 한산 ~10분, 머신 부하가 값을 흔든다. 동일 트리면 마커 skip)
+# 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 — 병렬 ~7분, 머신 부하가 값을 흔든다. 동일 트리면 마커 skip)
 # 계기: 44cd095 revert 가 run-all 없이 나가 main 이 하루 red.
 #       Claude Code PreToolUse 훅은 Cursor 등 다른 도구의 커밋에 발화하지 않는다 —
 #       git hook 은 도구 무관하게 걸리는 유일한 층이다.

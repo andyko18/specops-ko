@@ -419,7 +419,7 @@ rm -rf "$_sb"
 #   (false-deny). 그 계약을 여기서 잠근다 — 실제 append 결과를 그 정규식으로 단언한다.
 # ★ `SPECOPS_ROOT` 로는 격리되지 않는다 — session-progress-append.sh:52 가
 #   `TARGET=".specops/session-progress.md"` 를 **하드코딩**해 cwd 기준으로 쓴다.
-#   run-all.sh:76 이 `cd "$PLUGIN"` 을 하므로 그대로 두면 (a) 항상 FAIL 이고
+#   run-all.sh:124 (작업자)가 `cd "$plugin"` 을 하므로 그대로 두면 (a) 항상 FAIL 이고
 #   (b) **실 repo 원장에 `## 20260911-lock` 섹션이 prepend 되고 `active-fid` 마커가
 #   탈취된다**(20260829-fixture-fid-hijack 재발). 반드시 `cd` 로 격리한다.
 #   `---` 앵커도 필수다 — 없으면 섹션이 조용히 드롭된다(이 파일 T-fx.c 와 동일 관행).

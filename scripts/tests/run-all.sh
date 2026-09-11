@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # specops-ko 전체 테스트 aggregator
-# 사용: bash scripts/tests/run-all.sh [--quiet]
+# 사용: bash scripts/tests/run-all.sh [--quiet]   (병렬 수: SPECOPS_RUN_ALL_JOBS — 아래 "병렬 실행" 절)
 # 대상: scripts/tests/{,dag/,governance/,llm-eval/,test-convention/,freecomment/,promote/}test-*.sh + validate-structure.sh
 # 제외: bench-hook.sh(벤치마크), fixtures/, dogfood-parallel-harness.sh
 set -uo pipefail

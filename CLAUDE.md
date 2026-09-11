@@ -8,11 +8,16 @@ specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이�
 
 ## 테스트 명령
 
-> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**159 스위트** 실측 — 한산 ~570s, 머신이 바쁘면 ~980s 까지. 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
+> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**161 스위트** · 작업자 풀 병렬 — 2026-09-11 실측 median 병렬 382s(5회) / 직렬 813s(3회). `SPECOPS_RUN_ALL_JOBS` 로 병렬 수 지정(기본 코어 수·상한 8, `1`=직렬). 스위트별 300s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). 탈출구는 `--no-verify`.
 
 ```bash
 # 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
 bash scripts/tests/run-all.sh
+# 병렬 수 지정·직렬 강제: SPECOPS_RUN_ALL_JOBS=1 bash scripts/tests/run-all.sh
+#   CPU 경합에 약한 시간 임계 스위트는 파일 선두 20줄에 `# run-all: serial — <사유>` 를 달면 병렬 풀 종료 뒤 하나씩 돈다.
+
+# 숨은 실 트리 쓰기 탐지 (수동 — 스위트 격리를 바꿀 때. 확정=실 트리 쓰기 · 검토=상대경로라 사람이 판정)
+bash scripts/tests/find-tree-writes.sh -j 6
 
 # LLM 동작 smoke eval (수동 전용 — 토큰 비용 발생, run-all 비포함)
 bash scripts/tests/llm-eval/run-evals.sh
