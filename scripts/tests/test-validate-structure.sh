@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# run-all: serial — T-hg.d 가 TERM→2s 유예→KILL 안에 trap 복원을 요구한다(CPU 경합 시 유예 초과)
 # specops-ko v0.0 PoC · scripts/_internal/validate-structure.sh 검증
 # baseline: P1 flat — commands=1, skills/<name>/SKILL.md=16, templates=6 (sandbox 격리)
 # U4 후: sandbox 가 .structure-baseline 자체 생성. agents/ 빈 디렉토리 OK.
