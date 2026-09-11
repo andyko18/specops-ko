@@ -81,6 +81,28 @@ else
 fi
 
 
+# --- 인라인 예산 계약 (FID 20260911-meta-skill-progressive-disclosure) ----------
+# Claude Code 는 훅 출력 1건이 **문자 10,000** 을 넘으면 파일로 빼고 선두 2KB 프리뷰만 인라인한다
+# (바이트 아님 — 실측 9,990자 인라인·10,010자 파일행·한글 5,000자 인라인). 넘으면 메타 skill 대부분이
+# 모델에 닿지 않는다(실측: specops 주입 235건 전부 파일행). 여기서는 jq 로 **디코드한 뒤 문자**를 센다 —
+# 훅 내부 계산기와 다른 경로로 재야 계산기 결함이 같이 숨지 않는다.
+chars_of(){ LC_ALL=C tr -d '\200-\277' < "$1" | wc -c | tr -d ' '; }   # UTF-8 연속 바이트 제외 = 문자 수
+ctx_j(){ # $1=sandbox — 이미 구성된 샌드박스에서 훅 재실행 → $1/ctxj.txt (jq -j: 끝 개행 없음)
+  ( cd "$1" && bash "$HOOK" 2>/dev/null ) > "$1/outj.json"
+  jq -j '.hookSpecificOutput.additionalContext' "$1/outj.json" > "$1/ctxj.txt" 2>/dev/null
+}
+
+# T-bud.a 조건부 블록 0개 경로는 8,000자 이하 + 메타 SKILL.md 본문 전 행 포함 (AC-1)
+#   8,000 은 래칫이다 — 조건부 블록·rehydrate 몫(~1,500자)을 남겨 둔다. 메타가 다시 커지면 여기서 멈춘다.
+ctx_j "$SB2"
+n_a=$(chars_of "$SB2/ctxj.txt"); miss_a=0
+while IFS= read -r l; do
+  [ -z "$l" ] && continue
+  grep -qF -- "$l" "$SB2/ctxj.txt" || miss_a=$((miss_a+1))
+done < "$PLUGIN/skills/using-specops-ko/SKILL.md"
+if [ "${n_a:-99999}" -le 8000 ] && [ "$miss_a" -eq 0 ]; then ok "T-bud.a 조건부 0개 ${n_a}자 <= 8000 · 메타 본문 전 행 포함"
+else ng "T-bud.a 조건부 0개 총량/메타 전량" "chars=${n_a:-없음} limit=8000 누락행=$miss_a"; fi
+
 # --- 문서 계약 (AC-5) ---------------------------------------------------------
 # 조립 순서는 코드에만 있으면 다음 편집자가 모른다. 순서를 서술하는 문서 3곳이
 # 계약을 담고 있는지 함께 잠근다 — 실측 결함의 구조적 원인이 "각 PR 이 자기 블록만
