@@ -8,10 +8,11 @@ command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit
 PASS=0; FAIL=0
 RA="$PLUGIN/scripts/tests/run-all.sh"
 
-# subdir 정규화: PLUGIN 상대 → 루트는 ".", 서브는 dirname
+# subdir 정규화: 루트 상대 → 루트는 ".", 서브는 dirname. $1=트리 루트(기본 PLUGIN)
 _actual() {
-  find "$PLUGIN/scripts/tests" -name 'test-*.sh' -not -path '*/fixtures/*' 2>/dev/null \
-    | sed -E "s#^$PLUGIN/scripts/tests##; s#/test-[^/]*\$##; s#^/##; s#^\$#.#" | sort -u
+  local r="${1:-$PLUGIN}"
+  find "$r/scripts/tests" -name 'test-*.sh' -not -path '*/fixtures/*' 2>/dev/null \
+    | sed -E "s#^$r/scripts/tests##; s#/test-[^/]*\$##; s#^/##; s#^\$#.#" | sort -u
 }
 # run-all for-루프 glob 라인만 파싱 (L4 주석 brace 형태는 미매치 — SoT 단일)
 _cover() {
@@ -33,15 +34,24 @@ else
 fi
 
 # ── T3: reverse-observe — 미등록 subdir 적발 (AC-2) ──
-dummy="$PLUGIN/scripts/tests/extract-test-commands/test-glob-canary.sh"
-trap 'rm -f "$dummy"' EXIT   # abort 잔존 방지 (plan-reviewer M-4)
-mkdir -p "$(dirname "$dummy")"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$dummy"
-miss_after=$(comm -23 <(_actual) <(_cover))
-rm -f "$dummy"
-echo "$miss_after" | grep -q 'extract-test-commands' \
-  && ok "T3.a reverse-observe — 미등록 subdir FAIL 적발" \
-  || nope "T3.a reverse-observe" "dummy 넣어도 미검출(계약 무력)"
+#   ★ canary 는 사본 트리에 만든다 (20260911-run-all-parallel): 실 트리에 만들면 병렬로 도는
+#     스위트(find scripts/tests · cp -R scripts)가 canary 를 보고, SIGKILL 이면 잔존해 마커 지문을 바꾼다.
+#     _actual 은 파일 **이름**만 보므로 test-*.sh 목록을 빈 파일로 복제한 트리면 충분하다.
+F=$(mktemp -d) || { nope "T3.a reverse-observe" "사본 생성 실패"; finish; exit 1; }
+trap 'rm -rf "$F"' EXIT
+( cd "$PLUGIN" && find scripts/tests -name 'test-*.sh' -not -path '*/fixtures/*' ) \
+  | while IFS= read -r f; do mkdir -p "$F/$(dirname "$f")" && : > "$F/$f"; done
+# 공허 가드: 사본이 실 트리와 같은 subdir 집합이어야 canary 차이가 의미를 갖는다
+if [ -z "$(_actual "$F")" ] || [ "$(_actual "$F")" != "$(_actual)" ]; then
+  nope "T3.a reverse-observe" "사본 subdir 집합이 실 트리와 다르다 (사본=[$(_actual "$F" | tr '\n' ' ')])"
+else
+  mkdir -p "$F/scripts/tests/extract-test-commands"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$F/scripts/tests/extract-test-commands/test-glob-canary.sh"
+  miss_after=$(comm -23 <(_actual "$F") <(_cover))
+  echo "$miss_after" | grep -q 'extract-test-commands' \
+    && ok "T3.a reverse-observe — 미등록 subdir FAIL 적발 (사본 canary)" \
+    || nope "T3.a reverse-observe" "dummy 넣어도 미검출(계약 무력)"
+fi
 
 # ── T4: 주석 배제 — 커버 ⊆ 실제 (주석에만 있는 가짜 dir 오포획 없음) (AC-4) ──
 # count 하드코딩 대신 역방향 부분집합: for-루프 형태를 주석에 써도 실제에 없으면 FAIL (plan-reviewer M-1)
