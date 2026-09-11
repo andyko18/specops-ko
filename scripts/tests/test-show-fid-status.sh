@@ -298,6 +298,40 @@ done
 if [ "$_ts_miss" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T-ts.k 두 진입 경로에 fid-start 지시 기재"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.k fid-start 지시 누락 ${_ts_miss}건"; fi
+
+# === 첫 구간 branch 잠금 (Phase C 추가) — 같은 fixture 디렉토리를 재사용한다 ===
+_TSC=20260911-tsc
+mkdir -p "$TMPDIR_TEST/.specops/$_TSC"
+_tsc_run() { # <TZ> <fid-start ts> → 소요 표 섹션
+  cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TSCEOF
+## $_TSC
+- 2026-09-10 11:00 /specify 완료 (x)
+- 2026-09-10 10:00 /analyze 완료 (x)
+TSCEOF
+  printf '{"ts":"%s","fid":"%s","phase":"fid-start","schema_version":2}\n' "$2" "$_TSC" \
+    > "$TMPDIR_TEST/.specops/$_TSC/metrics.jsonl"
+  TZ="$1" SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TSC" 2>&1 \
+    | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f'
+}
+# AC-8 경계 60분 — 첫 구간에도 적용된다(M11 잠금: `-ge 60`→`-gt` 면 `60m` 이 나온다)
+if _tsc_run UTC '2026-09-10T09:00:00Z' | grep -qE 'fid-start +→ +/analyze +1h0m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.l 첫 구간 경계 60분 = 1h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.l 첫 구간 60분 경계"; fi
+# 음수 오프셋 TZ — 부호 처리(`_ts_zs`)가 빠지면 -0400 을 +0400 으로 읽어 8h 틀린다
+if _tsc_run America/New_York '2026-09-10T12:00:00Z' | grep -qE 'fid-start +→ +/analyze +2h0m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.m 음수 오프셋 TZ(-0400) 첫 구간 2h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.m 음수 오프셋: $(_tsc_run America/New_York '2026-09-10T12:00:00Z' | grep fid-start)"; fi
+# AC-3 branch (b): fid-start 가 첫 행보다 뒤 → 음수 분을 내지 않고 사유를 밝힌다
+_tsc_neg=$(_tsc_run UTC '2026-09-10T11:30:00Z')
+if printf '%s' "$_tsc_neg" | grep 'fid-start' | grep -q '측정 불가.*시각 불일치' \
+   && ! printf '%s' "$_tsc_neg" | grep -qE 'fid-start.* -[0-9]+m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.n fid-start 역전 → 측정 불가(시각 불일치)"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.n 역전 처리: $(printf '%s' "$_tsc_neg" | grep fid-start)"; fi
+# AC-3 branch (c): ts 파싱 실패 → 행이 사라지지 않고 '파싱 실패' 를 밝힌다
+_tsc_bad=$(_tsc_run UTC 'not-a-ts')
+if printf '%s' "$_tsc_bad" | grep 'fid-start' | grep -q '측정 불가.*파싱 실패: not-a-ts'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.o fid-start ts 파싱 실패 → 측정 불가(파싱 실패)"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.o 파싱 실패 처리: $(printf '%s' "$_tsc_bad" | grep fid-start)"; fi
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

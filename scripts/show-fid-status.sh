@@ -83,6 +83,12 @@ else
   #   행 간 인접 차이는 오프셋이 상쇄돼 무해하지만, UTC fid-start 와 로컬 첫 행을 그냥 빼면
   #   오프셋만큼 틀린다. 실측(plan-reviewer, +0900): 정답 5m 이 **9h5m** 으로 나왔다.
   #   `date +%z` 로 오프셋을 1회 읽어 UTC 기준값에 더해 로컬로 맞춘다.
+  # 분 → 표기 1곳. 첫 구간(_ts_d0)과 본구간(_ts_dm)이 같은 규칙을 **한 정의**로 쓴다.
+  _ts_fmt_min() { # <minutes> → "Nm" | "XhYm" | "(역순)"
+    if [ "$1" -lt 0 ]; then printf '(역순)'
+    elif [ "$1" -ge 60 ]; then printf '%sh%sm' "$(( $1 / 60 ))" "$(( $1 % 60 ))"
+    else printf '%sm' "$1"; fi
+  }
   _ts_z=$(date +%z)                                  # 예: +0900 / -0500
   _ts_zs=${_ts_z%"${_ts_z#?}"}                       # 부호 1글자
   _ts_zm=$(( 10#${_ts_z:1:2} * 60 + 10#${_ts_z:3:2} ))
@@ -102,10 +108,8 @@ else
         #   내면 `-3m` 같은 값이 표에 박혀 계기판이 또 거짓말한다 — 사유를 밝힌다.
         printf '  %-20s → %-20s %8s   (fid-start 가 첫 행보다 나중 — 시각 불일치)\n' \
           "fid-start" "$_ts_fcmd" "측정 불가"
-      elif [ "$_ts_d0" -ge 60 ]; then
-        printf '  %-20s → %-20s %8s\n' "fid-start" "$_ts_fcmd" "$(( _ts_d0 / 60 ))h$(( _ts_d0 % 60 ))m"
       else
-        printf '  %-20s → %-20s %8s\n' "fid-start" "$_ts_fcmd" "${_ts_d0}m"
+        printf '  %-20s → %-20s %8s\n' "fid-start" "$_ts_fcmd" "$(_ts_fmt_min "$_ts_d0")"
       fi
     else
       # 변환 실패를 조용히 삼키면 **행이 아예 사라져** "fid-start 기록이 없다"와
@@ -141,10 +145,7 @@ else
       # `sort` 는 문자열 사전순이고 형식이 고정폭(YYYY-MM-DD HH:MM)이라 정상 데이터에서는
       #   시간순과 일치한다. 그래도 음수를 표에 내지는 않는다 — 손상된 원장 행이 섞이면
       #   `-13m` 이 출력돼 계기판이 거짓말한다(관측 아님, 방어).
-      if [ "$_ts_dm" -lt 0 ]; then _ts_fmt="(역순)"
-      elif [ "$_ts_dm" -ge 60 ]; then _ts_fmt="$(( _ts_dm / 60 ))h$(( _ts_dm % 60 ))m"
-      else _ts_fmt="${_ts_dm}m"; fi
-      printf '  %-20s → %-20s %8s\n' "$_ts_prev_cmd" "$_ts_cmd" "$_ts_fmt"
+      printf '  %-20s → %-20s %8s\n' "$_ts_prev_cmd" "$_ts_cmd" "$(_ts_fmt_min "$_ts_dm")"
     fi
     _ts_prev_cmd="$_ts_cmd"; _ts_prev_min="$_ts_min"
   done
