@@ -17,13 +17,17 @@ PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ROOT="$PLUGIN"; JOBS=4; LIST=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --root) ROOT="${2:?--root 값 필요}"; shift 2 ;;
-    -j) JOBS="${2:?-j 값 필요}"; shift 2 ;;
+    --root|-j) [ $# -ge 2 ] || { echo "사용법 오류: $1 값 필요" >&2; exit 2; }
+      if [ "$1" = -j ]; then JOBS=$2; else ROOT=$2; fi; shift 2 ;;
     -h|--help) sed -n '2,6p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) LIST+=("$1"); shift ;;
   esac
 done
 case "$JOBS" in ''|*[!0-9]*|0*) echo "사용법 오류: -j 는 1 이상 정수" >&2; exit 2 ;; esac
+# 없는 스위트를 넘기면 "0건" 이 안전처럼 보인다 — 검사 전에 사용법 오류로 끊는다
+for s in ${LIST[@]+"${LIST[@]}"}; do
+  [ -f "$ROOT/$s" ] || { echo "사용법 오류: 스위트 없음 — $s" >&2; exit 2; }
+done
 
 # shellcheck source=/dev/null
 . "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null
@@ -33,11 +37,12 @@ W=$(mktemp -d) || { rm -rf "$C"; exit 2; }
 # 쓰기 금지 사본은 그대로 rm 이 안 된다 — 권한을 되돌린 뒤 지운다
 trap 'chmod -R u+w "$C" 2>/dev/null; rm -rf "$C" "$W"' EXIT
 
+# 목록은 NUL 구분 — 개행 구분이면 xargs 가 공백·따옴표 이름에서 abort 해 그 스위트를 **무음 스킵**한다
 if [ ${#LIST[@]} -eq 0 ]; then
-  ( cd "$C" && { echo scripts/_internal/validate-structure.sh
-                 find scripts/tests -name 'test-*.sh' -not -path '*/fixtures/*' | sort; } ) > "$W/list"
+  ( cd "$C" && { printf '%s\0' scripts/_internal/validate-structure.sh
+                 find scripts/tests -name 'test-*.sh' -not -path '*/fixtures/*' -print0 | sort -z; } ) > "$W/list"
 else
-  printf '%s\n' "${LIST[@]}" > "$W/list"
+  printf '%s\0' "${LIST[@]}" > "$W/list"
 fi
 chmod -R a-w "$C"
 
@@ -56,9 +61,9 @@ grep -F '{사본}' "$w/$key.all" | sed "s#^#WRITE-ATTEMPT $s: #" > "$w/$key.hit"
 grep -vF '{사본}' "$w/$key.all" | grep -vE "(^|[ :'\"])/" | sed "s#^#REVIEW $s: #" > "$w/$key.rev"
 exit 0
 ONE
-xargs -n 1 -P "$JOBS" bash -c "$_FTW_ONE" _ "$C" "$W" < "$W/list"
+xargs -0 -n 1 -P "$JOBS" bash -c "$_FTW_ONE" _ "$C" "$W" < "$W/list"
 
-n_scan=$(wc -l < "$W/list" | tr -d ' ')
+n_scan=$(tr -cd '\0' < "$W/list" | wc -c | tr -d ' ')
 cat "$W"/*.hit "$W"/*.rev 2>/dev/null
 n_hit=$(cat "$W"/*.hit 2>/dev/null | wc -l | tr -d ' ')
 n_rev=$(cat "$W"/*.rev 2>/dev/null | wc -l | tr -d ' ')

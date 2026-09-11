@@ -56,6 +56,27 @@ out=$(bash "$FTW" --root "$CL" 2>&1); rc=$?
 bash "$FTW" --root "$CL" -j abc >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 2 ] && ok "T3.a 잘못된 -j → rc=2" || nope "T3.a 사용법 오류" "rc=$rc"
 
+# ── T5: 입력 경계 (Phase C 지적) — 조용한 0건 금지 ──
+#   이름에 공백·작은따옴표가 있는 스위트도 검사한다(개행 구분 xargs 는 여기서 abort 해 그 스위트를 무음 스킵했다)
+OD=$(_fx clean) || { nope "T5 fixture" "생성 실패"; finish; exit 1; }
+trap 'rm -rf "$FX" "$CL" "$OD"' EXIT
+for n in "sp ace" "q'uote"; do
+  printf '%s\n' '#!/usr/bin/env bash' 'R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)' 'echo x > "$R/odd.txt"; echo "PASS=1 FAIL=0"' \
+    > "$OD/scripts/tests/test-$n.sh"
+done
+( cd "$OD" && git add -A ) >/dev/null 2>&1
+out=$(bash "$FTW" --root "$OD" -j 2 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-sp ace.sh: " \
+  && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-q'uote.sh: " \
+  && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 2건 · 검토 0건 · 스위트 2/4' \
+  && ! printf '%s\n' "$out" | grep -q '^xargs:'; } \
+  && ok "T5.a 공백·따옴표 이름 스위트도 검사 (확정 2 · 스위트 2/4)" || nope "T5.a 특수 이름" "rc=$rc out=[$out]"
+out=$(bash "$FTW" --root "$CL" scripts/tests/test-none.sh 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
+  && ok "T5.b 없는 스위트 경로 → rc=2 (0건으로 위장하지 않음)" || nope "T5.b 없는 경로" "rc=$rc out=[$out]"
+bash "$FTW" --root "$CL" -j '' >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 2 ] && ok "T5.c 빈 -j → rc=2" || nope "T5.c 빈 -j" "rc=$rc"
+
 # run-all 비포함(clarify Q2) — run-all 은 test-*.sh 만 모은다. 이름이 그 패턴이면 매 run-all 마다 전 스위트를 한 번 더 돈다
 case "$(basename "$FTW")" in
   test-*) nope "T4.a 수동 도구 이름" "$(basename "$FTW") 는 run-all glob(test-*.sh)에 걸린다" ;;
