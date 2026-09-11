@@ -45,7 +45,7 @@ rules_path="$plugin_root/hooks/rules.jsonl"
 
 # Bash 사전 필터 (20260911-posttool-matcher-narrow) — pretool-governance.sh:45-56 동형.
 #   이 훅은 동기라 모든 Bash 호출 뒤에 붙는다. 커밋·PR 이 아닌 명령(호출의 대부분)에서 아래
-#   is_docs_only_audit_scope 의 git 3~4회와 규칙 루프 jq 를 다 치른 뒤 :1077 에서 버리던 것을 먼저 거른다.
+#   is_docs_only_audit_scope 의 git 3~4회와 규칙 루프 jq 를 다 치른 뒤 governance-lib.sh:1084(trigger_pattern grep)에서 버리던 것을 먼저 거른다.
 #   ★ 판정 집합 불변: 정규식은 rules.jsonl 단일 소스(posttool·trigger_tool=Bash, enabled 무관 — 상위집합.
 #     enabled==true 로 좁혀도 load_rules 가 enabled 만 적재해 판정은 같다 — 스위트가 잠그지 않는 설계 선택),
 #     전처리는 apply_lookback_rule(governance-lib.sh:1082-1083)과 **같은 함수**다. 복제하지 않는다.
