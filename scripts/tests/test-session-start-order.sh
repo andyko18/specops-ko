@@ -103,6 +103,25 @@ done < "$PLUGIN/skills/using-specops-ko/SKILL.md"
 if [ "${n_a:-99999}" -le 8000 ] && [ "$miss_a" -eq 0 ]; then ok "T-bud.a 조건부 0개 ${n_a}자 <= 8000 · 메타 본문 전 행 포함"
 else ng "T-bud.a 조건부 0개 총량/메타 전량" "chars=${n_a:-없음} limit=8000 누락행=$miss_a"; fi
 
+# T-pend.a pending 블록이 실재하는 절차 파일 절대경로를 가리킨다 (AC-4 ①)
+#   절차 본문은 메타 skill 밖(freework-pending.md)이라, 블록의 경로가 틀리면 자유작업 기록 경로가 끊긴다.
+fw_path=$(sed -n 's/^절차: \(.*\) 를 Read 해 따른다\..*/\1/p' "$CTX" | head -1)
+case "$fw_path" in
+  /*/skills/using-specops-ko/freework-pending.md)
+    if [ -f "$fw_path" ]; then ok "T-pend.a pending 블록 → 절차 파일 절대경로 실재"
+    else ng "T-pend.a pending 절차 경로" "파일 부재: $fw_path"; fi ;;
+  *) ng "T-pend.a pending 절차 경로" "절대경로 아님/미발견: '${fw_path}'" ;;
+esac
+
+# T-pend.b pending 블록이 플러그인 루트 절대경로와 치환 지시를 준다 (AC-7)
+#   Read 로 읽는 파일은 ${CLAUDE_PLUGIN_ROOT} 가 치환되지 않고, Bash 도구 환경에도 이 변수가 없다(실측 unset).
+root_path=$(sed -n 's/.*CLAUDE_PLUGIN_ROOT} 는 \(.*\) 로 바꿔 실행한다\..*/\1/p' "$CTX" | head -1)
+case "$root_path" in
+  /*) if [ -f "$root_path/scripts/freework-resolve-fid.sh" ]; then ok "T-pend.b pending 블록 → 플러그인 루트 치환 지시 + scripts 실재"
+      else ng "T-pend.b 플러그인 루트" "scripts/freework-resolve-fid.sh 부재: $root_path"; fi ;;
+  *) ng "T-pend.b 플러그인 루트" "치환 지시/절대경로 미발견: '${root_path}'" ;;
+esac
+
 # --- 문서 계약 (AC-5) ---------------------------------------------------------
 # 조립 순서는 코드에만 있으면 다음 편집자가 모른다. 순서를 서술하는 문서 3곳이
 # 계약을 담고 있는지 함께 잠근다 — 실측 결함의 구조적 원인이 "각 PR 이 자기 블록만

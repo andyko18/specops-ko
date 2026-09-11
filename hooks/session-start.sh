@@ -119,7 +119,11 @@ pending_file="$(pwd)/.specops/pending-capture.jsonl"
 if [ -f "$pending_file" ] && [ -s "$pending_file" ]; then
   pending_n=$(grep -c . "$pending_file" 2>/dev/null) || true
   pending_n=${pending_n:-0}
-  pending_out="\n\n<freecomment-pending>\n미기록 자유작업 ${pending_n}건 있음 — pending-capture.jsonl 을 요약해 .specops/freelog.md 와 learnings 에 기록 후 pending 비우고 1줄 보고하라.\n</freecomment-pending>"
+  # 절차 본문은 메타 skill 밖 참조 파일(freework-pending.md)에 있다 — 인라인 예산 때문에 필요할 때만 읽힌다.
+  #   절대경로는 훅만 안다: Read 로 읽는 파일은 ${CLAUDE_PLUGIN_ROOT} 가 치환되지 않고 Bash 환경에도 이 변수가 없다.
+  freework_doc=$(escape_for_json "${PLUGIN_ROOT}/skills/using-specops-ko/freework-pending.md")
+  plugin_root_json=$(escape_for_json "$PLUGIN_ROOT")
+  pending_out="\n\n<freecomment-pending>\n미기록 자유작업 ${pending_n}건 있음 — pending-capture.jsonl 을 요약해 .specops/freelog.md 와 learnings 에 기록 후 pending 비우고 1줄 보고하라.\n절차: ${freework_doc} 를 Read 해 따른다. 절차 명령의 \${CLAUDE_PLUGIN_ROOT} 는 ${plugin_root_json} 로 바꿔 실행한다.\n</freecomment-pending>"
 fi
 
 # 확정 순서로 1회 결합 (위 순서 계약 주석 참조)
