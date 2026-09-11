@@ -33,7 +33,7 @@ iso::make_tree() {
   root="${1:-${PLUGIN:?PLUGIN 미설정 — iso::make_tree 는 root 를 인자로 받거나 PLUGIN 을 요구한다}}"
   [ -d "$root/.git" ] || root=$( cd "$root" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null ) || return 1
   tmp=$(mktemp -d) || return 1
-  # ★ pipefail 여부가 호출자마다 다르다 — `test-git-hooks.sh:6` 은 `set -uo pipefail`,
+  # ★ pipefail 여부가 호출자마다 다르다 — `test-git-hooks.sh:7` 은 `set -uo pipefail`,
   #   `test-hardgate-ratchet.sh` 는 없다. 워킹트리에서 **삭제된** tracked 파일이 있으면
   #   `tar -c` 가 에러를 내는데, pipefail 유무에 따라 한쪽만 return 1 이 되어 동작이 갈린다.
   #   실측: 삭제 1건 있는 repo — pipefail 없으면 naive OK / 있으면 naive rc≠0, guarded 는 양쪽 OK.

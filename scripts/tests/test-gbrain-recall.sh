@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# run-all: serial — T2.g 가 1000건 recall 을 < 2000ms 로 잰다(CPU 경합 시 초과)
 # scripts/gbrain-recall.sh 검증 — GBRAIN_FILE 격리 fixture
 set -u
 PASS=0; FAIL=0

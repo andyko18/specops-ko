@@ -50,25 +50,37 @@ printf '%s' "$out" | grep -qE '^(✅|ℹ️).*skill_size' && ok "T3.a 현행 트
 
 # ── T4: ★ 되돌려-관찰 — 초과하면 실제로 FAIL 한다 ──
 # 왜 필수인가: 래칫이 "있는데 안 무는" 상태가 가장 나쁘다(P1-4 로 지적한 advisory 무이빨과 동형).
-#   실제 skill 을 부풀려 FAIL 전환을 실측하고 원복한다.
+#   skill 을 부풀려 FAIL 전환을 실측하고 원복한다.
+#   ★ 격리 사본에서 부풀린다 (20260911-run-all-parallel): 실 skill 을 부풀리면 병렬로 도는
+#     test-validate-structure 가 그 창에서 skill_size FAIL 을 봤고(스파이크 실측), trap 도 없어
+#     중단되면 손상이 남았다. 사본 안의 validate-structure 는 사본 루트를 검사한다(isolated-tree.sh 규약).
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
 _victim=$(jq -sr '[.[] | select(.skill)] | sort_by(.bytes) | .[0].skill' "$BL" 2>/dev/null)
-_vf="$PLUGIN/skills/$_victim/SKILL.md"
-if [ -n "$_victim" ] && [ -f "$_vf" ]; then
+_T=""
+command -v iso::make_tree >/dev/null 2>&1 && command -v iso::fingerprint >/dev/null 2>&1 && _T=$(iso::make_tree)
+if [ -n "$_victim" ] && [ -n "$_T" ] && [ -f "$_T/skills/$_victim/SKILL.md" ]; then
+  trap 'rm -rf "$_T"' EXIT
+  _vf="$_T/skills/$_victim/SKILL.md"
+  _vs="$_T/scripts/_internal/validate-structure.sh"
+  _fp0=$(iso::fingerprint)
   cp "$_vf" "$_vf.ratchet-bak"
   # 주석 한 줄이 아니라 충분한 분량 — bytes·lines 양쪽 초과를 확실히 만든다
   for _i in $(seq 1 40); do echo "<!-- ratchet canary $_i -->" >> "$_vf"; done
-  out2=$(bash "$VS" 2>&1)
+  out2=$(bash "$_vs" 2>&1)
   mv "$_vf.ratchet-bak" "$_vf"
   printf '%s' "$out2" | grep -qE '^❌.*skill_size' \
-    && ok "T4.a 초과 시 FAIL 전환 실측 ($_victim)" \
+    && ok "T4.a 초과 시 FAIL 전환 실측 ($_victim · 격리 사본)" \
     || nope "T4.a 래칫 무이빨" "부풀려도 FAIL 안 남: $(printf '%s' "$out2" | grep skill_size)"
-  # 원복 확인 — 이 테스트가 트리를 오염시키면 안 된다
-  out3=$(bash "$VS" 2>&1)
+  # 원복 확인 — 사본의 원복이 실제로 됐는지(다음 판정이 사본 잔존물을 보지 않게)
+  out3=$(bash "$_vs" 2>&1)
   printf '%s' "$out3" | grep -qE '^❌.*skill_size' \
-    && nope "T4.b 원복" "카나리 잔존 — 트리 오염" \
-    || ok "T4.b 원복 확인 (트리 무오염)"
+    && nope "T4.b 원복" "카나리 잔존 — 사본 오염" \
+    || ok "T4.b 원복 확인 (사본 무오염)"
+  # 실 트리는 처음부터 건드리지 않는다 — 지문이 같아야 한다
+  [ "$(iso::fingerprint)" = "$_fp0" ] \
+    && ok "T4.c 실 트리 지문 불변 (격리)" || nope "T4.c 실 트리 변이" "지문 $_fp0 → $(iso::fingerprint)"
 else
-  nope "T4 setup" "victim skill 결정 실패 ($_victim)"
+  nope "T4 setup" "victim skill 결정 또는 격리 사본 실패 (victim=$_victim copy=${_T:-없음})"
 fi
 
 echo ""

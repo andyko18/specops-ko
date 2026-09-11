@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # specops-ko 전체 테스트 aggregator
-# 사용: bash scripts/tests/run-all.sh [--quiet]
+# 사용: bash scripts/tests/run-all.sh [--quiet]   (병렬 수: SPECOPS_RUN_ALL_JOBS — 아래 "병렬 실행" 절)
 # 대상: scripts/tests/{,dag/,governance/,llm-eval/,test-convention/,freecomment/,promote/}test-*.sh + validate-structure.sh
 # 제외: bench-hook.sh(벤치마크), fixtures/, dogfood-parallel-harness.sh
 set -uo pipefail
@@ -70,31 +70,144 @@ for f in "$PLUGIN"/scripts/tests/test-*.sh \
   SUITES+=("${f#"$PLUGIN"/}")
 done
 
-PASS=0; FAIL=0; SKIPPED=0; FAILED_SUITES=()
+# ── 병렬 실행 (FID 20260911-run-all-parallel) ──
+# 왜: 159 스위트 직렬이 657s(실측) — FID 마다 3회(태스크·verify·pre-push) 돌고, 600s 를 넘으면
+#   Bash 도구가 백그라운드로 넘겨 R-1 게이트가 `VERIFY: PASS` 를 못 본다(gbrain 20260902).
+# 병렬 수: SPECOPS_RUN_ALL_JOBS(정수≥1) > CPU 코어 수(상한 8) > 1. **1 = 종전 직렬과 같은 순서**(되돌림 스위치).
+#   상한 8 인 이유: 중첩 run-all(더미 sandbox 3곳)도 풀을 만든다 — 코어 수 그대로면 곱으로 번진다.
+_ra_jobs() {
+  local n="${SPECOPS_RUN_ALL_JOBS:-}"
+  case "$n" in ''|*[!0-9]*|0*) ;; *) printf '%s' "$n"; return 0 ;; esac
+  n=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null)
+  case "$n" in ''|*[!0-9]*|0*) n=1 ;; esac
+  [ "$n" -gt 8 ] && n=8
+  printf '%s' "$n"
+}
+JOBS=$(_ra_jobs)
+
+RA_WORK=$(mktemp -d "${TMPDIR:-/tmp}/specops-run-all.XXXXXX") \
+  || { echo "FATAL: run-all 작업 디렉터리 생성 실패" >&2; echo "VERIFY: FAIL"; exit 1; }
+# 중단 = 즉시 전부 종료 (clarify Q1). 작업자는 `set -m` 으로 띄워 **자기 프로세스 그룹**이다 —
+#   그룹째 TERM 하면 xargs·작업자가 멈추고, 작업자 trap 이 bounded_run 이 만든 스위트 그룹을 끝낸다.
+#   ★ ps 로 트리를 훑지 않는다: Claude Code sandbox 에선 ps 가 자식조차 못 본다(실측 31개만 보임).
+#   VERIFY 토큰도 마커도 남기지 않는다 — 판정이 없었으므로.
+_ra_bg=""
+_ra_stop() {
+  trap - INT TERM
+  [ -n "$_ra_bg" ] && { kill -TERM -- "-$_ra_bg" 2>/dev/null || kill -TERM "$_ra_bg" 2>/dev/null; }
+  rm -rf "$RA_WORK"
+  exit "$1"
+}
+trap '_ra_stop 130' INT
+trap '_ra_stop 143' TERM
+trap 'rm -rf "$RA_WORK"' EXIT
+
+# 작업자 — 스위트 1개 실행 후 out.<i>·rc.<i> 를 남긴다. 인자: 작업디렉터리 plugin 상한 quiet 인덱스.
+#   ★ 함수를 export 하지 않고 소스 문자열로 넘긴다 — export -f 는 **모든 스위트의 환경**에
+#     bounded_run 을 심어 "헬퍼 미로드" 류 검사를 공허하게 만든다(test-run-bounded:18).
+#   ★ 스위트 stdin 은 /dev/null — 직렬 시절 상속 stdin(pre-push 의 ref 파이프)을 병렬로 나눠 읽지 않게.
+#   ★ 진행 줄은 printf **1회**로 쓴다 — 작업자 간 줄 섞임 방지(짧은 줄 기준 원자적 write).
+read -r -d '' _RA_WORKER <<'WORKER'
+w=$1; plugin=$2; SUITE_TIMEOUT=$3; quiet=$4; i=$5
+suite=$(sed -n "$((i + 1))p" "$w/list")
+if [ -f "$plugin/scripts/_internal/run-bounded.sh" ]; then
+  . "$plugin/scripts/_internal/run-bounded.sh"
+else
+  bounded_run() { shift; "$@"; }
+  bounded_timed_out() { return 1; }
+fi
+_w_stop() {
+  for j in $(jobs -p); do kill -TERM -- "-$j" 2>/dev/null || kill -TERM "$j" 2>/dev/null; done
+  exit 143
+}
+trap _w_stop TERM INT
+cd "$plugin" || exit 0
+bounded_run "$SUITE_TIMEOUT" bash "$suite" > "$w/out.$i" 2>&1 < /dev/null
+rc=$?
+last=$(grep -v '^$' "$w/out.$i" | tail -1)
+# 시간초과는 조용한 rc 가 아니라 **명시 실패**다 — 상한이 걸렸다는 사실 자체가 진단 정보다.
+if bounded_timed_out "$rc"; then
+  printf '%s\n' "FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과 (무한 정지 차단). 재현: bash $suite" >> "$w/out.$i"
+  printf '%s\n' "⏱  TIMEOUT: $suite (>${SUITE_TIMEOUT}s)" >&2
+fi
+echo "$rc" > "$w/rc.$i"
+[ "$quiet" = true ] || printf -- '--- %s\n%s\n' "$suite" "$last"
+exit 0
+WORKER
+
+# 직렬 표시 — 선두 20줄의 `# run-all: serial — <사유>`. 시간 임계가 CPU 경합에 약한 스위트용.
+#   awk 1회로 판정한다 — `head | grep -q` 는 pipefail 아래서 SIGPIPE 로 rc 가 흔들린다.
+#   JOBS=1 이면 표시를 보지 않는다 — 풀 뒤로 미루면 되돌림 스위치가 종전 순서를 재현하지 못한다.
+: > "$RA_WORK/list"; : > "$RA_WORK/par"; : > "$RA_WORK/ser"
+i=0
 for suite in "${SUITES[@]}"; do
-  if $QUIET; then
-    out=$(cd "$PLUGIN" && bounded_run "$SUITE_TIMEOUT" bash "$suite" 2>&1); rc=$?
+  printf '%s\n' "$suite" >> "$RA_WORK/list"
+  if [ "$JOBS" -gt 1 ] && awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/$suite" 2>/dev/null; then
+    echo "$i" >> "$RA_WORK/ser"
   else
-    echo "--- $suite"
-    out=$(cd "$PLUGIN" && bounded_run "$SUITE_TIMEOUT" bash "$suite" 2>&1); rc=$?
-    printf '%s\n' "$out" | tail -1
+    echo "$i" >> "$RA_WORK/par"
   fi
-  # 시간초과는 조용한 rc 가 아니라 **명시 실패**다 — 상한이 걸렸다는 사실 자체가 진단 정보다.
-  if bounded_timed_out "$rc"; then
-    out="${out}
-FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과 (무한 정지 차단). 재현: bash $suite"
-    printf '%s\n' "⏱  TIMEOUT: $suite (>${SUITE_TIMEOUT}s)" >&2
+  i=$((i + 1))
+done
+_n_ser=$(wc -l < "$RA_WORK/ser" | tr -d ' ')
+printf '▶ run-all: 병렬 %s · 직렬 %s 스위트\n' "$JOBS" "$_n_ser" >&2
+
+# 작업자는 정상이면 항상 rc 0 이다 — 0 이 아니면 신호 사망(xargs 는 그때 abort 해 남은 스위트를 시작하지 않는다).
+#   알리고 그룹을 정리한다. ★ 죽은 작업자의 bounded_run 워치독은 flag 가 안 지워져 상한까지 살며, bash 가 함수
+#   리다이렉트 때 보관한 원 stdout fd 를 물려받아 `$(run-all)` 캡처를 상한(기본 300s)만큼 붙잡는다(실측 3s→3s·8s→8s).
+#   워치독은 작업자와 같은 프로세스 그룹이라 그룹 TERM 으로 끝난다.
+_ra_reap() {  # $1=그룹 리더 pid  $2=wait rc
+  [ "$2" -eq 0 ] && return 0
+  printf '⚠  run-all: 작업자 풀 비정상 종료 (rc=%s) — 결과 없는 스위트는 FAIL 로 센다\n' "$2" >&2
+  kill -TERM -- "-$1" 2>/dev/null || true
+}
+
+# 1) 병렬 풀 — 2) 직렬 스위트는 풀이 **전부 끝난 뒤** 하나씩(풀과 시간이 겹치지 않게).
+#   `&` + wait 인 이유: 포그라운드 자식을 기다리는 동안엔 bash 가 trap 을 미뤄 중단이 늦어진다.
+if [ -s "$RA_WORK/par" ]; then
+  set -m
+  xargs -n 1 -P "$JOBS" bash -c "$_RA_WORKER" _ "$RA_WORK" "$PLUGIN" "$SUITE_TIMEOUT" "$QUIET" < "$RA_WORK/par" &
+  _ra_bg=$!
+  set +m
+  wait "$_ra_bg"; _ra_reap "$_ra_bg" $?
+  _ra_bg=""
+fi
+while read -r i <&3; do
+  set -m
+  bash -c "$_RA_WORKER" _ "$RA_WORK" "$PLUGIN" "$SUITE_TIMEOUT" "$QUIET" "$i" &
+  _ra_bg=$!
+  set +m
+  wait "$_ra_bg"; _ra_reap "$_ra_bg" $?
+  _ra_bg=""
+done 3< "$RA_WORK/ser"
+
+# 집계는 **원래 순서**로 — 끝난 순서와 무관하게 출력이 결정적이다.
+PASS=0; FAIL=0; SKIPPED=0; FAILED_SUITES=()
+i=0
+for suite in "${SUITES[@]}"; do
+  out_f="$RA_WORK/out.$i"
+  rc=$(cat "$RA_WORK/rc.$i" 2>/dev/null || true)
+  if [ -z "$rc" ]; then
+    # 작업자가 결과를 못 남겼다 — 조용히 넘기면 스위트가 **통째로 빠진 green** 이 된다
+    #   출력 파일이 있으면 돌다 죽었고, 없으면 풀이 먼저 중단돼 시작도 못 했다 — 무고한 스위트를 원인으로 찍지 않는다
+    rc=1
+    if [ -e "$out_f" ]; then
+      printf '%s\n' "FAIL WORKER — 결과 없음 (작업자 비정상 종료 — 스위트가 작업자를 죽였거나 신호로 중단). 재현: bash $suite" >> "$out_f"
+    else
+      printf '%s\n' "FAIL WORKER — 미실행 (작업자 풀 중단으로 시작 못 함 — 원인은 '결과 없음' 스위트). 재현: bash $suite" >> "$out_f"
+    fi
   fi
   # 스위트 내부 SKIP 집계 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
   # `grep -c` 는 0건에 "0" 출력 + rc=1 이라 `|| true` 로 rc 만 흡수한다(`|| echo 0` 금지 — 이중 출력).
-  _s=$(printf '%s\n' "$out" | grep -c '^SKIP ' || true)
+  _s=$(grep -c '^SKIP ' "$out_f" 2>/dev/null || true)
   SKIPPED=$((SKIPPED + ${_s:-0}))
-  if [ $rc -eq 0 ]; then
+  if [ "$rc" -eq 0 ]; then
     PASS=$((PASS+1))
   else
     FAIL=$((FAIL+1)); FAILED_SUITES+=("$suite")
-    printf '%s\n' "$out" | grep '^FAIL' | head -5
+    grep '^FAIL' "$out_f" | head -5
   fi
+  i=$((i + 1))
 done
 
 echo ""
