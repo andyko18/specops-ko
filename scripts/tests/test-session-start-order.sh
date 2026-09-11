@@ -2,7 +2,7 @@
 # SessionStart additionalContext 조립 순서·오프셋 계약 (FID 20260814-sessionstart-payload-order)
 # 계약: 행동 지시 블록(anchor·pending·reconcile)이 harness 프리뷰(2048B) 안에서 시작하고,
 #       rehydrate 는 메타 본문 뒤 최후미에 온다 (clarify Q1 / AC-6).
-#       총량은 인라인 한도(문자 10,000) 아래 — 예산 9,500 가드 (FID 20260911-meta-skill-progressive-disclosure, T-bud.*).
+#       총량은 인라인 한도(UTF-16 단위 10,000) 아래 — 예산 9,500 가드 (FID 20260911-meta-skill-progressive-disclosure, T-bud.*).
 set -u
 PLUGIN="$(cd "$(dirname "$0")/../.." && pwd)"
 HOOK="$PLUGIN/hooks/session-start.sh"
@@ -35,8 +35,8 @@ make_ctx(){ # $1=sandbox dir  $2=with_optional(1|0)
 
 # 오프셋은 **decode 된 additionalContext** 기준으로 잰다. harness 절단이 인코딩 원문
 # 기준일 수 있으나, 인코딩 기준 실측(436B)도 상한 대비 여유가 커서 어느 기준이든 계약이 선다.
-SB=$(mktemp -d); SB2=""; SB3=""; SB4=""
-trap 'rm -rf "$SB" "$SB2" "$SB3" "$SB4"' EXIT
+SB=$(mktemp -d); SB2=""; SB3=""; SB4=""; SB5=""
+trap 'rm -rf "$SB" "$SB2" "$SB3" "$SB4" "$SB5"' EXIT
 make_ctx "$SB" 1
 CTX="$SB/ctx.txt"
 
@@ -83,11 +83,13 @@ fi
 
 
 # --- 인라인 예산 계약 (FID 20260911-meta-skill-progressive-disclosure) ----------
-# Claude Code 는 훅 출력 1건이 **문자 10,000** 을 넘으면 파일로 빼고 선두 2KB 프리뷰만 인라인한다
-# (바이트 아님 — 실측 9,990자 인라인·10,010자 파일행·한글 5,000자 인라인). 넘으면 메타 skill 대부분이
-# 모델에 닿지 않는다(실측: specops 주입 235건 전부 파일행). 여기서는 jq 로 **디코드한 뒤 문자**를 센다 —
-# 훅 내부 계산기와 다른 경로로 재야 계산기 결함이 같이 숨지 않는다.
-chars_of(){ LC_ALL=C tr -d '\200-\277' < "$1" | wc -c | tr -d ' '; }   # UTF-8 연속 바이트 제외 = 문자 수
+# Claude Code 는 훅 출력 1건이 **UTF-16 단위 10,000**(JS length — 바이트·코드포인트 아님)을 넘으면 파일로 빼고
+# 선두 2KB 프리뷰만 인라인한다(실측: ASCII 9,990 인라인·10,010 파일행 · 한글 5,000자 인라인 ·
+# 이모지 5,100개(코드포인트 5,115 / UTF-16 10,215) 파일행). 넘으면 메타 skill 대부분이 모델에 닿지 않는다
+# (실측: specops 주입 235건 전부 파일행). 여기서는 **jq explode** 로 UTF-16 단위를 센다 — 훅의 tr 계산기와
+# 다른 경로로 재야 계산기 결함이 같이 숨지 않는다(code-reviewer-ko Suggestion).
+u16_of(){ jq '[.hookSpecificOutput.additionalContext | explode[] | if . > 65535 then 2 else 1 end] | add // 0' "$1" 2>/dev/null; }
+chars_of(){ LC_ALL=C tr -d '\200-\277' < "$1" | wc -c | tr -d ' '; }   # 원문 파일 크기 가드용(코드포인트)
 ctx_j(){ # $1=sandbox — 이미 구성된 샌드박스에서 훅 재실행 → $1/ctxj.txt (jq -j: 끝 개행 없음)
   ( cd "$1" && bash "$HOOK" 2>/dev/null ) > "$1/outj.json"
   jq -j '.hookSpecificOutput.additionalContext' "$1/outj.json" > "$1/ctxj.txt" 2>/dev/null
@@ -96,7 +98,7 @@ ctx_j(){ # $1=sandbox — 이미 구성된 샌드박스에서 훅 재실행 → 
 # T-bud.a 조건부 블록 0개 경로는 8,000자 이하 + 메타 SKILL.md 본문 전 행 포함 (AC-1)
 #   8,000 은 래칫이다 — 조건부 블록·rehydrate 몫(~1,500자)을 남겨 둔다. 메타가 다시 커지면 여기서 멈춘다.
 ctx_j "$SB2"
-n_a=$(chars_of "$SB2/ctxj.txt"); miss_a=0
+n_a=$(u16_of "$SB2/outj.json"); miss_a=0
 while IFS= read -r l; do
   [ -z "$l" ] && continue
   grep -qF -- "$l" "$SB2/ctxj.txt" || miss_a=$((miss_a+1))
@@ -148,7 +150,7 @@ OMIT='(이하 생략 — 전체: .specops/session-progress.md)'
 
 # T-bud.b 전 조건부 블록 + 거대 rehydrate 에서도 9,500자 이하 (AC-2)
 #   ★ 공허 가드: 픽스처가 정말 전 블록을 냈는지·원문이 20,000자를 넘는지 먼저 확인한다.
-n_b=$(chars_of "$SB3/ctxj.txt"); src_b=$(chars_of "$SB3/.specops/session-progress.md")
+n_b=$(u16_of "$SB3/outj.json"); src_b=$(chars_of "$SB3/.specops/session-progress.md")
 blocks_b=$(grep -cE '^<(freecomment-pending|session-progress-reconcile|batch-resume|session-progress-rehydrate)>' "$SB3/ctxj.txt")
 if [ "$blocks_b" -eq 4 ] && [ "$src_b" -ge 20000 ] && [ "${n_b:-99999}" -le 9500 ] \
    && jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' "$SB3/outj.json" >/dev/null 2>&1; then
@@ -166,7 +168,7 @@ else
 fi
 
 # T-bud.d 예산 이내면 rehydrate 무절단 — 포인터 없음 + 최상단 블록 끝 줄 포함 (AC-3)
-n_d=$(chars_of "$SB4/ctxj.txt")
+n_d=$(u16_of "$SB4/outj.json")
 if [ "${n_d:-99999}" -le 9500 ] && ! grep -qF -- "$OMIT" "$SB4/ctxj.txt" \
    && reh_of "$SB4/ctxj.txt" | grep -qF -- '/specify 완료 (spec.md)'; then
   ok "T-bud.d 예산 이내(${n_d}자) → rehydrate 무절단"
@@ -198,6 +200,20 @@ if [ -n "$early_pipe" ]; then
   ng "T-bud.f progress_block 조기 종료 파이프" "$(printf '%s\n' "$early_pipe" | head -1)"
 else
   ok "T-bud.f progress_block 조기 종료 파이프 없음 (SIGPIPE 무출력 경로 차단)"
+fi
+
+# T-bud.g astral 문자(이모지 — UTF-16 2단위)로 채운 거대 rehydrate 도 UTF-16 9,500 이하 (AC-2 · code-reviewer-ko Important)
+#   코드포인트로 세면 이모지 1개를 1로 쳐 예산을 통과시키고 실제 UTF-16 길이는 한도를 넘긴다(리뷰어 프로브:
+#   코드포인트 9,463 / UTF-16 10,724). 한글·ASCII 픽스처(T-bud.b)는 전부 BMP 라 두 단위를 가르지 못한다.
+SB5=$(mktemp -d); make_ctx "$SB5" 1
+e30=$(printf '😀%.0s' $(seq 1 30))
+for i in $(seq 1 150); do printf '  %03d %s\n' "$i" "$e30"; done >> "$SB5/.specops/session-progress.md"
+ctx_j "$SB5"
+n_g=$(u16_of "$SB5/outj.json")
+if [ -n "$n_g" ] && [ "$n_g" -le 9500 ] && grep -qF -- "$OMIT" "$SB5/ctxj.txt"; then
+  ok "T-bud.g astral rehydrate → UTF-16 ${n_g} <= 9500 + 생략 포인터"
+else
+  ng "T-bud.g astral rehydrate 예산" "utf16=${n_g:-없음} limit=9500 포인터=$(grep -cF -- "$OMIT" "$SB5/ctxj.txt")"
 fi
 
 # --- 문서 계약 (AC-5) ---------------------------------------------------------
