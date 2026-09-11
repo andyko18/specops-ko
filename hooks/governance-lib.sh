@@ -808,7 +808,7 @@ is_docs_only_audit_scope() {
 #   전자는 git 판정 실패(HEAD~1 부재·base 미탐지·미지원 rule_id), 후자는 커밋 범위가 실제로 빔.
 #   무출력이면 호출부의 조건부 병합이 scope_class 필드를 생략하고 집계가 `판정불가` 로 센다.
 #
-# ★ posttool 경로에서는 'docs-only' 가 **구조적으로 나오지 않는다** — posttool-governance.sh:56 이
+# ★ posttool 경로에서는 'docs-only' 가 **구조적으로 나오지 않는다** — posttool-governance.sh:78 이
 #   is_docs_only_audit_scope 면제 시 기록 자체를 하지 않기 때문이다. 반환값에 'docs-only' 를 남겨 두는
 #   것은 함수 계약의 대칭(직접 호출·향후 재사용)을 위해서이지 posttool 집계에 나타나기 때문이 아니다.
 _audit_scope_class() {

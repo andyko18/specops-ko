@@ -130,7 +130,7 @@ fi
 #     T13.g 를 통과하고 AC-10 ① 이 잡는다. 호출줄 변이는 AC-10 ① 을 통과하고
 #     T13.g 가 잡는다. 어느 한쪽만으로는 두 면을 덮지 못한다.
 #   ★ 왜 정적 축인가: 실 훅은 rules 유무와 무관하게 `rc=0 {"continue":true}` 를 내고
-#     stderr 마커도 없다(`posttool-governance.sh:45`·`stop-governance.sh:47`).
+#     stderr 마커도 없다(`posttool-governance.sh:44`·`stop-governance.sh:47`).
 #     프로덕션 훅 무수정 조건에서 **출력으로는 A/B 를 가를 수 없고**, 정적 자기잠금이
 #     유일한 축이다. 이 FID 가 AC-10 을 "관측" 이 아니라 "구성" 으로 설계한 것과 같은 이유.
 #   ★ 자기 경로는 `$0` 이 아니라 **`$PLUGIN` 파생 절대경로**다. 이유는 둘인데 **무게가 다르다**:
