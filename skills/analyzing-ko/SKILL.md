@@ -78,6 +78,8 @@ date +%Y%m%d  # 예: 20260515
 ```bash
 mkdir -p .specops/<FID>
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh <FID>
+# 단계 소요 측정의 기준점 — 실패해도 chain 을 막지 않는다(graceful).
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <FID> --phase fid-start >/dev/null 2>&1 || true
 ```
 
 **사용자에게 FID 명시**: `"FID: <FID> — 유지보수 분석을 시작합니다."`
