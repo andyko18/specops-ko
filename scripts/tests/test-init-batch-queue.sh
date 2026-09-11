@@ -114,7 +114,12 @@ _req "$TD/.specops/memory/requirements.md" <<'EOF'
 |---|---|---|---|---|
 | FR-10 | 기능 A | M1 | must | (TBD) |
 EOF
-mut="$PLUGIN/scripts/_internal/.init-batch-queue.mut.sh"
+# ★ 변이본은 실 트리 밖에 둔다 (20260911-run-all-parallel): 종전엔 실 `scripts/_internal/` 에 만들었다 —
+#   병렬로 도는 test-shellcheck-lint 의 `find hooks scripts -name '*.sh'` 가 그 파일을 집었다가 삭제 경합을 볼 수 있다
+#   (find-tree-writes 실측). 변이본은 SELF(dirname)로 형제 check-fr-table.sh 를 찾으므로 그 파일을 같은 자리에 둔다.
+mkdir -p "$TD/_internal"
+cp "$PLUGIN/scripts/_internal/check-fr-table.sh" "$TD/_internal/check-fr-table.sh"
+mut="$TD/_internal/.init-batch-queue.mut.sh"
 awk '
   /^  echo "QUEUE-INIT: REUSE/ { print; getline; print "  true  # mutated: was exit 0"; next }
   { print }
