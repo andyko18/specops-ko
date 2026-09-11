@@ -3,6 +3,29 @@
 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 포맷. [SemVer](https://semver.org/lang/ko/) 준수.
 
 ## [Unreleased]
+### posttool 이 모든 도구 호출 뒤에 붙지 않는다 — 비트리거 Bash −74% (#47)
+
+PostToolUse 거버넌스 훅은 **동기**라 도구 호출마다 뒤에 붙는다. matcher 가 `*` 였고, posttool 규칙이 실제로 보는
+도구는 Bash·Skill 뿐인데도 Read·Edit·Agent 호출마다 떴다. Bash 역시 대부분 커밋·PR 이 아니었다. 그런데도
+`is_docs_only_audit_scope` 의 git 3회를 다 치른 뒤에야 규칙 루프에서 버려졌다.
+
+- **matcher `*` → `Bash|Skill`** — 좁히면 결합이 생긴다. 새 규칙이 다른 `trigger_tool` 을 쓰는데 matcher 를
+  넓히지 않으면, 그 규칙은 **켜져도 안 돈다**(에러 없이 기록만 0). `test-manifest.sh` T12.h 가 matcher ⊇ 전 posttool
+  `trigger_tool` 을 enabled 와 무관하게 잠그고, T12.i 가 와일드카드 복귀를 잠근다.
+- **Bash 사전 필터** — 정규식은 `rules.jsonl` 의 `trigger_pattern` 단일 소스, 전처리는 `governance-lib` 의 **같은 함수**
+  (heredoc 본문·인용 문자열 제거)를 쓴다. pretool 과 동형이지만 **판정 불가 방향은 반대**다. pretool 은 차단층이라
+  fail-open allow 이고, 이 훅은 감사층이라 `jq -s` 실패·합친 정규식 오류(rc=2)에서 조기 종료하지 않고 종전 경로로 간다.
+- **필터 teeth 는 출력으로 안 보인다** — 기록 없음·출력 동일은 필터가 없어도 성립한다. `test-hooks.sh` T8.h 는
+  git shim 으로 **git 호출 0회**를 관측하고, T8.i(트리거 동치 8형)·T8.j(손상 rules 감사 유지)·T8.k(Skill R-3)는 판정 불변을 잠근다.
+
+**실측** (인터리브 6라운드 · load 15~18): 비트리거 `ls` median 230→59ms(**−74.3%**) · `git commit` +0.3%(잡음 폭 +4.2%) ·
+`bench-hook.sh` posttool p95 **206ms FAIL → 76ms PASS**. `bench-hook.sh` 는 run-all 제외 대상이라 main 의 NFR FAIL 이
+그동안 드러나지 않았다. 변이 M1~M8 격추 · 리뷰어 main vs branch 차분 22형 DIFF 0 · CI ubuntu 4m47s.
+
+**한계 병기**: 세션 훅은 플러그인 캐시본이라 **릴리즈·재시작 후** 실제 발화·소요 확인 필요 · Claude Code matcher 의
+정규식 앵커 의미론 미검증(비앵커면 `BashOutput` 도 발화 — 정확성 무손실, 성능만) · plan-reviewer cap 2/2 FAIL 뒤
+사용자 결정으로 반영본 진행(독립 재검증은 Phase B/C 실측으로 대체) · semgrep 로컬 실행 실패.
+
 ### run-all 을 작업자 풀로 병렬 실행한다 — 813s → 382s (#46)
 
 run-all 은 FID 마다 세 번(태스크·verify·pre-push) 돌고, 161 스위트를 하나씩 도느라 가장 긴 대기였다.
