@@ -43,7 +43,7 @@ specops-ko 가 `hooks/hooks.json` 에 등록한 이벤트는 5종이다 — **4�
 | specops 등록 | 핸들러 | Spec-Kit 매핑 |
 |---|---|---|
 | `PreToolUse` (matcher `Bash`) | pretool-governance | ✅ `pre_tool_use` |
-| `PostToolUse` (`*`) | posttool-governance | ✅ `post_tool_use` |
+| `PostToolUse` (matcher `Bash\|Skill`) | posttool-governance | ✅ `post_tool_use` |
 | `SessionStart` | session-start | ✅ `session_start` |
 | `Stop` ×3 | ensure-session-progress · stop-governance · freecomment-capture | ✅ `stop` |
 | `Notification` ×2 | notify | ❌ **`CANONICAL_TO_NATIVE` 에 없음** |

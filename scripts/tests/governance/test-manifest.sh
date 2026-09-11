@@ -53,6 +53,33 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T12.g PreToolUse pretool-governance 배선"
 fi
 
+# T12.h ★ PostToolUse matcher 가 모든 posttool 규칙의 trigger_tool 을 덮는다 (20260911-posttool-matcher-narrow)
+#   matcher 를 좁히면 새 결합이 생긴다 — 규칙이 새 trigger_tool 을 쓰는데 matcher 를 안 넓히면
+#   그 규칙은 **켜져도 안 돈다**(에러 없이 기록만 0). enabled 무관 — 나중에 켜질 규칙도 덮는다.
+RULES_JSONL="$PLUGIN/hooks/rules.jsonl"
+post_matcher=$(jq -r '[.hooks.PostToolUse[] | select(any(.hooks[]; .command | contains("posttool-governance.sh"))) | (.matcher // "")] | first // ""' "$HOOKS_JSON" 2>/dev/null)
+trigger_tools=$(jq -r 'select(.matcher == "posttool") | .trigger_tool // empty' "$RULES_JSONL" 2>/dev/null | sort -u)
+missing=""
+for t in $trigger_tools; do
+  printf '%s\n' "$post_matcher" | tr '|,' '\n\n' | sed 's/^ *//; s/ *$//' | grep -qxF -- "$t" || missing="$missing $t"
+done
+# 공허 가드: trigger_tool 을 하나도 못 읽었으면 "빠진 것 없음" 은 아무것도 증명하지 않는다
+if [ -n "$trigger_tools" ] && [ -z "$missing" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.h PostToolUse matcher('$post_matcher') ⊇ trigger_tool($(printf '%s' "$trigger_tools" | tr '\n' ' '))"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.h matcher='$post_matcher' 누락=[${missing# }] trigger_tools=[$(printf '%s' "$trigger_tools" | tr '\n' ' ')]"
+fi
+
+# T12.i PostToolUse matcher 는 와일드카드가 아니다 (clarify Q1 — 사용자 결정 2026-09-11)
+#   `*`·빈값·생략은 모든 도구 호출마다 posttool 을 띄운다 — 판정에 기여하지 않는 호출이 약 1/7.
+#   되돌리려면 이 케이스를 고치는 명시적 결정이 필요하게 한다(성능 개선의 무음 회귀 차단).
+case "$post_matcher" in
+  ''|'*')
+    FAIL=$((FAIL+1)); echo "FAIL T12.i PostToolUse matcher 가 와일드카드('$post_matcher')" ;;
+  *)
+    PASS=$((PASS+1)); echo "PASS T12.i PostToolUse matcher 명시 목록('$post_matcher')" ;;
+esac
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
