@@ -216,6 +216,20 @@ else
   ng "T-bud.g astral rehydrate 예산" "utf16=${n_g:-없음} limit=9500 포인터=$(grep -cF -- "$OMIT" "$SB5/ctxj.txt")"
 fi
 
+# T-bud.h 훅 계산기 단독 — astral·CJK Ext-B·국기·JSON 이스케이프 혼합 문자열에서 jq UTF-16 계수와 일치 (Phase C 2/2 Important)
+#   T-bud.g 는 astral 이 rehydrate 본문에만 있어 awk 줄 계수 경로만 잠근다. 계산기(_json_decoded_chars)의 4바이트 가산을
+#   지워도 head_context 에 astral 이 없으면 T-bud.g 가 통과한다(변이 mutD1 실측) — 계산기를 떼어 직접 단정한다.
+fn_h=$(sed -n '/^_json_decoded_chars() {/,/^}/p' "$HOOK")
+probe_h=$(printf 'a"b\\c\t😀한𠀀🇰🇷 끝')
+esc_h=$(jq -rn --arg s "$probe_h" '$s | tojson | .[1:-1]')
+want_h=$(jq -rn --arg s "$probe_h" '[$s | explode[] | if . > 65535 then 2 else 1 end] | add')
+got_h=$(bash -c "$fn_h"$'\n''_json_decoded_chars "$1"' _ "$esc_h" 2>/dev/null)
+if [ -n "$fn_h" ] && [ -n "$want_h" ] && [ "$got_h" = "$want_h" ]; then
+  ok "T-bud.h _json_decoded_chars = jq UTF-16 ($got_h) — astral·이스케이프 혼합"
+else
+  ng "T-bud.h 계산기 UTF-16 불일치" "hook=${got_h:-없음} jq=${want_h:-없음} 함수추출=$([ -n "$fn_h" ] && echo y || echo n)"
+fi
+
 # --- 문서 계약 (AC-5) ---------------------------------------------------------
 # 조립 순서는 코드에만 있으면 다음 편집자가 모른다. 순서를 서술하는 문서 3곳이
 # 계약을 담고 있는지 함께 잠근다 — 실측 결함의 구조적 원인이 "각 PR 이 자기 블록만
@@ -228,6 +242,7 @@ doc_has CLAUDE.md 'specops-ko-anchor' "T-ord.f" "CLAUDE.md 조립 순서 계약 
 doc_has README.md '조립 순서' "T-ord.g" "README.md 조립 순서 요약 기재"
 doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
 doc_has CLAUDE.md '문자 10,000' "T-ord.i" "CLAUDE.md 인라인 한도(문자 10,000) 서술"
+doc_has CLAUDE.md 'UTF-16 단위' "T-ord.j" "CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
