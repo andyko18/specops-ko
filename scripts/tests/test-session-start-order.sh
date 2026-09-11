@@ -2,6 +2,7 @@
 # SessionStart additionalContext 조립 순서·오프셋 계약 (FID 20260814-sessionstart-payload-order)
 # 계약: 행동 지시 블록(anchor·pending·reconcile)이 harness 프리뷰(2048B) 안에서 시작하고,
 #       rehydrate 는 메타 본문 뒤 최후미에 온다 (clarify Q1 / AC-6).
+#       총량은 인라인 한도(문자 10,000) 아래 — 예산 9,500 가드 (FID 20260911-meta-skill-progressive-disclosure, T-bud.*).
 set -u
 PLUGIN="$(cd "$(dirname "$0")/../.." && pwd)"
 HOOK="$PLUGIN/hooks/session-start.sh"
@@ -210,6 +211,7 @@ doc_has(){ # $1=파일  $2=grep 패턴  $3=TEST ID  $4=설명
 doc_has CLAUDE.md 'specops-ko-anchor' "T-ord.f" "CLAUDE.md 조립 순서 계약 기재"
 doc_has README.md '조립 순서' "T-ord.g" "README.md 조립 순서 요약 기재"
 doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
+doc_has CLAUDE.md '문자 10,000' "T-ord.i" "CLAUDE.md 인라인 한도(문자 10,000) 서술"
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

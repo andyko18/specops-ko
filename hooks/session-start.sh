@@ -73,8 +73,8 @@ meta_escaped=$(escape_for_json "$meta_content")
 
 # --- 블록별 조립 (결합은 맨 아래 1회) -------------------------------------
 # 순서 계약: anchor → pending → reconcile → meta 본문 → rehydrate.
-#   harness 는 additionalContext 가 크면 선두 일부만 인라인하고 나머지를 파일로 밀어낸다
-#   (실측 2048B 프리뷰). 행동 지시 블록이 뒤에 있으면 모델에 도달하지 못한다
+#   harness 는 훅 출력이 문자 10,000 을 넘으면 파일로 밀어내고 선두 2KB 프리뷰만 인라인한다
+#   (위 CTX_BUDGET 주석 참조). 행동 지시 블록이 뒤에 있으면 모델에 도달하지 못한다
 #   (실측: pending 이 12,671B 지점 → 약 1개월간 미수신).
 #   rehydrate 는 7.8KB 로 커서 앞에 두면 뒤를 전부 밀어내므로 최후미에 둔다
 #   (clarify Q1 — 참조 데이터라 절단 손실이 가장 작다).
