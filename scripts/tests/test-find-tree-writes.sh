@@ -76,6 +76,22 @@ out=$(bash "$FTW" --root "$CL" scripts/tests/test-none.sh 2>&1); rc=$?
   && ok "T5.b 없는 스위트 경로 → rc=2 (0건으로 위장하지 않음)" || nope "T5.b 없는 경로" "rc=$rc out=[$out]"
 bash "$FTW" --root "$CL" -j '' >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 2 ] && ok "T5.c 빈 -j → rc=2" || nope "T5.c 빈 -j" "rc=$rc"
+#   존재 검사는 **실행 지점(사본)** 기준이어야 한다 — 사본은 git 추적 파일만 담아, 방금 쓴 미추적 스위트는 원본엔 있고 사본엔 없다
+printf '%s\n' '#!/usr/bin/env bash' 'echo x > u.txt; echo "PASS=1 FAIL=0"' > "$CL/scripts/tests/test-untracked.sh"
+out=$(bash "$FTW" --root "$CL" scripts/tests/test-untracked.sh 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
+  && ok "T5.d 미추적 스위트 → rc=2 (사본에 없어 0건으로 위장하지 않음)" || nope "T5.d 미추적" "rc=$rc out=[$out]"
+rm -f "$CL/scripts/tests/test-untracked.sh"
+out=$(bash "$FTW" --root "$FX" ./scripts/tests/test-writer.sh 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT ./scripts/tests/test-writer.sh: ' \
+  && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 0건 · 스위트 1/1'; } \
+  && ok "T5.e ./ 접두 경로도 결과가 집계된다 (점파일 누락 없음)" || nope "T5.e ./ 접두" "rc=$rc out=[$out]"
+printf '%s\n' '#!/usr/bin/env bash' 'R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)' 'echo x > "$R/h.txt"; echo "PASS=1 FAIL=0"' > "$OD/scripts/tests/test-h#ash.sh"
+( cd "$OD" && git add -A ) >/dev/null 2>&1
+out=$(bash "$FTW" --root "$OD" "scripts/tests/test-h#ash.sh" 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-h#ash.sh: ' \
+  && ! printf '%s\n' "$out" | grep -q '^sed:'; } \
+  && ok "T5.f 이름에 # 가 있어도 보고된다 (sed 구분자 충돌 없음)" || nope "T5.f # 이름" "rc=$rc out=[$out]"
 
 # run-all 비포함(clarify Q2) — run-all 은 test-*.sh 만 모은다. 이름이 그 패턴이면 매 run-all 마다 전 스위트를 한 번 더 돈다
 case "$(basename "$FTW")" in
