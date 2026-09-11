@@ -2,7 +2,13 @@
 # specops-ko v0.2 · scripts/_internal/validate-task-dependencies.sh 검증
 set -u
 PASS=0; FAIL=0
-SCRIPT="bash ./scripts/_internal/validate-task-dependencies.sh"
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+SCRIPT="bash $PLUGIN/scripts/_internal/validate-task-dependencies.sh"
+# ★ 격리 작업 디렉터리 (20260911-run-all-parallel): 검증기는 `.specops/<FID>`·`tests/` 를 **cwd 기준**으로 읽는다.
+#   종전엔 run-all 의 cwd(=repo 루트)에서 그대로 만들어 실 repo 에 `.specops/test-*/tasks.md` 와 루트 `tests/` 가
+#   생겼다 지워졌다 — 병렬로 도는 test-reconcile-check R18 이 실 `.specops/*/tasks.md` 를 순회한다(find-tree-writes 실측).
+WORK=$(mktemp -d) || exit 1
+cd "$WORK" || exit 1
 
 # T1 usage
 err=$($SCRIPT 2>&1 >/dev/null) ; rc=$?
@@ -25,7 +31,7 @@ FID="test-$$-$RANDOM"
 FIDDIR=".specops/$FID"
 mkdir -p "$FIDDIR"
 
-cleanup() { rm -rf "$FIDDIR"; }
+cleanup() { rm -rf "$FIDDIR"; cd / && rm -rf "$WORK"; }
 trap cleanup EXIT
 
 # T3 참조 없음 → exit 0
@@ -41,7 +47,9 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3 no refs (rc=$rc, out=$out)"
 fi
 
-# T4 모두 존재 + exec-bit → exit 0 (실 프로젝트 내 기존 스크립트 사용)
+# T4 모두 존재 + exec-bit → exit 0
+#   검증기가 보는 조건은 "cwd 기준 파일 존재 + 실행권한" 뿐이다 — 격리 디렉터리에 같은 경로의 실행 가능 stub 을 둔다.
+mkdir -p scripts/_internal && printf '#!/usr/bin/env bash\n' > scripts/_internal/count-artifacts.sh && chmod +x scripts/_internal/count-artifacts.sh
 cat > "$FIDDIR/tasks.md" <<'EOF'
 # 태스크
 bash scripts/_internal/count-artifacts.sh 를 실행한다.
@@ -89,7 +97,7 @@ rm -f "$fixture"
 rmdir tests 2>/dev/null || true
 
 # T7 실행권한
-if [ -x scripts/_internal/validate-task-dependencies.sh ]; then
+if [ -x "$PLUGIN/scripts/_internal/validate-task-dependencies.sh" ]; then
   PASS=$((PASS+1)); echo "PASS T7 exec-bit"
 else
   FAIL=$((FAIL+1)); echo "FAIL T7 exec-bit"
