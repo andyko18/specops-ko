@@ -152,6 +152,16 @@ done
 _n_ser=$(wc -l < "$RA_WORK/ser" | tr -d ' ')
 printf '▶ run-all: 병렬 %s · 직렬 %s 스위트\n' "$JOBS" "$_n_ser" >&2
 
+# 작업자는 정상이면 항상 rc 0 이다 — 0 이 아니면 신호 사망(xargs 는 그때 abort 해 남은 스위트를 시작하지 않는다).
+#   알리고 그룹을 정리한다. ★ 죽은 작업자의 bounded_run 워치독은 flag 가 안 지워져 상한까지 살며, bash 가 함수
+#   리다이렉트 때 보관한 원 stdout fd 를 물려받아 `$(run-all)` 캡처를 상한(기본 300s)만큼 붙잡는다(실측 3s→3s·8s→8s).
+#   워치독은 작업자와 같은 프로세스 그룹이라 그룹 TERM 으로 끝난다.
+_ra_reap() {  # $1=그룹 리더 pid  $2=wait rc
+  [ "$2" -eq 0 ] && return 0
+  printf '⚠  run-all: 작업자 풀 비정상 종료 (rc=%s) — 결과 없는 스위트는 FAIL 로 센다\n' "$2" >&2
+  kill -TERM -- "-$1" 2>/dev/null || true
+}
+
 # 1) 병렬 풀 — 2) 직렬 스위트는 풀이 **전부 끝난 뒤** 하나씩(풀과 시간이 겹치지 않게).
 #   `&` + wait 인 이유: 포그라운드 자식을 기다리는 동안엔 bash 가 trap 을 미뤄 중단이 늦어진다.
 if [ -s "$RA_WORK/par" ]; then
@@ -159,7 +169,7 @@ if [ -s "$RA_WORK/par" ]; then
   xargs -n 1 -P "$JOBS" bash -c "$_RA_WORKER" _ "$RA_WORK" "$PLUGIN" "$SUITE_TIMEOUT" "$QUIET" < "$RA_WORK/par" &
   _ra_bg=$!
   set +m
-  wait "$_ra_bg"
+  wait "$_ra_bg"; _ra_reap "$_ra_bg" $?
   _ra_bg=""
 fi
 while read -r i <&3; do
@@ -167,7 +177,7 @@ while read -r i <&3; do
   bash -c "$_RA_WORKER" _ "$RA_WORK" "$PLUGIN" "$SUITE_TIMEOUT" "$QUIET" "$i" &
   _ra_bg=$!
   set +m
-  wait "$_ra_bg"
+  wait "$_ra_bg"; _ra_reap "$_ra_bg" $?
   _ra_bg=""
 done 3< "$RA_WORK/ser"
 
@@ -179,8 +189,13 @@ for suite in "${SUITES[@]}"; do
   rc=$(cat "$RA_WORK/rc.$i" 2>/dev/null || true)
   if [ -z "$rc" ]; then
     # 작업자가 결과를 못 남겼다 — 조용히 넘기면 스위트가 **통째로 빠진 green** 이 된다
+    #   출력 파일이 있으면 돌다 죽었고, 없으면 풀이 먼저 중단돼 시작도 못 했다 — 무고한 스위트를 원인으로 찍지 않는다
     rc=1
-    printf '%s\n' "FAIL WORKER — 결과 없음 (작업자 비정상 종료). 재현: bash $suite" >> "$out_f"
+    if [ -e "$out_f" ]; then
+      printf '%s\n' "FAIL WORKER — 결과 없음 (작업자 비정상 종료 — 스위트가 작업자를 죽였거나 신호로 중단). 재현: bash $suite" >> "$out_f"
+    else
+      printf '%s\n' "FAIL WORKER — 미실행 (작업자 풀 중단으로 시작 못 함 — 원인은 '결과 없음' 스위트). 재현: bash $suite" >> "$out_f"
+    fi
   fi
   # 스위트 내부 SKIP 집계 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
   # `grep -c` 는 0건에 "0" 출력 + rc=1 이라 `|| true` 로 rc 만 흡수한다(`|| echo 0` 금지 — 이중 출력).

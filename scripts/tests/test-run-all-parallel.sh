@@ -211,5 +211,28 @@ done
   && ok "T7.b 세 스위트의 시간 임계(< 3s ×2 · < 2000ms · 2s 유예) 무변경" \
   || nope "T7.b 임계 변경 감지" "직렬 표시로 대응하기로 했다 — 임계를 넓히면 그 테스트가 잡던 결함을 못 잡는다"
 
+# ── T8: 작업자 비정상 종료 → FAIL WORKER 계상 · 미실행 스위트는 원인과 구분 (AC-2 · Phase C 지적) ──
+#   JOBS=1 로 결정적 재현 — 스위트가 자기 작업자를 KILL 하면 xargs 가 abort 해 뒤 스위트는 시작조차 못 한다.
+#   가드가 없으면 rc 파일 부재 스위트가 조용히 빠지고, 구분이 없으면 무고한 미실행 스위트가 "비정상 종료" 로 오귀속된다.
+#   ★ 죽은 작업자의 bounded_run 워치독은 flag 가 안 지워져 상한까지 산다 — bash 가 함수 리다이렉트 때 원 stdout 을
+#     높은 fd 에 보관하고 fork 한 subshell 이 그것을 물려받아, `$(run-all)` 캡처가 상한(기본 300s)만큼 멈췄다(실측 3s→3s·8s→8s).
+S=$(_sb)
+_suite "$S" a-killer 'sleep 0.3; kill -KILL $PPID'
+_suite "$S" b-late 'echo "PASS=1 FAIL=0"'
+_t0=$(date +%s)
+o=$( SPECOPS_SUITE_TIMEOUT=20 SPECOPS_RUN_ALL_JOBS=1 bash "$S/scripts/tests/run-all.sh" --quiet 2>"$ROOT/t8.err" ); rc=$?
+_el=$(( $(date +%s) - _t0 ))
+{ [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$o" | tail -1)" = "VERIFY: FAIL" ] \
+  && printf '%s\n' "$o" | grep -q '^FAIL WORKER — 결과 없음 (작업자 비정상 종료.*test-a-killer.sh$' \
+  && printf '%s\n' "$o" | grep -qx 'FAILED: scripts/tests/test-a-killer.sh'; } \
+  && ok "T8.a 작업자를 죽인 스위트 → FAIL WORKER 결과 없음 · VERIFY: FAIL" || nope "T8.a" "rc=$rc out=[$o]"
+{ printf '%s\n' "$o" | grep -q '^FAIL WORKER — 미실행 (작업자 풀 중단.*test-b-late.sh$' \
+  && ! printf '%s\n' "$o" | grep -q '비정상 종료.*test-b-late.sh'; } \
+  && ok "T8.b 시작 못 한 스위트는 미실행으로 구분 (오귀속 없음)" || nope "T8.b" "out=[$o]"
+grep -q '^⚠  run-all: 작업자 풀 비정상 종료' "$ROOT/t8.err" \
+  && ok "T8.c 풀 비정상 종료를 stderr 로 알린다" || nope "T8.c" "err=[$(cat "$ROOT/t8.err")]"
+[ "$_el" -lt 10 ] \
+  && ok "T8.d 죽은 작업자의 워치독이 캡처를 붙잡지 않는다 (${_el}s < 10s · 상한 20s)" || nope "T8.d 고아 워치독" "el=${_el}s (상한 20s 까지 멈춤)"
+
 echo ""
 finish
