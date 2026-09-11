@@ -124,6 +124,130 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+
+# ── Bash 사전 필터 (20260911-posttool-matcher-narrow) ─────────────────────────
+#   posttool 은 동기 훅이라 모든 Bash 호출 뒤에 붙는다. 커밋·PR 이 아닌 명령에서
+#   git·jq 비용을 다 치른 뒤 버리던 것을, 판정과 **같은 전처리·같은 정규식**으로 먼저 거른다.
+#   아래 케이스는 "필터가 판정을 바꾸지 않았다"(T8.i·T8.j·T8.k)와
+#   "필터가 실제로 비용을 없앴다"(T8.h)를 따로 잠근다 — 앞의 것만 있으면 필터를 지워도 통과한다.
+
+# git shim — 호출될 때마다 1줄을 남기고 진짜 git 으로 넘긴다.
+#   ★ PATH 앞에만 끼운다. 통째로 교체하면 bash·jq 를 못 찾아 훅이 다른 이유로 끝난다.
+_real_git=$(command -v git)
+_mk_git_shim() {  # $1=shim dir  $2=log file
+  mkdir -p "$1"
+  printf '#!/bin/sh\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$2" "$_real_git" > "$1/git"
+  chmod +x "$1/git"
+}
+# $1=tool_name $2=command(또는 skill) [$3=훅 경로] → stdout. cwd 는 호출자의 $tmp.
+_post() {
+  local _h="${3:-$HOOK}" _in
+  if [ "$1" = "Skill" ]; then
+    _in=$(jq -nc --arg tp "$tmp/transcript.jsonl" --arg s "$2" '{session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Skill", tool_input:{skill:$s}, tool_response:{}}')
+  else
+    _in=$(jq -nc --arg tp "$tmp/transcript.jsonl" --arg t "$1" --arg c "$2" '{session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:$t, tool_input:{command:$c}, tool_response:{}}')
+  fi
+  printf '%s' "$_in" | PATH="$tmp/shim:$PATH" bash "$_h" 2>/dev/null
+}
+
+# T8.h ★ 비트리거 Bash 는 git 을 부르기 전에 끝난다 (AC-2)
+#   음성 3형: 평범한 명령 · 인자에 commit 이 없는 grep · heredoc **본문**에만 git commit(비실행자 cat).
+#   기록 없음·출력 동일은 필터가 없어도 성립한다 — **git 호출 0회**가 필터의 유일한 관측 증거다.
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+_mk_git_shim "$tmp/shim" "$tmp/git-calls.log"
+_heredoc_cmd=$(printf "cat > note.md <<'EOF'\ngit commit -m x\nEOF")
+_h_bad=""
+for _c in "ls" "grep -rn foo ." "$_heredoc_cmd"; do
+  : > "$tmp/git-calls.log"
+  _o=$(_post Bash "$_c")
+  _n=$(wc -l < "$tmp/git-calls.log" | tr -d ' ')
+  _logs=$(find .specops -name friction-log.jsonl 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$_o" != '{"continue":true}' ] || [ "$_n" -ne 0 ] || [ "$_logs" -ne 0 ]; then
+    _h_bad="$_h_bad [$(printf '%s' "$_c" | head -1): out=$_o git=$_n logs=$_logs]"
+  fi
+done
+if [ -z "$_h_bad" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.h ★ 비트리거 Bash 3형 → git 0회 · 기록 0 · continue only"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.h 필터 미작동:$_h_bad"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
+# T8.i ★ 트리거 판정 동치 코퍼스 (AC-3)
+#   양성 5형은 **필터 추가 전과 같은 규칙**이 기록돼야 하고, 음성 3형은 기록이 없어야 한다.
+#   기대 규칙은 2026-09-11 main 훅(필터 추가 전) 실측값이다 — 필터가 정규식을 좁히면 양성이 떨어진다.
+#   heredoc **본문** 음성(AC-3)은 git 호출 0회까지 보는 T8.h 가 담당한다.
+_i_bad=""
+while IFS='|' read -r _exp _c; do
+  [ -n "$_c" ] || continue
+  tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+  cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+  cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+  _o=$(_post Bash "$_c")
+  _got=$(printf '%s' "$_o" | jq -r '.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  [ "$_got" = "$_exp" ] || _i_bad="$_i_bad [$_c: got='$_got' exp='$_exp']"
+  cd "$PLUGIN"; rm -rf "$tmp"
+done <<'CORPUS'
+R-1|git commit -m x
+R-1|FOO='a b' git commit -m x
+R-1|rtk proxy git commit -m x
+R-1|git -C . commit -m x
+R-2|gh pr create --title t
+|git commit-tree HEAD^{tree}
+|echo "git commit -m x"
+|ls
+CORPUS
+if [ -z "$_i_bad" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.i ★ 트리거 동치 코퍼스 8형 (양성 5 · 음성 3)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.i 판정 변화:$_i_bad"
+fi
+
+# T8.j ★ 필터를 못 만들면 감사를 건너뛰지 않는다 (AC-4)
+#   두 손상형 모두 main 은 R-1 을 기록한다 — load_rules(jq -c)는 스트림이라 깨진 줄 앞의 규칙을 살리고,
+#   apply_lookback_rule 은 규칙마다 따로 grep 해 한 규칙의 정규식 오류가 다른 규칙을 막지 않는다.
+#   필터는 jq -s(통째 실패)·정규식 합치기(한 개 오류 = 전체 rc=2)라 **더 쉽게 깨진다** — 그때 조기 종료하면
+#   main 이 남기던 감사가 사라진다.
+source "$PLUGIN/scripts/tests/lib/isolated-tree.sh" 2>/dev/null || true
+_j_bad=""
+if ! command -v iso::make_tree >/dev/null 2>&1; then
+  _j_bad=" isolated-tree 미로드"
+else
+  for _dmg in broken-json bad-regex; do
+    T=$(iso::make_tree "$PLUGIN") || { _j_bad="$_j_bad [$_dmg: 사본 실패]"; continue; }
+    case "$_dmg" in
+      broken-json) printf '{broken\n' >> "$T/hooks/rules.jsonl" ;;
+      bad-regex)   printf '%s\n' '{"id":"R-X","matcher":"posttool","enabled":false,"trigger_tool":"Bash","trigger_pattern":"("}' >> "$T/hooks/rules.jsonl" ;;
+    esac
+    tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+    cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+    cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+    _o=$(_post Bash "git commit -m x" "$T/hooks/posttool-governance.sh")
+    printf '%s' "$_o" | jq -e '.additionalContext | contains("R-1")' >/dev/null 2>&1 \
+      || _j_bad="$_j_bad [$_dmg: out=$_o]"
+    cd "$PLUGIN"; rm -rf "$tmp" "$T"
+  done
+fi
+if [ -z "$_j_bad" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.j ★ 손상 rules 2형(깨진 JSON · 정규식 오류) → 조기 종료 없이 R-1 감사 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.j 감사 소실:$_j_bad"
+fi
+
+# T8.k Skill 은 필터 대상이 아니다 — R-3 경로 유지 (AC-R-1 ①)
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+cp "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" transcript.jsonl
+_o=$(_post Skill "specops-ko:planning-ko")
+if printf '%s' "$_o" | jq -e '.additionalContext | contains("R-3")' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T8.k Skill 선언 부재 → R-3 기록 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.k (out=$_o)"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 STOP_HOOK="$PLUGIN/hooks/stop-governance.sh"
 
 # T11.a stop_hook_active=true → 즉시 exit 0, append 없음

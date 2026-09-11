@@ -40,9 +40,29 @@ tool_cmd=$(echo "$input" | jq -r '.tool_input.command // .tool_input.skill // em
 
 [ -n "$transcript" ] && [ -f "$transcript" ] || { echo '{"continue":true}'; exit 0; }
 
-fid=$(detect_fid)
 rules_path="$plugin_root/hooks/rules.jsonl"
 [ -f "$rules_path" ] || { echo '{"continue":true}'; exit 0; }
+
+# Bash 사전 필터 (20260911-posttool-matcher-narrow) — pretool-governance.sh:45-56 동형.
+#   이 훅은 동기라 모든 Bash 호출 뒤에 붙는다. 커밋·PR 이 아닌 명령(호출의 대부분)에서 아래
+#   is_docs_only_audit_scope 의 git 3~4회와 규칙 루프 jq 를 다 치른 뒤 :1077 에서 버리던 것을 먼저 거른다.
+#   ★ 판정 집합 불변: 정규식은 rules.jsonl 단일 소스(posttool·trigger_tool=Bash, enabled 무관 — 상위집합.
+#     enabled==true 로 좁혀도 load_rules 가 enabled 만 적재해 판정은 같다 — 스위트가 잠그지 않는 설계 선택),
+#     전처리는 apply_lookback_rule(governance-lib.sh:1082-1083)과 **같은 함수**다. 복제하지 않는다.
+#   ★ 판정 불가면 조기 종료하지 않는다 — pretool 과 방향이 반대인 이유: 저쪽은 차단층이라 fail-open(allow),
+#     이쪽은 감사층이라 기록 보존이 안전하다. jq -s 는 한 줄만 깨져도 통째로 실패하고(load_rules 의 jq -c
+#     스트림은 앞 줄을 살린다), 정규식을 합치면 한 규칙의 오류가 전체를 rc=2 로 만든다 — 둘 다 종전 경로로 보낸다.
+if [ "$tool_name" = "Bash" ]; then
+  bash_trigger_re=$(jq -rs '[.[] | select(.matcher == "posttool" and .trigger_tool == "Bash") | .trigger_pattern | select(. != null)] | join("|")' "$rules_path" 2>/dev/null)
+  if [ -n "$bash_trigger_re" ]; then
+    scan_cmd=$(_strip_heredoc_bodies "$tool_cmd")
+    scan_cmd=$(_strip_quoted_strings "$scan_cmd")
+    printf '%s' "$scan_cmd" | grep -Eq "$bash_trigger_re"
+    [ "$?" -eq 1 ] && { echo '{"continue":true}'; exit 0; }   # 1=불일치만. 2(정규식 오류)는 통과
+  fi
+fi
+
+fid=$(detect_fid)
 
 matches=""
 while IFS= read -r rule; do
