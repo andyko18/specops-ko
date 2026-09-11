@@ -19,7 +19,7 @@ else
 fi
 # T5.b 메타 skill 에는 절차 본문이 없고 참조 파일 포인터만 있다 (중복 = 예산 낭비 + 두 곳 drift)
 #   ★ 앵커 고유성: 'using-specops-ko/freework-pending.md' 는 SKILL.md 포인터 행에만 있다 (grep -c = 1)
-if ! grep -q 'freework-resolve-fid' "$META" && grep -q 'using-specops-ko/freework-pending.md' "$META"; then
+if ! grep -q 'freework-resolve-fid' "$META" && [ "$(grep -c 'using-specops-ko/freework-pending.md' "$META")" -eq 1 ]; then
   PASS=$((PASS+1)); echo "PASS T5.b 메타 skill 은 포인터만 (절차 본문 없음)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.b — 메타 skill 에 절차 본문 잔존 또는 포인터 부재"
