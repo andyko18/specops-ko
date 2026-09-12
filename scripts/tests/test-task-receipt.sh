@@ -212,4 +212,48 @@ if [ -z "$out" ]; then ok "T-rwc.c verify PASS 신선 → 자기보고 경로로
 else nope "T-rwc.c" "PASS 신선인데 차단: $out"; fi
 rm -rf "$_RWC"
 
+# ── 파일 클래스 구분 (20260912-verify-stale-docs-scope) ──────────────────────
+# receipt 는 verify 창이 닫혔을 때의 유일한 통로다 — 지문과 같은 맹점을 함께 푼다.
+# ★ 양성 대조군 **쌍** 필수: 문서=유효 ∧ 코드=거부. 한쪽만 두면 분류기를 비워도 통과한다.
+_RD=$(mktemp -d) || exit 1
+_rd_fid=20260912-rcpt
+_setup_fid "$_RD" "$_rd_fid"
+mkdir -p "$_RD/.claude-plugin"
+printf '{"name":"x"}\n' > "$_RD/.claude-plugin/plugin.json"
+printf 'doc\n' > "$_RD/CHANGELOG.md"
+(cd "$_RD" && git add -A && git -c user.name=t -c user.email=t@e.com commit -qm doc) >/dev/null 2>&1
+printf 'updated\n' > "$_RD/src/foo.sh"
+(cd "$_RD" && bash "$REC" "$_rd_fid" T1) >/dev/null 2>&1
+
+# TR-D1 문서 전용 변경 후에도 receipt 유효 (AC-7)
+printf 'doc changed\n' > "$_RD/CHANGELOG.md"
+(cd "$_RD" && git add src scripts) >/dev/null 2>&1
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  ok "TR-D1 문서 변경 후 receipt 유효"
+else
+  nope "TR-D1 문서 변경 후 receipt 유효" "tree stale 로 거부됨"
+fi
+
+# TR-D2 코드 변경 후에는 거부 (양성 대조)
+printf 'code changed\n' > "$_RD/src/foo.sh"
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  nope "TR-D2 코드 변경 후 receipt 거부" "통과해버림"
+else
+  ok "TR-D2 코드 변경 후 receipt 거부"
+fi
+
+# TR-D3 구버전 receipt(nondoc_hash 부재) → 종전 전체 지문 비교로 떨어진다 (AC-7 검증방법 3항)
+# ★ 부재 시 방향이 **더 엄격한 쪽**이어야 한다 — 문서 변경만으로도 거부되는 것이 정상이다.
+#   이 케이스가 없으면 "하위 호환" 주장이 무잠금이고, 필드를 안 읽는 구현으로 퇴행해도 통과한다.
+jq 'del(.nondoc_hash)' "$_RD/.specops/$_rd_fid/receipts/T1.json" > "$_RD/rc.tmp" \
+  && mv "$_RD/rc.tmp" "$_RD/.specops/$_rd_fid/receipts/T1.json"
+printf 'code\n' > "$_RD/src/foo.sh"          # 코드 원복 — 문서 변경만 남긴다
+printf 'doc changed twice\n' > "$_RD/CHANGELOG.md"
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  nope "TR-D3 구버전 receipt → 종전 동작(더 엄격)" "문서 변경인데 통과 — 하위 호환이 느슨한 쪽"
+else
+  ok "TR-D3 구버전 receipt → 종전 동작(더 엄격)"
+fi
+rm -rf "$_RD"
+
 finish

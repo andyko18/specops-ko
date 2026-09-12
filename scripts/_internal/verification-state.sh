@@ -8,6 +8,20 @@ set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 
+# 파일 분류 단일 SoT (20260912-verify-stale-docs-scope).
+#   ★ ${BASH_SOURCE[0]%/*} 로 해석한다 — .githooks/pre-push 가 이 파일을 **상대경로**로 source 하므로
+#     $0 기반 해석은 깨진다. 슬래시 없는 source 면 이 확장이 파일명을 그대로 돌려주어 source 가
+#     실패하는데, 아래 가드가 fail-safe(전건 비문서=지문 확대)로 받는다.
+_VS_DIR="${BASH_SOURCE[0]%/*}"
+if [ -f "$_VS_DIR/file-class.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$_VS_DIR/file-class.sh"
+else
+  echo "verification-state: file-class.sh 로드 실패 — 전건 비문서로 판정한다" >&2
+  fc::is_doc() { return 1; }
+  fc::is_plugin_repo() { return 1; }
+fi
+
 vs::valid_fid() {
   printf '%s' "$1" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'
 }
@@ -39,6 +53,62 @@ vs::workspace_fingerprint() {
   else
     printf 'NO_GIT'
   fi
+}
+
+# 비문서 지문 — 문서 전용 변경에는 불변이다 (20260912-verify-stale-docs-scope).
+#   왜 별도 함수인가: vs::workspace_fingerprint 는 pre-push 마커·receipt 가 "이 트리가 통과했다" 는
+#   진술로 쓰던 값이다. 의미를 바꾸지 않고 **비문서 한정 지문을 추가**해, 소비자가 어느 의미를
+#   원하는지 호출부에서 드러나게 한다.
+#   왜 과거 트리를 조회하지 않는가: write-tree 산출 트리는 어떤 ref 에서도 도달 불가라 git gc 대상이다
+#   (실측: 이 저장소 기록 55건 중 3건이 이미 소실). 기록 시점에 지문을 남겨야 대조가 성립한다.
+vs::nondoc_fingerprint() {
+  if ! command -v git >/dev/null 2>&1 || ! git rev-parse --git-dir >/dev/null 2>&1; then
+    printf 'NO_GIT'
+    return 0
+  fi
+  local idx plugin_rc=1 line f out="" top
+  idx=$(mktemp "${TMPDIR:-/tmp}/vs-nidx.XXXXXX") || { printf 'NO_GIT'; return 0; }
+  # ★ 저장소 루트에 앵커한다 — pathspec `.` 과 `:(exclude).specops` 는 **cwd 상대**라
+  #   서브디렉터리에서 부르면 그 아래만 열거된다. workspace_fingerprint 는 같은 트리면 cwd 와
+  #   무관하게 같은 값을 주는데 nondoc 만 갈리면, 기록 cwd ≠ 조회 cwd 일 때 가짜 STALE·
+  #   `tree stale` 오거부가 나고 반대로 같은 서브디렉터리끼리면 바깥 코드 변경을 못 본다
+  #   (실측: 루트 c372baae vs sub fd7dce69 — 같은 트리인데 다름). Phase C I-3.
+  # ★ exclude 는 **long-form magic 안에 `top` 을 넣어야** 루트 기준이 된다.
+  #   종전 `':(exclude,glob):/.specops/**'` 는 무효였다 — long-form `(exclude,glob)` **뒤의 `:/` 는
+  #   short-magic 으로 재해석되지 않고** 나머지가 리터럴 패턴 `:/.specops/**` 가 되어 아무것도 안 걸린다.
+  #   실측(git 2.50.1): 그 형태로는 미추적 `.specops/x/new.json` 과 수정된 `.specops/state.json` 이
+  #   임시 인덱스에 **그대로 들어왔다**(루트·서브 양쪽). chain 코드리뷰 I-1.
+  #   ※ `top` 을 써도 **추적된** `.specops/*` 는 남는다 — `read-tree HEAD` 로 이미 들어온 분이라
+  #     add 의 pathspec 이 손대지 않기 때문이다(workspace_fingerprint 와 같은 성질).
+  #     exclude 가 실제로 막는 것은 **미추적 신규 파일**이다.
+  #   ※ 그래서 이 pathspec 은 지문의 정확성을 혼자 책임지지 않는다 — 아래 루프의 `fc::is_doc` 이
+  #     `^\.specops/` 를 문서로 걸러 최종 방어를 한다(실측: 두 경우 모두 지문 불변).
+  #     둘 중 하나만 믿지 말 것. 분류 패턴이 바뀌면 이 pathspec 이 유일한 방어가 된다.
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || { rm -f "$idx"; printf 'NO_GIT'; return 0; }
+  GIT_INDEX_FILE="$idx" git -C "$top" read-tree HEAD >/dev/null 2>&1 || true
+  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || true
+  fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
+  # ※ `--full-name` 은 `-C "$top"` 아래에서는 **중복**이다(실측: 서브디렉터리에서 유무 출력 동일).
+  #   `-C` 가 없던 시절엔 필수였고 지금은 방어적 잉여다 — 남겨 두되 "필수" 라고 쓰지 않는다.
+  #   (종전 주석이 "필수" 라고 단언했으나 근거가 없었다 — chain 코드리뷰 M-1.)
+  # ★★ `-C "$top"` 도 필수다 — `ls-files` 는 **cwd 하위만 열거**한다. read-tree·add 만 앵커하고
+  #   이 줄을 빠뜨리면 인덱스에는 전체가 들어와도 **목록이 cwd 아래로 잘려** 지문이 갈린다.
+  #   실측(수정 전 HEAD): 같은 깨끗한 트리에서 루트 c5e6e0a9 vs sub fd7dce69, 그리고 루트 code.sh 를
+  #   고쳐도 sub 에서는 값이 안 변했다(바깥 변경이 안 보임). Phase C 재판정이 이걸 잡았다 —
+  #   78·79 만 고치고 "cwd 의존 제거" 라 적었던 것은 **거짓 주장**이었고, probe 재실행을 했으면 잡혔다.
+  # ★ core.quotePath=false — 비ASCII 경로를 `"\355\225\234..."` 로 인용하지 않고 원문으로 낸다.
+  #   인용되면 fc::is_doc 이 받는 이름이 실제 경로와 달라져 분류 근거가 흔들린다(M-2).
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    f=${line#*$'\t'}
+    fc::is_doc "$f" "$plugin_rc" && continue
+    out="${out}${line}"$'\n'
+  done <<EOF
+$(GIT_INDEX_FILE="$idx" git -C "$top" -c core.quotePath=false ls-files -s --full-name 2>/dev/null)
+EOF
+  rm -f "$idx"
+  [ -z "$out" ] && { printf 'EMPTY'; return 0; }
+  printf '%s' "$out" | shasum -a 256 | awk '{print $1}' | tr -d '\n'
 }
 
 vs::legacy_verdict() {
@@ -74,9 +144,17 @@ vs::current() {
     fi
   fi
 
+  # PASS 이후 변경 판정 — 문서 전용 변경은 무효화하지 않는다 (20260912-verify-stale-docs-scope).
+  #   nondoc_hash 가 있으면 그것으로 비교하고, 없으면(구버전 기록) 종전 전체 지문 비교로 떨어진다.
+  #   부재 시 방향은 **더 엄격한 쪽**이라 fail-safe 다 — 기존 기록이 갑자기 느슨해지지 않는다.
   if [ "$verdict" = "PASS" ]; then
-    recorded_hash=$(jq -r '.tree_hash // ""' "$state" 2>/dev/null)
-    current_hash=$(vs::workspace_fingerprint)
+    recorded_hash=$(jq -r '.nondoc_hash // ""' "$state" 2>/dev/null)
+    if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ]; then
+      current_hash=$(vs::nondoc_fingerprint)
+    else
+      recorded_hash=$(jq -r '.tree_hash // ""' "$state" 2>/dev/null)
+      current_hash=$(vs::workspace_fingerprint)
+    fi
     if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ] && [ "$recorded_hash" != "$current_hash" ]; then
       printf 'STALE'
       return 0
@@ -130,15 +208,21 @@ vs::record() {
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   head_sha=$(git rev-parse HEAD 2>/dev/null || printf 'UNBORN')
   tree=$(vs::workspace_fingerprint)
+  # 비문서 지문을 함께 남긴다 — 조회 시점에 과거 트리를 못 찾는 문제(gc)를 구조적으로 피한다.
+  #   schema_version 은 올리지 않는다: 필드 부재가 곧 구버전이고 소비측이 종전 경로로 떨어진다.
+  local nondoc
+  nondoc=$(vs::nondoc_fingerprint)
   jq -n \
     --argjson schema_version 1 --arg fid "$fid" --arg verdict "$verdict" \
     --arg recorded_at "$ts" --arg head_sha "$head_sha" --arg tree_hash "$tree" \
+    --arg nondoc_hash "$nondoc" \
     --argjson executed "$executed" --argjson skipped "$skipped" \
     --argjson failed "$failed" --argjson duration_ms "$duration_ms" \
     --arg waiver_reason "$waiver_reason" --arg waiver_approved_by "$waiver_approved_by" \
     --arg waiver_expires_at "$waiver_expires_at" \
     '{schema_version:$schema_version,fid:$fid,verdict:$verdict,recorded_at:$recorded_at,
-      head_sha:$head_sha,tree_hash:$tree_hash,executed:$executed,skipped:$skipped,
+      head_sha:$head_sha,tree_hash:$tree_hash,nondoc_hash:$nondoc_hash,
+      executed:$executed,skipped:$skipped,
       failed:$failed,duration_ms:$duration_ms,
       waiver:(if $verdict=="WAIVED" then
         {reason:$waiver_reason,approved_by:$waiver_approved_by,expires_at:$waiver_expires_at}

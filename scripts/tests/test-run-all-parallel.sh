@@ -67,12 +67,14 @@ printf '%s\n' "$o1" | grep -qx 'FAILED: scripts/tests/test-a.sh' \
 
 # ── T2: 병렬 모드의 VERIFY 토큰·rc·마커·TIMEOUT (AC-2) ──
 S=$(_sb)
-cp "$PLUGIN/scripts/_internal/verification-state.sh" "$S/scripts/_internal/"
+# file-class.sh 도 함께 복사해야 한다 — verification-state.sh 가 이를 source 하고,
+#   없으면 fail-safe(전건 비문서)로 떨어져 지문이 달라진다(T2.a 가 마커와 대조하므로 red).
+cp "$PLUGIN/scripts/_internal/verification-state.sh" "$PLUGIN/scripts/_internal/file-class.sh" "$S/scripts/_internal/"
 _suite "$S" p1 'sleep 0.3; echo "PASS=1 FAIL=0"'
 _suite "$S" p2 'echo "PASS=1 FAIL=0"'
 # ★ 커밋 필수 — HEAD 가 없으면 지문의 임시 index(빈 파일)를 git 이 손상으로 보아 NO_GIT 이 된다(실측)
 ( cd "$S" && git init -q && git add -A && git -c user.email=t@example.com -c user.name=t -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm base ) >/dev/null 2>&1
-_fp=$( cd "$S" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' )
+_fp=$( cd "$S" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' )
 o=$( cd "$S" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-all.sh --quiet 2>&1 ); rc=$?
 { [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$o" | tail -1)" = "VERIFY: PASS" ] \
   && [ "$(head -1 "$S/.specops/.full-suite-pass" 2>/dev/null)" = "$_fp" ]; } \

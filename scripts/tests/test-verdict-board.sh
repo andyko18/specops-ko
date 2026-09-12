@@ -60,8 +60,8 @@ rm -rf "$empty"
 # T2: 구조화 상태 SoT 우선 + 계산형 STALE/PARTIAL/WAIVED 표시
 PROJ=$(mktemp -d)
 git -C "$PROJ" init -q
-printf 'base\n' > "$PROJ/app.txt"
-git -C "$PROJ" add app.txt
+printf 'base\n' > "$PROJ/app.sh"
+git -C "$PROJ" add app.sh
 git -C "$PROJ" -c user.name=test -c user.email=test@example.com commit -qm init
 mkdir -p "$PROJ/.specops/20260803-structured"
 (cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured PASS)
@@ -70,12 +70,12 @@ if printf '%s' "$out3" | grep "20260803-structured" | grep -q "✅"; then
   PASS=$((PASS+1)); echo "PASS T2.a 구조화 PASS 표시"
 else FAIL=$((FAIL+1)); echo "FAIL T2.a ($out3)"; fi
 
-printf 'changed\n' >> "$PROJ/app.txt"
+printf 'changed\n' >> "$PROJ/app.sh"
 out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")
 if printf '%s' "$out3" | grep "20260803-structured" | grep -q "⚠"; then
   PASS=$((PASS+1)); echo "PASS T2.b 코드 변경 → STALE 표시"
 else FAIL=$((FAIL+1)); echo "FAIL T2.b ($out3)"; fi
-git -C "$PROJ" restore app.txt
+git -C "$PROJ" restore app.sh
 
 (cd "$PROJ" && bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260803-structured PARTIAL)
 out3=$(cd "$PROJ" && bash "$VB" "$PROJ/.specops")

@@ -662,5 +662,63 @@ else
   fi
 fi
 
+# ── 파일 클래스 구분 (20260912-verify-stale-docs-scope) ──────────────────────
+# 편집 이벤트 집계가 문서·저장소 밖 경로를 "코드 편집" 으로 세면, 문서 한 줄 수정이
+# 실행증거를 stale 로 뒤집어 커밋을 막는다. 판정(_verify_exec_evidence)과
+# 진단(_verify_stale_cause)이 **같은 기준**을 써야 deny 문안이 거짓 원인을 말하지 않는다.
+# ★ 양성 대조군 쌍 필수: 문서/저장소밖 = 무효화 안 함 ∧ 런타임 = 무효화.
+_cls=$(mktemp) || exit 1
+
+# T-cls.a 문서 편집은 실행증거를 무효화하지 않는다 (AC-3)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_D1","name":"Edit","input":{"file_path":"CHANGELOG.md","old_string":"a","new_string":"b"}}]}}' > "$_cls"
+_verify_exec_evidence "$_cls"; ck "T-cls.a 문서 Edit → 0 (무효화 안 함)" 0 $?
+
+# T-cls.b 런타임 .md 편집은 여전히 stale (양성 대조 — R-1 확대 방지)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_D2","name":"Edit","input":{"file_path":"skills/foo/SKILL.md","old_string":"a","new_string":"b"}}]}}' > "$_cls"
+_verify_exec_evidence "$_cls"; ck "T-cls.b 런타임 SKILL.md Edit → 1 (stale 유지)" 1 $?
+
+# T-cls.c 저장소 밖 절대경로 편집은 무효화하지 않는다 (AC-4)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_D3","name":"Edit","input":{"file_path":"/somewhere/else/plans/x.md","old_string":"a","new_string":"b"}}]}}' > "$_cls"
+_verify_exec_evidence "$_cls"; ck "T-cls.c 저장소 밖 절대경로 Edit → 0" 0 $?
+
+# T-cls.d 진단이 판정과 같은 기준 — 저장소 밖을 원인으로 지목하지 않는다 (AC-4 후반)
+_cause=$(_verify_stale_cause "$_cls")
+if [ -z "$_cause" ]; then ck "T-cls.d 진단이 저장소 밖을 지목하지 않음" 0 0
+else ck "T-cls.d 진단이 저장소 밖을 지목하지 않음 (got: $_cause)" 0 1; fi
+
+# T-cls.e 진단이 런타임 경로는 지목한다 (양성 대조)
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_D4","name":"Edit","input":{"file_path":"hooks/x.sh","old_string":"a","new_string":"b"}}]}}' > "$_cls"
+_cause=$(_verify_stale_cause "$_cls")
+case "$_cause" in
+  stale*) ck "T-cls.e 진단이 런타임 경로를 지목" 0 0 ;;
+  *)      ck "T-cls.e 진단이 런타임 경로를 지목 (got: '$_cause')" 0 1 ;;
+esac
+rm -f "$_cls"
+
+# ── 편집 이벤트 **입력 스키마 변이** (Phase C C-1) ───────────────────────────
+# NotebookEdit 의 입력 필드는 `notebook_path` 라 `.input.file_path` 가 없다. 종전 구현은 그런
+# "경로 미상" 을 **저장소 밖과 같은 답**(세지 않음)으로 처리해 R-1 면제가 조용히 넓어졌다
+# (실측: BASE rc=1 → HEAD rc=0). 경로를 모를 때는 **코드로 세는 것**이 fail-safe 다.
+# ★ 저장소 밖(T-cls.c)은 rc=0 을 유지해야 한다 — 둘 다 코드로 만드는 수정은 AC-4 를 깨는 오답이다.
+_sch=$(mktemp) || exit 1
+
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_N1","name":"Edit","input":{}}]}}' > "$_sch"
+_verify_exec_evidence "$_sch"; ck "T-sch.a file_path 필드 부재 → 1 (경로 미상=코드, fail-safe)" 1 $?
+
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_N2","name":"NotebookEdit","input":{"notebook_path":"analysis.ipynb"}}]}}' > "$_sch"
+_verify_exec_evidence "$_sch"; ck "T-sch.b NotebookEdit(notebook_path) → 1 (stale)" 1 $?
+
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_N3","name":"Edit","input":{"file_path":""}}]}}' > "$_sch"
+_verify_exec_evidence "$_sch"; ck "T-sch.c file_path 빈 문자열 → 1 (경로 미상=코드)" 1 $?
+
+# T-sch.d 진단도 같은 기준 — 경로 미상이면 지목은 하되 판정과 어긋나지 않아야 한다
+printf '%s\n' "$runner_ev" '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_N4","name":"NotebookEdit","input":{"notebook_path":"analysis.ipynb"}}]}}' > "$_sch"
+_cause=$(_verify_stale_cause "$_sch")
+case "$_cause" in
+  stale*) ck "T-sch.d 진단이 경로 미상 편집을 지목" 0 0 ;;
+  *)      ck "T-sch.d 진단이 경로 미상 편집을 지목 (got: '$_cause')" 0 1 ;;
+esac
+rm -f "$_sch"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

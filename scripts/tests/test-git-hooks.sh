@@ -414,7 +414,7 @@ MARKER_LIT='full-suite-pass'
 _g() { grep -qE "$1" "$2"; }   # -E 필수 — 아래 교대(|) 패턴이 BRE 에서 불일치
 
 _g "$MARKER_LIT" "$RUNALL"                        && ok "T20.a run-all 마커 경로 선언"      || nope "T20.a run-all 마커 경로 선언"
-_g '_FSP_TREE=.*workspace_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 workspace_fingerprint" || nope "T20.b 지문 캡처가 workspace_fingerprint"
+_g '_FSP_TREE=.*nondoc_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 nondoc_fingerprint" || nope "T20.b 지문 캡처가 nondoc_fingerprint"
 _g 'printf .*_FSP_TREE.*>.*_FSP_MARKER' "$RUNALL" && ok "T20.c 성공 시 기록"                || nope "T20.c 성공 시 기록"
 _g 'rm -f .*_FSP_MARKER' "$RUNALL"                && ok "T20.d FAIL 시 마커 제거"           || nope "T20.d FAIL 시 마커 제거"
 _g 'mkdir -p .*_FSP_MARKER' "$RUNALL"             && ok "T20.e 마커 디렉터리 보장"          || nope "T20.e 마커 디렉터리 보장"
@@ -465,7 +465,7 @@ if [ "$_p_ntests" != "1" ]; then
   _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
 else
 
-_p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' ); }
+_p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' ); }
 
 # 성공 → 마커가 지문과 일치
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
@@ -536,7 +536,8 @@ if [ -z "$_fc" ] || [ ! -d "$_fc" ]; then
   _t22_dead "T22.b 지문 일치 → skip"
   _t22_dead "T22.b1 skip 고지 — 사유 출력"
   _t22_dead "T22.b2 skip 고지 — 강제 방법 출력"
-  _t22_dead "T22.c 지문 불일치 → 전체 실행"
+  _t22_dead "T22.c 비문서 변경 → 불일치 → 전체 실행"
+  _t22_dead "T22.c2 문서 변경 → 지문 불변 → skip"
   _t22_dead "T22.d 마커 손상 → 전체 실행"
   _t22_dead "T22.e 빈 마커 → 전체 실행"
   _t22_dead "T22.f 권한 없음 → 전체 실행"
@@ -562,7 +563,7 @@ _fc_run() {
        | env SPECOPS_RUN_ALL= "$@" bash .githooks/pre-push >/dev/null 2>&1
     [ -f .specops/.ran ] && echo RAN || echo SKIPPED )
 }
-_fc_fp() { ( cd "$_fc" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' ); }
+_fc_fp() { ( cd "$_fc" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' ); }
 _fc_case() { # $1=id $2=desc $3=기대(RAN|SKIPPED) $4...=env
   local _id="$1" _d="$2" _want="$3"; shift 3
   local _got; _got=$(_fc_run "$@")
@@ -586,9 +587,17 @@ printf '%s' "$_fc_err" | grep -qE '동일 트리.*통과|이미 통과.*건너' 
 printf '%s' "$_fc_err" | grep -q 'SPECOPS_FORCE_FULL=1' \
   && ok "T22.b2 skip 고지 — 강제 방법 출력" || nope "T22.b2 skip 고지 — 강제 방법 출력"
 
-# ③ 트리 1바이트 변경 → 불일치 → 전체 실행
-printf '\n# fc mutate\n' >> "$_fc/README.md"
-_fc_case T22.c "지문 불일치 → 전체 실행" RAN
+# ③ **비문서** 1바이트 변경 → 불일치 → 전체 실행
+# ★ 종전엔 README.md 를 고쳤는데, 마커가 비문서 지문으로 바뀐 뒤로는 문서 변경이 지문을
+#   바꾸지 않아 이 케이스의 의미가 **역전**된다(SKIPPED 가 정답). 비문서로 교체한다.
+printf '\n# fc mutate\n' >> "$_fc/scripts/tests/run-all.sh"
+_fc_case T22.c "비문서 변경 → 불일치 → 전체 실행" RAN
+
+# ③-2 문서 변경 → 지문 불변 → skip (M-2 를 잠그는 양성 대조)
+#   이 케이스가 없으면 "문서 한 줄이 전체 스위트를 다시 돌리지 않는다" 가 무잠금이다.
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+printf '\n<!-- doc mutate -->\n' >> "$_fc/README.md"
+_fc_case T22.c2 "문서 변경 → 지문 불변 → skip" SKIPPED
 
 # ④ 마커 내용 손상 → 전체 실행 (③ 로 트리가 이미 바뀌었으니 **재기록 후** 손상해야 성립)
 _fc_fp > "$_fc/.specops/.full-suite-pass"

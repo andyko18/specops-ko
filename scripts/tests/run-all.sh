@@ -23,7 +23,10 @@ _FSP_TREE=NO_GIT
 if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
   # shellcheck source=/dev/null
   . "$PLUGIN/scripts/_internal/verification-state.sh"
-  _FSP_TREE=$( cd "$PLUGIN" && vs::workspace_fingerprint )
+  # 비문서 지문을 쓴다 (20260912-verify-stale-docs-scope) — 마커의 뜻이
+  #   "이 **비문서** 트리가 통과했다" 로 바뀐다. 문서 한 줄이 전체 스위트 재실행을
+  #   강요하던 경로를 없앤다. fail-closed(부재·NO_GIT·불일치 = 전체 실행)는 그대로다.
+  _FSP_TREE=$( cd "$PLUGIN" && vs::nondoc_fingerprint )
 fi
 # 네트워크 금지 계약 (20260828-sast-timeout): 스위트는 외부 SAST 스캐너를 부르지 않는다.
 #   왜: test-security-scan·test-self-config-collect 가 실 `semgrep --config auto` 를 불렀고,

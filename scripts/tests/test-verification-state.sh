@@ -10,8 +10,8 @@ STATE="$PLUGIN/scripts/_internal/verification-state.sh"
 TD=$(mktemp -d) || exit 1
 trap 'rm -rf "$TD"' EXIT
 git -C "$TD" init -q
-printf 'base\n' > "$TD/app.txt"
-git -C "$TD" add app.txt
+printf 'base\n' > "$TD/app.sh"
+git -C "$TD" add app.sh
 git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm init
 mkdir -p "$TD/.specops/20260803-state"
 
@@ -25,10 +25,10 @@ out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S2 PASS 기록·조회" || nope "S2" "out=$out"
 
 # 검증 뒤 코드 변경은 저장 상태를 덮지 않고 조회 시 STALE로 계산한다.
-printf 'changed\n' >> "$TD/app.txt"
+printf 'changed\n' >> "$TD/app.sh"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "STALE" ] && ok "S3 코드 변경 후 PASS → STALE" || nope "S3" "out=$out"
-git -C "$TD" restore app.txt
+git -C "$TD" restore app.sh
 
 # 비-PASS 상태는 정규 상태 그대로 보존한다.
 for verdict in PARTIAL FAIL NOT_RUN; do
@@ -61,6 +61,26 @@ else
   nope "S4 waiver" "out=$out"
 fi
 
+# S5b WAIVED 필드 **길이 상한** — reason 200 · approved_by 120 (verification-state.sh:169)
+# ★ 종전엔 양성 경로(정상 길이)만 돌아서, 상한 검사의 `&&` 를 끊는 변이가 살아남았다.
+#   "메타데이터 부재 거부"(S4)와는 다른 분기다 — 값은 있는데 **너무 긴** 경우를 본다.
+_long_reason=$(printf 'x%.0s' $(seq 1 201))
+if (cd "$TD" && bash "$STATE" record 20260803-state WAIVED \
+      --waiver-reason "$_long_reason" --waiver-approved-by "owner@example.com" \
+      --waiver-expires-at "$_future" >/dev/null 2>&1); then
+  nope "S5b 과길이 waiver-reason 거부" "201자 reason 이 수락됨"
+else
+  ok "S5b 과길이 waiver-reason 거부"
+fi
+_long_by=$(printf 'y%.0s' $(seq 1 121))
+if (cd "$TD" && bash "$STATE" record 20260803-state WAIVED \
+      --waiver-reason "정상 사유" --waiver-approved-by "$_long_by" \
+      --waiver-expires-at "$_future" >/dev/null 2>&1); then
+  nope "S5c 과길이 waiver-approved-by 거부" "121자 approved_by 가 수락됨"
+else
+  ok "S5c 과길이 waiver-approved-by 거부"
+fi
+
 # 허용 상태 외 문자열은 기록할 수 없다.
 if (cd "$TD" && bash "$STATE" record 20260803-state SKIP >/dev/null 2>&1); then
   nope "S5" "잘못된 SKIP 상태가 수락됨"
@@ -84,9 +104,9 @@ stored=$(jq -r '.verdict' "$TD/.specops/20260803-state/verification-state.json")
 [ "$stored" = "WAIVED" ] && ok "S7b 저장 verdict는 WAIVED 유지" || nope "S7b" "stored=$stored"
 
 # D-1: 검증된 내용의 순수 커밋은 STALE이 아니다 (false-block → BYPASS 방지).
-printf 'verified\n' >> "$TD/app.txt"
+printf 'verified\n' >> "$TD/app.sh"
 (cd "$TD" && bash "$STATE" record 20260803-state PASS)
-git -C "$TD" add app.txt
+git -C "$TD" add app.sh
 git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm "verified content"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S8 커밋만으로는 STALE 아님" || nope "S8" "out=$out"
@@ -95,10 +115,10 @@ out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S8b 빈 커밋도 STALE 아님" || nope "S8b" "out=$out"
 
 # 커밋 후 새 편집은 STALE이다.
-printf 'after-commit\n' >> "$TD/app.txt"
+printf 'after-commit\n' >> "$TD/app.sh"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "STALE" ] && ok "S9 커밋 후 새 편집 → STALE" || nope "S9" "out=$out"
-git -C "$TD" restore app.txt
+git -C "$TD" restore app.sh
 
 # source 호출 시 전역 fid 오염이 경로를 바꾸지 않는다 (SC2318).
 source "$STATE"
@@ -113,5 +133,126 @@ mkdir -p "$NG/.specops/20260803-nogit"
 out=$(cd "$NG" && SPECOPS_ROOT=.specops bash "$STATE" current 20260803-nogit)
 [ "$out" = "PASS" ] && ok "S11 NO_GIT → STALE 미발생" || nope "S11" "out=$out"
 rm -rf "$NG"
+
+# ── 파일 클래스 구분 (20260912-verify-stale-docs-scope) ──────────────────────
+# 문서 전용 변경은 verify 판정을 무효화하지 않는다. 런타임 .md 는 종전대로 무효화한다.
+# ★ 양성 대조군을 **쌍으로** 둔다 — 한쪽만 두면 분류기를 "전부 문서" 또는 "전부 코드" 로
+#   비워도 통과한다(공허 통과).
+mkdir -p "$TD/skills/foo" "$TD/.claude-plugin"
+printf '{"name":"x"}\n' > "$TD/.claude-plugin/plugin.json"
+printf 'doc\n' > "$TD/CHANGELOG.md"
+printf 'body\n' > "$TD/skills/foo/SKILL.md"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm cls
+(cd "$TD" && bash "$STATE" record 20260803-state PASS)
+
+# S12 문서 전용 변경 → PASS 유지 (AC-1)
+printf 'doc changed\n' > "$TD/CHANGELOG.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "PASS" ] && ok "S12 문서 전용 변경 → PASS 유지" || nope "S12" "out=$out"
+printf 'doc\n' > "$TD/CHANGELOG.md"
+
+# S13 런타임 SKILL.md 변경 → STALE (AC-2 · 양성 대조)
+printf 'body changed\n' > "$TD/skills/foo/SKILL.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "STALE" ] && ok "S13 런타임 SKILL.md 변경 → STALE 유지" || nope "S13" "out=$out"
+printf 'body\n' > "$TD/skills/foo/SKILL.md"
+
+# S14 nondoc_hash 부재(구버전 기록) → 종전 전체 지문 비교 (AC-5 · fail-safe 방향)
+jq 'del(.nondoc_hash)' "$TD/.specops/20260803-state/verification-state.json" > "$TD/vs.tmp"
+mv "$TD/vs.tmp" "$TD/.specops/20260803-state/verification-state.json"
+printf 'doc changed again\n' > "$TD/CHANGELOG.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "STALE" ] && ok "S14 구버전 기록 → 종전 동작(fail-safe)" || nope "S14" "out=$out"
+printf 'doc\n' > "$TD/CHANGELOG.md"
+
+# ── S15 지문의 cwd 무관성 (Phase C 재판정 I-3) ───────────────────────────────
+# 왜 함수 레벨인가: 소비자 4곳이 전부 **source 후 함수 직접 호출**이다 —
+#   run-all.sh:29 · .githooks/pre-push:54 · record-task-receipt.sh:61 · check-task-receipt.sh:56.
+#   앞 둘은 루트에서 돌지만 **receipt 둘은 사용자 cwd 에서 돈다** — 서브디렉터리에서 receipt 를
+#   기록·조회하면 지문이 갈려 가짜 `tree stale` 이 난다. 도달 가능한 경로다(이론 아님).
+#   (vs::current CLI 는 state 파일을 cwd 상대로 찾으므로 그 층에서는 재현되지 않는다.)
+# ★ 양방향이어야 한다 — ①만 두면 함수가 **상수를 반환해도** 통과한다.
+#   실제로 그 구멍으로 결함이 한 번 빠져나갔다: read-tree·add 만 루트에 앵커하고
+#   `ls-files` 를 빠뜨려 열거가 cwd 하위로 잘렸는데, 회귀가 없어 스위트가 전건 통과했다.
+mkdir -p "$TD/sub/deep"
+printf 'x\n' > "$TD/code.sh"
+printf 'y\n' > "$TD/sub/deep/inner.sh"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm anchor
+
+_nd() { (cd "$1" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint"); }
+_root0=$(_nd "$TD")
+_sub0=$(_nd "$TD/sub/deep")
+if [ -n "$_root0" ] && [ "$_root0" != "NO_GIT" ] && [ "$_root0" = "$_sub0" ]; then
+  ok "S15.a 비문서 지문이 cwd 와 무관 (루트 == 서브디렉터리)"
+else
+  nope "S15.a 지문 cwd 무관" "root=$_root0 sub=$_sub0"
+fi
+
+# S15.b 양성 대조 — 루트 코드 변경이 **서브디렉터리 조회에서도** 보여야 한다.
+printf 'x changed\n' > "$TD/code.sh"
+_sub1=$(_nd "$TD/sub/deep")
+if [ -n "$_sub1" ] && [ "$_sub1" != "$_sub0" ]; then
+  ok "S15.b 루트 코드 변경이 서브디렉터리 조회에서 보인다 (양성 대조)"
+else
+  nope "S15.b 바깥 변경 가시성" "sub0=$_sub0 sub1=$_sub1"
+fi
+printf 'x\n' > "$TD/code.sh"
+
+# S15.c 음성 대조 — 문서 변경은 서브디렉터리 조회에서도 지문을 바꾸지 않는다 (AC-1 과 같은 의미).
+# ★ 문서 픽스처를 **서브디렉터리 안**에 둔다. 루트 CHANGELOG.md 를 쓰면 cwd 절단 변이에서는
+#   그 파일이 애초에 안 보여 **자명하게** 통과해 음성 대조가 공허해진다(chain 코드리뷰 M-3).
+printf 'doc\n' > "$TD/sub/deep/note.md"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm subdoc
+_sub0=$(_nd "$TD/sub/deep")
+printf 'doc changed in sub view\n' > "$TD/sub/deep/note.md"
+_sub2=$(_nd "$TD/sub/deep")
+if [ "$_sub2" = "$_sub0" ]; then
+  ok "S15.c 서브디렉터리 내부 문서 변경도 지문 불변"
+else
+  nope "S15.c 서브 내부 문서 변경 불변" "sub0=$_sub0 sub2=$_sub2"
+fi
+printf 'doc\n' > "$TD/sub/deep/note.md"
+
+# ── S15.d 는 두지 않는다 (의도적 부재 — chain 코드리뷰 I-1) ───────────────────
+# exclude pathspec(`:(exclude,glob,top).specops/**`)이 무효였던 적이 있다. 그때도 `fc::is_doc` 의
+#   `^\.specops/` 가 가려 준 덕에 **지문은 불변이었고 아무 테스트도 실패하지 않았다**.
+# "`.specops` 미추적 파일 추가 → 지문 불변" 형태의 회귀를 써 보았으나, 되돌려-관찰에서
+#   pathspec 을 무효형으로 되돌려도 **28/28 전건 PASS** 했다 — pathspec 과 무관하게 항상 참인
+#   **공허한 테스트**다. 공허한 테스트는 거짓 안전을 주므로 남기지 않는다.
+#   (같은 병을 바로 위 S15.c 가 M-3 로 지적받았다: 자명하게 통과하는 음성 대조.)
+# 이 층을 잠그려면 `vs::nondoc_fingerprint` 에서 **인덱스 구성**을 분리해 관측 가능하게 만들어야 한다.
+#   함수가 해시만 반환하는 한 pathspec 층은 블랙박스다 — 그 리팩터는 이 FID 범위 밖이다.
+
+# ── S16 비ASCII 경로 (chain 코드리뷰 M-2 / core.quotePath) ────────────────────
+# `ls-files` 는 기본적으로 비ASCII 를 `"\355\225\234..."` 로 **인용**한다. 인용된 이름은 끝이 `"` 라
+#   `*.md` 매칭이 깨져 **문서가 코드로 분류**된다 — 그러면 문서 한 줄이 다시 커밋을 막는다.
+#   `-c core.quotePath=false` 가 그걸 막는데, 잠그는 회귀가 없으면 조용히 되돌아간다.
+printf 'k\n' > "$TD/한글문서.md"
+printf 'k\n' > "$TD/한글코드.sh"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm nonascii
+_na0=$(_nd "$TD")
+
+printf 'k changed\n' > "$TD/한글문서.md"
+_na_doc=$(_nd "$TD")
+if [ "$_na_doc" = "$_na0" ]; then
+  ok "S16.a 비ASCII 문서 변경 → 지문 불변"
+else
+  nope "S16.a 비ASCII 문서 변경 불변" "before=$_na0 after=$_na_doc"
+fi
+printf 'k\n' > "$TD/한글문서.md"
+
+# S16.b 양성 대조 — 비ASCII **코드** 변경은 보여야 한다. 없으면 "전부 불변" 으로도 S16.a 가 통과한다.
+printf 'k changed\n' > "$TD/한글코드.sh"
+_na_code=$(_nd "$TD")
+if [ "$_na_code" != "$_na0" ]; then
+  ok "S16.b 비ASCII 코드 변경 → 지문 변함 (양성 대조)"
+else
+  nope "S16.b 비ASCII 코드 변경 가시" "before=$_na0 after=$_na_code"
+fi
+printf 'k\n' > "$TD/한글코드.sh"
 
 finish

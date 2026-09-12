@@ -56,6 +56,9 @@ fi
 cmd_hash=$(printf '%s' "$test_cmd" | git hash-object --stdin 2>/dev/null) \
   || cmd_hash=$(printf '%s' "$test_cmd" | shasum -a 256 | awk '{print $1}')
 tree=$(vs::workspace_fingerprint)
+# 비문서 지문을 함께 남긴다 — 문서 전용 변경이 receipt 를 무효화하지 않게 한다
+#   (20260912-verify-stale-docs-scope). 소비측은 이 필드가 없으면 종전 tree_hash 비교로 떨어진다.
+nondoc=$(vs::nondoc_fingerprint)
 ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 mkdir -p "$SPECOPS/$FID/receipts" || exit 1
@@ -84,11 +87,11 @@ fi
 
 jq -n \
   --argjson schema_version 1 --arg fid "$FID" --arg task "$TASK" \
-  --arg tree_hash "$tree" --arg test_command "$test_cmd" \
+  --arg tree_hash "$tree" --arg nondoc_hash "$nondoc" --arg test_command "$test_cmd" \
   --arg test_command_hash "$cmd_hash" --argjson outputs "$outputs_json" \
   --arg verdict PASS --arg recorded_at "$ts" --arg runner "record-task-receipt.sh" \
   --arg tdd_red "$tdd_red" \
-  '{schema_version:$schema_version,fid:$fid,task:$task,tree_hash:$tree_hash,
+  '{schema_version:$schema_version,fid:$fid,task:$task,tree_hash:$tree_hash,nondoc_hash:$nondoc_hash,
     test_command:$test_command,test_command_hash:$test_command_hash,
     outputs:$outputs,verdict:$verdict,tdd_red:$tdd_red,
     recorded_at:$recorded_at,runner:$runner}' \

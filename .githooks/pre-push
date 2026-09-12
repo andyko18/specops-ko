@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-ko push 전 전체 스위트 게이트 (161 스위트 · 작업자 풀 병렬 20260911. 동일 트리면 마커로 skip)
+# specops-ko push 전 전체 스위트 게이트 (162 스위트 · 작업자 풀 병렬 20260911. 동일 비문서 트리면 마커로 skip)
 #
 # 소요는 **머신 부하가 좌우한다** — 절대값으로 읽지 말 것. 같은 날 같은 트리 실측:
 #   2026-09-11 실측 median: 병렬 382s(5회) · 직렬(SPECOPS_RUN_ALL_JOBS=1) 813s(3회).
@@ -49,7 +49,9 @@ if [ -z "${SPECOPS_FORCE_FULL:-}" ] && [ -f "$FSP_MARKER" ]; then
   if [ -f "$VS_LIB" ]; then
     # shellcheck source=/dev/null
     . "$VS_LIB"
-    fsp_now=$(vs::workspace_fingerprint)
+    # 비문서 지문 — 문서 전용 변경은 전체 스위트 재실행을 강요하지 않는다
+    #   (20260912-verify-stale-docs-scope). fail-closed 3조건은 아래에서 그대로 유지된다.
+    fsp_now=$(vs::nondoc_fingerprint)
     fsp_rec=$(head -1 "$FSP_MARKER" 2>/dev/null || printf '')
     if [ -n "$fsp_rec" ] && [ "$fsp_now" != "NO_GIT" ] && [ "$fsp_rec" = "$fsp_now" ]; then
       cat >&2 <<'EOF'
@@ -61,7 +63,7 @@ EOF
   fi
 fi
 
-echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (161 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2
+echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (162 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2
 out=$(bash "$RUN_ALL" --quiet 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then
   cat >&2 <<EOF
