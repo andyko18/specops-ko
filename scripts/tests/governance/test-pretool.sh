@@ -7,6 +7,13 @@ HOOK="$PLUGIN/hooks/pretool-governance.sh"
 FIX="$script_dir/fixtures/transcripts"
 pass=0; fail=0
 check() { if printf '%s' "$3" | grep -q "$2"; then echo "PASS $1"; pass=$((pass+1)); else echo "FAIL $1 — expected '$2' in: $3"; fail=$((fail+1)); fi; }
+# 명령 출력 검사 = check · **파일 문안 검사 = checkf** (파일을 변수에 담지 마라 — macOS CI 간헐 절단)
+#   `$(cat file)` 로 캡처하면 그 명령치환이 첫 줄만 반환하는 일이 있어 정적 문안 검사가 거짓 FAIL 을
+#   낸다(FID 20260912-pretool-src-capture-flaky). 실패 메시지도 본문이 아니라 경로만 찍는다.
+checkf() {  # $1=label $2=pattern $3=file
+  if grep -q "$2" "$3"; then echo "PASS $1"; pass=$((pass+1));
+  else echo "FAIL $1 — expected '$2' in file: $3"; fail=$((fail+1)); fi
+}
 mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{command:$c}, transcript_path:$t}'; }
 
 # deny 테스트 격리용 공유 sandbox — 코드(.sh) staged 로 is_docs_only_change 면제 미발동 유도
@@ -700,15 +707,8 @@ fi
 # 백그라운드 실행이 증거로 인정되게 바뀌면서, "왜 막혔는지" 를 원인별로 구분해 안내해야 한다.
 # 구분이 없으면 사용자는 방금 러너를 돌리고도 "실행 기록이 없습니다" 를 보고 원인을 모른다.
 _PT_SH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/hooks/pretool-governance.sh"
-# ★ 파일을 변수에 담지 않는다 — `$(cat …)` 가 macOS CI 에서 간헐적으로 첫 줄만 반환해
-#   정적 문안 검사가 거짓 FAIL 을 냈다(FID 20260912-pretool-src-capture-flaky).
-#   실패 메시지도 경로만 찍는다 — 종전엔 551줄 파일을 로그에 쏟을 수 있었다.
-checkf() {  # $1=label $2=pattern $3=file
-  if grep -q "$2" "$3"; then echo "PASS $1"; pass=$((pass+1));
-  else echo "FAIL $1 — expected '$2' in file: $3"; fail=$((fail+1)); fi
-}
 
-# P-bg1 — 포그라운드 timeout 지침 (AC-5)
+# P-bg1 — 포그라운드 timeout 지침 (AC-5) · 판정은 `checkf`(파일 직접 grep — 정의는 파일 상단)
 checkf "P-bg1 deny 메시지에 포그라운드 timeout 지침" 'timeout' "$_PT_SH"
 checkf "P-bg1b 포그라운드 문구" '포그라운드' "$_PT_SH"
 
