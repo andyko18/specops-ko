@@ -10,8 +10,8 @@ STATE="$PLUGIN/scripts/_internal/verification-state.sh"
 TD=$(mktemp -d) || exit 1
 trap 'rm -rf "$TD"' EXIT
 git -C "$TD" init -q
-printf 'base\n' > "$TD/app.txt"
-git -C "$TD" add app.txt
+printf 'base\n' > "$TD/app.sh"
+git -C "$TD" add app.sh
 git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm init
 mkdir -p "$TD/.specops/20260803-state"
 
@@ -25,10 +25,10 @@ out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S2 PASS 기록·조회" || nope "S2" "out=$out"
 
 # 검증 뒤 코드 변경은 저장 상태를 덮지 않고 조회 시 STALE로 계산한다.
-printf 'changed\n' >> "$TD/app.txt"
+printf 'changed\n' >> "$TD/app.sh"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "STALE" ] && ok "S3 코드 변경 후 PASS → STALE" || nope "S3" "out=$out"
-git -C "$TD" restore app.txt
+git -C "$TD" restore app.sh
 
 # 비-PASS 상태는 정규 상태 그대로 보존한다.
 for verdict in PARTIAL FAIL NOT_RUN; do
@@ -84,9 +84,9 @@ stored=$(jq -r '.verdict' "$TD/.specops/20260803-state/verification-state.json")
 [ "$stored" = "WAIVED" ] && ok "S7b 저장 verdict는 WAIVED 유지" || nope "S7b" "stored=$stored"
 
 # D-1: 검증된 내용의 순수 커밋은 STALE이 아니다 (false-block → BYPASS 방지).
-printf 'verified\n' >> "$TD/app.txt"
+printf 'verified\n' >> "$TD/app.sh"
 (cd "$TD" && bash "$STATE" record 20260803-state PASS)
-git -C "$TD" add app.txt
+git -C "$TD" add app.sh
 git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm "verified content"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S8 커밋만으로는 STALE 아님" || nope "S8" "out=$out"
@@ -95,10 +95,10 @@ out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "PASS" ] && ok "S8b 빈 커밋도 STALE 아님" || nope "S8b" "out=$out"
 
 # 커밋 후 새 편집은 STALE이다.
-printf 'after-commit\n' >> "$TD/app.txt"
+printf 'after-commit\n' >> "$TD/app.sh"
 out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "STALE" ] && ok "S9 커밋 후 새 편집 → STALE" || nope "S9" "out=$out"
-git -C "$TD" restore app.txt
+git -C "$TD" restore app.sh
 
 # source 호출 시 전역 fid 오염이 경로를 바꾸지 않는다 (SC2318).
 source "$STATE"
@@ -113,5 +113,37 @@ mkdir -p "$NG/.specops/20260803-nogit"
 out=$(cd "$NG" && SPECOPS_ROOT=.specops bash "$STATE" current 20260803-nogit)
 [ "$out" = "PASS" ] && ok "S11 NO_GIT → STALE 미발생" || nope "S11" "out=$out"
 rm -rf "$NG"
+
+# ── 파일 클래스 구분 (20260912-verify-stale-docs-scope) ──────────────────────
+# 문서 전용 변경은 verify 판정을 무효화하지 않는다. 런타임 .md 는 종전대로 무효화한다.
+# ★ 양성 대조군을 **쌍으로** 둔다 — 한쪽만 두면 분류기를 "전부 문서" 또는 "전부 코드" 로
+#   비워도 통과한다(공허 통과).
+mkdir -p "$TD/skills/foo" "$TD/.claude-plugin"
+printf '{"name":"x"}\n' > "$TD/.claude-plugin/plugin.json"
+printf 'doc\n' > "$TD/CHANGELOG.md"
+printf 'body\n' > "$TD/skills/foo/SKILL.md"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm cls
+(cd "$TD" && bash "$STATE" record 20260803-state PASS)
+
+# S12 문서 전용 변경 → PASS 유지 (AC-1)
+printf 'doc changed\n' > "$TD/CHANGELOG.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "PASS" ] && ok "S12 문서 전용 변경 → PASS 유지" || nope "S12" "out=$out"
+printf 'doc\n' > "$TD/CHANGELOG.md"
+
+# S13 런타임 SKILL.md 변경 → STALE (AC-2 · 양성 대조)
+printf 'body changed\n' > "$TD/skills/foo/SKILL.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "STALE" ] && ok "S13 런타임 SKILL.md 변경 → STALE 유지" || nope "S13" "out=$out"
+printf 'body\n' > "$TD/skills/foo/SKILL.md"
+
+# S14 nondoc_hash 부재(구버전 기록) → 종전 전체 지문 비교 (AC-5 · fail-safe 방향)
+jq 'del(.nondoc_hash)' "$TD/.specops/20260803-state/verification-state.json" > "$TD/vs.tmp"
+mv "$TD/vs.tmp" "$TD/.specops/20260803-state/verification-state.json"
+printf 'doc changed again\n' > "$TD/CHANGELOG.md"
+out=$(cd "$TD" && bash "$STATE" current 20260803-state)
+[ "$out" = "STALE" ] && ok "S14 구버전 기록 → 종전 동작(fail-safe)" || nope "S14" "out=$out"
+printf 'doc\n' > "$TD/CHANGELOG.md"
 
 finish

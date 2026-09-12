@@ -8,6 +8,20 @@ set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 
+# 파일 분류 단일 SoT (20260912-verify-stale-docs-scope).
+#   ★ ${BASH_SOURCE[0]%/*} 로 해석한다 — .githooks/pre-push 가 이 파일을 **상대경로**로 source 하므로
+#     $0 기반 해석은 깨진다. 슬래시 없는 source 면 이 확장이 파일명을 그대로 돌려주어 source 가
+#     실패하는데, 아래 가드가 fail-safe(전건 비문서=지문 확대)로 받는다.
+_VS_DIR="${BASH_SOURCE[0]%/*}"
+if [ -f "$_VS_DIR/file-class.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$_VS_DIR/file-class.sh"
+else
+  echo "verification-state: file-class.sh 로드 실패 — 전건 비문서로 판정한다" >&2
+  fc::is_doc() { return 1; }
+  fc::is_plugin_repo() { return 1; }
+fi
+
 vs::valid_fid() {
   printf '%s' "$1" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'
 }
@@ -39,6 +53,37 @@ vs::workspace_fingerprint() {
   else
     printf 'NO_GIT'
   fi
+}
+
+# 비문서 지문 — 문서 전용 변경에는 불변이다 (20260912-verify-stale-docs-scope).
+#   왜 별도 함수인가: vs::workspace_fingerprint 는 pre-push 마커·receipt 가 "이 트리가 통과했다" 는
+#   진술로 쓰던 값이다. 의미를 바꾸지 않고 **비문서 한정 지문을 추가**해, 소비자가 어느 의미를
+#   원하는지 호출부에서 드러나게 한다.
+#   왜 과거 트리를 조회하지 않는가: write-tree 산출 트리는 어떤 ref 에서도 도달 불가라 git gc 대상이다
+#   (실측: 이 저장소 기록 55건 중 3건이 이미 소실). 기록 시점에 지문을 남겨야 대조가 성립한다.
+vs::nondoc_fingerprint() {
+  if ! command -v git >/dev/null 2>&1 || ! git rev-parse --git-dir >/dev/null 2>&1; then
+    printf 'NO_GIT'
+    return 0
+  fi
+  local idx plugin_rc=1 line f out=""
+  idx=$(mktemp "${TMPDIR:-/tmp}/vs-nidx.XXXXXX") || { printf 'NO_GIT'; return 0; }
+  GIT_INDEX_FILE="$idx" git read-tree HEAD >/dev/null 2>&1 || true
+  GIT_INDEX_FILE="$idx" git add -A -- . ':(exclude).specops' >/dev/null 2>&1 || true
+  fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
+  # ★ --full-name 필수 — 없으면 서브디렉터리 호출 시 경로가 cwd 상대로 나와 분류가 오판한다
+  #   (실측: scripts/ 에서 `README.md` vs `scripts/README.md`).
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    f=${line#*$'\t'}
+    fc::is_doc "$f" "$plugin_rc" && continue
+    out="${out}${line}"$'\n'
+  done <<EOF
+$(GIT_INDEX_FILE="$idx" git ls-files -s --full-name 2>/dev/null)
+EOF
+  rm -f "$idx"
+  [ -z "$out" ] && { printf 'EMPTY'; return 0; }
+  printf '%s' "$out" | shasum -a 256 | awk '{print $1}' | tr -d '\n'
 }
 
 vs::legacy_verdict() {
@@ -74,9 +119,17 @@ vs::current() {
     fi
   fi
 
+  # PASS 이후 변경 판정 — 문서 전용 변경은 무효화하지 않는다 (20260912-verify-stale-docs-scope).
+  #   nondoc_hash 가 있으면 그것으로 비교하고, 없으면(구버전 기록) 종전 전체 지문 비교로 떨어진다.
+  #   부재 시 방향은 **더 엄격한 쪽**이라 fail-safe 다 — 기존 기록이 갑자기 느슨해지지 않는다.
   if [ "$verdict" = "PASS" ]; then
-    recorded_hash=$(jq -r '.tree_hash // ""' "$state" 2>/dev/null)
-    current_hash=$(vs::workspace_fingerprint)
+    recorded_hash=$(jq -r '.nondoc_hash // ""' "$state" 2>/dev/null)
+    if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ]; then
+      current_hash=$(vs::nondoc_fingerprint)
+    else
+      recorded_hash=$(jq -r '.tree_hash // ""' "$state" 2>/dev/null)
+      current_hash=$(vs::workspace_fingerprint)
+    fi
     if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ] && [ "$recorded_hash" != "$current_hash" ]; then
       printf 'STALE'
       return 0
@@ -130,15 +183,21 @@ vs::record() {
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   head_sha=$(git rev-parse HEAD 2>/dev/null || printf 'UNBORN')
   tree=$(vs::workspace_fingerprint)
+  # 비문서 지문을 함께 남긴다 — 조회 시점에 과거 트리를 못 찾는 문제(gc)를 구조적으로 피한다.
+  #   schema_version 은 올리지 않는다: 필드 부재가 곧 구버전이고 소비측이 종전 경로로 떨어진다.
+  local nondoc
+  nondoc=$(vs::nondoc_fingerprint)
   jq -n \
     --argjson schema_version 1 --arg fid "$fid" --arg verdict "$verdict" \
     --arg recorded_at "$ts" --arg head_sha "$head_sha" --arg tree_hash "$tree" \
+    --arg nondoc_hash "$nondoc" \
     --argjson executed "$executed" --argjson skipped "$skipped" \
     --argjson failed "$failed" --argjson duration_ms "$duration_ms" \
     --arg waiver_reason "$waiver_reason" --arg waiver_approved_by "$waiver_approved_by" \
     --arg waiver_expires_at "$waiver_expires_at" \
     '{schema_version:$schema_version,fid:$fid,verdict:$verdict,recorded_at:$recorded_at,
-      head_sha:$head_sha,tree_hash:$tree_hash,executed:$executed,skipped:$skipped,
+      head_sha:$head_sha,tree_hash:$tree_hash,nondoc_hash:$nondoc_hash,
+      executed:$executed,skipped:$skipped,
       failed:$failed,duration_ms:$duration_ms,
       waiver:(if $verdict=="WAIVED" then
         {reason:$waiver_reason,approved_by:$waiver_approved_by,expires_at:$waiver_expires_at}
