@@ -20,6 +20,15 @@
 #     철회된 전례가 있다. "이게 진짜 결함 패턴인가" 는 의미론이라 정적 판별이 안 된다.
 #     증류와 게이트 사이에는 **사람 승인**이 들어간다. 본 도구는 후보 제시까지다.
 #   - 로그 수정·삭제 — 읽기 전용 (5원칙 4 주권).
+# 미계측 구간 (unmeasured — 20260912-trigger-prefix-unquoted-space):
+#   2026-09-11~12 의 `gh pr create` 5건은 R-1/R-2 trigger prefilter 가 **인용 없는 대입값의 공백**
+#   (`GH_TOKEN=$(gh auth token --user x) …`)을 불매칭해 차단·감사 **양쪽에서 침묵**했다. 따라서 아래
+#   집계는 그 구간을 "위반 0건" 으로 보고하지만 그것은 **미계측**이지 무위반이 아니다.
+#   대상 FID: 20260911-run-all-parallel · 20260911-posttool-matcher-narrow ·
+#            20260911-meta-skill-progressive-disclosure · 20260912-verify-stale-docs-scope ·
+#            20260912-pretool-src-capture-flaky
+#   소급 friction 기록은 **생성하지 않는다** — 그 시점에 게이트가 발화했다는 거짓 진술이 되기 때문이다
+#   (clarify Q1 = ③ 통계에 주석만).
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
