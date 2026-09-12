@@ -48,9 +48,19 @@ while IFS= read -r f; do
     || { echo "check-task-receipt: staged outside outputs: $f" >&2; exit 1; }
 done <<< "$staged"
 
-rec_tree=$(jq -r '.tree_hash // empty' "$receipt")
-cur_tree=$(vs::workspace_fingerprint)
-[ -n "$rec_tree" ] && [ "$rec_tree" = "$cur_tree" ] \
-  || { echo "check-task-receipt: tree stale" >&2; exit 1; }
+# 문서 전용 변경은 receipt 를 무효화하지 않는다 (20260912-verify-stale-docs-scope).
+#   receipt 는 verify 창이 닫혔을 때의 유일한 통로다 — 지문 층과 같은 맹점을 함께 푼다.
+#   nondoc_hash 부재(구버전 receipt)면 종전 전체 지문 비교로 떨어진다 = 더 엄격한 쪽(fail-safe).
+rec_nd=$(jq -r '.nondoc_hash // empty' "$receipt")
+if [ -n "$rec_nd" ] && [ "$rec_nd" != "NO_GIT" ]; then
+  cur_nd=$(vs::nondoc_fingerprint)
+  [ "$rec_nd" = "$cur_nd" ] \
+    || { echo "check-task-receipt: tree stale" >&2; exit 1; }
+else
+  rec_tree=$(jq -r '.tree_hash // empty' "$receipt")
+  cur_tree=$(vs::workspace_fingerprint)
+  [ -n "$rec_tree" ] && [ "$rec_tree" = "$cur_tree" ] \
+    || { echo "check-task-receipt: tree stale" >&2; exit 1; }
+fi
 
 exit 0

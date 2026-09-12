@@ -212,4 +212,35 @@ if [ -z "$out" ]; then ok "T-rwc.c verify PASS 신선 → 자기보고 경로로
 else nope "T-rwc.c" "PASS 신선인데 차단: $out"; fi
 rm -rf "$_RWC"
 
+# ── 파일 클래스 구분 (20260912-verify-stale-docs-scope) ──────────────────────
+# receipt 는 verify 창이 닫혔을 때의 유일한 통로다 — 지문과 같은 맹점을 함께 푼다.
+# ★ 양성 대조군 **쌍** 필수: 문서=유효 ∧ 코드=거부. 한쪽만 두면 분류기를 비워도 통과한다.
+_RD=$(mktemp -d) || exit 1
+_rd_fid=20260912-rcpt
+_setup_fid "$_RD" "$_rd_fid"
+mkdir -p "$_RD/.claude-plugin"
+printf '{"name":"x"}\n' > "$_RD/.claude-plugin/plugin.json"
+printf 'doc\n' > "$_RD/CHANGELOG.md"
+(cd "$_RD" && git add -A && git -c user.name=t -c user.email=t@e.com commit -qm doc) >/dev/null 2>&1
+printf 'updated\n' > "$_RD/src/foo.sh"
+(cd "$_RD" && bash "$REC" "$_rd_fid" T1) >/dev/null 2>&1
+
+# TR-D1 문서 전용 변경 후에도 receipt 유효 (AC-7)
+printf 'doc changed\n' > "$_RD/CHANGELOG.md"
+(cd "$_RD" && git add src scripts) >/dev/null 2>&1
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  ok "TR-D1 문서 변경 후 receipt 유효"
+else
+  nope "TR-D1 문서 변경 후 receipt 유효" "tree stale 로 거부됨"
+fi
+
+# TR-D2 코드 변경 후에는 거부 (양성 대조)
+printf 'code changed\n' > "$_RD/src/foo.sh"
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  nope "TR-D2 코드 변경 후 receipt 거부" "통과해버림"
+else
+  ok "TR-D2 코드 변경 후 receipt 거부"
+fi
+rm -rf "$_RD"
+
 finish
