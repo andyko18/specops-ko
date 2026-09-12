@@ -73,13 +73,24 @@ vs::nondoc_fingerprint() {
   #   무관하게 같은 값을 주는데 nondoc 만 갈리면, 기록 cwd ≠ 조회 cwd 일 때 가짜 STALE·
   #   `tree stale` 오거부가 나고 반대로 같은 서브디렉터리끼리면 바깥 코드 변경을 못 본다
   #   (실측: 루트 c372baae vs sub fd7dce69 — 같은 트리인데 다름). Phase C I-3.
-  #   `:/` 접두는 "저장소 루트 기준" 이라 exclude 도 함께 정확해진다(.specops 자기오염 방지 복원).
+  # ★ exclude 는 **long-form magic 안에 `top` 을 넣어야** 루트 기준이 된다.
+  #   종전 `':(exclude,glob):/.specops/**'` 는 무효였다 — long-form `(exclude,glob)` **뒤의 `:/` 는
+  #   short-magic 으로 재해석되지 않고** 나머지가 리터럴 패턴 `:/.specops/**` 가 되어 아무것도 안 걸린다.
+  #   실측(git 2.50.1): 그 형태로는 미추적 `.specops/x/new.json` 과 수정된 `.specops/state.json` 이
+  #   임시 인덱스에 **그대로 들어왔다**(루트·서브 양쪽). chain 코드리뷰 I-1.
+  #   ※ `top` 을 써도 **추적된** `.specops/*` 는 남는다 — `read-tree HEAD` 로 이미 들어온 분이라
+  #     add 의 pathspec 이 손대지 않기 때문이다(workspace_fingerprint 와 같은 성질).
+  #     exclude 가 실제로 막는 것은 **미추적 신규 파일**이다.
+  #   ※ 그래서 이 pathspec 은 지문의 정확성을 혼자 책임지지 않는다 — 아래 루프의 `fc::is_doc` 이
+  #     `^\.specops/` 를 문서로 걸러 최종 방어를 한다(실측: 두 경우 모두 지문 불변).
+  #     둘 중 하나만 믿지 말 것. 분류 패턴이 바뀌면 이 pathspec 이 유일한 방어가 된다.
   top=$(git rev-parse --show-toplevel 2>/dev/null) || { rm -f "$idx"; printf 'NO_GIT'; return 0; }
   GIT_INDEX_FILE="$idx" git -C "$top" read-tree HEAD >/dev/null 2>&1 || true
-  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob):/.specops/**' >/dev/null 2>&1 || true
+  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || true
   fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
-  # ★ --full-name 필수 — 없으면 서브디렉터리 호출 시 경로가 cwd 상대로 나와 분류가 오판한다
-  #   (실측: scripts/ 에서 `README.md` vs `scripts/README.md`).
+  # ※ `--full-name` 은 `-C "$top"` 아래에서는 **중복**이다(실측: 서브디렉터리에서 유무 출력 동일).
+  #   `-C` 가 없던 시절엔 필수였고 지금은 방어적 잉여다 — 남겨 두되 "필수" 라고 쓰지 않는다.
+  #   (종전 주석이 "필수" 라고 단언했으나 근거가 없었다 — chain 코드리뷰 M-1.)
   # ★★ `-C "$top"` 도 필수다 — `ls-files` 는 **cwd 하위만 열거**한다. read-tree·add 만 앵커하고
   #   이 줄을 빠뜨리면 인덱스에는 전체가 들어와도 **목록이 cwd 아래로 잘려** 지문이 갈린다.
   #   실측(수정 전 HEAD): 같은 깨끗한 트리에서 루트 c5e6e0a9 vs sub fd7dce69, 그리고 루트 code.sh 를

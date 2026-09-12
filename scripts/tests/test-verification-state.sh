@@ -201,13 +201,58 @@ fi
 printf 'x\n' > "$TD/code.sh"
 
 # S15.c 음성 대조 — 문서 변경은 서브디렉터리 조회에서도 지문을 바꾸지 않는다 (AC-1 과 같은 의미).
-printf 'doc changed in sub view\n' > "$TD/CHANGELOG.md"
+# ★ 문서 픽스처를 **서브디렉터리 안**에 둔다. 루트 CHANGELOG.md 를 쓰면 cwd 절단 변이에서는
+#   그 파일이 애초에 안 보여 **자명하게** 통과해 음성 대조가 공허해진다(chain 코드리뷰 M-3).
+printf 'doc\n' > "$TD/sub/deep/note.md"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm subdoc
+_sub0=$(_nd "$TD/sub/deep")
+printf 'doc changed in sub view\n' > "$TD/sub/deep/note.md"
 _sub2=$(_nd "$TD/sub/deep")
 if [ "$_sub2" = "$_sub0" ]; then
-  ok "S15.c 문서 변경은 서브디렉터리 조회에서도 지문 불변"
+  ok "S15.c 서브디렉터리 내부 문서 변경도 지문 불변"
 else
-  nope "S15.c 문서 변경 불변" "sub0=$_sub0 sub2=$_sub2"
+  nope "S15.c 서브 내부 문서 변경 불변" "sub0=$_sub0 sub2=$_sub2"
 fi
-printf 'doc\n' > "$TD/CHANGELOG.md"
+printf 'doc\n' > "$TD/sub/deep/note.md"
+
+# ── S15.d 는 두지 않는다 (의도적 부재 — chain 코드리뷰 I-1) ───────────────────
+# exclude pathspec(`:(exclude,glob,top).specops/**`)이 무효였던 적이 있다. 그때도 `fc::is_doc` 의
+#   `^\.specops/` 가 가려 준 덕에 **지문은 불변이었고 아무 테스트도 실패하지 않았다**.
+# "`.specops` 미추적 파일 추가 → 지문 불변" 형태의 회귀를 써 보았으나, 되돌려-관찰에서
+#   pathspec 을 무효형으로 되돌려도 **28/28 전건 PASS** 했다 — pathspec 과 무관하게 항상 참인
+#   **공허한 테스트**다. 공허한 테스트는 거짓 안전을 주므로 남기지 않는다.
+#   (같은 병을 바로 위 S15.c 가 M-3 로 지적받았다: 자명하게 통과하는 음성 대조.)
+# 이 층을 잠그려면 `vs::nondoc_fingerprint` 에서 **인덱스 구성**을 분리해 관측 가능하게 만들어야 한다.
+#   함수가 해시만 반환하는 한 pathspec 층은 블랙박스다 — 그 리팩터는 이 FID 범위 밖이다.
+
+# ── S16 비ASCII 경로 (chain 코드리뷰 M-2 / core.quotePath) ────────────────────
+# `ls-files` 는 기본적으로 비ASCII 를 `"\355\225\234..."` 로 **인용**한다. 인용된 이름은 끝이 `"` 라
+#   `*.md` 매칭이 깨져 **문서가 코드로 분류**된다 — 그러면 문서 한 줄이 다시 커밋을 막는다.
+#   `-c core.quotePath=false` 가 그걸 막는데, 잠그는 회귀가 없으면 조용히 되돌아간다.
+printf 'k\n' > "$TD/한글문서.md"
+printf 'k\n' > "$TD/한글코드.sh"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm nonascii
+_na0=$(_nd "$TD")
+
+printf 'k changed\n' > "$TD/한글문서.md"
+_na_doc=$(_nd "$TD")
+if [ "$_na_doc" = "$_na0" ]; then
+  ok "S16.a 비ASCII 문서 변경 → 지문 불변"
+else
+  nope "S16.a 비ASCII 문서 변경 불변" "before=$_na0 after=$_na_doc"
+fi
+printf 'k\n' > "$TD/한글문서.md"
+
+# S16.b 양성 대조 — 비ASCII **코드** 변경은 보여야 한다. 없으면 "전부 불변" 으로도 S16.a 가 통과한다.
+printf 'k changed\n' > "$TD/한글코드.sh"
+_na_code=$(_nd "$TD")
+if [ "$_na_code" != "$_na0" ]; then
+  ok "S16.b 비ASCII 코드 변경 → 지문 변함 (양성 대조)"
+else
+  nope "S16.b 비ASCII 코드 변경 가시" "before=$_na0 after=$_na_code"
+fi
+printf 'k\n' > "$TD/한글코드.sh"
 
 finish
