@@ -3,16 +3,26 @@ set -u
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 META="$PLUGIN/skills/using-specops-ko/SKILL.md"
+# pending 절차는 메타 skill 밖 참조 파일로 옮겨졌다 (20260911-meta-skill-progressive-disclosure) —
+#   SessionStart 인라인 예산(문자 10,000) 때문에 필요할 때만 읽힌다. 절차 키워드는 이 파일에서 잠근다.
+FREEWORK="$PLUGIN/skills/using-specops-ko/freework-pending.md"
 
 # T5.a 처리 규약 섹션 + 핵심 단계 키워드 존재
-if grep -q '자유작업 pending 처리' "$META" && \
-   grep -q 'freelog.md' "$META" && \
-   grep -q 'gbrain-append' "$META" && \
-   grep -q '1줄 보고' "$META" && \
-   grep -q '재분류' "$META"; then
+if grep -q '자유작업 pending 처리' "$FREEWORK" && \
+   grep -q 'freelog.md' "$FREEWORK" && \
+   grep -q 'gbrain-append' "$FREEWORK" && \
+   grep -q '1줄 보고' "$FREEWORK" && \
+   grep -q '재분류' "$FREEWORK"; then
   PASS=$((PASS+1)); echo "PASS T5.a 처리 규약 섹션"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.a"
+fi
+# T5.b 메타 skill 에는 절차 본문이 없고 참조 파일 포인터만 있다 (중복 = 예산 낭비 + 두 곳 drift)
+#   ★ 앵커 고유성: 'using-specops-ko/freework-pending.md' 는 SKILL.md 포인터 행에만 있다 (grep -c = 1)
+if ! grep -q 'freework-resolve-fid' "$META" && [ "$(grep -c 'using-specops-ko/freework-pending.md' "$META")" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.b 메타 skill 은 포인터만 (절차 본문 없음)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b — 메타 skill 에 절차 본문 잔존 또는 포인터 부재"
 fi
 # T: freework.md 템플릿 5필드 존재 (AC-7)
 TPL="$PLUGIN/templates/freework.md"
@@ -23,10 +33,10 @@ else
   FAIL=$((FAIL+1)); echo "FAIL freework.md 템플릿"
 fi
 # T4: 분기 지시 키워드 존재 (AC-3,4,5,6,8,9,10,11,12)
-if grep -q 'freework-resolve-fid' "$META" && \
-   grep -q 'freework.md' "$META" && \
-   grep -q 'ATTACH' "$META" && \
-   grep -q '\-\-fid' "$META"; then
+if grep -q 'freework-resolve-fid' "$FREEWORK" && \
+   grep -q 'freework.md' "$FREEWORK" && \
+   grep -q 'ATTACH' "$FREEWORK" && \
+   grep -q '\-\-fid' "$FREEWORK"; then
   PASS=$((PASS+1)); echo "PASS T4 분기 지시 키워드"
 else
   FAIL=$((FAIL+1)); echo "FAIL T4 분기 지시 키워드"

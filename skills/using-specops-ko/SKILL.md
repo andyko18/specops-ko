@@ -138,6 +138,7 @@ SessionStart 가 `<session-progress-rehydrate>` 블록을 주입했으면, **데
 ## skill 호출 방법
 
 Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제시됨 — 그대로 따른다. skill 파일을 `Read` 도구로 직접 읽지 말 것.
+단, `using-specops-ko/` 의 참조 파일(예: `freework-pending.md`)은 skill 이 아니라 지시된 시점에 `Read` 하는 절차 문서다.
 
 호출 형식: skill 이름은 `specops-ko:specifying-ko` 같은 namespace 포함.
 
@@ -163,61 +164,11 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 주권 | HARD GATE는 engine skill이 본문에서 강제. 메타 skill은 진입만 책임 |
 | 5 한계 고백 | skill이 적합하지 않다고 판단되면 후행 단계에서 사용자에게 "이 skill로 충분한가?" 질문 가능 |
 
-## Karpathy 행동 원칙 (cross-cutting)
+## Karpathy·Advisor (cross-cutting)
 
-구현 단계 진입 시 아래 4원칙이 자동 활성된다. 세부 내용: `specops-ko:karpathy-ko`.
+- 구현 단계는 `specops-ko:karpathy-ko` 4원칙(가정 명시·단순성·외과적 변경·목표 기반 검증)을 따른다.
+- 기획·분석·설계·개발 중 애매하거나 모르는 지점은 단정하지 말고 advisor 를 호출한다(자명한 typo·1줄 rename 제외). 단계별 호출 시점: `specops-ko:advisor-ko`.
 
-| Karpathy 원칙 | 핵심 규칙 | specops 연결 |
-|---|---|---|
-| 1 코드 작성 전 사고 | 가정 명시, 불확실 시 질문, 다중 해석 제시 | 원칙 1 투명성 + 원칙 5 한계 고백 |
-| 2 단순성 우선 | 요청된 것만, 추측 기능·추상화 금지 | YAGNI + 원칙 4 주권 |
-| 3 외과적 변경 | 요청과 직접 연결된 것만 변경, 기존 스타일 유지 | sprint-contracts-ko AC 범위 |
-| 4 목표 기반 실행 | 모호한 지시 → 검증 가능한 체크포인트 변환 | acceptance-criteria.md + tdd-ko |
+## 자유작업 pending 처리
 
-
-## Advisor 활용 (cross-cutting)
-
-기획·분석·설계·개발 중 **애매한 부분/모르는 부분 발생 시 advisor 호출 의무**. 단정·합리화·circular 검증 차단. 세부 내용: `specops-ko:advisor-ko`.
-
-| 단계 | skill | advisor 호출 시점 |
-|---|---|---|
-| 기획 | specifying-ko | spec.md §유형 분류 모호 / NFR 미확신 |
-| 분석 | analyzing-ko | impact 5 항목 작성 중 외부 영향 범위 모호 |
-| 설계 | planning-ko | 이미 §8 Advisor 협의 기록 섹션 강제 |
-| 개발 | implementing-ko | 서브에이전트 dispatch 전 task 의도 모호 |
-
-자명한 작업 (typo / 1 줄 rename) 은 호출 회피. 긴 작업은 substantive work 직전 + 종결 직전 1 회 이상 권장.
-
-
-## 자유작업 pending 처리 (freecomment-capture → mini-lifecycle 편입)
-
-SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사용자 턴 시작 시** 자동 처리한다:
-
-1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다 (`{ts,files,prompt,type,fid}`).
-2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다.
-3. **귀속/신규 판정**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/freework-resolve-fid.sh "<레코드 fid>"` 호출.
-   - 출력 `ATTACH:<fid>` → **귀속 분기** (진행 중 lifecycle): 새 FID 생성 안 함. `<fid>` 를 대상 FID 로 사용 (쉘로 추출 시 `fid=${out#ATTACH:}`) (4·5·6 단계 진행, freework.md·mkdir 생략).
-   - 출력 `NEW` → **mini-FID 분기**: 요약 기반 `YYYYMMDD-<slug>` FID 생성. slug 불가 시 `YYYYMMDD-freework-<HHMM>`. 이어:
-     - `mkdir -p .specops/<FID>`
-     - `.specops/<FID>/freework.md` 작성 (`templates/freework.md` 의 `{{...}}` 치환 — prompt 빈값 시 `(빈값 — 변경파일 기반 추론)`).
-4. **session-progress 기록**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <대상FID> /freework 완료 "<요약>"`.
-5. **learnings 기록**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "<요약>" --fid <대상FID> --tags freelog,<type> --confidence <low|medium|high>` (fid 비빈값 — AC-6).
-6. **freelog 기록**: `.specops/freelog.md` 에 `## YYYYMMDD` 하위 `- HH:MM [<type>] (<대상FID>) <files> — <요약>` append (escape 유의).
-7. `type` 이 `design-change` 면 **requirements 반자동 연결** (승인형 — 기존 유지): requirements.md 확인 → 새 기능 요구사항 판단 → FR 초안 [y/n] → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/requirements-append-fr.sh ...`.
-8. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등): `: > .specops/pending-capture.jsonl` (truncate — 빈 파일이라야 SessionStart `[ -s ]` 가 재안내 skip).
-9. 사용자에게 **1줄 보고**: "자유작업 N건 기록함 — mini-FID M건(<FID목록>), 귀속 K건. (freelog.md)".
-
-## 참조
-
-- specops-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15` — 본 skill 설계 근거
-- `skills/<name>/SKILL.md` (layer=2 engine·layer=3 harness 플랫 구조 — CLAUDE.md §Skill 계층 참조)
-- `commands/start.md` — 슬래시 진입점 (풀 신규)
-- `commands/start-lite.md` · `commands/maintain-lite.md` — 경량 진입 (슬래시 전용, NL 추론 금지)
-- `commands/maintain.md` — 풀 유지보수 진입
-- `commands/brainstorming.md` — 선택적 pre-init-project 탐색 진입점
-- `skills/brainstorming-ko/SKILL.md` — 아이디어 탐색 skill
-- `hooks/hooks.json` — SessionStart·Stop hook 매니페스트
-
----
-
-*specops-ko v1.72.0 · 2026-04-21 · Phase 1 구축 완료 · 한국어 재창작 + 5원칙 주입 + Lifecycle 신호 감지 추가*
+SessionStart 가 `<freecomment-pending>` 블록을 주입했을 때만 해당한다 — 블록에 적힌 절차 파일(`using-specops-ko/freework-pending.md`)을 `Read` 해 **다음 사용자 턴 시작 시** 그대로 수행한다.

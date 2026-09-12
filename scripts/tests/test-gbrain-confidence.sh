@@ -6,7 +6,7 @@
 #   그 10건은 **2026-06-29~30 이틀에 몰려** 있다. 7/1~7/24 는 0건.
 #   원인은 "모델이 게을러서" 가 아니라 **문서화된 호출 예시 4곳이 전부
 #   `--confidence` 를 빼고 있어서**다 — 모델은 예시를 그대로 복사한다.
-#     performance-test-ko:316 (자동 경로) · using-specops-ko:204 (freelog 자동) ·
+#     performance-test-ko:316 (자동 경로) · using-specops-ko/freework-pending.md (freelog 자동 — 20260911 메타 skill 에서 이관) ·
 #     gbrain-ko · commands/gbrain.md
 #
 #   2차 피해: `gbrain-recall.sh` 는 confidence 를 동점 가중치로 쓴다
@@ -32,16 +32,20 @@ _ex() {  # $1=파일 $2=라벨
   #  (usage/주석 줄은 스크립트 자신뿐이라 대상 밖)
   # 실제 **호출 예시**만 대상 — 산문 언급(`gbrain-append.sh 경유만` 등)은 제외한다.
   #   판별: 인사이트 인자를 따옴표로 넘기는 형태(`gbrain-append.sh "`).
-  local bad
+  local bad calls
+  # 호출 예시 0건이면 "누락 없음" 은 아무것도 증명하지 않는다 — 예시가 다른 파일로 옮겨지면 무음 PASS 였다
+  calls=$(grep -c 'gbrain-append\.sh "' "$f" 2>/dev/null || true)
   bad=$(grep -n 'gbrain-append\.sh "' "$f" 2>/dev/null | grep -v -- '--confidence' || true)
-  if [ -z "$bad" ]; then
+  if [ "${calls:-0}" -eq 0 ]; then
+    nope "T1 $2" "호출 예시 0건 — 대상 파일이 틀렸거나 예시가 이동됨"
+  elif [ -z "$bad" ]; then
     ok "T1 호출 예시에 --confidence: $2"
   else
     nope "T1 $2" "누락 줄: $(printf '%s' "$bad" | head -2 | tr '\n' ' ')"
   fi
 }
 _ex skills/performance-test-ko/SKILL.md 'performance-test-ko(자동)'
-_ex skills/using-specops-ko/SKILL.md    'using-specops-ko(freelog 자동)'
+_ex skills/using-specops-ko/freework-pending.md 'using-specops-ko/freework-pending(freelog 자동)'
 _ex skills/gbrain-ko/SKILL.md           'gbrain-ko'
 _ex commands/gbrain.md                  '/gbrain'
 
