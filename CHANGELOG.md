@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.99.0] — 2026-09-12
+
 ### 메타 skill 이 이제 실제로 전달된다 — SessionStart 인라인 한도(UTF-16 10,000) 예산 가드 (#48)
 
 SessionStart 훅 출력이 하네스 인라인 한도를 넘으면 파일로 빠지고 **선두 2KB 프리뷰만** 모델에 닿는다.
@@ -2089,7 +2091,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.98.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.99.0...HEAD
+[1.99.0]: https://github.com/andyko18/specops-ko/compare/v1.98.0...v1.99.0
 [1.98.0]: https://github.com/andyko18/specops-ko/compare/v1.97.0...v1.98.0
 [1.97.0]: https://github.com/andyko18/specops-ko/compare/v1.96.0...v1.97.0
 [1.96.0]: https://github.com/andyko18/specops-ko/compare/v1.95.0...v1.96.0
