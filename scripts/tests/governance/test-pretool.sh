@@ -203,17 +203,24 @@ check "T22b 인용(double) 공백값 prefix gh pr create → deny" '"permissionD
 # T21c~T22d 무인용 공백값 prefix 우회 차단 (20260912-trigger-prefix-unquoted-space)
 #   방아쇠는 "명령치환" 이 아니라 **값 안의 공백**이다 — 값 대안이 [^[:space:]]+ 라 `$(gh` 에서 끊겼다.
 #   ★ `FOO=$(date) git commit` 로 쓰지 마라: 값에 공백이 없어 **수정 전에도 통과**하는 tautology 다.
-#   한계: 중첩 명령치환 `FOO=$(a $(b)) git commit` 은 비중첩 대안으로 잡히지 않는다 — F-3 클래스
-#     (정규식으로 무한확장 닫기 불가)로 의도적 미봉합. 자기정직 스캐폴드지 적대적 경계가 아니다.
+#   한계 (F-3 클래스 — 정규식으로 무한확장 닫기 불가. 자기정직 스캐폴드지 적대적 경계가 아니다):
+#     · 중첩 명령치환 `FOO=$(a $(b)) git commit`
+#     · 값 대안 **뒤 접미 연결** — `FOO=$(x y)bar` · `FOO=${VAR:-a b}${X}` · ``FOO=`a b`x``
+#     · 줄바꿈(백슬래시 연속) 포함 치환 — `grep -E` 가 줄 단위라 조각으로만 본다
+#     위 형태는 **종전에도 불매칭**이라 회귀가 아니다(확대 전후 동일). 닫은 척하지 않으려고 적는다.
 #   mkstdin 인자는 **싱글쿼트** — 더블쿼트면 셸이 치환·백틱을 실제 실행해 입력이 토큰으로 바뀐다.
+#   ★ 라벨 규약: T21* = `git commit` · T22* = `gh pr create` (T21·T21b·T22·T22b 와 동일).
 out=$(mkstdin 'GH_TOKEN=$(gh auth token) git commit -m x' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T21c 무인용 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin 'GH_TOKEN=$(gh auth token --user andyko18) gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin 'GH_TOKEN=$(gh auth token --user x) gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T22c 무인용 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
-out=$(mkstdin 'FOO=`gh auth token` gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
-check "T21d 백틱 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin 'FOO=${VAR:-a b} git commit -m x' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
-check "T22d 중괄호확장 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
+check "T21d 중괄호확장 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
+# ★ T22d 는 **수정 전에도 PASS** 한다 — 닫는 백틱이 트리거 앵커 클래스 `[;&|({`]` 에 포함돼
+#   "명령 시작" 으로 읽히기 때문이고, 설계된 방어가 아니라 **우연**이다. 즉 이 케이스는 값 대안을
+#   잠그지 않는다 — **앵커 클래스가 좁아지는 회귀**를 잡는 용도로만 유효하다(Phase C I-1/I-2).
+out=$(mkstdin 'FOO=`gh auth token` gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T22d 백틱 공백값 prefix gh pr create → deny (앵커 클래스 회귀 잠금)" '"permissionDecision":"deny"' "$out"
 # T23~T24 신규 false-positive 보존 (서브커맨드 인자 commit — trigger 미매칭 allow)
 out=$(mkstdin "git config commit.gpgsign true" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T23 git config commit.X → allow" '"continue":true' "$out"

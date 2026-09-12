@@ -22,8 +22,10 @@
 #   - 로그 수정·삭제 — 읽기 전용 (5원칙 4 주권).
 # 미계측 구간 (unmeasured — 20260912-trigger-prefix-unquoted-space):
 #   2026-09-11~12 의 `gh pr create` 5건은 R-1/R-2 trigger prefilter 가 **인용 없는 대입값의 공백**
-#   (`GH_TOKEN=$(gh auth token --user x) …`)을 불매칭해 차단·감사 **양쪽에서 침묵**했다. 따라서 아래
-#   집계는 그 구간을 "위반 0건" 으로 보고하지만 그것은 **미계측**이지 무위반이 아니다.
+#   (`GH_TOKEN=$(gh auth token --user x) …`)을 불매칭해 차단·감사 **양쪽에서 침묵**했다. 따라서 그
+#   5건은 아래 집계에 **행 자체가 없다** — 규칙별 합산표라 "0 으로 보고" 되는 것이 아니라 **부재**다.
+#   부재는 무위반이 아니라 **미계측**이다. (주의: 해당 FID 들에 R-2 기록이 아예 없다는 뜻은 아니다 —
+#   예컨대 20260912-pretool-src-capture-flaky 에는 머지 후의 라이브 deny 2건이 따로 있다.)
 #   대상 FID: 20260911-run-all-parallel · 20260911-posttool-matcher-narrow ·
 #            20260911-meta-skill-progressive-disclosure · 20260912-verify-stale-docs-scope ·
 #            20260912-pretool-src-capture-flaky
