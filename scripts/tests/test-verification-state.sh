@@ -61,6 +61,26 @@ else
   nope "S4 waiver" "out=$out"
 fi
 
+# S5b WAIVED 필드 **길이 상한** — reason 200 · approved_by 120 (verification-state.sh:169)
+# ★ 종전엔 양성 경로(정상 길이)만 돌아서, 상한 검사의 `&&` 를 끊는 변이가 살아남았다.
+#   "메타데이터 부재 거부"(S4)와는 다른 분기다 — 값은 있는데 **너무 긴** 경우를 본다.
+_long_reason=$(printf 'x%.0s' $(seq 1 201))
+if (cd "$TD" && bash "$STATE" record 20260803-state WAIVED \
+      --waiver-reason "$_long_reason" --waiver-approved-by "owner@example.com" \
+      --waiver-expires-at "$_future" >/dev/null 2>&1); then
+  nope "S5b 과길이 waiver-reason 거부" "201자 reason 이 수락됨"
+else
+  ok "S5b 과길이 waiver-reason 거부"
+fi
+_long_by=$(printf 'y%.0s' $(seq 1 121))
+if (cd "$TD" && bash "$STATE" record 20260803-state WAIVED \
+      --waiver-reason "정상 사유" --waiver-approved-by "$_long_by" \
+      --waiver-expires-at "$_future" >/dev/null 2>&1); then
+  nope "S5c 과길이 waiver-approved-by 거부" "121자 approved_by 가 수락됨"
+else
+  ok "S5c 과길이 waiver-approved-by 거부"
+fi
+
 # 허용 상태 외 문자열은 기록할 수 없다.
 if (cd "$TD" && bash "$STATE" record 20260803-state SKIP >/dev/null 2>&1); then
   nope "S5" "잘못된 SKIP 상태가 수락됨"
