@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# 테스트 스위트가 **파일 전체를 변수로 캡처해 단언 대상으로 쓰는 형태**를 금지한다.
+# 왜: macOS CI 에서 그 명령치환이 간헐적으로 첫 줄만 반환해 정적 문안 검사가 거짓 FAIL 을 냈다
+#   (main 2건 + PR 1건 실측 · 재실행 시 통과). 판정은 파일을 직접 읽어야 절단에 면역이다.
+# ★ 진단 출력용은 대상이 아니다 — `nope "..." "err=$(cat "$err")"` 는 실패 메시지 안이라
+#   절단돼도 판정에 영향이 없다. 변수 대입 형태만 잡는다.
+set -u
+PASS=0; FAIL=0
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+cd "$PLUGIN" || exit 1
+
+# ★ 자기 위치 검증 — 이게 없으면 **조용히 PASS** 한다.
+#   실측(부모, dispatch 전): 이 코드를 mktemp 디렉터리에 복사해 돌렸더니 `../../..` 가 저장소 밖을
+#   가리켜 스캔 대상이 0개가 됐고, 가드는 `PASS=1 FAIL=0` 을 냈다 — 취약 줄이 **버젓이 있는데도**.
+#   도구·경로 부재로 가드가 무음 사망하는 형태는 이 저장소가 v1.88.0 에서 고친 병과 같은 계열이다.
+_n_scanned=$(find scripts/tests -name '*.sh' -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ ! -d scripts/tests ] || [ "${_n_scanned:-0}" -lt 50 ]; then
+  echo "FAIL T1.pre 스캔 대상 이상 — scripts/tests 부재이거나 파일 ${_n_scanned:-0}개(<50). 가드가 공허 PASS 할 조건"
+  echo "---"; echo "PASS=0 FAIL=1"; exit 1
+fi
+
+# T1.a 저장소 **소스 파일**을 변수에 통째로 캡처하는 대입이 0건
+# ★ 패턴 설계 실측(부모, dispatch 전):
+#   - 단순 `=$(cat "` 만 보면 **28건**이 걸린다 — `calls=$(cat "$STUB_STATE")`·`rc=$(cat "$RA_WORK/rc.$i")`
+#     같은 정상 소용량 상태파일 읽기까지 포함돼 run-all 이 red 가 된다(AC-4 위반).
+#   - 경로에 `hooks/|scripts/` 를 얹는 필터는 무력하다 — `grep -rn` 출력의 `파일:줄번호:` **접두사**가
+#     항상 `scripts/` 를 포함해 전부 통과한다(후보 A 53건 · B 28건, 둘 다 기각).
+#   - 그래서 `-o` 로 **매칭 부분만** 뽑아 접두사 오염을 제거하고, 캡처식 안의
+#     `BASH_SOURCE`·`$(cd `·`pwd)` 를 본다 — "스크립트 자기 위치에서 저장소 소스 경로를 계산해 읽는다"
+#     는 관용구이고, 샌드박스 변수 읽기와 성질이 갈린다. 실측: 현행 **1건**(702행), 수정 사본 **0건**,
+#     한 줄에 캡처 2개인 `run-chain-stage.sh:36` 도 캡처별로 분리돼 필터를 통과하지 않는다.
+# ※ 한계: 이것은 "저장소 소스 캡처" 를 **경로 계산 관용구로 근사**한 것이지 의미 판별이 아니다.
+#   상대경로를 직접 적어 캡처하면 못 잡는다. 되돌려-관찰은 이 근사가 실제 취약 형태를 잡는 것만 실증한다.
+hits=$(grep -rnoE '[A-Za-z_][A-Za-z0-9_]*=\$\(cat "[^)]*\)' scripts/tests --include='*.sh' 2>/dev/null \
+       | grep -E 'BASH_SOURCE|\$\(cd |pwd\)' || true)
+if [ -z "$hits" ]; then
+  PASS=$((PASS+1)); echo "PASS T1.a 저장소 소스 파일 캡처 대입 0건"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T1.a 저장소 소스 파일 캡처 대입 검출:"; printf '%s\n' "$hits" | head -5
+  echo "  → 변수에 담지 말고 파일을 직접 grep 하라 (macOS CI 간헐 절단에 면역)"
+fi
+
+echo "---"; echo "PASS=$PASS FAIL=$FAIL"
+[ "$FAIL" -eq 0 ]
