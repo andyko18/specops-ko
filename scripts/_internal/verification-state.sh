@@ -66,10 +66,17 @@ vs::nondoc_fingerprint() {
     printf 'NO_GIT'
     return 0
   fi
-  local idx plugin_rc=1 line f out=""
+  local idx plugin_rc=1 line f out="" top
   idx=$(mktemp "${TMPDIR:-/tmp}/vs-nidx.XXXXXX") || { printf 'NO_GIT'; return 0; }
-  GIT_INDEX_FILE="$idx" git read-tree HEAD >/dev/null 2>&1 || true
-  GIT_INDEX_FILE="$idx" git add -A -- . ':(exclude).specops' >/dev/null 2>&1 || true
+  # ★ 저장소 루트에 앵커한다 — pathspec `.` 과 `:(exclude).specops` 는 **cwd 상대**라
+  #   서브디렉터리에서 부르면 그 아래만 열거된다. workspace_fingerprint 는 같은 트리면 cwd 와
+  #   무관하게 같은 값을 주는데 nondoc 만 갈리면, 기록 cwd ≠ 조회 cwd 일 때 가짜 STALE·
+  #   `tree stale` 오거부가 나고 반대로 같은 서브디렉터리끼리면 바깥 코드 변경을 못 본다
+  #   (실측: 루트 c372baae vs sub fd7dce69 — 같은 트리인데 다름). Phase C I-3.
+  #   `:/` 접두는 "저장소 루트 기준" 이라 exclude 도 함께 정확해진다(.specops 자기오염 방지 복원).
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || { rm -f "$idx"; printf 'NO_GIT'; return 0; }
+  GIT_INDEX_FILE="$idx" git -C "$top" read-tree HEAD >/dev/null 2>&1 || true
+  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob):/.specops/**' >/dev/null 2>&1 || true
   fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
   # ★ --full-name 필수 — 없으면 서브디렉터리 호출 시 경로가 cwd 상대로 나와 분류가 오판한다
   #   (실측: scripts/ 에서 `README.md` vs `scripts/README.md`).
