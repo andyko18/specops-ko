@@ -19,11 +19,15 @@
 
 # 플러그인 런타임 경로 — 확장자와 무관하게 **코드**다 (20260828-md-runtime-scope).
 #   이 플러그인의 실행 로직은 산문이다: skills/*/SKILL.md 한 줄이 chain 동작을 바꾼다.
+# shellcheck disable=SC2034  # 외부 소비 변수 — jq --arg 로 governance-lib 3경로가 주입해 쓴다
 FC_RUNTIME_RE='^(skills/.*/SKILL\.md|commands/.*\.md|agents/.*\.md|templates/.*\.md|hooks/.*|\.claude-plugin/.*)$'
 
 # 문서·아티팩트 — 실행 코드가 살 수 없는 경로.
 #   screens/*.html 은 저장소 루트 한정(design-first 미리보기), .specops/ 는 lifecycle 아티팩트 도메인.
-FC_DOC_RE='(\.md|\.txt|\.rst)$|^screens/[^/]*\.html$|^\.specops/'
+# ★ screens 는 `.*` 다 — bash `screens/*.html` 이 `/` 를 넘으므로 `[^/]*` 로 쓰면 중첩 경로에서
+#   두 계열이 갈라진다(실측: `screens/a/b.html` → bash=doc · jq=code). 위 런타임 패턴이 같은 이유로
+#   `.*` 를 쓰는데 이 줄만 함정을 밟고 있었다 — Phase C I-2.
+FC_DOC_RE='(\.md|\.txt|\.rst)$|^screens/.*\.html$|^\.specops/'
 
 # 이 저장소에서 `.md` 가 런타임인가 — Claude Code 플러그인 저장소 판정.
 #   루프 **밖에서 1회만** 부른다(파일마다 부르면 변경 파일 수만큼 프로세스를 스폰한다 — 훅은 hot path).

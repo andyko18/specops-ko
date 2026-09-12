@@ -25,6 +25,8 @@ docs/guide.md|doc
 notes.txt|doc
 spec.rst|doc
 screens/login.html|doc
+screens/a/b.html|doc
+screens/sub/dir/x.html|doc
 .specops/a/b.json|doc
 skills/foo/SKILL.md|code
 skills/a/b/SKILL.md|code
