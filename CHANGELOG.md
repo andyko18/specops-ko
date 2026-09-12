@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.100.0] — 2026-09-12
+
 ### macOS CI 간헐 거짓 FAIL 차단 — 파일 캡처 제거 + 취약 패턴 정적 가드 (#50)
 
 `test-pretool.sh` 가 551줄 파일을 `$(cat)` 로 변수에 담아 단언 대상으로 썼다. macOS 러너에서 이
@@ -2160,7 +2162,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.99.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.100.0...HEAD
+[1.100.0]: https://github.com/andyko18/specops-ko/compare/v1.99.0...v1.100.0
 [1.99.0]: https://github.com/andyko18/specops-ko/compare/v1.98.0...v1.99.0
 [1.98.0]: https://github.com/andyko18/specops-ko/compare/v1.97.0...v1.98.0
 [1.97.0]: https://github.com/andyko18/specops-ko/compare/v1.96.0...v1.97.0
