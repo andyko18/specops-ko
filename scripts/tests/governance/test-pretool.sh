@@ -200,6 +200,20 @@ out=$(mkstdin "FOO='a b' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUD
 check "T21b 인용(single) 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin 'FOO="a b" gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T22b 인용(double) 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
+# T21c~T22d 무인용 공백값 prefix 우회 차단 (20260912-trigger-prefix-unquoted-space)
+#   방아쇠는 "명령치환" 이 아니라 **값 안의 공백**이다 — 값 대안이 [^[:space:]]+ 라 `$(gh` 에서 끊겼다.
+#   ★ `FOO=$(date) git commit` 로 쓰지 마라: 값에 공백이 없어 **수정 전에도 통과**하는 tautology 다.
+#   한계: 중첩 명령치환 `FOO=$(a $(b)) git commit` 은 비중첩 대안으로 잡히지 않는다 — F-3 클래스
+#     (정규식으로 무한확장 닫기 불가)로 의도적 미봉합. 자기정직 스캐폴드지 적대적 경계가 아니다.
+#   mkstdin 인자는 **싱글쿼트** — 더블쿼트면 셸이 치환·백틱을 실제 실행해 입력이 토큰으로 바뀐다.
+out=$(mkstdin 'GH_TOKEN=$(gh auth token) git commit -m x' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T21c 무인용 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin 'GH_TOKEN=$(gh auth token --user andyko18) gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T22c 무인용 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin 'FOO=`gh auth token` gh pr create --fill' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T21d 백틱 공백값 prefix gh pr create → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin 'FOO=${VAR:-a b} git commit -m x' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T22d 중괄호확장 공백값 prefix commit → deny" '"permissionDecision":"deny"' "$out"
 # T23~T24 신규 false-positive 보존 (서브커맨드 인자 commit — trigger 미매칭 allow)
 out=$(mkstdin "git config commit.gpgsign true" "$FIX/pretool-no-verify.jsonl" | bash "$HOOK" 2>/dev/null)
 check "T23 git config commit.X → allow" '"continue":true' "$out"
