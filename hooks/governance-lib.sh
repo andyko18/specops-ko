@@ -8,6 +8,19 @@ _GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
+# 파일 분류 단일 SoT (20260912-verify-stale-docs-scope) — 면제 판정과 무효화 판정이 같은 기준을 쓴다.
+#   부재 시 fail-safe: 전건 비문서(코드) 취급 = 면제 축소·지문 확대. 무음으로 두지 않고 stderr 로 알린다
+#   (v1.88.0 이 고친 "강제층이 조용히 사라지는 경로" 계열).
+_FILE_CLASS_SH="$_GOV_LIB_DIR/../scripts/_internal/file-class.sh"
+if [ -f "$_FILE_CLASS_SH" ]; then
+  # shellcheck source=/dev/null
+  . "$_FILE_CLASS_SH"
+else
+  echo "governance-lib: file-class.sh 로드 실패 — 전건 비문서(코드)로 판정한다" >&2
+  fc::is_doc() { return 1; }
+  fc::is_plugin_repo() { return 1; }
+  FC_DOC_RE='$^'; FC_RUNTIME_RE='$^'
+fi
 
 : "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
@@ -561,46 +574,17 @@ is_docs_only_change() {
 # whitelist 매처 (is_docs_only_change ↔ is_docs_only_audit_scope 공유 — 면제 클래스 drift 방지)
 # 빈 목록 = 1 (fail-safe — 판정 불가 시 비면제).
 
-# 이 repo 에서 `.md` 가 런타임인가 — Claude Code 플러그인 저장소 판정 (20260828-md-runtime-scope).
-#   `.claude-plugin/plugin.json` 존재가 기계 판정이다. 루프 **밖에서 1회만** 부른다
-#   (파일마다 부르면 변경 파일 수만큼 프로세스를 스폰한다 — NFR: 훅은 hot path 다).
-_is_plugin_repo() {
-  local root
-  root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
-  [ -f "$root/.claude-plugin/plugin.json" ]
-}
-
+# 목록 **전체**가 문서인가 — 파일 1건 판정은 fc::is_doc 이 SoT 다(scripts/_internal/file-class.sh).
+#   분류 규칙(플러그인 런타임 예외·screens/*.html·.specops/ 면제)과 그 근거는 전부 그 파일에 있다.
+#   여기에 패턴을 **복제하지 않는다** — 두 벌이 되면 한쪽만 조여져 면제와 무효화가 어긋나고,
+#   그게 20260912 에 문서 한 줄이 커밋을 막던 결함의 구조다(test-file-class.sh T1.d 가 복제를 잠근다).
 _files_all_docs() {
-  local files="$1" f plugin_repo=1
+  local files="$1" f plugin_rc=1
   [ -z "$files" ] && return 1
-  _is_plugin_repo && plugin_repo=0
+  fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 훅은 hot path 다
   while IFS= read -r f; do
     [ -z "$f" ] && continue
-    # ★ 플러그인 런타임 경로는 확장자와 무관하게 **코드**다 (20260828-md-runtime-scope).
-    #   이 플러그인의 실행 로직은 산문이다 — skills/*/SKILL.md 한 줄 수정이 chain 동작을 바꾼다.
-    #   `*.md` 를 무조건 문서로 보면 "commit 전 verify" 강제가 **제품 본체에서 통째로 면제**된다.
-    #   실측(최근 60커밋): 41건이 면제 클래스였고 그중 22건이 실제 행동 변경(릴리즈 스탬프 19 제외).
-    #   v1.45.0 에서 제거한 §auto 자기발급 면제표보다 넓다 — 모델이 라벨을 쓸 필요조차 없었다.
-    # ★ 왜 플러그인 repo 에서만인가: 이 경로들은 Claude Code **플러그인 규약**이지 앱 규약이 아니다.
-    #   무조건 걸면 하류 앱 repo 의 `templates/email.md`·`docs/agents/x.md` 가 문서 커밋에서 막히고,
-    #   false-deny 는 정확히 BYPASS 관성을 만든다(마찰로그 BYPASS 24건/30일이 그 증거다).
-    # 범위 밖(의도): `skills/*/README.md` 처럼 같은 트리의 비-런타임 문서는 면제 유지 —
-    #   런타임 계약은 SKILL.md 파일명이다. CLAUDE.md·README·CHANGELOG 도 배포 런타임이 아니라 면제.
-    if [ "$plugin_repo" -eq 0 ]; then
-      case "$f" in
-        skills/*/SKILL.md|commands/*.md|agents/*.md|templates/*.md|hooks/*|.claude-plugin/*) return 1 ;;
-      esac
-    fi
-    case "$f" in
-      *.md|*.txt|*.rst) ;;
-      # design/아티팩트 면제 (20260716-batch-dogfood: Phase 2.5 design 커밋이 .md 한정 whitelist 에
-      #   걸려 false-block → BYPASS 남발 유발. 둘 다 실행 코드가 살 수 없는 경로다):
-      #   - screens/*.html : design-first 화면 미리보기(스펙 .md 와 쌍). repo 루트 screens/ 한정 —
-      #     src/ 등 경로의 .html(앱 코드 가능)은 비면제 유지.
-      #   - .specops/*     : lifecycle 아티팩트 도메인(review-base.sha·friction-log.jsonl 등 비 .md 포함).
-      screens/*.html|.specops/*) ;;
-      *) return 1 ;;
-    esac
+    fc::is_doc "$f" "$plugin_rc" || return 1
   done <<EOF
 $files
 EOF

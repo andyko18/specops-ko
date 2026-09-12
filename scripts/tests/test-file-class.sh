@@ -71,4 +71,12 @@ else
   nope "T1.c 비플러그인 저장소는 런타임 예외 없음"
 fi
 
+# T1.d 패턴 리터럴이 governance-lib.sh 에 복제되지 않았다 (AC-6)
+# ★ 두 벌이 되면 한쪽만 조여져 면제와 무효화가 어긋난다 — 그게 이 FID 가 고치는 병이다.
+if grep -qE '\*\.md\|\*\.txt\|\*\.rst' "$PLUGIN/hooks/governance-lib.sh"; then
+  nope "T1.d 패턴 리터럴 복제 0건" "governance-lib.sh 에 잔존"
+else
+  ok "T1.d 패턴 리터럴 복제 0건"
+fi
+
 finish
