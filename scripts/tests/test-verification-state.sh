@@ -166,4 +166,48 @@ out=$(cd "$TD" && bash "$STATE" current 20260803-state)
 [ "$out" = "STALE" ] && ok "S14 구버전 기록 → 종전 동작(fail-safe)" || nope "S14" "out=$out"
 printf 'doc\n' > "$TD/CHANGELOG.md"
 
+# ── S15 지문의 cwd 무관성 (Phase C 재판정 I-3) ───────────────────────────────
+# 왜 함수 레벨인가: 소비자 4곳이 전부 **source 후 함수 직접 호출**이다 —
+#   run-all.sh:29 · .githooks/pre-push:54 · record-task-receipt.sh:61 · check-task-receipt.sh:56.
+#   앞 둘은 루트에서 돌지만 **receipt 둘은 사용자 cwd 에서 돈다** — 서브디렉터리에서 receipt 를
+#   기록·조회하면 지문이 갈려 가짜 `tree stale` 이 난다. 도달 가능한 경로다(이론 아님).
+#   (vs::current CLI 는 state 파일을 cwd 상대로 찾으므로 그 층에서는 재현되지 않는다.)
+# ★ 양방향이어야 한다 — ①만 두면 함수가 **상수를 반환해도** 통과한다.
+#   실제로 그 구멍으로 결함이 한 번 빠져나갔다: read-tree·add 만 루트에 앵커하고
+#   `ls-files` 를 빠뜨려 열거가 cwd 하위로 잘렸는데, 회귀가 없어 스위트가 전건 통과했다.
+mkdir -p "$TD/sub/deep"
+printf 'x\n' > "$TD/code.sh"
+printf 'y\n' > "$TD/sub/deep/inner.sh"
+git -C "$TD" add -A
+git -C "$TD" -c user.name=test -c user.email=test@example.com commit -qm anchor
+
+_nd() { (cd "$1" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint"); }
+_root0=$(_nd "$TD")
+_sub0=$(_nd "$TD/sub/deep")
+if [ -n "$_root0" ] && [ "$_root0" != "NO_GIT" ] && [ "$_root0" = "$_sub0" ]; then
+  ok "S15.a 비문서 지문이 cwd 와 무관 (루트 == 서브디렉터리)"
+else
+  nope "S15.a 지문 cwd 무관" "root=$_root0 sub=$_sub0"
+fi
+
+# S15.b 양성 대조 — 루트 코드 변경이 **서브디렉터리 조회에서도** 보여야 한다.
+printf 'x changed\n' > "$TD/code.sh"
+_sub1=$(_nd "$TD/sub/deep")
+if [ -n "$_sub1" ] && [ "$_sub1" != "$_sub0" ]; then
+  ok "S15.b 루트 코드 변경이 서브디렉터리 조회에서 보인다 (양성 대조)"
+else
+  nope "S15.b 바깥 변경 가시성" "sub0=$_sub0 sub1=$_sub1"
+fi
+printf 'x\n' > "$TD/code.sh"
+
+# S15.c 음성 대조 — 문서 변경은 서브디렉터리 조회에서도 지문을 바꾸지 않는다 (AC-1 과 같은 의미).
+printf 'doc changed in sub view\n' > "$TD/CHANGELOG.md"
+_sub2=$(_nd "$TD/sub/deep")
+if [ "$_sub2" = "$_sub0" ]; then
+  ok "S15.c 문서 변경은 서브디렉터리 조회에서도 지문 불변"
+else
+  nope "S15.c 문서 변경 불변" "sub0=$_sub0 sub2=$_sub2"
+fi
+printf 'doc\n' > "$TD/CHANGELOG.md"
+
 finish

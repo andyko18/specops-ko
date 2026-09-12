@@ -80,13 +80,20 @@ vs::nondoc_fingerprint() {
   fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
   # ★ --full-name 필수 — 없으면 서브디렉터리 호출 시 경로가 cwd 상대로 나와 분류가 오판한다
   #   (실측: scripts/ 에서 `README.md` vs `scripts/README.md`).
+  # ★★ `-C "$top"` 도 필수다 — `ls-files` 는 **cwd 하위만 열거**한다. read-tree·add 만 앵커하고
+  #   이 줄을 빠뜨리면 인덱스에는 전체가 들어와도 **목록이 cwd 아래로 잘려** 지문이 갈린다.
+  #   실측(수정 전 HEAD): 같은 깨끗한 트리에서 루트 c5e6e0a9 vs sub fd7dce69, 그리고 루트 code.sh 를
+  #   고쳐도 sub 에서는 값이 안 변했다(바깥 변경이 안 보임). Phase C 재판정이 이걸 잡았다 —
+  #   78·79 만 고치고 "cwd 의존 제거" 라 적었던 것은 **거짓 주장**이었고, probe 재실행을 했으면 잡혔다.
+  # ★ core.quotePath=false — 비ASCII 경로를 `"\355\225\234..."` 로 인용하지 않고 원문으로 낸다.
+  #   인용되면 fc::is_doc 이 받는 이름이 실제 경로와 달라져 분류 근거가 흔들린다(M-2).
   while IFS= read -r line; do
     [ -z "$line" ] && continue
     f=${line#*$'\t'}
     fc::is_doc "$f" "$plugin_rc" && continue
     out="${out}${line}"$'\n'
   done <<EOF
-$(GIT_INDEX_FILE="$idx" git ls-files -s --full-name 2>/dev/null)
+$(GIT_INDEX_FILE="$idx" git -C "$top" -c core.quotePath=false ls-files -s --full-name 2>/dev/null)
 EOF
   rm -f "$idx"
   [ -z "$out" ] && { printf 'EMPTY'; return 0; }
