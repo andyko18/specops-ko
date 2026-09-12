@@ -4,6 +4,44 @@
 
 ## [Unreleased]
 
+### 문서 한 줄이 커밋을 막지 않는다 — verify 면제/무효화 기준 통일 (#49)
+
+verify **면제** 판정(`_files_all_docs`)과 verify **무효화** 판정(지문·편집 이벤트·pre-push 마커)이
+"변경" 을 서로 다르게 정의했다. 같은 `CHANGELOG.md` 한 줄이 **면제 판정에서는 문서, 무효화 판정에서는
+코드**였다. 실제 피해로 문서 한 줄 때문에 커밋이 막히고 162 스위트 재실행을 강요당했다(`20260911-meta-skill-progressive-disclosure` 에서 2회 관측).
+
+- **분류 단일 SoT 신설** — `scripts/_internal/file-class.sh`. 면제·무효화 양쪽이 같은 기준을 쓴다.
+  jq 는 bash 함수를 부를 수 없어 정규식을 `--arg` 로 넘기고, **두 계열의 동치를 `test-file-class.sh` 가
+  직접 대조로 잠근다**(기대값 비교로 두면 같은 방향으로 함께 틀어질 때 둘 다 통과한다 — 실측으로 확인).
+- **3층 전부 적용** — verify verdict · receipt · pre-push 마커. 한 층만 고치면 나머지에서 오탐이 남는다.
+- **불변식 유지** — `skills/*/SKILL.md`·`commands/*.md`·`hooks/*` 등 플러그인 런타임 경로는 **여전히
+  STALE 을 만든다**(이 클래스가 과거 행동 변경 커밋 22건을 면제한 실측이 있어 되돌려-관찰로 실증).
+  pre-push **fail-closed**(마커 부재·손상·NO_GIT·불일치 = 전체 실행)도 그대로다.
+- **AC-4 경계** — 경로 미상(코드로 셈) ↔ 저장소 밖(세지 않음)은 **다른 분기**다. 합치는 것은 오답이라
+  `T-sch.a/b/c` rc=1 ∧ `T-cls.c` rc=0 으로 양쪽을 동시에 잠갔다.
+
+**리뷰 네 라운드에서 나온 결함 셋은 모두 같은 원인이었다 — 고친 뒤 재현하지 않은 것.**
+
+| 라운드 | 결함 | 성격 |
+|---|---|---|
+| Phase C 1회차 | `file_path` 없는 편집(NotebookEdit·빈 문자열)이 R-1 면제를 넓힘 | 새로 넣은 fail-open |
+| Phase C 재판정 | `ls-files` 미앵커로 지문이 cwd 에 의존 | "cwd 의존 제거" 가 **거짓 주장**이었다 |
+| chain 코드리뷰 | `:(exclude,glob):/.specops/**` 가 무효(long-magic 뒤 `:/` 는 리터럴) | 같은 커밋의 **두 번째 미검증 주장** |
+
+마지막 라운드부터는 고친 뒤 probe 를 재실행하고 되돌려-관찰까지 했다. 그 과정에서 **직접 넣은 회귀
+하나를 스스로 기각**했다 — `.specops` pathspec 층을 보려던 케이스가 변이본에서도 28/28 통과해
+공허함이 드러났고(`fc::is_doc` 이 최종 방어를 해 항상 참), 커버리지만 올리는 테스트라 제거했다.
+
+**정직하게 남긴 것**: 변이 생존 2건(STALE 조건 결합·WAIVED 3필드 결합)은 등가가 아니라 진짜 미커버라
+등재하지 않는다 · `vs::workspace_fingerprint` 의 cwd 의존은 기존 코드라 범위 밖 · 보안 스캔은
+secret 축만 유효하다(gitleaks 전수 `no leaks`, semgrep 은 사내 CA SSL 검증 실패로 미실행 — 우회하지 않음).
+
+**백로그**: `mutation-equivalent.conf` 의 줄번호 키를 앵커 문자열로 전환 — 이 작업 안에서만 4번 밀렸고
+**무음 오매칭이 3회**(STALE 목록에 뜨지 않은 채 엉뚱한 가드를 등가 제외) 났다. 구조적 결함이 실증됐다.
+
+검증: `run-all` 162 PASS · `VERIFY: PASS` · 변이 81%(equivalent 13) · `CONF-CHECK` PASS ·
+전수 43항목 `reason ↔ 소속함수 ↔ 줄내용` 감사 0건 · propagation 215 edges · CI 3잡(Linux·macOS) 통과.
+
 ## [1.99.0] — 2026-09-12
 
 ### 메타 skill 이 이제 실제로 전달된다 — SessionStart 인라인 한도(UTF-16 10,000) 예산 가드 (#48)
