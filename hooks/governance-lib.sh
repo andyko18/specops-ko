@@ -33,6 +33,37 @@ _fc_root_log() {
   printf '%s' "${PWD%/${p%/}}"
 }
 
+# jq 용 파일 분류 정의 — 세 판정 경로(_verify_exec_evidence · _verify_stale_cause · _bg_pending_path)가
+#   이 **한 문자열을 연접**해 쓴다. jq 는 bash 함수를 못 부르므로 정의를 각 프로그램에 복제했었는데,
+#   20260912 Phase C 에서 처음 발견된 결함(C-1)이 곧바로 **3중 동기 수정**을 요구한 것이 복제 비용의 실증이다.
+# ★ "경로 미상" 과 "저장소 밖" 은 **반대 답**이 필요하다 — 종전엔 둘 다 `$rel == ""` 하나로 합쳐져
+#   후자의 답(세지 않음)을 앞에도 줬다:
+#   - 경로 미상(file_path 부재·빈 문자열·notebook_path 만 있는 NotebookEdit) → **코드로 센다**(fail-safe).
+#     실측(Phase C C-1): BASE 는 rc=1(코드)였는데 HEAD 가 rc=0 이 되어 **R-1 면제가 조용히 넓어졌다**.
+#     verify 실행 → 노트북 수정 → 커밋이 차단 없이 통과하는 경로였다.
+#   - 저장소 밖 절대경로 → 세지 않는다(AC-4). 이 답은 그대로 유지해야 한다.
+_FC_JQ_DEF='
+    def fc_is_code(p):
+      (p // "") as $raw
+      | if $raw == "" then true          # 경로 미상 → 코드로 센다(fail-safe)
+        else
+          ($raw | sub("^\\./"; "")) as $p0
+          | (if ($p0 | startswith("/")) then
+               (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
+                then ($p0 | ltrimstr($root_phys + "/"))
+                elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
+                then ($p0 | ltrimstr($root_log + "/"))
+                elif ($root_phys == "" and $root_log == "")
+                then $p0                 # root 판정 불가 → 코드로 센다(fail-safe)
+                else "" end)             # 저장소 밖 → 세지 않는다(AC-4)
+             else $p0 end) as $rel
+          | if $rel == "" then false
+            elif ($plugin_repo and ($rel | test($runtime_re))) then true
+            elif ($rel | test($doc_re)) then false
+            else true end
+        end;
+'
+
 : "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
@@ -287,26 +318,11 @@ _verify_exec_evidence() {
     --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
     --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
     --arg root_log "$(_fc_root_log)" \
-    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
-    # 이 편집이 "코드 편집" 인가 — 판정·진단·안내 세 경로가 같은 기준을 쓴다(20260912).
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" "$_FC_JQ_DEF"'
+    # 이 편집이 "코드 편집" 인가 — 판정·진단·안내 세 경로가 위 _FC_JQ_DEF 한 문자열을 공유한다(20260912).
     #   root 를 물리·논리 **양형**으로 받는다: macOS 는 /var → /private/var 심링크라
     #   show-toplevel(물리)과 셸 논리 경로가 갈리고, 물리만 쓰면 저장소 **안** 편집이
     #   "밖" 으로 오판돼 코드 편집을 세지 않는 fail-open 이 된다(실측).
-    def fc_is_code(p):
-      (p | sub("^\\./"; "")) as $p0
-      | (if ($p0 | startswith("/")) then
-           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
-            then ($p0 | ltrimstr($root_phys + "/"))
-            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
-            then ($p0 | ltrimstr($root_log + "/"))
-            elif ($root_phys == "" and $root_log == "")
-            then $p0                      # root 판정 불가 → 코드로 센다(fail-safe)
-            else "" end)                  # 저장소 밖 → 세지 않는다
-         else $p0 end) as $rel
-      | if $rel == "" then false
-        elif ($plugin_repo and ($rel | test($runtime_re))) then true
-        elif ($rel | test($doc_re)) then false
-        else true end;
     # ★ C-A: $all 은 **전체 tool_use** 를 센다 (name 무관). $uses(Bash 한정)로 세면
     #   Bash 가 없는 transcript(Edit-only·Skill-only = 위조 표현)가 0건이 되어 rc=2 fail-open 으로
     #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
@@ -451,7 +467,7 @@ _verify_exec_evidence() {
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select(fc_is_code(.input.file_path // ""))
+         | select(fc_is_code(.input.file_path // .input.notebook_path // ""))
          | $i ] | max // -1) as $lastedit
     # $bghit 은 **러너를 띄운 Bash 의 인덱스**다(Read 인덱스가 아님) — 실행 시작 시점이 더 보수적이라
     # "Bash 띄움 → 코드 수정 → Read" 를 stale 로 올바르게 판정한다(T20).
@@ -488,24 +504,10 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
     --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
     --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
     --arg root_log "$(_fc_root_log)" \
-    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" "$_FC_JQ_DEF"'
     # 진단은 판정과 **같은 기준**을 써야 한다 — 어긋나면 deny 문안이 거짓 원인을 말한다
     #   (gbrain 20260910-commit-scope-prelude: 틀린 원인 표시가 사용자를 오진으로 몬다).
-    def fc_is_code(p):
-      (p | sub("^\\./"; "")) as $p0
-      | (if ($p0 | startswith("/")) then
-           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
-            then ($p0 | ltrimstr($root_phys + "/"))
-            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
-            then ($p0 | ltrimstr($root_log + "/"))
-            elif ($root_phys == "" and $root_log == "")
-            then $p0
-            else "" end)
-         else $p0 end) as $rel
-      | if $rel == "" then false
-        elif ($plugin_repo and ($rel | test($runtime_re))) then true
-        elif ($rel | test($doc_re)) then false
-        else true end;
+    #   그래서 위 _FC_JQ_DEF 를 판정 경로와 **같은 문자열로** 연접해 쓴다.
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -523,8 +525,8 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select(fc_is_code(.input.file_path // ""))
-         | {i: $i, f: (.input.file_path // "")} ]) as $edits
+         | select(fc_is_code(.input.file_path // .input.notebook_path // ""))
+         | {i: $i, f: (.input.file_path // .input.notebook_path // "?")} ]) as $edits
     | (($edits | map(.i) | max) // -1) as $lastedit
     | if $lasthit >= 0 and $lastedit >= $lasthit
       then "stale \(($edits | map(select(.i == $lastedit)) | .[0].f // "?"))"
@@ -544,24 +546,10 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
     --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
     --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
     --arg root_log "$(_fc_root_log)" \
-    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" "$_FC_JQ_DEF"'
     # 안내도 판정과 같은 기준을 쓴다 — 어긋나면 "Read 하면 인정됩니다" 가 거짓이 되고
     #   안내 이행 후 동일 메시지 재차단 → BYPASS 스파이럴(dogfood #418→#421) 조건이 된다.
-    def fc_is_code(p):
-      (p | sub("^\\./"; "")) as $p0
-      | (if ($p0 | startswith("/")) then
-           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
-            then ($p0 | ltrimstr($root_phys + "/"))
-            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
-            then ($p0 | ltrimstr($root_log + "/"))
-            elif ($root_phys == "" and $root_log == "")
-            then $p0
-            else "" end)
-         else $p0 end) as $rel
-      | if $rel == "" then false
-        elif ($plugin_repo and ($rel | test($runtime_re))) then true
-        elif ($rel | test($doc_re)) then false
-        else true end;
+    #   그래서 위 _FC_JQ_DEF 를 판정 경로와 **같은 문자열로** 연접해 쓴다(사본 금지 — Phase C I-1).
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -590,7 +578,7 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select(fc_is_code(.input.file_path // ""))
+         | select(fc_is_code(.input.file_path // .input.notebook_path // ""))
          | $i ] | max // -1) as $lastedit
     | (if $pend != null and $pend.i > $lastedit then $pend.p else "" end)
   ' 2>/dev/null || true
