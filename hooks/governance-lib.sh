@@ -22,6 +22,17 @@ else
   FC_DOC_RE='$^'; FC_RUNTIME_RE='$^'
 fi
 
+# 논리 경로 기준 저장소 루트 (심링크 **미해석**) — transcript 의 file_path 는 셸의 논리 cwd 로
+#   만들어지는데 `git rev-parse --show-toplevel` 은 물리 경로를 준다(macOS: /var → /private/var).
+#   물리만 쓰면 저장소 **안** 편집이 "밖" 으로 오판돼 코드 편집을 세지 않는 fail-open 이 된다.
+# ★ prefix 끝 슬래시를 먼저 떼야 한다 — `${PWD%/scripts/}` 는 매치하지 않아 PWD 가 그대로 남고,
+#   서브디렉터리에서 훅이 돌 때 루트가 아니라 cwd 가 root 로 잡힌다(실측).
+_fc_root_log() {
+  local p
+  p=$(git rev-parse --show-prefix 2>/dev/null) || return 0
+  printf '%s' "${PWD%/${p%/}}"
+}
+
 : "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
@@ -272,7 +283,30 @@ _verify_exec_evidence() {
     decl=$(_extract_declared_cmds "$fiddir/tasks.md")
   fi
   local out uses hits
-  out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" --arg anchor "$_RUNNER_ANCHOR_PAT" '
+  out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" --arg anchor "$_RUNNER_ANCHOR_PAT" \
+    --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
+    --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
+    --arg root_log "$(_fc_root_log)" \
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
+    # 이 편집이 "코드 편집" 인가 — 판정·진단·안내 세 경로가 같은 기준을 쓴다(20260912).
+    #   root 를 물리·논리 **양형**으로 받는다: macOS 는 /var → /private/var 심링크라
+    #   show-toplevel(물리)과 셸 논리 경로가 갈리고, 물리만 쓰면 저장소 **안** 편집이
+    #   "밖" 으로 오판돼 코드 편집을 세지 않는 fail-open 이 된다(실측).
+    def fc_is_code(p):
+      (p | sub("^\\./"; "")) as $p0
+      | (if ($p0 | startswith("/")) then
+           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
+            then ($p0 | ltrimstr($root_phys + "/"))
+            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
+            then ($p0 | ltrimstr($root_log + "/"))
+            elif ($root_phys == "" and $root_log == "")
+            then $p0                      # root 판정 불가 → 코드로 센다(fail-safe)
+            else "" end)                  # 저장소 밖 → 세지 않는다
+         else $p0 end) as $rel
+      | if $rel == "" then false
+        elif ($plugin_repo and ($rel | test($runtime_re))) then true
+        elif ($rel | test($doc_re)) then false
+        else true end;
     # ★ C-A: $all 은 **전체 tool_use** 를 센다 (name 무관). $uses(Bash 한정)로 세면
     #   Bash 가 없는 transcript(Edit-only·Skill-only = 위조 표현)가 0건이 되어 rc=2 fail-open 으로
     #   빠지고, 게이트가 지배 경로에서 no-op 이 된다. 이벤트 유무 판정과 러너 매칭은 다른 질문이다.
@@ -417,7 +451,7 @@ _verify_exec_evidence() {
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | select(fc_is_code(.input.file_path // ""))
          | $i ] | max // -1) as $lastedit
     # $bghit 은 **러너를 띄운 Bash 의 인덱스**다(Read 인덱스가 아님) — 실행 시작 시점이 더 보수적이라
     # "Bash 띄움 → 코드 수정 → Read" 를 stale 로 올바르게 판정한다(T20).
@@ -450,7 +484,28 @@ _verify_exec_evidence() {
 _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 문자열
   [ -n "${1:-}" ] && [ -f "$1" ] || return 0
   command -v jq >/dev/null 2>&1 || return 0
-  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" '
+  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" \
+    --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
+    --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
+    --arg root_log "$(_fc_root_log)" \
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
+    # 진단은 판정과 **같은 기준**을 써야 한다 — 어긋나면 deny 문안이 거짓 원인을 말한다
+    #   (gbrain 20260910-commit-scope-prelude: 틀린 원인 표시가 사용자를 오진으로 몬다).
+    def fc_is_code(p):
+      (p | sub("^\\./"; "")) as $p0
+      | (if ($p0 | startswith("/")) then
+           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
+            then ($p0 | ltrimstr($root_phys + "/"))
+            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
+            then ($p0 | ltrimstr($root_log + "/"))
+            elif ($root_phys == "" and $root_log == "")
+            then $p0
+            else "" end)
+         else $p0 end) as $rel
+      | if $rel == "" then false
+        elif ($plugin_repo and ($rel | test($runtime_re))) then true
+        elif ($rel | test($doc_re)) then false
+        else true end;
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -468,7 +523,7 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | select(fc_is_code(.input.file_path // ""))
          | {i: $i, f: (.input.file_path // "")} ]) as $edits
     | (($edits | map(.i) | max) // -1) as $lastedit
     | if $lasthit >= 0 and $lastedit >= $lasthit
@@ -485,7 +540,28 @@ _verify_stale_cause() {  # $1=transcript → stdout "stale <파일>" 또는 빈 
 #   경로에서만 일어나므로 여기서 jq 를 1회 더 도는 비용은 hot path 에 영향이 없다.
 _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열)
   [ -n "${1:-}" ] && [ -f "$1" ] || return 0
-  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" '
+  jq -rn --slurpfile a "$1" --arg anchor "$_RUNNER_ANCHOR_PAT" \
+    --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
+    --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
+    --arg root_log "$(_fc_root_log)" \
+    --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" '
+    # 안내도 판정과 같은 기준을 쓴다 — 어긋나면 "Read 하면 인정됩니다" 가 거짓이 되고
+    #   안내 이행 후 동일 메시지 재차단 → BYPASS 스파이럴(dogfood #418→#421) 조건이 된다.
+    def fc_is_code(p):
+      (p | sub("^\\./"; "")) as $p0
+      | (if ($p0 | startswith("/")) then
+           (if ($root_phys != "" and ($p0 | startswith($root_phys + "/")))
+            then ($p0 | ltrimstr($root_phys + "/"))
+            elif ($root_log != "" and ($p0 | startswith($root_log + "/")))
+            then ($p0 | ltrimstr($root_log + "/"))
+            elif ($root_phys == "" and $root_log == "")
+            then $p0
+            else "" end)
+         else $p0 end) as $rel
+      | if $rel == "" then false
+        elif ($plugin_repo and ($rel | test($runtime_re))) then true
+        elif ($rel | test($doc_re)) then false
+        else true end;
     ($a | map(select(.type=="assistant") | .message.content[]? | select(.type=="tool_use"))) as $tus
     | ($tus | length) as $all
     | ($a | map(select(.type=="user") | .message.content[]?
@@ -514,7 +590,7 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
     | ([ range(0; $all) as $i
          | $tus[$i]
          | select(.name=="Edit" or .name=="Write" or .name=="NotebookEdit" or .name=="MultiEdit")
-         | select((.input.file_path // "") | test("(^|/)\\.specops/") | not)
+         | select(fc_is_code(.input.file_path // ""))
          | $i ] | max // -1) as $lastedit
     | (if $pend != null and $pend.i > $lastedit then $pend.p else "" end)
   ' 2>/dev/null || true
