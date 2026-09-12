@@ -414,7 +414,7 @@ MARKER_LIT='full-suite-pass'
 _g() { grep -qE "$1" "$2"; }   # -E 필수 — 아래 교대(|) 패턴이 BRE 에서 불일치
 
 _g "$MARKER_LIT" "$RUNALL"                        && ok "T20.a run-all 마커 경로 선언"      || nope "T20.a run-all 마커 경로 선언"
-_g '_FSP_TREE=.*workspace_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 workspace_fingerprint" || nope "T20.b 지문 캡처가 workspace_fingerprint"
+_g '_FSP_TREE=.*nondoc_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 nondoc_fingerprint" || nope "T20.b 지문 캡처가 nondoc_fingerprint"
 _g 'printf .*_FSP_TREE.*>.*_FSP_MARKER' "$RUNALL" && ok "T20.c 성공 시 기록"                || nope "T20.c 성공 시 기록"
 _g 'rm -f .*_FSP_MARKER' "$RUNALL"                && ok "T20.d FAIL 시 마커 제거"           || nope "T20.d FAIL 시 마커 제거"
 _g 'mkdir -p .*_FSP_MARKER' "$RUNALL"             && ok "T20.e 마커 디렉터리 보장"          || nope "T20.e 마커 디렉터리 보장"
@@ -465,7 +465,7 @@ if [ "$_p_ntests" != "1" ]; then
   _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
 else
 
-_p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::workspace_fingerprint' ); }
+_p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' ); }
 
 # 성공 → 마커가 지문과 일치
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
