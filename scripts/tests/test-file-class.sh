@@ -48,17 +48,21 @@ $CORPUS
 EOF
 [ "$_mis" -eq 0 ] && ok "T1.a bash case 분류가 면제 클래스와 일치" || nope "T1.a bash case 분류" "불일치 $_mis 건"
 
-# T1.b jq 정규식 계열이 bash 계열과 동치 (중첩 경로 포함)
+# T1.b jq 정규식 계열이 **bash 계열과 동치** (중첩 경로 포함)
+# ★ 기대값(want)이 아니라 bash 결과와 **직접 대조**한다 — want 비교만 하면 두 계열이 같은 방향으로
+#   함께 틀어질 때 둘 다 조용히 통과한다(실측: case 제거 변이에서 bash 만 FAIL, jq 는 PASS 로 남았다).
+#   동치를 주장하려면 두 계열의 출력을 맞대야 한다.
 _mis=0
 while IFS='|' read -r p want; do
   [ -z "$p" ] && continue
-  got=$(jq -rn --arg p "$p" --arg doc "$FC_DOC_RE" --arg rt "$FC_RUNTIME_RE" \
+  if fc::is_doc "$p" 0; then b=doc; else b=code; fi
+  j=$(jq -rn --arg p "$p" --arg doc "$FC_DOC_RE" --arg rt "$FC_RUNTIME_RE" \
     'if ($p | test($rt)) then "code" elif ($p | test($doc)) then "doc" else "code" end')
-  [ "$got" = "$want" ] || { _mis=$((_mis+1)); echo "  MISMATCH(jq) $p want=$want got=$got"; }
+  [ "$b" = "$j" ] || { _mis=$((_mis+1)); echo "  DIVERGE $p bash=$b jq=$j"; }
 done <<EOF
 $CORPUS
 EOF
-[ "$_mis" -eq 0 ] && ok "T1.b jq 정규식이 bash case 와 동치 (중첩 경로 포함)" || nope "T1.b jq 동치" "불일치 $_mis 건"
+[ "$_mis" -eq 0 ] && ok "T1.b jq 정규식이 bash case 와 동치 (중첩 경로 포함)" || nope "T1.b jq 동치" "발산 $_mis 건"
 
 # T1.c 비플러그인 저장소에서는 런타임 예외가 없다 — *.md 전부 문서
 if fc::is_doc "skills/foo/SKILL.md" 1; then
