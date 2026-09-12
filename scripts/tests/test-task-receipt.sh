@@ -241,6 +241,19 @@ if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
 else
   ok "TR-D2 코드 변경 후 receipt 거부"
 fi
+
+# TR-D3 구버전 receipt(nondoc_hash 부재) → 종전 전체 지문 비교로 떨어진다 (AC-7 검증방법 3항)
+# ★ 부재 시 방향이 **더 엄격한 쪽**이어야 한다 — 문서 변경만으로도 거부되는 것이 정상이다.
+#   이 케이스가 없으면 "하위 호환" 주장이 무잠금이고, 필드를 안 읽는 구현으로 퇴행해도 통과한다.
+jq 'del(.nondoc_hash)' "$_RD/.specops/$_rd_fid/receipts/T1.json" > "$_RD/rc.tmp" \
+  && mv "$_RD/rc.tmp" "$_RD/.specops/$_rd_fid/receipts/T1.json"
+printf 'code\n' > "$_RD/src/foo.sh"          # 코드 원복 — 문서 변경만 남긴다
+printf 'doc changed twice\n' > "$_RD/CHANGELOG.md"
+if (cd "$_RD" && bash "$CHK" "$_rd_fid" T1) >/dev/null 2>&1; then
+  nope "TR-D3 구버전 receipt → 종전 동작(더 엄격)" "문서 변경인데 통과 — 하위 호환이 느슨한 쪽"
+else
+  ok "TR-D3 구버전 receipt → 종전 동작(더 엄격)"
+fi
 rm -rf "$_RD"
 
 finish
