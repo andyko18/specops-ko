@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.101.0] — 2026-09-13
+
 ### 무인용 대입값의 공백이 거버넌스 트리거를 빠져나가던 구멍 차단 (#51)
 
 R-1(커밋 전 verify)·R-2(PR 전 verify)의 대입-접두 prefilter 가 **인용 없는 값 안의 공백**에서 끊겼다.
@@ -2203,7 +2205,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.100.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.101.0...HEAD
+[1.101.0]: https://github.com/andyko18/specops-ko/compare/v1.100.0...v1.101.0
 [1.100.0]: https://github.com/andyko18/specops-ko/compare/v1.99.0...v1.100.0
 [1.99.0]: https://github.com/andyko18/specops-ko/compare/v1.98.0...v1.99.0
 [1.98.0]: https://github.com/andyko18/specops-ko/compare/v1.97.0...v1.98.0
