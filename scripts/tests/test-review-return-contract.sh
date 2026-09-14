@@ -29,6 +29,11 @@ if grep -qF '<<<REVIEW fid=20260914-example tid=T1 phase=B verdict=PASS>>>' "$PL
 else nope "T1.h Phase B 채운 예시 줄 부재"; fi
 if grep -qF '<<<REVIEW fid=20260914-example tid=T1 phase=C verdict=READY_TO_MERGE>>>' "$PLUGIN/agents/code-reviewer-ko.md"; then ok "T1.i Phase C 채운 예시 줄"
 else nope "T1.i Phase C 채운 예시 줄 부재"; fi
+# 채운 예시는 인용 — 줄 맨 앞이면 리뷰어가 옮겨 쓸 때 중첩·짝 없는 헤더로 저장 전체 무동작 (Phase C 라운드 2 T3 🟡)
+for a in spec-reviewer-ko code-reviewer-ko; do
+  if ! grep -qE '^<<<REVIEW fid=20260914-example' "$PLUGIN/agents/$a.md"; then ok "T1.j $a 채운 예시 줄 들여씀"
+  else nope "T1.j $a 채운 예시 줄이 줄 맨 앞"; fi
+done
 
 # ── T2 부모 문서 공통 리터럴 (implementing-ko) ──
 for d in skills/implementing-ko/SKILL.md; do
@@ -61,5 +66,8 @@ else nope "T4.b file-based-communication-ko fallback 덮어쓰기 조건 부재"
 # 프로필 한계 — standard·minimal 에서 is-hook-enabled 가 훅을 끈다 (사용자 결정: 현행 유지 + 한계 기록)
 if grep -qF 'SPECOPS_GOVERNANCE_PROFILE' "$FBC"; then ok "T4.c file-based-communication-ko 프로필 한계 기록"
 else nope "T4.c file-based-communication-ko 프로필 한계 부재"; fi
+# start-all 도 같은 fallback 덮어쓰기 조건 (Phase C 라운드 2 T5 🟡)
+if grep -qF '반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장' "$PLUGIN/commands/start-all.md"; then ok "T4.d start-all fallback 덮어쓰기 조건"
+else nope "T4.d start-all fallback 덮어쓰기 조건 부재"; fi
 
 finish

@@ -161,8 +161,9 @@ tools: Read, Grep, Glob, Bash
 <<<END>>>
 
 채운 예시(헤더 줄 끝 꺾쇠는 정확히 3개 `>>>` 로 닫힌다):
+예시 줄은 인용이라 들여썼다 — 실제 최종 메시지에서는 줄 맨 앞에 쓴다.
 
-<<<REVIEW fid=20260914-example tid=T1 phase=C verdict=READY_TO_MERGE>>>
+    <<<REVIEW fid=20260914-example tid=T1 phase=C verdict=READY_TO_MERGE>>>
 
 - 마커 줄은 단독 줄로 쓴다. 한 메시지에는 한 FID 만, 같은 tid 는 한 번만 쓴다.
 - 보고서 본문에서 마커 줄(`<<<REVIEW`·`<<<END>>>`)을 인용해야 하면 줄 앞을 들여써서 쓴다(들여쓴 줄은 마커로 인식되지 않는다).
