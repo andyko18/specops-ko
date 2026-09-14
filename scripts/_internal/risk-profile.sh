@@ -84,7 +84,11 @@ rp::impl_file_count() {
 # 신호 판정 입력의 문맥 필터 (20260914-risk-profile-negation-blind).
 # "무엇을 하는가" 가 아니라 "무엇을 언급하는가" 인 조각을 뺀다 — 부정문·괄호 나열·표 셀·격리 정리.
 #   `.` 는 뒤가 공백·줄끝일 때만 경계다. `data-model.md`·`.env`·`path.join` 을 쪼개면 그 신호가 영영 안 걸린다.
-#   영문 부정어는 소문자 단어만 — SQL `NOT NULL` 을 부정으로 읽어 migration 을 놓치지 않게.
+#   영문 부정어는 소문자 단어만, SQL `not null`(대소문자 무관)은 부정어 검사에서 뺀다 — migration 을 놓치지 않게.
+#   구조화 필드 `irreversible: true`(뒤가 공백·`#주석`·줄끝뿐)는 필터를 거치지 않는다 — 주석의 "되돌릴 수 없음" 은 위험 긍정이다.
+#   괄호구는 `·` 나열이거나 부정 표지를 담을 때만 지운다. split 에 `()` 를 넣지 않는다 — `exec(`·`unlink(` 신호가 죽는다.
+#   격리 변수 면제는 `$TD`·`$TMP`·`$TMPDIR` 전체 이름만(뒤 `"`·공백·`/`·줄끝) — `$TD_ROOT` 류 접두 일치는 면제 아님.
+#   BSD awk 는 괄호식 안 `/` 를 정규식 종료로 읽는다 — `\/` 는 괄호식 밖에 둔다.
 # 필터 실패 시 원 코퍼스 + stderr 경고 — 오탐 쪽으로 기울고, 조용히 약해지지 않는다.
 # `# rp-filter` 마커는 test-risk-profile.sh T31 의 fallback shim 이 이 호출만 골라 실패시키는 표지다.
 rp::filter_corpus() {
@@ -93,14 +97,16 @@ rp::filter_corpus() {
     # rp-filter
     {
       line = $0
-      while (match(line, /\([^()]*·[^()]*\)/))
+      if (line ~ /irreversible:[[:space:]]*true[[:space:]]*(#.*)?$/) { print line; next }
+      while (match(line, /\([^()]*(·|없다|없음|무관|해당 없음|미해당|제외|아님|금지)[^()]*\)/))
         line = substr(line, 1, RSTART - 1) substr(line, RSTART + RLENGTH)
       n = split(line, parts, /\.[[:space:]]|\.$|[;,|]|—/)
       for (i = 1; i <= n; i++) {
         s = parts[i]
         if (s ~ /없다|없음|무관|해당 없음|미해당|제외|아님|금지|(^|[^0-9])0건/) continue
-        if (s ~ /(^|[^a-zA-Z])(none|not|no)([[:space:]]|$)/) continue
-        if (s ~ /rm -rf/ && s ~ /mktemp|trap|[$][{]?(TD|TMP)|TMPDIR/) continue
+        t = s; gsub(/[Nn][Oo][Tt][[:space:]]+[Nn][Uu][Ll][Ll]/, "", t)
+        if (t ~ /(^|[^a-zA-Z])(none|not|no)([[:space:]]|$)/) continue
+        if (s ~ /rm -rf/ && s ~ /mktemp|trap|[$][{]?(TD|TMP|TMPDIR)[}]?(["[:space:]]|\/|$)/) continue
         print s
       }
     }'); then
@@ -170,10 +176,17 @@ rp::compute() {
     _RP_YAML=$(dag::extract_yaml "$tasks" 2>/dev/null || true)
   fi
 
+  local raw_corpus="$corpus" raw_signals
   corpus=$(rp::filter_corpus "$corpus")
   files=$(rp::collect_files)
   local strict_signals docs_only=false impl_files parallel_batch=false irreversible=false
   strict_signals=$(rp::detect_strict_signals "$corpus" "$files")
+  # 필터가 신호를 전부 지웠으면 stderr 1줄 — 미탐 방향이라 조용히 넘기지 않는다 (JSON 스키마는 불변)
+  if [ -z "$strict_signals" ]; then
+    raw_signals=$(rp::detect_strict_signals "$raw_corpus" "$files")
+    [ -n "${raw_signals// /}" ] \
+      && echo "RISK-PROFILE: 문맥 필터가 strict 신호를 모두 제외함 (원 코퍼스: ${raw_signals}) — 실제 위험이면 --floor strict" >&2
+  fi
   # parallel_batch 는 기록만 한다 — 병렬 가능성은 위험이 아니다(strict 신호 아님)
   if [ -n "$_RP_YAML" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
     [ -n "$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)" ] && parallel_batch=true

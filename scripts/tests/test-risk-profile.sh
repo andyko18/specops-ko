@@ -298,8 +298,10 @@ r=$(_rp_case 20260914-rp-migpath '' db/migrations/001.sql)
 r=$(_rp_case 20260914-rp-cell-pos '| T1 | JWT 검증 미들웨어 추가 | 레거시 세션 없음 |')
 [ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
   && ok "T29 표 행 — 긍정 셀 신호 유지" || nope "T29" "$r"
-r=$(_rp_case 20260914-rp-cell-neg '| NFR-3 | 보안 | 인증 없음 |')
-! _has "$r" auth && ok "T30 표 행 — 부정 셀 신호 없음" || nope "T30" "$r"
+#   T30 은 실제 키워드(JWT)를 부정 셀에 둔다 — `인증` 은 원래 키워드가 아니라 필터 없이도 통과했다(판별력 0)
+r=$(_rp_case 20260914-rp-cell-neg '| NFR-3 | 보안 | JWT 없음 |')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T30 표 행 — 부정 셀 신호 없음" || nope "T30" "$r"
 
 # 부정 표지 과확장 방지 (plan-reviewer 1회차) — 숫자 뒤 `0건`·옵션 `--no-*` 는 부정이 아니다
 r=$(_rp_case 20260914-rp-10gun '마이그레이션 10건 적용 ALTER TABLE')
@@ -323,5 +325,61 @@ out=$(cd "$TD" && PATH="$SHIM:$PATH" bash "$RP" compute "$FID" 2>"$TD/err"); rc=
   && [ "$(printf '%s\n' "$out" | head -1)" = "RISK_PROFILE: computed=strict effective=strict mode=live" ] \
   && ok "T31 필터 실패 → 원 코퍼스 판정 + stderr 경고" || nope "T31" "rc=$rc out=$out"
 rm -rf "$TD" "$SHIM"
+
+# ── 문맥 필터 Phase C 수정 (C-1·I-1~I-4) ─────────────────────────────────────
+# 구조화 필드 `irreversible: true` 는 주석에 부정 표지가 있어도 파괴 선언이다 (C-1)
+r=$(_rp_case 20260914-rp-yaml-cmt "$(printf '```yaml\ntasks:\n  - id: 1\n    irreversible: true   # 되돌릴 수 없음\n    depends_on: []\n```')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T34 YAML irreversible 필드 + 부정 주석 → strict 유지" || nope "T34" "$r"
+r=$(_rp_case 20260914-rp-yaml-bare "$(printf 'tasks:\n  - id: 1\n    irreversible: true\n')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T35 YAML irreversible 필드(주석 없음) → strict · T21 산문형과 구분" || nope "T35" "$r"
+
+# SQL `not null` 은 대소문자 무관하게 부정이 아니다 (I-1)
+r=$(_rp_case 20260914-rp-notnull 'create table orders (id int not null)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T36 소문자 not null → db_migration 유지" || nope "T36" "$r"
+
+# 격리 변수 면제는 변수명 전체 일치만 — 접두 일치(TD_ROOT·TMPDIR_BACKUP)는 면제 아님 (I-2)
+r=$(_rp_case 20260914-rp-tdroot 'rm -rf ${TD_ROOT}/../var/lib/data')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T37a \${TD_ROOT} 접두 → destructive_fs" || nope "T37a" "$r"
+r=$(_rp_case 20260914-rp-tmpbak 'rm -rf "$TMPDIR_BACKUP/prod"')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T37b \$TMPDIR_BACKUP 접두 → destructive_fs" || nope "T37b" "$r"
+r=$(_rp_case 20260914-rp-tdsub 'rm -rf ${TD}/sub')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T37c \${TD}/sub → 격리 면제 유지" || nope "T37c" "$r"
+
+# 마침표 없는 bullet 끝 부정 괄호구는 괄호만 지운다 — 긍정 본문 신호 유지 (I-3)
+r=$(_rp_case 20260914-rp-paren-neg '- JWT 인증 미들웨어 추가 (기존 세션 제거 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T38 부정 괄호구 제거 → 본문 auth 유지" || nope "T38" "$r"
+
+# 괄호 제거가 호출 표기 신호를 죽이지 않는다 (split 에 () 금지 — exec\( 무음 사망 방지)
+#   입력을 신호 1개씩 분리한다 — risk-profile.sh 의 signals_json awk 는 공백 구분 1줄을 레코드 1개로 읽고 $1 만 내므로
+#   다중 신호 입력은 JSON signals.strict 에 첫 신호만 남는다(computed·effective 는 정확). 이 FID 범위 밖 결함 — 부모에 보고
+r=$(_rp_case 20260914-rp-callexec 'exec(cmd) 로 실행')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T39a exec( 신호 보존" || nope "T39a" "$r"
+r=$(_rp_case 20260914-rp-callunlink 'fs.unlink(path) 로 정리')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T39b fs.unlink( 신호 보존" || nope "T39b" "$r"
+
+# 필터가 신호를 전부 지우면 stderr 1줄 (I-4 — 조용히 약해지지 않는다) · strict 면 경고 없음
+_rp_err() {  # $1=fid $2=tasks.md 본문 → stdout = compute stderr
+  local td; td=$(mktemp -d)
+  _setup "$td" "$1"
+  printf '**§유형**: 신규\n' > "$td/.specops/$1/spec.md"
+  printf '%s\n' "$2" > "$td/.specops/$1/tasks.md"
+  (cd "$td" && bash "$RP" compute "$1" 2>&1 >/dev/null)
+  rm -rf "$td"
+}
+e=$(_rp_err 20260914-rp-allgone "$(printf -- '- irreversible: true 대상이 없다\n- DROP TABLE sessions 금지 해제\n')")
+[ "$(printf '%s\n' "$e" | grep -c '문맥 필터가 strict 신호를 모두 제외')" -eq 1 ] \
+  && ok "T40 전량 제외 → stderr 경고 1줄" || nope "T40" "stderr=$e"
+e=$(_rp_err 20260914-rp-nowarn 'JWT 검증 미들웨어를 추가한다')
+! printf '%s' "$e" | grep -q '문맥 필터' \
+  && ok "T41 strict 판정 → 경고 없음" || nope "T41" "stderr=$e"
 
 finish
