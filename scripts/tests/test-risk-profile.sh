@@ -382,4 +382,13 @@ e=$(_rp_err 20260914-rp-nowarn 'JWT 검증 미들웨어를 추가한다')
 ! printf '%s' "$e" | grep -q '문맥 필터' \
   && ok "T41 strict 판정 → 경고 없음" || nope "T41" "stderr=$e"
 
+# 부정 괄호구 제거는 괄호 안에 `,` `;` `|` 가 없을 때만 — 쉼표로 이어진 긍정 신호를 통째로 지우지 않는다 (C-2)
+#   괄호가 남으면 split 이 조각으로 나눠 부정 조각만 뺀다. 신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-paren-comma-auth '- 세션 교체 (OAuth 도입, 기존 쿠키 세션 제거 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T42a 쉼표 괄호 안 긍정 OAuth → strict(auth)" || nope "T42a" "$r"
+r=$(_rp_case 20260914-rp-paren-comma-rmrf '- 레거시 삭제 (rm -rf /var/lib/app/cache 포함, 백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T42b 쉼표 괄호 안 긍정 rm -rf → strict(destructive_fs)" || nope "T42b" "$r"
+
 finish
