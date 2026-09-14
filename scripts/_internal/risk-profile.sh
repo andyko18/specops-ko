@@ -81,6 +81,36 @@ rp::impl_file_count() {
   printf '%d' "$n"
 }
 
+# 신호 판정 입력의 문맥 필터 (20260914-risk-profile-negation-blind).
+# "무엇을 하는가" 가 아니라 "무엇을 언급하는가" 인 조각을 뺀다 — 부정문·괄호 나열·표 셀·격리 정리.
+#   `.` 는 뒤가 공백·줄끝일 때만 경계다. `data-model.md`·`.env`·`path.join` 을 쪼개면 그 신호가 영영 안 걸린다.
+#   영문 부정어는 소문자 단어만 — SQL `NOT NULL` 을 부정으로 읽어 migration 을 놓치지 않게.
+# 필터 실패 시 원 코퍼스 + stderr 경고 — 오탐 쪽으로 기울고, 조용히 약해지지 않는다.
+# `# rp-filter` 마커는 test-risk-profile.sh T31 의 fallback shim 이 이 호출만 골라 실패시키는 표지다.
+rp::filter_corpus() {
+  local out
+  if out=$(printf '%s\n' "$1" | awk '
+    # rp-filter
+    {
+      line = $0
+      while (match(line, /\([^()]*·[^()]*\)/))
+        line = substr(line, 1, RSTART - 1) substr(line, RSTART + RLENGTH)
+      n = split(line, parts, /\.[[:space:]]|\.$|[;,|]|—/)
+      for (i = 1; i <= n; i++) {
+        s = parts[i]
+        if (s ~ /없다|없음|무관|해당 없음|미해당|제외|아님|금지|(^|[^0-9])0건/) continue
+        if (s ~ /(^|[^a-zA-Z])(none|not|no)([[:space:]]|$)/) continue
+        if (s ~ /rm -rf/ && s ~ /mktemp|trap|[$][{]?(TD|TMP)|TMPDIR/) continue
+        print s
+      }
+    }'); then
+    printf '%s' "$out"
+  else
+    echo "RISK-PROFILE: corpus filter unavailable — raw corpus 로 판정" >&2
+    printf '%s' "$1"
+  fi
+}
+
 rp::detect_strict_signals() {
   local corpus="$1" files="$2" signals="" 
   # keyword / path signals (라인수 무관)
@@ -146,6 +176,7 @@ rp::compute() {
     _RP_YAML=$(dag::extract_yaml "$tasks" 2>/dev/null || true)
   fi
 
+  corpus=$(rp::filter_corpus "$corpus")
   files=$(rp::collect_files)
   local strict_signals docs_only=false impl_files parallel_batch=false irreversible=false
   strict_signals=$(rp::detect_strict_signals "$corpus" "$files")

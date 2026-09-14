@@ -247,4 +247,81 @@ printf 'a\n' > "$TD/src/a.sh"; (cd "$TD" && git add src)
 [ "$rc" -eq 0 ] && ok "T20 spec.md 부재 → fail-open rc=0" || nope "T20" "rc=$rc"
 rm -rf "$TD"
 
+# ── 문맥 필터 (20260914-risk-profile-negation-blind) ─────────────────────────
+# 신호 판정은 "무엇을 하는가"를 봐야 한다. 부정문·괄호 나열·표 셀·격리 정리는 언급일 뿐이다.
+# 하류 105건 중 88건 strict · 가드 발화 8 FID 중 5건 오탐(override·리터럴 삭제로 해소)이 계기.
+_rp_case() {  # $1=fid $2=tasks.md 본문 $3=staged 경로(선택) → stdout "<effective> <signals.strict json>"
+  local td; td=$(mktemp -d)
+  _setup "$td" "$1"
+  printf '**§유형**: 신규\n' > "$td/.specops/$1/spec.md"
+  printf '%s\n' "$2" > "$td/.specops/$1/tasks.md"
+  if [ -n "${3:-}" ]; then
+    mkdir -p "$td/$(dirname "$3")"; printf 'x\n' > "$td/$3"; (cd "$td" && git add "$3")
+  fi
+  (cd "$td" && bash "$RP" compute "$1" >/dev/null 2>&1)
+  printf '%s %s\n' "$(jq -r .effective "$td/.specops/$1/risk-profile.json" 2>/dev/null)" \
+    "$(jq -c .signals.strict "$td/.specops/$1/risk-profile.json" 2>/dev/null)"
+  rm -rf "$td"
+}
+_has()  { case "$1" in *"\"$2\""*) return 0 ;; *) return 1 ;; esac; }   # $1=_rp_case 결과 $2=신호명
+_eff()  { printf '%s' "${1%% *}"; }
+
+# 오탐 — strict 가 아니어야 한다
+r=$(_rp_case 20260914-rp-neg-irr '- irreversible: true 대상이 없다')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T21 부정문 irreversible → strict 아님" || nope "T21" "$r"
+r=$(_rp_case 20260914-rp-neg-schema '스키마 변경 없음 — ALTER TABLE·DROP TABLE·data-model.md 무관')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" db_migration \
+  && ok "T22 스키마 부재 선언 → strict 아님" || nope "T22" "$r"
+r=$(_rp_case 20260914-rp-list '조건부 섹션(RBAC·반응형·접근성)')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T23 괄호 나열 → strict 아님" || nope "T23" "$r"
+r=$(_rp_case 20260914-rp-trap "trap 'rm -rf \"\$TD\"' EXIT")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T24 격리 정리 rm -rf → strict 아님" || nope "T24" "$r"
+
+# 정탐 대조군 — strict 를 유지해야 한다 (필터가 신호를 통째로 죽이지 않았다는 증거)
+r=$(_rp_case 20260914-rp-jwt 'JWT 검증 미들웨어를 추가한다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T25 정탐 JWT → strict(auth)" || nope "T25" "$r"
+r=$(_rp_case 20260914-rp-rmrf 'rm -rf /var/data')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T26 정탐 비격리 rm -rf → strict(destructive_fs)" || nope "T26" "$r"
+r=$(_rp_case 20260914-rp-mixed 'JWT 검증을 추가한다. 레거시 세션은 없음')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T27 혼합 문장 → 긍정 문장 신호 유지" || nope "T27" "$r"
+r=$(_rp_case 20260914-rp-migpath '' db/migrations/001.sql)
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T28 migration 경로 → strict(db_migration)" || nope "T28" "$r"
+
+# 표 셀 (clarify Q1) — 셀마다 판정
+r=$(_rp_case 20260914-rp-cell-pos '| T1 | JWT 검증 미들웨어 추가 | 레거시 세션 없음 |')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T29 표 행 — 긍정 셀 신호 유지" || nope "T29" "$r"
+r=$(_rp_case 20260914-rp-cell-neg '| NFR-3 | 보안 | 인증 없음 |')
+! _has "$r" auth && ok "T30 표 행 — 부정 셀 신호 없음" || nope "T30" "$r"
+
+# 부정 표지 과확장 방지 (plan-reviewer 1회차) — 숫자 뒤 `0건`·옵션 `--no-*` 는 부정이 아니다
+r=$(_rp_case 20260914-rp-10gun '마이그레이션 10건 적용 ALTER TABLE')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T32 '10건' 은 부정 아님 → db_migration 유지" || nope "T32" "$r"
+r=$(_rp_case 20260914-rp-noopt 'git diff --no-renames 로 rm -rf 대상 계산')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T33 '--no-renames' 는 부정 아님 → destructive_fs 유지" || nope "T33" "$r"
+
+# T31: 필터 실패 → 원 코퍼스 + stderr 경고 (clarify Q2 — 조용히 약해지지 않는다)
+#   shim 은 필터 awk 프로그램의 `# rp-filter` 마커가 있을 때만 실패한다(그 밖의 awk 는 실물로 위임).
+TD=$(mktemp -d); FID=20260914-rp-fallback; SHIM=$(mktemp -d)
+_setup "$TD" "$FID"
+printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
+printf '%s\n' '- irreversible: true 대상이 없다' > "$TD/.specops/$FID/tasks.md"
+printf '#!/bin/sh\ncase "$*" in *rp-filter*) exit 2 ;; esac\nexec %s "$@"\n' "$(command -v awk)" > "$SHIM/awk"
+chmod +x "$SHIM/awk"
+out=$(cd "$TD" && PATH="$SHIM:$PATH" bash "$RP" compute "$FID" 2>"$TD/err"); rc=$?
+[ "$rc" -eq 0 ] && grep -q 'corpus filter unavailable' "$TD/err" \
+  && [ "$(printf '%s\n' "$out" | tail -1)" = "strict" ] \
+  && [ "$(printf '%s\n' "$out" | head -1)" = "RISK_PROFILE: computed=strict effective=strict mode=live" ] \
+  && ok "T31 필터 실패 → 원 코퍼스 판정 + stderr 경고" || nope "T31" "rc=$rc out=$out"
+rm -rf "$TD" "$SHIM"
+
 finish
