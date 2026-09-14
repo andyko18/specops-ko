@@ -79,7 +79,7 @@ out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 [ "$out" = "strict" ] && ok "T5 irreversible → strict" || nope "T5" "out=$out"
 rm -rf "$TD"
 
-# T6: parallel batch → strict
+# T6: parallel batch → strict 아님 (병렬 가능성은 위험이 아니다 — 필드 기록만 유지)
 TD=$(mktemp -d); FID=20260803-rp-par
 _setup "$TD" "$FID"
 printf 'a\n' > "$TD/src/a.sh"; printf 'b\n' > "$TD/src/b.sh"
@@ -98,9 +98,9 @@ tasks:
 ```
 EOF
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
-[ "$out" = "strict" ] && jq -e '.signals.parallel_batch==true' \
+[ "$out" != "strict" ] && jq -e '.signals.parallel_batch==true and (.signals.strict|index("parallel_batch")|not)' \
   "$TD/.specops/$FID/risk-profile.json" >/dev/null \
-  && ok "T6 parallel → strict" || nope "T6" "out=$out"
+  && ok "T6 parallel → strict 아님(parallel_batch 기록 유지)" || nope "T6" "out=$out"
 rm -rf "$TD"
 
 # T7: floor 상향
@@ -246,5 +246,223 @@ printf 'a\n' > "$TD/src/a.sh"; (cd "$TD" && git add src)
 (cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "T20 spec.md 부재 → fail-open rc=0" || nope "T20" "rc=$rc"
 rm -rf "$TD"
+
+# ── 문맥 필터 (20260914-risk-profile-negation-blind) ─────────────────────────
+# 신호 판정은 "무엇을 하는가"를 봐야 한다. 부정문·괄호 나열·표 셀·격리 정리는 언급일 뿐이다.
+# 하류 105건 중 88건 strict · 가드 발화 8 FID 중 5건 오탐(override·리터럴 삭제로 해소)이 계기.
+_rp_case() {  # $1=fid $2=tasks.md 본문 $3=staged 경로(선택) → stdout "<effective> <signals.strict json>"
+  local td; td=$(mktemp -d)
+  _setup "$td" "$1"
+  printf '**§유형**: 신규\n' > "$td/.specops/$1/spec.md"
+  printf '%s\n' "$2" > "$td/.specops/$1/tasks.md"
+  if [ -n "${3:-}" ]; then
+    mkdir -p "$td/$(dirname "$3")"; printf 'x\n' > "$td/$3"; (cd "$td" && git add "$3")
+  fi
+  (cd "$td" && bash "$RP" compute "$1" >/dev/null 2>&1)
+  printf '%s %s\n' "$(jq -r .effective "$td/.specops/$1/risk-profile.json" 2>/dev/null)" \
+    "$(jq -c .signals.strict "$td/.specops/$1/risk-profile.json" 2>/dev/null)"
+  rm -rf "$td"
+}
+_has()  { case "$1" in *"\"$2\""*) return 0 ;; *) return 1 ;; esac; }   # $1=_rp_case 결과 $2=신호명
+_eff()  { printf '%s' "${1%% *}"; }
+
+# 오탐 — strict 가 아니어야 한다
+r=$(_rp_case 20260914-rp-neg-irr '- irreversible: true 대상이 없다')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T21 부정문 irreversible → strict 아님" || nope "T21" "$r"
+r=$(_rp_case 20260914-rp-neg-schema '스키마 변경 없음 — ALTER TABLE·DROP TABLE·data-model.md 무관')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" db_migration \
+  && ok "T22 스키마 부재 선언 → strict 아님" || nope "T22" "$r"
+r=$(_rp_case 20260914-rp-list '조건부 섹션(RBAC·반응형·접근성)')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T23 괄호 나열 → strict 아님" || nope "T23" "$r"
+r=$(_rp_case 20260914-rp-trap "trap 'rm -rf \"\$TD\"' EXIT")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T24 격리 정리 rm -rf → strict 아님" || nope "T24" "$r"
+
+# 정탐 대조군 — strict 를 유지해야 한다 (필터가 신호를 통째로 죽이지 않았다는 증거)
+r=$(_rp_case 20260914-rp-jwt 'JWT 검증 미들웨어를 추가한다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T25 정탐 JWT → strict(auth)" || nope "T25" "$r"
+r=$(_rp_case 20260914-rp-rmrf 'rm -rf /var/data')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T26 정탐 비격리 rm -rf → strict(destructive_fs)" || nope "T26" "$r"
+r=$(_rp_case 20260914-rp-mixed 'JWT 검증을 추가한다. 레거시 세션은 없음')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T27 혼합 문장 → 긍정 문장 신호 유지" || nope "T27" "$r"
+r=$(_rp_case 20260914-rp-migpath '' db/migrations/001.sql)
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T28 migration 경로 → strict(db_migration)" || nope "T28" "$r"
+
+# 표 셀 (clarify Q1) — 셀마다 판정
+r=$(_rp_case 20260914-rp-cell-pos '| T1 | JWT 검증 미들웨어 추가 | 레거시 세션 없음 |')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T29 표 행 — 긍정 셀 신호 유지" || nope "T29" "$r"
+#   T30 은 실제 키워드(JWT)를 부정 셀에 둔다 — `인증` 은 원래 키워드가 아니라 필터 없이도 통과했다(판별력 0)
+r=$(_rp_case 20260914-rp-cell-neg '| NFR-3 | 보안 | JWT 없음 |')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T30 표 행 — 부정 셀 신호 없음" || nope "T30" "$r"
+
+# 부정 표지 과확장 방지 (plan-reviewer 1회차) — 숫자 뒤 `0건`·옵션 `--no-*` 는 부정이 아니다
+r=$(_rp_case 20260914-rp-10gun '마이그레이션 10건 적용 ALTER TABLE')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T32 '10건' 은 부정 아님 → db_migration 유지" || nope "T32" "$r"
+r=$(_rp_case 20260914-rp-noopt 'git diff --no-renames 로 rm -rf 대상 계산')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T33 '--no-renames' 는 부정 아님 → destructive_fs 유지" || nope "T33" "$r"
+
+# T31: 필터 실패 → 원 코퍼스 + stderr 경고 (clarify Q2 — 조용히 약해지지 않는다)
+#   shim 은 필터 awk 프로그램의 `# rp-filter` 마커가 있을 때만 실패한다(그 밖의 awk 는 실물로 위임).
+TD=$(mktemp -d); FID=20260914-rp-fallback; SHIM=$(mktemp -d)
+_setup "$TD" "$FID"
+printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
+printf '%s\n' '- irreversible: true 대상이 없다' > "$TD/.specops/$FID/tasks.md"
+printf '#!/bin/sh\ncase "$*" in *rp-filter*) exit 2 ;; esac\nexec %s "$@"\n' "$(command -v awk)" > "$SHIM/awk"
+chmod +x "$SHIM/awk"
+out=$(cd "$TD" && PATH="$SHIM:$PATH" bash "$RP" compute "$FID" 2>"$TD/err"); rc=$?
+[ "$rc" -eq 0 ] && grep -q 'corpus filter unavailable' "$TD/err" \
+  && [ "$(printf '%s\n' "$out" | tail -1)" = "strict" ] \
+  && [ "$(printf '%s\n' "$out" | head -1)" = "RISK_PROFILE: computed=strict effective=strict mode=live" ] \
+  && ok "T31 필터 실패 → 원 코퍼스 판정 + stderr 경고" || nope "T31" "rc=$rc out=$out"
+rm -rf "$TD" "$SHIM"
+
+# ── 문맥 필터 Phase C 수정 (C-1·I-1~I-4) ─────────────────────────────────────
+# 구조화 필드 `irreversible: true` 는 주석에 부정 표지가 있어도 파괴 선언이다 (C-1)
+r=$(_rp_case 20260914-rp-yaml-cmt "$(printf '```yaml\ntasks:\n  - id: 1\n    irreversible: true   # 되돌릴 수 없음\n    depends_on: []\n```')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T34 YAML irreversible 필드 + 부정 주석 → strict 유지" || nope "T34" "$r"
+r=$(_rp_case 20260914-rp-yaml-bare "$(printf 'tasks:\n  - id: 1\n    irreversible: true\n')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T35 YAML irreversible 필드(주석 없음) → strict · T21 산문형과 구분" || nope "T35" "$r"
+
+# SQL `not null` 은 대소문자 무관하게 부정이 아니다 (I-1)
+r=$(_rp_case 20260914-rp-notnull 'create table orders (id int not null)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T36 소문자 not null → db_migration 유지" || nope "T36" "$r"
+
+# 격리 변수 면제는 변수명 전체 일치만 — 접두 일치(TD_ROOT·TMPDIR_BACKUP)는 면제 아님 (I-2)
+r=$(_rp_case 20260914-rp-tdroot 'rm -rf ${TD_ROOT}/../var/lib/data')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T37a \${TD_ROOT} 접두 → destructive_fs" || nope "T37a" "$r"
+r=$(_rp_case 20260914-rp-tmpbak 'rm -rf "$TMPDIR_BACKUP/prod"')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T37b \$TMPDIR_BACKUP 접두 → destructive_fs" || nope "T37b" "$r"
+r=$(_rp_case 20260914-rp-tdsub 'rm -rf ${TD}/sub')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T37c \${TD}/sub → 격리 면제 유지" || nope "T37c" "$r"
+
+# 마침표 없는 bullet 끝 부정 괄호구는 괄호만 지운다 — 긍정 본문 신호 유지 (I-3)
+r=$(_rp_case 20260914-rp-paren-neg '- JWT 인증 미들웨어 추가 (기존 세션 제거 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T38 부정 괄호구 제거 → 본문 auth 유지" || nope "T38" "$r"
+
+# 괄호 제거가 호출 표기 신호를 죽이지 않는다 (split 에 () 금지 — exec\( 무음 사망 방지)
+#   입력을 신호 1개씩 분리한다 — risk-profile.sh 의 signals_json awk 는 공백 구분 1줄을 레코드 1개로 읽고 $1 만 내므로
+#   다중 신호 입력은 JSON signals.strict 에 첫 신호만 남는다(computed·effective 는 정확). 이 FID 범위 밖 결함 — 부모에 보고
+r=$(_rp_case 20260914-rp-callexec 'exec(cmd) 로 실행')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T39a exec( 신호 보존" || nope "T39a" "$r"
+r=$(_rp_case 20260914-rp-callunlink 'fs.unlink(path) 로 정리')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T39b fs.unlink( 신호 보존" || nope "T39b" "$r"
+
+# 필터가 신호를 전부 지우면 stderr 1줄 (I-4 — 조용히 약해지지 않는다) · strict 면 경고 없음
+_rp_err() {  # $1=fid $2=tasks.md 본문 → stdout = compute stderr
+  local td; td=$(mktemp -d)
+  _setup "$td" "$1"
+  printf '**§유형**: 신규\n' > "$td/.specops/$1/spec.md"
+  printf '%s\n' "$2" > "$td/.specops/$1/tasks.md"
+  (cd "$td" && bash "$RP" compute "$1" 2>&1 >/dev/null)
+  rm -rf "$td"
+}
+e=$(_rp_err 20260914-rp-allgone "$(printf -- '- irreversible: true 대상이 없다\n- DROP TABLE sessions 금지 해제\n')")
+[ "$(printf '%s\n' "$e" | grep -c '문맥 필터가 strict 신호를 모두 제외')" -eq 1 ] \
+  && ok "T40 전량 제외 → stderr 경고 1줄" || nope "T40" "stderr=$e"
+e=$(_rp_err 20260914-rp-nowarn 'JWT 검증 미들웨어를 추가한다')
+! printf '%s' "$e" | grep -q '문맥 필터' \
+  && ok "T41 strict 판정 → 경고 없음" || nope "T41" "stderr=$e"
+
+# 부정 괄호구 제거는 괄호 안에 `,` `;` `|` 가 없을 때만 — 쉼표로 이어진 긍정 신호를 통째로 지우지 않는다 (C-2)
+#   괄호가 남으면 split 이 조각으로 나눠 부정 조각만 뺀다. 신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-paren-comma-auth '- 세션 교체 (OAuth 도입, 기존 쿠키 세션 제거 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T42a 쉼표 괄호 안 긍정 OAuth → strict(auth)" || nope "T42a" "$r"
+r=$(_rp_case 20260914-rp-paren-comma-rmrf '- 레거시 삭제 (rm -rf /var/lib/app/cache 포함, 백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T42b 쉼표 괄호 안 긍정 rm -rf → strict(destructive_fs)" || nope "T42b" "$r"
+
+# 부정 표지를 담은 산문 괄호는 지우지 않고 `(` `)` 를 `|` 경계로 바꾼다 — 괄호 안이 독립 조각 (C-3)
+#   괄호 안 부정 조각이 구분자보다 앞이어도 괄호 밖 긍정 신호가 그 조각에 묶이지 않는다. 신호별 단독 입력(T39 주석)
+r=$(_rp_case 20260914-rp-c3-auth '- JWT 인증 미들웨어 추가 (기존 세션 제거 없음, 로그 유지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T43a 괄호 앞 조각 부정 + 괄호 밖 JWT → strict(auth)" || nope "T43a" "$r"
+r=$(_rp_case 20260914-rp-c3-rmrf '- rm -rf /opt/app 수행 (백업 없음, 되돌림 불가)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T43b 괄호 앞 조각 부정 + 괄호 밖 rm -rf → strict(destructive_fs)" || nope "T43b" "$r"
+r=$(_rp_case 20260914-rp-c3-drop '- DROP TABLE legacy (백업 없음, 확인 완료)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T43c 괄호 앞 조각 부정 + 괄호 밖 DROP TABLE → strict(db_migration)" || nope "T43c" "$r"
+# `—` 로만 나뉜 괄호도 부정은 괄호 안에 갇힌다 (M-3)
+r=$(_rp_case 20260914-rp-m3-pay '- 결제 모듈 (payment 연동 — 로그 제외)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" payment_pii \
+  && ok "T44 — 로만 나뉜 부정 괄호 → strict(payment_pii)" || nope "T44" "$r"
+# 탐지 토큰 exec(·unlink( 의 호출 괄호는 경계 치환 대상이 아니다 — exec( 신호 보존 (unlink( 짝은 T49b)
+r=$(_rp_case 20260914-rp-call-neg '- 실행 exec(cmd, 셸 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T45 호출 괄호 안 부정어 → exec( 유지(external_exec)" || nope "T45" "$r"
+# 줄머리 괄호·한글 인접 괄호도 경계 치환된다
+r=$(_rp_case 20260914-rp-head-paren '(기존 없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T46a 줄머리 부정 괄호 → strict(auth)" || nope "T46a" "$r"
+r=$(_rp_case 20260914-rp-hangul-paren '조건부(RBAC 없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T46b 한글 인접 부정 괄호 → strict(auth)" || nope "T46b" "$r"
+# 부정 대조군 — 괄호 밖이 부정이면 여전히 strict 아님
+r=$(_rp_case 20260914-rp-neg-ctrl '- JWT 변경 없음 (해당 없음)')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T47 괄호 밖 부정 + 부정 괄호 → strict 아님" || nope "T47" "$r"
+
+# 영숫자 직후 산문 부정 괄호도 경계 치환된다 — 가림은 탐지기가 괄호를 요구하는 exec(·unlink( 만 (C-4)
+#   신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-c4-rbac 'RBAC(없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48a 영문 직후 부정 괄호 RBAC( → strict(auth)" || nope "T48a" "$r"
+r=$(_rp_case 20260914-rp-c4-mw '- JWT 검증을 middleware(기존 로직 변경 없음)에 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48b middleware( 부정 괄호 → strict(auth)" || nope "T48b" "$r"
+r=$(_rp_case 20260914-rp-c4-v2 '- rm -rf /opt/app 수행 v2(백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T48c 숫자 직후 부정 괄호 v2( → strict(destructive_fs)" || nope "T48c" "$r"
+r=$(_rp_case 20260914-rp-c4-drop '- DROP TABLE legacy_v1(백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T48d _숫자 직후 부정 괄호 legacy_v1( → strict(db_migration)" || nope "T48d" "$r"
+r=$(_rp_case 20260914-rp-c4-cell '| 인증 | JWT(기존 세션 없음) 도입 |')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48e 표 셀 JWT( 부정 괄호 → strict(auth)" || nope "T48e" "$r"
+# 보존 가드 — unlink( 호출 괄호는 가려진다 (T45 exec( 과 짝)
+r=$(_rp_case 20260914-rp-c4-unlink 'unlink(path) 호출 (백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T49a unlink( 호출 괄호 보존 → strict(destructive_fs)" || nope "T49a" "$r"
+#   호출 괄호 안 부정어 — unlink 가림 줄이 빠지면 여기서 끊긴다 (T49a 는 괄호 안 부정어가 없어 가림 무관)
+r=$(_rp_case 20260914-rp-c4-unlink-neg '- 삭제 unlink(path, 백업 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T49b 호출 괄호 안 부정어 → unlink( 유지(destructive_fs)" || nope "T49b" "$r"
+
+# 가림은 탐지기 grep -i 와 같게 대소문자 무시 — EXEC(·Unlink( 도 호출 괄호로 가려진다 (Phase C I-1)
+#   신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-i1-exec '- 실행 EXEC(cmd, 셸 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T50a 대문자 EXEC( 호출 괄호 안 부정어 → strict(external_exec)" || nope "T50a" "$r"
+r=$(_rp_case 20260914-rp-i1-unlink '- 삭제 Unlink(path, 백업 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T50b 대소문자 섞인 Unlink( 호출 괄호 안 부정어 → strict(destructive_fs)" || nope "T50b" "$r"
+#   가림 표지는 \002 하나 — 입력에 이미 든 \001 이 가림 표지로 오인되지 않는다 (m-1 재노출 가드)
+r=$(_rp_case 20260914-rp-i1-ctl1 "$(printf -- '- JWT 추가 (\001없음)')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T50c 입력 제어문자 \\001 + 부정 괄호 → strict(auth) 유지" || nope "T50c" "$r"
+#   입력에 이미 든 \002 는 가림 전에 지운다 — `(\002` 가 가림 표지로 소비되어 경계 치환이 빠지지 않는다
+r=$(_rp_case 20260914-rp-i1-ctl2 "$(printf -- '- JWT 추가 (\002없음)')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T50d 입력 제어문자 \\002 + 부정 괄호 → strict(auth) 유지" || nope "T50d" "$r"
 
 finish

@@ -81,6 +81,56 @@ rp::impl_file_count() {
   printf '%d' "$n"
 }
 
+# 신호 판정 입력의 문맥 필터 (20260914-risk-profile-negation-blind).
+# "무엇을 하는가" 가 아니라 "무엇을 언급하는가" 인 조각을 뺀다 — 부정문·괄호 나열·표 셀·격리 정리.
+#   `.` 는 뒤가 공백·줄끝일 때만 경계다. `data-model.md`·`.env`·`path.join` 을 쪼개면 그 신호가 영영 안 걸린다.
+#   영문 부정어는 소문자 단어만, SQL `not null`(대소문자 무관)은 부정어 검사에서 뺀다 — migration 을 놓치지 않게.
+#   구조화 필드 `irreversible: true`(뒤가 공백·`#주석`·줄끝뿐)는 필터를 거치지 않는다 — 주석의 "되돌릴 수 없음" 은 위험 긍정이다.
+#   `·` 나열 괄호구는 지운다. split 에 `()` 를 넣지 않는다 — `exec(`·`unlink(` 신호가 죽는다.
+#   부정 표지를 담은 산문 괄호는 지우지 않고 `(` `)` 를 `|` 경계로 바꾼다 — 괄호 안이 독립 조각이 되어
+#     부정은 괄호 안에 갇히고 괄호 안·밖 긍정 신호가 모두 산다(C-2·C-3 · `—` 로만 나뉜 괄호 M-3 포함).
+#   탐지기가 괄호를 요구하는 토큰 `exec(`·`unlink(` 의 괄호만 \002 로 잠시 가려 치환 대상에서 뺀다 —
+#     `middleware(`·`RBAC(`·`v2(` 같은 영숫자 직후 산문 괄호는 경계 치환된다(C-4). 앞 글자 클래스를 match 에
+#     넣으면 BSD awk UTF-8 로케일이 한글 앞 괄호에서 `towc: multibyte conversion failure` 를 내므로 리터럴만 쓴다.
+#     가림 토큰은 탐지기 `grep -i` 와 같게 대소문자 무시(`EXEC(`·`Unlink(` — 글자별 [Xx] 클래스, `&` 로 원문 보존).
+#     표지는 \002 하나만 쓴다 — 별도 표지(\001)를 두면 입력에 이미 든 그 문자가 가림으로 오인된다(m-1).
+#     표지 문자 \002 는 가림 전에 입력에서 지운다 — 제어문자는 어떤 탐지 신호에도 쓰이지 않고, 입력 `(\002` 가 표지로 오인되는 것을 막는다.
+#     연동 규칙: rp::detect_strict_signals 에 `\(` 를 요구하는 토큰(현재 `unlink\(`·`exec\(`)을 추가하면 이 가림 목록도 같이 고친다.
+#   격리 변수 면제는 `$TD`·`$TMP`·`$TMPDIR` 전체 이름만(뒤 `"`·공백·`/`·줄끝) — `$TD_ROOT` 류 접두 일치는 면제 아님.
+#   BSD awk 는 괄호식 안 `/` 를 정규식 종료로 읽는다 — `\/` 는 괄호식 밖에 둔다.
+# 필터 실패 시 원 코퍼스 + stderr 경고 — 오탐 쪽으로 기울고, 조용히 약해지지 않는다.
+# `# rp-filter` 마커는 test-risk-profile.sh T31 의 fallback shim 이 이 호출만 골라 실패시키는 표지다.
+rp::filter_corpus() {
+  local out
+  if out=$(printf '%s\n' "$1" | awk '
+    # rp-filter
+    {
+      line = $0
+      if (line ~ /irreversible:[[:space:]]*true[[:space:]]*(#.*)?$/) { print line; next }
+      while (match(line, /\([^()]*·[^()]*\)/))
+        line = substr(line, 1, RSTART - 1) substr(line, RSTART + RLENGTH)
+      gsub(/\002/, "", line)
+      gsub(/[Ee][Xx][Ee][Cc]\(|[Uu][Nn][Ll][Ii][Nn][Kk]\(/, "&\002", line); gsub(/\(\002/, "\002", line)
+      while (match(line, /\([^()]*(없다|없음|무관|해당 없음|미해당|제외|아님|금지)[^()]*\)/))
+        line = substr(line, 1, RSTART - 1) "|" substr(line, RSTART + 1, RLENGTH - 2) "|" substr(line, RSTART + RLENGTH)
+      gsub(/\002/, "(", line)
+      n = split(line, parts, /\.[[:space:]]|\.$|[;,|]|—/)
+      for (i = 1; i <= n; i++) {
+        s = parts[i]
+        if (s ~ /없다|없음|무관|해당 없음|미해당|제외|아님|금지|(^|[^0-9])0건/) continue
+        t = s; gsub(/[Nn][Oo][Tt][[:space:]]+[Nn][Uu][Ll][Ll]/, "", t)
+        if (t ~ /(^|[^a-zA-Z])(none|not|no)([[:space:]]|$)/) continue
+        if (s ~ /rm -rf/ && s ~ /mktemp|trap|[$][{]?(TD|TMP|TMPDIR)[}]?(["[:space:]]|\/|$)/) continue
+        print s
+      }
+    }'); then
+    printf '%s' "$out"
+  else
+    echo "RISK-PROFILE: corpus filter unavailable — raw corpus 로 판정" >&2
+    printf '%s' "$1"
+  fi
+}
+
 rp::detect_strict_signals() {
   local corpus="$1" files="$2" signals="" 
   # keyword / path signals (라인수 무관)
@@ -105,12 +155,6 @@ rp::detect_strict_signals() {
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(subprocess|child_process|os\.system|exec\(|bash -c|Runtime\.exec)' \
     && signals="${signals} external_exec"
-  # parallel batch
-  if [ -n "${_RP_YAML:-}" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
-    local batch
-    batch=$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)
-    [ -n "$batch" ] && signals="${signals} parallel_batch"
-  fi
   # cross-service heuristic
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(cross-service|microservice|message.?queue|sqs|kafka|external api)' \
@@ -146,10 +190,21 @@ rp::compute() {
     _RP_YAML=$(dag::extract_yaml "$tasks" 2>/dev/null || true)
   fi
 
+  local raw_corpus="$corpus" raw_signals
+  corpus=$(rp::filter_corpus "$corpus")
   files=$(rp::collect_files)
   local strict_signals docs_only=false impl_files parallel_batch=false irreversible=false
   strict_signals=$(rp::detect_strict_signals "$corpus" "$files")
-  printf '%s' "$strict_signals" | grep -qw parallel_batch && parallel_batch=true
+  # 필터가 신호를 전부 지웠으면 stderr 1줄 — 미탐 방향이라 조용히 넘기지 않는다 (JSON 스키마는 불변)
+  if [ -z "$strict_signals" ]; then
+    raw_signals=$(rp::detect_strict_signals "$raw_corpus" "$files")
+    [ -n "${raw_signals// /}" ] \
+      && echo "RISK-PROFILE: 문맥 필터가 strict 신호를 모두 제외함 (원 코퍼스: ${raw_signals}) — 실제 위험이면 --floor strict" >&2
+  fi
+  # parallel_batch 는 기록만 한다 — 병렬 가능성은 위험이 아니다(strict 신호 아님)
+  if [ -n "$_RP_YAML" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
+    [ -n "$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)" ] && parallel_batch=true
+  fi
   if printf '%s' "$corpus" | grep -qiE 'irreversible:[[:space:]]*true'; then
     irreversible=true
     printf '%s' "$strict_signals" | grep -qw destructive_fs \
