@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.102.0] — 2026-09-15
+
 ### Phase B/C 리뷰 반환 요약화 — SubagentStop 훅이 전문을 저장하고 부모는 요약만 받는다 (#53)
 
 end-loaded 리뷰마다 `spec-reviewer-ko`·`code-reviewer-ko` 가 보고서 **전문**(실측 평균 8,328B/회)을 부모
@@ -2286,7 +2288,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.101.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.102.0...HEAD
+[1.102.0]: https://github.com/andyko18/specops-ko/compare/v1.101.0...v1.102.0
 [1.101.0]: https://github.com/andyko18/specops-ko/compare/v1.100.0...v1.101.0
 [1.100.0]: https://github.com/andyko18/specops-ko/compare/v1.99.0...v1.100.0
 [1.99.0]: https://github.com/andyko18/specops-ko/compare/v1.98.0...v1.99.0
