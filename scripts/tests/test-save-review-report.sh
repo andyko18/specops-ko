@@ -21,10 +21,11 @@ _run() {
   local json
   json=$(jq -n --arg cwd "$TD" --arg m "$1" --argjson a "$2" \
     '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
-  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >/dev/null)
+  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >/dev/null)
   RC=$?
 }
 _files() { (cd "$TD" && find . -type f | LC_ALL=C sort); }
+_leftover() { ls -A "$R" | grep -E '\.(tmp|bak)\.' ; }  # 이번 실행의 임시·백업 파일 잔존
 
 # ── T1.a AC-1 다중 tid 분할 저장 ──
 _reset
@@ -94,12 +95,15 @@ for bad in 'fid=../../etc tid=T1 phase=C verdict=PASS' \
            "fid=$FID tid=T1a phase=C verdict=PASS" \
            "fid=$FID tid=T1 phase=D verdict=PASS" \
            "fid=$FID tid=T1 phase=C verdict=OK"; do
-  _reset; pre=$(_files); up_pre=$(ls -A "$TDROOT")
+  # 이탈 목표가 실제로 존재해야 이빨이 선다 — 없으면 정규식이 없어도 디렉토리 검사·cp 실패가 대신 막는다
+  #   fid=../../etc → $TD/.specops/../../etc = $TDROOT/etc · tid=T1/../x → 임시 $R/.T1/.. · 목적지 $R/T1/..
+  _reset; mkdir -p "$TDROOT/etc" "$R/.T1" "$R/T1"
+  up_pre=$(cd "$TDROOT" && find . -type f | LC_ALL=C sort)
   _run "$(printf '<<<REVIEW %s>>>\n본문\n<<<END>>>' "$bad")" false
-  # fid=../../etc 의 실제 목표는 $TD/.specops/../../etc = $TDROOT/etc — 전용 루트 목록 불변으로 밖 생성 0 을 본다
-  if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ] && [ "$(ls -A "$TDROOT")" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
+  if [ "$RC" -eq 0 ] && [ "$(cd "$TDROOT" && find . -type f | LC_ALL=C sort)" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
   else nope "T1.g AC-5 $bad" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
 done
+rm -rf "$TDROOT/etc"
 _reset
 _run "$(_block T1 B PASS '# B 통과')
 $(_block T1 C READY_TO_MERGE '# C 통과')" false
@@ -137,9 +141,59 @@ else nope "T1.l AC-10" "rc=$RC"; fi
 _reset; printf 'A\n' > "$R/T2-C-report.md"; printf 'A\n' > "$R/T2-C-feedback.md"
 _run "$(_block T2 C READY_TO_MERGE 'B')" false
 if [ "$RC" -eq 2 ] && [ "$(cat "$R/T2-C-report.md")" = "B" ] && [ "$(cat "$R/T2-C-feedback.md")" = "A" ] \
-   && [ -z "$(ls -A "$R" | grep '\.tmp\.')" ]; then
-  ok "T1.m AC-11 report 덮어쓰기 · 이전 feedback 보존 · 임시 파일 잔존 0"
+   && [ -z "$(_leftover)" ]; then
+  ok "T1.m AC-11 report 덮어쓰기 · 이전 feedback 보존 · 임시·백업 파일 잔존 0"
 else nope "T1.m AC-11" "rc=$RC report=$(cat "$R/T2-C-report.md") $(ls -A "$R" | tr '\n' ' ')"; fi
+
+# ── T1.n AC-9 2단계 이동 부분 실패 → 전부 되돌림 · exit 0 · stderr 없음 ──
+# 이동 실패 주입: PATH 앞 가짜 mv (목적지가 *-C-report.md 일 때만 무음 실패) — chflags 는 macOS 전용
+REALMV=$(command -v mv)
+FAKEBIN=$(mktemp -d); trap 'rm -rf "$TDROOT" "$FAKEBIN"' EXIT
+cat > "$FAKEBIN/mv" <<EOF
+#!/usr/bin/env bash
+for last in "\$@"; do :; done
+case "\$last" in *-C-report.md) exit 1 ;; esac
+exec "$REALMV" "\$@"
+EOF
+chmod +x "$FAKEBIN/mv"
+_reset; printf 'OLD\n' > "$R/T1-C-report.md"; pre=$(_files)
+RUN_PATH="$FAKEBIN:$PATH" _run "$(_block T1 C NEEDS_FIX 'NEW')" false
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] && [ ! -e "$R/T1-C-feedback.md" ] \
+   && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
+  ok "T1.n1 AC-9 이동 실패 → 기존 report 보존 · feedback 미생성 · 임시·백업 잔존 0"
+else nope "T1.n1 AC-9" "rc=$RC err=$ERR report=$(cat "$R/T1-C-report.md" 2>/dev/null) $(ls -A "$R" | tr '\n' ' ')"; fi
+# 앞 블록 이동 성공 후 뒤 블록 실패 — 기존 파일은 백업에서 복원, 새로 생긴 파일은 제거
+_reset; printf 'OLD-B\n' > "$R/T2-B-report.md"; pre=$(_files)
+RUN_PATH="$FAKEBIN:$PATH" _run "$(_block T2 B NEEDS_FIX 'NEW-B')
+$(_block T3 B PASS 'NEW-T3')
+$(_block T1 C NEEDS_FIX 'NEW-C')" false
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T2-B-report.md")" = "OLD-B" ] \
+   && [ ! -e "$R/T2-B-feedback.md" ] && [ ! -e "$R/T3-B-report.md" ] && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
+  ok "T1.n2 AC-9 뒤 블록 이동 실패 → 옮긴 파일 복원(기존)·제거(신규) · 잔존 0"
+else nope "T1.n2 AC-9" "rc=$RC err=$ERR files=$(_files | tr '\n' ' ') $(ls -A "$R" | tr '\n' ' ')"; fi
+
+# ── T1.o AC-9 공백만 있는 본문 → 전체 무저장 ──
+_reset; pre=$(_files)
+_run "$(_block T1 C READY_TO_MERGE 'ok')
+$(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=NEEDS_FIX>>>\n   \n\t\n\n<<<END>>>' "$FID")" false
+if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ]; then ok "T1.o AC-9 공백만 있는 본문 → 전체 무저장 exit 0"
+else nope "T1.o AC-9" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
+
+# ── T1.p AC-9 대상 경로가 일반 파일 아님(디렉토리) → 전체 무저장 · 거짓 보고 없음 ──
+_reset; mkdir -p "$R/T2-C-report.md"; pre=$(cd "$TD" && find . | LC_ALL=C sort)
+_run "$(_block T1 C READY_TO_MERGE 'T1')
+$(_block T2 C READY_TO_MERGE 'T2')" false
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then
+  ok "T1.p AC-9 대상이 디렉토리 → 전체 무저장 exit 0 · 저장 보고 없음"
+else nope "T1.p AC-9" "rc=$RC err=$ERR tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
+
+# ── T1.q AC-9 FID 혼합 → 전체 무저장 (두 FID 모두 실재 · tid 달리해 중복 검사와 분리) ──
+FID2=20260914-other
+_reset; mkdir -p "$TD/.specops/$FID2"; pre=$(cd "$TD" && find . | LC_ALL=C sort)
+_run "$(_block T1 C READY_TO_MERGE 'A')
+$(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=READY_TO_MERGE>>>\nB\n<<<END>>>' "$FID2")" false
+if [ "$RC" -eq 0 ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then ok "T1.q AC-9 FID 혼합 → 전체 무저장 exit 0"
+else nope "T1.q AC-9" "rc=$RC tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
 
 # ── T2.a AC-6 hooks.json SubagentStop 배선 ──
 HJ="$PLUGIN/hooks/hooks.json"

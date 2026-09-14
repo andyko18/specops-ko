@@ -3,8 +3,9 @@
 # 리뷰어 최종 메시지의 <<<REVIEW …>>> ~ <<<END>>> 블록을 .specops/<FID>/reviews/<tid>-<phase>-report.md 로
 #   tid 별 저장하고(통과 판정이 아니면 -feedback.md 병기) exit 2 로 요약 재종료를 지시한다.
 # stdin: SubagentStop JSON (cwd · stop_hook_active · last_assistant_message)
-# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 0 = 무동작 fail-open(전문이 그대로 부모에게 간다)
-# 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류면 어떤 파일도 쓰지 않는다 — 요약을 요구하면 그 전문이 소실된다.
+# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 0 = 무동작 fail-open(전문이 그대로 부모에게 간다 · stderr 없음)
+# 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류 · 대상 경로가 일반 파일 아님 · 임시 쓰기 실패 · 이동 실패면
+#   reviews/ 를 실행 전 상태로 되돌리고(이동 실패는 백업 복원) exit 0 — 요약을 요구하면 그 전문이 소실된다.
 # 본문은 자르거나 고치지 않고 옮긴다 — release-ready.sh 가 report 본문의 🔴 절·판정 메뉴를 읽는다.
 set -uo pipefail
 
@@ -43,7 +44,7 @@ count=$(printf '%s\n' "$msg" | awk -v dir="$work" '
   END { if (inb) bad = 1; print (bad ? "BAD" : n) }')
 case "$count" in ''|BAD|0) exit 0 ;; esac
 
-# 검증 — 속성 정규식 · 단일 FID · tid-phase 중복 · 빈 본문 (하나라도 걸리면 exit 0)
+# 검증 — 속성 정규식 · 단일 FID · tid-phase 중복 · 빈(공백만) 본문 (하나라도 걸리면 exit 0)
 re='^fid=([0-9]{8}-[a-z0-9-]+) tid=(T[0-9]+) phase=([BC]) verdict=(PASS|READY_TO_MERGE|NEEDS_FIX|NEEDS_DISCUSSION)$'
 fid=""; seen=" "; i=1
 while [ "$i" -le "$count" ]; do
@@ -54,7 +55,8 @@ while [ "$i" -le "$count" ]; do
   [ "$b_fid" = "$fid" ] || exit 0
   case "$seen" in *" $b_tid-$b_phase "*) exit 0 ;; esac
   seen="$seen$b_tid-$b_phase "
-  [ -s "$work/$i.body" ] || exit 0
+  body=$(<"$work/$i.body")
+  [ -n "${body//[[:space:]]/}" ] || exit 0
   printf '%s %s %s\n' "$b_tid" "$b_phase" "$b_verdict" > "$work/$i.key"
   i=$((i+1))
 done
@@ -63,34 +65,56 @@ done
 reviews="$cwd/.specops/$fid/reviews"
 mkdir -p "$reviews" 2>/dev/null || exit 0
 
-# 1단계: 임시 파일에 전부 쓴다 — 하나라도 실패하면 기존 파일 무접촉으로 종료
-staged=""; i=1
+# 0단계: 저장 대상 이름 목록 + 대상 경로 검사 — 일반 파일이 아닌 기존 경로(디렉토리 등)면 mv 가 그 안으로
+#   옮겨 거짓 "저장" 보고가 되므로 아무것도 쓰기 전에 전부 포기한다
+names=""; i=1
 while [ "$i" -le "$count" ]; do
   read -r tid phase verdict < "$work/$i.key"
-  names="$tid-$phase-report.md"
-  case "$verdict" in PASS|READY_TO_MERGE) ;; *) names="$names $tid-$phase-feedback.md" ;; esac
-  for name in $names; do
-    if ! cp "$work/$i.body" "$reviews/.$name.tmp.$$" 2>/dev/null; then
-      rm -f "$reviews"/.*.tmp.$$ 2>/dev/null
-      exit 0
-    fi
-    staged="$staged $name"
-  done
+  printf '%s %s\n' "$i" "$tid-$phase-report.md" >> "$work/plan"
+  case "$verdict" in PASS|READY_TO_MERGE) ;; *) printf '%s %s\n' "$i" "$tid-$phase-feedback.md" >> "$work/plan" ;; esac
   i=$((i+1))
 done
-
-# 2단계: 같은 디렉토리 안 이동(rename). 하나라도 실패하면 요약을 요구하지 않고 exit 0 —
-#   리뷰어 전문이 그대로 부모에게 가서, report 가 없는 tid 를 부모가 fallback 저장한다.
-#   (요약을 요구하면 옮기지 못한 tid 의 전문이 어디에도 남지 않는다)
-saved=""; moved_all=1
-for name in $staged; do
-  if ! mv -f "$reviews/.$name.tmp.$$" "$reviews/$name" 2>/dev/null; then
-    rm -f "$reviews/.$name.tmp.$$" 2>/dev/null; moved_all=0; continue
+while read -r i name; do
+  if [ -e "$reviews/$name" ] || [ -L "$reviews/$name" ]; then
+    [ -f "$reviews/$name" ] || exit 0
   fi
+  names="$names $name"
+done < "$work/plan"
+
+# 정리 — 이번 실행($$)의 임시·백업 파일만 지운다 (이름 목록 기준, glob 아님)
+_cleanup() {
+  local n
+  for n in $names; do rm -f "$reviews/.$n.tmp.$$" "$reviews/.$n.bak.$$" 2>/dev/null; done
+}
+
+# 1단계: 임시 파일에 전부 쓰고, 기존 대상은 cp 로 백업한다 — 하나라도 실패하면 기존 파일 무접촉으로 종료
+#   (백업·복원은 cp 만 쓴다: 복원 경로가 실패한 mv 와 같은 목적지라 mv 로 되돌리면 같은 이유로 또 실패할 수 있다)
+while read -r i name; do
+  if ! cp "$work/$i.body" "$reviews/.$name.tmp.$$" 2>/dev/null; then _cleanup; exit 0; fi
+  if [ -f "$reviews/$name" ] && ! cp -p "$reviews/$name" "$reviews/.$name.bak.$$" 2>/dev/null; then _cleanup; exit 0; fi
+done < "$work/plan"
+
+# 2단계: 같은 디렉토리 안 이동(rename). 한 건이라도 실패하면 이미 옮긴 파일을 되돌리고(백업 있으면 복원 ·
+#   없던 파일은 삭제) 요약을 요구하지 않고 exit 0 — 리뷰어 전문이 그대로 부모에게 가서 부모가 fallback 저장한다.
+#   (되돌리지 않으면 옛 판정 report 가 남아 부모 fallback 이 발동하지 않는다)
+saved=""; moved=""
+for name in $names; do
+  if ! mv -f "$reviews/.$name.tmp.$$" "$reviews/$name" 2>/dev/null; then
+    for m in $moved $name; do
+      if [ -f "$reviews/.$m.bak.$$" ]; then
+        cp -p "$reviews/.$m.bak.$$" "$reviews/$m" 2>/dev/null
+      elif [ "$m" != "$name" ]; then
+        rm -f "$reviews/$m" 2>/dev/null
+      fi
+    done
+    _cleanup; exit 0
+  fi
+  moved="$moved $name"
   saved="$saved
 - .specops/$fid/reviews/$name"
 done
-{ [ "$moved_all" = 1 ] && [ -n "$saved" ]; } || exit 0
+_cleanup
+[ -n "$saved" ] || exit 0
 
 cat >&2 <<EOF
 리뷰 보고서 전문을 저장했다:$saved
