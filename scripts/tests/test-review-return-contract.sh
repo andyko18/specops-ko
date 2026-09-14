@@ -40,4 +40,12 @@ else nope "T3.a propagation edge"; fi
 if bash "$PLUGIN/scripts/_internal/check-propagation.sh" >/dev/null 2>&1; then ok "T3.b check-propagation 전 edge PASS"
 else nope "T3.b check-propagation"; fi
 
+# ── T4 부모 문서 공통 리터럴 (start-all · file-based-communication) ──
+for d in commands/start-all.md skills/file-based-communication-ko/SKILL.md; do
+  for lit in '판정 SoT = reviews 파일' 'report 부재 시 부모 fallback 저장' 'dispatch-log 행은 부모가 기록'; do
+    if grep -qF "$lit" "$PLUGIN/$d"; then ok "T4.a $d · $lit"
+    else nope "T4.a $d" "'$lit' 부재"; fi
+  done
+done
+
 finish

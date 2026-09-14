@@ -6,7 +6,7 @@
 {"skill":"decomposing-ko","bytes":24676,"lines":363}
 {"skill":"dispatching-parallel-agents-ko","bytes":9653,"lines":199}
 {"skill":"e2e-test-ko","bytes":34920,"lines":775}
-{"skill":"file-based-communication-ko","bytes":3656,"lines":82}
+{"skill":"file-based-communication-ko","bytes":4404,"lines":90}
 {"skill":"finishing-a-development-branch-ko","bytes":7002,"lines":168}
 {"skill":"gbrain-ko","bytes":5598,"lines":142}
 {"skill":"generator-evaluator-ko","bytes":4559,"lines":57}
