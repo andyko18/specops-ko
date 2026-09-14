@@ -4,6 +4,45 @@
 
 ## [Unreleased]
 
+### Phase B/C 리뷰 반환 요약화 — SubagentStop 훅이 전문을 저장하고 부모는 요약만 받는다 (#53)
+
+end-loaded 리뷰마다 `spec-reviewer-ko`·`code-reviewer-ko` 가 보고서 **전문**(실측 평균 8,328B/회)을 부모
+컨텍스트로 돌려보냈고, 부모가 그걸 태스크별 `reviews/<tid>-[BC]-report.md` 로 **손으로 나눠 저장**했다.
+리뷰어는 Write 가 박탈돼 스스로 저장할 수 없다. 원 계획("요약만 반환 + 훅이 `last_assistant_message` 로
+전문 저장")은 그대로는 모순이다 — 요약으로 끝나면 마지막 메시지에 전문이 없다. 실측으로 확인한 유일한
+형태인 **2단 종료**로 구현했다.
+
+- **`hooks/save-review-report.sh` (SubagentStop · matcher `specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko` ·
+  async false)** — 리뷰어가 태스크마다 `<<<REVIEW fid= tid= phase= verdict=>>>` ~ `<<<END>>>` 블록으로
+  전문을 내고 끝나면, 훅이 블록을 `reviews/<tid>-<phase>-report.md` 로 옮기고(통과 판정이 아니면
+  `-feedback.md` 병기) exit 2 stderr 로 요약 재종료를 지시한다. 리뷰어의 재종료 메시지가 부모 반환이 된다.
+- **전부 아니면 무** — 블록 하나라도 형식 오류(속성 정규식·단일 FID·tid-phase 중복·공백 본문·짝 없는
+  마커)이거나 대상이 일반 파일이 아니면 아무것도 쓰지 않고 exit 0. 요약을 요구하면 그 전문이 어디에도
+  남지 않기 때문이다. 이동이 중간에 실패하면 백업에서 되돌리고, 복원 cp 까지 실패한 파일은 백업을 남긴다.
+- **요약 형식은 에이전트 정의에 적지 않는다** — 프로브에서 에이전트가 요약 형식을 미리 알고 전문을
+  건너뛰어 저장본이 요약으로 덮였다. 형식은 훅 stderr 가 그 시점에만 준다.
+- **부모 규약** (implementing-ko · start-all · file-based-communication) — 판정 SoT = reviews 파일 ·
+  report 가 없거나 **반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장** · dispatch-log 행은
+  부모가 기록. 파일명 계약은 불변이라 `check-review-audit`·`check-review-presence`·`batch-state` 판정은
+  훅 저장본과 부모 저장본에서 동치다(테스트로 잠금). propagation edge `review-return-summary` 가 마커 형식 ↔
+  훅 파서 ↔ 배선 ↔ 리뷰어 문서 ↔ 부모 fallback 문구를 묶는다.
+- **실측** — repo `--plugin-dir` 헤드리스 세션에서 훅 실발화 → 리뷰어 요약 재종료 → 부모 Agent tool_result
+  **316B**. 실제 리뷰어 출력 7211B(블록 6)에 훅 적용 → rc=2 · 6파일 분할 · 잔존 0. 블록 6 기준 실행
+  median 672ms · max 690ms (NFR-2 ≤1s).
+- **한계** — `SPECOPS_GOVERNANCE_PROFILE=standard|minimal` 이면 훅이 꺼져 전부 부모 fallback 경로.
+  async 알림 경로와 실사용 크기 보고서에서의 절감폭은 설치 후 관측 대상. Evaluator 전 라운드가 fable
+  사용 한도로 opus fallback 이었다 — fable 재리뷰 필요. semgrep 은 semgrep.dev TLS 인증서 오류로 검증 불가.
+
+**Phase C 가 짚은 것은 모두 되돌림 경로였다.** 1회차 🔴: 두 번째 이동이 실패하면 옛 판정 report 가 남아
+부모 fallback 이 발동하지 않았다(`chflags uchg` 재현). 2회차 🟡: 복원 cp 까지 실패하면 `_cleanup` 이
+백업을 지웠다. 테스트는 macOS 전용 `chflags` 대신 PATH 앞 가짜 `mv`·`cp` 로 실패를 주입해 CI 에서도 돈다.
+테스트 스스로의 결함도 있었다 — 경로 이탈 검사가 공유 `$TMPDIR` 목록을 비교해 병렬 구현자와 receipt
+판정기가 동시에 `mktemp` 할 때만 FAIL 했다. 작업 디렉토리를 전용 루트 아래로 내려 고쳤다.
+
+- **잠금**: `test-save-review-report.sh` 30 · `test-review-return-contract.sh` 31 ·
+  `test-review-hook-audit-compat.sh` 5 (신규 3 스위트). 변이 M1(정규식)·M2(되돌림)·M4(단일 FID)·백업 보존·
+  예시 줄 들여쓰기·start-all 리터럴 전부 FAIL 로 포착. run-all 166/166 · 경계 스위트 14종 272/0 · CI 3종 pass.
+
 ### risk-profile 분류기가 부정문·괄호 나열·격리 정리를 strict 로 올리던 오탐 수정 (#52)
 
 `risk-profile.sh` 가 문서 코퍼스를 **문맥 없이 grep** 해 `irreversible: true 노드 없음` 같은 부정문,
