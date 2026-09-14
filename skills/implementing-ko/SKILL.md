@@ -110,8 +110,10 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     ↓ ready 비어 있음 (전부 A 완료)
 [END-LOADED REVIEW] (review_mode≠per-task 일 때 필수)
   Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
-    → 부모가 **task마다** reviews/<tid>-B-report.md 저장 + dispatch-log에
-      각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
+    → SubagentStop 훅(hooks/save-review-report.sh)이 **task마다** reviews/<tid>-B-report.md 저장
+      (판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 — 반환 전문에서 tid 별로)
+      (반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 — `저장:` 경로 목록이 아니면 옛 report 를 반환 전문으로 교체)
+    → dispatch-log 행은 부모가 기록: 각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
     → FAIL 시 feedback → 관련 implementer 재dispatch(cap=2 FID 단위) → B 재실행
   Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들
     → reviews/<tid>-C-report.md (또는 -C-feedback) 동일 규약
@@ -128,8 +130,8 @@ specops-ko:verifying-evidence-ko 호출
 
 한 번의 Evaluator dispatch여도 **감사 teeth는 per-task 파일**을 요구한다 (`check-review-audit.sh`):
 
-1. 리뷰어는 FID 전체를 보고, 부모는 응답을 **태스크별로 분할 저장**: `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` (FAIL이면 `-feedback.md` 병기)
-2. `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
+1. 리뷰어는 FID 전체를 보고 tid 마다 `<<<REVIEW …>>>` 블록으로 전문을 낸다. SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` 로 분할 저장하고(통과 판정이 아니면 `-feedback.md` 병기) 리뷰어에게 요약 재종료를 요구한다. 판정 SoT = reviews 파일 — 부모는 반환 요약이 아니라 파일을 읽어 판정한다. report 부재 시 부모 fallback 저장: 훅이 돌지 않았거나 블록 형식이 틀리면 리뷰어 전문이 그대로 반환되므로 부모가 태스크별로 분할 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다 — 반환이 훅 요약(`저장:` 경로 목록)이 아니면 이전 라운드 report 가 남아 있어도 반환 전문으로 tid 별로 덮어써, 형식 오류·이동 실패로 옛 판정을 읽는 경로를 막는다
+2. dispatch-log 행은 부모가 기록 — `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
 3. 금지: `all-B-report.md`만 남기고 tid 파일 0건 (audit가 `all`을 tid로 오인하거나 SKIP/FAIL)
 4. dispatch-log 투명성: `| <ts> | End-loaded-B | spec-reviewer-ko | PASS|FAIL | reviews/<tid>-B-report.md |` 형태를 tid 루프에 기록
 
@@ -226,14 +228,14 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
   `n` 시 → Lifecycle 종료. `y` 시 → 진행.
 - 단일 모드 + `irreversible: true` → task 내부 Step 0 (기존 동작)
 
-**reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, 부모가 저장):
-- `.specops/<FID>/reviews/<task-id>-B-report.md` — **부모가 spec-reviewer-ko 판정 보고서(PASS/FAIL 무관)를 수신 후 저장**
+**reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
+- `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장
 - `.specops/<FID>/reviews/<task-id>-B-feedback.md` — FAIL 시 implementer-ko 재dispatch 용 (B-report 와 동일 내용이거나 이슈 발췌)
-- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — **부모가 code-reviewer-ko 출력을 수신 후 저장**
+- `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
 
 전달 규약 (본문 페이로드 금지 — 항상 **경로만**):
 - **PASS 경로 (Phase B→C)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
-- **FAIL 경로**: Phase B/C FAIL 직후 부모가 reviewer 출력을 위 feedback 경로에 저장한 뒤 implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
+- **FAIL 경로**: Phase B/C FAIL 직후 훅이 저장한 위 feedback 경로를 확인한 뒤(fallback 조건이면 부모가 저장) implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
 
 ## 리뷰어 dispatch 입력 계약 (20260809)
 

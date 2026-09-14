@@ -152,6 +152,24 @@ tools: Read, Grep, Glob, Bash
 - [ ] (NEEDS_FIX 시) implementer-ko 재dispatch + Critical 목록
 ```
 
+## 최종 메시지 형식 (SubagentStop 저장 계약)
+
+보고서 전문을 **담당 tid 마다** 아래 블록으로 감싸 최종 메시지로 낸다. 본문은 위 출력 포맷 그대로다(🔴 헤딩·종합 판정 포함) — 줄이거나 고치지 않는다. 블록은 SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-C-report.md` 로 옮긴다(본 에이전트는 여전히 read-only).
+
+<<<REVIEW fid=<FID> tid=<T#> phase=C verdict=<READY_TO_MERGE|NEEDS_FIX|NEEDS_DISCUSSION>>>
+…보고서 전문…
+<<<END>>>
+
+채운 예시(헤더 줄 끝 꺾쇠는 정확히 3개 `>>>` 로 닫힌다):
+예시 줄은 인용이라 들여썼다 — 실제 최종 메시지에서는 줄 맨 앞에 쓴다.
+
+    <<<REVIEW fid=20260914-example tid=T1 phase=C verdict=READY_TO_MERGE>>>
+
+- 마커 줄은 단독 줄로 쓴다. 한 메시지에는 한 FID 만, 같은 tid 는 한 번만 쓴다.
+- 보고서 본문에서 마커 줄(`<<<REVIEW`·`<<<END>>>`)을 인용해야 하면 줄 앞을 들여써서 쓴다(들여쓴 줄은 마커로 인식되지 않는다).
+- 리뷰가 성립하지 않으면(SKIP) 블록 없이 반환한다.
+- 종료 직후 stop-hook 지시가 오면 그 지시대로만 다시 종료한다.
+
 ## 절대 금지
 
 - ❌ **AC 충족 재평가** — Phase B 책임 끝남

@@ -285,7 +285,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
 3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
    - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 아래 중 하나면 requesting/receiving **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄)를 둔다.
-     1. **end-loaded**: `review-skip.md`에 `end-loaded:` 포함 + 전 tid `reviews/<tid>-[BC]-report.md` 존재 (멀티태스크·standard/strict 허용 — implementing이 이미 FID B·C 수행)
+     1. **end-loaded**: `review-skip.md`에 `end-loaded:` 포함 + 전 tid `reviews/<tid>-[BC]-report.md` 존재 (멀티태스크·standard/strict 허용 — implementing이 이미 FID B·C 수행) — report 는 SubagentStop 훅이 저장한다(판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 · 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 · dispatch-log 행은 부모가 기록)
      2. **lite+단일**: `.specops/<FID>/risk-profile.json`의 `effective=lite` · `reductions_allowed`에 `batch-review-skip` · 태스크 1개 · Phase C PASS (기존). 파일 부재·멀티태스크·standard/strict·auth/DB/migration·allowlist 부재는 이 경로 **금지**
    - `batch-state.sh`가 skip-only 경로에서 위 메타를 재검한다.
 4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
