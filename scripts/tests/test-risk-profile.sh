@@ -406,7 +406,7 @@ r=$(_rp_case 20260914-rp-c3-drop '- DROP TABLE legacy (백업 없음, 확인 완
 r=$(_rp_case 20260914-rp-m3-pay '- 결제 모듈 (payment 연동 — 로그 제외)')
 [ "$(_eff "$r")" = "strict" ] && _has "$r" payment_pii \
   && ok "T44 — 로만 나뉜 부정 괄호 → strict(payment_pii)" || nope "T44" "$r"
-# 함수 호출 괄호(직전이 영숫자·_)는 경계 치환 대상이 아니다 — exec( 신호 보존
+# 탐지 토큰 exec(·unlink( 의 호출 괄호는 경계 치환 대상이 아니다 — exec( 신호 보존 (unlink( 짝은 T49b)
 r=$(_rp_case 20260914-rp-call-neg '- 실행 exec(cmd, 셸 금지)')
 [ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
   && ok "T45 호출 괄호 안 부정어 → exec( 유지(external_exec)" || nope "T45" "$r"
@@ -421,5 +421,31 @@ r=$(_rp_case 20260914-rp-hangul-paren '조건부(RBAC 없음) JWT 추가')
 r=$(_rp_case 20260914-rp-neg-ctrl '- JWT 변경 없음 (해당 없음)')
 [ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
   && ok "T47 괄호 밖 부정 + 부정 괄호 → strict 아님" || nope "T47" "$r"
+
+# 영숫자 직후 산문 부정 괄호도 경계 치환된다 — 가림은 탐지기가 괄호를 요구하는 exec(·unlink( 만 (C-4)
+#   신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-c4-rbac 'RBAC(없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48a 영문 직후 부정 괄호 RBAC( → strict(auth)" || nope "T48a" "$r"
+r=$(_rp_case 20260914-rp-c4-mw '- JWT 검증을 middleware(기존 로직 변경 없음)에 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48b middleware( 부정 괄호 → strict(auth)" || nope "T48b" "$r"
+r=$(_rp_case 20260914-rp-c4-v2 '- rm -rf /opt/app 수행 v2(백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T48c 숫자 직후 부정 괄호 v2( → strict(destructive_fs)" || nope "T48c" "$r"
+r=$(_rp_case 20260914-rp-c4-drop '- DROP TABLE legacy_v1(백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T48d _숫자 직후 부정 괄호 legacy_v1( → strict(db_migration)" || nope "T48d" "$r"
+r=$(_rp_case 20260914-rp-c4-cell '| 인증 | JWT(기존 세션 없음) 도입 |')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T48e 표 셀 JWT( 부정 괄호 → strict(auth)" || nope "T48e" "$r"
+# 보존 가드 — unlink( 호출 괄호는 가려진다 (T45 exec( 과 짝)
+r=$(_rp_case 20260914-rp-c4-unlink 'unlink(path) 호출 (백업 없음)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T49a unlink( 호출 괄호 보존 → strict(destructive_fs)" || nope "T49a" "$r"
+#   호출 괄호 안 부정어 — unlink 가림 줄이 빠지면 여기서 끊긴다 (T49a 는 괄호 안 부정어가 없어 가림 무관)
+r=$(_rp_case 20260914-rp-c4-unlink-neg '- 삭제 unlink(path, 백업 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T49b 호출 괄호 안 부정어 → unlink( 유지(destructive_fs)" || nope "T49b" "$r"
 
 finish

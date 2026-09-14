@@ -89,8 +89,10 @@ rp::impl_file_count() {
 #   `·` 나열 괄호구는 지운다. split 에 `()` 를 넣지 않는다 — `exec(`·`unlink(` 신호가 죽는다.
 #   부정 표지를 담은 산문 괄호는 지우지 않고 `(` `)` 를 `|` 경계로 바꾼다 — 괄호 안이 독립 조각이 되어
 #     부정은 괄호 안에 갇히고 괄호 안·밖 긍정 신호가 모두 산다(C-2·C-3 · `—` 로만 나뉜 괄호 M-3 포함).
-#   함수 호출 괄호(직전이 `[A-Za-z0-9_]`)는 \002 로 잠시 가려 치환 대상에서 뺀다 — 앞 글자를 match 에 넣으면
-#     BSD awk UTF-8 로케일이 한글 앞 괄호에서 `towc: multibyte conversion failure` 를 낸다.
+#   탐지기가 괄호를 요구하는 토큰 `exec(`·`unlink(` 의 괄호만 \002 로 잠시 가려 치환 대상에서 뺀다 —
+#     `middleware(`·`RBAC(`·`v2(` 같은 영숫자 직후 산문 괄호는 경계 치환된다(C-4). 앞 글자 클래스를 match 에
+#     넣으면 BSD awk UTF-8 로케일이 한글 앞 괄호에서 `towc: multibyte conversion failure` 를 내므로 리터럴만 쓴다.
+#     연동 규칙: rp::detect_strict_signals 에 `\(` 를 요구하는 토큰(현재 `unlink\(`·`exec\(`)을 추가하면 이 가림 목록도 같이 고친다.
 #   격리 변수 면제는 `$TD`·`$TMP`·`$TMPDIR` 전체 이름만(뒤 `"`·공백·`/`·줄끝) — `$TD_ROOT` 류 접두 일치는 면제 아님.
 #   BSD awk 는 괄호식 안 `/` 를 정규식 종료로 읽는다 — `\/` 는 괄호식 밖에 둔다.
 # 필터 실패 시 원 코퍼스 + stderr 경고 — 오탐 쪽으로 기울고, 조용히 약해지지 않는다.
@@ -104,7 +106,7 @@ rp::filter_corpus() {
       if (line ~ /irreversible:[[:space:]]*true[[:space:]]*(#.*)?$/) { print line; next }
       while (match(line, /\([^()]*·[^()]*\)/))
         line = substr(line, 1, RSTART - 1) substr(line, RSTART + RLENGTH)
-      gsub(/[A-Za-z0-9_]\(/, "&\001", line); gsub(/\(\001/, "\002", line)
+      gsub(/exec\(/, "exec\002", line); gsub(/unlink\(/, "unlink\002", line)
       while (match(line, /\([^()]*(없다|없음|무관|해당 없음|미해당|제외|아님|금지)[^()]*\)/))
         line = substr(line, 1, RSTART - 1) "|" substr(line, RSTART + 1, RLENGTH - 2) "|" substr(line, RSTART + RLENGTH)
       gsub(/\002/, "(", line)
