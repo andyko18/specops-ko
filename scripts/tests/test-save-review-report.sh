@@ -195,6 +195,31 @@ $(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=READY_TO_MERGE>>>\nB\n<<<END>>
 if [ "$RC" -eq 0 ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then ok "T1.q AC-9 FID 혼합 → 전체 무저장 exit 0"
 else nope "T1.q AC-9" "rc=$RC tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
 
+# ── T1.r AC-9 이동 실패 후 복원 cp 까지 실패 → 그 파일의 백업 보존 · exit 0 · stderr 없음 ──
+# 주입: 가짜 mv(목적지 *-feedback.md 만 실패) + 가짜 cp(목적지에 .tmp.·.bak. 없으면 실패 = 복원 cp 만 실패)
+REALCP=$(command -v cp)
+FAKEBIN_R="$FAKEBIN/restore-fail"; mkdir -p "$FAKEBIN_R"
+cat > "$FAKEBIN_R/mv" <<EOF
+#!/usr/bin/env bash
+for last in "\$@"; do :; done
+case "\$last" in *-feedback.md) exit 1 ;; esac
+exec "$REALMV" "\$@"
+EOF
+cat > "$FAKEBIN_R/cp" <<EOF
+#!/usr/bin/env bash
+for last in "\$@"; do :; done
+case "\$last" in *.tmp.*|*.bak.*) exec "$REALCP" "\$@" ;; esac
+exit 1
+EOF
+chmod +x "$FAKEBIN_R/mv" "$FAKEBIN_R/cp"
+_reset; printf 'OLD\n' > "$R/T1-C-report.md"
+RUN_PATH="$FAKEBIN_R:$PATH" _run "$(_block T1 C NEEDS_FIX 'NEW')" false
+baks=$(ls -A "$R" | grep -E '^\.T1-C-report\.md\.bak\.' || true)
+nbak=$(printf '%s' "$baks" | grep -c . || true)
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$nbak" = "1" ] && [ "$(cat "$R/$baks" 2>/dev/null)" = "OLD" ]; then
+  ok "T1.r AC-9 복원 cp 실패 → 백업(.<name>.bak.<pid>) 보존 · 내용 OLD · exit 0 · stderr 없음"
+else nope "T1.r AC-9" "rc=$RC err=$ERR nbak=$nbak $(ls -A "$R" | tr '\n' ' ')"; fi
+
 # ── T2.a AC-6 hooks.json SubagentStop 배선 ──
 HJ="$PLUGIN/hooks/hooks.json"
 m=$(jq -r '.hooks.SubagentStop[0].matcher // empty' "$HJ")

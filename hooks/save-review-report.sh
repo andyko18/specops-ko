@@ -6,6 +6,8 @@
 # Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 0 = 무동작 fail-open(전문이 그대로 부모에게 간다 · stderr 없음)
 # 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류 · 대상 경로가 일반 파일 아님 · 임시 쓰기 실패 · 이동 실패면
 #   reviews/ 를 실행 전 상태로 되돌리고(이동 실패는 백업 복원) exit 0 — 요약을 요구하면 그 전문이 소실된다.
+#   단 복원 cp 까지 실패한 파일은 되돌리지 못한다: 대상에는 이번 본문이 남고 옛 내용은 백업
+#   (.<name>.bak.<pid>)으로 reviews/ 에 남긴다(지우지 않음).
 # 본문은 자르거나 고치지 않고 옮긴다 — release-ready.sh 가 report 본문의 🔴 절·판정 메뉴를 읽는다.
 set -uo pipefail
 
@@ -82,9 +84,13 @@ while read -r i name; do
 done < "$work/plan"
 
 # 정리 — 이번 실행($$)의 임시·백업 파일만 지운다 (이름 목록 기준, glob 아님)
+#   $1 = 백업을 남길 이름 목록(공백 구분 · 복원 실패분) — 그 이름의 임시 파일은 지운다
 _cleanup() {
-  local n
-  for n in $names; do rm -f "$reviews/.$n.tmp.$$" "$reviews/.$n.bak.$$" 2>/dev/null; done
+  local n keep=" ${1:-} "
+  for n in $names; do
+    rm -f "$reviews/.$n.tmp.$$" 2>/dev/null
+    case "$keep" in *" $n "*) ;; *) rm -f "$reviews/.$n.bak.$$" 2>/dev/null ;; esac
+  done
 }
 
 # 1단계: 임시 파일에 전부 쓰고, 기존 대상은 cp 로 백업한다 — 하나라도 실패하면 기존 파일 무접촉으로 종료
@@ -100,14 +106,16 @@ done < "$work/plan"
 saved=""; moved=""
 for name in $names; do
   if ! mv -f "$reviews/.$name.tmp.$$" "$reviews/$name" 2>/dev/null; then
+    keep=""
     for m in $moved $name; do
       if [ -f "$reviews/.$m.bak.$$" ]; then
-        cp -p "$reviews/.$m.bak.$$" "$reviews/$m" 2>/dev/null
+        # 복원까지 실패하면 옛 내용은 그 백업에만 있다 — 지우지 않고 남긴다
+        cp -p "$reviews/.$m.bak.$$" "$reviews/$m" 2>/dev/null || keep="$keep $m"
       elif [ "$m" != "$name" ]; then
         rm -f "$reviews/$m" 2>/dev/null
       fi
     done
-    _cleanup; exit 0
+    _cleanup "$keep"; exit 0
   fi
   moved="$moved $name"
   saved="$saved
