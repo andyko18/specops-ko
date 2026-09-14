@@ -135,12 +135,6 @@ rp::detect_strict_signals() {
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(subprocess|child_process|os\.system|exec\(|bash -c|Runtime\.exec)' \
     && signals="${signals} external_exec"
-  # parallel batch
-  if [ -n "${_RP_YAML:-}" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
-    local batch
-    batch=$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)
-    [ -n "$batch" ] && signals="${signals} parallel_batch"
-  fi
   # cross-service heuristic
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(cross-service|microservice|message.?queue|sqs|kafka|external api)' \
@@ -180,7 +174,10 @@ rp::compute() {
   files=$(rp::collect_files)
   local strict_signals docs_only=false impl_files parallel_batch=false irreversible=false
   strict_signals=$(rp::detect_strict_signals "$corpus" "$files")
-  printf '%s' "$strict_signals" | grep -qw parallel_batch && parallel_batch=true
+  # parallel_batch 는 기록만 한다 — 병렬 가능성은 위험이 아니다(strict 신호 아님)
+  if [ -n "$_RP_YAML" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
+    [ -n "$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)" ] && parallel_batch=true
+  fi
   if printf '%s' "$corpus" | grep -qiE 'irreversible:[[:space:]]*true'; then
     irreversible=true
     printf '%s' "$strict_signals" | grep -qw destructive_fs \

@@ -221,7 +221,7 @@ bash scripts/_internal/risk-profile.sh compute <FID> [--floor standard|strict]
 bash scripts/_internal/risk-profile.sh show <FID>
 ```
 
-`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다 (`mode=live`). strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·병렬 batch·cross-service)가 있으면 라인 수와 무관하게 strict입니다. `effective=lite`일 때만 `reductions_allowed: ["batch-review-skip"]`(requesting/receiving skip). Phase B·TDD·verify·receipt 축소는 금지입니다. 사용자/ENV floor는 상향만 가능합니다.
+`.specops/<FID>/risk-profile.json`에 `lite|standard|strict`를 기록합니다 (`mode=live`). strict 신호(인증·migration·삭제·결제/PII·public API·인프라·외부실행·cross-service)가 있으면 라인 수와 무관하게 strict입니다. 문서 코퍼스는 부정문·괄호 `·` 나열·표 셀·격리 정리(`mktemp`/`trap` 과 같은 문장의 `rm -rf`)를 걸러 판정합니다(필터 실패 시 원 코퍼스 + stderr 경고). 병렬 가능 DAG 는 `signals.parallel_batch` 로 기록만 하고 strict 로 올리지 않습니다. `effective=lite`일 때만 `reductions_allowed: ["batch-review-skip"]`(requesting/receiving skip). Phase B·TDD·verify·receipt 축소는 금지입니다. 사용자/ENV floor는 상향만 가능합니다.
 
 ## release-ready.sh — PR 직전 RELEASE_READY 합성 판정 (P0-3)
 

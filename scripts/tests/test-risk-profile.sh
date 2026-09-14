@@ -79,7 +79,7 @@ out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 [ "$out" = "strict" ] && ok "T5 irreversible → strict" || nope "T5" "out=$out"
 rm -rf "$TD"
 
-# T6: parallel batch → strict
+# T6: parallel batch → strict 아님 (병렬 가능성은 위험이 아니다 — 필드 기록만 유지)
 TD=$(mktemp -d); FID=20260803-rp-par
 _setup "$TD" "$FID"
 printf 'a\n' > "$TD/src/a.sh"; printf 'b\n' > "$TD/src/b.sh"
@@ -98,9 +98,9 @@ tasks:
 ```
 EOF
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
-[ "$out" = "strict" ] && jq -e '.signals.parallel_batch==true' \
+[ "$out" != "strict" ] && jq -e '.signals.parallel_batch==true and (.signals.strict|index("parallel_batch")|not)' \
   "$TD/.specops/$FID/risk-profile.json" >/dev/null \
-  && ok "T6 parallel → strict" || nope "T6" "out=$out"
+  && ok "T6 parallel → strict 아님(parallel_batch 기록 유지)" || nope "T6" "out=$out"
 rm -rf "$TD"
 
 # T7: floor 상향
