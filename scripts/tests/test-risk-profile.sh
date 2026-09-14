@@ -448,4 +448,21 @@ r=$(_rp_case 20260914-rp-c4-unlink-neg '- 삭제 unlink(path, 백업 금지)')
 [ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
   && ok "T49b 호출 괄호 안 부정어 → unlink( 유지(destructive_fs)" || nope "T49b" "$r"
 
+# 가림은 탐지기 grep -i 와 같게 대소문자 무시 — EXEC(·Unlink( 도 호출 괄호로 가려진다 (Phase C I-1)
+#   신호별 단독 입력(signals_json 첫 신호만 기록 — T39 주석)
+r=$(_rp_case 20260914-rp-i1-exec '- 실행 EXEC(cmd, 셸 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T50a 대문자 EXEC( 호출 괄호 안 부정어 → strict(external_exec)" || nope "T50a" "$r"
+r=$(_rp_case 20260914-rp-i1-unlink '- 삭제 Unlink(path, 백업 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T50b 대소문자 섞인 Unlink( 호출 괄호 안 부정어 → strict(destructive_fs)" || nope "T50b" "$r"
+#   가림 표지는 \002 하나 — 입력에 이미 든 \001 이 가림 표지로 오인되지 않는다 (m-1 재노출 가드)
+r=$(_rp_case 20260914-rp-i1-ctl1 "$(printf -- '- JWT 추가 (\001없음)')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T50c 입력 제어문자 \\001 + 부정 괄호 → strict(auth) 유지" || nope "T50c" "$r"
+#   입력에 이미 든 \002 는 가림 전에 지운다 — `(\002` 가 가림 표지로 소비되어 경계 치환이 빠지지 않는다
+r=$(_rp_case 20260914-rp-i1-ctl2 "$(printf -- '- JWT 추가 (\002없음)')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T50d 입력 제어문자 \\002 + 부정 괄호 → strict(auth) 유지" || nope "T50d" "$r"
+
 finish
