@@ -391,4 +391,35 @@ r=$(_rp_case 20260914-rp-paren-comma-rmrf '- 레거시 삭제 (rm -rf /var/lib/a
 [ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
   && ok "T42b 쉼표 괄호 안 긍정 rm -rf → strict(destructive_fs)" || nope "T42b" "$r"
 
+# 부정 표지를 담은 산문 괄호는 지우지 않고 `(` `)` 를 `|` 경계로 바꾼다 — 괄호 안이 독립 조각 (C-3)
+#   괄호 안 부정 조각이 구분자보다 앞이어도 괄호 밖 긍정 신호가 그 조각에 묶이지 않는다. 신호별 단독 입력(T39 주석)
+r=$(_rp_case 20260914-rp-c3-auth '- JWT 인증 미들웨어 추가 (기존 세션 제거 없음, 로그 유지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T43a 괄호 앞 조각 부정 + 괄호 밖 JWT → strict(auth)" || nope "T43a" "$r"
+r=$(_rp_case 20260914-rp-c3-rmrf '- rm -rf /opt/app 수행 (백업 없음, 되돌림 불가)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T43b 괄호 앞 조각 부정 + 괄호 밖 rm -rf → strict(destructive_fs)" || nope "T43b" "$r"
+r=$(_rp_case 20260914-rp-c3-drop '- DROP TABLE legacy (백업 없음, 확인 완료)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T43c 괄호 앞 조각 부정 + 괄호 밖 DROP TABLE → strict(db_migration)" || nope "T43c" "$r"
+# `—` 로만 나뉜 괄호도 부정은 괄호 안에 갇힌다 (M-3)
+r=$(_rp_case 20260914-rp-m3-pay '- 결제 모듈 (payment 연동 — 로그 제외)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" payment_pii \
+  && ok "T44 — 로만 나뉜 부정 괄호 → strict(payment_pii)" || nope "T44" "$r"
+# 함수 호출 괄호(직전이 영숫자·_)는 경계 치환 대상이 아니다 — exec( 신호 보존
+r=$(_rp_case 20260914-rp-call-neg '- 실행 exec(cmd, 셸 금지)')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T45 호출 괄호 안 부정어 → exec( 유지(external_exec)" || nope "T45" "$r"
+# 줄머리 괄호·한글 인접 괄호도 경계 치환된다
+r=$(_rp_case 20260914-rp-head-paren '(기존 없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T46a 줄머리 부정 괄호 → strict(auth)" || nope "T46a" "$r"
+r=$(_rp_case 20260914-rp-hangul-paren '조건부(RBAC 없음) JWT 추가')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T46b 한글 인접 부정 괄호 → strict(auth)" || nope "T46b" "$r"
+# 부정 대조군 — 괄호 밖이 부정이면 여전히 strict 아님
+r=$(_rp_case 20260914-rp-neg-ctrl '- JWT 변경 없음 (해당 없음)')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" auth \
+  && ok "T47 괄호 밖 부정 + 부정 괄호 → strict 아님" || nope "T47" "$r"
+
 finish
