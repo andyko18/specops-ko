@@ -8,7 +8,8 @@ source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq 필요" >&2; exit 1; }
 HOOK="$PLUGIN/hooks/save-review-report.sh"
-TD=$(mktemp -d); trap 'rm -rf "$TD"' EXIT
+# 전용 루트 아래에 작업 디렉토리를 둔다 — T1.g 가 $TD 상위 목록을 비교하므로 상위가 공유 $TMPDIR 이면 동시 실행 프로세스 때문에 오탐한다
+TDROOT=$(mktemp -d); TD="$TDROOT/w"; mkdir -p "$TD"; trap 'rm -rf "$TDROOT"' EXIT
 FID=20260914-demo
 R="$TD/.specops/$FID/reviews"
 
@@ -93,10 +94,10 @@ for bad in 'fid=../../etc tid=T1 phase=C verdict=PASS' \
            "fid=$FID tid=T1a phase=C verdict=PASS" \
            "fid=$FID tid=T1 phase=D verdict=PASS" \
            "fid=$FID tid=T1 phase=C verdict=OK"; do
-  _reset; pre=$(_files); up_pre=$(ls -A "$(dirname "$TD")")
+  _reset; pre=$(_files); up_pre=$(ls -A "$TDROOT")
   _run "$(printf '<<<REVIEW %s>>>\n본문\n<<<END>>>' "$bad")" false
-  # fid=../../etc 가 가리키는 실제 목표는 $TD/.specops/../../etc = $TD 의 상위 디렉토리 아래 — 상위 목록 불변으로 밖 생성 0 을 본다
-  if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ] && [ "$(ls -A "$(dirname "$TD")")" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
+  # fid=../../etc 의 실제 목표는 $TD/.specops/../../etc = $TDROOT/etc — 전용 루트 목록 불변으로 밖 생성 0 을 본다
+  if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ] && [ "$(ls -A "$TDROOT")" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
   else nope "T1.g AC-5 $bad" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
 done
 _reset
@@ -139,5 +140,19 @@ if [ "$RC" -eq 2 ] && [ "$(cat "$R/T2-C-report.md")" = "B" ] && [ "$(cat "$R/T2-
    && [ -z "$(ls -A "$R" | grep '\.tmp\.')" ]; then
   ok "T1.m AC-11 report 덮어쓰기 · 이전 feedback 보존 · 임시 파일 잔존 0"
 else nope "T1.m AC-11" "rc=$RC report=$(cat "$R/T2-C-report.md") $(ls -A "$R" | tr '\n' ' ')"; fi
+
+# ── T2.a AC-6 hooks.json SubagentStop 배선 ──
+HJ="$PLUGIN/hooks/hooks.json"
+m=$(jq -r '.hooks.SubagentStop[0].matcher // empty' "$HJ")
+c=$(jq -r '.hooks.SubagentStop[0].hooks[0].command // empty' "$HJ")
+a=$(jq -r '.hooks.SubagentStop[0].hooks[0].async' "$HJ")
+if [ "$m" = "specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko" ]; then ok "T2.a AC-6 matcher = 네임스페이스 포함 두 리뷰어"
+else nope "T2.a AC-6 matcher" "'$m'"; fi
+if printf '%s' "$c" | grep -qF '${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh'; then ok "T2.b AC-6 command 경로"
+else nope "T2.b AC-6 command" "'$c'"; fi
+if [ "$a" = "false" ]; then ok "T2.c AC-6 async=false (stderr 가 서브에이전트에 닿아야 한다)"
+else nope "T2.c AC-6 async" "'$a'"; fi
+if [ "$(jq -r '.hooks.SubagentStop | length' "$HJ")" = "1" ]; then ok "T2.d AC-6 SubagentStop 항목 1개"
+else nope "T2.d AC-6 항목 수"; fi
 
 finish

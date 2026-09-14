@@ -89,6 +89,18 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh\"",
+            "async": false
+          }
+        ]
+      }
     ]
   }
 }
