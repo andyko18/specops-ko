@@ -25,4 +25,19 @@ else nope "T1.f Phase C 판정 어휘"; fi
 if grep -qF '## 🔴 Critical' "$PLUGIN/agents/code-reviewer-ko.md"; then ok "T1.g 보고서 템플릿 🔴 헤딩 유지 (release-ready)"
 else nope "T1.g 🔴 헤딩"; fi
 
+# ── T2 부모 문서 공통 리터럴 (implementing-ko) ──
+for d in skills/implementing-ko/SKILL.md; do
+  for lit in '판정 SoT = reviews 파일' 'report 부재 시 부모 fallback 저장' 'dispatch-log 행은 부모가 기록'; do
+    if grep -qF "$lit" "$PLUGIN/$d"; then ok "T2.a $d · $lit"
+    else nope "T2.a $d" "'$lit' 부재"; fi
+  done
+done
+if grep -qF 'hooks/save-review-report.sh' "$PLUGIN/skills/implementing-ko/SKILL.md"; then ok "T2.b implementing-ko 훅 경로 명시"
+else nope "T2.b implementing-ko 훅 경로"; fi
+# ── T3 propagation edge ──
+if grep -qF '"id": "review-return-summary"' "$PLUGIN/scripts/_internal/propagation-matrix.jsonl"; then ok "T3.a propagation edge 존재"
+else nope "T3.a propagation edge"; fi
+if bash "$PLUGIN/scripts/_internal/check-propagation.sh" >/dev/null 2>&1; then ok "T3.b check-propagation 전 edge PASS"
+else nope "T3.b check-propagation"; fi
+
 finish
