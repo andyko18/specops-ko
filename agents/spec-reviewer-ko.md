@@ -84,6 +84,18 @@ tools: Read, Grep, Glob, Bash
    - **NEEDS_FIX**: PARTIAL/UNMET/TEST_GAP — implementer-ko 재dispatch
    - **NEEDS_CONTEXT**: 부모로부터 추가 정보 필요
 
+## 최종 메시지 형식 (SubagentStop 저장 계약)
+
+보고서 전문을 **담당 tid 마다** 아래 블록으로 감싸 최종 메시지로 낸다. 본문은 위 보고서 템플릿 그대로다 — 줄이거나 고치지 않는다. 블록은 SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-B-report.md` 로 옮긴다(본 에이전트는 여전히 read-only).
+
+<<<REVIEW fid=<FID> tid=<T#> phase=B verdict=<PASS|NEEDS_FIX>>>
+…보고서 전문…
+<<<END>>>
+
+- 마커 줄은 단독 줄로 쓴다. 한 메시지에는 한 FID 만, 같은 tid 는 한 번만 쓴다.
+- 리뷰가 성립하지 않으면(NEEDS_CONTEXT) 블록 없이 반환한다.
+- 종료 직후 stop-hook 지시가 오면 그 지시대로만 다시 종료한다.
+
 ## 절대 금지
 
 - ❌ **코드 품질 코멘트** (가독성·명명·중복) — Phase C 책임, 본 에이전트는 침묵
