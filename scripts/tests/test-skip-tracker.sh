@@ -69,5 +69,17 @@ outs=$(skip::report "$tmps" 2>/dev/null)
 if printf '%s' "$outs" | grep -qE "security: total=2"; then echo "PASS T20 report 에 security 게이트"; PASS=$((PASS+1)); else echo "FAIL T20 ($outs)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmps"
 
+# T21 AC-5: 인자 없는 기본 root = 호출 위치 git 루트의 .specops (스크립트 옆 .specops 아님)
+#   설치본은 스크립트 옆에 .specops 가 없어 하류에서 항상 "evidence 없음" 이었다 (current-state §4 #3)
+tmpg=$(mktemp -d); git -C "$tmpg" init -q; mkdir -p "$tmpg/sub" "$tmpg/.specops/fid-g"
+printf '## /integration-test — 2026-09-15\n**결과**: PASS\n' > "$tmpg/.specops/fid-g/evidence.md"
+outg=$(cd "$tmpg/sub" && bash "$PLUGIN/scripts/skip-tracker.sh" 2>/dev/null)
+if printf '%s' "$outg" | grep -qE "integration: total=1 PASS=1 SKIP=0 FAIL=0"; then echo "PASS T21 기본 root = git 루트 .specops"; PASS=$((PASS+1)); else echo "FAIL T21 ($outg)"; FAIL=$((FAIL+1)); fi
+# T22 AC-R-1: 인자 없는 출력 == 같은 root 명시 인자 출력 (명시 인자 경로 불변)
+outn=$(cd "$tmpg" && bash "$PLUGIN/scripts/skip-tracker.sh" 2>/dev/null)
+oute=$(bash "$PLUGIN/scripts/skip-tracker.sh" "$tmpg/.specops" 2>/dev/null)
+ck "T22 무인자 == 명시 인자" "$outn" "$oute"
+rm -rf "$tmpg"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
