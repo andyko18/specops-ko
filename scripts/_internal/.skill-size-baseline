@@ -12,14 +12,14 @@
 {"skill":"generator-evaluator-ko","bytes":4559,"lines":57}
 {"skill":"implementing-ko","bytes":32983,"lines":427}
 {"skill":"improve-codebase-architecture-ko","bytes":5186,"lines":156}
-{"skill":"integration-test-ko","bytes":10162,"lines":230}
+{"skill":"integration-test-ko","bytes":10277,"lines":230}
 {"skill":"karpathy-ko","bytes":4444,"lines":112}
-{"skill":"performance-test-ko","bytes":12998,"lines":334}
+{"skill":"performance-test-ko","bytes":13113,"lines":334}
 {"skill":"planning-ko","bytes":19028,"lines":317}
 {"skill":"receiving-code-review-ko","bytes":8491,"lines":244}
 {"skill":"release-ko","bytes":3908,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8288,"lines":188}
-{"skill":"security-review-ko","bytes":9170,"lines":190}
+{"skill":"security-review-ko","bytes":9285,"lines":190}
 {"skill":"specifying-ko","bytes":49832,"lines":512}
 {"skill":"sprint-contracts-ko","bytes":4529,"lines":96}
 {"skill":"structured-artifacts-ko","bytes":6622,"lines":142}
@@ -28,4 +28,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10149,"lines":292}
 {"skill":"using-specops-ko","bytes":11546,"lines":174}
 {"skill":"verifying-evidence-ko","bytes":21039,"lines":303}
-{"chain_bytes":226286,"chain_lines":3620}
+{"chain_bytes":226631,"chain_lines":3620}
