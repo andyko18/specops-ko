@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# specops-ko gate-coverage — verify 도달 FID 의 게이트 판정 보유율 (다중 repo · 읽기 전용)
+# specops-ko gate-coverage — verify 도달 FID 의 게이트 판정 보유율 (다중 repo · worktree·index 불변)
+#   ⚠️ verification-state.json 이 있는 FID 조회는 workspace fingerprint 계산 때문에 대상 repo .git/objects 에
+#   참조 없는 blob 을 남길 수 있다 (gc 대상 · git status 불변). 미추적 대용량·민감 파일이 있는 repo 에 겨눌 때 유의.
 # 사용: bash scripts/gate-coverage.sh [repo 루트 또는 .specops 경로]...
 #   인자 없음 → 호출 위치 git 루트의 .specops (git 밖이면 ./.specops). 측정 목적이면 경로를 명시하라.
 # 소스 가능 — gc:: 함수만 정의, main 은 가드. 판정 해석은 skip-tracker.sh 의 skip::verdicts 를 재사용한다
@@ -99,7 +101,7 @@ gc::main() {
   local -a f sum=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
   printf "$GC_FMT" repo evidence verified verifyPASS held rate \
     'security(P/S/F/M/U)' 'integration(P/S/F/M/U)' 'performance(P/S/F/M/U)'
-  echo "# verified=spec·plan·tasks·evidence 4파일(6회차 '완주' 술어) · held=세 게이트 판정 모두 읽힘 · rate=held/verified · M=헤더 없음 · U=헤더 있으나 판정 해석 불가"
+  echo "# verified=spec·plan·tasks·evidence 4파일(6회차 '완주' 술어) · verifyPASS=현재 유효 PASS(STALE 제외 — 통과 이력 아님) · held=세 게이트 판정 모두 읽힘 · rate=held/verified · M=헤더 없음(헤더 없이 bare 'GATE: SKIP' 줄만 쓴 경우 포함) · U=헤더 있으나 판정 해석 불가"
   for arg in "$@"; do
     if ! res=$(gc::resolve "$arg"); then
       printf '%-24s 경로 없음 (%s)\n' "${arg##*/}" "$arg"
