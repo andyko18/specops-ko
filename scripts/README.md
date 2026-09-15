@@ -185,7 +185,8 @@ bash scripts/skip-tracker.sh
 
 ## gate-coverage.sh — 게이트 판정 보유율 (다중 repo)
 
-- verify 도달(spec·plan·tasks·evidence 4파일) FID 중 security·integration·performance 판정을 **모두** 가진 비율. 게이트별 `P/S/F/M/U` — M=헤더 없음(무기록), U=헤더는 있으나 판정 해석 불가. 읽기 전용, rc 항상 0.
+- verify 도달(spec·plan·tasks·evidence 4파일) FID 중 security·integration·performance 판정을 **모두** 가진 비율. 게이트별 `P/S/F/M/U` — M=헤더 없음(무기록 · 헤더 없이 bare `GATE: SKIP` 줄만 쓴 경우 포함), U=헤더는 있으나 판정 해석 불가. rc 항상 0.
+- `verifyPASS` 는 **현재 유효 PASS**(STALE 제외 — verify 통과 이력이 아님)라 커밋이 쌓인 repo 에서는 0 에 가깝다. worktree·index 는 바꾸지 않지만, `verification-state.json` 이 있는 FID 조회는 대상 repo `.git/objects` 에 참조 없는 blob 을 남길 수 있다(gc 대상).
 - 경로는 repo 루트 또는 `.specops` 디렉토리. 2개 이상이면 `합계` 행. `.specops` 직속 `YYYYMMDD-*` 만 센다(archive 하위 제외).
 - **측정 목적이면 경로를 명시한다** — 인자 없는 측정은 호출 위치에 따라 달라진다.
 
