@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# specops-ko verdict-board — FID별 게이트 결과 매트릭스 (읽기전용 관측).
+# specops-ko verdict-board — FID별 게이트 결과 매트릭스 (관측 전용 — worktree·index 불변).
+#   ⚠️ verification-state.json 이 있는 FID 조회는 workspace fingerprint 계산 때문에 대상 repo .git/objects 에
+#   참조 없는 blob 을 남길 수 있다 (gc 대상 · git status 불변 · 종전부터 있던 동작).
 # 사용: bash scripts/verdict-board.sh [.specops 경로]   (인자 없음 → 호출 위치 git 루트의 .specops)
 # gate-coverage.sh source — gc::gate_class(skip::verdicts 경유)·gc::verify_verdict 재활용. 판정 해석 사본 없음.
 # 게이트 칸: ✅ PASS · ⏭ SKIP · ❌ FAIL · · 헤더 없음(무기록) · ? 헤더 있으나 판정 해석 불가 · - evidence.md 없음
