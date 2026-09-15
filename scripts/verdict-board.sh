@@ -1,41 +1,15 @@
 #!/usr/bin/env bash
 # specops-ko verdict-board — FID별 게이트 결과 매트릭스 (읽기전용 관측).
-# 사용: bash scripts/verdict-board.sh [.specops 경로]
-# skip-tracker.sh source — skip::verdicts(integration/performance) 재활용. verify는 자체.
+# 사용: bash scripts/verdict-board.sh [.specops 경로]   (인자 없음 → 호출 위치 git 루트의 .specops)
+# gate-coverage.sh source — gc::gate_class(skip::verdicts 경유)·gc::verify_verdict 재활용. 판정 해석 사본 없음.
+# 게이트 칸: ✅ PASS · ⏭ SKIP · ❌ FAIL · · 헤더 없음(무기록) · ? 헤더 있으나 판정 해석 불가 · - evidence.md 없음
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=/dev/null
-source "$HERE/skip-tracker.sh"
-STATE_SH="$HERE/_internal/verification-state.sh"
+source "$HERE/gate-coverage.sh"
 
-vb::verify_verdict() {  # <file> <fid>
-  local file="$1" fid="$2" state
-  state="${file%/evidence.md}/verification-state.json"
-  if [ -f "$state" ] && [ -f "$STATE_SH" ]; then
-    SPECOPS_ROOT="$ROOT" bash "$STATE_SH" current "$fid" 2>/dev/null
-    return 0
-  fi
-  [ -f "$file" ] || return 0
-  awk '
-    /^## \/verify/ {
-      if ($0 ~ /SKIP/)      { print "SKIP"; pending=0 }
-      else if ($0 ~ /PASS/) { print "PASS"; pending=0 }
-      else if ($0 ~ /FAIL/) { print "FAIL"; pending=0 }
-      else                  { pending=1 }
-      next
-    }
-    /^## / { pending=0; next }
-    pending && /^\*\*결과\*\*:/ {
-      if ($0 ~ /SKIP/)      print "SKIP"
-      else if ($0 ~ /PASS/) print "PASS"
-      else if ($0 ~ /FAIL/) print "FAIL"
-      pending=0
-    }
-  ' "$file"
-}
-
-vb::symbol() {  # <verdict> → 기호
+vb::symbol() {  # <verify verdict> → 기호
   case "$1" in
     PASS) printf '✅' ;;
     PARTIAL) printf '🟡' ;;
@@ -48,18 +22,25 @@ vb::symbol() {  # <verdict> → 기호
   esac
 }
 
-ROOT="${1:-$HERE/../.specops}"
+vb::gate_cell() {  # <evidence file> <gate> → 기호
+  [ -f "$1" ] || { printf -- '-'; return 0; }
+  case "$(gc::gate_class "$1" "$2")" in
+    P) printf '✅' ;; S) printf '⏭' ;; F) printf '❌' ;; M) printf '·' ;; *) printf '?' ;;
+  esac
+}
 
-printf '%-30s %-8s %-8s %-8s\n' "FID" "verify" "integ" "perf"
+ROOT="${1:-$(skip::default_root)}"
+[ -d "$ROOT" ] && ROOT=$(cd "$ROOT" && pwd)
+
+printf '%-30s %-8s %-8s %-8s %-8s\n' "FID" "verify" "sec" "integ" "perf"
 
 while IFS= read -r dir; do
   [ -n "$dir" ] || continue
   fid=$(basename "$dir")
   case "$fid" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*) ;; *) continue ;; esac
   ev="${dir%/}/evidence.md"
-  v=$(vb::verify_verdict "$ev" "$fid" | tail -1)
-  i=$(skip::verdicts "$ev" integration | tail -1)
-  p=$(skip::verdicts "$ev" performance | tail -1)
-  printf '%-30s %-8s %-8s %-8s\n' "${fid:0:28}" "$(vb::symbol "$v")" "$(vb::symbol "$i")" "$(vb::symbol "$p")"
+  v=$(gc::verify_verdict "$ev" "$fid" "$ROOT" | tail -1)
+  printf '%-30s %-8s %-8s %-8s %-8s\n' "${fid:0:28}" "$(vb::symbol "$v")" \
+    "$(vb::gate_cell "$ev" security)" "$(vb::gate_cell "$ev" integration)" "$(vb::gate_cell "$ev" performance)"
 done < <(ls -d "$ROOT"/*/ 2>/dev/null | sort -r)
 exit 0
