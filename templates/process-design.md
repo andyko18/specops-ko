@@ -1,6 +1,7 @@
 <!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
-<!-- MUTABLE_BY: /init-project Phase 11 · /start-* lifecycle -->
+<!-- MUTABLE_BY: /init-project Phase 11 (lifecycle 소비 배선은 후속 FID) -->
+<!-- 구 이름: intent.md — 기능 단위 intent 와 이름이 겹쳐 20260917 개명 -->
 
 # 프로세스 설계서 — <프로젝트명>
 

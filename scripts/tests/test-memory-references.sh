@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # T20 — specifying-ko Step 1 의 .specops/memory/* 자동 감지 검증 (FID 20260507)
 # specifying-ko 는 Claude skill 이라 bash 직접 실행 불가 → 다음 2 방식 조합:
-#   (a) 정적 검증: SKILL.md 본문이 9종 감지 표 + spec.md §참조 인용 패턴 명시
+#   (a) 정적 검증: SKILL.md 본문이 10종 감지 표 + spec.md §참조 인용 패턴 명시
 #   (b) fixture 검증: ls .specops/memory/*.md 이 OS 명령으로 의도대로 동작 (graceful skip + 부분 매칭)
 set -u
 PASS=0; FAIL=0
@@ -11,16 +11,17 @@ command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit
 SKILL="$PLUGIN/skills/specifying-ko/SKILL.md"
 
 
-# ── T1.a 정적: SKILL.md 가 9종 .specops/memory/*.md 모두 명시 ──
-expected=(constitution requirements architecture frontend-architecture backend-architecture api-spec data-model screens-overview test-strategy)
+# ── T1.a 정적: SKILL.md 가 10종 .specops/memory/*.md 모두 명시 ──
+# 20260917: process-design 추가 (구 intent.md 개명 — 기능 단위 intent 와 분리)
+expected=(constitution requirements architecture frontend-architecture backend-architecture api-spec data-model process-design screens-overview test-strategy)
 missing=()
 for n in "${expected[@]}"; do
   grep -q "${n}\.md" "$SKILL" || missing+=("$n")
 done
 if [ ${#missing[@]} -eq 0 ]; then
-  ok "T1.a SKILL.md 가 9종 .specops/memory/*.md 모두 명시 (감지 표)"
+  ok "T1.a SKILL.md 가 10종 .specops/memory/*.md 모두 명시 (감지 표)"
 else
-  nope "T1.a 9종 명시" "누락: ${missing[*]}"
+  nope "T1.a 10종 명시" "누락: ${missing[*]}"
 fi
 
 # ── T2.a 정적: spec.md §참조 인용 패턴 + graceful skip 명시 ──

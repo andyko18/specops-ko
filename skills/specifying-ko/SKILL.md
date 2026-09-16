@@ -66,11 +66,13 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
        | `backend-architecture.md` | 백엔드 아키텍처 — `.specops/memory/backend-architecture.md` |
        | `api-spec.md` | IF 설계서 — `.specops/memory/api-spec.md` |
        | `data-model.md` | 테이블 설계서 — `.specops/memory/data-model.md` |
-       | `intent.md` | 프로세스 설계서 — `.specops/memory/intent.md` |
+       | `process-design.md` | 프로세스 설계서 — `.specops/memory/process-design.md` |
        | `screens-overview.md` | 화면 목록 마스터 — `.specops/memory/screens-overview.md` |
        | `test-strategy.md` | 테스트 전략 — `.specops/memory/test-strategy.md` |
        | `project-context.md` | 프로젝트 컨텍스트 — `.specops/memory/project-context.md` |
        | `decisions.md` | 결정 원장 — `.specops/memory/decisions.md` |
+
+     - 레거시: `memory/intent.md` 가 프로세스 형식으로 남아 있으면 프로세스 설계서로 인용하고 `process-design.md` 로의 이관을 1줄 안내한다(자동 변경 금지)
 
      - **`.specops/memory/brainstorming-*.md` PRD-first 합성** (v2.2 신규):
        - `ls .specops/memory/brainstorming-*.md 2>/dev/null` — 부재 시 graceful skip (AC-1)
