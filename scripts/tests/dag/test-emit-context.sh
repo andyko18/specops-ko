@@ -112,6 +112,35 @@ else
 fi
 rm -rf "$tmp"
 
+# T4.a: intent 게이트 — 날짜 FID + intent 부재 → rc=1 · dispatch 미생성 (원자성)
+#   ★ id 는 T4.a — T1.h 는 이미 스코프 이관 배선 케이스가 쓴다(:146-157, plan-review 1회차 I-5)
+#   stderr 를 단언하는 이유(AC-5 Then "stderr 에 intent 안내"): rc=1 만 보면 상류 게이트
+#   6종 중 무엇이 막았는지 구분 못 해, intent 게이트가 죽어도 케이스가 통과한다.
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/20991231-gate"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20991231-gate/"
+err=$(cd "$tmp" && bash "$EMIT" 20991231-gate 2>&1 >/dev/null); rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$err" | grep -q 'intent\.md' \
+   && [ ! -d "$tmp/.specops/20991231-gate/dispatch" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.a intent 부재 → rc=1 · stderr intent 안내 · dispatch 미생성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.a (rc=$rc err=$(printf '%s' "$err" | head -1) dispatch=$(ls "$tmp/.specops/20991231-gate/dispatch" 2>/dev/null | wc -l))"
+fi
+rm -rf "$tmp"
+
+# T4.b: intent 를 채우면 정상 산출 (AC-5 Then 둘째 문장 — plan-review 2회차 I-F)
+tmp=$(mktemp -d)
+mkdir -p "$tmp/.specops/20991231-gate"
+cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20991231-gate/"
+printf '# Intent: 게이트 픽스처\n\n**작성자**: 사용자 · **Status**: accepted\n\n## 문제\n게이트 통과 경로 확인\n\n## 기대 결과\ndispatch 산출\n\n## 영향 사용자·시스템\n- 구현자\n\n## 제약\n- 해당 없음\n\n## 열린 질문\n- 없음\n' > "$tmp/.specops/20991231-gate/intent.md"
+out=$(cd "$tmp" && bash "$EMIT" 20991231-gate 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT:' && [ -d "$tmp/.specops/20991231-gate/dispatch" ]; then
+  PASS=$((PASS+1)); echo "PASS T4.b intent 채움 → EMIT · dispatch 생성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T4.b (rc=$rc out=$out)"
+fi
+rm -rf "$tmp"
+
 # T1.j: AC bullet 포맷 겸용 (20260716 trivial dogfood 발견 #2) — `- **AC-1**: ...` 도 요약 추출
 tmp=$(mktemp -d)
 mkdir -p "$tmp/.specops/ok-fid"

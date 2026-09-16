@@ -68,6 +68,19 @@ if [ -f "$_MBASE_SH" ]; then
   fi
 fi
 
+# intent 게이트 — 기능 단위 intent.md 존재·채움(20260917).
+#   설계 전에 승인된 "왜" 가 없으면 spec 이 무엇을 푸는지 사후 재구성해야 한다.
+#   도입 전 FID·fixture 는 FID 날짜·형식으로 SKIP 한다.
+_INTENT_SH="$SCRIPT_DIR/../_internal/check-intent.sh"
+if [ -f "$_INTENT_SH" ]; then
+  if ! intent_out=$(bash "$_INTENT_SH" "$FID" 2>&1); then
+    printf '%s\n' "$intent_out" >&2
+    echo "emit-context: intent.md 부재·미채움 — specifying-ko 1.5 수행 후 재실행" >&2
+    exit 1
+  fi
+  printf '%s\n' "$intent_out" | grep '^INTENT: WARN' >&2 || true
+fi
+
 # 회귀 AC 게이트 — §유형=유지보수 는 AC-R-1, 스키마 override 는 AC-R-2 (독립 조건).
 #   "/maintain 의 존재 이유" 인 회귀 안전망이 산문뿐이었다(템플릿의 "evaluator BLOCK" 주장에
 #   구현 0곳). 템플릿이 AC-R 섹션을 기본 포함하므로 채움(placeholder 잔존)까지 판정한다.
