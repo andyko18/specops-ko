@@ -4,6 +4,34 @@
 
 ## [Unreleased]
 
+### 게이트 판정 보유율 측정 — 없는 계수기를 만들었다 (#54)
+
+6회차 평가 처방 1("완주 계수기를 고쳐라")의 대상이 **코드에 없었다**. `spec·plan·tasks·evidence`
+4파일 술어는 평가서 산문 속 즉석 측정이었고(`.specops/audit/plugin-evaluation-20260904.md:176-178`),
+그걸 구현한 스크립트는 0개였다. 유일한 관측 도구 `skip-tracker.sh` 는 게이트 섹션이 **아예 없는** FID 를
+`total` 에서 빼서 무기록을 숨겼고, 인자 없이 부르면 **스크립트 옆** `.specops` 를 봐서 설치본(플러그인
+캐시)에서는 항상 "evidence 없음" 이었다 — 게이트 skill 3종이 안내하던 명령이 바로 그 형태다.
+
+- **`scripts/gate-coverage.sh` 신설** — repo 경로(또는 `.specops`)를 여러 개 받아 `evidence` ·
+  `verified`(4파일) · `verifyPASS`(현재 유효 PASS — STALE 제외) · `held`(세 게이트 판정 모두 읽힘) ·
+  `rate` 와 게이트별 `P/S/F/M/U` 를 repo 별·합계로 낸다. **M(헤더 없음)과 U(헤더는 있으나 판정 해석
+  불가)를 분리**해 "안 돌렸다" 와 "돌렸는데 형식이 달라 못 읽는다" 를 구분한다. 판정 해석은
+  `skip::verdicts` 재사용 — 사본 0(`propagation-matrix` skip-citation-sot 계약 유지).
+- **`skip-tracker.sh` 기본 root** — `skip::default_root` 신규 함수로 호출 위치 git 루트의 `.specops`
+  (git 밖이면 `./.specops`). 기존 `skip::` 함수 표면·명시 인자 출력은 **불변**(`release-ready.sh` 가
+  source 하는 PR 하드 게이트 보호 — AC-R-1 로 HEAD 원본 대비 diff 0 실증).
+- **`verdict-board.sh`** — `sec` 열 추가 · 헤더 없음 `·` / 판정 불가 `?` / evidence 없음 `-` 로 기호 분리 ·
+  verify 판정은 `gc::verify_verdict` 로 이관(해석 이중화 제거).
+- **본 repo 실측**: verified 70 · held 53(75%) · security **M=15** — 같은 시점 `skip-tracker` 출력에는
+  그 15건이 나타나지 않는다. 하류 사용 경로(다른 git repo 하위 cwd, 무인자)에서도 세 도구 모두 그 repo
+  `.specops` 를 읽는 것을 실측했다.
+- **한계**: 도구는 대상 repo worktree·index 를 바꾸지 않지만, `verification-state.json` 이 있는 FID 조회는
+  fingerprint 계산 때문에 대상 repo `.git/objects` 에 **참조 없는 blob** 을 남길 수 있다(스크립트 헤더·
+  README 고지) · 본 repo `verifyPASS` 0(state 대부분 STALE · 구 evidence 는 스탬프 형식) ·
+  semgrep rc=2 로 외부 SAST 축 **검증 불가** · Evaluator 전 라운드 fable 한도로 opus fallback(재리뷰 필요)
+- **backlog**: SubagentStop 리뷰 저장 훅이 입력 cwd 를 신뢰해, 부모 셸 cwd drift 시 리뷰 보고서·메트릭이
+  중첩 `.specops` 로 샌다(이번 세션 1회 실발생·복구). repo 루트 `.specops/.specops/` 도 같은 계열 추정.
+
 ## [1.102.0] — 2026-09-15
 
 ### Phase B/C 리뷰 반환 요약화 — SubagentStop 훅이 전문을 저장하고 부모는 요약만 받는다 (#53)
