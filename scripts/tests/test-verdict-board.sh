@@ -97,6 +97,21 @@ if printf '%s' "$out3" | grep "20260803-structured" | grep -q "◻"; then
 else FAIL=$((FAIL+1)); echo "FAIL T2.d ($out3)"; fi
 rm -rf "$PROJ"
 
+# T3 AC-6: sec 열 · 헤더 없음 '·' · 판정 불가 '?' · evidence 없음은 전 칸 '-'
+mkdir -p "$TD/20260915-bsec" "$TD/20260915-csec"
+printf '## /verify — d\n**결과**: PASS\n## /integration-test — d\n**결과**: PASS\n## /performance-test — d\n**결과**: PASS\n' > "$TD/20260915-bsec/evidence.md"
+printf '## /security-review — d\n본문만\n## /integration-test — d\n**결과**: PASS\n' > "$TD/20260915-csec/evidence.md"
+out4=$(bash "$VB" "$TD")
+if printf '%s\n' "$out4" | head -1 | grep -qw "sec"; then PASS=$((PASS+1)); echo "PASS T3.a sec 열 헤더"; else FAIL=$((FAIL+1)); echo "FAIL T3.a ($(printf '%s\n' "$out4" | head -1))"; fi
+if printf '%s\n' "$out4" | grep "20260915-bsec" | grep -q "·"; then PASS=$((PASS+1)); echo "PASS T3.b 헤더 없음 ·"; else FAIL=$((FAIL+1)); echo "FAIL T3.b ($(printf '%s\n' "$out4" | grep bsec))"; fi
+if printf '%s\n' "$out4" | grep "20260915-csec" | grep -q "?"; then PASS=$((PASS+1)); echo "PASS T3.c 판정 불가 ?"; else FAIL=$((FAIL+1)); echo "FAIL T3.c ($(printf '%s\n' "$out4" | grep csec))"; fi
+if ! printf '%s\n' "$out4" | grep "20260101-beta" | grep -qE "·|\?"; then PASS=$((PASS+1)); echo "PASS T3.d evidence 없음 전 칸 -"; else FAIL=$((FAIL+1)); echo "FAIL T3.d ($(printf '%s\n' "$out4" | grep beta))"; fi
+# T3.e FR-8: 인자 없는 기본 root = 호출 위치 git 루트 .specops
+PG="$TD/pg"; mkdir -p "$PG"; git -C "$PG" init -q; mkdir -p "$PG/sub" "$PG/.specops/20260915-gitroot"
+printf '## /verify — d\n**결과**: PASS\n' > "$PG/.specops/20260915-gitroot/evidence.md"
+if (cd "$PG/sub" && bash "$VB") | grep -q "20260915-gitroot"; then PASS=$((PASS+1)); echo "PASS T3.e 기본 root git 루트"; else FAIL=$((FAIL+1)); echo "FAIL T3.e"; fi
+rm -rf "$PG"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

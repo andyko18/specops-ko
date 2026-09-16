@@ -112,7 +112,14 @@ EOF
   return 0
 }
 
+skip::default_root() {  # 인자 없는 호출의 기본 .specops — 호출 위치 git 루트, git 밖이면 ./.specops
+  #   스크립트 옆 .specops 를 보면 설치본(플러그인 캐시)에서는 항상 "evidence 없음" 이다.
+  local top
+  top=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] && { printf '%s/.specops\n' "$top"; return 0; }
+  printf '%s/.specops\n' "$PWD"
+}
+
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-  root="${1:-$(cd "$(dirname "$0")/.." && pwd)/.specops}"
+  root="${1:-$(skip::default_root)}"
   skip::report "$root"
 fi
