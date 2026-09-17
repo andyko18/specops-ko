@@ -11,7 +11,7 @@ used_by: /e2e-test
 
 specops-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
-9단계를 HARD GATE 없이 완주하고 24개 검증 항목(V1~V24)을 점검한다.
+9단계를 HARD GATE 없이 완주하고 25개 검증 항목(V1~V25)을 점검한다.
 
 > **양 끝 단계의 격리 (S0·S7)**: `[S0]`(부트스트랩)과 `[S7]`(브랜치 정리)는
 > **repo ROOT 를 변경**하므로 (init-project 가 PRD/CLAUDE/README 작성 + `git commit`,
@@ -27,6 +27,7 @@ specops-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` f
 
 1. **[PRE] FID + 디렉토리 생성** (+ `e2e_check` 헬퍼·카운터 정의)
 2. **[S0] BOOTSTRAP** — init-project 부트스트랩 (격리 repo, 진입부) → V10~V13, V21
+2.5. **[S0.5] INTENT** — greet-cli 의도를 5절로 기록 (spec **앞** — 판정은 S6 의 V25)
 3. **[S1] SPECIFY** — spec.md + acceptance-criteria.md 생성
 4. **[S2] CLARIFY** — clarifications.md 생성 + AC append
 5. **[S3] PLAN** — plan.md 생성
@@ -230,6 +231,39 @@ rm -rf "$TMP"
 
 ```bash
 bash scripts/session-progress-append.sh "$FID" "/init-project" "완료" "부트스트랩 V10~V13·V21 (격리 repo)" "greet-cli E2E"
+```
+
+---
+
+## [S0.5] INTENT — 기능 단위 intent.md 생성 (spec 이전)
+
+> intent 는 **spec 보다 먼저** 승인되는 산출물이다(`check-intent.sh` · specifying 체크리스트 1.5).
+> cutoff(`20260918`) 이후 날짜 FID 로 e2e 가 돌면 `emit-context` 게이트가 intent.md 를 요구하므로
+> 이 단계가 없으면 S4 에서 chain 이 멈춘다. **판정(V25)은 S6 에서** 한다 — 이 시점엔 spec.md 가
+> 없어 `check-intent.sh` 가 `SKIP (spec.md 부재)` 로 rc=0 을 내므로 여기서의 rc 는 아무것도 증명하지 않는다.
+
+```bash
+mkdir -p ".specops/$FID"
+cat > ".specops/$FID/intent.md" <<'EOF'
+# Intent: greet-cli
+
+**작성자**: e2e fixture · **Status**: accepted
+
+## 문제
+이름을 받아 인사를 출력하는 CLI 가 없다.
+
+## 기대 결과
+인자로 받은 이름으로 인사를 출력하고, 인자가 없으면 사용법과 exit 1 을 낸다.
+
+## 영향 사용자·시스템
+- CLI 사용자
+
+## 제약
+- bash 3.2 호환
+
+## 열린 질문
+- 없음
+EOF
 ```
 
 ---
@@ -479,6 +513,18 @@ bash scripts/_internal/validate-structure.sh > /dev/null 2>&1 && r=0 || r=1
 e2e_check V9 "validate-structure PASS" "$r"
 ```
 
+**V25 — S0.5 intent.md 존재 + check-intent PASS:**
+
+> S6 에서 판정하는 이유: `check-intent.sh` 는 spec.md 가 없으면 `SKIP` 으로 rc=0 을 낸다(:29).
+> S0.5 에서 부르면 SKIP 경로라 아무것도 증명하지 못하므로, spec.md 가 있는 S6 로 미룬다.
+> `r25=0` 이 PASS 다 (`e2e_check` 는 `"0"` 만 PASS 로 집계 — V21 과 동일 규약).
+> cutoff(`20260918`) 이전 날짜 FID 로 도는 동안은 `SKIP` rc=0 이라 PASS 로 잡힌다(설계대로 — 게이트 면제 구간).
+
+```bash
+r25=1; [ -f ".specops/$FID/intent.md" ] && bash "$PLUGIN/scripts/_internal/check-intent.sh" "$FID" >/dev/null 2>&1 && r25=0
+e2e_check V25 "intent.md 존재 + check-intent PASS" "$r25"
+```
+
 ---
 
 ## [S6.5] SECURITY/INTEGRATION/PERFORMANCE SKIP — chain 신규 단계 SKIP 경로 검증
@@ -725,6 +771,8 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S0] init-project 부트스트랩 (격리 repo) → V10~V13·V21   ← 진입부 (신규)
     ↓
+[S0.5] intent.md 생성 (spec 이전 — 판정은 S6 의 V25)   ← intent (신규)
+    ↓
 [S1] spec.md + acceptance-criteria.md (AC-1, AC-2)
     ↓
 [S2] clarifications.md + AC-3 append
@@ -735,7 +783,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S5] greet-cli.sh + test-greet-cli.sh + 테스트 실행 (PASS=3)
     ↓
-[S6] V1~V9 검증
+[S6] V1~V9 검증 + V25 (S0.5 intent 판정)
     ↓
 [S6.5] security-review-ko·integration-test-ko·performance-test-ko SKIP 경로 검증 → V18~V20
     ↓
@@ -743,7 +791,7 @@ bash scripts/session-progress-append.sh "$FID" "/verify" "$([ $E2E_FAIL -eq 0 ] 
     ↓
 [S8] start-all batch 오케스트레이션 실주행 (격리 repo) → V22~V24   ← batch (신규)
     ↓
-PASS=24 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥23 허용)
+PASS=25 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥24 허용)
 ```
 
 ## 실패 시 디버깅
@@ -759,6 +807,7 @@ PASS=24 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥23 허용)
 | V10~V12 (부트스트랩) | init-project.sh phase_4 fallback 진입 (parse <4/6) | stdin numbered list 라인이 `숫자. 라벨: 값` 형식인지·빈 줄 sentinel 누락 확인. `[Phase 4] ... 개별 입력 모드로 전환` 출력 시 fallback 진입 (parse 실패) |
 | V13 (brainstorming 참조) | `_check_memory`/`_check_brainstorming` prompt 미소비 | stdin 선두 `y`(재부트) + `Y`(참조) prepend 확인. 메모가 `.specops/memory/brainstorming-*.md` 경로인지 확인 |
 | V14~V17 (finishing GATE) | git fixture 셋업 실패 | `git init --bare`/clone/push 단계 오류 확인. `gh pr` 실제 MERGED 경로는 검증 범위 외 (한계 고백 참조) |
+| V25 (intent.md) | S0.5 블록 미실행 또는 heredoc 내용에 `<...>` 잔존 | `.specops/$FID/intent.md` 존재 확인 후 `bash scripts/_internal/check-intent.sh "$FID"` 직접 실행 — `FAIL — intent 미채움` 이면 placeholder 잔존 |
 
 ## 5원칙 적용
 

@@ -25,7 +25,7 @@ reference_upstream: specops-ko 독자 추가
 | **`/design-screen [name]`** | 독립 슬래시 | lifecycle 밖에서 **화면 1개** 신규/수정 |
 | **`/design-screens`** | 독립 슬래시 | lifecycle 밖에서 **여러 화면 일괄** (목록 자동판단 + 승인게이트 + 순차루프) |
 
-> `/init-project` Phase 7 은 화면 **목록만** 기록(껍데기 파일 미생성) — 위 경로가 채운다.
+> `/init-project` Phase 11 이 화면 `.md`+`.html` **본설계**를 채운다(UI KIND). 이후 Step 5.5·Phase 2.5-A 는 채워진 화면을 `--check` 로 **재사용**하고, 그 화면에 남은 `<미확정 — 근거 필요>` 만 FR 확정분으로 메운다.
 > 즉 `/start` 로 UI 기능 개발 중이면 Step 5.5 가 자동 처리하므로 `/design-screen` 을 따로 부를 필요 없다. 독립 화면 작업 시에만 단수/복수 슬래시 사용.
 
 ## Process

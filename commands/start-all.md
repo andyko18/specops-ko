@@ -214,6 +214,7 @@ reference_upstream: specops-ko 독자 추가
      ```
      - `sync` 는 fence **안에만** 추가하고 멱등이다(2회 실행해도 중복 없음).
      - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
+   - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 `check-screens-overview.sh sync` 로 상태 셀을 갱신한다
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
@@ -234,6 +235,7 @@ reference_upstream: specops-ko 독자 추가
    - `FOUNDATION-IF-BASELINE: FAIL` → baseline 되돌리고 FR 전용만 다시 append. `/start-foundation` 또는 `/design-interface`로만 baseline 변경.
    - `SKIP`(마커 0) → 진행(구 프로젝트).
    - memory 부재 시: 대화형은 생성 확인, §auto는 신규 생성 금지·각 FID spec에 "인터페이스 미반영: memory 부재" 기록.
+   - **init 미확정 해소**: 갱신하는 행에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지 · `<!-- foundation-baseline -->` 마커 안은 제외).
 3. 각 FID spec.md §1에 반영 요약 1줄(`**자동 결정 인터페이스**` 또는 대화형 동등 요약) + §참조에 api-spec/data-model 경로.
 4. **[§auto 모드]**: 인터페이스 대화형 승인 없이 자동 append(가역 — PR 다이제스트 집계). **마커 안 불변은 §auto도 HARD**.
 

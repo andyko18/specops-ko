@@ -116,4 +116,20 @@ for _f in skills/clarifying-ko/SKILL.md skills/planning-ko/SKILL.md skills/verif
 done
 grep -q 'intent' "$PLUGIN/scripts/_internal/collect-assumptions.sh" \
   && ok "T-cons collect-assumptions" || nope "T-cons collect-assumptions" "정규식 미확장"
+
+# T-c: 설계 시점 진실화 + e2e intent 단계 (AC-9 · AC-10)
+#   분업 문구는 init Phase 11 본설계를 반영해야 한다 — "목록만"·"골격만" 은 Phase 11 이전 서술이라
+#   읽는 사람이 화면·IF 를 빈 껍데기로 알고 재생성한다(설계 시점 오인).
+grep -q 'Phase 11' "$PLUGIN/commands/design-screen.md" && ! grep -q '목록만' "$PLUGIN/commands/design-screen.md" \
+  && ok "T-c.a design-screen 분업 진실화" || nope "T-c.a" "구 문구 잔존"
+grep -q 'Phase 11' "$PLUGIN/commands/design-interface.md" && ! grep -qE '골격\*\*만|골격만' "$PLUGIN/commands/design-interface.md" \
+  && ok "T-c.b design-interface 분업 진실화" || nope "T-c.b" "구 문구 잔존"
+grep -q '미확정' "$PLUGIN/commands/start-all.md" \
+  && ok "T-c.c 2.5 미확정 해소 규칙" || nope "T-c.c" "규칙 부재"
+grep -q '미확정' "$PLUGIN/agents/design-reviewer-ko.md" \
+  && ok "T-c.d design-reviewer 잔여 미확정" || nope "T-c.d" "항목 부재"
+grep -q 'e2e_check V25' "$PLUGIN/skills/e2e-test-ko/SKILL.md" \
+  && ok "T-c.e e2e intent 단계·V25 집계" || nope "T-c.e" "단계·집계 호출 부재"
+grep -q '25개 검증 항목' "$PLUGIN/commands/e2e-test.md" \
+  && ok "T-c.f e2e 커맨드 개수 동기" || nope "T-c.f" "커맨드 문구 미갱신"
 finish
