@@ -279,6 +279,16 @@ _c "T3.e AC-1 빈 본문 → exit 1 + 사유" 'save-review-report: 본문이 비
 _reset; _run "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=PASS>>>\n본문\n<<<END>>>')" false
 _c "T3.f AC-1 FID 디렉터리 부재 → exit 1 + 사유" 'save-review-report: FID 디렉터리 없음(cwd 확인) — 저장 건너뜀'
 
+# ── T3.f2 AC-1 사유 6종이 서로 구별된다 — 구현 리터럴을 직접 잠근다 ──
+#   위 T3.a~f 는 각 케이스가 "기대 문자열을 내는지" 만 본다. 구현과 테스트를 **함께** 고쳐
+#   두 사유를 같게 만들면 그 단언들은 통과한다(같은 출처 공유). 구현 파일에서 _bail 인자를
+#   직접 뽑아 중복 0 을 단언해 그 경로를 닫는다.
+_reasons=$(grep -oE '_bail "[^"]+"' "$HOOK" | sed 's/^_bail "//; s/"$//')
+_rn=$(printf '%s\n' "$_reasons" | grep -c .)
+_rdup=$(printf '%s\n' "$_reasons" | LC_ALL=C sort | uniq -d)
+if [ "$_rn" -eq 6 ] && [ -z "$_rdup" ]; then ok "T3.f2 AC-1 _bail 사유 6종 · 중복 0"
+else nope "T3.f2 AC-1 사유 구별" "n=$_rn dup=[$_rdup]"; fi
+
 # ── T3.g AC-6 음성 대조 — 정상 경로에는 사유 접두가 없다 · stdout 공백 · rc=2 ──
 _reset; _run "$(_block T1 B PASS 'B 본문')" false
 if [ "$RC" -eq 2 ] && [ -z "$OUT" ] && ! printf '%s' "$ERR" | grep -qF 'save-review-report:'; then
