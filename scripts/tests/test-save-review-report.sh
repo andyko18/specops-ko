@@ -79,8 +79,10 @@ else nope "T1.e AC-2" "rc=$RC $(ls "$R" | tr '\n' ' ')"; fi
 #  $1=desc $2=message $3=runner(선택: jq-less) $4=기대 rc(선택: 기본 0)
 #  기대 rc 를 인자로 받는다 — f1·f2·f4 는 계약 판정이라 exit 1 이고 f3(jq 부재)만 인프라라 exit 0 이다.
 #  헬퍼 본문에 0 을 박으면 두 성격이 같은 기대를 공유해 계약 변경이 인프라 침묵까지 끌고 간다.
+#  $5=silent 이면 stderr 공백까지 단언한다 — AC-3 은 인프라 경로(f3=jq 부재)에 stderr 길이 0 을 요구한다.
+#  f1·f2·f4 는 계약 판정이라 사유 1줄이 있어야 하므로 헬퍼 본문에 무조건 걸 수 없다.
 _fail_open() {
-  _reset; printf 'X\n' > "$R/T1-C-report.md"; local pre so; pre=$(_files)
+  _reset; printf 'X\n' > "$R/T1-C-report.md"; local pre so errok=0; pre=$(_files)
   if [ "${3:-}" = "nojq" ]; then
     mkdir -p "$TD/bin"
     for t in cat dirname mktemp awk cp mv rm mkdir bash env; do ln -sf "$(command -v $t)" "$TD/bin/$t"; done
@@ -95,12 +97,13 @@ _fail_open() {
   else
     _run "$2" false
   fi
-  if [ "$RC" -eq "${4:-0}" ] && [ -z "$OUT" ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then ok "$1"
-  else nope "$1" "rc=$RC out=$OUT files=$(_files | tr '\n' ' ')"; fi
+  if [ "${5:-}" = "silent" ] && [ -n "$ERR" ]; then errok=1; fi
+  if [ "$RC" -eq "${4:-0}" ] && [ "$errok" -eq 0 ] && [ -z "$OUT" ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then ok "$1"
+  else nope "$1" "rc=$RC out=$OUT err=$ERR files=$(_files | tr '\n' ' ')"; fi
 }
 _fail_open "T1.f1 AC-4 마커 0개" "그냥 보고서 텍스트" "" 1
 _fail_open "T1.f2 AC-4 END 없는 미완 블록" "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문' "$FID")" "" 1
-_fail_open "T1.f3 AC-4 jq 부재" "$(_block T1 C READY_TO_MERGE '본문')" nojq
+_fail_open "T1.f3 AC-4·AC-3 jq 부재 → rc=0 · stdout·stderr 공백" "$(_block T1 C READY_TO_MERGE '본문')" nojq 0 silent
 _fail_open "T1.f4 AC-4 FID 디렉토리 부재" "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문\n<<<END>>>')" "" 1
 
 # ── T1.g AC-5 경로 안전 — 비정상 값은 전부 무생성 ──
@@ -287,5 +290,128 @@ _reset; _run "$(_block T1 B PASS 'B')" true
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; then
   ok "T3.h AC-3 stop_hook_active → rc=0 · stdout·stderr 공백"
 else nope "T3.h AC-3" "rc=$RC out=$OUT err=$ERR"; fi
+
+# ── T3.i~T3.o AC-3 인프라·파일 조작 경로 7건 — rc=0 · stdout·stderr 공백 ──
+# AC-3 Given 이 나열한 경로 중 종전 스위트가 단언하지 않던 몫이다(커버 완료분: jq=T1.f3 · stop_hook_active=T3.h ·
+#   대상 검사=T1.p · 이동=T1.n1·n2·r). cwd 와 msg 는 같은 줄의 다른 조건이라 케이스를 나누고,
+#   백업 실패는 복원 cp 실패(T1.r)와 다른 절이라 따로 둔다 — 둘 다 AC-3 Given 문안이 열거한 경로다.
+# ⚠️ 음성 단언(rc=0 · 공백)은 그 경로에 **도달하지 못해도** 통과한다. 그래서 케이스마다 도달 증거를 함께 건다:
+#   (a) 가짜·래퍼 바이너리의 호출 로그를 **내용으로** 단언 (mktemp·mkdir·cp) — 비어있지 않음만 보면 앞 케이스의
+#       잔여 줄로 무음 통과하므로 실행 직전 truncate 하고 정확히 무엇이 불렸는지 비교한다
+#   (b) 게이트만 없앤 같은 입력의 대조 실행이 rc=2 로 저장까지 간다 (훅 비활성·cwd·msg)
+# 가짜 bin 과 로그는 $FAKEBIN 하위에 둔다 — $TD·$TDROOT 안에 두면 _files()·T1.g 트리 비교가 오탐한다.
+INFRA="$FAKEBIN/infra"; mkdir -p "$INFRA"; LOG="$INFRA/log"; CPREAL=$(command -v cp); MDREAL=$(command -v mkdir)
+
+# _run 의 형제 — cwd 를 지정하고 추가 env 를 주입할 수 있다(_run 은 SPECOPS_GOVERNANCE_PROFILE 을 env -u 로 지운다).
+#   _run 을 고치지 않는다 — 기존 24개 케이스가 그 시그니처에 걸려 있다.
+# $1=message $2=stop_hook_active $3=cwd $4.. = VAR=값(선택) → RC, ERR, OUT
+_run_env() {
+  local msg=$1 active=$2 cwd=$3; shift 3
+  local json so
+  json=$(jq -n --arg cwd "$cwd" --arg m "$msg" --argjson a "$active" \
+    '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
+  so=$(mktemp)
+  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" \
+    SPECOPS_CONFIG="$TD/none.yaml" "$@" bash "$HOOK" 2>&1 >"$so")
+  RC=$?
+  OUT=$(cat "$so"); rm -f "$so"
+}
+_silent() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; }
+BODY=$(_block T1 C NEEDS_FIX 'NEW')
+
+# T3.i 훅 비활성 — is-hook-enabled 가 rc=1. 프로파일 env 로 유도한다: config yaml 경로는 pyyaml 없는 머신에서
+#   default enabled 로 떨어져 rc=2 오FAIL 이 된다(그 경로는 수동 프로브로 따로 확인했다).
+_reset; _run_env "$BODY" false "$TD" SPECOPS_GOVERNANCE_PROFILE=standard
+off_rc=$RC; off_out=$OUT; off_err=$ERR; off_saved=$(ls -A "$R" | tr '\n' ' ')
+_reset; _run_env "$BODY" false "$TD"
+if [ "$off_rc" -eq 0 ] && [ -z "$off_out" ] && [ -z "$off_err" ] && [ -z "$off_saved" ] \
+   && [ "$RC" -eq 2 ] && [ -f "$R/T1-C-report.md" ]; then
+  ok "T3.i AC-3 훅 비활성 → rc=0 · stdout·stderr 공백 · 무저장 (대조: 활성이면 rc=2 저장)"
+else nope "T3.i AC-3" "off(rc=$off_rc out=$off_out err=$off_err saved=$off_saved) on(rc=$RC)"; fi
+
+# T3.j cwd 빈값
+_reset; _run_env "$BODY" false ""
+e_rc=$RC; e_out=$OUT; e_err=$ERR; e_saved=$(ls -A "$R" | tr '\n' ' ')
+_reset; _run_env "$BODY" false "$TD"
+if [ "$e_rc" -eq 0 ] && [ -z "$e_out" ] && [ -z "$e_err" ] && [ -z "$e_saved" ] \
+   && [ "$RC" -eq 2 ] && [ -f "$R/T1-C-report.md" ]; then
+  ok "T3.j AC-3 cwd 빈값 → rc=0 · stdout·stderr 공백 · 무저장 (대조: cwd 있으면 rc=2 저장)"
+else nope "T3.j AC-3" "empty(rc=$e_rc out=$e_out err=$e_err saved=$e_saved) on(rc=$RC)"; fi
+
+# T3.k last_assistant_message 빈값
+_reset; _run_env "" false "$TD"
+m_rc=$RC; m_out=$OUT; m_err=$ERR; m_saved=$(ls -A "$R" | tr '\n' ' ')
+_reset; _run_env "$BODY" false "$TD"
+if [ "$m_rc" -eq 0 ] && [ -z "$m_out" ] && [ -z "$m_err" ] && [ -z "$m_saved" ] \
+   && [ "$RC" -eq 2 ] && [ -f "$R/T1-C-report.md" ]; then
+  ok "T3.k AC-3 msg 빈값 → rc=0 · stdout·stderr 공백 · 무저장 (대조: msg 있으면 rc=2 저장)"
+else nope "T3.k AC-3" "empty(rc=$m_rc out=$m_out err=$m_err saved=$m_saved) on(rc=$RC)"; fi
+
+# T3.l mktemp 실패 — PATH 앞 가짜 mktemp(호출을 로그에 남기고 무음 실패)
+FB_MK="$INFRA/mktemp-fail"; mkdir -p "$FB_MK"
+cat > "$FB_MK/mktemp" <<EOF
+#!/usr/bin/env bash
+echo "mktemp \$*" >> "$LOG"
+exit 1
+EOF
+chmod +x "$FB_MK/mktemp"
+_reset; printf 'OLD\n' > "$R/T1-C-report.md"; pre=$(_files); : > "$LOG"
+RUN_PATH="$FB_MK:$PATH" _run_env "$BODY" false "$TD"
+if _silent && [ "$(cat "$LOG")" = "mktemp -d" ] && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] \
+   && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
+  ok "T3.l AC-3 mktemp 실패 → rc=0 · 공백 · 호출 로그 'mktemp -d' · 기존 파일 보존"
+else nope "T3.l AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] $(ls -A "$R" | tr '\n' ' ')"; fi
+
+# T3.m mkdir 실패 — reviews 자리에 일반 파일을 두어 실제로 실패시키고, 래퍼가 호출 도달을 로그로 남긴다.
+#   $R 이 디렉토리가 아니므로 이 케이스에서는 _reset·_leftover 를 쓸 수 없다.
+FB_MD="$INFRA/mkdir-log"; mkdir -p "$FB_MD"
+cat > "$FB_MD/mkdir" <<EOF
+#!/usr/bin/env bash
+echo "mkdir \$*" >> "$LOG"
+exec "$MDREAL" "\$@"
+EOF
+chmod +x "$FB_MD/mkdir"
+rm -rf "$TD/.specops"; mkdir -p "$TD/.specops/$FID"; printf 'blocker\n' > "$R"; pre=$(_files); : > "$LOG"
+RUN_PATH="$FB_MD:$PATH" _run_env "$BODY" false "$TD"
+if _silent && [ "$(cat "$LOG")" = "mkdir -p $R" ] && [ -f "$R" ] \
+   && [ "$(cat "$R")" = "blocker" ] && [ "$(_files)" = "$pre" ]; then
+  ok "T3.m AC-3 mkdir 실패 → rc=0 · 공백 · 호출 로그 'mkdir -p <reviews>' · 트리 무변경"
+else nope "T3.m AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] files=$(_files | tr '\n' ' ')"; fi
+
+# T3.n 임시 쓰기 실패 — 가짜 cp(목적지가 *.tmp.* 일 때만 실패)로 1단계에서 좌초시킨다.
+#   기존 대상을 미리 둔다: 백업 cp 가 뒤따르는 절이라 로그의 **.bak. 부재**가 "임시 쓰기에서 멈췄다"의 증거다.
+FB_TW="$INFRA/tmpwrite-fail"; mkdir -p "$FB_TW"
+cat > "$FB_TW/cp" <<EOF
+#!/usr/bin/env bash
+for last in "\$@"; do :; done
+echo "cp -> \$last" >> "$LOG"
+case "\$last" in *.tmp.*) exit 1 ;; esac
+exec "$CPREAL" "\$@"
+EOF
+chmod +x "$FB_TW/cp"
+_reset; printf 'OLD\n' > "$R/T1-C-report.md"; pre=$(_files); : > "$LOG"
+RUN_PATH="$FB_TW:$PATH" _run_env "$BODY" false "$TD"
+if _silent && [ "$(grep -c '\.tmp\.' "$LOG")" -eq 1 ] && [ "$(grep -c '\.bak\.' "$LOG")" -eq 0 ] \
+   && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
+  ok "T3.n AC-3 임시 쓰기 실패 → rc=0 · 공백 · .tmp. 시도 1회·.bak. 미도달 · 기존 파일 보존 · 잔존 0"
+else nope "T3.n AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] $(ls -A "$R" | tr '\n' ' ')"; fi
+
+# T3.o 백업 실패 — 가짜 cp(목적지가 *.bak.* 일 때만 실패). 임시 쓰기는 성공하므로 로그에 **둘 다** 남는다 —
+#   이 비대칭이 T3.n 과 이 케이스를 구별한다(같은 로그면 둘 중 하나는 다른 절을 재검사하는 중복이다).
+FB_BK="$INFRA/backup-fail"; mkdir -p "$FB_BK"
+cat > "$FB_BK/cp" <<EOF
+#!/usr/bin/env bash
+for last in "\$@"; do :; done
+echo "cp -> \$last" >> "$LOG"
+case "\$last" in *.bak.*) exit 1 ;; esac
+exec "$CPREAL" "\$@"
+EOF
+chmod +x "$FB_BK/cp"
+_reset; printf 'OLD\n' > "$R/T1-C-report.md"; pre=$(_files); : > "$LOG"
+RUN_PATH="$FB_BK:$PATH" _run_env "$BODY" false "$TD"
+if _silent && [ "$(grep -c '\.tmp\.' "$LOG")" -eq 1 ] && [ "$(grep -c '\.bak\.' "$LOG")" -eq 1 ] \
+   && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
+  ok "T3.o AC-3 백업 실패 → rc=0 · 공백 · .tmp. 성공 후 .bak. 실패 · 기존 파일 보존 · 잔존 0"
+else nope "T3.o AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] $(ls -A "$R" | tr '\n' ' ')"; fi
 
 finish
