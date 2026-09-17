@@ -28,6 +28,22 @@ mk_batch() {  # <dir> <ACTIVE 여부: yes|no> <IMPL_DONE 수> <PENDING 수>
   return 0
 }
 
+mk_evidence() {  # 인자: (repo dir) (FID) (게이트 short 목록 — 공백구분, 빈 값이면 헤더 0건)
+  local d="$1" fid="$2" gates="$3" g hdr
+  mkdir -p "$d/.specops/$fid"
+  : > "$d/.specops/$fid/evidence.md"
+  for g in $gates; do
+    case "$g" in
+      security)    hdr=security-review ;;
+      integration) hdr=integration-test ;;
+      performance) hdr=performance-test ;;
+      *) continue ;;
+    esac
+    printf '\n## /%s PASS\n**결과**: PASS\n' "$hdr" >> "$d/.specops/$fid/evidence.md"
+  done
+  return 0
+}
+
 # ── T1 ACTIVE 없음 → 무출력 exit 0 (batch 미사용 repo 월권 0) ──
 rm -rf "$TMP/t1"; mkdir -p "$TMP/t1/.specops"
 out=$(cd "$TMP/t1" && bash "$SCRIPT" --hook 2>&1); code=$?
@@ -109,6 +125,73 @@ if grep -q 'batch-resume-check' "$PLUGIN/hooks/session-start.sh"; then
   ok "T9 session-start.sh 배선"
 else
   nope "T9 배선 누락 — 판독기가 호출되지 않는다"
+fi
+
+# ── T10 전파 0건 → 누락 줄 출력 (AC-1) ──
+#    argus batch-20260729 가 정확히 이 상태였다: 전 FR IMPL_DONE, evidence 에 게이트 0건.
+rm -rf "$TMP/t10"; mk_batch "$TMP/t10" yes 2 0
+mk_evidence "$TMP/t10" 20260101-d1 ""
+mk_evidence "$TMP/t10" 20260101-d2 ""
+out=$(cd "$TMP/t10" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '게이트 전파 누락' \
+   && printf '%s' "$out" | grep -q 'security 0/2' \
+   && printf '%s' "$out" | grep -q 'record-batch-gate'; then
+  ok "T10 전파 0건 → 누락 줄 + 해법 안내"
+else
+  nope "T10 전파 누락 미표면화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T11 전파 완료 → 누락 줄 미출력 (AC-2, 벽지화 방지) ──
+rm -rf "$TMP/t11"; mk_batch "$TMP/t11" yes 2 0
+mk_evidence "$TMP/t11" 20260101-d1 "security integration performance"
+mk_evidence "$TMP/t11" 20260101-d2 "security integration performance"
+out=$(cd "$TMP/t11" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'Phase 3' \
+   && ! printf '%s' "$out" | grep -q '게이트 전파 누락'; then
+  ok "T11 전파 완료 → 누락 줄 미출력"
+else
+  nope "T11 완료분까지 반복 출력" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T12 부분 전파 → 누락 축만 나열, 전파된 축은 빠진다 (AC-6) ──
+rm -rf "$TMP/t12"; mk_batch "$TMP/t12" yes 2 0
+mk_evidence "$TMP/t12" 20260101-d1 "security"
+mk_evidence "$TMP/t12" 20260101-d2 "security"
+out=$(cd "$TMP/t12" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'integration 0/2' \
+   && printf '%s' "$out" | grep -q 'performance 0/2' \
+   && ! printf '%s' "$out" | grep -q 'security 2/2'; then
+  ok "T12 부분 전파 → 누락 축만 나열"
+else
+  nope "T12 전파된 축까지 나열" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T13 IMPL_DONE FID 의 evidence.md 부재 → 분모에서 제외, 전파 줄 미출력 (AC-3) ──
+#    AC-3 Then 원문: "해당 FID 를 분모에서 제외하거나 해당 batch 를 건너뛴다".
+#    record-batch-gate.sh:63 도 evidence 없는 FID 를 skip 하므로, 세어 봐야 해소 불가 누락이 된다.
+rm -rf "$TMP/t13"; mk_batch "$TMP/t13" yes 2 0
+out=$(cd "$TMP/t13" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'Phase 3' \
+   && ! printf '%s' "$out" | grep -q '게이트 전파 누락'; then
+  ok "T13 evidence 부재 FID 는 분모 제외 → 전파 줄 미출력"
+else
+  nope "T13 근거 없는 수치 출력" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T14 진행 중 batch → 전파 줄 미출력 (Phase 3 이전이라 전파 0건이 정상) ──
+#    외부 critic 지적: else 분기에서도 경고하면 해소 불가능한 오경보가 매 세션 반복된다.
+#    ★ 아래 mk_evidence 3줄을 지우지 말 것 — evidence 가 있어야 "else 분기라서" 줄이 안 나오는
+#      것을 잠근다. 없으면 n_fid=0 가드에 걸려 엉뚱한 이유로 green 이 된다.
+rm -rf "$TMP/t14"; mk_batch "$TMP/t14" yes 3 2
+mk_evidence "$TMP/t14" 20260101-d1 ""
+mk_evidence "$TMP/t14" 20260101-d2 ""
+mk_evidence "$TMP/t14" 20260101-d3 ""
+out=$(cd "$TMP/t14" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -qE '3/5' \
+   && ! printf '%s' "$out" | grep -q '게이트 전파 누락'; then
+  ok "T14 진행 중 batch → 전파 줄 미출력"
+else
+  nope "T14 진행 중 오경보" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
 fi
 
 finish

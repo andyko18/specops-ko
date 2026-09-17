@@ -71,6 +71,41 @@ for marker in "$SPECOPS"/batch-*/ACTIVE; do
     # argus 가 정확히 이 상태였다. "완료" 가 아니라 "다음 단계가 안 돌았다" 를 말해야 재개된다.
     echo "⚠️ 미완 batch — ${batch_id}: 전 FR 완료(${done_n}/${total})인데 **Phase 3 완료 미실행**(batch 보안·통합·성능 → batch PR). ACTIVE 마커가 남아 있다."
     echo "   재개: /start-all 재호출 시 Phase 0 이 이 batch 를 재개한다. 상태 점검은 bash \${CLAUDE_PLUGIN_ROOT}/scripts/batch-state.sh $batch_dir"
+
+    # 게이트 전파 현황 — **전건 완료 batch 에서만** 본다.
+    #   진행 중(else 분기)에는 Phase 3 자체가 아직이라 전파 0건이 정상이다. 거기서 경고하면
+    #   해소할 수 없는 오경보가 매 세션 반복된다.
+    # 전파 대상 = IMPL_DONE **이면서 evidence.md 가 있는** FID.
+    #   record-batch-gate.sh:63 이 evidence.md 없는 FID 를 skip 하므로, 분모를 IMPL_DONE 전체로
+    #   잡으면 안내한 명령을 실행해도 그 몫이 남아 **영구 해소 불가 누락**이 된다.
+    raw=$(awk -F'|' "$QUEUE_AWK_QNORM"'
+      /^[[:space:]]*\|/ {
+        id = qnorm($2)
+        if (id == "FR-ID" || id !~ /^FR-/) next
+        st = ""
+        for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+        if (st == "IMPL_DONE") print qnorm($3)
+      }
+    ' "$queue" | grep -E '^[0-9]{8}-[a-z0-9-]+$' || true)
+    fids=""; n_fid=0
+    for f in $raw; do
+      [ -f "$SPECOPS/$f/evidence.md" ] || continue
+      fids="${fids}${fids:+ }$f"; n_fid=$((n_fid + 1))
+    done
+    miss=""
+    if [ "$n_fid" -gt 0 ]; then
+      for pair in security:security-review integration:integration-test performance:performance-test; do
+        short=${pair%%:*}; hdr=${pair#*:}
+        have=0
+        for f in $fids; do
+          grep -q "^## /$hdr" "$SPECOPS/$f/evidence.md" 2>/dev/null && have=$((have + 1))
+        done
+        [ "$have" -lt "$n_fid" ] && miss="${miss}${miss:+ · }${short} ${have}/${n_fid}"
+      done
+    fi
+    if [ -n "$miss" ]; then
+      echo "   게이트 전파 누락: ${miss} — Phase 3 Step A/B/C 를 **실행한 뒤 그 판정을** 전파한다: bash \${CLAUDE_PLUGIN_ROOT}/scripts/_internal/record-batch-gate.sh $batch_dir {게이트} {PASS 또는 SKIP}"
+    fi
   else
     echo "⚠️ 미완 batch — ${batch_id}: ${done_n}/${total} 완료. ACTIVE 마커가 남아 있다."
     echo "   재개: /start-all 재호출 시 Phase 0 이 이 batch 를 재개한다(PENDING/PLAN_DONE 부터)."
