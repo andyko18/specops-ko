@@ -131,6 +131,25 @@ specops-ko:verifying-evidence-ko 호출
 한 번의 Evaluator dispatch여도 **감사 teeth는 per-task 파일**을 요구한다 (`check-review-audit.sh`):
 
 1. 리뷰어는 FID 전체를 보고 tid 마다 `<<<REVIEW …>>>` 블록으로 전문을 낸다. SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` 로 분할 저장하고(통과 판정이 아니면 `-feedback.md` 병기) 리뷰어에게 요약 재종료를 요구한다. 판정 SoT = reviews 파일 — 부모는 반환 요약이 아니라 파일을 읽어 판정한다. report 부재 시 부모 fallback 저장: 훅이 돌지 않았거나 블록 형식이 틀리면 리뷰어 전문이 그대로 반환되므로 부모가 태스크별로 분할 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다 — 반환이 훅 요약(`저장:` 경로 목록)이 아니면 이전 라운드 report 가 남아 있어도 반환 전문으로 tid 별로 덮어써, 형식 오류·이동 실패로 옛 판정을 읽는 경로를 막는다
+
+> **부모 dispatch 프롬프트 규약 (형식을 그대로 옮길 것)**: Phase B/C dispatch 시 리뷰어에게 아래 형식을 지시한다. 속성을 생략하면 훅이 저장하지 않는다 — 형식이 어긋나면 훅이 `exit 1` 로 사유를 남기고 부모 fallback 경로로 떨어진다.
+>
+> ```
+> <<<REVIEW fid=<FID> tid=<T#> phase=<B 또는 C> verdict=<PASS|READY_TO_MERGE|NEEDS_FIX|NEEDS_DISCUSSION>>>
+> (보고서 전문)
+> <<<END>>>
+> ```
+>
+> `fid` 는 `YYYYMMDD-slug`, `tid` 는 `T` + 숫자, `phase` 는 `B` 또는 `C` 다. tid 마다 블록을 하나씩 낸다.
+>
+> **채운 예시** — 위 골격의 꺾쇠 자리표시자는 닫는 `>` 가 마커의 `>>>` 와 이어져 개수를 오독하기 쉽다. 프롬프트에는 아래처럼 **값을 채운 형태**로 적는다:
+>
+> ```
+> <<<REVIEW fid=20260917-example-fid tid=T2 phase=B verdict=PASS>>>
+> (보고서 전문)
+> <<<END>>>
+> ```
+
 2. dispatch-log 행은 부모가 기록 — `dispatch-log.md`에 **tid마다** 1행 append — `reviews/<tid>-B-report.md` 경로 포함 (또는 `## task-<tid>` 섹션 + Phase 셀 `B`/`C`)
 3. 금지: `all-B-report.md`만 남기고 tid 파일 0건 (audit가 `all`을 tid로 오인하거나 SKIP/FAIL)
 4. dispatch-log 투명성: `| <ts> | End-loaded-B | spec-reviewer-ko | PASS|FAIL | reviews/<tid>-B-report.md |` 형태를 tid 루프에 기록

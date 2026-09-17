@@ -70,4 +70,13 @@ else nope "T4.c file-based-communication-ko 프로필 한계 부재"; fi
 if grep -qF '반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장' "$PLUGIN/commands/start-all.md"; then ok "T4.d start-all fallback 덮어쓰기 조건"
 else nope "T4.d start-all fallback 덮어쓰기 조건 부재"; fi
 
+# ── T5 부모 dispatch 규약 — implementing-ko 에 정확한 meta 형식이 있다 ──
+IMP="$PLUGIN/skills/implementing-ko/SKILL.md"
+if grep -qF 'fid=<FID> tid=<T#> phase=<B 또는 C> verdict=' "$IMP"; then ok "T5.a implementing-ko meta 형식 명시"
+else nope "T5.a implementing-ko meta 형식 부재"; fi
+if grep -qF 'PASS|READY_TO_MERGE|NEEDS_FIX|NEEDS_DISCUSSION' "$IMP"; then ok "T5.b implementing-ko verdict 어휘 4종"
+else nope "T5.b implementing-ko verdict 어휘 부재"; fi
+if grep -qF '속성을 생략하면 훅이 저장하지 않는다' "$IMP"; then ok "T5.c implementing-ko 축약 금지 경고"
+else nope "T5.c implementing-ko 축약 금지 경고 부재"; fi
+
 finish
