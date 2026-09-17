@@ -8,7 +8,7 @@ CMD="$PLUGIN/commands/init-project.md"
 BM_SKILL="$PLUGIN/skills/brainstorming-ko/SKILL.md"
 BM_CMD="$PLUGIN/commands/brainstorming.md"
 E2E_SKILL="$PLUGIN/skills/e2e-test-ko/SKILL.md"
-INTENT_TPL="$PLUGIN/templates/intent.md"
+PROCESS_TPL="$PLUGIN/templates/process-design.md"
 SPEC_SKILL="$PLUGIN/skills/specifying-ko/SKILL.md"
 PASS=0; FAIL=0
 t() { # $1=id $2=desc $3=ERE pattern $4=file
@@ -27,27 +27,33 @@ t T1.e "단일 커밋"                  '부트스트랩\+enrich|단일 커밋' 
 # AC-2 PRD 초안 합성
 t T2.a "PRD 6필드 초안 합성"        '6필드 초안'                                       "$CMD"
 t T2.b "근거문서 부재 fallback"     '(메모 부재|다 부재).*(수동|현행)'                 "$CMD"   # 개수 비의존 — 경로가 늘 때마다 깨지지 않게(2→3: 20260716 · 3→4: 20260820 plan 0-b2)
-# AC-1·AC-2 intent 템플릿 (프로세스 단위 — 화면별 아님)
-t T13.a "intent 7요소 골격"        '트리거·행위자·화면·API·테이블·결과·예외'          "$INTENT_TPL"
-t T13.b "intent 예시 마커 격리"     'specops:example:start|예시 없음'                  "$INTENT_TPL"
+# AC-1·AC-2 프로세스 설계 템플릿 (프로세스 단위 — 화면별 아님)
+# 20260917 개명: templates/intent.md → templates/process-design.md
+# (기능 단위 intent 템플릿과 이름이 겹쳐 분리 — 신 intent.md 는 별도 계약)
+t T13.a "process-design 7요소 골격" '트리거·행위자·화면·API·테이블·결과·예외'          "$PROCESS_TPL"
+t T13.b "process-design 예시 격리"  'specops:example:start|예시 없음'                  "$PROCESS_TPL"
 # AC-4·5·9·10·11 Phase 11 화면·프로세스 보강 계약
 # T13.e 는 헤더가 아니라 **계약 본문**을 잡는다 — 초안 `…(생성하지 않는|제외)` 는 같은 줄 헤더
 # `**셸 3종 제외**:` 만으로 매칭돼 본문을 지워도 PASS 했다(plan-reviewer 2회차 실측: 거짓 격추).
 t T13.e "allowlist 3종 미생성"      '(app-shell|셸 3종).*생성하지 않는'                "$CMD"
 t T13.f "화면 .html 동시+마커삭제"  '`screens/<name>\.html` 을 \*\*함께\*\* 생성'      "$CMD"
 t T13.g "overview 상태 셀 갱신"     'init 보강 \(미확정'                               "$CMD"
-t T13.h "intent KIND 무관"          'intent\.md.*KIND 무관|KIND 무관 항상 산출'         "$CMD"
-# T13.l — intent 골격의 출처·대상 경로 (T13.f 의 화면판과 대칭).
-# `intent.md` 는 bash 비생성분이라 이 산문이 유일한 생성 경로다 — 빠지면 LLM 이 7요소
-# 골격 없이 자유 작성하거나 skip 한다. 리터럴 `templates/intent.md` 는 `:78` 불릿에만 둔다
+# T13.h — 대안 `KIND 무관 항상 산출` 은 개명 전 `:78` 에도 매치해 판별력이 0 이라 제거했다
+# (T13.e·T13.l 이 겪은 "공허 매칭" 과 같은 병 — tasks.md Task 1 Step 2 주석).
+t T13.h "process-design KIND 무관"  'process-design\.md.*KIND 무관'                    "$CMD"
+# T13.l — process-design 골격의 출처·대상 경로 (T13.f 의 화면판과 대칭).
+# `process-design.md` 는 bash 비생성분이라 이 산문이 유일한 생성 경로다 — 빠지면 LLM 이 7요소
+# 골격 없이 자유 작성하거나 skip 한다. 리터럴 `templates/process-design.md` 는 `:78` 불릿에만 둔다
 # (헤더에도 두면 불릿을 지워도 통과하는 공허 매칭이 된다 — T13.e 가 겪은 거짓 격추).
-t T13.l "intent 골격 출처·대상 경로" 'templates/intent\.md` 기반으로 `\.specops/memory/intent\.md'  "$CMD"
+t T13.l "골격 출처·대상 경로"        'templates/process-design\.md` 기반으로 `\.specops/memory/process-design\.md'  "$CMD"
+# T13.n — 하류 이관은 **제안만** (AC-2). 자동 개명·덮어쓰기는 사용자 주권 침해다.
+t T13.n "구 intent.md 이관 제안·자동변경 금지" '구 .*intent\.md.*process-design.*제안|덮어쓰지 않' "$CMD"
 # T13.m — 미확정 마커 수 **상한 없음** (사용자 결정 Q3 · AC-11 마지막 문장).
 # T13.g 는 `init 보강 (미확정` 만 보므로 "최대 3개" 가 삽입돼도 통과한다 — 같은 줄이라
 # 변이 실증 시 상한 문구만 지워야 T13.m 단독 격추가 확인된다.
 t T13.m "마커 수 상한 없음"          '마커 수 상한.*두지 않는'                          "$CMD"
 # AC-6 소비측 배선 — 생성측(Phase 11)만 강화하고 읽는 쪽을 빼먹는 패턴 차단
-t T13.i "specifying 이 intent 소비"  '\| `intent\.md` \|'                               "$SPEC_SKILL"
+t T13.i "specifying 이 소비"          '\| `process-design\.md` \|'                       "$SPEC_SKILL"
 t T13.j "화면 보강 DESIGN.md 준수"  'DESIGN\.md.*(§6\.1|화면 원형)'                    "$CMD"
 # AC-3 사실성·상세성 계약 (Karpathy)
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
@@ -202,10 +208,10 @@ fi
 # Phase 4 확정분(§1~2)은 보강이 덮지 않는다는 경계 명시
 t T12.c "Phase 4 확정분 보존 경계"    'Phase 4 확정|§1.*보존|사용자 응답.*덮어쓰기 금지' "$CMD"
 
-# ── T13.c/T13.d: 화면·intent 가 '깊게' 불릿 항목인지 (블록 추출) ──────────────
+# ── T13.c/T13.d: 화면·process-design 이 '깊게' 불릿 항목인지 (블록 추출) ──────
 # 줄 grep 은 인접 언급(Phase 7 의 screens 서술 등)에 공허 통과한다 — T12.b 와 동일 이유.
 _deep2=$(awk '/^\*\*깊게\*\*/{f=1;next} f&&/^$/{exit} f' "$CMD")
-for _pair in 'T13.c|screens/<name>\.md|화면이' 'T13.d|intent\.md|프로세스가'; do
+for _pair in 'T13.c|screens/<name>\.md|화면이' 'T13.d|process-design\.md|프로세스가'; do
   _id=${_pair%%|*}; _rest=${_pair#*|}; _pat=${_rest%%|*}; _what=${_rest#*|}
   if printf '%s\n' "$_deep2" | grep -qE "^- \`$_pat\`"; then
     printf 'PASS %-6s %s\n' "$_id" "$_what '깊게' 불릿 항목으로 명시"; PASS=$((PASS+1))

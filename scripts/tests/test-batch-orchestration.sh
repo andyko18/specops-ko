@@ -73,10 +73,10 @@ grep -q '^## \[S8\] BATCH' "$E2E" && grep -q 'V22' "$E2E" && grep -q 'V23' "$E2E
   && ok "T6.a e2e [S8]+V22~24 정의" || nope "T6.a [S8]" "블록/V 정의 없음"
 
 # ── T7: V 개수 동기 3곳 (AC-5) ──
-c1=$(grep -c '24개 검증 항목(V1~V24)' "$E2E"); c2=$(grep -c '24개 검증 항목' "$PLUGIN/commands/e2e-test.md")
+c1=$(grep -c '25개 검증 항목(V1~V25)' "$E2E"); c2=$(grep -c '25개 검증 항목' "$PLUGIN/commands/e2e-test.md")
 r21=$(grep -c '21개 검증 항목' "$E2E" "$PLUGIN/commands/e2e-test.md" | awk -F: '{s+=$2} END{print s}')
 [ "$c1" -ge 1 ] && [ "$c2" -ge 1 ] && [ "$r21" -eq 0 ] \
-  && ok "T7.a V 개수 24 동기·21 잔존 0" || nope "T7.a V 동기" "c1=$c1 c2=$c2 r21=$r21"
+  && ok "T7.a V 개수 25 동기·21 잔존 0" || nope "T7.a V 동기" "c1=$c1 c2=$c2 r21=$r21"
 
 # ── T8: Phase 2.5 batch 통합 design-first (화면→IF) 계약 ──
 # dogfood 발견: start-all 이 화면 design-first 를 각 FR specify 에 못 끼워 화면설계가 몰림.

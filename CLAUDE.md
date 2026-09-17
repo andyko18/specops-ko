@@ -93,6 +93,7 @@ Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하�
 
 ```
 .specops/<FID>/
+├── intent.md                          ← specifying 1.5 산출 (설계 전 승인)
 ├── spec.md + acceptance-criteria.md   ← /specify 산출
 ├── clarifications.md                  ← /clarify 산출
 ├── plan.md                            ← /plan 산출

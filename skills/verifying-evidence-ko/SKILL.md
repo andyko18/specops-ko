@@ -166,6 +166,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 - [ ] 회귀 테스트 Red-Green 사이클 검증 (버그 픽스 태스크인 경우)
 - [ ] **RED 실측 출력 원문 인용** — evidence.md 의 RED 관찰 기록은 카운트 요약 주장이 아니라 실측 출력 원문(요약행+FAIL 라인 ≤10줄) 인용 (GREEN 인용과 대칭)
 - [ ] 서브에이전트 위임 태스크면 `git diff` 확인 (변경이 실제로 일어남)
+- [ ] **intent 기대 결과 관찰** — intent 의 기대 결과가 실제로 관찰됐는지 evidence.md 에 1줄 기록(비차단 — 부재 시 graceful)
 - [ ] **memory 설계 동기화 점검 (역방향 안전망 — design-first 보조)**: `.specops/memory/api-spec.md`·`api-spec-consumer.md`·`data-model.md` 또는 **프로젝트 루트 `screens/`**(`.specops/memory/` 하위가 **아닌** 저장소 루트 `screens/` — M-1 오독 방지) 가 하나라도 존재할 때만 (없으면 graceful skip — CLI 등).
   - **inspect-first**(코드를 진실원천으로): 이번 FID 의 **브랜치 누적 변경**에서 추출한다 — `git diff "$(git show-ref -q --verify refs/heads/main && echo main || echo master)"...HEAD` (base=main/master 자동). **주의**: `/implement` 가 태스크별로 **커밋**하므로 verify 시점엔 working-tree 가 클린 → bare `git diff`(unstaged)는 **빈 출력**이라 무탐지로 항상 통과한다(안전망 무력화). 반드시 `base...HEAD` 커밋분을 본다(R-2 거버넌스 `_detect_base_branch` 와 동일 패턴).
   - 추출 대상: 새/변경 **제공 엔드포인트**(라우트 정의 — 내부 함수 시그니처는 제외, 정방향 Step 5.6 "제공" 기준과 통일) · **외부 API 소비 호출**(신규 외부 호스트로의 fetch/axios/SDK 클라이언트 — UI·Mobile 의 소비 IF 축, `api-spec-consumer.md` 존재 시. 정방향 Step 5.6 "외부 소비" 기준과 통일 — 이 축이 빠지면 소비 IF 만 정방향 설계는 있는데 역방향 대조가 없는 반쪽 안전망이 된다) · **스키마**(테이블·필드·마이그레이션) · **클라이언트 영속 데이터**(localStorage 키(`setItem` 신규 네임스페이스)·IndexedDB objectStore — Step 5.6 클라이언트 스토리지 축과 통일) · **화면 계약**(screens/{name}.md ↔ 구현 산출물 — Step 5.5 design-first. screens-overview.md 화면목록 대비 구현 누락·드리프트).

@@ -64,6 +64,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | foundation-shell | allowlist(`app-shell`/`layout`/`login`) ∩ `<!-- foundation-shell -->` 화면이 Phase 2.5-A에서 재작성·마커 삭제됨 | 기능 화면이 셸 컴포넌트를 복제 구현(실측) | — |
 | 스펙 정합 | 화면/IF가 전 FID spec §범위와 정면 모순 | spec §참조에 경로 누락 | 요약 문장 부재 |
 | 플레이스홀더 | 설계 본문에 미치환 `<PLACEHOLDER>`·빈 템플릿 블록 | TBD/TODO가 must 경로에 잔존 | 주석성 TODO |
+| 잔여 미확정 | — | 담당 FR 범위에서 확정 가능한데 `<미확정 — 근거 필요>` 가 남아 있으면 Important | FR 범위 밖이라 확정 불가 |
 | 상태 설계 | — | `empty`·`error` 미정의 (실측: `check-screen-quality.sh` `states`) | `loading` 만 누락 |
 | 접근성 | — | label 누락 input 존재 (실측: 동 `a11y-label`) | 랜드마크 0개 (동 `semantic`) |
 | 디자인 시스템 준수 | — | 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | 1~2건 |

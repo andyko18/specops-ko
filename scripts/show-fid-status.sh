@@ -159,7 +159,7 @@ fi
 
 # FR-4: 아티팩트 현황
 printf '## 아티팩트 현황\n\n'
-for artifact in spec.md acceptance-criteria.md plan.md tasks.md evidence.md; do
+for artifact in intent.md spec.md acceptance-criteria.md plan.md tasks.md evidence.md; do
   if [ -f "$FID_DIR/$artifact" ]; then
     printf '  \xe2\x9c\x85 %s\n' "$artifact"
   else

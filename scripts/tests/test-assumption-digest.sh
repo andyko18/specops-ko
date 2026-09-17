@@ -90,4 +90,16 @@ grep -q 'collect-assumptions.sh' "$PLUGIN/commands/start-all-auto.md" \
 grep -q 'collect-assumptions.sh' "$PLUGIN/commands/start-all.md" \
   && ok "T8 start-all 배선(공유)" || nope "T8" "미배선"
 
+# T-intent: 자동 결정 intent 가 ASSUMED 로 집계된다
+#   ★ 픽스처는 collect-assumptions 실제 스키마를 따른다 (plan-review 1회차 I-1):
+#   FID 는 queue 행 **2열**, 상태 셀은 `IMPL_DONE`, spec 은 batch-dir 의 **상위**(.specops/<fid>/spec.md)
+TD=$(mktemp -d); mkdir -p "$TD/.specops/batch-x" "$TD/.specops/20260917-x"
+printf '| FR-1 | 20260917-x | 자동 결정 intent 케이스 | IMPL_DONE |\n' > "$TD/.specops/batch-x/queue.md"
+printf '**자동 결정 intent**: 재고 마감 알림 부재\n' > "$TD/.specops/20260917-x/spec.md"
+out=$(bash "$PLUGIN/scripts/_internal/collect-assumptions.sh" "$TD/.specops/batch-x" 2>&1)
+printf '%s' "$out" | grep -q '자동 결정 intent' \
+  && { PASS=$((PASS+1)); echo "PASS T-intent 자동 결정 intent 집계"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-intent ($out)"; }
+rm -rf "$TD"
+
 finish

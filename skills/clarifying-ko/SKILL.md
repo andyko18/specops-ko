@@ -41,7 +41,9 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 다음 각 항목을 순서대로 태스크로 만들어 완료한다:
 
 1. **입력 아티팩트 확인** — `.specops/<FID>/spec.md` + `.specops/<FID>/acceptance-criteria.md` 존재. 없으면 specifying-ko 선행 요청하고 **중단**
+   - 입력에 `.specops/<FID>/intent.md` 포함(있으면) — 부재 시 graceful 진행
 2. **모호성 탐지** — spec.md §열린 질문 + AC Given/When/Then 완결성 + 충돌·이중 해석 소지
+   - **intent 열린 질문 미처리**: intent 의 IQ 가 spec §8 에서 답변·이월 중 어느 쪽으로도 처리되지 않았으면 BLOCKING 후보
 3. **우선순위 분류** — BLOCKING vs DESIRABLE. (BLOCKING=0 이고 §auto 아니면 → 아래 `## 경량 모드 (lite)` 섹션 참조)
 4. **사용자 대화** — 존댓말, BLOCKING은 한 번에 하나, DESIRABLE은 독립 시 최대 3건 묶음
 5. **기존 clarifications.md 회전** — 있으면 `bash hooks/rotate-evaluator-artifact.sh .specops/<FID>/clarifications.md` 실행

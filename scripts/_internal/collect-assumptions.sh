@@ -13,7 +13,7 @@
 #
 # 집계 범위: queue.md 의 **IMPL_DONE FID** 만(batch 에 실제 포함된 것).
 #   ① clarifications.md 의 `status: ASSUMED` Q-block
-#   ② spec.md §1 의 `**자동 결정 화면**` · `**자동 결정 인터페이스**` (사용자 미확인 설계 결정)
+#   ② spec.md §1 의 `**자동 결정 화면**` · `**자동 결정 인터페이스**` · `**자동 결정 intent**` (사용자 미확인 결정)
 # 가정 0건도 **명시 보고**한다 — "0건" 과 "집계 안 함" 은 다르다.
 set -u
 
@@ -69,7 +69,7 @@ EOF
       section="${section}- ASSUMED · ${line}"$'\n'
       total=$((total + 1))
     done <<EOF
-$(grep -E '^\*\*자동 결정 (화면|인터페이스)\*\*:' "$spec" 2>/dev/null | sed 's/^\*\*//; s/\*\*//' || true)
+$(grep -E '^\*\*자동 결정 (화면|인터페이스|intent)\*\*:' "$spec" 2>/dev/null | sed 's/^\*\*//; s/\*\*//' || true)
 EOF
   fi
 

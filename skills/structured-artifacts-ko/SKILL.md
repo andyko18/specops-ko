@@ -28,6 +28,7 @@ used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 ```
 .specops/
 ├── <FID>/                         # 기능별 작업 공간
+│   ├── intent.md                  # specifying 1.5 생성 (설계 전 승인)
 │   ├── spec.md                    # /specify 생성
 │   ├── acceptance-criteria.md     # /specify 생성, /clarify 수정
 │   ├── clarifications.md          # /clarify 생성

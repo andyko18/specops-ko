@@ -4,6 +4,45 @@
 
 ## [Unreleased]
 
+### 기능 단위 intent.md — 설계 전에 승인되는 산출물을 기계가 본다 (#55)
+
+⚠️ **breaking (하류 영향)**: `templates/intent.md` 의 **의미가 바뀐다**. 종전 이 파일은 `/init-project` 가
+프로젝트 1회 산출하는 **프로세스 설계서**(트리거·행위자·화면·API·테이블·결과·예외 7요소)였고, 이제
+`templates/process-design.md` 다. 같은 경로명 `intent.md` 는 **기능(FID) 단위 intent 템플릿**이 재사용한다 —
+`.specops/memory/intent.md` 를 가진 하류 repo 는 이름이 겹치므로 이관이 필요하다. **자동 개명하지 않는다**:
+`/init-project --enrich`/`--resume` 규약과 `check-intent.sh` 가 `git mv` 를 **제안(WARN)만** 하고 rc=0 을 유지하며
+파일을 건드리지 않는다(해시 불변으로 잠금). 자동 개명은 사용자 파일을 말없이 바꾸는 것이라 5원칙 4(주권)에 걸린다.
+
+동기: specifying 이 "무엇을·왜" 를 spec(how) 안에서 함께 다뤄, 요청 원문과 제약이 설계 산문에 녹아
+**되짚을 원본이 없었다**. 산문 지시만으로는 빠져도 아무도 모른다 — `check-maintain-baseline` 도입 전
+analyzing 산출물이 0개인 채 통과하던 것과 같은 클래스다.
+
+- **`templates/intent.md` 신설(5절)** — 문제 · 기대 결과 · 영향 사용자·시스템 · 제약 · 열린 질문 +
+  작성자·`Status`(draft/accepted/assumed)·FID 헤더 + 요청 원문 인용 자리. 열린 질문 0건은 `- 없음` 으로 적는다.
+- **`scripts/_internal/check-intent.sh` 신설** — 존재·채움만 판정한다(사용자 승인은 기계화 불가).
+  `INTENT: FAIL` rc=1(부재·템플릿 placeholder 잔존) · `SKIP` rc=0(비날짜 FID·`CUTOFF=20260918` 이전·spec 부재) ·
+  미참조 spec 은 **WARN rc=0**(게이트를 막지 않는다). **env override 를 두지 않았다** — 모델이 스스로 여는
+  면제 경로는 제거된 `§auto` 자기발급 면제표와 같은 병이다.
+- **`emit-context.sh` 게이트 배선** — intent 부재 시 rc=1 로 멈추고 `dispatch/` 를 **만들지 않는다**(원자성).
+  cutoff 이전 FID 는 종전과 동일하게 dispatch 를 산출한다(진행 중 작업 보호 — 실측).
+- **`specifying-ko` 체크리스트 `1.5`** — 소수점 삽입으로 기존 번호 2~10 불변. 신규·foundation 은 독립 HARD GATE,
+  maintain·lite 는 설계 승인과 통합, batch 는 FR 행에서 도출, `§auto` 는 `ASSUMED` 표기.
+- **소비 배선** — `clarifying`·`planning`·`verifying-evidence`·`performance-test`·`start-all(-auto)` 가 intent 를 읽고,
+  `collect-assumptions.sh` 가 자동 결정 intent 를 집계하며, 아티팩트 목록 3곳(CLAUDE.md·`structured-artifacts-ko`·
+  `show-fid-status.sh`)에 `intent.md` 가 올랐다.
+- **설계 시점 진실화** — `/design-screen`·`/design-interface` 의 분업 문구가 `/init-project` **Phase 11 본설계**를
+  반영한다("목록만"·"골격만" 은 Phase 11 이전 서술이라, 읽는 사람이 채워진 화면·IF 를 빈 껍데기로 알고
+  재생성했다). `/start-all` Phase 2.5-A/B 는 재사용하는 화면·행의 `<미확정 — 근거 필요>` **마커만** 채우고,
+  `design-reviewer-ko` 6관점에 **잔여 미확정**(Important) 이 생겼다.
+- **e2e `[S0.5] INTENT` + V25** — greet-cli fixture 가 spec **앞에서** intent.md 를 쓴다(cutoff 이후 날짜 FID 로
+  돌면 `emit-context` 에서 멈추던 경로). 검증 항목 24 → **25**(`V1~V25`), 목표 `PASS=25`(V8 SKIP 시 ≥24).
+  판정은 **S6 에서** 한다 — S0.5 시점엔 spec.md 가 없어 `check-intent.sh` 가 SKIP rc=0 을 내므로 그 자리의
+  rc 는 아무것도 증명하지 못한다.
+- **전파 원장 2건** — `intent-per-fid-gate`(판정기↔emit-context↔specifying 1.5↔템플릿↔회귀 5 edge) ·
+  `process-design-rename`(생산↔소비 2 edge). 227 → **234 edges**.
+- **한계**: `check-intent.sh` 는 **존재·채움만** 본다 — intent 내용이 실제 요청과 맞는지, 사용자가 승인했는지는
+  판정하지 않는다(대화는 기계화 불가). cutoff 는 근사값이라 `20260918` 이전 시작 FID 는 전부 면제다.
+
 ### 게이트 판정 보유율 측정 — 없는 계수기를 만들었다 (#54)
 
 6회차 평가 처방 1("완주 계수기를 고쳐라")의 대상이 **코드에 없었다**. `spec·plan·tasks·evidence`

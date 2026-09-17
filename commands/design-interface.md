@@ -24,7 +24,7 @@ reference_upstream: specops-ko 독자 추가
 | **`/design-interface [name]`** | 독립 슬래시 | lifecycle 밖에서 **인터페이스 1개** 신규/수정 |
 | **`/design-interfaces`** | 독립 슬래시 | lifecycle 밖에서 **여러 인터페이스 일괄** (목록 자동판단+승인게이트+순차루프) |
 
-> `/init-project` Phase 8f/8e 는 `api-spec.md`·`data-model.md` **골격**만 생성 — 위 경로가 채운다.
+> `/init-project` Phase 11 이 `api-spec.md`·`data-model.md` 를 PRD 기반 **실설계**로 채운다. 위 경로는 그 위에 FR 확정분을 갱신하고 남은 미확정을 메운다.
 
 ## Process
 

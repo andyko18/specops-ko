@@ -23,6 +23,8 @@ used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all
 **플랜 저장 경로**: `.specops/<FID>/plan.md`
 - 사용자 선호가 있으면 그 경로 우선
 
+- 입력: `.specops/<FID>/intent.md`(있으면) + `spec.md` + `acceptance-criteria.md` — intent 는 "왜", spec 은 "무엇", plan 은 "어떻게"
+
 ## 범위 점검
 
 스펙이 여러 독립 서브시스템을 담으면 specifying 단계에서 서브프로젝트 스펙으로 쪼개졌어야 함. 그러지 않았다면 **지금이라도 분해 제안** — 서브시스템별 별도 플랜으로. 각 플랜은 단독으로 **동작하는·테스트 가능한 소프트웨어**를 산출해야 함.
