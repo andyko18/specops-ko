@@ -16,13 +16,19 @@ R="$TD/.specops/$FID/reviews"
 _reset() { rm -rf "$TD/.specops"; mkdir -p "$R"; }
 # $1=tid $2=phase $3=verdict $4=body
 _block() { printf '<<<REVIEW fid=%s tid=%s phase=%s verdict=%s>>>\n%s\n<<<END>>>\n' "$FID" "$1" "$2" "$3" "$4"; }
-# $1=message $2=true|false → RC, ERR
+# $1=message $2=true|false → RC, ERR, OUT
+# stdout 은 버리지 않고 파일로 받는다 — FR-3(stdout 공백)은 위생이 아니라 FR-1 의 성립 전제다
+#   (stdout 에 JSON 을 쓰면 종료 코드가 통째로 무시된다). 훅은 1회만 실행한다 —
+#   두 번 돌리면 저장 부작용이 두 번 나서 파일 상태를 단언하는 T1.* 가 깨진다.
+# mktemp 는 $TD·$TDROOT **밖**에 만든다 — 안에 두면 _files()·T1.g 의 트리 비교에 잡혀 오탐한다.
 _run() {
-  local json
+  local json so
   json=$(jq -n --arg cwd "$TD" --arg m "$1" --argjson a "$2" \
     '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
-  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >/dev/null)
+  so=$(mktemp)
+  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >"$so")
   RC=$?
+  OUT=$(cat "$so"); rm -f "$so"
 }
 _files() { (cd "$TD" && find . -type f | LC_ALL=C sort); }
 _leftover() { ls -A "$R" | grep -E '\.(tmp|bak)\.' ; }  # 이번 실행의 임시·백업 파일 잔존
@@ -70,24 +76,32 @@ if [ "$RC" -eq 2 ] && cmp -s "$R/T2-B-report.md" "$R/T2-B-feedback.md" \
 else nope "T1.e AC-2" "rc=$RC $(ls "$R" | tr '\n' ' ')"; fi
 
 # ── T1.f AC-4 fail-open 4경우 (기존 파일 보존 · 신규 0) ──
-_fail_open() {  # $1=desc $2=message $3=runner(선택: jq-less)
-  _reset; printf 'X\n' > "$R/T1-C-report.md"; local pre; pre=$(_files)
+#  $1=desc $2=message $3=runner(선택: jq-less) $4=기대 rc(선택: 기본 0)
+#  기대 rc 를 인자로 받는다 — f1·f2·f4 는 계약 판정이라 exit 1 이고 f3(jq 부재)만 인프라라 exit 0 이다.
+#  헬퍼 본문에 0 을 박으면 두 성격이 같은 기대를 공유해 계약 변경이 인프라 침묵까지 끌고 간다.
+_fail_open() {
+  _reset; printf 'X\n' > "$R/T1-C-report.md"; local pre so; pre=$(_files)
   if [ "${3:-}" = "nojq" ]; then
     mkdir -p "$TD/bin"
     for t in cat dirname mktemp awk cp mv rm mkdir bash env; do ln -sf "$(command -v $t)" "$TD/bin/$t"; done
     json=$(jq -n --arg cwd "$TD" --arg m "$2" '{cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
-    ERR=$(printf '%s' "$json" | PATH="$TD/bin" SPECOPS_CONFIG="$TD/none.yaml" "$BASH" "$HOOK" 2>&1 >/dev/null); RC=$?
+    # 이 분기는 _run 을 타지 않으므로 OUT 을 여기서 직접 채운다 — 안 채우면 직전 _run 의
+    #   값이 남아 아래 [ -z "$OUT" ] 가 이번 실행이 아닌 과거를 단언한다(AC-6 이 막는 빈 단언).
+    #   mktemp·cat 은 PATH= 접두 밖이라 실제 PATH 를 쓴다($TD/bin 과 무관).
+    so=$(mktemp)
+    ERR=$(printf '%s' "$json" | PATH="$TD/bin" SPECOPS_CONFIG="$TD/none.yaml" "$BASH" "$HOOK" 2>&1 >"$so"); RC=$?
+    OUT=$(cat "$so"); rm -f "$so"
     rm -rf "$TD/bin"
   else
     _run "$2" false
   fi
-  if [ "$RC" -eq 0 ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then ok "$1"
-  else nope "$1" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
+  if [ "$RC" -eq "${4:-0}" ] && [ -z "$OUT" ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then ok "$1"
+  else nope "$1" "rc=$RC out=$OUT files=$(_files | tr '\n' ' ')"; fi
 }
-_fail_open "T1.f1 AC-4 마커 0개" "그냥 보고서 텍스트"
-_fail_open "T1.f2 AC-4 END 없는 미완 블록" "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문' "$FID")"
+_fail_open "T1.f1 AC-4 마커 0개" "그냥 보고서 텍스트" "" 1
+_fail_open "T1.f2 AC-4 END 없는 미완 블록" "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문' "$FID")" "" 1
 _fail_open "T1.f3 AC-4 jq 부재" "$(_block T1 C READY_TO_MERGE '본문')" nojq
-_fail_open "T1.f4 AC-4 FID 디렉토리 부재" "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문\n<<<END>>>')"
+_fail_open "T1.f4 AC-4 FID 디렉토리 부재" "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=READY_TO_MERGE>>>\n본문\n<<<END>>>')" "" 1
 
 # ── T1.g AC-5 경로 안전 — 비정상 값은 전부 무생성 ──
 for bad in 'fid=../../etc tid=T1 phase=C verdict=PASS' \
@@ -100,7 +114,7 @@ for bad in 'fid=../../etc tid=T1 phase=C verdict=PASS' \
   _reset; mkdir -p "$TDROOT/etc" "$R/.T1" "$R/T1"
   up_pre=$(cd "$TDROOT" && find . -type f | LC_ALL=C sort)
   _run "$(printf '<<<REVIEW %s>>>\n본문\n<<<END>>>' "$bad")" false
-  if [ "$RC" -eq 0 ] && [ "$(cd "$TDROOT" && find . -type f | LC_ALL=C sort)" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
+  if [ "$RC" -eq 1 ] && [ "$(cd "$TDROOT" && find . -type f | LC_ALL=C sort)" = "$up_pre" ]; then ok "T1.g AC-5 거부: $bad"
   else nope "T1.g AC-5 $bad" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
 done
 rm -rf "$TDROOT/etc"
@@ -116,20 +130,20 @@ _reset; printf 'X\n' > "$R/T1-C-report.md"; pre=$(_files)
 _run "$(_block T1 C READY_TO_MERGE '새 T1')
 $(_block T2 C READY_TO_MERGE '새 T2')
 $(printf '<<<REVIEW fid=%s tid=T3 phase=C verdict=READY_TO_MERGE>>>\n끝 없음' "$FID")" false
-if [ "$RC" -eq 0 ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then
-  ok "T1.i AC-9 블록 1개 오류 → 전체 무저장 exit 0"
+if [ "$RC" -eq 1 ] && [ "$(cat "$R/T1-C-report.md")" = "X" ] && [ "$(_files)" = "$pre" ]; then
+  ok "T1.i AC-9 블록 1개 오류 → 전체 무저장 exit 1"
 else nope "T1.i AC-9" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
 _reset; pre=$(_files)
 _run "$(_block T1 C READY_TO_MERGE '정상')
 $(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=OK>>>\n본문\n<<<END>>>' "$FID")" false
-if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ]; then ok "T1.j AC-9 허용값 밖 속성 섞임 → 전체 무저장"
+if [ "$RC" -eq 1 ] && [ "$(_files)" = "$pre" ]; then ok "T1.j AC-9 허용값 밖 속성 섞임 → 전체 무저장"
 else nope "T1.j AC-9" "rc=$RC"; fi
 
 # ── T1.k AC-10 동일 tid·phase 중복 ──
 _reset; pre=$(_files)
 _run "$(_block T1 C READY_TO_MERGE '첫째')
 $(_block T1 C READY_TO_MERGE '둘째')" false
-if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ]; then ok "T1.k AC-10 중복 tid·phase → 무저장"
+if [ "$RC" -eq 1 ] && [ "$(_files)" = "$pre" ]; then ok "T1.k AC-10 중복 tid·phase → 무저장"
 else nope "T1.k AC-10" "rc=$RC"; fi
 _reset
 _run "$(_block T1 B PASS 'B')
@@ -158,41 +172,41 @@ EOF
 chmod +x "$FAKEBIN/mv"
 _reset; printf 'OLD\n' > "$R/T1-C-report.md"; pre=$(_files)
 RUN_PATH="$FAKEBIN:$PATH" _run "$(_block T1 C NEEDS_FIX 'NEW')" false
-if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] && [ ! -e "$R/T1-C-feedback.md" ] \
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$(cat "$R/T1-C-report.md")" = "OLD" ] && [ ! -e "$R/T1-C-feedback.md" ] \
    && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
-  ok "T1.n1 AC-9 이동 실패 → 기존 report 보존 · feedback 미생성 · 임시·백업 잔존 0"
-else nope "T1.n1 AC-9" "rc=$RC err=$ERR report=$(cat "$R/T1-C-report.md" 2>/dev/null) $(ls -A "$R" | tr '\n' ' ')"; fi
+  ok "T1.n1 AC-9 이동 실패 → 기존 report 보존 · feedback 미생성 · 임시·백업 잔존 0 · stdout 공백"
+else nope "T1.n1 AC-9" "rc=$RC err=$ERR out=$OUT report=$(cat "$R/T1-C-report.md" 2>/dev/null) $(ls -A "$R" | tr '\n' ' ')"; fi
 # 앞 블록 이동 성공 후 뒤 블록 실패 — 기존 파일은 백업에서 복원, 새로 생긴 파일은 제거
 _reset; printf 'OLD-B\n' > "$R/T2-B-report.md"; pre=$(_files)
 RUN_PATH="$FAKEBIN:$PATH" _run "$(_block T2 B NEEDS_FIX 'NEW-B')
 $(_block T3 B PASS 'NEW-T3')
 $(_block T1 C NEEDS_FIX 'NEW-C')" false
-if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T2-B-report.md")" = "OLD-B" ] \
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$(cat "$R/T2-B-report.md")" = "OLD-B" ] \
    && [ ! -e "$R/T2-B-feedback.md" ] && [ ! -e "$R/T3-B-report.md" ] && [ "$(_files)" = "$pre" ] && [ -z "$(_leftover)" ]; then
-  ok "T1.n2 AC-9 뒤 블록 이동 실패 → 옮긴 파일 복원(기존)·제거(신규) · 잔존 0"
-else nope "T1.n2 AC-9" "rc=$RC err=$ERR files=$(_files | tr '\n' ' ') $(ls -A "$R" | tr '\n' ' ')"; fi
+  ok "T1.n2 AC-9 뒤 블록 이동 실패 → 옮긴 파일 복원(기존)·제거(신규) · 잔존 0 · stdout 공백"
+else nope "T1.n2 AC-9" "rc=$RC err=$ERR out=$OUT files=$(_files | tr '\n' ' ') $(ls -A "$R" | tr '\n' ' ')"; fi
 
 # ── T1.o AC-9 공백만 있는 본문 → 전체 무저장 ──
 _reset; pre=$(_files)
 _run "$(_block T1 C READY_TO_MERGE 'ok')
 $(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=NEEDS_FIX>>>\n   \n\t\n\n<<<END>>>' "$FID")" false
-if [ "$RC" -eq 0 ] && [ "$(_files)" = "$pre" ]; then ok "T1.o AC-9 공백만 있는 본문 → 전체 무저장 exit 0"
+if [ "$RC" -eq 1 ] && [ "$(_files)" = "$pre" ]; then ok "T1.o AC-9 공백만 있는 본문 → 전체 무저장 exit 1"
 else nope "T1.o AC-9" "rc=$RC files=$(_files | tr '\n' ' ')"; fi
 
 # ── T1.p AC-9 대상 경로가 일반 파일 아님(디렉토리) → 전체 무저장 · 거짓 보고 없음 ──
 _reset; mkdir -p "$R/T2-C-report.md"; pre=$(cd "$TD" && find . | LC_ALL=C sort)
 _run "$(_block T1 C READY_TO_MERGE 'T1')
 $(_block T2 C READY_TO_MERGE 'T2')" false
-if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then
-  ok "T1.p AC-9 대상이 디렉토리 → 전체 무저장 exit 0 · 저장 보고 없음"
-else nope "T1.p AC-9" "rc=$RC err=$ERR tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then
+  ok "T1.p AC-9 대상이 디렉토리 → 전체 무저장 exit 0 · 저장 보고 없음 · stdout 공백"
+else nope "T1.p AC-9" "rc=$RC err=$ERR out=$OUT tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
 
 # ── T1.q AC-9 FID 혼합 → 전체 무저장 (두 FID 모두 실재 · tid 달리해 중복 검사와 분리) ──
 FID2=20260914-other
 _reset; mkdir -p "$TD/.specops/$FID2"; pre=$(cd "$TD" && find . | LC_ALL=C sort)
 _run "$(_block T1 C READY_TO_MERGE 'A')
 $(printf '<<<REVIEW fid=%s tid=T2 phase=C verdict=READY_TO_MERGE>>>\nB\n<<<END>>>' "$FID2")" false
-if [ "$RC" -eq 0 ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then ok "T1.q AC-9 FID 혼합 → 전체 무저장 exit 0"
+if [ "$RC" -eq 1 ] && [ "$(cd "$TD" && find . | LC_ALL=C sort)" = "$pre" ]; then ok "T1.q AC-9 FID 혼합 → 전체 무저장 exit 1"
 else nope "T1.q AC-9" "rc=$RC tree=$(cd "$TD" && find . | tr '\n' ' ')"; fi
 
 # ── T1.r AC-9 이동 실패 후 복원 cp 까지 실패 → 그 파일의 백업 보존 · exit 0 · stderr 없음 ──
@@ -216,9 +230,9 @@ _reset; printf 'OLD\n' > "$R/T1-C-report.md"
 RUN_PATH="$FAKEBIN_R:$PATH" _run "$(_block T1 C NEEDS_FIX 'NEW')" false
 baks=$(ls -A "$R" | grep -E '^\.T1-C-report\.md\.bak\.' || true)
 nbak=$(printf '%s' "$baks" | grep -c . || true)
-if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ "$nbak" = "1" ] && [ "$(cat "$R/$baks" 2>/dev/null)" = "OLD" ]; then
-  ok "T1.r AC-9 복원 cp 실패 → 백업(.<name>.bak.<pid>) 보존 · 내용 OLD · exit 0 · stderr 없음"
-else nope "T1.r AC-9" "rc=$RC err=$ERR nbak=$nbak $(ls -A "$R" | tr '\n' ' ')"; fi
+if [ "$RC" -eq 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$nbak" = "1" ] && [ "$(cat "$R/$baks" 2>/dev/null)" = "OLD" ]; then
+  ok "T1.r AC-9 복원 cp 실패 → 백업(.<name>.bak.<pid>) 보존 · 내용 OLD · exit 0 · stderr·stdout 없음"
+else nope "T1.r AC-9" "rc=$RC err=$ERR out=$OUT nbak=$nbak $(ls -A "$R" | tr '\n' ' ')"; fi
 
 # ── T2.a AC-6 hooks.json SubagentStop 배선 ──
 HJ="$PLUGIN/hooks/hooks.json"
@@ -233,5 +247,45 @@ if [ "$a" = "false" ]; then ok "T2.c AC-6 async=false (stderr 가 서브에이�
 else nope "T2.c AC-6 async" "'$a'"; fi
 if [ "$(jq -r '.hooks.SubagentStop | length' "$HJ")" = "1" ]; then ok "T2.d AC-6 SubagentStop 항목 1개"
 else nope "T2.d AC-6 항목 수"; fi
+
+# ── T3 AC-1 계약 판정 6종 — exit 1 + 구별되는 사유(stderr 첫 줄) · stdout 공백 ──
+# AC-1 은 "stderr 첫 줄"을 요구하므로 head -1 로 위치를 고정한다 — 위치 무관 매치는 계약보다 느슨하다.
+# stdout 공백은 전 케이스에서 함께 단언한다(FR-3).
+_c() {
+  if [ "$RC" -eq 1 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | head -1 | grep -qF "$2"; then ok "$1"
+  else nope "$1" "rc=$RC out=$OUT err=$ERR"; fi
+}
+
+_reset; _run "그냥 보고서 텍스트" false
+_c "T3.a AC-1 블록 0건 → exit 1 + 사유" 'save-review-report: REVIEW 블록 없음 또는 열림·닫힘 짝 불일치 — 저장 건너뜀'
+
+_reset; _run "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=OK>>>\n본문\n<<<END>>>' "$FID")" false
+_c "T3.b AC-1 meta 형식 불일치 → exit 1 + 사유" 'save-review-report: meta 형식 불일치(fid·tid·phase·verdict 필요) — 저장 건너뜀'
+
+_reset; _run "$(_block T1 C READY_TO_MERGE 'A')
+$(printf '<<<REVIEW fid=20260101-other tid=T2 phase=C verdict=PASS>>>\nB\n<<<END>>>')" false
+_c "T3.c AC-1 FID 불일치 → exit 1 + 사유" 'save-review-report: 블록 간 FID 불일치 — 저장 건너뜀'
+
+_reset; _run "$(_block T1 C READY_TO_MERGE '첫째')
+$(_block T1 C READY_TO_MERGE '둘째')" false
+_c "T3.d AC-1 tid-phase 중복 → exit 1 + 사유" 'save-review-report: tid-phase 중복 — 저장 건너뜀'
+
+_reset; _run "$(_block T1 C READY_TO_MERGE '   ')" false
+_c "T3.e AC-1 빈 본문 → exit 1 + 사유" 'save-review-report: 본문이 비어 있음 — 저장 건너뜀'
+
+_reset; _run "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=PASS>>>\n본문\n<<<END>>>')" false
+_c "T3.f AC-1 FID 디렉터리 부재 → exit 1 + 사유" 'save-review-report: FID 디렉터리 없음(cwd 확인) — 저장 건너뜀'
+
+# ── T3.g AC-6 음성 대조 — 정상 경로에는 사유 접두가 없다 · stdout 공백 · rc=2 ──
+_reset; _run "$(_block T1 B PASS 'B 본문')" false
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ] && ! printf '%s' "$ERR" | grep -qF 'save-review-report:'; then
+  ok "T3.g AC-6 정상 경로 → 사유 접두 미출현 · stdout 공백"
+else nope "T3.g AC-6" "rc=$RC out=$OUT err=$ERR"; fi
+
+# ── T3.h AC-3 인프라 경로는 침묵 — rc=0 · stdout·stderr 모두 공백 ──
+_reset; _run "$(_block T1 B PASS 'B')" true
+if [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; then
+  ok "T3.h AC-3 stop_hook_active → rc=0 · stdout·stderr 공백"
+else nope "T3.h AC-3" "rc=$RC out=$OUT err=$ERR"; fi
 
 finish

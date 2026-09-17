@@ -3,9 +3,10 @@
 # 리뷰어 최종 메시지의 <<<REVIEW …>>> ~ <<<END>>> 블록을 .specops/<FID>/reviews/<tid>-<phase>-report.md 로
 #   tid 별 저장하고(통과 판정이 아니면 -feedback.md 병기) exit 2 로 요약 재종료를 지시한다.
 # stdin: SubagentStop JSON (cwd · stop_hook_active · last_assistant_message)
-# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 0 = 무동작 fail-open(전문이 그대로 부모에게 간다 · stderr 없음)
-# 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류 · 대상 경로가 일반 파일 아님 · 임시 쓰기 실패 · 이동 실패면
-#   reviews/ 를 실행 전 상태로 되돌리고(이동 실패는 백업 복원) exit 0 — 요약을 요구하면 그 전문이 소실된다.
+# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 1 = 계약 위반 fail-open(사유 1줄 → 사용자 · 전문은 부모로) · 0 = 무동작 fail-open(인프라·파일 조작 · stderr 없음)
+# 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류면 _bail(exit 1 · 사유 1줄) · 대상 경로가 일반 파일 아님 ·
+#   임시 쓰기 실패 · 이동 실패면 reviews/ 를 실행 전 상태로 되돌리고(이동 실패는 백업 복원) exit 0 —
+#   요약을 요구하면 그 전문이 소실된다. 1·0 어느 쪽이든 비차단이라 전문은 부모에게 그대로 간다.
 #   단 복원 cp 까지 실패한 파일은 되돌리지 못한다: 대상에는 이번 본문이 남고 옛 내용은 백업
 #   (.<name>.bak.<pid>)으로 reviews/ 에 남긴다(지우지 않음).
 # 본문은 자르거나 고치지 않고 옮긴다 — release-ready.sh 가 report 본문의 🔴 절·판정 메뉴를 읽는다.
@@ -27,6 +28,13 @@ msg=$(printf '%s' "$input" | jq -r '.last_assistant_message // empty' 2>/dev/nul
 work=$(mktemp -d 2>/dev/null) || exit 0
 trap 'rm -rf "$work"' EXIT
 
+# 계약 위반 — 사유를 stderr 1줄로 남기고 fail-open 종료한다.
+#   exit 0 은 stderr 가 아무에게도 보이지 않는다(설치본: "Exit code 0 - stdout/stderr not shown").
+#   exit 1 은 비차단 오류라 리뷰어 전문이 그대로 부모에게 가면서 사유만 사용자 transcript 에 뜬다.
+#   transcript 에는 첫 줄만 표시되므로 사유는 1줄에 완결한다. stdout 은 쓰지 않는다
+#   (stdout 에 JSON 을 쓰면 종료 코드가 통째로 무시된다).
+_bail() { echo "save-review-report: $1 — 저장 건너뜀" >&2; exit 1; }
+
 # 블록 분리 — <n>.meta(속성) · <n>.body(본문). 출력: 블록 수 또는 BAD(중첩·짝 없음)
 count=$(printf '%s\n' "$msg" | awk -v dir="$work" '
   BEGIN { n = 0; inb = 0; bad = 0 }
@@ -44,26 +52,26 @@ count=$(printf '%s\n' "$msg" | awk -v dir="$work" '
   }
   inb { print > (dir "/" n ".body") }
   END { if (inb) bad = 1; print (bad ? "BAD" : n) }')
-case "$count" in ''|BAD|0) exit 0 ;; esac
+case "$count" in ''|BAD|0) _bail "REVIEW 블록 없음 또는 열림·닫힘 짝 불일치" ;; esac
 
-# 검증 — 속성 정규식 · 단일 FID · tid-phase 중복 · 빈(공백만) 본문 (하나라도 걸리면 exit 0)
+# 검증 — 속성 정규식 · 단일 FID · tid-phase 중복 · 빈(공백만) 본문 (하나라도 걸리면 _bail — exit 1 + 사유)
 re='^fid=([0-9]{8}-[a-z0-9-]+) tid=(T[0-9]+) phase=([BC]) verdict=(PASS|READY_TO_MERGE|NEEDS_FIX|NEEDS_DISCUSSION)$'
 fid=""; seen=" "; i=1
 while [ "$i" -le "$count" ]; do
   meta=$(cat "$work/$i.meta")
-  [[ "$meta" =~ $re ]] || exit 0
+  [[ "$meta" =~ $re ]] || _bail "meta 형식 불일치(fid·tid·phase·verdict 필요)"
   b_fid=${BASH_REMATCH[1]}; b_tid=${BASH_REMATCH[2]}; b_phase=${BASH_REMATCH[3]}; b_verdict=${BASH_REMATCH[4]}
   [ -n "$fid" ] || fid=$b_fid
-  [ "$b_fid" = "$fid" ] || exit 0
-  case "$seen" in *" $b_tid-$b_phase "*) exit 0 ;; esac
+  [ "$b_fid" = "$fid" ] || _bail "블록 간 FID 불일치"
+  case "$seen" in *" $b_tid-$b_phase "*) _bail "tid-phase 중복" ;; esac
   seen="$seen$b_tid-$b_phase "
   body=$(<"$work/$i.body")
-  [ -n "${body//[[:space:]]/}" ] || exit 0
+  [ -n "${body//[[:space:]]/}" ] || _bail "본문이 비어 있음"
   printf '%s %s %s\n' "$b_tid" "$b_phase" "$b_verdict" > "$work/$i.key"
   i=$((i+1))
 done
 
-[ -d "$cwd/.specops/$fid" ] || exit 0
+[ -d "$cwd/.specops/$fid" ] || _bail "FID 디렉터리 없음(cwd 확인)"
 reviews="$cwd/.specops/$fid/reviews"
 mkdir -p "$reviews" 2>/dev/null || exit 0
 
