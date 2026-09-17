@@ -28,6 +28,22 @@ mk_batch() {  # <dir> <ACTIVE 여부: yes|no> <IMPL_DONE 수> <PENDING 수>
   return 0
 }
 
+mk_evidence() {  # 인자: (repo dir) (FID) (게이트 short 목록 — 공백구분, 빈 값이면 헤더 0건)
+  local d="$1" fid="$2" gates="$3" g hdr
+  mkdir -p "$d/.specops/$fid"
+  : > "$d/.specops/$fid/evidence.md"
+  for g in $gates; do
+    case "$g" in
+      security)    hdr=security-review ;;
+      integration) hdr=integration-test ;;
+      performance) hdr=performance-test ;;
+      *) continue ;;
+    esac
+    printf '\n## /%s PASS\n**결과**: PASS\n' "$hdr" >> "$d/.specops/$fid/evidence.md"
+  done
+  return 0
+}
+
 # ── T1 ACTIVE 없음 → 무출력 exit 0 (batch 미사용 repo 월권 0) ──
 rm -rf "$TMP/t1"; mkdir -p "$TMP/t1/.specops"
 out=$(cd "$TMP/t1" && bash "$SCRIPT" --hook 2>&1); code=$?
@@ -109,6 +125,32 @@ if grep -q 'batch-resume-check' "$PLUGIN/hooks/session-start.sh"; then
   ok "T9 session-start.sh 배선"
 else
   nope "T9 배선 누락 — 판독기가 호출되지 않는다"
+fi
+
+# ── T10 전파 0건 → 누락 줄 출력 (AC-1) ──
+#    argus batch-20260729 가 정확히 이 상태였다: 전 FR IMPL_DONE, evidence 에 게이트 0건.
+rm -rf "$TMP/t10"; mk_batch "$TMP/t10" yes 2 0
+mk_evidence "$TMP/t10" 20260101-d1 ""
+mk_evidence "$TMP/t10" 20260101-d2 ""
+out=$(cd "$TMP/t10" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '게이트 전파 누락' \
+   && printf '%s' "$out" | grep -q 'security 0/2' \
+   && printf '%s' "$out" | grep -q 'record-batch-gate'; then
+  ok "T10 전파 0건 → 누락 줄 + 해법 안내"
+else
+  nope "T10 전파 누락 미표면화" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
+fi
+
+# ── T11 전파 완료 → 누락 줄 미출력 (AC-2, 벽지화 방지) ──
+rm -rf "$TMP/t11"; mk_batch "$TMP/t11" yes 2 0
+mk_evidence "$TMP/t11" 20260101-d1 "security integration performance"
+mk_evidence "$TMP/t11" 20260101-d2 "security integration performance"
+out=$(cd "$TMP/t11" && bash "$SCRIPT" --hook 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'Phase 3' \
+   && ! printf '%s' "$out" | grep -q '게이트 전파 누락'; then
+  ok "T11 전파 완료 → 누락 줄 미출력"
+else
+  nope "T11 완료분까지 반복 출력" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
 fi
 
 finish
