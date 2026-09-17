@@ -94,4 +94,19 @@ rm -rf "$TD"
 # T-wire.a: emit-context 배선
 grep -q 'check-intent.sh' "$PLUGIN/scripts/dag/emit-context.sh" \
   && ok "T-wire.a emit-context 배선" || nope "T-wire.a" "미배선"
+
+SPEC_SKILL="$PLUGIN/skills/specifying-ko/SKILL.md"
+_b15=$(awk '/^1\.5\./{f=1} f&&/^2\. /{exit} f' "$SPEC_SKILL")
+# ★ 쌍은 `패턴|라벨` 순서다 — `_pat` 은 첫 `|` 앞을 쓴다 (plan-review 1회차 I-2: 순서가 뒤집히면 영구 FAIL)
+for _p in 'check-intent\.sh|판정 SoT' 'HARD GATE|신규 독립 게이트' '설계 승인과 통합|maintain·lite 통합' 'FR 행|batch 도출' 'ASSUMED|auto 표기'; do
+  _pat=${_p%%|*}; _lbl=${_p#*|}
+  printf '%s\n' "$_b15" | grep -qE "$_pat" \
+    && ok "T-15 1.5 구간: $_lbl" || nope "T-15 $_lbl" "1.5 구간에 없음"
+done
+grep -q 'intent 추적' "$SPEC_SKILL" \
+  && ok "T-15.z Step 7 자체검토 intent 추적" || nope "T-15.z" "Step 7 미갱신"
+grep -q 'intent\.md' "$PLUGIN/scripts/show-fid-status.sh" \
+  && ok "T-art.a show-fid-status 아티팩트" || nope "T-art.a" "미포함"
+grep -q 'intent\.md' "$PLUGIN/skills/structured-artifacts-ko/SKILL.md" \
+  && ok "T-art.b structured-artifacts 트리" || nope "T-art.b" "미포함"
 finish
