@@ -109,4 +109,11 @@ grep -q 'intent\.md' "$PLUGIN/scripts/show-fid-status.sh" \
   && ok "T-art.a show-fid-status 아티팩트" || nope "T-art.a" "미포함"
 grep -q 'intent\.md' "$PLUGIN/skills/structured-artifacts-ko/SKILL.md" \
   && ok "T-art.b structured-artifacts 트리" || nope "T-art.b" "미포함"
+
+# T-cons: 하류 소비 배선 (AC-8) — intent 를 읽는 6문서 + 집계기 정규식
+for _f in skills/clarifying-ko/SKILL.md skills/planning-ko/SKILL.md skills/verifying-evidence-ko/SKILL.md skills/performance-test-ko/SKILL.md commands/start-all.md commands/start-all-auto.md; do
+  grep -q 'intent' "$PLUGIN/$_f" && ok "T-cons ${_f##*/} 소비" || nope "T-cons ${_f##*/}" "intent 미참조"
+done
+grep -q 'intent' "$PLUGIN/scripts/_internal/collect-assumptions.sh" \
+  && ok "T-cons collect-assumptions" || nope "T-cons collect-assumptions" "정규식 미확장"
 finish

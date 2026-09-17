@@ -203,8 +203,8 @@ grep -A5 "ASSUMED" .specops/<FID>/clarifications.md | grep -E "질문|가정 근
 # 2. handoffs/*.md Decided 필드
 grep -A10 "## Decided" .specops/<FID>/handoffs/*.md
 
-# 3. spec.md 자동 결정 화면 + 인터페이스 (Step 5.5·5.6 auto-generated)
-grep -E "자동 결정 화면|자동 결정 인터페이스" .specops/<FID>/spec.md
+# 3. spec.md 자동 결정 intent + 화면 + 인터페이스 (Step 1.5·5.5·5.6 auto-generated)
+grep -E "자동 결정 화면|자동 결정 인터페이스|자동 결정 intent" .specops/<FID>/spec.md
 
 # 4. auto-state.md escalations (있으면)
 cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
@@ -220,6 +220,9 @@ cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
 
 ### 단계별 주요 결정
 <handoffs/*.md Decided 항목>
+
+### 자동 결정 intent (Step 1.5)
+<spec.md "자동 결정 intent" 목록 — 없으면 "(없음)">
 
 ### 자동 생성된 화면 (Step 5.5)
 <spec.md "자동 결정 화면" 목록>

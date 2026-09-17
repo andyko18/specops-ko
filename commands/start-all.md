@@ -260,6 +260,7 @@ reference_upstream: specops-ko 독자 추가
 #### E. 설계 승인 게이트
 
 1. `design-review.md` 요약(Critical/Important/Minor 건수 + 상위 이슈) + 화면 목록 + IF 변경 요약을 제시.
+   - FR 별 intent 1줄 요약(문제 → 기대 결과) — `.specops/<FID>/intent.md` 에서 발췌
 2. 대화형: **"이 설계로 구현 진행? [y/n]"**
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F

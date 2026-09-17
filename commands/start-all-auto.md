@@ -54,6 +54,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 
 | 단계 | start-all-auto 동작 | 정지? |
 |---|---|---|
+| intent | Step 1.5 가 FR 행에서 도출 · 추정 항목 `(ASSUMED)` · PR 게이트 다이제스트로 집계 | ❌ |
 | Phase 1 각 FR clarify BLOCKING | best-guess 자동응답 + `status: ASSUMED` (clarify §auto 분기, spec 라벨 기반) | ❌ |
 | Phase 2 batch plan-review | 전 PLAN_DONE 후 **1회** (Phase 1 DEFER 해소). FAIL Critical → 정지 | 🛑 Critical |
 | Phase 2 일괄 리뷰 게이트 | digest 후 **자동 통과** → Phase 2.5 직행 | ❌ |
