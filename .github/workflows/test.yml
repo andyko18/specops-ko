@@ -43,3 +43,40 @@ jobs:
         run: find hooks scripts -name '*.sh' -print0 | xargs -0 shellcheck -S error
       - name: Warning report (non-blocking)
         run: find hooks scripts -name '*.sh' -print0 | xargs -0 shellcheck -S warning || true
+
+  # 보안 스캔 (비차단 관찰 — clarify Q1). 룰이 repo 에서 처음 도는 단계라
+  # 오탐이 공통 작업을 막지 않게 리포트만 남긴다. 단 "스캔이 실제로 돌았는가" 는 차단한다.
+  # 차단 승격(crit/high → job red)은 1~2 릴리즈 관찰 후 별도 FID.
+  security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SEMGREP_ENABLE_VERSION_CHECK: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install semgrep
+        run: |
+          python3 -m pip install --user 'semgrep==1.172.0'
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # jq 도 같이 본다 — security-scan.sh 는 jq 부재 시 ext_skip=1 로 semgrep 층을 건너뛰어
+      # 룰셋 표기가 사라진다. 그러면 아래 게이트가 "미실행" 으로 붉어져 원인이 한 칸 비켜 보인다.
+      - name: Verify semgrep on PATH
+        run: |
+          semgrep --version
+          command -v jq
+      - name: SAST report (findings non-blocking, non-execution blocking)
+        run: |
+          fail=0
+          for t in hooks scripts; do
+            out=$(bash scripts/security-scan.sh "$t" 2>&1) || true
+            printf '=== %s\n%s\n' "$t" "$out"
+            if ! printf '%s' "$out" | grep -qF '(룰셋: 로컬 bash-injection)'; then
+              echo "::error::semgrep 미실행 — 룰셋 표기 부재 ($t)"
+              fail=1
+            fi
+            if printf '%s' "$out" | grep -q 'semgrep('; then
+              echo "::error::semgrep 강등 — 스캔이 완주하지 못했다 ($t)"
+              fail=1
+            fi
+          done
+          exit "$fail"
