@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-harness-skip.sh — harness skip() 헬퍼 + finish SKIP 출력 계약 (20260830-silent-failure-surfacing)
 # 왜: 환경 조건부 skip 이 ok() 로 계상돼 15 어서션이 가짜 PASS 1개로 붕괴해도 안 보였다.
-# SKIP=0 일 때 finish 출력이 종전과 바이트 동일해야 한다 — 91 스위트가 이 형식을 tail 로 읽는다.
+# SKIP=0 일 때 finish 출력이 종전과 바이트 동일해야 한다 — 여러 스위트가 이 형식을 tail 로 읽는다.
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
@@ -47,7 +47,7 @@ fout=$(
   finish
 )
 if [ "$fout" = "PASS=3 FAIL=0" ]; then
-  ok "T1.d SKIP=0 → 'PASS=3 FAIL=0' 바이트 동일 (91 스위트 회귀 보호)"
+  ok "T1.d SKIP=0 → 'PASS=3 FAIL=0' 바이트 동일 (스위트 tail 단언 회귀 보호)"
 else
   nope "T1.d" "실측 '$fout' — 기존 스위트의 tail 단언이 깨진다"
 fi

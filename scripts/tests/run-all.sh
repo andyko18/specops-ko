@@ -53,7 +53,7 @@ QUIET=false
 # 왜: 한 스위트가 무한 대기하면 aggregator 전체가 멈추고, 이 게이트는 pre-push 훅과 릴리즈
 #   pre-flight 가 그대로 쓴다 — 즉 `git push` 가 정지한다(실측: test-security-scan 8분+ 무출력).
 #   상한은 "느린 스위트를 벌주는 것" 이 아니라 **정지를 실패로 바꾸는 것**이다.
-# 왜 300 인가: 스위트별 실측 최대가 test-validate-structure 73s(전체 322s / 147 스위트 / 평균 2.2s).
+# 왜 300 인가: 스위트별 실측 최대가 test-validate-structure 73s(전체 322s / 147 스위트 / 평균 2.2s). doc-lock: historical (당시 실측)
 #   300s 는 그 4배 여유라 정상 스위트를 절대 못 끊고, 정지는 확실히 끊는다. 느린 CI 러너 대비도 같다.
 SUITE_TIMEOUT="${SPECOPS_SUITE_TIMEOUT:-300}"
 if [ -f "$PLUGIN/scripts/_internal/run-bounded.sh" ]; then
@@ -81,7 +81,7 @@ for f in "$PLUGIN"/scripts/tests/test-*.sh \
 done
 
 # ── 병렬 실행 (FID 20260911-run-all-parallel) ──
-# 왜: 159 스위트 직렬이 657s(실측) — FID 마다 3회(태스크·verify·pre-push) 돌고, 600s 를 넘으면
+# 왜: 159 스위트 직렬이 657s(당시 실측 · doc-lock: historical) — FID 마다 3회(태스크·verify·pre-push) 돌고, 600s 를 넘으면
 #   Bash 도구가 백그라운드로 넘겨 R-1 게이트가 `VERIFY: PASS` 를 못 본다(gbrain 20260902).
 # 병렬 수: SPECOPS_RUN_ALL_JOBS(정수≥1) > CPU 코어 수(상한 8) > 1. **1 = 종전 직렬과 같은 순서**(되돌림 스위치).
 #   상한 8 인 이유: 중첩 run-all(더미 sandbox 3곳)도 풀을 만든다 — 코어 수 그대로면 곱으로 번진다.

@@ -152,4 +152,60 @@ nd=$(mktemp -d "${TMPDIR:-/tmp}/docnum-nogit.XXXXXX")
   || nope "T1.j" "비-git 트리에서 rc=2 가 아니다"
 rm -rf "$nd" "$sb"
 
+# ── T2: 실 트리 어서션 (정정 후에만 GREEN) ─────────────────────
+# ★ DOC_NUMBERS_ROOT 는 **이 호출에만** 붙는 prefix 다 — 본문에 bare 대입/export 로 두면
+#   위 _run·_rc 의 sandbox 루트를 덮어써 T1.a~T1.j 10건이 조용히 실 트리를 보게 된다.
+#   prefix 로 고정하는 이유: cwd 가 어디든(중첩 트리·훅 경유) 판정 대상이 실 트리로 확정된다.
+real_out=$(DOC_NUMBERS_ROOT="$PLUGIN" bash "$CHK" 2>&1); real_rc=$?
+
+# T2.a 실 트리에서 검사가 통과한다 (AC-4)
+[ "$real_rc" = 0 ] \
+  && ok "T2.a 실 트리 검사 rc=0 — 정정 완료 (AC-4)" \
+  || nope "T2.a" "실 트리 FAIL — $real_out"
+
+# T2.b 실 트리 반공허: 스캔 파일·줄 수가 1 이상 (AC-3)
+if printf '%s' "$real_out" | grep -qE "스캔 [1-9][0-9]*파일/[1-9][0-9]*줄"; then
+  ok "T2.b 실 트리 도달 증거 — 스캔 파일·줄 ≥ 1 (AC-3)"
+else
+  nope "T2.b" "도달 증거 없음 — $real_out"
+fi
+
+# T2.c harness 계열에 수치 서술이 0건 (AC-6②)
+if grep -qE "$RE" "$PLUGIN/scripts/tests/harness.sh" \
+                 "$PLUGIN/scripts/tests/test-harness-skip.sh" 2>/dev/null; then
+  nope "T2.c" "harness 계열에 수치 서술이 남아 있다"
+else
+  ok "T2.c harness·test-harness-skip 수치 서술 0건 (AC-6②)"
+fi
+
+# T2.d test-harness-skip 자신이 통과한다 (AC-6④)
+# 판정은 :49 의 [ "$fout" = "PASS=3 FAIL=0" ] 이므로 :50 메시지 변경은 로직 무영향이어야 한다.
+if bash "$PLUGIN/scripts/tests/test-harness-skip.sh" >/dev/null 2>&1; then
+  ok "T2.d test-harness-skip PASS — 판정 로직 무영향 (AC-6④)"
+else
+  nope "T2.d" "수치 제거가 test-harness-skip 을 깨뜨렸다"
+fi
+
+# T2.e 드리프트: run-all 과 검사의 수집 디렉터리 집합이 같다
+# ★ 한계: 추출 정규식이 **소문자+하이픈** 디렉터리만 잡는다 — 숫자·대문자·밑줄이 든
+#   디렉터리(`tests/e2e2/`·`tests/E2E/`)가 한쪽에 추가되면 양쪽 집합에서 똑같이 누락돼
+#   이 비교를 **무음 통과**한다. 그 경우 실측값이 과소계산되고 잠금이 틀린 값을 강제한다.
+#   넓히려면 검사·run-all 양쪽의 실제 glob 어휘를 먼저 재측정해야 한다(이 FID 범위 밖).
+_dirs_from() {
+  grep -oE 'scripts/tests(/[a-z-]+)?/test-' "$1" | sed 's|/test-$||' | sort -u
+}
+if diff -q <(_dirs_from "$PLUGIN/scripts/tests/run-all.sh") \
+           <(_dirs_from "$CHK") >/dev/null 2>&1; then
+  ok "T2.e 수집 디렉터리 집합 일치 — 드리프트 없음"
+else
+  nope "T2.e" "run-all 과 검사의 수집 목록이 다르다 — 실측값이 거짓이 된다"
+fi
+
+# T2.f CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③)
+if grep -q 'doc-lock: suite-count' "$PLUGIN/CLAUDE.md" 2>/dev/null; then
+  ok "T2.f CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③)"
+else
+  nope "T2.f" "CLAUDE.md 에 마커가 없다 — 검사가 자기 저장소에서 FAIL 한다"
+fi
+
 finish
