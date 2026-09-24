@@ -7,13 +7,12 @@ crit=0; high=0; med=0; ran=0
 # ── 외부 스캐너 상한·차단 스위치 (FID 20260828-sast-timeout) ──
 # SPECOPS_SAST_TIMEOUT : 외부 스캐너 1개당 초 상한 (기본 180 · 0 = 무제한, 종전 동작)
 # SPECOPS_SAST_EXTERNAL: 0 이면 외부 스캐너를 아예 안 부른다 (오프라인·테스트용)
-# 왜 기본값이 180 인가 (실측): `semgrep --config auto` 는 레지스트리에서 룰을 받는 네트워크
-#   호출이고, 1줄 .py 대상 **정상 완주에 99초**가 걸린다. 60s 로 잡으면 정상 실행이 매번 잘려
-#   SAST 가 영구 강등된다 — 무한 정지를 고치려다 스캐너를 끄는 셈이다. 180s 는 정상 왕복의
-#   ~1.8배 여유이면서 무한 정지(실측 run-all 8분+ 무출력)는 확실히 끊는다.
-# ★ `--metrics=off` 를 붙이면 안 된다: semgrep 이 "Cannot create auto config when metrics are off"
-#   로 **거부**해 스캐너가 통째로 no-op 이 된다(실측). 프라이버시를 원하면 --config auto 자체를
-#   고정 룰셋으로 바꿔야 한다 — 별건.
+# 왜 기본값이 180 인가: 외부 스캐너 1개의 최악 소요를 끊는 안전망이다. 로컬 룰셋 + version-check
+#   차단 배선에서 semgrep 은 이 상한에 닿지 않는다 — 상한은 gitleaks 와 향후 추가 스캐너를 위해 남긴다.
+# 종전 근거(레지스트리 왕복 99초)는 배선 교체로 소멸했다. 그 99초의 실체는 룰 수신이 아니라
+#   semgrep.dev version-check 였다 — 같은 대상(1파일)·같은 스크립트 전체 소요가
+#   **배선 전 98.1s / 배선 후 1.8s** 다(약 54배, 이 FID 실측). 배선이 SEMGREP_ENABLE_VERSION_CHECK=0
+#   을 넘겨 그 왕복을 없앤다.
 SAST_TIMEOUT="${SPECOPS_SAST_TIMEOUT:-180}"
 SAST_EXTERNAL="${SPECOPS_SAST_EXTERNAL:-1}"
 _sast_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/run-bounded.sh"
@@ -26,6 +25,7 @@ else
   bounded_timed_out() { return 1; }
 fi
 sast_timeout_note=""
+ruleset_note=""
 
 # ── self-check 1단계 (설치 0, 항상 실행) — secret 전 파일·위험함수/SQL 비-bash ──
 # 언어 판별: .sh/.bash 확장자 또는 bash shebang → bash (위험함수 룰 제외, secret 만)
@@ -59,19 +59,32 @@ if { command -v semgrep >/dev/null 2>&1 || command -v gitleaks >/dev/null 2>&1; 
 fi
 [ "$SAST_EXTERNAL" = 0 ] && ext_skip=1
 # semgrep (변경 코드 SAST)
+SEMGREP_RULES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/semgrep-rules/bash-injection.yml"
 if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
   ran=1
-  j=$(bounded_run "$SAST_TIMEOUT" semgrep --config auto --json --quiet "$TARGET" 2>/dev/null); src=$?
-  if bounded_timed_out "$src"; then
-    sast_timeout_note="${sast_timeout_note} semgrep(시간초과)"
+  if [ ! -f "$SEMGREP_RULES" ]; then
+    # 룰셋 부재를 분기 조건으로 처리하면 semgrep 층이 조용히 사라진다 — gitleaks 가 설치된
+    #   환경에서는 ran=1 이라 SECURITY: SKIP 도 안 나오고 crit=0 이 깨끗하게 통과한다(무음 통과).
+    sast_timeout_note="${sast_timeout_note} semgrep(룰셋 부재)"
     j='{}'
-  elif [ "$src" -gt 1 ]; then
-    # 하드 실패(rc≥2 = semgrep 에러: 네트워크 두절·설정 거부·인증 요구)도 표기한다.
-    #   왜: 실패하면 j 가 비고 crit 이 0 인 채로 "SECURITY: crit=0" 이 나간다 — 스캔을 안 한 것과
-    #   통과한 것이 구분되지 않는 **무음 통과**다. 시간초과와 같은 축으로 강등 표기한다.
-    #   rc=1 은 제외 — semgrep 은 findings 존재를 1 로 낼 수 있어 정상 결과다.
-    sast_timeout_note="${sast_timeout_note} semgrep(실행실패 rc=$src)"
-    j='{}'
+  else
+    j=$(bounded_run "$SAST_TIMEOUT" env SEMGREP_ENABLE_VERSION_CHECK=0 \
+          semgrep --config "$SEMGREP_RULES" --json --quiet "$TARGET" 2>/dev/null); src=$?
+    if bounded_timed_out "$src"; then
+      sast_timeout_note="${sast_timeout_note} semgrep(시간초과)"
+      j='{}'
+    elif [ "$src" -gt 1 ]; then
+      # 하드 실패(rc≥2 = semgrep 에러: 네트워크 두절·설정 거부·인증 요구)도 표기한다.
+      #   왜: 실패하면 j 가 비고 crit 이 0 인 채로 "SECURITY: crit=0" 이 나간다 — 스캔을 안 한 것과
+      #   통과한 것이 구분되지 않는 **무음 통과**다. 시간초과와 같은 축으로 강등 표기한다.
+      #   rc=1 은 제외 — semgrep 은 findings 존재를 1 로 낼 수 있어 정상 결과다.
+      sast_timeout_note="${sast_timeout_note} semgrep(실행실패 rc=$src)"
+      j='{}'
+    else
+      # 실행 receipt — 스캔이 실제로 끝난 뒤에만 룰셋을 표기한다.
+      #   분기 진입 시점에 표기하면 rc=2·시간초과에도 표기가 남아 "룰셋이 보이면 돌았다"가 거짓이 된다.
+      ruleset_note=" (룰셋: 로컬 bash-injection)"
+    fi
   fi
   [ -n "$j" ] || j='{}'
   if command -v jq >/dev/null 2>&1; then
@@ -114,5 +127,5 @@ elif [ "$SAST_EXTERNAL" = 0 ]; then
 elif ! { command -v semgrep >/dev/null 2>&1 || command -v gitleaks >/dev/null 2>&1; }; then
   ext_note=" (self-check only — semgrep·gitleaks 미설치)"
 fi
-echo "SECURITY: crit=$crit high=$high med=$med$ext_note"
+echo "SECURITY: crit=$crit high=$high med=$med$ruleset_note$ext_note"
 { [ "$crit" -gt 0 ] || [ "$high" -gt 0 ]; } && exit 1 || exit 0
