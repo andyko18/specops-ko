@@ -83,8 +83,10 @@ el=$(( $(date +%s) - s ))
 FSTUB=$(mktemp -d)
 printf '#!/usr/bin/env bash\necho "boom" >&2\nexit 2\n' > "$FSTUB/semgrep"; chmod +x "$FSTUB/semgrep"
 out=$(PATH="$FSTUB:$PATH" SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T" 2>&1); ec=$?
-{ printf '%s' "$out" | grep -q '실행실패' && [ "$ec" -eq 0 ]; } \
-  && ok "AC-8 스캐너 하드 실패 강등 표기 (무음 통과 차단)" || nope "AC-8 하드 실패" "out=$out ec=$ec"
+{ printf '%s' "$out" | grep -q '실행실패' && [ "$ec" -eq 0 ] \
+  && ! printf '%s' "$out" | grep -qF '(룰셋:'; } \
+  && ok "AC-8 하드 실패 강등 표기 + 룰셋 표기 부재 (실행 receipt)" \
+  || nope "AC-8 하드 실패" "out=$out ec=$ec"
 rm -rf "$FSTUB"
 
 # AC-7: 외부 미실행 시에도 self-check 판정은 살아 있다 (강등이지 무력화가 아니다)
@@ -93,6 +95,30 @@ out=$(PATH="$STUB:$PATH" SPECOPS_SAST_EXTERNAL=0 bash "$SC" "$T" 2>&1); ec=$?
 { printf '%s' "$out" | grep -qE 'crit=[1-9]' && [ "$ec" -ne 0 ]; } \
   && ok "AC-7 외부 미실행에도 self-check secret 차단 유지" || nope "AC-7" "out=$out ec=$ec"
 rm -rf "$T" "$STUB"
+
+# ── 실 semgrep 스캔 (FID 20260917-sast-offline-ruleset) ──
+#   라벨 접두 AC-*-sg = 이 스위트가 실 semgrep 으로 검증하는 spec AC. 기존 AC-3a/3b 와 충돌 없음.
+if command -v semgrep >/dev/null 2>&1; then
+  # AC-5-sg 양성 — 취약 픽스처에서 룰 2개가 정확히 2건 검출
+  out=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$P/scripts/tests/fixtures/sast/vulnerable.sh" 2>&1); ec=$?
+  { printf '%s' "$out" | grep -qE 'crit=2' && [ "$ec" = 1 ]; } \
+    && ok "AC-5-sg 실 semgrep 취약 픽스처 crit=2 차단" || nope "AC-5-sg 양성" "out=$out ec=$ec"
+
+  # AC-6-sg 음성 — 프로덕션 코드 오탐 0 + semgrep 이 실제로 돌았음
+  #   :16-17 주석이 "네트워크 의존이라 신뢰할 수 없어 포기했다" 고 적은 커버리지를 되살린다.
+  #   crit=0 high=0 만 보면 semgrep 미실행도 통과하므로 강등 부재를 함께 요구한다.
+  #   검사 문자열을 semgrep( 로 좁힌다 — 외부 SAST 미반영 은 gitleaks 강등도 포함하는 공용 표기다.
+  out=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$P/hooks" 2>&1); ec=$?
+  { printf '%s' "$out" | grep -qE 'crit=0 high=0' && [ "$ec" = 0 ] \
+    && ! printf '%s' "$out" | grep -q 'semgrep('; } \
+    && ok "AC-6-sg 실 semgrep hooks/ 오탐 0 (실행 확인 포함)" || nope "AC-6-sg 오탐" "out=$out ec=$ec"
+
+  # AC-3-sg 룰셋 출처 표기 = 실행 receipt
+  printf '%s' "$out" | grep -qF '(룰셋: 로컬 bash-injection)' \
+    && ok "AC-3-sg 룰셋 출처 표기" || nope "AC-3-sg 출처 표기" "out=$out"
+else
+  ok "AC-5-sg·AC-6-sg·AC-3-sg semgrep 미설치 — skip (graceful)"
+fi
 
 echo "── test-security-scan: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]
