@@ -1,0 +1,11 @@
+rules:
+  - id: bash-eval-var
+    pattern: eval "$...X"
+    message: eval 에 변수를 전개하면 임의 명령이 실행될 수 있다
+    languages: [bash]
+    severity: ERROR
+  - id: bash-rm-rf-var
+    pattern: rm -rf $...X
+    message: unquoted 변수로 rm -rf — 경로 주입·공백 분할 위험
+    languages: [bash]
+    severity: ERROR
