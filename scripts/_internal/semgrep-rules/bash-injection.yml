@@ -10,7 +10,14 @@ rules:
     severity: ERROR
   # rm -rf 는 quote 하면 공백 분할이 막히므로 **unquoted 변수만** 잡아야 id·message 가 사실이 된다.
   #   `rm -rf $...X` 는 ellipsis 라 리터럴 경로(`rm -rf ./build`)에도 발화했다 — Phase B NEEDS_FIX 원인.
-  #   metavariable-regex `^\$` 가 `rm -rf $bare` 하나만 남긴다(실측).
+  #   metavariable-regex `^\$` 적용 후 실제로 발화하는 형태는 **6종**이다
+  #   (2026-09-24 실측 — probe 12형태 스캔): `$bare` · `$dir/sub` · `$1` · `$@` · `$*` · `$(cmd)`.
+  #   따옴표·리터럴은 전부 미발화(`"$q"` · `"${q}"` · `./build` · `/tmp/abs` · 백틱) — 의도대로다.
+  #   한계 2건 — id·message 가 이 6종을 정확히 서술하지는 못한다:
+  #     (1) 과잉주장: `$(cmd)` 는 명령치환이지 변수가 아니라 message 의 "unquoted 변수로" 가 이 형태에는
+  #         거짓이다. 위험성 자체는 참이다(비따옴표 전개 → 단어분할).
+  #     (2) 미검출: 비따옴표 `${braced}` 는 발화하지 않는다 — `$bare` 와 위험이 같은 false-negative 다.
+  #   둘 다 문구·regex 를 고치면 매치 거동이 바뀌어 음성 코퍼스를 전량 재측정해야 하므로 기록만 한다.
   - id: bash-rm-rf-var
     patterns:
       - pattern: rm -rf $X
