@@ -40,6 +40,9 @@ bash scripts/tests/dag/test-parse-dag.sh
 
 # 플러그인 구조 무결성 검증 (전 항목 ✅ 목표)
 bash scripts/_internal/validate-structure.sh
+
+# 문서 수치 doc-lock (run-all 은 test-doc-numbers.sh 스위트를 통해 이 검사를 돌린다 — 단독 실행도 가능)
+bash scripts/_internal/check-doc-numbers.sh
 ```
 
 ## 아키텍처

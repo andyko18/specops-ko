@@ -208,4 +208,23 @@ else
   nope "T2.f" "CLAUDE.md 에 마커가 없다 — 검사가 자기 저장소에서 FAIL 한다"
 fi
 
+# ── T3: 등재 ──────────────────────────────────────────────
+# T3.a propagation 레코드가 있고 edge 가 3건이다 (AC-7①)
+# jq 부재는 skip 으로 센다 — ok 로 세면 도구 부재 시 이 커버리지가 조용히 사라진다.
+if command -v jq >/dev/null 2>&1; then
+  n=$(jq -s '[.[]|select(.id=="doc-number-lock")|.edges|length]|add // 0' \
+        "$PLUGIN/scripts/_internal/propagation-matrix.jsonl")
+  [ "$n" = 3 ] \
+    && ok "T3.a doc-number-lock 레코드 edge 3건 (AC-7①)" \
+    || nope "T3.a" "edge 수가 3이 아니다 — 실제 $n"
+else
+  skip "T3.a jq 미설치"
+fi
+
+# T3.b 검사가 README·CLAUDE 에 등재됐다
+grep -q 'check-doc-numbers' "$PLUGIN/scripts/README.md" \
+  && grep -q 'check-doc-numbers' "$PLUGIN/CLAUDE.md" \
+  && ok "T3.b scripts/README·CLAUDE.md 등재" \
+  || nope "T3.b" "등재 누락"
+
 finish

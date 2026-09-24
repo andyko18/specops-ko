@@ -336,3 +336,7 @@ bash scripts/_internal/check-matrix-patterns.sh
 1. **코드 안 문자열 리터럴** 매치는 못 잡습니다(변이 테스트가 쓴 문자열이 패턴에 매치하는 자기참조 클래스).
 2. **몸통을 도려낸 패턴**은 못 잡습니다 — `^cp_out=` 는 코드 줄에 매치하므로 통과합니다.
 3. **줄끝 주석**(`cmd  # 설명`)에만 있으면 통과합니다. `#` 시작 위치를 정확히 가르려면 문자열 안 `#` 을 구분해야 해 파서가 필요하고, 단순 휴리스틱은 정상 edge 를 차단합니다.
+
+## check-doc-numbers.sh — 문서 수치 doc-lock
+
+- `_internal/check-doc-numbers.sh` — 문서의 스위트 수 주장을 실측과 대조 (doc-lock). `DOC_NUMBERS_ROOT` 로 대상 트리 지정 가능. `run-all` 은 `test-doc-numbers.sh` 스위트를 통해 이 검사를 돌립니다 — 단독 실행도 가능합니다. 실측 재현이 `run-all.sh` 수집 목록과 드리프트하지 않도록 `doc-number-lock` 레코드가 양쪽 앵커를 잠급니다
