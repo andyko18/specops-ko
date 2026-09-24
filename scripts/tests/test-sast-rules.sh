@@ -38,14 +38,22 @@ print(sorted((r['check_id'].split('.')[-1], r['start']['line']) for r in d['resu
   m=$(python3 -c "import json;print(len(json.load(open('$TD/neg.json'))['results']))" 2>/dev/null)
   [ "$m" = 0 ] && ok "T1.e AC-6 프로덕션 오탐 0" || nope "T1.e AC-6 오탐" "매치=$m — 픽스처가 아니라 룰을 고칠 것"
 
-  # T1.f 파싱 커버리지 관측 (비차단 — 0건의 신뢰 범위를 드러낸다)
-  cov=$(python3 -c "
+  # T1.f AC-6 파싱 커버리지 floor — 2026-09-24 실측 48/102.
+  #   T1.e 의 "매치 0" 은 파싱된 범위에서만 유효하다 → 파서 퇴행을 무음으로 흘리면
+  #   이 FID 가 고치려는 병(미실행이 PASS 로 보이는 것)이 음성 대조 안으로 이동한다.
+  read -r parsed total <<<"$(python3 -c "
 import json
 d=json.load(open('$TD/neg.json'))
 sc=len(d['paths']['scanned']); bad=len({e.get('path') for e in d.get('errors',[]) if e.get('path')})
-print(f'{sc-bad}/{sc}')
-" 2>/dev/null)
-  ok "T1.f 파싱 커버리지 $cov (참고 — 매치 0건의 신뢰는 이 범위까지)"
+print(sc-bad, sc)
+" 2>/dev/null)"
+  if [ -z "${parsed:-}" ]; then
+    nope "T1.f AC-6 파싱 커버리지" "산출 실패 (python3/JSON)"
+  elif [ "$parsed" -ge 48 ]; then
+    ok "T1.f AC-6 파싱 커버리지 $parsed/$total (floor 48)"
+  else
+    nope "T1.f AC-6 파싱 커버리지" "$parsed/$total — floor 48 미달 (파서 퇴행 또는 파일 제거 — 사람 판정)"
+  fi
   rm -rf "$TD"
 else
   ok "T1.d~f semgrep 또는 python3 미설치 — skip (graceful)"

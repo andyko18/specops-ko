@@ -1,11 +1,22 @@
 rules:
+  # eval 은 quote 여부와 무관하게 변수 전개 자체가 위험하다(`eval "$cmd"` 도 임의 명령 실행).
+  #   `$...X` ellipsis 가 "변수를 포함한 문자열"만 잡고 리터럴(`eval "literal"`)은 제외한다 — 실측 확인.
+  #   `eval $unquoted`(따옴표 없는 형태)는 미검출이다. 넓히려면 `eval $X` 가 되는데 그러면
+  #   리터럴까지 잡아 id·message 가 거짓이 된다(2026-09-24 실측) — 오탐 0을 재측정하기 전에는 넓히지 않는다.
   - id: bash-eval-var
     pattern: eval "$...X"
     message: eval 에 변수를 전개하면 임의 명령이 실행될 수 있다
     languages: [bash]
     severity: ERROR
+  # rm -rf 는 quote 하면 공백 분할이 막히므로 **unquoted 변수만** 잡아야 id·message 가 사실이 된다.
+  #   `rm -rf $...X` 는 ellipsis 라 리터럴 경로(`rm -rf ./build`)에도 발화했다 — Phase B NEEDS_FIX 원인.
+  #   metavariable-regex `^\$` 가 `rm -rf $bare` 하나만 남긴다(실측).
   - id: bash-rm-rf-var
-    pattern: rm -rf $...X
+    patterns:
+      - pattern: rm -rf $X
+      - metavariable-regex:
+          metavariable: $X
+          regex: '^\$'
     message: unquoted 변수로 rm -rf — 경로 주입·공백 분할 위험
     languages: [bash]
     severity: ERROR
