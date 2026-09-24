@@ -9,12 +9,16 @@ command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit
 SC="$P/scripts/security-scan.sh"
 [ -f "$SC" ] && [ -x "$SC" ] || nope "존재" "security-scan.sh 부재/비실행"
 
-# self-check 레이어 검증에서는 외부 스캐너를 끈다 (20260828-sast-timeout).
-#   왜: 종전엔 5개 케이스가 각각 실제 `semgrep --config auto` 를 불렀고, 그건 레지스트리에서
-#   룰을 받는 **네트워크 호출**이라 run-all 이 여기서 무한 정지했다(실측 8분+ 무출력).
-#   테스트 대상은 self-check 레이어이므로 외부 스캐너는 이 스위트의 관심사가 아니다.
-#   한계 고백: 그 대신 "실 semgrep 이 specops 자체 코드에 오탐을 내지 않는가"(AC-R-2 의
-#   부수 효과였다)는 더 이상 여기서 안 본다 — 네트워크 의존이라 애초에 신뢰할 수 없는 커버리지였다.
+# self-check 레이어 검증에서는 외부 스캐너를 **기본** 차단한다 (20260828-sast-timeout).
+#   왜: 종전엔 5개 케이스가 각각 실제 semgrep 을 종전 배선(레지스트리 자동 룰셋)으로 불렀고,
+#   그건 **네트워크 호출**이라 run-all 이 여기서 무한 정지했다(실측 8분+ 무출력).
+#   아래 self-check 레이어 케이스에는 외부 스캐너가 관심사가 아니므로 기본값을 0 으로 둔다.
+# 원인 정정 (PR #58): 그 대기의 실체는 룰 수신이 아니라 semgrep.dev version-check 였다
+#   (`--version` 만으로도 98.5s · `SEMGREP_ENABLE_VERSION_CHECK=0` 이면 1.8s — PR #58 실측).
+# ★ 한계 고백 철회 (f313f8d): "실 semgrep 이 specops 자체 코드에 오탐을 내지 않는가" 는 더 이상
+#   포기된 커버리지가 아니다 — 파일 하단 AC-5-sg·AC-6-sg·AC-3-sg 가 이 기본값을 =1 로 되돌려
+#   **실 semgrep** 을 부른다. 로컬 룰셋 + version-check 차단이라 네트워크를 쓰지 않으므로
+#   종전의 포기 사유(네트워크 의존)가 소멸했다(2026-09-24 실측: 1파일 스캔 1.9s).
 export SPECOPS_SAST_EXTERNAL=0
 
 # AC-R-1: 깨끗한 디렉토리 → self-check 통과 (crit=0 exit 0, 도구 미설치여도 SKIP 아닌 crit=0)

@@ -28,11 +28,16 @@ if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
   #   강요하던 경로를 없앤다. fail-closed(부재·NO_GIT·불일치 = 전체 실행)는 그대로다.
   _FSP_TREE=$( cd "$PLUGIN" && vs::nondoc_fingerprint )
 fi
-# 네트워크 금지 계약 (20260828-sast-timeout): 스위트는 외부 SAST 스캐너를 부르지 않는다.
-#   왜: test-security-scan·test-self-config-collect 가 실 `semgrep --config auto` 를 불렀고,
-#   그건 레지스트리 왕복이라 **테스트 결과가 네트워크 상태에 좌우**됐다 — 실측으로 이 두 스위트가
-#   99s·8분+ 를 먹거나 통째로 정지했고, pre-push 게이트가 그대로 멈췄다.
-#   외부 스캐너 자체의 동작은 stub 으로 검증한다(test-security-scan AC-4·5·8 이 =1 로 되돌려 쓴다).
+# 네트워크 금지 계약 (20260828-sast-timeout): 스위트는 **네트워크에 의존하는** SAST 를 부르지 않는다.
+#   왜: test-security-scan·test-self-config-collect 가 실 semgrep 을 종전 배선(레지스트리 자동
+#   룰셋)으로 불렀고, 그건 왕복이라 **테스트 결과가 네트워크 상태에 좌우**됐다 — 실측으로 이 두
+#   스위트가 99s·8분+ 를 먹거나 통째로 정지했고, pre-push 게이트가 그대로 멈췄다.
+# 원인 정정 (PR #58): 그 대기의 실체는 룰 수신이 아니라 semgrep.dev version-check 였다
+#   (`--version` 만으로도 98.5s · `SEMGREP_ENABLE_VERSION_CHECK=0` 이면 1.8s — PR #58 실측).
+# 현재 동작 (f313f8d 이후): 아래 기본값은 0 이지만 test-security-scan·test-sast-rules 가 **실
+#   semgrep 을 되돌려 부른다** — 로컬 룰셋(scripts/_internal/semgrep-rules) + version-check 차단
+#   이라 네트워크를 쓰지 않는다(2026-09-24 실측 1파일 1.9s). 즉 이 계약이 금지하는 것은 "외부
+#   스캐너" 자체가 아니라 **네트워크 의존**이다. 시간초과·하드 실패 경로는 stub 으로 검증한다.
 export SPECOPS_SAST_EXTERNAL=0
 # 엔진 금지 계약 (20260829-uiux-engine-bridge): 스위트는 실 promax 엔진을 부르지 않는다.
 #   격리 없으면 test-init-project UI KIND 가 개발기의 실 search.py 를 호출해 결과가

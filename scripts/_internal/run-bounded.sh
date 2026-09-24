@@ -7,11 +7,17 @@
 # 소스 전용 — 함수만 정의한다(main 없음). run-all.sh(스위트별)·security-scan.sh(외부 스캐너)가 소비.
 #
 # 왜 필요한가 (실측):
-#   `semgrep --config auto` 는 레지스트리에서 룰을 받는 **네트워크 호출**이고 자체 상한이 없다.
+#   종전 semgrep 배선(레지스트리에서 룰을 받는 자동 설정)은 **네트워크 호출**인데 자체 상한이 없었다.
 #   run-all.sh 에도 스위트별 상한이 없어, 네트워크가 막히면 `git push`(pre-push 훅)와
 #   릴리즈 pre-flight 가 통째로 무한 정지했다 — 1줄 .py 대상 semgrep 이 30초 alarm 에 미완료,
 #   run-all 은 test-security-scan 에서 8분+ 무출력. CI(ubuntu)는 semgrep 미설치라 graceful skip
 #   되므로 **로컬 개발 환경에서만 발화하는 함정**이었다.
+# ★ 원인 정정 (PR #58 · FID 20260917-sast-offline-ruleset): 위 계기 자체는 사실이나, 그 대기의
+#   실체는 레지스트리 **룰 수신**이 아니라 semgrep.dev **version-check** 였다 — 스캔 0건인
+#   `--version` 만으로도 98.5s 였고 `SEMGREP_ENABLE_VERSION_CHECK=0` 이면 1.8s 다(PR #58 실측).
+#   현재 배선은 로컬 룰셋 + 그 차단을 쓰므로 이 경로를 타지 않는다(2026-09-24 재측정: 1파일 1.9s).
+#   그래도 이 헬퍼는 필요하다 — 상한은 gitleaks·향후 추가 스캐너와 스위트 층을 위한 안전망이고,
+#   원인이 바뀌어도 "외부 프로세스가 무한히 매달릴 수 있다" 는 전제는 그대로다.
 #
 # ★ 왜 GNU timeout 도 perl alarm 도 아닌 워치독인가 — **자손 정리가 동작 조건이다**:
 #   둘 다 대상 프로세스 하나만 죽인다. 대상이 래퍼 셸(`#!/usr/bin/env bash` 스크립트)이면

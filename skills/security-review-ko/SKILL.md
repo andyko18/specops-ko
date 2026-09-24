@@ -69,6 +69,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <스캔대상 디렉토리
 출력 형식:
 - `SECURITY: SKIP (...)` — 스캐너 미설치 또는 jq 부재 (exit 0)
 - `SECURITY: crit=<N> high=<N> med=<N>` — 스캔 실행됨. crit/high>0 이면 exit 1
+  - 접미 `(룰셋: 로컬 bash-injection)` 이 붙으면 semgrep 이 실제로 완주했다는 **실행 receipt** 다. 부재하면 semgrep 층이 돌지 않은 것이다(미설치·룰셋 부재·시간초과·하드 실패) — `crit=0` 만 보고 통과로 읽지 않는다
+  - 강등 사유는 `(외부 SAST 미반영 — …)` 접미로 함께 표기된다
 
 ### Step 3: 결과 판정
 
