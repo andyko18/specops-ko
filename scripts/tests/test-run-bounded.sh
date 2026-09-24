@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # run-bounded.sh 검증 — 무한 정지 방지 공용 상한 헬퍼 (FID 20260828-sast-timeout)
 #
-# 계기: `semgrep --config auto` 가 레지스트리 룰을 받느라 네트워크에 걸리면 무한 대기하고,
+# 계기: 종전 semgrep 배선(레지스트리 자동 룰셋)이 네트워크에 걸리면 무한 대기하고,
 #   run-all.sh 에는 스위트별 상한이 없어 `git push`(pre-push 훅)가 통째로 정지했다.
 #   실측: 1줄 .py 대상 semgrep 이 30초 상한 안에 미완료 · run-all 이 test-security-scan 에서
 #   8분+ 무출력 정지. 상한을 두 층(외부 스캐너·스위트) 모두에 건다.
+# 원인 정정 (PR #58): 그 대기의 실체는 룰 수신이 아니라 semgrep.dev version-check 였다
+#   (`--version` 만으로도 98.5s · `SEMGREP_ENABLE_VERSION_CHECK=0` 이면 1.8s — PR #58 실측).
+#   현재 배선은 로컬 룰셋 + 그 차단이라 이 경로를 타지 않는다. 이 스위트의 대상은 semgrep 이
+#   아니라 **상한·자손 정리 계약**이므로 검증 가치는 그대로다(다른 스캐너·미래 도구에 유효).
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
