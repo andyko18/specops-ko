@@ -101,24 +101,39 @@ rm -rf "$T" "$STUB"
 if command -v semgrep >/dev/null 2>&1; then
   # AC-5-sg 양성 — 취약 픽스처에서 룰 2개가 정확히 2건 검출
   out=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$P/scripts/tests/fixtures/sast/vulnerable.sh" 2>&1); ec=$?
-  { printf '%s' "$out" | grep -qE 'crit=2' && [ "$ec" = 1 ]; } \
+  #   `crit=2 ` 뒤 공백까지 요구한다 — `crit=2` 만이면 `crit=20` 도 만족하는 접두 일치다.
+  { printf '%s' "$out" | grep -qE 'crit=2 ' && [ "$ec" = 1 ]; } \
     && ok "AC-5-sg 실 semgrep 취약 픽스처 crit=2 차단" || nope "AC-5-sg 양성" "out=$out ec=$ec"
 
   # AC-6-sg 음성 — 프로덕션 코드 오탐 0 + semgrep 이 실제로 돌았음
   #   :16-17 주석이 "네트워크 의존이라 신뢰할 수 없어 포기했다" 고 적은 커버리지를 되살린다.
   #   crit=0 high=0 만 보면 semgrep 미실행도 통과하므로 강등 부재를 함께 요구한다.
   #   검사 문자열을 semgrep( 로 좁힌다 — 외부 SAST 미반영 은 gitleaks 강등도 포함하는 공용 표기다.
-  out=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$P/hooks" 2>&1); ec=$?
-  { printf '%s' "$out" | grep -qE 'crit=0 high=0' && [ "$ec" = 0 ] \
-    && ! printf '%s' "$out" | grep -q 'semgrep('; } \
-    && ok "AC-6-sg 실 semgrep hooks/ 오탐 0 (실행 확인 포함)" || nope "AC-6-sg 오탐" "out=$out ec=$ec"
+  #   ⚠️ security-scan.sh 는 `TARGET="${1:-.}"` 로 **인자를 1개만** 받는다. `"$P/hooks" "$P/scripts"`
+  #   처럼 두 경로를 넘기면 둘째가 조용히 버려져 "범위를 넓힌 척" 이 된다 — 실측(2026-09-24):
+  #   hooks + 취약픽스처를 함께 넘겨도 `crit=0`, 픽스처 단독은 `crit=2`. 그래서 코퍼스마다 **호출을 분리**한다.
+  #   T1.e 의 음성 코퍼스(hooks+scripts 102파일)와 범위를 맞춘다.
+  out_hooks=""
+  for corpus in hooks scripts; do
+    o=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$P/$corpus" 2>&1); e=$?
+    [ "$corpus" = hooks ] && out_hooks="$o"
+    { printf '%s' "$o" | grep -qE 'crit=0 high=0' && [ "$e" = 0 ] \
+      && ! printf '%s' "$o" | grep -q 'semgrep('; } \
+      && ok "AC-6-sg 실 semgrep $corpus/ 오탐 0 (실행 확인 포함)" \
+      || nope "AC-6-sg 오탐 ($corpus)" "out=$o ec=$e"
+  done
 
-  # AC-3-sg 룰셋 출처 표기 = 실행 receipt
-  printf '%s' "$out" | grep -qF '(룰셋: 로컬 bash-injection)' \
-    && ok "AC-3-sg 룰셋 출처 표기" || nope "AC-3-sg 출처 표기" "out=$out"
+  # AC-3-sg 룰셋 출처 표기 = 실행 receipt.
+  #   대상을 hooks 출력으로 **고정**한다 — 루프의 마지막 $o 를 쓰면 코퍼스를 추가·재배치할 때
+  #   검사 대상이 조용히 옮겨간다(무음 이동).
+  printf '%s' "$out_hooks" | grep -qF '(룰셋: 로컬 bash-injection)' \
+    && ok "AC-3-sg 룰셋 출처 표기" || nope "AC-3-sg 출처 표기" "out=$out_hooks"
 else
-  ok "AC-5-sg·AC-6-sg·AC-3-sg semgrep 미설치 — skip (graceful)"
+  skip "AC-5-sg·AC-6-sg·AC-3-sg semgrep 미설치 — 실 스캔 미실행 (PASS 집계 제외)"
 fi
 
-echo "── test-security-scan: PASS=$PASS FAIL=$FAIL ──"
+# SKIP 을 요약에 드러낸다 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
+#   SKIP=0 이면 종전 출력과 바이트 동일하다.
+sk=""; [ "${SKIP:-0}" -gt 0 ] && sk=" SKIP=$SKIP"
+echo "── test-security-scan: PASS=$PASS FAIL=$FAIL$sk ──"
 [ "$FAIL" -eq 0 ]
