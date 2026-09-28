@@ -41,7 +41,9 @@ print(sorted((r['check_id'].split('.')[-1], r['start']['line']) for r in d['resu
   m=$(python3 -c "import json;print(len(json.load(open('$TD/neg.json'))['results']))" 2>/dev/null)
   [ "$m" = 0 ] && ok "T1.e AC-6 프로덕션 오탐 0" || nope "T1.e AC-6 오탐" "매치=$m — 픽스처가 아니라 룰을 고칠 것"
 
-  # T1.f AC-6 파싱 커버리지 floor — 2026-09-24 실측 48/102.
+  # T1.f AC-6 파싱 커버리지 floor — 2026-09-24 실측 48/102 → 2026-09-28 47/101 로 하향.
+  #   하향 사유: 외부 디자인 플러그인 의존 제거 FID(20260928-uiux-promax-removal-design-master)가
+  #   파싱 성공 파일 1건(자산 어댑터)을 삭제했다. 파서 퇴행이 아니라 파일 제거이며 사람 판정으로 floor 를 옮겼다.
   #   T1.e 의 "매치 0" 은 파싱된 범위에서만 유효하다 → 파서 퇴행을 무음으로 흘리면
   #   이 FID 가 고치려는 병(미실행이 PASS 로 보이는 것)이 음성 대조 안으로 이동한다.
   read -r parsed total <<<"$(python3 -c "
@@ -52,10 +54,10 @@ print(sc-bad, sc)
 " 2>/dev/null)"
   if [ -z "${parsed:-}" ]; then
     nope "T1.f AC-6 파싱 커버리지" "산출 실패 (python3/JSON)"
-  elif [ "$parsed" -ge 48 ]; then
-    ok "T1.f AC-6 파싱 커버리지 $parsed/$total (floor 48)"
+  elif [ "$parsed" -ge 47 ]; then
+    ok "T1.f AC-6 파싱 커버리지 $parsed/$total (floor 47)"
   else
-    nope "T1.f AC-6 파싱 커버리지" "$parsed/$total — floor 48 미달 (파서 퇴행 또는 파일 제거 — 사람 판정)"
+    nope "T1.f AC-6 파싱 커버리지" "$parsed/$total — floor 47 미달 (파서 퇴행 또는 파일 제거 — 사람 판정)"
   fi
   # T1.g AC-6 음성 대조 픽스처 — 안전한 관용구에 매치 0 (룰 **정밀도**를 잠근다)
   #   왜 별건인가: 프로덕션 102파일에는 파싱 가능한 `rm -rf`·`eval` 문이 없어 느슨한 룰도 0건을 낸다
