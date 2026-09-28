@@ -196,6 +196,49 @@ grep -q -- '--text-base' "$PLUGIN/templates/screen.html" \
 grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
   && ok "E12 screen.html 간격 토큰" || nope "E12" "토큰 부재"
 
+# ── C: 디자인 방향 카탈로그 (FID 20260928-design-direction-catalog) ──
+_DD="$PLUGIN/templates/design-directions.md"
+if [ ! -f "$_DD" ]; then
+  nope "C0" "카탈로그 부재 — $_DD"
+else
+  _crows=$(awk -F'|' 'NF >= 18 && $2 ~ /^[ ]*[0-9]+[ ]*$/' "$_DD")
+  _cn=$(printf '%s\n' "$_crows" | grep -c . || true)
+  [ "${_cn:-0}" -eq 9 ] && ok "C1 방향 9개 (AC-7)" || nope "C1" "방향 ${_cn:-0}개 — 9개여야 한다"
+  _cbad=$(printf '%s\n' "$_crows" | awk -F'|' '
+    { id=$2; gsub(/ /,"",id); want++
+      if (id != want) print "id:" id "≠" want
+      for (i=3;i<=5;i++){ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); if (v=="") print "빈칸:" id "/" i }
+      for (i=6;i<=8;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^([1-9]|10)$/) print "다이얼:" id "=" v }
+      for (i=9;i<=17;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]$/) print "hex:" id "=" v } }')
+  [ -z "$_cbad" ] && ok "C2 스키마 — 연속 id·필드 완비·다이얼 1~10·#RRGGBB (AC-2)" \
+    || nope "C2" "$(printf '%s' "$_cbad" | head -3 | tr '\n' ' ')"
+  read -r _clum _cdark <<<"$(printf '%s\n' "$_crows" | awk -F'|' '
+    function h(s,  i,v){ v=0; for(i=1;i<=length(s);i++) v=v*16+index("0123456789ABCDEF",substr(s,i,1))-1; return v }
+    function lin(c){ c=c/255; return (c<=0.03928)? c/12.92 : ((c+0.055)/1.055)^2.4 }
+    function lum(x){ return 0.2126*lin(h(substr(x,2,2)))+0.7152*lin(h(substr(x,4,2)))+0.0722*lin(h(substr(x,6,2))) }
+    { bg=$11; gsub(/ /,"",bg); L=lum(bg); if (NR==1) first=L; if (L<0.5) dark++ }
+    END { printf "%.3f %d\n", first, dark }')"
+  _c1sum=$(printf '%s\n' "$_crows" | head -1 | awk -F'|' '{print $4}')
+  if awk -v l="${_clum:-0}" 'BEGIN{exit !(l>=0.8)}' \
+     && printf '%s' "$_c1sum" | grep -q '업무형' && printf '%s' "$_c1sum" | grep -q '저채도' \
+     && printf '%s' "$_c1sum" | grep -q '중밀도' && printf '%s' "$_c1sum" | grep -q '단일 강조색'; then
+    ok "C3 방향 1 라이트 업무형 (휘도 ${_clum}) (AC-7)"
+  else
+    nope "C3" "방향 1 휘도 ${_clum:-?} 또는 요약에 업무형·저채도·중밀도·단일 강조색 누락"
+  fi
+  [ "${_cdark:-0}" -ge 2 ] && [ "${_cdark:-0}" -le 3 ] && ok "C4 다크 방향 ${_cdark}개 (AC-7)" \
+    || nope "C4" "다크 방향 ${_cdark:-?}개 — 2~3개여야 한다"
+fi
+# B2 — 카탈로그 원천 slug 음성 잠금 (AC-1). 판정 리터럴이라 이 파일에만 둔다.
+#   -w 필수: 없으면 `cal` 이 템플릿의 Scale·Call 에 오탐한다(plan-review 실측).
+_SLUG_RE='mintlify|ibm|linear|notion|minimax|miro|mongodb|hashicorp|posthog|airtable|cal|clay|clickhouse|figma|sentry|raycast|sanity|intercom'
+if [ -f "$_DD" ] && [ -f "$_T" ]; then
+  _sl=$(grep -niwE "$_SLUG_RE" "$_DD" "$_T" 2>/dev/null | head -3)
+  [ -z "$_sl" ] && ok "B2 카탈로그·템플릿 원천 slug 0건 (AC-1)" || nope "B2" "잔존: $(printf '%s' "$_sl" | tr '\n' ' ')"
+else
+  nope "B2" "판정 대상 부재 — 카탈로그 또는 템플릿"
+fi
+
 # ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
 #   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
 #   한계 ①: `_nl` 은 git grep 이라 **tracked 파일만** 본다 — untracked 주입은 여기서 안 잡힌다(커밋 시 추적되므로 CI 에서 잡힘).
