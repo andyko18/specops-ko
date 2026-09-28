@@ -18,7 +18,7 @@
 | Text Secondary | `#______` | 보조 텍스트, 레이블 |
 | Border | `#______` | 그리드 라인, 카드 테두리 |
 | Error | `#______` | 에러 상태 |
-| Success | (자산 미제공 — shadcn 규약엔 success 토큰 없음) | 성공 상태 |
+| Success | `#______` | 성공 상태 |
 | Accent | `#______` | 강조 액션, 배지 |
 | Muted | `#______` | 비활성 배경 |
 | Ring | `#______` | 포커스 링 |
@@ -28,7 +28,7 @@
 | Card Foreground | `#______` | 카드 내 텍스트 |
 | On Destructive | `#______` | Error 위 텍스트 |
 
-**Gradient**: (자산 미제공 — 색상 데이터셋에 gradient 컬럼 없음. Phase 11 enrich 또는 수기)
+**Gradient**: [사용 시 방향·색 기재 — 없으면 "Not applicable"]
 
 **Dark Mode**: [다크 모드 색상 변형 또는 "Not applicable"]
 
@@ -44,7 +44,7 @@
 
 **Font Stack**: `[primary], -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 
-**Font Import**: [engine 미연결 — /init-project Phase 6 이 채움]
+**Font Import**: [웹폰트 사용 시 @import 또는 link 태그 — 없으면 시스템 폰트]
 
 ## 3. Spacing & Layout
 
@@ -94,13 +94,13 @@ Padding:    [N]px
 | Scroll Reveal | [ms] | [easing] | [설명] |
 | Stagger List | [ms] | [easing] | [설명] |
 
-> 엔진 연결됨 (20260829-uiux-engine-bridge) — /init-project Phase 6 이 motion.csv 기반 값을 주입한다.
+> 값은 머리의 디자인 방향 MOTION 다이얼에 맞춰 프로젝트가 정한다(낮을수록 짧고 절제된 전환).
 
 ## 6. 레이아웃 패턴
 
-- **권장 패턴**: [Recommended_Pattern]
-- **스타일 우선순위**: [Style_Priority]
-- **핵심 효과**: [Key_Effects]
+- **권장 패턴**: [권장 레이아웃 패턴 — §6.1 원형 기준]
+- **스타일 우선순위**: [스타일 우선순위]
+- **핵심 효과**: [핵심 효과]
 
 ## 6.1 화면 원형
 
@@ -117,9 +117,9 @@ Padding:    [N]px
 
 | 상태 | 표현 | 비고 |
 |---|---|---|
-| 로딩 | 300ms 초과가 예상되면 **스켈레톤**(레이아웃 형태 유지). 300ms 이하는 표시하지 않는다. 버튼 등 국소 동작은 인라인 스피너 | 자산 `app-interface.csv [Feedback] Loading Indicators` |
-| 빈 상태 | **설명 문구 + 다음 행동 CTA** 필수. 일러스트는 선택. "데이터 없음" 단독 금지 | ⚠️ 자산 미제공 — 근거 없는 기본값이다(색상 데이터셋에 empty state 항목 없음). 프로젝트에서 교체 가능 |
-| 에러 | **입력 단위 인라인 메시지 + 폼 상단 요약 배너** 병행. 전체 화면 에러는 페이지 전체 실패에만 | 자산 `app-interface.csv [Feedback] Error Feedback` |
+| 로딩 | 300ms 초과가 예상되면 **스켈레톤**(레이아웃 형태 유지). 300ms 이하는 표시하지 않는다. 버튼 등 국소 동작은 인라인 스피너 | 기본값 — 300ms 이하 표시는 깜빡임을 만든다 |
+| 빈 상태 | **설명 문구 + 다음 행동 CTA** 필수. 일러스트는 선택. "데이터 없음" 단독 금지 | 기본값 — 근거 자료 없이 정한 규약이다. 프로젝트에서 교체 가능 |
+| 에러 | **입력 단위 인라인 메시지 + 폼 상단 요약 배너** 병행. 전체 화면 에러는 페이지 전체 실패에만 | 기본값 — 입력 근처 피드백이 수정 비용을 줄인다 |
 
 ## 8. Design Principles
 

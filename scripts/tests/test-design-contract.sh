@@ -28,9 +28,9 @@ for lbl in Primary Secondary Background Surface "Text Primary" "Text Secondary" 
   grep -q "^| ${lbl} |" "$_T" && ok "U11.$lbl 기존 라벨 보존" || nope "U11.$lbl" "라벨 소실 — 화면 주입이 죽는다"
 done
 
-# U11b — Success 는 템플릿에서도 사유로 비운다 (AC-11)
-grep -qE '^\| Success \| \(자산 미제공' "$_T" \
-  && ok "U11b 템플릿 Success 사유 명시 (AC-11)" || nope "U11b" "#______ 또는 임의값"
+# U11b — Success 는 템플릿에서 값을 발명하지 않는다 — 자리표시자로 두고 Phase 6 이 방향 팔레트로 채운다
+grep -qE '^\| Success \| `#______`' "$_T" \
+  && ok "U11b 템플릿 Success 자리표시자 (값 발명 없음)" || nope "U11b" "Success 에 임의 값 또는 형식 불일치"
 
 # ── U24: 패턴 라이브러리 확장 (FID 20260821-design-pattern-library) ──
 # §6.1 화면 원형 (AC-1)
@@ -57,8 +57,8 @@ for r in 로딩 "빈 상태" 에러; do
   printf '%s\n' "$_s7" | grep -q "^| ${r} |" || _row_miss="$_row_miss [$r]"
 done
 [ -z "$_row_miss" ] && ok "U24.e §7 3행 보존 (AC-2)" || nope "U24.e" "누락:$_row_miss"
-printf '%s\n' "$_s7" | grep -E '^\| 빈 상태 \|' | grep -q '자산' \
-  && ok "U24.f 빈 상태 자산 부재 명시 (AC-3)" || nope "U24.f" "비고에 자산 근거 언급 없음"
+printf '%s\n' "$_s7" | grep -E '^\| 빈 상태 \|' | grep -q '근거' \
+  && ok "U24.f 빈 상태 행이 근거를 밝힌다 (AC-5)" || nope "U24.f" "빈 상태 비고에 근거 명시 없음"
 
 # 회귀 — 기존 9섹션 제목 포함 검사 (AC-R-3) ★ 개수 검사 금지 — §6.1 추가로 10이 된다
 _sec_miss=""
@@ -228,6 +228,14 @@ else
   fi
   [ "${_cdark:-0}" -ge 2 ] && [ "${_cdark:-0}" -le 3 ] && ok "C4 다크 방향 ${_cdark}개 (AC-7)" \
     || nope "C4" "다크 방향 ${_cdark:-?}개 — 2~3개여야 한다"
+fi
+# ── D: 템플릿 죽은 슬롯 — 제거된 엔진·자산이 채우던 자리 (AC-5) ──
+_DEAD_RE='자산 미제공|app-interface\.csv|motion\.csv|engine 미연결|엔진 연결됨|\[Recommended_Pattern\]|\[Style_Priority\]|\[Key_Effects\]'
+if [ -f "$_T" ]; then
+  _dd=$(grep -nE "$_DEAD_RE" "$_T" | head -3)
+  [ -z "$_dd" ] && ok "D1 템플릿 죽은 슬롯 0건" || nope "D1" "잔존: $(printf '%s' "$_dd" | tr '\n' ' ')"
+else
+  nope "D1" "템플릿 부재"
 fi
 # B2 — 카탈로그 원천 slug 음성 잠금 (AC-1). 판정 리터럴이라 이 파일에만 둔다.
 #   -w 필수: 없으면 `cal` 이 템플릿의 Scale·Call 에 오탐한다(plan-review 실측).
