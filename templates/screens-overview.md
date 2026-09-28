@@ -70,7 +70,7 @@ stateDiagram-v2
 - 색상: `DESIGN.md` §1 Color System 의 CSS 변수 (`--color-primary` 등) 1:1 적용
 - 타이포: `DESIGN.md` §2 Typography 의 Heading/Body/Caption 등급
 - 컴포넌트: `DESIGN.md` §4 Components 의 `.btn`, `.input`, `.card` 클래스 우선 사용
-- AI Usage Guidelines: `DESIGN.md` §6 인용
+- AI Usage Guidelines: `DESIGN.md` §9 인용
 
 ## 7. 참조
 

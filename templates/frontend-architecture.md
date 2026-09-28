@@ -4,7 +4,7 @@
 # <PROJECT_NAME> 프론트엔드 아키텍처
 
 > 한국 SI 표준 "프론트 아키텍처". `/init-project` Phase 8c 가 1회 생성 (UI/풀스택/모바일 종류만).
-> 디자인 시스템은 `DESIGN.md` 참조. AI 에이전트 일관성을 위해 §6 AI Usage Guidelines 자동 인용.
+> 디자인 시스템은 `DESIGN.md` 참조. AI 에이전트 일관성을 위해 §9 AI Usage Guidelines 자동 인용.
 
 ## 1. 프레임워크
 
@@ -58,7 +58,7 @@ src/
 
 ## 6. AI 에이전트 가이드
 
-`DESIGN.md` §6 AI Usage Guidelines 인용:
+`DESIGN.md` §9 AI Usage Guidelines 인용:
 
 - 새 컴포넌트 생성 시 `DESIGN.md` §4 Components 클래스 (`.btn`, `.input`, `.card`) 우선 사용
 - Tailwind 사용 시 CSS 변수 (`var(--color-primary)`) 우선

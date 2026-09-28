@@ -296,6 +296,19 @@ rm -rf "$_d"
 grep -E '^- `DESIGN\.md` — \*\*UI KIND일 때만\*\*' "$PLUGIN/commands/init-project.md" | grep -q 'decisions.md' \
   && ok "P6.doc Phase 11 디자인 방향 upsert 지시 존재" || nope "P6.doc" "init-project.md Phase 11 DESIGN.md 항목에 decisions.md upsert 지시 없음"
 
+# ── S9: DESIGN.md AI 지침 섹션 번호 정합 (AC-6) ──
+_ain=$(grep -oE '^## [0-9]+\. AI Usage' "$_T" 2>/dev/null | grep -oE '[0-9]+')
+_aref=$(cd "$PLUGIN" && grep -n 'AI Usage' templates/*.md | grep -v '^templates/DESIGN.md:')
+_adrift=$(printf '%s\n' "$_aref" | grep . | grep -v "§${_ain:-X}" || true)
+_arefn=$(printf '%s\n' "$_aref" | grep -c . || true)
+if [ -z "$_ain" ] || [ "${_arefn:-0}" -lt 3 ]; then
+  nope "S9" "판정 불가 — AI 지침 섹션(${_ain:-없음}) 또는 참조 ${_arefn:-0}건(3건 기대)"
+elif [ -z "$_adrift" ]; then
+  ok "S9 AI 지침 참조가 §${_ain} 과 일치 (${_arefn}건)"
+else
+  nope "S9" "번호 어긋남: $(printf '%s' "$_adrift" | head -3 | tr '\n' ' ')"
+fi
+
 
 # ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
 #   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
