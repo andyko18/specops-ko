@@ -93,7 +93,7 @@ sb=$(_mksandbox) || nope "T1.a" "sandbox 생성 실패"
 #   없으면 아래 _addfile "$sb" … 가 sb="" 로 호출되고 `cd ""`(rc=0 no-op) 때문에
 #   `git add -A` 가 실 트리에서 반복 실행된다. 실측 트리거는 TMPDIR 불가(mktemp 실패)이며,
 #   그때 스위트 출력은 이 부작용을 한 줄도 말하지 않았다 — 조용한 인덱스 오염이었다.
-[ -n "${sb:-}" ] || { nope "T1.a-guard" "sandbox 없이는 진행하지 않는다 — 실 인덱스 보호를 위해 즉시 종료"; finish; exit; }
+[ -n "${sb:-}" ] || { nope "T1.a-guard" "sandbox 없이는 진행하지 않는다 — 실 인덱스 보호를 위해 즉시 종료"; finish; exit 1; }
 _reg "$sb"
 out=$(_run "$sb")
 case "$out" in
@@ -230,16 +230,22 @@ _teeth_pair() { # $1=누출시킬 env 이름 → "<control rc> <mutant rc>"
 }
 for _v in GIT_DIR GIT_INDEX_FILE; do
   case "$_v" in GIT_DIR) _id="T4.a" ;; *) _id="T4.b" ;; esac
-  if [ -z "$mut" ] || grep -q '^unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE$' "$mut" 2>/dev/null; then
+  if [ -z "$mut" ] || [ ! -s "$mut" ] \
+     || [ "$(( $(wc -l < "$CHK") - $(wc -l < "$mut") ))" -ne 1 ] \
+     || grep -q '^unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE$' "$mut" 2>/dev/null; then
     # 변이가 실제로 적용됐는지 먼저 확인한다 — 미적용이면 이 어서션은 공허하다.
-    nope "$_id" "변이 사본 준비 실패(가드 줄이 지워지지 않았다) — 이빨을 판정할 수 없다"
+    #   빈 사본(sed 실패·$CHK 미읽기)은 가드 줄 grep 이 미매치라 "적용됨" 으로 오판되고 rc=0 으로
+    #   통과했다(리뷰 실측). 그래서 비어 있지 않음 + 원본 대비 정확히 1줄 삭제를 함께 요구한다.
+    nope "$_id" "변이 사본 준비 실패(비었거나 · 가드 1줄 삭제가 아니다) — 이빨을 판정할 수 없다"
     continue
   fi
   read -r crc mrc <<< "$(_teeth_pair "$_v")"
-  if [ "${crc:-}" = 1 ] && [ "${mrc:-}" != 1 ]; then
-    ok "$_id $_v 누출 — 가드 있음: 불일치 적발(rc=1) · 가드 지움: 놓침(rc=$mrc). 가드에 이빨이 있다"
+  # mutant 기대값은 ≠1 이 아니라 정확히 2(locked=0 가드 도달) — ≠1 이면 문법 오류(127)·빈 파일(0)
+  #   처럼 가드와 무관하게 죽은 사본도 "이빨 있음" 으로 통과한다.
+  if [ "${crc:-}" = 1 ] && [ "${mrc:-}" = 2 ]; then
+    ok "$_id $_v 누출 — 가드 있음: 불일치 적발(rc=1) · 가드 지움: 판정 불가로 떨어짐(rc=2). 가드에 이빨이 있다"
   else
-    nope "$_id" "$_v 누출 — control rc=${crc:-?}(기대 1) · mutant rc=${mrc:-?}(기대 ≠1)"
+    nope "$_id" "$_v 누출 — control rc=${crc:-?}(기대 1) · mutant rc=${mrc:-?}(기대 2)"
   fi
 done
 

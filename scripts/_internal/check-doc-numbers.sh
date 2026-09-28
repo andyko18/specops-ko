@@ -2,7 +2,7 @@
 # 문서의 테스트 집합 수 주장이 실측과 맞는지 검사한다 (doc-lock).
 # Usage: bash scripts/_internal/check-doc-numbers.sh
 #   대상 트리: $DOC_NUMBERS_ROOT (미설정 시 git rev-parse --show-toplevel)
-# exit 0=위반 0 · 1=위반 존재 · 2=대상 트리가 git 저장소 아님/읽기 불가
+# exit 0=위반 0 · 1=위반 존재 · 2=판정 불가(대상 트리가 git 저장소 아님/읽기 불가 · 잠금 마커 0건)
 #
 # 왜 트리를 인자로 받는가: 동종 checker(check-propagation.sh·check-matrix-patterns.sh)는
 #   BASH_SOURCE 로 실 트리를 고정하는데, 그러면 되돌려-관찰(변이 주입)이 실 트리 쓰기가 되어
@@ -125,7 +125,7 @@ while IFS= read -r rec; do
 #     rc=2 로 잡아냈다). GNU xargs 의 빈 입력 stdin 흡수는 그 가드가 이미 덮는다(tracked 0건
 #     트리 → locked 0 → rc=2). 고치려면 `xargs -0 sh -c 'grep … "$@" </dev/null' _` 처럼
 #     grep 쪽에 붙여야 하는데, 그건 이 한 줄의 복잡도를 그 이득보다 크게 만든다.
-done < <(git ls-files -z | xargs -0 grep -IHnE "$RE" 2>/dev/null || true)
+done < <(git ls-files -z | xargs -0 grep -IHnE -e "$RE" -- 2>/dev/null || true)
 
 if [ "$fail" -gt 0 ]; then
   echo "DOC-NUMBERS: FAIL 위반 ${fail}건 (스캔 ${files}파일/${lines}줄)" >&2
