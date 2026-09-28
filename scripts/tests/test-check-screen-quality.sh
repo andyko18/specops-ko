@@ -330,4 +330,22 @@ _gmd "$TD/c4.md" '목록, 갤러리' "$LIST_OK"; o=$(_gout "$TD/c4.md")
 { [ "$(_val "$o" genre)" = unknown ] && _gdet "$o" | grep -F '원형 값 판독 불가: ' | grep -qF '갤러리'; } \
   && ok "G7.e 목록, 갤러리 → 전체 unknown" || nope "G7.e" "genre=$(_val "$o" genre)"
 
+# ── G6: verify backstop 배선 (AC-6 · AC-8) — 화면 껍데기 점검과 같은 목록 ──
+VS="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
+_l_sh=$(grep -n '화면 껍데기 점검' "$VS" | head -1 | cut -d: -f1)
+_l_cv=$(grep -n '테스트=spec 커버 점검' "$VS" | head -1 | cut -d: -f1)
+_l_q=$(grep -n 'check-screen-quality\.sh --all' "$VS" | head -1 | cut -d: -f1)
+if [ -n "$_l_sh" ] && [ -n "$_l_cv" ] && [ -n "$_l_q" ] && [ "$_l_q" -gt "$_l_sh" ] && [ "$_l_q" -lt "$_l_cv" ]; then
+  _blk=$(sed -n "${_l_q},$((_l_cv - 1))p" "$VS")
+  { printf '%s' "$_blk" | grep -qF '## 화면 품질 계측' && printf '%s' "$_blk" | grep -qF 'VERIFY: FAIL' \
+    && printf '%s' "$_blk" | grep -qF 'graceful skip'; } \
+    && ok "G6.a verify SKILL 계측 실행 · evidence 섹션 · 비차단 · skip" \
+    || nope "G6.a" "블록에 '## 화면 품질 계측'·'VERIFY: FAIL'(승급 금지)·'graceful skip' 중 누락"
+  printf '%s' "$_blk" | grep -qF '상세줄이 있는 화면' \
+    && ok "G6.b 사용자 출력은 상세줄 있는 화면만 (AC-8)" || nope "G6.b" "출력 수준 문구 없음"
+else
+  nope "G6.a" "배선 위치 — 껍데기=${_l_sh:-없음} 계측=${_l_q:-없음} 커버=${_l_cv:-없음} (껍데기 < 계측 < 커버 기대)"
+  nope "G6.b" "배선 부재로 판정 불가"
+fi
+
 finish

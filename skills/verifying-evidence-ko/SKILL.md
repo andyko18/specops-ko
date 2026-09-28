@@ -178,6 +178,9 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
       - **비차단**: 본 버전에서는 `VERIFY: FAIL` 로 승급하지 않는다 (사용자 결정 — 단계적 적용. 상류 Phase 2.5·Step 5.5 자동 재생성이 실질 공백을 메운다).
       - **차단 승급 조건 (차기 버전 반영 대상 — 현 버전은 위 "비차단"이 우선)**: 이 경고가 실제로 관찰되면 상류 교정 실패의 증거이므로 차단으로 승급 대상이다 (차기 유지보수에서 `VERIFY: FAIL` 승급) — 상류가 정상 동작하면 신규 생성 화면에 마커가 남을 수 없기 때문이다. **현 버전에서는 관찰돼도 승급하지 말 것** (L170 비차단 준수).
       - `screens/` 부재(CLI·순수 로직) 시 graceful skip.
+    - **화면 품질 계측 (같은 역방향 net — 단일 모드 도달점)**: 루트 `screens/` 존재 시 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screen-quality.sh --all` 을 실행해 전 화면 계측 원문을 evidence.md `## 화면 품질 계측` 섹션에 기록한다. 사용자에게는 **상세줄이 있는 화면**만 출력한다(노이즈 최소) — 단 상세줄이 `[genre] 원형 미선언` 하나뿐인 화면(원형을 선언하지 않은 기존 화면)은 화면별로 나열하지 않고 `원형 미선언 N개` 1줄로 모은다. `genre=` 축은 `DESIGN.md` §6.1 장르 규칙이고, `genre=unknown` 은 원형 미선언이지 위반 없음이 아니다.
+      - **비차단**: 계측기는 항상 exit 0 이며 이 결과로 `VERIFY: FAIL` 로 승급하지 않는다 — 휴리스틱 오탐이 chain 을 세우면 BYPASS 관성이 생긴다.
+      - `screens/` 부재(CLI·순수 로직) 시 graceful skip.
   - **테스트=spec 커버 점검** (ecc inspect-first 교훈 2 — 빈틈2 해소): 이번 FID 가 **api-spec.md 에 추가·변경한 제공 엔드포인트** 각각에 대해, 브랜치 누적 변경의 테스트 파일에서 해당 라우트를 호출·검증하는 케이스가 존재하는지 대조. 미커버 엔드포인트는 evidence.md `## 미커버 엔드포인트` 섹션에 나열 (감지·권고만 — AC 매핑 커버리지는 decomposing 몫이므로 여기서는 **설계문서↔테스트의 잔여 괴리**만 잡는다. 부재 시 graceful skip).
   - **자동 수정 금지** (5원칙 4 주권 — 기준 설계문서 변경은 사용자 결정). 본 스텝은 **감지·권고만**, chain 비차단.
 - [ ] **foundation manifest 산출 게이트 (HARD — §유형=foundation 일 때만)**: `grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' .specops/<FID>/spec.md` 이면 → `.specops/memory/foundation-manifest.md` 가 **존재**하고 **실제 내용으로 채워졌는지** 확인. §유형≠foundation 이면 graceful skip.
