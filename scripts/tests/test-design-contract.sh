@@ -3,6 +3,8 @@
 #   이관 원본: test-uiux-assets.sh(삭제). 그 스위트에 promax 무관 가드가 섞여 있어 통째 삭제하면 조용히 사라졌다.
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# 상속된 GIT_* 가 N 절의 git grep·ls-files 를 다른 repo/빈 인덱스로 돌려 위반이 45/0 으로 위장됐다(Phase C 2회차 ④a~④d 실측) — doc-lock 선례(a24e039)와 동형
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 PASS=0; FAIL=0
 ok()   { echo "PASS $1"; PASS=$((PASS+1)); }
 nope() { echo "FAIL $1 — $2"; FAIL=$((FAIL+1)); }
@@ -199,18 +201,24 @@ grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
 #   한계 ①: `_nl` 은 git grep 이라 **tracked 파일만** 본다 — untracked 주입은 여기서 안 잡힌다(커밋 시 추적되므로 CI 에서 잡힘).
 #   한계 ②: 제외는 **파일 단위**다 — 판정 리터럴 3파일 내부의 재유입은 검사하지 않는다.
 #   N0 — git 판정 가능 여부 가드. git 오류 시 git grep 은 빈 문자열, ls-files 는 0 을 내고 그 값이 곧 PASS 조건이라
-#     판정 불가가 PASS 로 위장됐다(Phase C 프로브 P5 실측 20260928). 판정 불가는 FAIL 로 드러낸다 — 5원칙 5.
+#     판정 불가가 PASS 로 위장됐다(Phase C 프로브 P5 실측 20260928). 양성 앵커(plugin.json 이 **이 트리의 인덱스에** 추적됨)로
+#     묻는다 — `rev-parse --is-inside-work-tree` 는 타 repo 하위 untracked 사본·인덱스 손상·GIT_* 오염에서도 true 라
+#     "git 트리인가" 만 답했다(Phase C 2회차 ①②④ 실측: 전부 45/0). 보장 범위: 앵커가 없으면(비-git·타 repo 하위·인덱스
+#     손상) FAIL N0, 앵커 통과 뒤 호출별 git 오류(rc>1)는 _nl 이 FAIL. 동시 실행 index.lock 경합은 재현·보장하지 않았다.
 _NL_GIT_OK=0
-git -C "$PLUGIN" rev-parse --is-inside-work-tree >/dev/null 2>&1 && _NL_GIT_OK=1 \
-  || nope "N0" "git 판정 불가 — 음성 잠금(N2.a·N2.b·N3·N4)을 평가할 수 없다"
+git -C "$PLUGIN" ls-files --error-unmatch -- .claude-plugin/plugin.json >/dev/null 2>&1 && _NL_GIT_OK=1 \
+  || nope "N0" "git 판정 불가(앵커 .claude-plugin/plugin.json 미추적) — 음성 잠금(N2.a·N2.b·N3·N4)을 평가할 수 없다"
 _NL_RE='ui-ux-pro-max|uiux::|uiux-assets|UIUX_'   # UIUX_ = 제거된 엔진·자산 env(UIUX_ENGINE_DISABLE 등) 재유입
 _nl() { # $1=라벨, 나머지=pathspec
   local lbl="$1"; shift
-  local hits
+  local hits rc
   [ "$_NL_GIT_OK" -eq 1 ] || { nope "$lbl" "git 판정 불가 (N0)"; return; }
+  # rc 를 head 파이프에 잃지 않도록 grep 출력과 rc 를 먼저 분리 캡처한다 — 인덱스 손상(rc=128)이 빈 hits → PASS 로 위장됐다
   hits=$(cd "$PLUGIN" && git grep -nE "$_NL_RE" -- "$@" \
     ':!CHANGELOG.md' ':!docs/audit' ':!scripts/tests/test-design-contract.sh' \
-    ':!scripts/tests/test-batch-orchestration.sh' ':!scripts/tests/test-screen-routing-doc.sh' 2>/dev/null | head -3)
+    ':!scripts/tests/test-batch-orchestration.sh' ':!scripts/tests/test-screen-routing-doc.sh' 2>/dev/null); rc=$?
+  if [ "$rc" -gt 1 ]; then nope "$lbl" "git grep 오류 rc=$rc — 판정 불가"; return; fi
+  hits=$(printf '%s\n' "$hits" | head -3)
   [ -z "$hits" ] && ok "$lbl 재유입 0건" || nope "$lbl" "잔존: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 # N1 — 매니페스트 의존 선언 0 (AC-1)
@@ -225,8 +233,11 @@ fi
 # N2 — bash 어댑터·픽스처 부재 (AC-2·AC-6 ③)
 _nl "N2.a scripts/·.claude-plugin/" scripts .claude-plugin
 if [ "$_NL_GIT_OK" -eq 1 ]; then
-  _fx=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine | wc -l | tr -d ' ')
-  [ "$_fx" -eq 0 ] && ok "N2.b 어댑터·픽스처 추적 0건" || nope "N2.b" "추적 ${_fx}건 잔존"
+  _fxl=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine 2>/dev/null); _fxrc=$?
+  _fx=$(printf '%s' "$_fxl" | grep -c . || true)
+  if [ "$_fxrc" -ne 0 ]; then nope "N2.b" "git ls-files 오류 rc=$_fxrc — 판정 불가"
+  elif [ "$_fx" -eq 0 ]; then ok "N2.b 어댑터·픽스처 추적 0건"
+  else nope "N2.b" "추적 ${_fx}건 잔존"; fi
 else
   nope "N2.b" "git 판정 불가 (N0)"
 fi
@@ -234,6 +245,26 @@ fi
 _nl "N3 skills/·commands/·agents/·hooks/·templates/" skills commands agents hooks templates
 # N4 — 저장소 전역(README·CONTRIBUTING 등 나머지 표면) 재유입 0 (AC-2 완결)
 _nl "N4 저장소 전역" .
+
+# ── T0: N0 가드의 이빨 (회귀 잠금 — a24e039 T4.a/T4.b 선례) ──
+#   가드 3줄을 지워도 run-all 이 green 이었다(Phase C 2회차 ⑤). 현재 작업본 스위트를 판정 불가 트리에 복사해 돌려 `FAIL N0` 를 단언한다.
+#   복사본 안에서 이 블록이 다시 돌지 않도록 DESIGN_CONTRACT_TEETH=1 로 재귀를 끊는다.
+if [ "${DESIGN_CONTRACT_TEETH:-0}" != "1" ]; then
+  _T0=$(mktemp -d); trap 'rm -rf "$_T0"' EXIT
+  _t0_run() { # $1=대상 루트 → 복사본 스위트 출력
+    mkdir -p "$1/scripts/tests" && cp "${BASH_SOURCE[0]}" "$1/scripts/tests/test-design-contract.sh" \
+      && (cd "$1" && DESIGN_CONTRACT_TEETH=1 bash scripts/tests/test-design-contract.sh 2>/dev/null)
+  }
+  # T0.a — 비-git 디렉터리
+  _t0a=$(_t0_run "$_T0/nogit")
+  printf '%s\n' "$_t0a" | grep -q '^FAIL N0' && ok "T0.a 비-git 트리에서 FAIL N0 (N0 이빨)" \
+    || nope "T0.a" "비-git 트리에서 N0 무검출 — $(printf '%s\n' "$_t0a" | grep '^PASS=' | tail -1)"
+  # T0.b — 타 git repo 하위의 untracked 사본 (rev-parse 는 true 를 내던 클래스)
+  mkdir -p "$_T0/outer" && git -C "$_T0/outer" init -q 2>/dev/null
+  _t0b=$(_t0_run "$_T0/outer/sub")
+  printf '%s\n' "$_t0b" | grep -q '^FAIL N0' && ok "T0.b 타 repo 하위 untracked 사본에서 FAIL N0 (N0 이빨)" \
+    || nope "T0.b" "타 repo 하위에서 N0 무검출 — $(printf '%s\n' "$_t0b" | grep '^PASS=' | tail -1)"
+fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
