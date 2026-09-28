@@ -27,7 +27,7 @@ nope() { FAIL=$((FAIL+1)); echo "FAIL $1${2:+ — $2}"; }
 skip() { SKIP=$((SKIP+1)); echo "SKIP $1"; }
 run()  { local d="$1"; shift; if "$@" 2>/dev/null; then ok "$d"; else fail "$d"; fi; }
 finish() {
-  # SKIP=0 이면 종전 출력과 바이트 동일해야 한다 — 91 스위트가 이 줄을 tail 로 읽고,
+  # SKIP=0 이면 종전 출력과 바이트 동일해야 한다 — 여러 스위트가 이 줄을 tail 로 읽고,
   # run-all 은 `tail -1` 로, test-run-all-verify-token 은 마지막 줄 완전일치로 단언한다.
   local extra=""
   [ "${SKIP:-0}" -gt 0 ] && extra=" SKIP=$SKIP"
