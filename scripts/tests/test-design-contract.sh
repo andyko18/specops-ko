@@ -279,7 +279,7 @@ _p6rm() {
 _catrow() { awk -F'|' -v id="$1" 'NF >= 18 { v=$2; gsub(/ /,"",v); if (v == id) print }' "$_DD"; }
 _cell() { printf '%s' "$1" | awk -F'|' -v i="$2" '{ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); print v }'; }
 # "+2"·"02" — sed -n "+2p" 는 BSD 에서 오류라 빈 행 → 자리표시자 DESIGN.md 에 "작성 완료"(Phase C 프로브 ⑤). 선행 0 은 10진 해석.
-for _case in "1:1" "2:2" ":1" "99:1" "+2:1" "02:2"; do
+for _case in "1:1" "2:2" ":1" "99:1" "+2:1" "02:2" "18446744073709551618:1"; do
   _in=${_case%%:*}; _want=${_case##*:}
   _f=$(_p6d "$_in") || _f=""
   if [ -z "$_f" ]; then nope "P6.${_in:-빈입력}" "임시 디렉터리 생성 실패 — 판정 불가"; continue; fi
