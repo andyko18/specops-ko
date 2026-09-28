@@ -26,25 +26,54 @@ phase_5_claude() {
   echo "→ ${target} 작성 완료"
 }
 
-# brand-pick: 1=Stripe 2=Notion 3=Linear 4=Claude 5=직접
-_design_brand_color() {
-  case "$1" in
-    1) echo "#635BFF" ;;
-    2) echo "#000000" ;;
-    3) echo "#5E6AD2" ;;
-    4) echo "#7C3AED" ;;
-    *) echo "#______" ;;
-  esac
+# 디자인 방향 카탈로그 — templates/design-directions.md 표를 읽는다 (FID 20260928-design-direction-catalog).
+#   stdout: 행마다 탭 구분 16필드 (id 이름 요약 특성 V M D Primary Secondary Background Surface
+#   Text Primary · Text Secondary · Border · Error · Success). 카탈로그 부재·0행이면 빈 출력.
+_design_directions() {
+  [ -f "$PLUGIN/templates/design-directions.md" ] || return 0
+  awk -F'|' '
+    NF >= 18 && $2 ~ /^[ ]*[0-9]+[ ]*$/ {
+      out = ""
+      # 셀 내부 탭은 공백으로 — 출력이 탭 구분이라 남기면 필드가 밀려 §1 이 엇갈려 주입된다(Phase C 프로브 ②)
+      for (i = 2; i <= 17; i++) { v = $i; gsub(/^[ \t]+|[ \t]+$/, "", v); gsub(/\t/, " ", v); out = out (i > 2 ? "\t" : "") v }
+      print out
+    }' "$PLUGIN/templates/design-directions.md"
 }
 
-_design_brand_name() {
-  case "$1" in
-    1) echo "Stripe" ;;
-    2) echo "Notion" ;;
-    3) echo "Linear" ;;
-    4) echo "Claude" ;;
-    *) echo "Custom" ;;
-  esac
+# 고른 방향으로 DESIGN.md 를 만든다. $1=target $2=_design_directions 한 행.
+#   머리 3줄 · §1 9라벨(백틱 hex — _inject_design_palette 계약) · §8 방향 특성 bullet.
+#   값은 ENVIRON 으로 넘긴다 — awk -v 와 sed 는 역슬래시·& 를 해석한다.
+_design_apply_direction() {
+  local target="$1" row="$2"
+  cp "$PLUGIN/templates/DESIGN.md" "$target" || return 1
+  _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME}"
+  ROW="$row" awk '
+    BEGIN {
+      split(ENVIRON["ROW"], f, "\t")
+      split("Primary|Secondary|Background|Surface|Text Primary|Text Secondary|Border|Error|Success", L, "|")
+      for (i = 1; i <= 9; i++) hex[L[i]] = f[7 + i]
+    }
+    !head && /^# DESIGN\.md — / {
+      print; print ""
+      print "> **디자인 방향**: " f[2] " — " f[3]
+      print "> **다이얼**: VARIANCE " f[5] " · MOTION " f[6] " · DENSITY " f[7] " (1~10)"
+      print "> 선택 기록: /init-project Phase 11 이 decisions.md 결정 표에 행으로 남긴다."
+      head = 1; next
+    }
+    /^\| [A-Za-z ]+ \| `#______`/ {
+      lbl = $0; sub(/^\| /, "", lbl); sub(/ \|.*/, "", lbl)
+      if ((lbl in hex) && hex[lbl] ~ /^#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]$/) sub(/`#______`/, "`" hex[lbl] "`")
+      print; next
+    }
+    /^## 8\. Design Principles/ {
+      print; print ""
+      print "**디자인 방향 특성** (" f[2] "):"
+      m = split(f[4], t, ";")
+      for (i = 1; i <= m; i++) { s = t[i]; gsub(/^[ ]+|[ ]+$/, "", s); if (s != "") print "- " s }
+      next
+    }
+    { print }
+  ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target" || return 1
 }
 
 phase_6_design() {
@@ -57,28 +86,44 @@ phase_6_design() {
     echo "→ ${target} 보존 (skip 정책)"
     return
   fi
+  local rows n pick="" row
+  rows=$(_design_directions)
+  n=$(printf '%s\n' "$rows" | grep -c . || true)
+  if [ "${n:-0}" -eq 0 ]; then
+    # read 를 소비하지 않는다 — 카탈로그가 깨져도 뒤 Phase 의 stdin 순서는 그대로다
+    echo "  ⚠️  디자인 방향 카탈로그를 읽지 못했습니다 — 템플릿 골격만 복사합니다" >&2
+    cp "$PLUGIN/templates/DESIGN.md" "$target"
+    _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME}"
+    return
+  fi
   echo ""
-  echo "[Phase 6] DESIGN.md — 디자인 시스템 브랜드 선택:"
-  echo "  (1) Stripe   — 보라 그라디언트, 개발자 친화 ← 추천"
-  echo "  (2) Notion   — 미니멀, 화이트 베이스"
-  echo "  (3) Linear   — 기술적, 다크 인디고"
-  echo "  (4) Claude   — AI 친화, 다크 퍼스트"
-  echo "  (5) 직접 입력"
+  echo "[Phase 6] DESIGN.md — 디자인 방향 선택:"
+  printf '%s\n' "$rows" | awk -F'\t' '{ printf "  (%s) %s — %s%s\n", $1, $2, $3, (NR == 1 ? " ← 기본" : "") }'
   printf "선택 [1]: "
-  local b=""
-  read -r b || true
-  case "$b" in 1|2|3|4|5) ;; *) b="1" ;; esac
-  local color name
-  color=$(_design_brand_color "$b")
-  name=$(_design_brand_name "$b")
-  cp "$PLUGIN/templates/DESIGN.md" "$target"
-  _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME} (${name} 스타일)"
-  # §1 Color System Primary 행만 brand 색상으로
-  awk -v c="$color" '
-    /^\| Primary \| `#______`/ { sub(/`#______`/, "`" c "`"); print; next }
-    { print }
-  ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
-  echo "→ ${target} 작성 완료 (브랜드: ${name}, Primary=${color})"
+  read -r pick || true
+  # 숫자만 통과 → 선행 0 제거(02 → 2) → 자릿수 상한 → 범위 검사. 빈 입력·비숫자·범위 밖은 방향 1.
+  #   `+2` 는 [ -ge ] 를 통과하지만 BSD sed -n "+2p" 가 오류라 빈 행이 됐다(Phase C 프로브 ⑤) — 부호도 비숫자로 본다.
+  #   `$((10#$pick))` 는 2^64 를 넘는 입력을 무음 wrap 해(2^64+2 → 2) 방향 2 를 골랐다(Phase C 2회차) —
+  #   산술 변환 없이 문자열로 다룬다: 방향 수 n 의 자릿수를 넘는 입력은 범위 밖이다.
+  case "$pick" in ''|*[!0-9]*) pick=1 ;; esac
+  pick=${pick#"${pick%%[!0]*}"}          # 선행 0 제거 — "0"·"000" 은 빈 값이 된다
+  [ -n "$pick" ] || pick=1
+  [ "${#pick}" -le "${#n}" ] || pick=1   # 자릿수 상한 — 산술 오버플로 경로 차단
+  { [ "$pick" -ge 1 ] && [ "$pick" -le "$n" ]; } 2>/dev/null || pick=1
+  row=$(printf '%s\n' "$rows" | sed -n "${pick}p")
+  # 어떤 이유로든 행이 비면 방향 1 로 — 그래도 비면 빈 행으로 자리표시자 DESIGN.md 를 만들고 "완료" 라 하지 않는다
+  [ -n "$row" ] || row=$(printf '%s\n' "$rows" | sed -n '1p')
+  if [ -z "$row" ]; then
+    echo "  ⚠️  디자인 방향 행을 읽지 못했습니다(선택 ${pick}) — 템플릿 골격만 복사합니다" >&2
+    cp "$PLUGIN/templates/DESIGN.md" "$target"
+    _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME}"
+    return
+  fi
+  if _design_apply_direction "$target" "$row"; then
+    echo "→ ${target} 작성 완료 (디자인 방향: $(printf '%s' "$row" | cut -f2))"
+  else
+    echo "  ⚠️  ${target} 작성 실패 — 방향 주입 중 오류" >&2
+  fi
 }
 # screens-overview.md §1 표를 <!-- screens-table:start/end --> fence 내부에 교체.
 # fence 패턴은 템플릿 예시 행 이름 (home/login/dashboard) 에 비의존 — 향후 템플릿 변경에 안정.

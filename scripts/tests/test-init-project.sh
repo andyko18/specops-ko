@@ -39,7 +39,7 @@ count_active() {
 fullstack_stdin() {
   printf "4\np1\np2\np3\np4\np5\n"
   printf "1. 한 줄: 풀스택 데모\n2. 페르소나: dev\n3. 가치: a, b, c\n4. M1: m1\n5. M2: m2\n6. M3: m3\n\n"
-  printf "1\nhome, login\ny\n2\n"  # brand=Stripe, screens, DB=y, API=OpenAPI
+  printf "1\nhome, login\ny\n2\n"  # direction=1, screens, DB=y, API=OpenAPI
 }
 
 # ── T1.a UI (KIND=1) ──────────────────────────
@@ -47,7 +47,7 @@ setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
-  printf "1\nhome\nn\nn\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=n
+  printf "1\nhome\nn\nn\n"  # 방향=1, screens=home, DB=n, consumer=n
 } | bash "$SCRIPT" >/dev/null 2>&1
 if [ -f DESIGN.md ] && [ -f .specops/memory/frontend-architecture.md ] \
    && [ -f .specops/memory/screens-overview.md ] \
@@ -65,7 +65,7 @@ setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. UI app\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
-  printf "1\nhome\nn\ny\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=y
+  printf "1\nhome\nn\ny\n"  # 방향=1, screens=home, DB=n, consumer=y
 } | bash "$SCRIPT" >/dev/null 2>&1
 if [ -f .specops/memory/api-spec-consumer.md ] \
    && git ls-files --error-unmatch .specops/memory/api-spec-consumer.md >/dev/null 2>&1; then
@@ -504,7 +504,7 @@ setup_fixture
 {
   printf "1\np1\np2\np3\np4\np5\n"
   printf "1. UI consumer\n2. user\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
-  printf "1\nhome\nn\ny\n"  # 브랜드=Stripe, screens=home, DB=n, consumer=y
+  printf "1\nhome\nn\ny\n"  # 방향=1, screens=home, DB=n, consumer=y
 } | bash "$SCRIPT" >/dev/null 2>&1
 if [ -f .specops/memory/api-spec-consumer.md ] \
    && ! grep -q '<PROJECT_NAME>' .specops/memory/api-spec-consumer.md; then

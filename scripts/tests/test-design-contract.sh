@@ -28,9 +28,9 @@ for lbl in Primary Secondary Background Surface "Text Primary" "Text Secondary" 
   grep -q "^| ${lbl} |" "$_T" && ok "U11.$lbl 기존 라벨 보존" || nope "U11.$lbl" "라벨 소실 — 화면 주입이 죽는다"
 done
 
-# U11b — Success 는 템플릿에서도 사유로 비운다 (AC-11)
-grep -qE '^\| Success \| \(자산 미제공' "$_T" \
-  && ok "U11b 템플릿 Success 사유 명시 (AC-11)" || nope "U11b" "#______ 또는 임의값"
+# U11b — Success 는 템플릿에서 값을 발명하지 않는다 — 자리표시자로 두고 Phase 6 이 방향 팔레트로 채운다
+grep -qE '^\| Success \| `#______`' "$_T" \
+  && ok "U11b 템플릿 Success 자리표시자 (값 발명 없음)" || nope "U11b" "Success 에 임의 값 또는 형식 불일치"
 
 # ── U24: 패턴 라이브러리 확장 (FID 20260821-design-pattern-library) ──
 # §6.1 화면 원형 (AC-1)
@@ -57,8 +57,8 @@ for r in 로딩 "빈 상태" 에러; do
   printf '%s\n' "$_s7" | grep -q "^| ${r} |" || _row_miss="$_row_miss [$r]"
 done
 [ -z "$_row_miss" ] && ok "U24.e §7 3행 보존 (AC-2)" || nope "U24.e" "누락:$_row_miss"
-printf '%s\n' "$_s7" | grep -E '^\| 빈 상태 \|' | grep -q '자산' \
-  && ok "U24.f 빈 상태 자산 부재 명시 (AC-3)" || nope "U24.f" "비고에 자산 근거 언급 없음"
+printf '%s\n' "$_s7" | grep -E '^\| 빈 상태 \|' | grep -q '근거' \
+  && ok "U24.f 빈 상태 행이 근거를 밝힌다 (AC-5)" || nope "U24.f" "빈 상태 비고에 근거 명시 없음"
 
 # 회귀 — 기존 9섹션 제목 포함 검사 (AC-R-3) ★ 개수 검사 금지 — §6.1 추가로 10이 된다
 _sec_miss=""
@@ -195,6 +195,134 @@ grep -q -- '--text-base' "$PLUGIN/templates/screen.html" \
   && ok "E11 screen.html 타입 토큰" || nope "E11" "토큰 부재"
 grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
   && ok "E12 screen.html 간격 토큰" || nope "E12" "토큰 부재"
+
+# ── C: 디자인 방향 카탈로그 (FID 20260928-design-direction-catalog) ──
+_DD="$PLUGIN/templates/design-directions.md"
+if [ ! -f "$_DD" ]; then
+  nope "C0" "카탈로그 부재 — $_DD"
+else
+  _crows=$(awk -F'|' 'NF >= 18 && $2 ~ /^[ ]*[0-9]+[ ]*$/' "$_DD")
+  _cn=$(printf '%s\n' "$_crows" | grep -c . || true)
+  [ "${_cn:-0}" -eq 9 ] && ok "C1 방향 9개 (AC-7)" || nope "C1" "방향 ${_cn:-0}개 — 9개여야 한다"
+  _cbad=$(printf '%s\n' "$_crows" | awk -F'|' '
+    { id=$2; gsub(/ /,"",id); want++
+      if (id != want) print "id:" id "≠" want
+      if ($0 ~ /\t/) print "탭:" id
+      for (i=3;i<=5;i++){ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); if (v=="") print "빈칸:" id "/" i }
+      for (i=6;i<=8;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^([1-9]|10)$/) print "다이얼:" id "=" v }
+      for (i=9;i<=17;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]$/) print "hex:" id "=" v } }')
+  [ -z "$_cbad" ] && ok "C2 스키마 — 연속 id·필드 완비·다이얼 1~10·#RRGGBB (AC-2)" \
+    || nope "C2" "$(printf '%s' "$_cbad" | head -3 | tr '\n' ' ')"
+  read -r _clum _cdark <<<"$(printf '%s\n' "$_crows" | awk -F'|' '
+    function h(s,  i,v){ v=0; for(i=1;i<=length(s);i++) v=v*16+index("0123456789ABCDEF",substr(s,i,1))-1; return v }
+    function lin(c){ c=c/255; return (c<=0.03928)? c/12.92 : ((c+0.055)/1.055)^2.4 }
+    function lum(x){ return 0.2126*lin(h(substr(x,2,2)))+0.7152*lin(h(substr(x,4,2)))+0.0722*lin(h(substr(x,6,2))) }
+    { bg=$11; gsub(/ /,"",bg); L=lum(bg); if (NR==1) first=L; if (L<0.5) dark++ }
+    END { printf "%.3f %d\n", first, dark }')"
+  _c1sum=$(printf '%s\n' "$_crows" | head -1 | awk -F'|' '{print $4}')
+  if awk -v l="${_clum:-0}" 'BEGIN{exit !(l>=0.8)}' \
+     && printf '%s' "$_c1sum" | grep -q '업무형' && printf '%s' "$_c1sum" | grep -q '저채도' \
+     && printf '%s' "$_c1sum" | grep -q '중밀도' && printf '%s' "$_c1sum" | grep -q '단일 강조색'; then
+    ok "C3 방향 1 라이트 업무형 (휘도 ${_clum}) (AC-7)"
+  else
+    nope "C3" "방향 1 휘도 ${_clum:-?} 또는 요약에 업무형·저채도·중밀도·단일 강조색 누락"
+  fi
+  [ "${_cdark:-0}" -ge 2 ] && [ "${_cdark:-0}" -le 3 ] && ok "C4 다크 방향 ${_cdark}개 (AC-7)" \
+    || nope "C4" "다크 방향 ${_cdark:-?}개 — 2~3개여야 한다"
+fi
+# ── D: 템플릿 죽은 슬롯 — 제거된 엔진·자산이 채우던 자리 (AC-5) ──
+_DEAD_RE='자산 미제공|app-interface\.csv|motion\.csv|engine 미연결|엔진 연결됨|\[Recommended_Pattern\]|\[Style_Priority\]|\[Key_Effects\]'
+if [ -f "$_T" ]; then
+  _dd=$(grep -nE "$_DEAD_RE" "$_T" | head -3)
+  [ -z "$_dd" ] && ok "D1 템플릿 죽은 슬롯 0건" || nope "D1" "잔존: $(printf '%s' "$_dd" | tr '\n' ' ')"
+else
+  nope "D1" "템플릿 부재"
+fi
+# B2 — 카탈로그 원천 slug 음성 잠금 (AC-1). 판정 리터럴이라 이 파일에만 둔다.
+#   -w 필수: 없으면 `cal` 이 템플릿의 Scale·Call 에 오탐한다(plan-review 실측).
+_SLUG_RE='mintlify|ibm|linear|notion|minimax|miro|mongodb|hashicorp|posthog|airtable|cal|clay|clickhouse|figma|sentry|raycast|sanity|intercom'
+if [ -f "$_DD" ] && [ -f "$_T" ]; then
+  _sl=$(grep -niwE "$_SLUG_RE" "$_DD" "$_T" 2>/dev/null | head -3)
+  [ -z "$_sl" ] && ok "B2 카탈로그·템플릿 원천 slug 0건 (AC-1)" || nope "B2" "잔존: $(printf '%s' "$_sl" | tr '\n' ' ')"
+else
+  nope "B2" "판정 대상 부재 — 카탈로그 또는 템플릿"
+fi
+# ── B1: brand-pick 리터럴 음성 잠금 (AC-1) ──
+_BR_RE='Stripe|Notion|#635BFF|#5E6AD2|#7C3AED|brand-pick|_design_brand_|디자인 브랜드'
+_bmiss=""; for _bf in scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md; do
+  [ -f "$PLUGIN/$_bf" ] || _bmiss="$_bmiss $_bf"; done
+if [ -n "$_bmiss" ]; then
+  nope "B1" "판정 대상 부재:$_bmiss"
+else
+  _bh=$(cd "$PLUGIN" && grep -niE "$_BR_RE" scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md | head -3)
+  [ -z "$_bh" ] && ok "B1 brand-pick 브랜드명·hex 0건" || nope "B1" "잔존: $(printf '%s' "$_bh" | tr '\n' ' ')"
+  # B1b — Linear 는 단어 경계(-w)로만 본다: 현재 4파일에 부분 문자열 0건이나 향후 linear-gradient 유입 대비. Claude 는 CLAUDE.md 정당 참조라 잠그지 않는다(§6 한계).
+  _bl=$(cd "$PLUGIN" && grep -niw 'linear' scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md | head -3)
+  [ -z "$_bl" ] && ok "B1b brand-pick Linear 0건" || nope "B1b" "잔존: $(printf '%s' "$_bl" | tr '\n' ' ')"
+fi
+# ── P6: Phase 6 방향 선택 → DESIGN.md (AC-3) ──
+#   mktemp 실패 시 빈 문자열 + return 1 — bash 는 `cd ""` 를 성공으로 처리하므로 무가드면 스위트 cwd 의
+#   실 DESIGN.md 를 overwrite 하고 이어 `rm -rf /` 경로가 된다(Phase C 프로브 ⑥).
+_p6d() { # $1=stdin 한 줄 → 생성된 DESIGN.md 경로 (실패 시 빈 문자열, rc 1)
+  local d; d=$(mktemp -d 2>/dev/null) && [ -n "$d" ] && [ -d "$d" ] || { printf ''; return 1; }
+  ( cd "$d" && printf '%s\n' "$1" | PLUGIN="$PLUGIN" PROJECT_KIND=1 PROJECT_NAME=TestProj CONFLICT_POLICY=overwrite \
+      bash -c '. "$PLUGIN/scripts/_internal/init-project/lib.sh"
+               . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+               phase_6_design' >/dev/null 2>&1 )
+  printf '%s' "$d/DESIGN.md"
+}
+# 임시 디렉터리만 지운다 — 빈 값·`/`·`.`·mktemp 가 만든 것이 아닌 경로는 거부(단일 가드)
+_p6rm() {
+  case "$1" in ''|/|.|./|..) return 1 ;; esac
+  [ -d "$1" ] && case "$1" in "${TMPDIR:-/tmp}"/*|/tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) rm -rf "$1" ;; *) return 1 ;; esac
+}
+_catrow() { awk -F'|' -v id="$1" 'NF >= 18 { v=$2; gsub(/ /,"",v); if (v == id) print }' "$_DD"; }
+_cell() { printf '%s' "$1" | awk -F'|' -v i="$2" '{ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); print v }'; }
+# "+2"·"02" — sed -n "+2p" 는 BSD 에서 오류라 빈 행 → 자리표시자 DESIGN.md 에 "작성 완료"(Phase C 프로브 ⑤). 선행 0 은 10진 해석.
+for _case in "1:1" "2:2" ":1" "99:1" "+2:1" "02:2" "18446744073709551618:1"; do
+  _in=${_case%%:*}; _want=${_case##*:}
+  _f=$(_p6d "$_in") || _f=""
+  if [ -z "$_f" ]; then nope "P6.${_in:-빈입력}" "임시 디렉터리 생성 실패 — 판정 불가"; continue; fi
+  _row=$(_catrow "$_want"); _ok=1
+  [ -n "$_row" ] && [ -f "$_f" ] || _ok=0
+  grep -qF "> **디자인 방향**: $(_cell "$_row" 3)" "$_f" 2>/dev/null || _ok=0
+  grep -qF "VARIANCE $(_cell "$_row" 6) · MOTION $(_cell "$_row" 7) · DENSITY $(_cell "$_row" 8)" "$_f" 2>/dev/null || _ok=0
+  _i=9
+  for _lbl in Primary Secondary Background Surface "Text Primary" "Text Secondary" Border Error Success; do
+    grep -qF "| $_lbl | \`$(_cell "$_row" $_i)\` |" "$_f" 2>/dev/null || _ok=0
+    _i=$((_i+1))
+  done
+  _t1=$(_cell "$_row" 5 | cut -d';' -f1 | sed 's/^ *//; s/ *$//')
+  awk '/^## 8\./{f=1;next} /^## /{f=0} f' "$_f" 2>/dev/null | grep -qF -- "- $_t1" || _ok=0
+  [ "$_ok" = 1 ] && ok "P6.${_in:-빈입력} → 방향 $_want 산출 (AC-3)" || nope "P6.${_in:-빈입력}" "방향 $_want 산출 불일치"
+  _p6rm "$(dirname "$_f")"
+done
+_f=$(_p6d "1") || _f=""
+if [ -z "$_f" ]; then nope "P6.inject" "임시 디렉터리 생성 실패 — 판정 불가"; _d=""; else _d=$(dirname "$_f"); fi
+if [ -n "$_d" ]; then
+  printf '<style>:root{--color-primary: #000000; --color-secondary: #000000; --color-bg: #000000; --color-surface: #000000; --color-text: #000000; --color-text-secondary: #000000; --color-border: #000000; --color-error: #000000; --color-success: #000000;}</style>' > "$_d/s.html"
+  ( cd "$_d" && . "$PLUGIN/scripts/_internal/init-project/lib.sh" && _inject_design_palette "$_d/s.html" ) 2>/dev/null
+  _left=$(grep -o -- '#000000' "$_d/s.html" 2>/dev/null | wc -l | tr -d ' ')
+  [ "${_left:-9}" -eq 0 ] && ok "P6.inject 생성 DESIGN.md → 화면 9변수 치환 (AC-3)" || nope "P6.inject" "미치환 ${_left:-?}개"
+  _p6rm "$_d"
+fi
+# P6.doc — 머리 선언이 약속한 Phase 11 decisions.md upsert 지시가 실제로 문서에 있다 (외부 critic 반영)
+grep -E '^- `DESIGN\.md` — \*\*UI KIND일 때만\*\*' "$PLUGIN/commands/init-project.md" | grep -q 'decisions.md' \
+  && ok "P6.doc Phase 11 디자인 방향 upsert 지시 존재" || nope "P6.doc" "init-project.md Phase 11 DESIGN.md 항목에 decisions.md upsert 지시 없음"
+
+# ── S9: DESIGN.md AI 지침 섹션 번호 정합 (AC-6) ──
+_ain=$(grep -oE '^## [0-9]+\. AI Usage' "$_T" 2>/dev/null | grep -oE '[0-9]+')
+_aref=$(cd "$PLUGIN" && grep -n 'AI Usage' templates/*.md | grep -v '^templates/DESIGN.md:')
+_adrift=$(printf '%s\n' "$_aref" | grep . | grep -v "§${_ain:-X}" || true)
+_arefn=$(printf '%s\n' "$_aref" | grep -c . || true)
+if [ -z "$_ain" ] || [ "${_arefn:-0}" -lt 3 ]; then
+  nope "S9" "판정 불가 — AI 지침 섹션(${_ain:-없음}) 또는 참조 ${_arefn:-0}건(3건 기대)"
+elif [ -z "$_adrift" ]; then
+  ok "S9 AI 지침 참조가 §${_ain} 과 일치 (${_arefn}건)"
+else
+  nope "S9" "번호 어긋남: $(printf '%s' "$_adrift" | head -3 | tr '\n' ' ')"
+fi
+
 
 # ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
 #   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
