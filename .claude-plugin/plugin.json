@@ -7,13 +7,6 @@
     "email": "222357127+andyko18@users.noreply.github.com"
   },
   "license": "MIT",
-  "dependencies": [
-    {
-      "name": "ui-ux-pro-max",
-      "marketplace": "ui-ux-pro-max-skill",
-      "version": ">=2.0.0 <3.0.0"
-    }
-  ],
   "keywords": [
     "korean",
     "autonomous",

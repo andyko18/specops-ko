@@ -194,5 +194,30 @@ grep -q -- '--text-base' "$PLUGIN/templates/screen.html" \
 grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
   && ok "E12 screen.html 간격 토큰" || nope "E12" "토큰 부재"
 
+# ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
+#   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
+_NL_RE='ui-ux-pro-max|uiux::|uiux-assets|UIUX_'   # UIUX_ = 제거된 엔진·자산 env(UIUX_ENGINE_DISABLE 등) 재유입
+_nl() { # $1=라벨, 나머지=pathspec
+  local lbl="$1"; shift
+  local hits
+  hits=$(cd "$PLUGIN" && git grep -nE "$_NL_RE" -- "$@" \
+    ':!CHANGELOG.md' ':!docs/audit' ':!scripts/tests/test-design-contract.sh' \
+    ':!scripts/tests/test-batch-orchestration.sh' ':!scripts/tests/test-screen-routing-doc.sh' 2>/dev/null | head -3)
+  [ -z "$hits" ] && ok "$lbl 재유입 0건" || nope "$lbl" "잔존: $(printf '%s' "$hits" | tr '\n' ' ')"
+}
+# N1 — 매니페스트 의존 선언 0 (AC-1)
+_pj="$PLUGIN/.claude-plugin/plugin.json"; _mj="$PLUGIN/.claude-plugin/marketplace.json"
+grep -q '"ui-ux-pro-max' "$_pj" && nope "N1.a" "plugin.json 에 의존 선언" || ok "N1.a plugin.json 의존 0"
+grep -q 'allowCrossMarketplaceDependenciesOn' "$_mj" && nope "N1.b" "marketplace.json 에 cross-marketplace 허용" \
+  || ok "N1.b marketplace.json cross-marketplace 0"
+if command -v jq >/dev/null 2>&1; then
+  jq -e . "$_pj" >/dev/null 2>&1 && jq -e . "$_mj" >/dev/null 2>&1 \
+    && ok "N1.c 매니페스트 JSON 유효" || nope "N1.c" "JSON 파싱 실패"
+fi
+# N2 — bash 어댑터·픽스처 부재 (AC-2·AC-6 ③)
+_nl "N2.a scripts/·.claude-plugin/" scripts .claude-plugin
+_fx=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine | wc -l | tr -d ' ')
+[ "$_fx" -eq 0 ] && ok "N2.b 어댑터·픽스처 추적 0건" || nope "N2.b" "추적 ${_fx}건 잔존"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

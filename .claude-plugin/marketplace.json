@@ -1,6 +1,5 @@
 {
   "name": "specops-ko",
-  "allowCrossMarketplaceDependenciesOn": ["ui-ux-pro-max-skill"],
   "metadata": {
     "description": "specops-ko 마켓플레이스 (v1.102.0 — Claude Code 전용)"
   },

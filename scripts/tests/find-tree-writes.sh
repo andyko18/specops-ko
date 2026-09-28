@@ -50,7 +50,7 @@ chmod -R a-w "$C"
 read -r -d '' _FTW_ONE <<'ONE'
 c=$1; w=$2; s=$3
 key="k_$(printf '%s' "$s" | tr '/' '_')"   # 접두 — ./ 입력이 점파일(._…)이 되면 아래 *.hit glob 이 못 본다
-( cd "$c" && SPECOPS_RUN_ALL=1 SPECOPS_SAST_EXTERNAL=0 UIUX_ENGINE_DISABLE=1 bash "$s" ) > "$w/$key.out" 2>&1 < /dev/null
+( cd "$c" && SPECOPS_RUN_ALL=1 SPECOPS_SAST_EXTERNAL=0 bash "$s" ) > "$w/$key.out" 2>&1 < /dev/null
 # 같은 거부가 루프에서 수십 번 반복된다 — 사본 경로를 가리고 중복을 접는다(/private 실경로 형태도 같은 사본)
 grep -E 'Permission denied|Read-only file system|Operation not permitted' "$w/$key.out" \
   | sed -e "s#/private$c#{사본}#g" -e "s#$c#{사본}#g" | sort -u > "$w/$key.all"
