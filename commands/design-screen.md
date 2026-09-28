@@ -52,18 +52,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 > 2. 주요 **컴포넌트**는 무엇인가요? (예: 로그인 버튼, 이메일 입력)
 > 3. 이 화면에서 다음으로 이동하는 **화면**이 있나요?"
 
-### Step 2.5: design system 자문 (ui-ux-pro-max hard dependency) + rationale 보관 (자동)
-
-**탐지**: ui-ux-pro-max 는 plugin.json hard dependency(보장)다. available-skills 에 `ui-ux-pro-max:ui-ux-pro-max` 감지 시 호출, 미감지(의존성 미해결) 시 graceful fallback.
-- **없으면 (의존성 미해결)**: 이 단계 전체 skip → Step 3 직행. `rationale = null`. ⚠️ `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 로 marketplace 선행 등록 권고.
-- **있으면**: `ui-ux-pro-max:ui-ux-pro-max` Skill 자동 호출 (제품유형·산업·톤·밀도 멀티키워드 입력). 산출된 design system(style/colors/typography/effects + anti-patterns)을 Step 3 HTML artifact 의 레이아웃·컴포넌트·스타일 선택에 반영. **우선순위**: **DESIGN.md 우선** — `/init-project` Phase 6 이 ui-ux-pro-max 자산으로 확정한 **프로젝트 상수**다. ui-ux-pro-max Skill 은 DESIGN.md 가 **비워 둔 항목만** 보조한다(per-FID 생성물이 프로젝트 상수를 이기지 않는다).
-
-  자문 완료 후 아래 4개 항목을 **rationale 변수**로 추출해 이후 Step에서 사용:
-  - `style`: style 이름 + 근거 한 줄
-  - `color`: primary hex / surface hex
-  - `font`: heading-font / body-font 페어링
-  - `antipatterns`: anti-pattern 목록 배열 (필드 부재 시 빈 배열 `[]`)
-
 ### Step 3: HTML artifact 생성
 
 스크립트가 이미 기본 HTML 구조를 생성했으므로, 사용자 답변 기반으로 **레이아웃·컴포넌트 내용만** 채운 HTML artifact를 생성:
@@ -75,20 +63,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 사용자에게 artifact를 보여주고 수정 요청을 받는다:
 > "위 HTML 미리보기를 확인해 주세요. 수정이 필요하시면 말씀해 주세요. 진행할까요? [y/n]"
 
-- `y` 또는 수정 없음 → Step 3.5 진행
+- `y` 또는 수정 없음 → Step 4 진행
 - `n` 또는 수정 요청 → HTML artifact 재생성 후 재확인 루프
-
-### Step 3.5: Anti-pattern 게이트 (자동)
-
-**활성 조건**: `rationale`가 null이면 → skip, Step 4 직행. null이 아닌 경우 `rationale.antipatterns`가 빈 배열(`[]`)이면 → skip, Step 4 직행.
-
-**활성 시**: Step 3에서 생성한 HTML과 `rationale.antipatterns` 목록을 대조:
-
-- **위반 없음** → `✅ Anti-pattern 체크 통과` 출력 후 Step 4 직행
-- **위반 발견** → 아래 프롬프트 출력 후 응답 대기:
-  > `⚠️ Anti-pattern 위반: {위반 항목 목록}. 수정 후 저장 / 그냥 저장 [m/s, 기본=s]`
-  - `m` → Step 3(HTML artifact 생성 + 수정 루프)으로 복귀
-  - `s` 또는 Enter → Step 4 직행 (위반 인지, 사용자 주권 존중)
 
 ### Step 4: 파일 저장
 
@@ -96,19 +72,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 - screen.md: **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지) 완성. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 해당할 때만 남기고, 미해당이면 **섹션 자체를 넣지 않는다**(`—` 채우기 금지). 채운 뒤 껍데기 **마커 줄을 삭제**한다.
 - screen.html: Step 3에서 승인한 HTML로 교체
 - `screens-overview.md` 갱신은 Step 1 스크립트가 이미 완료
-
-**[rationale 있으면]** screen.md 파일 끝에 다음 섹션을 append:
-```markdown
-## Design Rationale
-
-> ui-ux-pro-max 자문 기반 ({YYYY-MM-DD})
-
-- **Style**: {rationale.style}
-- **Color**: {rationale.color}
-- **Font pairing**: {rationale.font}
-- **Anti-patterns (금지)**: {rationale.antipatterns 쉼표 연결}
-```
-rationale가 null이면 append 없이 저장 완료.
 
 ### Step 5: git commit
 
@@ -146,7 +109,6 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 - `templates/screen.html` — HTML 미리보기 템플릿 (CSS 변수 기반)
 - `DESIGN.md` — 디자인 시스템 (색상·폰트·컴포넌트)
 - `.specops/memory/screens-overview.md` — 화면 목록 마스터
-- `ui-ux-pro-max:ui-ux-pro-max` — design system 자문 (Step 2.5, available-skills 에 있으면 선택 호출)
 - `commands/design-screens.md` — 복수 커맨드 (여러 화면 일괄 설계 `/design-screens`)
 
 ---

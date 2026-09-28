@@ -5,7 +5,7 @@ Wave C 관측·DX 검증용. API 키·토큰 비용이 들므로 CI/run-all에 �
 ## 전제
 
 - ACTIVE batch (`feat/<BATCH_ID>`) 또는 UI/IF 산출이 있는 PLAN_DONE FID 집합
-- `ui-ux-pro-max` 또는 DESIGN.md fallback 경로 가용
+- DESIGN.md 토큰 경로 가용
 
 ## 체크리스트
 

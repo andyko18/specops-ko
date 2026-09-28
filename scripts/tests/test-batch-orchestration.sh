@@ -83,9 +83,9 @@ r21=$(grep -c '21개 검증 항목' "$E2E" "$PLUGIN/commands/e2e-test.md" | awk 
 # 후속: 인터페이스도 FR별 5.6이 아니라 Phase 2.5-B로 옮겨 통상 순서(화면→IF) 복원.
 SA="$PLUGIN/commands/start-all.md"
 SAA="$PLUGIN/commands/start-all-auto.md"
-# T8.a: start-all 에 Phase 2.5 화면+IF + ui-ux-pro-max
-grep -q 'Phase 2.5' "$SA" && grep -q 'ui-ux-pro-max' "$SA" && grep -q '통합 인터페이스' "$SA" \
-  && ok "T8.a start-all Phase 2.5 화면+IF + ui-ux-pro-max" || nope "T8.a" "Phase 2.5/IF/ui-ux 부재"
+# T8.a: start-all 에 Phase 2.5 화면+IF — 화면 스타일은 DESIGN.md 토큰(외부 디자인 플러그인 호출 없음)
+grep -q 'Phase 2.5' "$SA" && ! grep -q 'ui-ux-pro-max' "$SA" && grep -q 'DESIGN.md 토큰 적용' "$SA" && grep -q '통합 인터페이스' "$SA" \
+  && ok "T8.a start-all Phase 2.5 화면+IF + DESIGN.md 토큰" || nope "T8.a" "Phase 2.5/IF/DESIGN.md 토큰 부재 또는 외부 호출 잔존"
 # T8.b: design-first 순서 — Phase 2.5 가 Phase 3(구현) 앞에 위치
 l25=$(grep -n 'Phase 2.5' "$SA" | head -1 | cut -d: -f1)
 l3=$(grep -n '^### Phase 3 ' "$SA" | head -1 | cut -d: -f1)
