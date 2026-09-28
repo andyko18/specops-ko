@@ -13,10 +13,27 @@ set -u
 #   무손상이나 인덱스가 오염됐다). 검사 본체에도 같은 unset 이 있으나 그것만으로는
 #   이 스위트 자신의 git 호출을 막지 못한다.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+# 로케일 고정 — 검사 본체(:21) 와 대칭. 미고정이면 아래 grep -E "$RE" 의 한글 바이트 패턴이
+#   조용히 매치를 멈추고, "0건이어야 함" 단언인 T2.c 가 공허하게 통과한다.
+export LC_ALL=C.UTF-8
 PASS=0; FAIL=0; SKIP=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+
+# ── temp 정리 + 실 인덱스 감시 ────────────────────────────────
+# trap: set -u 조기 종료·중단(Ctrl-C) 경로에서 sandbox 디렉터리가 남는 누수를 막는다.
+_tmps=()
+_reg() { [ -n "${1:-}" ] && _tmps+=("$1"); return 0; }
+_cleanup() { local t; for t in "${_tmps[@]:-}"; do [ -n "$t" ] && rm -rf "$t"; done; }
+trap _cleanup EXIT
+# 실 저장소 인덱스 지문 — 이 스위트의 git 호출이 실 인덱스에 닿았는지 T5.a 가 판정한다.
+#   ★ 이것은 **사후 탐지**다. 예방은 위 env unset 과 아래 sb 가드·헬퍼 가드가 한다.
+#     손상을 막지는 못하지만, 손상이 무음으로 지나가지는 못하게 한다.
+_idx_sig() { printf '%s/%s' \
+  "$(git -C "$PLUGIN" ls-files 2>/dev/null | wc -l | tr -d ' ')" \
+  "$(git -C "$PLUGIN" diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')"; }
+_idx_before=$(_idx_sig)
 
 CHK="$PLUGIN/scripts/_internal/check-doc-numbers.sh"
 WORD=$(printf '\xec\x8a\xa4\xec\x9c\x84\xed\x8a\xb8')
@@ -51,25 +68,38 @@ _mksandbox() {
   ( cd "$d" && git init -q && git add -A ) >/dev/null 2>&1 || return 1
   printf '%s' "$d"
 }
+# ★★ 헬퍼 자신이 빈 sandbox 인자를 거부한다 — 방어를 호출부에만 두면 다음에 어서션을
+#   추가하는 사람이 같은 문을 다시 연다. `cd ""` 는 bash 에서 **rc=0 no-op** 이라
+#   가드가 없으면 `git add -A` 가 **cwd = 실 트리**에서 돌아 실 인덱스를 오염시킨다
+#   (실측: 사본에서 인덱스 571→573 · untracked 캐너리가 스테이징됨).
 _addfile() { # <sandbox> <상대경로> <내용>
+  [ -n "${1:-}" ] || return 1
   mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" > "$1/$2"
   ( cd "$1" && git add -A ) >/dev/null 2>&1
 }
 _rmfile() { # <sandbox> <상대경로>
+  [ -n "${1:-}" ] || return 1
   rm -f "$1/$2"; ( cd "$1" && git add -A ) >/dev/null 2>&1
 }
-_run() { DOC_NUMBERS_ROOT="$1" bash "$CHK" 2>&1; }
-_rc()  { DOC_NUMBERS_ROOT="$1" bash "$CHK" >/dev/null 2>&1; printf '%s' "$?"; }
+# _run·_rc 도 빈 루트를 거부한다 — DOC_NUMBERS_ROOT="" 는 검사에서 show-toplevel 로 폴백해
+#   **실 트리**를 판정 대상으로 삼는다(읽기 전용이지만 어서션이 조용히 대상을 갈아탄다).
+#   _rc 는 rc 자리에 97(=호출 오류)을 내 어서션이 요란하게 실패하도록 한다.
+_run() { [ -n "${1:-}" ] || { printf 'FATAL: _run 에 빈 루트'; return 1; }; DOC_NUMBERS_ROOT="$1" bash "$CHK" 2>&1; }
+_rc()  { [ -n "${1:-}" ] || { printf '%s' 97; return 0; }; DOC_NUMBERS_ROOT="$1" bash "$CHK" >/dev/null 2>&1; printf '%s' "$?"; }
 
 # ── T1.a 실측 계산: 픽스처를 정확히 센다 ──
 sb=$(_mksandbox) || nope "T1.a" "sandbox 생성 실패"
-if [ -n "${sb:-}" ]; then
-  out=$(_run "$sb")
-  case "$out" in
-    *"suite-count=$EXP"*) ok "T1.a 실측 계산 = $EXP (validate-structure 1 + 수집 파일 9)" ;;
-    *) nope "T1.a" "실측 $EXP 이 아니다 — 실제: $out" ;;
-  esac
-fi
+# ★★ sandbox 가 없으면 **즉시 종료한다**. nope 는 FAIL 을 세고 그대로 진행하므로, 이 가드가
+#   없으면 아래 _addfile "$sb" … 가 sb="" 로 호출되고 `cd ""`(rc=0 no-op) 때문에
+#   `git add -A` 가 실 트리에서 반복 실행된다. 실측 트리거는 TMPDIR 불가(mktemp 실패)이며,
+#   그때 스위트 출력은 이 부작용을 한 줄도 말하지 않았다 — 조용한 인덱스 오염이었다.
+[ -n "${sb:-}" ] || { nope "T1.a-guard" "sandbox 없이는 진행하지 않는다 — 실 인덱스 보호를 위해 즉시 종료"; finish; exit; }
+_reg "$sb"
+out=$(_run "$sb")
+case "$out" in
+  *"suite-count=$EXP"*) ok "T1.a 실측 계산 = $EXP (validate-structure 1 + 수집 파일 9)" ;;
+  *) nope "T1.a" "실측 $EXP 이 아니다 — 실제: $out" ;;
+esac
 
 # ── T1.b 마커 대조 PASS: 값이 실측과 같으면 통과 ──
 _addfile "$sb" docs/lock.md "게이트는 $EXP $WORD 를 돈다 <!-- doc-lock: suite-count -->"
@@ -146,11 +176,72 @@ else
 fi
 
 # ── T1.j 대상 트리가 git 아니면 rc=2 ──
-nd=$(mktemp -d "${TMPDIR:-/tmp}/docnum-nogit.XXXXXX")
+nd=$(mktemp -d "${TMPDIR:-/tmp}/docnum-nogit.XXXXXX") || nd=""
+_reg "$nd"
 [ "$(_rc "$nd")" = 2 ] \
   && ok "T1.j 비-git 트리 → rc=2 (판정 불가를 통과로 위장하지 않는다)" \
-  || nope "T1.j" "비-git 트리에서 rc=2 가 아니다"
-rm -rf "$nd" "$sb"
+  || nope "T1.j" "비-git 트리에서 rc=2 가 아니다 (nd='${nd:-}')"
+# 정리는 trap _cleanup 이 맡는다 — 실패 경로에서도 누수되지 않게 한 곳으로 모았다.
+
+# ── T1.k 잠금 마커 0건 → rc=2 (판정 불가를 통과로 위장하지 않는다) ──
+# 왜 필요한가: 마커가 하나도 없으면 검사는 아무것도 대조하지 않았다. 그걸 OK 로 내면
+#   누출·빈 트리 같은 실패 모드가 전부 "스캔 0파일/0줄" + rc=0 으로 조용히 통과한다.
+#   스위트는 T2.b 가 실 트리 도달을 보지만, CLAUDE.md 가 문서화한 **단독 실행**은 무방어였다.
+sb0=$(_mksandbox) || sb0=""
+_reg "$sb0"
+if [ -z "$sb0" ]; then
+  nope "T1.k" "sandbox 생성 실패 — 판정 불가"
+else
+  k_rc=$(_rc "$sb0")
+  [ "$k_rc" = 2 ] \
+    && ok "T1.k 잠금 마커 0건 → rc=2 — 판정 불가를 OK 로 내지 않는다" \
+    || nope "T1.k" "locked=0 인데 rc=$k_rc — $(_run "$sb0")"
+fi
+
+# ── T4 가드의 이빨: env 누출 차단 가드를 지우면 검사가 불일치를 놓치는가 ──
+# 왜 변이 사본인가: 가드 줄의 **존재만** grep 하면 "있다" 를 "작동한다" 로 착각한다.
+#   사본에서 그 줄을 지우고 누출 env 를 주입해 실제로 놓치는지 본다(되돌려-관찰).
+# ★ 누출 env 는 **다른 sandbox** 만 가리킨다 — 실 트리 .git 은 읽기 전용으로도 넣지 않는다.
+#   훗날 이 경로에 쓰기가 생기면 지금 닫은 문이 그대로 다시 열리기 때문이다.
+# ★ 누출원(sbL)에는 문서를 심지 않는다 — 심으면 누출된 ls-files 가 대상 트리에도 존재하는
+#   경로를 내놓아 mutant 도 불일치를 잡고, 이 어서션이 조용히 판별력을 잃는다.
+sbT=$(_mksandbox) || sbT=""; _reg "$sbT"
+sbL=$(_mksandbox) || sbL=""; _reg "$sbL"
+mut=""
+if [ -n "$sbT" ] && [ -n "$sbL" ]; then
+  _addfile "$sbT" docs/lock.md "게이트는 $((EXP+7)) $WORD 를 돈다 <!-- doc-lock: suite-count -->"
+  mut=$(mktemp "${TMPDIR:-/tmp}/docnum-mut.XXXXXX") || mut=""
+  _reg "$mut"
+  [ -n "$mut" ] && sed '/^unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE$/d' "$CHK" > "$mut"
+fi
+_teeth_pair() { # $1=누출시킬 env 이름 → "<control rc> <mutant rc>"
+  local crc mrc
+  case "$1" in
+    GIT_DIR)
+      DOC_NUMBERS_ROOT="$sbT" GIT_DIR="$sbL/.git" GIT_WORK_TREE="$sbL" bash "$CHK" >/dev/null 2>&1; crc=$?
+      DOC_NUMBERS_ROOT="$sbT" GIT_DIR="$sbL/.git" GIT_WORK_TREE="$sbL" bash "$mut" >/dev/null 2>&1; mrc=$?
+      ;;
+    *)
+      DOC_NUMBERS_ROOT="$sbT" GIT_INDEX_FILE="$sbL/.git/index" bash "$CHK" >/dev/null 2>&1; crc=$?
+      DOC_NUMBERS_ROOT="$sbT" GIT_INDEX_FILE="$sbL/.git/index" bash "$mut" >/dev/null 2>&1; mrc=$?
+      ;;
+  esac
+  printf '%s %s' "$crc" "$mrc"
+}
+for _v in GIT_DIR GIT_INDEX_FILE; do
+  case "$_v" in GIT_DIR) _id="T4.a" ;; *) _id="T4.b" ;; esac
+  if [ -z "$mut" ] || grep -q '^unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE$' "$mut" 2>/dev/null; then
+    # 변이가 실제로 적용됐는지 먼저 확인한다 — 미적용이면 이 어서션은 공허하다.
+    nope "$_id" "변이 사본 준비 실패(가드 줄이 지워지지 않았다) — 이빨을 판정할 수 없다"
+    continue
+  fi
+  read -r crc mrc <<< "$(_teeth_pair "$_v")"
+  if [ "${crc:-}" = 1 ] && [ "${mrc:-}" != 1 ]; then
+    ok "$_id $_v 누출 — 가드 있음: 불일치 적발(rc=1) · 가드 지움: 놓침(rc=$mrc). 가드에 이빨이 있다"
+  else
+    nope "$_id" "$_v 누출 — control rc=${crc:-?}(기대 1) · mutant rc=${mrc:-?}(기대 ≠1)"
+  fi
+done
 
 # ── T2: 실 트리 어서션 (정정 후에만 GREEN) ─────────────────────
 # ★ DOC_NUMBERS_ROOT 는 **이 호출에만** 붙는 prefix 다 — 본문에 bare 대입/export 로 두면
@@ -226,5 +317,12 @@ grep -q 'check-doc-numbers' "$PLUGIN/scripts/README.md" \
   && grep -q 'check-doc-numbers' "$PLUGIN/CLAUDE.md" \
   && ok "T3.b scripts/README·CLAUDE.md 등재" \
   || nope "T3.b" "등재 누락"
+
+# ── T5.a 실 인덱스 무접촉 — 이 스위트의 git 호출이 실 저장소에 닿지 않았다 ──
+# 사후 탐지다(예방은 상단 env unset · sb 가드 · 헬퍼 빈인자 가드). 조용한 오염만은 막는다.
+_idx_after=$(_idx_sig)
+[ "$_idx_before" = "$_idx_after" ] \
+  && ok "T5.a 실 인덱스 지문 불변 ($_idx_before) — 스위트가 실 저장소를 건드리지 않았다" \
+  || nope "T5.a" "실 인덱스가 변했다 ($_idx_before → $_idx_after) — sandbox 가드 또는 env 격리가 깨졌다"
 
 finish

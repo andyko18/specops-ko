@@ -21,13 +21,20 @@ set -uo pipefail
 export LC_ALL=C.UTF-8
 
 ROOT="${DOC_NUMBERS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
-# ★ 훅 환경 변수를 떼어낸다 — git 은 pre-push 훅에 GIT_DIR 를 export 하고, run-all 은 그
-#   훅에서 돈다. 그대로 두면 cd 로 대상 트리에 들어가도 git ls-files 가 **실 저장소의 인덱스**를
-#   열거해 대상 트리 스캔이 0건이 되고, 검사가 조용히 공허 통과한다
-#   (실측: GIT_DIR 주입 시 이 검사의 스위트가 PASS=2 FAIL=8 — 즉 단독 실행만 green 이고
-#   도구 무관 게이트에서 깨진다). ROOT 기본값 해석 **뒤에** 떼므로 훅 환경에서의
-#   저장소 자동 탐지는 그대로 유지된다.
-unset GIT_DIR GIT_WORK_TREE
+# ★ 훅 환경 변수를 떼어낸다 — git 은 훅에 GIT_DIR 를, git commit 은 pre-commit·commit-msg 훅에
+#   GIT_INDEX_FILE 까지 export 하고, run-all 은 pre-push 훅에서 돈다. 그대로 두면 cd 로 대상
+#   트리에 들어가도 git ls-files 가 **실 저장소의 인덱스**를 열거해 대상 트리 스캔이 0건이 되고,
+#   검사가 조용히 공허 통과한다. 3종을 모두 떼는 이유: GIT_DIR 만 떼면 GIT_INDEX_FILE 누출이
+#   같은 공허 통과를 그대로 재생산한다(실측 — 오답 sandbox 가 OK rc=0). ROOT 기본값 해석
+#   **뒤에** 떼므로 훅 환경에서의 저장소 자동 탐지는 그대로 유지된다.
+#   이 가드의 판별력은 test-doc-numbers.sh T4.a·T4.b 가 변이 주입으로 잠근다 —
+#   가드를 지운 사본은 누출 env 에서 불일치를 놓친다(rc=1 → rc=2).
+#   ※ 종전 주석의 "GIT_DIR 주입 시 스위트가 PASS=2 FAIL=8" 은 **테스트 쪽에 같은 unset 이
+#     생기기 전(2026-09-25 이전)** 관측이다. 지금은 테스트가 먼저 env 를 씻어 재현되지 않는다 —
+#     현재형으로 읽지 말 것(이 FID 가 잡는 낡은 수치 클래스라 시점을 부기한다).
+#     ※ 이 부기에서 날짜 뒤에 단위어를 붙이지 않는다 — 붙이면 "…-25 <단위어>" 가 이 검사
+#       자신의 패턴에 걸려 FAIL 한다(실측: 스캔 9파일/27줄로 늘고 rc=1).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 # .git 은 디렉터리이거나(일반 클론) 파일이다(linked worktree 의 gitdir 포인터).
 #   rev-parse --is-inside-work-tree 로 바꾸지 않는다 — 상위 저장소까지 걸어올라가
 #   비-git 트리를 통과시키고 rc=2 가 비결정적이 된다.
@@ -42,7 +49,9 @@ RE="[0-9]{2,4}[[:space:]]*${SUITE_WORD}"
 
 # ── 실측: run-all.sh:71-81 과 같은 수집 목록 ──────────────────────
 # ★ brace 확장으로 쓰지 않는다 — 디렉터리를 중괄호로 묶어 한 줄로 적으면 닫는 괄호가
-#   경로 중간에 박혀 원장 앵커 promote/test- 에 매치가 0 이 된다(실측).
+#   경로 중간에 박혀 원장 앵커(마지막 수집 디렉터리의 test- 접두)에 매치가 0 이 된다(실측).
+#   ★ 그 앵커 문자열을 이 주석에 리터럴로 적지 않는다 — 적으면 아래 수집 루프를 통째로
+#     지워도 주석이 앵커를 만족시켜 edge 가 green 인 채 실측값만 거짓이 된다(공허 앵커).
 #   아래 리터럴 경로는 propagation edge 앵커를 겸한다 — run-all.sh 와 이 블록의
 #   디렉터리 집합이 어긋나면 실측값이 거짓이 되고 잠금이 틀린 값을 강제한다.
 _measure() {
@@ -108,10 +117,28 @@ while IFS= read -r rec; do
       fail=$((fail+1))
       ;;
   esac
-done < <(git ls-files -z | xargs -0 grep -HnE "$RE" 2>/dev/null || true)
+#   -I: 바이너리는 건너뛴다 — GNU grep 은 "Binary file X matches" 를 stdout 에 내 파싱 루프가
+#       가짜 경로로 FAIL 한다(BSD 는 무출력 — CI 가 ubuntu+macos 양쪽이라 동작 차이 씨앗).
+#   ★ `xargs … grep … </dev/null` 은 **채택하지 않았다**(리뷰 Suggestion 기각). 파이프라인에서
+#     그 리다이렉트는 grep 이 아니라 **xargs** 에 붙어 xargs 가 파일 목록 대신 /dev/null 을
+#     읽는다 — 실측: 실 트리 스캔이 26줄에서 0줄로 떨어졌다(아래 locked=0 가드가 그 회귀를
+#     rc=2 로 잡아냈다). GNU xargs 의 빈 입력 stdin 흡수는 그 가드가 이미 덮는다(tracked 0건
+#     트리 → locked 0 → rc=2). 고치려면 `xargs -0 sh -c 'grep … "$@" </dev/null' _` 처럼
+#     grep 쪽에 붙여야 하는데, 그건 이 한 줄의 복잡도를 그 이득보다 크게 만든다.
+done < <(git ls-files -z | xargs -0 grep -IHnE "$RE" 2>/dev/null || true)
 
 if [ "$fail" -gt 0 ]; then
   echo "DOC-NUMBERS: FAIL 위반 ${fail}건 (스캔 ${files}파일/${lines}줄)" >&2
   exit 1
+fi
+# 도달 가드 — 잠금 마커가 0건이면 이 검사는 아무것도 대조하지 않았다. 그 상태를 OK 로 내면
+#   판정 불가가 통과로 위장된다(실측 3경로: GIT_DIR 누출 · GIT_INDEX_FILE 누출 · tracked 0건 트리
+#   — 전부 "스캔 0파일/0줄 · locked 0" 로 rc=0 을 냈다). 위반 판정(fail>0)보다 **뒤에** 둔다:
+#   미마커 위반만 있는 트리는 판정 불가가 아니라 위반이므로 rc=1 을 유지해야 한다.
+#   FAIL 문면에 suite-count 를 유지한다 — 실측값은 이 경로에서도 산출되며, 값을 숨기면
+#   단독 실행자가 "몇을 기대하는지" 를 못 본다.
+if [ "$locked" -eq 0 ]; then
+  echo "DOC-NUMBERS: FAIL 잠금 마커 0건 — 판정 불가 (suite-count=$MEASURED · 스캔 ${files}파일/${lines}줄 · historical $hist)" >&2
+  exit 2
 fi
 echo "DOC-NUMBERS: OK (suite-count=$MEASURED · 스캔 ${files}파일/${lines}줄 · locked $locked · historical $hist)"
