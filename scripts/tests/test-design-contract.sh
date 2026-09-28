@@ -196,10 +196,18 @@ grep -q -- '--space-4' "$PLUGIN/templates/screen.html" \
 
 # ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
 #   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
+#   한계 ①: `_nl` 은 git grep 이라 **tracked 파일만** 본다 — untracked 주입은 여기서 안 잡힌다(커밋 시 추적되므로 CI 에서 잡힘).
+#   한계 ②: 제외는 **파일 단위**다 — 판정 리터럴 3파일 내부의 재유입은 검사하지 않는다.
+#   N0 — git 판정 가능 여부 가드. git 오류 시 git grep 은 빈 문자열, ls-files 는 0 을 내고 그 값이 곧 PASS 조건이라
+#     판정 불가가 PASS 로 위장됐다(Phase C 프로브 P5 실측 20260928). 판정 불가는 FAIL 로 드러낸다 — 5원칙 5.
+_NL_GIT_OK=0
+git -C "$PLUGIN" rev-parse --is-inside-work-tree >/dev/null 2>&1 && _NL_GIT_OK=1 \
+  || nope "N0" "git 판정 불가 — 음성 잠금(N2.a·N2.b·N3·N4)을 평가할 수 없다"
 _NL_RE='ui-ux-pro-max|uiux::|uiux-assets|UIUX_'   # UIUX_ = 제거된 엔진·자산 env(UIUX_ENGINE_DISABLE 등) 재유입
 _nl() { # $1=라벨, 나머지=pathspec
   local lbl="$1"; shift
   local hits
+  [ "$_NL_GIT_OK" -eq 1 ] || { nope "$lbl" "git 판정 불가 (N0)"; return; }
   hits=$(cd "$PLUGIN" && git grep -nE "$_NL_RE" -- "$@" \
     ':!CHANGELOG.md' ':!docs/audit' ':!scripts/tests/test-design-contract.sh' \
     ':!scripts/tests/test-batch-orchestration.sh' ':!scripts/tests/test-screen-routing-doc.sh' 2>/dev/null | head -3)
@@ -216,8 +224,12 @@ if command -v jq >/dev/null 2>&1; then
 fi
 # N2 — bash 어댑터·픽스처 부재 (AC-2·AC-6 ③)
 _nl "N2.a scripts/·.claude-plugin/" scripts .claude-plugin
-_fx=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine | wc -l | tr -d ' ')
-[ "$_fx" -eq 0 ] && ok "N2.b 어댑터·픽스처 추적 0건" || nope "N2.b" "추적 ${_fx}건 잔존"
+if [ "$_NL_GIT_OK" -eq 1 ]; then
+  _fx=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine | wc -l | tr -d ' ')
+  [ "$_fx" -eq 0 ] && ok "N2.b 어댑터·픽스처 추적 0건" || nope "N2.b" "추적 ${_fx}건 잔존"
+else
+  nope "N2.b" "git 판정 불가 (N0)"
+fi
 # N3 — 산문 표면(skills/commands/agents/hooks/templates) 재유입 0 (AC-2·AC-5)
 _nl "N3 skills/·commands/·agents/·hooks/·templates/" skills commands agents hooks templates
 # N4 — 저장소 전역(README·CONTRIBUTING 등 나머지 표면) 재유입 0 (AC-2 완결)
