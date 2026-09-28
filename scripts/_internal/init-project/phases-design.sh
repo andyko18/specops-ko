@@ -34,7 +34,8 @@ _design_directions() {
   awk -F'|' '
     NF >= 18 && $2 ~ /^[ ]*[0-9]+[ ]*$/ {
       out = ""
-      for (i = 2; i <= 17; i++) { v = $i; gsub(/^[ \t]+|[ \t]+$/, "", v); out = out (i > 2 ? "\t" : "") v }
+      # 셀 내부 탭은 공백으로 — 출력이 탭 구분이라 남기면 필드가 밀려 §1 이 엇갈려 주입된다(Phase C 프로브 ②)
+      for (i = 2; i <= 17; i++) { v = $i; gsub(/^[ \t]+|[ \t]+$/, "", v); gsub(/\t/, " ", v); out = out (i > 2 ? "\t" : "") v }
       print out
     }' "$PLUGIN/templates/design-directions.md"
 }
@@ -72,7 +73,7 @@ _design_apply_direction() {
       next
     }
     { print }
-  ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target"
+  ' "$target" > "${target}.tmp" && mv "${target}.tmp" "$target" || return 1
 }
 
 phase_6_design() {
@@ -100,9 +101,20 @@ phase_6_design() {
   printf '%s\n' "$rows" | awk -F'\t' '{ printf "  (%s) %s — %s%s\n", $1, $2, $3, (NR == 1 ? " ← 기본" : "") }'
   printf "선택 [1]: "
   read -r pick || true
-  # 빈 입력·비숫자·범위 밖은 방향 1 — 비숫자는 [ -ge ] 가 오류를 내므로 같은 fallback 으로 흡수된다
+  # 숫자만 통과 → 10진 정규화(02 → 2) → 범위 검사. 빈 입력·비숫자·범위 밖은 방향 1.
+  #   `+2` 는 [ -ge ] 를 통과하지만 BSD sed -n "+2p" 가 오류라 빈 행이 됐다(Phase C 프로브 ⑤) — 부호도 비숫자로 본다.
+  case "$pick" in ''|*[!0-9]*) pick=1 ;; esac
+  pick=$((10#$pick))
   { [ "$pick" -ge 1 ] && [ "$pick" -le "$n" ]; } 2>/dev/null || pick=1
   row=$(printf '%s\n' "$rows" | sed -n "${pick}p")
+  # 어떤 이유로든 행이 비면 방향 1 로 — 그래도 비면 빈 행으로 자리표시자 DESIGN.md 를 만들고 "완료" 라 하지 않는다
+  [ -n "$row" ] || row=$(printf '%s\n' "$rows" | sed -n '1p')
+  if [ -z "$row" ]; then
+    echo "  ⚠️  디자인 방향 행을 읽지 못했습니다(선택 ${pick}) — 템플릿 골격만 복사합니다" >&2
+    cp "$PLUGIN/templates/DESIGN.md" "$target"
+    _replace_line_prefix "$target" "# DESIGN.md — [Project Name]" "# DESIGN.md — ${PROJECT_NAME}"
+    return
+  fi
   if _design_apply_direction "$target" "$row"; then
     echo "→ ${target} 작성 완료 (디자인 방향: $(printf '%s' "$row" | cut -f2))"
   else

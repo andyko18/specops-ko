@@ -207,6 +207,7 @@ else
   _cbad=$(printf '%s\n' "$_crows" | awk -F'|' '
     { id=$2; gsub(/ /,"",id); want++
       if (id != want) print "id:" id "≠" want
+      if ($0 ~ /\t/) print "탭:" id
       for (i=3;i<=5;i++){ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); if (v=="") print "빈칸:" id "/" i }
       for (i=6;i<=8;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^([1-9]|10)$/) print "다이얼:" id "=" v }
       for (i=9;i<=17;i++){ v=$i; gsub(/ /,"",v); if (v !~ /^#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]$/) print "hex:" id "=" v } }')
@@ -260,19 +261,29 @@ else
   [ -z "$_bl" ] && ok "B1b brand-pick Linear 0건" || nope "B1b" "잔존: $(printf '%s' "$_bl" | tr '\n' ' ')"
 fi
 # ── P6: Phase 6 방향 선택 → DESIGN.md (AC-3) ──
-_p6d() { # $1=stdin 한 줄 → 생성된 DESIGN.md 경로
-  local d; d=$(mktemp -d)
+#   mktemp 실패 시 빈 문자열 + return 1 — bash 는 `cd ""` 를 성공으로 처리하므로 무가드면 스위트 cwd 의
+#   실 DESIGN.md 를 overwrite 하고 이어 `rm -rf /` 경로가 된다(Phase C 프로브 ⑥).
+_p6d() { # $1=stdin 한 줄 → 생성된 DESIGN.md 경로 (실패 시 빈 문자열, rc 1)
+  local d; d=$(mktemp -d 2>/dev/null) && [ -n "$d" ] && [ -d "$d" ] || { printf ''; return 1; }
   ( cd "$d" && printf '%s\n' "$1" | PLUGIN="$PLUGIN" PROJECT_KIND=1 PROJECT_NAME=TestProj CONFLICT_POLICY=overwrite \
       bash -c '. "$PLUGIN/scripts/_internal/init-project/lib.sh"
                . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
                phase_6_design' >/dev/null 2>&1 )
   printf '%s' "$d/DESIGN.md"
 }
+# 임시 디렉터리만 지운다 — 빈 값·`/`·`.`·mktemp 가 만든 것이 아닌 경로는 거부(단일 가드)
+_p6rm() {
+  case "$1" in ''|/|.|./|..) return 1 ;; esac
+  [ -d "$1" ] && case "$1" in "${TMPDIR:-/tmp}"/*|/tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) rm -rf "$1" ;; *) return 1 ;; esac
+}
 _catrow() { awk -F'|' -v id="$1" 'NF >= 18 { v=$2; gsub(/ /,"",v); if (v == id) print }' "$_DD"; }
 _cell() { printf '%s' "$1" | awk -F'|' -v i="$2" '{ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); print v }'; }
-for _case in "1:1" "2:2" ":1" "99:1"; do
+# "+2"·"02" — sed -n "+2p" 는 BSD 에서 오류라 빈 행 → 자리표시자 DESIGN.md 에 "작성 완료"(Phase C 프로브 ⑤). 선행 0 은 10진 해석.
+for _case in "1:1" "2:2" ":1" "99:1" "+2:1" "02:2"; do
   _in=${_case%%:*}; _want=${_case##*:}
-  _f=$(_p6d "$_in"); _row=$(_catrow "$_want"); _ok=1
+  _f=$(_p6d "$_in") || _f=""
+  if [ -z "$_f" ]; then nope "P6.${_in:-빈입력}" "임시 디렉터리 생성 실패 — 판정 불가"; continue; fi
+  _row=$(_catrow "$_want"); _ok=1
   [ -n "$_row" ] && [ -f "$_f" ] || _ok=0
   grep -qF "> **디자인 방향**: $(_cell "$_row" 3)" "$_f" 2>/dev/null || _ok=0
   grep -qF "VARIANCE $(_cell "$_row" 6) · MOTION $(_cell "$_row" 7) · DENSITY $(_cell "$_row" 8)" "$_f" 2>/dev/null || _ok=0
@@ -284,14 +295,17 @@ for _case in "1:1" "2:2" ":1" "99:1"; do
   _t1=$(_cell "$_row" 5 | cut -d';' -f1 | sed 's/^ *//; s/ *$//')
   awk '/^## 8\./{f=1;next} /^## /{f=0} f' "$_f" 2>/dev/null | grep -qF -- "- $_t1" || _ok=0
   [ "$_ok" = 1 ] && ok "P6.${_in:-빈입력} → 방향 $_want 산출 (AC-3)" || nope "P6.${_in:-빈입력}" "방향 $_want 산출 불일치"
-  rm -rf "$(dirname "$_f")"
+  _p6rm "$(dirname "$_f")"
 done
-_f=$(_p6d "1"); _d=$(dirname "$_f")
-printf '<style>:root{--color-primary: #000000; --color-secondary: #000000; --color-bg: #000000; --color-surface: #000000; --color-text: #000000; --color-text-secondary: #000000; --color-border: #000000; --color-error: #000000; --color-success: #000000;}</style>' > "$_d/s.html"
-( cd "$_d" && . "$PLUGIN/scripts/_internal/init-project/lib.sh" && _inject_design_palette "$_d/s.html" ) 2>/dev/null
-_left=$(grep -o -- '#000000' "$_d/s.html" 2>/dev/null | wc -l | tr -d ' ')
-[ "${_left:-9}" -eq 0 ] && ok "P6.inject 생성 DESIGN.md → 화면 9변수 치환 (AC-3)" || nope "P6.inject" "미치환 ${_left:-?}개"
-rm -rf "$_d"
+_f=$(_p6d "1") || _f=""
+if [ -z "$_f" ]; then nope "P6.inject" "임시 디렉터리 생성 실패 — 판정 불가"; _d=""; else _d=$(dirname "$_f"); fi
+if [ -n "$_d" ]; then
+  printf '<style>:root{--color-primary: #000000; --color-secondary: #000000; --color-bg: #000000; --color-surface: #000000; --color-text: #000000; --color-text-secondary: #000000; --color-border: #000000; --color-error: #000000; --color-success: #000000;}</style>' > "$_d/s.html"
+  ( cd "$_d" && . "$PLUGIN/scripts/_internal/init-project/lib.sh" && _inject_design_palette "$_d/s.html" ) 2>/dev/null
+  _left=$(grep -o -- '#000000' "$_d/s.html" 2>/dev/null | wc -l | tr -d ' ')
+  [ "${_left:-9}" -eq 0 ] && ok "P6.inject 생성 DESIGN.md → 화면 9변수 치환 (AC-3)" || nope "P6.inject" "미치환 ${_left:-?}개"
+  _p6rm "$_d"
+fi
 # P6.doc — 머리 선언이 약속한 Phase 11 decisions.md upsert 지시가 실제로 문서에 있다 (외부 critic 반영)
 grep -E '^- `DESIGN\.md` — \*\*UI KIND일 때만\*\*' "$PLUGIN/commands/init-project.md" | grep -q 'decisions.md' \
   && ok "P6.doc Phase 11 디자인 방향 upsert 지시 존재" || nope "P6.doc" "init-project.md Phase 11 DESIGN.md 항목에 decisions.md upsert 지시 없음"
