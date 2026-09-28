@@ -50,7 +50,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
    - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
    - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
-   - Phase 6: DESIGN.md (UI/풀스택/모바일만) — brand-pick(Stripe/Notion/Linear/Claude/직접) 1택으로 Primary 를 정하고 나머지 토큰은 템플릿 자리표시자로 둔다
+   - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
      - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
    - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy)
@@ -76,7 +76,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약
 - `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **생성**한다(bash 10 Phase 의 memory 템플릿 복사 목록에 없어 보강이 아니라 생성이다). **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
   - **하류 이관** (`--enrich` · `--resume` 실행 시): 구 이름 `.specops/memory/intent.md` 가 프로세스 형식(본문에 `트리거`)으로 있고 `process-design.md` 가 없으면 `git mv .specops/memory/intent.md .specops/memory/process-design.md` 를 제안한다 [y/n]. 사용자가 거절하면 그대로 둔다 — **자동 개명·덮어쓰지 않는다**. `§auto` 는 제안만 기록하고 변경하지 않는다
-- `DESIGN.md` — **UI KIND일 때만**
+- `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`)
 
 **얕게/스킵** (골격·placeholder 유지 허용):
 - `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
@@ -156,7 +156,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 → Phase 2 종류 선택 (4 = 풀스택)
 → Phase 3 헌법 skip
 → Phase 4 PRD (Phase 0 공급 — 재입력 없음)
-→ Phase 6 디자인 브랜드 (1 = Stripe)
+→ Phase 6 디자인 방향 (1 = 절제된 라이트 업무형)
 → Phase 7 화면 이름 (home, login, dashboard) — overview만
 → Phase 8e DB? (y) · 8f API? (2 = OpenAPI)
 → 13종 골격(해당 KIND 활성분) + 원장 골격 스테이징

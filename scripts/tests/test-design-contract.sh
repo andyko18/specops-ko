@@ -246,6 +246,56 @@ if [ -f "$_DD" ] && [ -f "$_T" ]; then
 else
   nope "B2" "판정 대상 부재 — 카탈로그 또는 템플릿"
 fi
+# ── B1: brand-pick 리터럴 음성 잠금 (AC-1) ──
+_BR_RE='Stripe|Notion|#635BFF|#5E6AD2|#7C3AED|brand-pick|_design_brand_|디자인 브랜드'
+_bmiss=""; for _bf in scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md; do
+  [ -f "$PLUGIN/$_bf" ] || _bmiss="$_bmiss $_bf"; done
+if [ -n "$_bmiss" ]; then
+  nope "B1" "판정 대상 부재:$_bmiss"
+else
+  _bh=$(cd "$PLUGIN" && grep -niE "$_BR_RE" scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md | head -3)
+  [ -z "$_bh" ] && ok "B1 brand-pick 브랜드명·hex 0건" || nope "B1" "잔존: $(printf '%s' "$_bh" | tr '\n' ' ')"
+  # B1b — Linear 는 단어 경계(-w)로만 본다: 현재 4파일에 부분 문자열 0건이나 향후 linear-gradient 유입 대비. Claude 는 CLAUDE.md 정당 참조라 잠그지 않는다(§6 한계).
+  _bl=$(cd "$PLUGIN" && grep -niw 'linear' scripts/_internal/init-project/phases-design.sh templates/design-directions.md templates/DESIGN.md commands/init-project.md | head -3)
+  [ -z "$_bl" ] && ok "B1b brand-pick Linear 0건" || nope "B1b" "잔존: $(printf '%s' "$_bl" | tr '\n' ' ')"
+fi
+# ── P6: Phase 6 방향 선택 → DESIGN.md (AC-3) ──
+_p6d() { # $1=stdin 한 줄 → 생성된 DESIGN.md 경로
+  local d; d=$(mktemp -d)
+  ( cd "$d" && printf '%s\n' "$1" | PLUGIN="$PLUGIN" PROJECT_KIND=1 PROJECT_NAME=TestProj CONFLICT_POLICY=overwrite \
+      bash -c '. "$PLUGIN/scripts/_internal/init-project/lib.sh"
+               . "$PLUGIN/scripts/_internal/init-project/phases-design.sh"
+               phase_6_design' >/dev/null 2>&1 )
+  printf '%s' "$d/DESIGN.md"
+}
+_catrow() { awk -F'|' -v id="$1" 'NF >= 18 { v=$2; gsub(/ /,"",v); if (v == id) print }' "$_DD"; }
+_cell() { printf '%s' "$1" | awk -F'|' -v i="$2" '{ v=$i; gsub(/^[ ]+|[ ]+$/,"",v); print v }'; }
+for _case in "1:1" "2:2" ":1" "99:1"; do
+  _in=${_case%%:*}; _want=${_case##*:}
+  _f=$(_p6d "$_in"); _row=$(_catrow "$_want"); _ok=1
+  [ -n "$_row" ] && [ -f "$_f" ] || _ok=0
+  grep -qF "> **디자인 방향**: $(_cell "$_row" 3)" "$_f" 2>/dev/null || _ok=0
+  grep -qF "VARIANCE $(_cell "$_row" 6) · MOTION $(_cell "$_row" 7) · DENSITY $(_cell "$_row" 8)" "$_f" 2>/dev/null || _ok=0
+  _i=9
+  for _lbl in Primary Secondary Background Surface "Text Primary" "Text Secondary" Border Error Success; do
+    grep -qF "| $_lbl | \`$(_cell "$_row" $_i)\` |" "$_f" 2>/dev/null || _ok=0
+    _i=$((_i+1))
+  done
+  _t1=$(_cell "$_row" 5 | cut -d';' -f1 | sed 's/^ *//; s/ *$//')
+  awk '/^## 8\./{f=1;next} /^## /{f=0} f' "$_f" 2>/dev/null | grep -qF -- "- $_t1" || _ok=0
+  [ "$_ok" = 1 ] && ok "P6.${_in:-빈입력} → 방향 $_want 산출 (AC-3)" || nope "P6.${_in:-빈입력}" "방향 $_want 산출 불일치"
+  rm -rf "$(dirname "$_f")"
+done
+_f=$(_p6d "1"); _d=$(dirname "$_f")
+printf '<style>:root{--color-primary: #000000; --color-secondary: #000000; --color-bg: #000000; --color-surface: #000000; --color-text: #000000; --color-text-secondary: #000000; --color-border: #000000; --color-error: #000000; --color-success: #000000;}</style>' > "$_d/s.html"
+( cd "$_d" && . "$PLUGIN/scripts/_internal/init-project/lib.sh" && _inject_design_palette "$_d/s.html" ) 2>/dev/null
+_left=$(grep -o -- '#000000' "$_d/s.html" 2>/dev/null | wc -l | tr -d ' ')
+[ "${_left:-9}" -eq 0 ] && ok "P6.inject 생성 DESIGN.md → 화면 9변수 치환 (AC-3)" || nope "P6.inject" "미치환 ${_left:-?}개"
+rm -rf "$_d"
+# P6.doc — 머리 선언이 약속한 Phase 11 decisions.md upsert 지시가 실제로 문서에 있다 (외부 critic 반영)
+grep -E '^- `DESIGN\.md` — \*\*UI KIND일 때만\*\*' "$PLUGIN/commands/init-project.md" | grep -q 'decisions.md' \
+  && ok "P6.doc Phase 11 디자인 방향 upsert 지시 존재" || nope "P6.doc" "init-project.md Phase 11 DESIGN.md 항목에 decisions.md upsert 지시 없음"
+
 
 # ── N: 외부 디자인 플러그인 재유입 금지 (FID 20260928-uiux-promax-removal-design-master) ──
 #   판정 리터럴 보유 3파일과 과거 기록(CHANGELOG·docs/audit)은 제외한다(AC-6 ④).
