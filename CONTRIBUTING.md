@@ -7,10 +7,8 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 - Claude Code 설치 (`claude` CLI)
 - `bash 5+`, `jq`, `python3` (+ `pyyaml`)
 - 플러그인을 marketplace로 등록 후 dogfood
-- `ui-ux-pro-max` cross-marketplace hard dependency 선행 등록 필수 (미등록 시 설치 실패)
 
 ```bash
-claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill   # 의존성 선행 등록
 claude plugin marketplace add andyko18/specops-ko                    # GitHub
 claude plugin install specops-ko@specops-ko
 # 로컬 dogfood: claude plugin marketplace add /절대경로/specops-ko

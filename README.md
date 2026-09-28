@@ -17,14 +17,11 @@
 ## 설치
 
 ```bash
-# 1) 의존성 marketplace 선행 등록 (필수 — 없으면 설치 실패)
-claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
-
-# 2) 설치
+# 1) 설치
 claude plugin marketplace add andyko18/specops-ko
 claude plugin install specops-ko@specops-ko
 
-# 3) 확인
+# 2) 확인
 /doctor
 ```
 
@@ -214,7 +211,6 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 | 증상 | 조치 |
 |---|---|
-| 설치가 `cross-marketplace` 에러 | `ui-ux-pro-max-skill` marketplace 선행 등록 |
 | commit 이 verify 누락으로 deny | 정상(R-1). verify 실행 후 재시도. 불가피하면 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>'` |
 | `file_counts FAIL` | `validate-structure.sh --update-baseline` |
 | `version_sync` · `readme_counts FAIL` | README 헤더/footer 버전, 자산 구조 카운트가 실측과 불일치 |
@@ -245,10 +241,6 @@ frontmatter 가 어디서 무엇을 가져왔는지 개별로 밝힌다(실측 5
 > 자체 설계다. 상류 라이선스 확인 결과 지배적 출처(superpowers)가 MIT 라 본 repo 의 MIT 와 호환된다.
 > 표에서 라이선스를 `—` 로 둔 것은 **확인하지 않았다는 뜻**이다 — 해당 프로젝트 코드를 복사하지
 > 않았으므로 라이선스 의무가 발생하지 않는다고 판단했으나, 그 판단 자체는 검증되지 않았다.
-
-### 의존
-
-[ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — `plugin.json` hard dependency.
 
 ---
 
