@@ -76,4 +76,46 @@ _sp=$(grep -o -- '--space-[a-z0-9]*:' "$H" 2>/dev/null | sort -u | wc -l | tr -d
   && ok  "T6.b screen.html 간격 토큰 ${_sp}종(≥4) + §3 대응 주석" \
   || nope "T6.b 간격 토큰" "--space-* ${_sp}종 (기대 ≥4) 또는 '§3 Spacing' 대응 주석 부재"
 
+# T7: 화면 원형 선언 + States Empty (FID 20260929-enterprise-genre-rules AC-5)
+_pre=$(awk '/^## /{exit} {print}' "$T")
+_arch=$(printf '%s\n' "$_pre" | grep -E '^\*\*원형\*\*:' | head -1)
+_am=""
+for a in 목록 상세 폼 '다단 폼' 대시보드 기타; do
+  printf '%s' "$_arch" | grep -qF "$a" || _am="$_am $a"
+done
+{ [ -n "$_arch" ] && [ -z "$_am" ]; } \
+  && ok  "T7.a 첫 ## 앞 **원형**: 줄 + 허용 원형 6개" \
+  || nope "T7.a 원형 줄" "줄='${_arch}' 누락:${_am}"
+
+_st=$(awk '/^## States/{f=1;next} f&&/^## /{exit} f' "$T")
+{ printf '%s\n' "$_st" | grep -qE '^- Empty:' && printf '%s\n' "$_st" | grep -qF 'G-LIST-EMPTY-KIND'; } \
+  && ok  "T7.b States Empty 행 + §6.1 규칙 포인터" \
+  || nope "T7.b Empty 행" "States 에 '- Empty:' 또는 G-LIST-EMPTY-KIND 포인터 없음"
+
+# 힌트가 판정 앵커를 담으면 원형만 채운 빈 복사본이 G-LIST-EMPTY-KIND 를 공짜로 통과한다
+printf '%s\n' "$_st" | grep -qE '데이터 없음|결과 없음' \
+  && nope "T7.c Empty 힌트" "판정 앵커(데이터 없음/결과 없음) 포함 — 빈 복사본이 규칙을 공짜로 통과" \
+  || ok  "T7.c Empty 힌트에 판정 앵커 없음"
+
+Q="$PLUGIN/scripts/_internal/check-screen-quality.sh"
+TMPD=$(mktemp -d) || { nope "T7 mktemp" "임시 디렉터리 생성 실패"; finish; exit 1; }
+trap 'rm -rf "$TMPD"' EXIT
+cp "$T" "$TMPD/c.md"; cp "$PLUGIN/templates/screen.html" "$TMPD/c.html"
+_o=$(bash "$Q" "$TMPD/c.md" "$TMPD/c.html" 2>/dev/null)
+_h=$(printf '%s\n' "$_o" | head -1)
+{ printf '%s' "$_h" | grep -q 'states=3/3' && printf '%s' "$_h" | grep -qE 'genre=unknown$' \
+  && ! printf '%s\n' "$_o" | grep -qF '[states] 미정의'; } \
+  && ok  "T7.d 템플릿 복사본 states=3/3 · genre=unknown" \
+  || nope "T7.d 템플릿 복사본" "head='$_h'"
+
+# 원형만 채운 빈 복사본 — 계측 규칙이 전부 미충족이어야 정직한 측정이다
+_fm=""
+for pair in '목록:0/3' '폼:0/2' '다단 폼:0/3' '대시보드:0/1' '상세:n/a'; do
+  a=${pair%%:*}; want=${pair#*:}
+  sed "s/^\*\*원형\*\*:.*/**원형**: $a/" "$T" > "$TMPD/f.md"
+  v=$(bash "$Q" "$TMPD/f.md" "$TMPD/c.html" 2>/dev/null | head -1 | grep -oE 'genre=[^ ]+' | cut -d= -f2)
+  [ "$v" = "$want" ] || _fm="$_fm $a=$v(기대 $want)"
+done
+[ -z "$_fm" ] && ok "T7.e 원형만 채운 빈 복사본 — 계측 규칙 전부 미충족" || nope "T7.e" "$_fm"
+
 finish
