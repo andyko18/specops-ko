@@ -34,17 +34,9 @@ args = 기능 설명. 비어 있거나 너무 짧으면(10자 미만) 최소 예
 
 `y` 응답 시 Step 2로 진행. 수정 시 수정된 목록 재확인 후 진행.
 
-## Step 2: design system 자문 + rationale 보관 (1회 공유)
+## Step 2: DESIGN.md 로드 (1회 공유)
 
-ui-ux-pro-max 는 plugin.json hard dependency(보장 동반)다. **첫 화면 전 단 1회** `ui-ux-pro-max:ui-ux-pro-max` 를 호출해 산출된 design system을 모든 화면에 공유 적용한다. (단수 `/design-screen`은 화면마다 호출하지만 복수는 1회로 집약 — 일관성 + 토큰 절감)
-
-**graceful 안전망**: 의존성 미해결(marketplace 미등록 등)로 available-skills 미감지 시 DESIGN.md 토큰 fallback(`rationale = null` + `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` 경고).
-
-**[있으면]** 자문 완료 후 단수 Step 2.5와 동일한 4개 항목을 **rationale 변수**로 추출해 모든 화면에 공유 적용:
-- `style`: style 이름 + 근거 한 줄
-- `color`: primary hex / surface hex
-- `font`: heading-font / body-font 페어링
-- `antipatterns`: anti-pattern 목록 배열 (필드 부재 시 `[]`)
+**첫 화면 전 단 1회** 프로젝트 `DESIGN.md` 를 읽어 모든 화면에 공유 적용한다(부재 시 `templates/screen.html` 기본 토큰). 화면별 준수 항목은 Step 3 의 DESIGN.md 준수 지시를 따른다.
 
 ## Step 3: 화면별 순차 대화 루프
 
@@ -72,25 +64,15 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 
 **Step 3-3: HTML artifact 생성 + 수정 루프**
 
-Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므로, Step 2의 공유 design system(또는 DESIGN.md)을 반영하여 그 내용을 채워 완성한다.
+Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므로, Step 2에서 로드한 DESIGN.md 토큰을 반영하여 그 내용을 채워 완성한다.
 
 - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).
 
 사용자에게 artifact를 보여주고 수정 요청을 받는다:
 > "위 HTML 미리보기를 확인해 주세요. 수정이 필요하시면 말씀해 주세요. 진행할까요? [y/n]"
 
-- `y` 또는 수정 없음 → Step 3-3.5 진행
+- `y` 또는 수정 없음 → Step 3-4 진행
 - `n` 또는 수정 요청 → HTML artifact 재생성 후 재확인 루프
-
-**Step 3-3.5: Anti-pattern 게이트**
-
-단수 Step 3.5와 동일. `rationale`가 null이면 → skip, Step 3-4 직행. null이 아닌 경우 `antipatterns`가 빈 배열이면 → skip, Step 3-4 직행.
-
-활성 시 HTML ↔ `antipatterns` 대조:
-- **위반 없음** → `✅ Anti-pattern 체크 통과` 출력 후 Step 3-4 직행
-- **위반 발견** → `⚠️ Anti-pattern 위반: {위반 항목 목록}. 수정 후 저장 / 그냥 저장 [m/s, 기본=s]`
-  - `m` → Step 3-3(HTML 수정 루프) 복귀
-  - `s` 또는 Enter → Step 3-4 직행
 
 **Step 3-4: 저장**
 
@@ -98,8 +80,6 @@ Step 3-1에서 스크립트가 이미 `screens/{name}.html`을 생성했으므�
 - screen.md: **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지) 완성 + 조건부 4섹션은 해당할 때만(미해당이면 섹션 자체를 넣지 않는다). 채운 뒤 껍데기 **마커 줄을 삭제**한다. (단수 Step 4와 동일 요건)
 - screen.html: Step 3-3에서 승인한 HTML로 교체
 - screens-overview.md 갱신은 Step 3-1 스크립트가 이미 완료
-
-**[rationale 있으면]** 단수 Step 4와 동일하게 screen.md 끝에 `## Design Rationale` 섹션 append (공유 rationale 적용). rationale가 null이면 append 없이 저장.
 
 **Step 3-5: 커밋**
 

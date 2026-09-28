@@ -218,6 +218,8 @@ fi
 _nl "N2.a scripts/·.claude-plugin/" scripts .claude-plugin
 _fx=$(cd "$PLUGIN" && git ls-files scripts/_internal/uiux-assets.sh scripts/tests/fixtures/uiux scripts/tests/fixtures/uiux-engine | wc -l | tr -d ' ')
 [ "$_fx" -eq 0 ] && ok "N2.b 어댑터·픽스처 추적 0건" || nope "N2.b" "추적 ${_fx}건 잔존"
+# N3 — 산문 표면(skills/commands/agents/hooks/templates) 재유입 0 (AC-2·AC-5)
+_nl "N3 skills/·commands/·agents/·hooks/·templates/" skills commands agents hooks templates
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
