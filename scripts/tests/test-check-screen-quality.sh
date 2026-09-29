@@ -492,4 +492,173 @@ else
   nope "A7" "anti=$(_val "$o" anti) p='$_a7p' v='$_a7v'"
 fi
 
+# ══ --regress 화면 회귀 (FID 20260929-screen-regression-guard) ══
+#   임시 git repo 격리 — 상속 GIT_* 가 실패를 가린 전례(FID 1b N0) · hooks 비활성 · 브랜치명 비의존
+_RG="$TD/rg"
+mkdir -p "$_RG/screens" || { nope "RG0 임시 repo" "mkdir 실패"; finish; exit 1; }
+_rgit() { ( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git -c user.name=t -c user.email=t@example.invalid -c core.hooksPath= "$@" ) >/dev/null 2>&1; }
+_rgrun() {  # $1=기준 ref(빈값=인자 없음) · 환경은 호출자가 export
+  ( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress ${1:+"$1"} 2>/dev/null )
+}
+_rv() { printf '%s\n' "$1" | grep -E "^SCREEN-REGRESSION: $2 " | head -1 | grep -oE "$3=[^ ]+" | cut -d= -f2; }
+
+# 기준 화면: a(채움 · 랜드마크 없음 · 색 하드코딩 없음) · b(삭제·이름변경용) · s(기준이 껍데기)
+_rg_rows() { i=1; while [ "$i" -le "$1" ]; do printf '<div class="row"><label for="f%s">필드 %s</label><input id="f%s"></div>\n' "$i" "$i" "$i"; i=$((i+1)); done; }
+_rg_lines() { i=1; while [ "$i" -le "$1" ]; do printf -- '- 항목 %s 설명 텍스트입니다\n' "$i"; i=$((i+1)); done; }
+_rg_html() { printf '<html><head><style>:root { --c: #112233; } .row { color: var(--c); }</style></head><body>\n'; _rg_rows "$1"; printf '</body></html>\n'; }
+_rg_md() { printf -- '---\nscreen: "a"\n---\n# A\n\n## 목적\n\n'; _rg_lines "$1"; }
+_rg_html 30 > "$_RG/screens/a.html"; _rg_md 30 > "$_RG/screens/a.md"
+_rg_html 20 > "$_RG/screens/b.html"; _rg_md 20 > "$_RG/screens/b.md"
+{ printf '<!-- specops:screen-placeholder — 실제 내용으로 채우면 이 줄을 삭제한다 -->\n'; _rg_html 30; } > "$_RG/screens/s.html"
+{ printf '<!-- specops:screen-placeholder — 실제 내용으로 채우면 이 줄을 삭제한다 -->\n'; _rg_md 30; } > "$_RG/screens/s.md"
+_rgit init -q && _rgit add -A && _rgit commit -q -m base
+_RGB=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git rev-parse HEAD 2>/dev/null )
+[ -n "$_RGB" ] || { nope "RG0 임시 repo" "base 커밋 실패"; finish; exit 1; }
+_rg_reset() { _rgit checkout -q -- screens/ ; _rgit clean -fdq -- screens/ ; }
+
+# RG1 축소 감지 (AC-1)
+_rg_html 10 > "$_RG/screens/a.html"; o=$(_rgrun "$_RGB")
+h=$(_rv "$o" a html)
+if awk -v r="$h" 'BEGIN{exit !(r+0 > 0 && r+0 < 0.60)}' && [ "$(printf '%s\n' "$o" | grep -c '^  \[shrink\] \.html ' || true)" = 1 ]; then
+  ok "RG1.a .html 축소 → html=$h · [shrink] .html 1줄"
+else nope "RG1.a" "html=$h out=$(printf '%s' "$o" | tr '\n' '|')"; fi
+_rg_reset
+_rg_md 8 > "$_RG/screens/a.md"; o=$(_rgrun "$_RGB")
+m=$(_rv "$o" a md)
+if awk -v r="$m" 'BEGIN{exit !(r+0 > 0 && r+0 < 0.60)}' && [ "$(printf '%s\n' "$o" | grep -c '^  \[shrink\] \.md ' || true)" = 1 ]; then
+  ok "RG1.b .md 축소 → md=$m · [shrink] .md 1줄"
+else nope "RG1.b" "md=$m out=$(printf '%s' "$o" | tr '\n' '|')"; fi
+_rg_reset
+
+# RG2 정상 개편 통과 (AC-2)
+_rg_rev() { awk '{a[NR]=$0} END{for(i=NR;i>0;i--) print a[i]}' "$1" > "$1.t" && mv "$1.t" "$1"; }
+_rg2() {  # $1=라벨
+  o=$(_rgrun "$_RGB"); m=$(_rv "$o" a md); h=$(_rv "$o" a html)
+  if ! printf '%s\n' "$o" | grep -q '^  \[shrink\]' && printf '%s' "$m" | grep -qE '^[0-9]+\.[0-9]{2}$' && printf '%s' "$h" | grep -qE '^[0-9]+\.[0-9]{2}$'; then
+    ok "RG2.$1 정상 개편 통과 (md=$m html=$h)"
+  else nope "RG2.$1" "md=$m html=$h out=$(printf '%s' "$o" | tr '\n' '|')"; fi
+  _rg_reset
+}
+_rg_rev "$_RG/screens/a.md"; _rg_rev "$_RG/screens/a.html"; _rg2 a
+_rg_html 36 > "$_RG/screens/a.html"; _rg_md 36 > "$_RG/screens/a.md"; _rg2 b
+_rg_html 26 > "$_RG/screens/a.html"; _rg_md 26 > "$_RG/screens/a.md"; _rg2 c
+
+# RG3 비교하지 않는 경로는 사유를 밝힌다 (AC-3)
+_rg_html 30 > "$_RG/screens/n.html"; _rg_md 30 > "$_RG/screens/n.md"; o=$(_rgrun "$_RGB")
+{ [ "$(_rv "$o" n md)" = new ] && [ "$(_rv "$o" n html)" = new ] && [ "$(_rv "$o" n new-rules)" = unknown ] \
+  && printf '%s\n' "$o" | grep -q '^  \[lineage\] \.md 이전 버전 없음'; } \
+  && ok "RG3.a 새 화면 → new · [lineage]" || nope "RG3.a" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+o=$(_rgrun "$_RGB")
+{ [ "$(_rv "$o" s md)" = shell ] && [ "$(_rv "$o" s html)" = shell ] \
+  && printf '%s\n' "$o" | grep -q '^  \[lineage\] \.md 이전 버전이 템플릿 상태' \
+  && ! printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: s /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f' | grep -q '\[shrink\]'; } \
+  && ok "RG3.b 기준이 껍데기 → shell · [lineage] · [shrink] 없음" || nope "RG3.b" "$(printf '%s' "$o" | tr '\n' '|')"
+mkdir -p "$TD/nogit/screens"; cp "$_RG/screens/a.md" "$_RG/screens/a.html" "$TD/nogit/screens/"
+o=$( cd "$TD/nogit" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE GIT_CEILING_DIRECTORIES="$TD" bash "$SCRIPT" --regress 2>/dev/null )
+{ printf '%s\n' "$o" | grep -qE '^SCREEN-REGRESSION: \(none\)  base=unknown  md=unknown  html=unknown  new-rules=unknown$' \
+  && printf '%s\n' "$o" | grep -q '^  \[scope\] '; } && ok "RG3.c git 저장소 아님 → unknown · [scope]" || nope "RG3.c" "$o"
+o=$(_rgrun "no-such-ref-xyz")
+{ printf '%s\n' "$o" | grep -q 'base=unknown' && printf '%s\n' "$o" | grep -q '^  \[scope\] '; } \
+  && ok "RG3.d 없는 기준 ref → unknown · [scope]" || nope "RG3.d" "$o"
+mkdir -p "$TD/rg0"; ( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git init -q && printf 'x\n' > x && git -c user.name=t -c user.email=t@example.invalid -c core.hooksPath= add x && git -c user.name=t -c user.email=t@example.invalid -c core.hooksPath= commit -qm x ) >/dev/null 2>&1
+_rg0b=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git rev-parse HEAD 2>/dev/null )
+o=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress "$_rg0b" 2>/dev/null )
+{ printf '%s\n' "$o" | grep -q '^SCREEN-REGRESSION: (none) ' && printf '%s\n' "$o" | grep -q '^  \[scope\] '; } \
+  && ok "RG3.e 화면 0개 → (none) · [scope]" || nope "RG3.e" "$o"
+( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git branch -m "$(git symbolic-ref --short HEAD)" trunk-x ) >/dev/null 2>&1   # HEAD 만 옮기면 refs/heads/main 이 남는다 — 실제 개명
+o=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress 2>/dev/null )
+{ printf '%s\n' "$o" | grep -q 'base=unknown' && printf '%s\n' "$o" | grep -qF '[scope] main·master 브랜치가 없다'; } \
+  && ok "RG3.f 기준 인자 없고 main·master 없음 → unknown · [scope] 브랜치 없음 경로" || nope "RG3.f" "$o"
+
+# RG5 임계값 조정 (AC-5) — 26/30 행 ≈ 0.85
+_rg_html 26 > "$_RG/screens/a.html"
+o=$(_rgrun "$_RGB"); printf '%s\n' "$o" | grep -q '^  \[shrink\] \.html ' && nope "RG5.a" "기본 0.60 인데 [shrink]" || ok "RG5.a 기본 0.60 — 0.85 는 통과"
+o=$(export SPECOPS_SCREEN_SHRINK_RATIO=0.9; _rgrun "$_RGB")
+printf '%s\n' "$o" | grep -qE '^  \[shrink\] \.html .* < 0\.90\) ' && ok "RG5.b 0.9 로 조정 → [shrink]" || nope "RG5.b" "$(printf '%s' "$o" | tr '\n' '|')"
+o=$(export SPECOPS_SCREEN_SHRINK_RATIO=abc; _rgrun "$_RGB")
+{ ! printf '%s\n' "$o" | grep -q '^  \[shrink\] \.html ' && printf '%s\n' "$o" | grep -q '^  \[config\] '; } \
+  && ok "RG5.c 잘못된 값 → 기본 적용 + [config]" || nope "RG5.c" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+
+# RG7 삭제·이름 변경 (AC-7)
+rm -f "$_RG/screens/b.md" "$_RG/screens/b.html"; o=$(_rgrun "$_RGB")
+{ [ "$(_rv "$o" b md)" = deleted ] && [ "$(_rv "$o" b html)" = deleted ] && [ "$(_rv "$o" b new-rules)" = unknown ] \
+  && printf '%s\n' "$o" | grep -q '^  \[lineage\] \.md 기준 커밋에 있던 파일이 없다'; } \
+  && ok "RG7.a 삭제 → deleted · [lineage]" || nope "RG7.a" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+mv "$_RG/screens/b.md" "$_RG/screens/c.md"; mv "$_RG/screens/b.html" "$_RG/screens/c.html"; o=$(_rgrun "$_RGB")
+{ [ "$(_rv "$o" b md)" = deleted ] && [ "$(_rv "$o" c md)" = new ]; } && ok "RG7.b 이름 변경 → 옛 이름 deleted · 새 이름 new" || nope "RG7.b" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+
+# RGR 작업 트리·인덱스 불변 · exit 0 (AC-R-1)
+_rg_html 10 > "$_RG/screens/a.html"
+_st1=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git status --porcelain 2>/dev/null )
+( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress "$_RGB" >/dev/null 2>&1 ); _rgrc=$?
+_st2=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git status --porcelain 2>/dev/null )
+{ [ "$_rgrc" -eq 0 ] && [ "$_st1" = "$_st2" ] && [ -n "$_st1" ]; } && ok "RGR --regress exit 0 · 작업 트리·인덱스 불변" || nope "RGR" "rc=$_rgrc st1='$_st1' st2='$_st2'"
+_rg_reset
+
+# RG4 새 위반만 보고 (AC-4) — 기준 a 는 이미 S-LANDMARK(랜드마크 0) 보유
+o=$(_rgrun "$_RGB")
+[ "$(_rv "$o" a new-rules)" = 0 ] && ok "RG4.b 변화 없음 → new-rules=0" || nope "RG4.b" "new-rules=$(_rv "$o" a new-rules)"
+{ _rg_html 30 | sed 's#</body>#<p style="color: \#AB12CD">x</p></body>#'; } > "$_RG/screens/a.html"
+o=$(_rgrun "$_RGB")
+_rg4=$(printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: a /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f')
+if [ "$(_rv "$o" a new-rules)" = 1 ] && printf '%s\n' "$_rg4" | grep -q '^  \[new-rule\] S-TOKEN-HEX — ' \
+   && ! printf '%s\n' "$_rg4" | grep -q '\[new-rule\] S-LANDMARK'; then
+  ok "RG4.a 새 위반 S-TOKEN-HEX 만 보고 (기존 S-LANDMARK 제외)"
+else nope "RG4.a" "new-rules=$(_rv "$o" a new-rules) det='$(printf '%s' "$_rg4" | tr '\n' '|')'"; fi
+_rg_reset
+
+# ── 2차 기준 커밋: 로그인(비ASCII 이름) · mdonly(.html 없음) · mix(md 채움 · html 껍데기) — Phase C 재dispatch ──
+_rg_html 20 > "$_RG/screens/로그인.html"; _rg_md 20 > "$_RG/screens/로그인.md"
+_rg_md 20 > "$_RG/screens/mdonly.md"
+_rg_md 20 > "$_RG/screens/mix.md"
+{ printf '<!-- specops:screen-placeholder — 실제 내용으로 채우면 이 줄을 삭제한다 -->\n'; _rg_html 20; } > "$_RG/screens/mix.html"
+_rgit add -A && _rgit commit -q -m base2
+_RGB2=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git rev-parse HEAD 2>/dev/null )
+if [ -z "$_RGB2" ] || [ "$_RGB2" = "$_RGB" ]; then nope "RG0.b 2차 기준 커밋" "commit 실패"; else
+
+# RG7.c 비ASCII 화면명 삭제 → deleted (Critical — ls-tree 인용 출력이 기준-전용 화면을 무음으로 만들었다)
+rm -f "$_RG/screens/로그인.md" "$_RG/screens/로그인.html"; o=$(_rgrun "$_RGB2")
+{ [ "$(_rv "$o" 로그인 md)" = deleted ] && [ "$(_rv "$o" 로그인 html)" = deleted ]; } \
+  && ok "RG7.c 비ASCII 이름(로그인) 삭제 → deleted 줄 존재" || nope "RG7.c" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+
+# RG3.g 기준 == HEAD → [scope] 1줄 (커밋된 변경은 비교되지 않는다) · 기준 ≠ HEAD 면 없음
+o=$(_rgrun HEAD)
+printf '%s\n' "$o" | grep -qF '  [scope] 기준 커밋이 HEAD 와 같다' && ok "RG3.g --regress HEAD → [scope] 기준==HEAD 고백" || nope "RG3.g" "$(printf '%s' "$o" | tr '\n' '|')"
+o=$(_rgrun "$_RGB")
+printf '%s\n' "$o" | grep -qF '  [scope] 기준 커밋이 HEAD 와 같다' && nope "RG3.g-neg" "기준 ≠ HEAD 인데 [scope] 줄" || ok "RG3.g-neg 기준 ≠ HEAD → [scope] 없음"
+
+# RG3.h .html 이 기준·작업 트리 모두 없음 → html=unknown + 사유줄
+o=$(_rgrun "$_RGB2")
+{ [ "$(_rv "$o" mdonly html)" = unknown ] \
+  && printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: mdonly /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f' | grep -qF '[lineage] .html 기준·작업 트리 모두 없음 — 비교하지 않았다'; } \
+  && ok "RG3.h .html 양측 부재 → html=unknown · [lineage] 사유" || nope "RG3.h" "$(printf '%s' "$o" | tr '\n' '|')"
+
+# RG4.c 혼합 계보(md 숫자 · html shell) → new-rules=unknown · [new-rule] 없음 (T2 Important — 자기모순 출력 차단)
+{ _rg_html 20 | sed 's#</body>#<p style="color: \#AB12CD">x</p></body>#'; } > "$_RG/screens/mix.html"
+o=$(_rgrun "$_RGB2")
+_rg4c=$(printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: mix /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f')
+{ [ "$(_rv "$o" mix html)" = shell ] && [ "$(_rv "$o" mix new-rules)" = unknown ] && ! printf '%s\n' "$_rg4c" | grep -q '\[new-rule\]'; } \
+  && ok "RG4.c md 숫자 · html shell → new-rules=unknown · [new-rule] 없음" || nope "RG4.c" "new-rules=$(_rv "$o" mix new-rules) det='$(printf '%s' "$_rg4c" | tr '\n' '|')'"
+_rg_reset
+fi
+
+# RG6 verify 배선 (AC-6) — 화면 품질 계측 bullet 과 테스트=spec 커버 점검 사이
+_l_rq=$(grep -n 'check-screen-quality\.sh --all' "$VS" | head -1 | cut -d: -f1)
+_l_rr=$(grep -n 'check-screen-quality\.sh --regress' "$VS" | head -1 | cut -d: -f1)
+_l_rc=$(grep -n '테스트=spec 커버 점검' "$VS" | head -1 | cut -d: -f1)
+if [ -n "$_l_rq" ] && [ -n "$_l_rr" ] && [ -n "$_l_rc" ] && [ "$_l_rr" -gt "$_l_rq" ] && [ "$_l_rr" -lt "$_l_rc" ]; then
+  _rblk=$(sed -n "${_l_rr},$((_l_rc - 1))p" "$VS")
+  { printf '%s' "$_rblk" | grep -qF '## 화면 회귀' && printf '%s' "$_rblk" | grep -qF 'VERIFY: FAIL' \
+    && printf '%s' "$_rblk" | grep -qF '승급' && printf '%s' "$_rblk" | grep -qF 'graceful skip'; } \
+    && ok "RG6 verify SKILL --regress 실행 · ## 화면 회귀 · 비차단 · 승급 조건 · skip" \
+    || nope "RG6" "블록에 '## 화면 회귀'·'VERIFY: FAIL'·'승급'·'graceful skip' 중 누락"
+else
+  nope "RG6" "배선 위치 — 계측=${_l_rq:-없음} 회귀=${_l_rr:-없음} 커버=${_l_rc:-없음}"
+fi
+
 finish
