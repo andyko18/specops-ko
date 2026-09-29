@@ -103,7 +103,7 @@ trap 'rm -rf "$TMPD"' EXIT
 cp "$T" "$TMPD/c.md"; cp "$PLUGIN/templates/screen.html" "$TMPD/c.html"
 _o=$(bash "$Q" "$TMPD/c.md" "$TMPD/c.html" 2>/dev/null)
 _h=$(printf '%s\n' "$_o" | head -1)
-{ printf '%s' "$_h" | grep -q 'states=3/3' && printf '%s' "$_h" | grep -qE 'genre=unknown$' \
+{ printf '%s' "$_h" | grep -q 'states=3/3' && printf '%s' "$_h" | grep -qE 'genre=unknown  anti=0$' \
   && ! printf '%s\n' "$_o" | grep -qF '[states] 미정의'; } \
   && ok  "T7.d 템플릿 복사본 states=3/3 · genre=unknown" \
   || nope "T7.d 템플릿 복사본" "head='$_h'"

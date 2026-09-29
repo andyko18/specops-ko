@@ -247,11 +247,11 @@ _g1 login "$PLUGIN/screens/login.md" unknown
 _g1 템플릿복사 "$TD/tpl.md" unknown
 
 # G1.k 요약줄 키 순서 — 기존 5키 뒤 genre 가 마지막 (전체 줄 일치)
-_kre='^SCREEN-QUALITY: [^ ]+  states=[^ ]+  a11y-label=[^ ]+  semantic=[^ ]+  token=[^ ]+  microcopy=[^ ]+  genre=[^ ]+$'
+_kre='^SCREEN-QUALITY: [^ ]+  states=[^ ]+  a11y-label=[^ ]+  semantic=[^ ]+  token=[^ ]+  microcopy=[^ ]+  genre=[^ ]+  anti=[^ ]+$'
 _gk=$(_gout "$TD/g-none.md" | head -1)
 printf '%s\n' "$_gk" | grep -qE "$_kre" && ok "G1.k 요약줄 키 순서 — genre 마지막" || nope "G1.k" "head='$_gk'"
 _gu1=$(bash "$SCRIPT" 2>/dev/null | head -1); _gu2=$(cd "$TD" && bash "$SCRIPT" --all 2>/dev/null | head -1)
-if printf '%s\n' "$_gu1" | grep -qE '  genre=unknown$' && printf '%s\n' "$_gu2" | grep -qE '  genre=unknown$'; then
+if printf '%s\n' "$_gu1" | grep -qE '  genre=unknown  anti=unknown$' && printf '%s\n' "$_gu2" | grep -qE '  genre=unknown  anti=unknown$'; then
   ok "G1.u _unknown_line 도 genre=unknown 으로 끝남"
 else
   nope "G1.u" "인자부족='$_gu1' --all='$_gu2'"
@@ -425,5 +425,61 @@ _rmm=$(printf '%s\n' "$_rdl" | grep -E '^  \[genre\] G-[A-Z-]+ (미충족|overri
   | awk '{ id=$2; r=$0; sub(/.*  rule=/, "", r); if (id != r) print id "≠" r }')
 _rmn=$(printf '%s\n' "$_rdl" | grep -cE '^  \[genre\] G-[A-Z-]+ (미충족|override) — ' || true)
 { [ "${_rmn:-0}" -ge 3 ] && [ -z "$_rmm" ]; } && ok "R2.d genre 본문 ID == rule ID (${_rmn}줄)" || nope "R2.d" "검사 ${_rmn}줄 불일치:$_rmm"
+
+
+# ══ anti 축 — 금지 패턴 3개 (FID 20260929-design-rule-id-catalog) ══
+_aout() { bash "$SCRIPT" "$TD/good.md" "$1" 2>/dev/null; }
+_adet() { printf '%s\n' "$1" | grep -F '[anti]'; }
+_acase() {  # $1=라벨 $2=ID $3=양성 html $4=음성 html
+  printf '%s\n' "$3" > "$TD/ap.html"; printf '%s\n' "$4" > "$TD/an.html"
+  local p n; p=$(_aout "$TD/ap.html"); n=$(_aout "$TD/an.html")
+  if [ "$(_val "$p" anti)" != 0 ] && [ -n "$(_val "$p" anti)" ] && _adet "$p" | grep -qE "  rule=$2\$" \
+     && [ "$(_val "$n" anti)" = 0 ] && [ -z "$(_adet "$n")" ]; then
+    ok "A1.$1 $2 양성 anti=$(_val "$p" anti) · 음성 anti=0"
+  else
+    nope "A1.$1" "$2 양성 anti=$(_val "$p" anti) det='$(_adet "$p")' · 음성 anti=$(_val "$n" anti) det='$(_adet "$n")'"
+  fi
+}
+_acase a A-PLACEHOLDER-NAME '<main><p>John Doe</p></main>' '<main><!-- 예시
+Lorem ipsum --><p>홍길동</p></main>'
+_acase b A-SCROLL-LISTENER '<script>window.addEventListener("scroll", f);</script>' '<script>/* 예전 코드
+window.addEventListener("scroll", f); */</script>'
+_acase c A-VIEWPORT-HEIGHT '<style>.x { height: 100vh; }</style>' '<style>body { min-height: 100vh; }</style>'
+_acase d A-VIEWPORT-HEIGHT '<div class="flex h-screen"></div>' '<div class="min-h-screen"></div>'
+_acase f A-PLACEHOLDER-NAME '<script>foo(); // c</script><p>John Doe</p>' '<script>foo(); // John Doe</script><p>홍길동</p>'
+_acase g A-PLACEHOLDER-NAME '<input type="file" accept="image/*"><p>John Doe</p>' '<input type="file" accept="image/*"><p>홍길동</p>'
+_acase e A-SCROLL-LISTENER "<script>fetch('https://x.example/a'); window.addEventListener('scroll', g);</script>" "<script>
+  // window.addEventListener('scroll', g);
+</script>"
+
+# ── A4: 기준 화면 오탐 0 (AC-4) — 템플릿 복사본 · design-screen 스캐폴드 · screens/login ──
+cp "$PLUGIN/templates/screen.md" "$TD/tplA.md"; cp "$PLUGIN/templates/screen.html" "$TD/tplA.html"
+mkdir -p "$TD/sc/screens"
+( cd "$TD/sc" && bash "$PLUGIN/scripts/_internal/design-screen.sh" demo >/dev/null 2>&1 )
+_a4=""
+for p in "$TD/tplA.md|$TD/tplA.html" "$TD/sc/screens/demo.md|$TD/sc/screens/demo.html" \
+         "$PLUGIN/screens/login.md|$PLUGIN/screens/login.html"; do
+  [ -f "${p##*|}" ] || { _a4="$_a4 부재:${p##*|}"; continue; }
+  o=$(bash "$SCRIPT" "${p%%|*}" "${p##*|}" 2>/dev/null)
+  { [ "$(_val "$o" anti)" = 0 ] && [ -z "$(_adet "$o")" ]; } || _a4="$_a4 $(basename "${p##*|}"):anti=$(_val "$o" anti)"
+done
+[ -z "$_a4" ] && ok "A4 템플릿 복사본·스캐폴드·login 모두 anti=0" || nope "A4" "$_a4"
+
+# ── A6: 판정 불가 (AC-6) ──
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/absent.html" 2>/dev/null)
+{ [ "$(_val "$o" anti)" = unknown ] && [ -z "$(_adet "$o")" ]; } \
+  && ok "A6 .html 부재 → anti=unknown · 금지 패턴 상세줄 없음" || nope "A6" "anti=$(_val "$o" anti) det='$(_adet "$o")'"
+
+# ── A7: anti= 는 적중 건수 합 · 자리표시 이름은 .html 만 (AC-7) ──
+printf '<main><p>John Doe</p><p>john doe</p><div class="h-screen"></div></main>\n' > "$TD/a7.html"
+{ cat "$TD/good.md"; printf '## 필드 정의표\n| 이름 | John Doe |\n'; } > "$TD/a7.md"
+o=$(bash "$SCRIPT" "$TD/a7.md" "$TD/a7.html" 2>/dev/null)
+_a7p=$(_adet "$o" | grep -E '  rule=A-PLACEHOLDER-NAME$')
+_a7v=$(_adet "$o" | grep -E '  rule=A-VIEWPORT-HEIGHT$')
+if [ "$(_val "$o" anti)" = 3 ] && printf '%s' "$_a7p" | grep -q ' 2건 ' && printf '%s' "$_a7v" | grep -q ' 1건 '; then
+  ok "A7 anti=3 (자리표시 2 + 뷰포트 1) · .md 예시값 미집계"
+else
+  nope "A7" "anti=$(_val "$o" anti) p='$_a7p' v='$_a7v'"
+fi
 
 finish

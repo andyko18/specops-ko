@@ -68,6 +68,72 @@ _states_ids() {
   printf '%s' "${out#,}"
 }
 
+# ── anti: 금지 패턴 (specops-ko 독자 작성 — FID 20260929-design-rule-id-catalog) ──
+# .html 에서 HTML <!-- --> · CSS/JS /* */ 블록 주석(다중줄)과 <script> 안 // 줄끝 주석을 걷어낸다.
+#   // 는 앞 문자가 줄머리·공백·; · { · } 일 때만 — https:// 의 // 는 보존.
+_strip_comments() {  # $1=html → stdout
+  awk '
+    {
+      line = $0; out = ""
+      while (length(line) > 0) {
+        if (inh) { j = index(line, "-->"); if (!j) { line = ""; break } line = substr(line, j + 3); inh = 0; continue }
+        if (inc) { j = index(line, "*/");  if (!j) { line = ""; break } line = substr(line, j + 2); inc = 0; continue }
+        a = index(line, "<!--"); b = index(line, "/*")
+        # /* 는 앞 문자가 줄머리·공백·; · { · } · > 일 때만 주석 — accept="image/*" 같은 속성값 보존
+        if (b > 1 && substr(line, b - 1, 1) !~ /[ \t;{}>]/) b = 0
+        if (!a && !b) { out = out line; line = ""; break }
+        if (a && (!b || a < b)) { out = out substr(line, 1, a - 1); line = substr(line, a + 4); inh = 1 }
+        else                    { out = out substr(line, 1, b - 1); line = substr(line, b + 2); inc = 1 }
+      }
+      if (tolower(out) ~ /<script/) insc = 1
+      if (insc && match(out, /(^|[ \t;{}])\/\//)) {
+        # 같은 줄의 </script 는 보존 — 지우면 insc 가 안 풀려 파일 나머지를 script 로 취급한다
+        cut = RSTART + RLENGTH - 3; k = index(tolower(substr(out, cut + 1)), "</script")
+        out = substr(out, 1, cut) (k ? substr(out, cut + k) : "")
+      }
+      if (tolower(out) ~ /<\/script/) insc = 0
+      print out
+    }' "$1"
+}
+
+# $1=태그(script|style) $2=in|out — 블록 안 내용만 / 블록 밖 내용만 (다중줄 상태 추적)
+_blocks() {
+  awk -v t="$1" -v mode="$2" '
+    BEGIN { o = "<" t; c = "</" t ">" }
+    {
+      l = $0; keep = ""
+      while (1) {
+        if (!inb) {
+          i = index(tolower(l), o)
+          if (!i) { keep = keep l; break }
+          keep = keep substr(l, 1, i - 1); l = substr(l, i + length(o)); inb = 1
+        } else {
+          j = index(tolower(l), c)
+          if (!j) { if (mode == "in") print l; l = ""; break }
+          if (mode == "in") print substr(l, 1, j - 1)
+          l = substr(l, j + length(c)); inb = 0
+        }
+      }
+      if (mode == "out") print keep
+    }'
+}
+
+# 결과: anti · anti_det (호출자 _analyze 의 local). 규칙마다 적중 수 한 줄 — 변이가 sed 한 줄로 가능해야 한다.
+_anti() {  # $1=html
+  anti="unknown"; anti_det=""
+  _readable "$1" || return 0
+  local hs ap as av
+  hs=$(_strip_comments "$1")
+  ap=$(_count "$(printf '%s\n' "$hs" | _blocks script out | _blocks style out | grep -oiE 'lorem|john doe|jane doe|acme' | wc -l)")
+  as=$(_count "$(printf '%s\n' "$hs" | _blocks script in | grep -oE "addEventListener\([[:space:]]*['\"]scroll['\"]" | wc -l)")
+  av=$(_count "$(printf '%s\n' "$hs" | grep -oE '(^|[^a-z-])height[[:space:]]*:[[:space:]]*100vh|class="[^"]*"' | grep -oE 'height[[:space:]]*:[[:space:]]*100vh|(["[:space:]])h-screen(["[:space:]])' | wc -l)")
+  anti=$((ap + as + av))
+  [ "$ap" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 자리표시 이름 ${ap}건 — 실제 데이터 형태의 예시로 바꾼다  rule=A-PLACEHOLDER-NAME"
+  [ "$as" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 스크롤 이벤트 리스너 ${as}건 — IntersectionObserver 또는 CSS 로 대체  rule=A-SCROLL-LISTENER"
+  [ "$av" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 뷰포트 높이 고정 ${av}건 — min-height 또는 dvh 사용  rule=A-VIEWPORT-HEIGHT"
+  return 0
+}
+
 # ── genre: 화면 원형별 장르 규칙 (DESIGN.md §6.1 — FID 20260929-enterprise-genre-rules) ──
 # 계측 규칙 ID 단일 선언 — test-design-contract 가 이 줄만 읽어 §6.1 표와 대조한다.
 _GENRE_IDS='G-LIST-PAGING G-LIST-SORT G-LIST-EMPTY-KIND G-FORM-SUBMIT G-FORM-CANCEL G-WIZARD-STEP G-DASH-PERIOD'
@@ -196,7 +262,7 @@ _analyze() {  # $1=md $2=html
 
   # ── states: empty·loading·error 3종. 영문+한글 둘 다 인정 ──
   # 영문만 보면 한국어 문서에서 항상 0/3 이 나와 검사가 무의미해진다.
-  local st=0 sec miss="" states a11y semantic token microcopy genre genre_det
+  local st=0 sec miss="" states a11y semantic token microcopy genre genre_det anti anti_det
   if _readable "$md"; then
     # 종료 앵커를 `^## ` 로 두고 시작줄만 제외한다 — `/^## [^S]/` 는 후속 헤딩이 S 로
     # 시작하면(## Summary 등) 범위가 새어 다음 섹션까지 먹는다(외부 critic 지적).
@@ -254,9 +320,10 @@ _analyze() {  # $1=md $2=html
   fi
 
   _genre "$md"
+  _anti "$html"
 
-  printf 'SCREEN-QUALITY: %s  states=%s  a11y-label=%s  semantic=%s  token=%s  microcopy=%s  genre=%s\n' \
-    "$name" "$states" "$a11y" "$semantic" "$token" "$microcopy" "$genre"
+  printf 'SCREEN-QUALITY: %s  states=%s  a11y-label=%s  semantic=%s  token=%s  microcopy=%s  genre=%s  anti=%s\n' \
+    "$name" "$states" "$a11y" "$semantic" "$token" "$microcopy" "$genre" "$anti"
 
   # 상세 — 위반이 있을 때만
   case "$states" in
@@ -270,13 +337,14 @@ _analyze() {  # $1=md $2=html
   case "$token" in unknown|0) ;; *) printf '  [token] 색 리터럴 하드코딩 %s건 — var(--…) 사용 권고  rule=S-TOKEN-HEX\n' "$token" ;; esac
   case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 — 사용자가 무엇을 해야 하는지 쓰기  rule=S-COPY-VAGUE\n' "$microcopy" ;; esac
   [ -n "$genre_det" ] && printf '%s\n' "$genre_det"
+  [ -n "$anti_det" ] && printf '%s\n' "$anti_det"
   return 0
 }
 
 # ★ 무출력 exit 0 금지 — 리뷰어가 "위반 없음" 으로 읽는다(T1.h 가 막으려던 무음 낙관과 같은 클래스).
 #   대상이 없거나 인자가 틀려도 반드시 unknown 1줄을 낸다.
 _unknown_line() {  # $1=name $2=사유
-  printf 'SCREEN-QUALITY: %s  states=unknown  a11y-label=unknown  semantic=unknown  token=unknown  microcopy=unknown  genre=unknown\n' "$1"
+  printf 'SCREEN-QUALITY: %s  states=unknown  a11y-label=unknown  semantic=unknown  token=unknown  microcopy=unknown  genre=unknown  anti=unknown\n' "$1"
   printf '  [scope] %s — 계측하지 못했다(위반 없음이 아니다)\n' "$2"
 }
 
