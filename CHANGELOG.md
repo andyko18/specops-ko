@@ -25,7 +25,8 @@
 - **TERM trap 대안 기각**: 즉시 끝나는 대상 × 300회 부하에서 신호가 trap 설치 창에 떨어져 **부모가 TIMEOUT 동안 멈췄다**(HUNG) · 잔존 22~25
 - **critic-ask**: 단일 명령 provider `exec` · `cleanup()` 이 SIGTERM 중단 시 flag·워치독·provider 정리 · `wait` 직후 `pid=""` 로 PID 재사용 창 차단
 - **신규 스위트** `test-watchdog-orphans.sh`: 잔존 0 · 시간초과 판정 보존 · SIGTERM · 20회 부하 · 신호 정리형 워치독 재유입 정적 가드 · 5곳 폴링 블록 동일성
-- 범위 밖: Ctrl-C(SIGINT — bash 3.2 는 EXIT trap 미발화) · ollama provider · Linux bash 5 미실측
+- 범위 밖: SIGKILL 중단(trap 불가 — provider 는 워치독이 TIMEOUT 뒤 정리, 임시파일 5개 잔존) · ollama provider · Linux bash 5 미실측
+  - _정정 (2026-09-30)_: 릴리즈 당시 "Ctrl-C(SIGINT — bash 3.2 는 EXIT trap 미발화)"로 적었으나 사실이 아니다. bash 3.2.57 은 SIGINT·SIGHUP 에서도 EXIT trap 을 돌려 `cleanup()` 이 provider·워치독·임시파일을 모두 정리한다(INT·HUP·TERM 실측 잔존 0). 종전 판단은 `&` 로 띄운 자식이 SIGINT 무시를 물려받아 신호가 닿지 않은 거짓 음성이었다
 
 검증: run-all 전후 고아 sleep **0→0**(종전 +74) · `test-watchdog-orphans` 16/0 · 기존 스위트 수치 불변 · 되돌려-관찰 M1~M5 적발.
 
