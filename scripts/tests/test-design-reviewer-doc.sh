@@ -84,4 +84,15 @@ grep -q 'design-reviewer-ko' "$mut" \
   || ok "T8.m design-reviewer 제거 변이 → T8 동형 FAIL 경로"
 rm -f "$mut"
 
+# T12: 장르 규칙 행 심각도 (FID 20260929-enterprise-genre-rules AC-6)
+_gr=$(grep -F '| 장르 규칙 |' "$AG" | head -1)
+_gi=$(printf '%s' "$_gr" | awk -F'|' '{print $4}')   # $2=관점 $3=Critical $4=Important $5=Minor
+_gm=$(printf '%s' "$_gr" | awk -F'|' '{print $5}')
+if [ -n "$_gr" ] && printf '%s' "$_gi" | grep -q '미충족' && printf '%s' "$_gi" | grep -q 'genre' \
+   && printf '%s' "$_gm" | grep -q 'unknown' && printf '%s' "$_gm" | grep -qF '사유 없는 override'; then
+  ok "T12 장르 규칙 — 미충족 Important · unknown·사유 없는 override Minor"
+else
+  nope "T12" "행='${_gr}'"
+fi
+
 finish

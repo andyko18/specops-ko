@@ -116,7 +116,8 @@ QP='상태 설계
 접근성
 디자인 시스템 준수
 콘텐츠 품질
-DESIGN 준수'
+DESIGN 준수
+장르 규칙'
 QP_N=$(printf '%s\n' "$QP" | wc -l | tr -d ' ')
 
 # ── T1.j: 리뷰어에 품질 관점 전건 + 실측 명령 (AC-5 · 20260821 AC-8) ──
@@ -188,5 +189,181 @@ cp "$TD/good.md" "$TD/hid.md"
 al=$(_val "$(bash "$SCRIPT" "$TD/hid.md" "$TD/hid.html" 2>/dev/null)" a11y-label)
 [ "$al" = "1/1" ] && ok "T1.o hidden input 제외 (a11y-label=$al)" \
   || nope "T1.o" "a11y-label=$al (기대 1/1 — hidden 은 label 대상 아님)"
+
+# ══ genre 축 — 화면 원형별 장르 규칙 (FID 20260929-enterprise-genre-rules) ══
+_gmd() {  # $1=파일 $2=원형 값('-'=원형 줄 생략) $3=본문
+  { printf '# 픽스처\n\n'; [ "$2" = "-" ] || printf '**원형**: %s\n\n' "$2"; printf '%s\n' "$3"; } > "$1"
+}
+_gout() { bash "$SCRIPT" "$1" "$TD/good.html" 2>/dev/null; }
+_gdet() { printf '%s\n' "$1" | grep -F '[genre]'; }
+
+LIST_OK='## States
+- Empty: 데이터 없음이면 첫 등록 안내, 검색 결과 없음이면 조건 초기화
+- Loading: 스켈레톤
+- Error: 재시도 버튼
+## Interactions
+- 페이지네이션 20건 단위 · 총 건수 표시
+- 기본 정렬 기준: 등록일 내림차순'
+FORM_OK='## States
+- Empty: 빈 입력 폼
+- Loading: 제출 중 버튼 비활성
+- Error: 입력 단위 인라인 메시지
+## Interactions
+- 취소 버튼은 목록으로 이동'
+WIZ_OK="$FORM_OK
+- 단계 표시 1/3 · 이전 버튼 · 임시 저장"
+DASH_OK='## States
+- Empty: 지표 없음 안내
+- Loading: 스켈레톤
+- Error: 재시도
+## Interactions
+- 기간 선택 (최근 7일 기본)'
+LNEG="${LIST_OK/기본 정렬 기준: 등록일 내림차순/제목 셀 중앙 정렬}"
+
+# ── G1: 판정 불가·계측 규칙 없음 경로 (AC-1) — 숫자로 위장하지 않는다 ──
+cp "$PLUGIN/templates/screen.md" "$TD/tpl.md"
+_g1() {  # $1=라벨 $2=md $3=기대(unknown|n/a)
+  local o v c; o=$(_gout "$2"); v=$(_val "$o" genre)
+  c=$(_gdet "$o" | grep -c . || true)
+  if [ "$v" != "$3" ] || _gdet "$o" | grep -q '미충족'; then
+    nope "G1.$1" "genre=$v (기대 $3) det=$(_gdet "$o" | tr '\n' ' ')"
+  elif [ "$3" = unknown ] && [ "$c" != 1 ]; then
+    nope "G1.$1" "unknown 사유 상세줄 ${c}개 (기대 1)"
+  elif [ "$3" = n/a ] && [ "$c" != 0 ]; then
+    nope "G1.$1" "n/a 인데 상세줄 ${c}개"
+  else
+    ok "G1.$1 genre=$v"
+  fi
+}
+_gmd "$TD/g-none.md" - "$LIST_OK";  _g1 원형없음 "$TD/g-none.md" unknown
+_gmd "$TD/g-ph.md" '[목록 | 상세 | 폼 | 다단 폼 | 대시보드 | 기타]' "$LIST_OK"; _g1 자리표시자 "$TD/g-ph.md" unknown
+_gmd "$TD/g-bad.md" 갤러리 "$LIST_OK"; _g1 목록밖 "$TD/g-bad.md" unknown
+_gmd "$TD/g-det.md" 상세 "$LIST_OK";  _g1 상세 "$TD/g-det.md" n/a
+_gmd "$TD/g-etc.md" 기타 "$LIST_OK";  _g1 기타 "$TD/g-etc.md" n/a
+_g1 md부재 "$TD/absent-genre.md" unknown
+_g1 login "$PLUGIN/screens/login.md" unknown
+_g1 템플릿복사 "$TD/tpl.md" unknown
+
+# G1.k 요약줄 키 순서 — 기존 5키 뒤 genre 가 마지막 (전체 줄 일치)
+_kre='^SCREEN-QUALITY: [^ ]+  states=[^ ]+  a11y-label=[^ ]+  semantic=[^ ]+  token=[^ ]+  microcopy=[^ ]+  genre=[^ ]+$'
+_gk=$(_gout "$TD/g-none.md" | head -1)
+printf '%s\n' "$_gk" | grep -qE "$_kre" && ok "G1.k 요약줄 키 순서 — genre 마지막" || nope "G1.k" "head='$_gk'"
+_gu1=$(bash "$SCRIPT" 2>/dev/null | head -1); _gu2=$(cd "$TD" && bash "$SCRIPT" --all 2>/dev/null | head -1)
+if printf '%s\n' "$_gu1" | grep -qE '  genre=unknown$' && printf '%s\n' "$_gu2" | grep -qE '  genre=unknown$'; then
+  ok "G1.u _unknown_line 도 genre=unknown 으로 끝남"
+else
+  nope "G1.u" "인자부족='$_gu1' --all='$_gu2'"
+fi
+
+# ── G2: 계측 규칙 7개 판별력 (AC-2) — 양성 통과 · 음성은 그 ID 만 적발 ──
+_gcase() {  # $1=ID $2=원형 $3=양성 본문 $4=음성 본문 $5=규칙 수
+  local p n pv nv want_n
+  want_n="$(( $5 - 1 ))/$5"
+  _gmd "$TD/gp.md" "$2" "$3"; p=$(_gout "$TD/gp.md"); pv=$(_val "$p" genre)
+  _gmd "$TD/gn.md" "$2" "$4"; n=$(_gout "$TD/gn.md"); nv=$(_val "$n" genre)
+  if [ "$pv" = "$5/$5" ] && [ "$nv" = "$want_n" ] \
+     && ! _gdet "$p" | grep -q '미충족' \
+     && [ "$(_gdet "$n" | grep -c '미충족' || true)" = 1 ] \
+     && _gdet "$n" | grep -qF "[genre] $1 미충족 — "; then
+    ok "G2.$1 양성 $pv · 음성 $nv — $1 만 적발"
+  else
+    nope "G2.$1" "양성=$pv(기대 $5/$5) 음성=$nv(기대 $want_n) det=$(_gdet "$n" | tr '\n' ' ')"
+  fi
+}
+_gcase G-LIST-PAGING     목록      "$LIST_OK" "${LIST_OK/ · 총 건수 표시/}" 3
+_gcase G-LIST-SORT       목록      "$LIST_OK" "$LNEG" 3
+_gcase G-LIST-EMPTY-KIND 목록      "$LIST_OK" "${LIST_OK/, 검색 결과 없음이면 조건 초기화/}" 3
+_gcase G-FORM-SUBMIT     폼        "$FORM_OK" "${FORM_OK/제출 중 버튼 비활성/스피너 표시}" 2
+_gcase G-FORM-CANCEL     폼        "$FORM_OK" "${FORM_OK/취소 버튼은 목록으로 이동/저장 후 상세로 이동}" 2
+_gcase G-WIZARD-STEP     '다단 폼' "$WIZ_OK"  "${WIZ_OK/ · 임시 저장/}" 3
+_gcase G-DASH-PERIOD     대시보드  "$DASH_OK" "${DASH_OK/기간 선택 (최근 7일 기본)/지표 카드 4개}" 1
+
+# ── G3: override 계약 (AC-3) — 조용히 제외하지 않는다 ──
+_gmd "$TD/ov1.md" 목록 "$LNEG
+<!-- genre-override: G-LIST-SORT 시간순 고정 스트림 -->"
+o=$(_gout "$TD/ov1.md")
+if [ "$(_val "$o" genre)" = 3/3 ] && _gdet "$o" | grep -qF '[genre] G-LIST-SORT override — 시간순 고정 스트림' \
+   && ! _gdet "$o" | grep -q '미충족'; then
+  ok "G3.a 사유 있는 override — 충족으로 세고 항상 출력"
+else nope "G3.a" "genre=$(_val "$o" genre) det=$(_gdet "$o" | tr '\n' ' ')"; fi
+
+_gmd "$TD/ov2.md" 목록 "$LNEG
+<!-- genre-override: G-LIST-SORT -->"
+o=$(_gout "$TD/ov2.md")
+if [ "$(_val "$o" genre)" = 2/3 ] && _gdet "$o" | grep -qF '[genre] G-LIST-SORT 미충족' \
+   && _gdet "$o" | grep -qF '[genre] G-LIST-SORT override 사유 없음 — 억제하지 않음'; then
+  ok "G3.b 사유 없는 override — 억제 안 함 + 경고"
+else nope "G3.b" "genre=$(_val "$o" genre) det=$(_gdet "$o" | tr '\n' ' ')"; fi
+
+_gmd "$TD/ov3.md" 목록 "$LNEG
+<!-- genre-override: G-DASH-PERIOD 무관 -->"
+o=$(_gout "$TD/ov3.md")
+if [ "$(_val "$o" genre)" = 2/3 ] && _gdet "$o" | grep -qF '[genre] G-DASH-PERIOD override 대상 아님' \
+   && _gdet "$o" | grep -qF '[genre] G-LIST-SORT 미충족'; then
+  ok "G3.c 원형 밖 ID override — 경고 · 판정 불변"
+else nope "G3.c" "genre=$(_val "$o" genre) det=$(_gdet "$o" | tr '\n' ' ')"; fi
+
+# G3.d 주석 구간만 제거 — 같은 줄의 본문은 판정에 남는다
+_gmd "$TD/ov4.md" 목록 "$LNEG
+- 기본 정렬 기준: 최신순 <!-- genre-override: G-DASH-PERIOD 무관 -->"
+o=$(_gout "$TD/ov4.md")
+[ "$(_val "$o" genre)" = 3/3 ] && ok "G3.d override 주석과 같은 줄 본문 보존" \
+  || nope "G3.d" "genre=$(_val "$o" genre) (같은 줄 '정렬 기준' 이 사라짐)"
+
+# G3.e 사유 문구가 다른 규칙 키워드로 새지 않는다
+_gmd "$TD/ov5.md" 목록 "$LNEG
+<!-- genre-override: G-DASH-PERIOD 정렬 기준 없음 -->"
+o=$(_gout "$TD/ov5.md")
+_gdet "$o" | grep -qF '[genre] G-LIST-SORT 미충족' && ok "G3.e override 사유가 판정 본문에 새지 않음" \
+  || nope "G3.e" "det=$(_gdet "$o" | tr '\n' ' ')"
+
+# G3.f·g 판독 불가 override(다중줄 · 사유에 '>') — 무음 통과 금지 (Phase C Important)
+# 정규식이 못 잡으면 사유 키워드('기간 선택')가 본문으로 새어 충족으로 위장되고 override 줄도 안 나온다.
+_gunparse() {  # $1=라벨 $2=md
+  local o; o=$(_gout "$2")
+  if [ "$(_val "$o" genre)" = 0/1 ] && _gdet "$o" | grep -qF '[genre] override 구문 판독 불가 1건' \
+     && _gdet "$o" | grep -qF '[genre] G-DASH-PERIOD 미충족'; then
+    ok "G3.$1 판독 불가 override — 경고 + 사유 키워드 미누설"
+  else nope "G3.$1" "genre=$(_val "$o" genre) det=$(_gdet "$o" | tr '\n' ' ')"; fi
+}
+_gmd "$TD/ov6.md" 대시보드 "${DASH_OK/기간 선택 (최근 7일 기본)/지표 카드 4개}
+<!-- genre-override: G-DASH-PERIOD
+     기간 선택 없음 — 실시간 뷰 -->"
+_gunparse f "$TD/ov6.md"
+_gmd "$TD/ov7.md" 대시보드 "${DASH_OK/기간 선택 (최근 7일 기본)/지표 카드 4개}
+<!-- genre-override: G-DASH-PERIOD 상단 > 기간 선택 대신 실시간 -->"
+_gunparse g "$TD/ov7.md"
+
+# ── G7: 복합 원형 (AC-7 · clarify Q1) ──
+_gmd "$TD/c1.md" '목록, 상세' "$LIST_OK"; o=$(_gout "$TD/c1.md")
+[ "$(_val "$o" genre)" = 3/3 ] && ok "G7.a 목록, 상세 → 3/3" || nope "G7.a" "genre=$(_val "$o" genre)"
+_gmd "$TD/c1n.md" '목록, 상세' "$LNEG"; o=$(_gout "$TD/c1n.md")
+{ [ "$(_val "$o" genre)" = 2/3 ] && _gdet "$o" | grep -qF '[genre] G-LIST-SORT 미충족'; } \
+  && ok "G7.b 복합 원형 음성 → G-LIST-SORT 적발" || nope "G7.b" "genre=$(_val "$o" genre)"
+_gmd "$TD/c2.md" '폼, 다단 폼' "$WIZ_OK"; o=$(_gout "$TD/c2.md")
+[ "$(_val "$o" genre)" = 3/3 ] && ok "G7.c 폼, 다단 폼 → 중복 1회 3/3" || nope "G7.c" "genre=$(_val "$o" genre)"
+_gmd "$TD/c3.md" '상세, 기타' "$LIST_OK"; o=$(_gout "$TD/c3.md")
+[ "$(_val "$o" genre)" = n/a ] && ok "G7.d 상세, 기타 → n/a" || nope "G7.d" "genre=$(_val "$o" genre)"
+_gmd "$TD/c4.md" '목록, 갤러리' "$LIST_OK"; o=$(_gout "$TD/c4.md")
+{ [ "$(_val "$o" genre)" = unknown ] && _gdet "$o" | grep -F '원형 값 판독 불가: ' | grep -qF '갤러리'; } \
+  && ok "G7.e 목록, 갤러리 → 전체 unknown" || nope "G7.e" "genre=$(_val "$o" genre)"
+
+# ── G6: verify backstop 배선 (AC-6 · AC-8) — 화면 껍데기 점검과 같은 목록 ──
+VS="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
+_l_sh=$(grep -n '화면 껍데기 점검' "$VS" | head -1 | cut -d: -f1)
+_l_cv=$(grep -n '테스트=spec 커버 점검' "$VS" | head -1 | cut -d: -f1)
+_l_q=$(grep -n 'check-screen-quality\.sh --all' "$VS" | head -1 | cut -d: -f1)
+if [ -n "$_l_sh" ] && [ -n "$_l_cv" ] && [ -n "$_l_q" ] && [ "$_l_q" -gt "$_l_sh" ] && [ "$_l_q" -lt "$_l_cv" ]; then
+  _blk=$(sed -n "${_l_q},$((_l_cv - 1))p" "$VS")
+  { printf '%s' "$_blk" | grep -qF '## 화면 품질 계측' && printf '%s' "$_blk" | grep -qF 'VERIFY: FAIL' \
+    && printf '%s' "$_blk" | grep -qF 'graceful skip'; } \
+    && ok "G6.a verify SKILL 계측 실행 · evidence 섹션 · 비차단 · skip" \
+    || nope "G6.a" "블록에 '## 화면 품질 계측'·'VERIFY: FAIL'(승급 금지)·'graceful skip' 중 누락"
+  printf '%s' "$_blk" | grep -qF '상세줄이 있는 화면' \
+    && ok "G6.b 사용자 출력은 상세줄 있는 화면만 (AC-8)" || nope "G6.b" "출력 수준 문구 없음"
+else
+  nope "G6.a" "배선 위치 — 껍데기=${_l_sh:-없음} 계측=${_l_q:-없음} 커버=${_l_cv:-없음} (껍데기 < 계측 < 커버 기대)"
+  nope "G6.b" "배선 부재로 판정 불가"
+fi
 
 finish

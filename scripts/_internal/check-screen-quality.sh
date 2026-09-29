@@ -18,13 +18,135 @@ _count() { printf '%s' "${1:-0}" | tr -d ' \n'; }
 # 판정 불가를 '위반 0' 으로 보고하지 않는다 — 무음 낙관 금지 (doctor.sh v1.78.0 교훈)
 _readable() { [ -f "$1" ] && [ -r "$1" ]; }
 
+_NL='
+'
+_TAB=$(printf '\t')
+
+# ── genre: 화면 원형별 장르 규칙 (DESIGN.md §6.1 — FID 20260929-enterprise-genre-rules) ──
+# 계측 규칙 ID 단일 선언 — test-design-contract 가 이 줄만 읽어 §6.1 표와 대조한다.
+_GENRE_IDS='G-LIST-PAGING G-LIST-SORT G-LIST-EMPTY-KIND G-FORM-SUBMIT G-FORM-CANCEL G-WIZARD-STEP G-DASH-PERIOD'
+
+_genre_rules() {  # $1=원형 → 계측 규칙 ID(공백 구분). rc 1 = 허용 목록 밖
+  case "$1" in
+    목록)      echo 'G-LIST-PAGING G-LIST-SORT G-LIST-EMPTY-KIND' ;;
+    폼)        echo 'G-FORM-SUBMIT G-FORM-CANCEL' ;;
+    '다단 폼') echo 'G-FORM-SUBMIT G-FORM-CANCEL G-WIZARD-STEP' ;;
+    대시보드)  echo 'G-DASH-PERIOD' ;;
+    상세|기타) echo '' ;;
+    *) return 1 ;;
+  esac
+}
+
+# here-string — `set -o pipefail` 아래 `printf | grep -q` 는 grep 조기 종료로 printf 가 SIGPIPE 를 받으면
+#   큰 본문에서 충족을 미충족으로 오판한다(외부 critic 지적).
+_has() { grep -qiE "$2" <<<"$1"; }
+
+# 규칙 판정 — rc 0 = 충족. 언급 여부 근사(부정문도 충족 — clarify Q2). 규칙마다 한 줄:
+#   되돌려-관찰 변이가 sed 한 줄로 가능해야 한다.
+_genre_check() {  # $1=ID $2=본문(override 주석 제거) $3=States 섹션
+  case "$1" in
+    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|total' ;;
+    G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort' ;;
+    G-LIST-EMPTY-KIND) _has "$3" '데이터 없음|no data' && _has "$3" '결과 없음|no results' ;;
+    G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting' && _has "$2" '비활성|disabled|중복 제출' ;;
+    G-FORM-CANCEL)     _has "$2" '취소|cancel' ;;
+    G-WIZARD-STEP)     _has "$2" '단계 표시|진행 단계|step indicator' && _has "$2" '이전|previous' && _has "$2" '임시 저장|중간 저장|이탈 시 보존|draft' ;;
+    G-DASH-PERIOD)     _has "$2" '기간 선택|기간 필터|date range' ;;
+    *) return 1 ;;
+  esac
+}
+
+_genre_miss() {  # $1=ID → 빠진 요소(상세줄 문구)
+  case "$1" in
+    G-LIST-PAGING)     echo '페이징(또는 무한 스크롤)과 총 건수 표시' ;;
+    G-LIST-SORT)       echo '기본 정렬 기준' ;;
+    G-LIST-EMPTY-KIND) echo "States 에서 '데이터 없음'과 '검색·필터 결과 없음' 구분" ;;
+    G-FORM-SUBMIT)     echo '제출 중 비활성(중복 제출 방지)' ;;
+    G-FORM-CANCEL)     echo '취소 경로' ;;
+    G-WIZARD-STEP)     echo '단계 표시 · 이전 단계 · 중간 저장(또는 이탈 시 보존)' ;;
+    G-DASH-PERIOD)     echo '기간 선택' ;;
+  esac
+}
+
+_gadd() { genre_det="${genre_det:+$genre_det$_NL}$1"; }
+
+# 결과: genre · genre_det (호출자 _analyze 의 local — bash 동적 스코프)
+_genre() {  # $1=md
+  genre="unknown"; genre_det=""
+  local why='장르 규칙을 계측하지 않았다(위반 없음이 아니다)'
+  if ! _readable "$1"; then _gadd "  [genre] 화면 스펙 판독 불가 — $why"; return 0; fi
+  local line val a rs r rules="" nv=0
+  line=$(awk '/^## /{exit} /^\*\*원형\*\*:/{print; exit}' "$1")
+  if [ -z "$line" ]; then _gadd "  [genre] 원형 미선언 — $why"; return 0; fi
+  val=$(printf '%s' "${line#*:}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  case "$val" in ''|\[*) _gadd "  [genre] 원형 자리표시자 그대로 — $why"; return 0 ;; esac
+  # 복합 원형(쉼표) — 하나라도 목록 밖이면 전체 unknown (부분 계측으로 위장 금지)
+  while IFS= read -r a; do
+    a=$(printf '%s' "$a" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    [ -n "$a" ] || continue
+    if ! rs=$(_genre_rules "$a"); then _gadd "  [genre] 원형 값 판독 불가: $a — $why"; return 0; fi
+    nv=$((nv+1))
+    for r in $rs; do case " $rules " in *" $r "*) ;; *) rules="$rules $r" ;; esac; done
+  done <<EOF
+$(printf '%s\n' "$val" | tr ',' '\n')
+EOF
+  [ "$nv" -gt 0 ] || { _gadd "  [genre] 원형 자리표시자 그대로 — $why"; return 0; }
+  rules="${rules# }"
+  [ -n "$rules" ] || { genre="n/a"; return 0; }
+
+  # override — 주석 구간만 본문에서 지운다(같은 줄 다른 내용 보존 · 사유가 키워드로 새지 않게)
+  #   `genre-override:` 부터 `-->` 까지를 지운다 — 다중줄·사유에 '>' 가 든 주석은 아래 단일줄 정규식이
+  #   못 잡으므로(Phase C Important) 여기서 상태 추적으로 걷어내야 사유 키워드가 판정에 새지 않는다.
+  local body st o id reason ovmap="" ok=0 n=0 raw=0 parsed=0
+  body=$(awk '
+    function strip(s,  i, j, pre, rest) {
+      while ((i = index(s, "genre-override:")) > 0) {
+        pre = substr(s, 1, i - 1); rest = substr(s, i)
+        sub(/<!--[[:space:]]*$/, "", pre)
+        j = index(rest, "-->")
+        if (j == 0) { skip = 1; return pre }
+        s = pre substr(rest, j + 3)
+      }
+      return s
+    }
+    skip { j = index($0, "-->"); if (j == 0) next; $0 = substr($0, j + 3); skip = 0 }
+    { print strip($0) }' "$1")
+  st=$(printf '%s\n' "$body" | awk '/^## States/{f=1;next} f&&/^## /{exit} f')
+  # 판독 불가(원문 출현 수 > 단일줄 정규식 파싱 수)를 무음 통과시키지 않는다 — 원칙 5
+  raw=$(grep -o 'genre-override:' "$1" 2>/dev/null | grep -c . || true)
+  parsed=$(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null | grep -c . || true)
+  [ "$raw" -gt "$parsed" ] && _gadd "  [genre] override 구문 판독 불가 $((raw - parsed))건 — 한 줄 주석으로 적는다(<!-- genre-override: <ID> <사유> -->)"
+  while IFS= read -r o; do
+    [ -n "$o" ] || continue
+    o=$(printf '%s' "$o" | sed -E 's/^<!--[[:space:]]*genre-override:[[:space:]]*//; s/[[:space:]]*-->$//')
+    id=${o%%[[:space:]]*}; reason=""
+    [ "$id" = "$o" ] || reason=$(printf '%s' "${o#"$id"}" | sed 's/^[[:space:]]*//')
+    case " $rules " in
+      *" $id "*)
+        if [ -n "$reason" ]; then ovmap="${ovmap}${id}${_TAB}${reason}${_NL}"
+        else _gadd "  [genre] $id override 사유 없음 — 억제하지 않음"; fi ;;
+      *) _gadd "  [genre] $id override 대상 아님 — 이 화면 원형의 계측 규칙이 아니다" ;;
+    esac
+  done <<EOF
+$(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null)
+EOF
+  for id in $rules; do
+    n=$((n+1))
+    reason=$(printf '%s' "$ovmap" | awk -F"$_TAB" -v k="$id" '$1==k{print $2; exit}')
+    if [ -n "$reason" ]; then ok=$((ok+1)); _gadd "  [genre] $id override — $reason"
+    elif _genre_check "$id" "$body" "$st"; then ok=$((ok+1))
+    else _gadd "  [genre] $id 미충족 — $(_genre_miss "$id")"; fi
+  done
+  genre="$ok/$n"
+}
+
 _analyze() {  # $1=md $2=html
   local md="$1" html="$2" name
   name=$(basename "$md" .md)
 
   # ── states: empty·loading·error 3종. 영문+한글 둘 다 인정 ──
   # 영문만 보면 한국어 문서에서 항상 0/3 이 나와 검사가 무의미해진다.
-  local st=0 sec miss="" states a11y semantic token microcopy
+  local st=0 sec miss="" states a11y semantic token microcopy genre genre_det
   if _readable "$md"; then
     # 종료 앵커를 `^## ` 로 두고 시작줄만 제외한다 — `/^## [^S]/` 는 후속 헤딩이 S 로
     # 시작하면(## Summary 등) 범위가 새어 다음 섹션까지 먹는다(외부 critic 지적).
@@ -81,8 +203,10 @@ _analyze() {  # $1=md $2=html
     a11y="unknown"; semantic="unknown"; token="unknown"
   fi
 
-  printf 'SCREEN-QUALITY: %s  states=%s  a11y-label=%s  semantic=%s  token=%s  microcopy=%s\n' \
-    "$name" "$states" "$a11y" "$semantic" "$token" "$microcopy"
+  _genre "$md"
+
+  printf 'SCREEN-QUALITY: %s  states=%s  a11y-label=%s  semantic=%s  token=%s  microcopy=%s  genre=%s\n' \
+    "$name" "$states" "$a11y" "$semantic" "$token" "$microcopy" "$genre"
 
   # 상세 — 위반이 있을 때만
   case "$states" in
@@ -95,13 +219,14 @@ _analyze() {  # $1=md $2=html
   [ "$semantic" = "0" ] && printf '  [semantic] 랜드마크 요소 0개 — div 수프 의심\n'
   case "$token" in unknown|0) ;; *) printf '  [token] 색 리터럴 하드코딩 %s건 — var(--…) 사용 권고\n' "$token" ;; esac
   case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 — 사용자가 무엇을 해야 하는지 쓰기\n' "$microcopy" ;; esac
+  [ -n "$genre_det" ] && printf '%s\n' "$genre_det"
   return 0
 }
 
 # ★ 무출력 exit 0 금지 — 리뷰어가 "위반 없음" 으로 읽는다(T1.h 가 막으려던 무음 낙관과 같은 클래스).
 #   대상이 없거나 인자가 틀려도 반드시 unknown 1줄을 낸다.
 _unknown_line() {  # $1=name $2=사유
-  printf 'SCREEN-QUALITY: %s  states=unknown  a11y-label=unknown  semantic=unknown  token=unknown  microcopy=unknown\n' "$1"
+  printf 'SCREEN-QUALITY: %s  states=unknown  a11y-label=unknown  semantic=unknown  token=unknown  microcopy=unknown  genre=unknown\n' "$1"
   printf '  [scope] %s — 계측하지 못했다(위반 없음이 아니다)\n' "$2"
 }
 

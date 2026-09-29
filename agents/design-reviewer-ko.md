@@ -50,7 +50,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **실측 불가**: `[검증 불가]` + Minor 강등. 핵심 의심이면 본문에 명시.
 
-- **품질 관점 4종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 4종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다).
+- **품질 관점 5종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 5종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다).
 
 ## 6관점 검증 기준
 
@@ -69,6 +69,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 접근성 | — | label 누락 input 존재 (실측: 동 `a11y-label`) | 랜드마크 0개 (동 `semantic`) |
 | 디자인 시스템 준수 | — | 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | 1~2건 |
 | 콘텐츠 품질 | — | 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | 일부 |
+| 장르 규칙 | — | 원형 계측 규칙 미충족 (실측: 동 `genre` 상세줄 `미충족` — DESIGN.md §6.1) | 원형 미선언 `genre=unknown` · 사유 없는 override |
 | DESIGN 준수 | — | screens/*.md States 가 DESIGN.md §7 과 어긋남, 또는 레이아웃이 §6.1 원형 필수 요소를 빠뜨림 | 표기 순서 차이 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.

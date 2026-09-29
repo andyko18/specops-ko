@@ -394,5 +394,28 @@ if [ "${DESIGN_CONTRACT_TEETH:-0}" != "1" ]; then
     || nope "T0.b" "타 repo 하위에서 N0 무검출 — $(printf '%s\n' "$_t0b" | grep '^PASS=' | tail -1)"
 fi
 
+# ── G4: §6.1 장르 규칙 표 ↔ 계측기 ID 정합 (FID 20260929-enterprise-genre-rules AC-4) ──
+#   ID 는 계측기의 _GENRE_IDS 선언 줄에서만 읽는다 — 주석 속 ID 가 섞이지 않게.
+_GQ="$PLUGIN/scripts/_internal/check-screen-quality.sh"
+_s61=$(awk '/^## 6\.1 /{f=1;next} f&&/^## /{exit} f' "$_T")
+_gids=$(sed -n "s/^_GENRE_IDS='\(.*\)'\$/\1/p" "$_GQ" 2>/dev/null)
+_gn=$(printf '%s\n' $_gids | grep -c '^G-' || true)
+if [ "${_gn:-0}" -ne 7 ]; then
+  nope "G4.a" "계측기 ID 추출 ${_gn}개 (기대 7) — _GENRE_IDS 선언 줄 확인 (판정 불가를 PASS 로 위장 금지)"
+else
+  _gm=""
+  for id in $_gids; do
+    printf '%s\n' "$_s61" | grep -E "^\| $id \|" | grep -qE '\| 계측 \|[[:space:]]*$' || _gm="$_gm $id"
+  done
+  [ -z "$_gm" ] && ok "G4.a 계측기 ID 7개 전부 §6.1 계측 행" || nope "G4.a" "§6.1 계측 행 누락:$_gm"
+fi
+_pm=""
+for p in 'G-TABLE-' 'G-PAGING-SERVER' 'G-RBAC-'; do
+  printf '%s\n' "$_s61" | grep -E "^\| ${p}" | grep -qE '\| 산문 \|[[:space:]]*$' || _pm="$_pm $p"
+done
+[ -z "$_pm" ] && ok "G4.b 산문 규칙(표·서버 페이징·권한별 표시) 행" || nope "G4.b" "누락:$_pm"
+printf '%s\n' "$_s61" | grep -q '^| 다단 폼 |' && ok "G4.c §6.1 원형 표 다단 폼 행" || nope "G4.c" "다단 폼 행 없음"
+printf '%s\n' "$_s61" | grep -qF 'genre-override' && ok "G4.d override 문법 안내" || nope "G4.d" "genre-override 안내 없음"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
