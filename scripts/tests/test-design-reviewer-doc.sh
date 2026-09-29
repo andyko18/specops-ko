@@ -95,4 +95,31 @@ else
   nope "T12" "행='${_gr}'"
 fi
 
+# T13: 리뷰어 관점 표 ↔ 규칙 카탈로그 심각도 일치 (FID 20260929-design-rule-id-catalog AC-5)
+#   ## 6관점 검증 기준 표만 읽는다 — 실측 의무 표 등 다른 표는 열 의미가 달라 오판한다.
+_CQ="$PLUGIN/scripts/_internal/check-screen-quality.sh"
+_cat=$(bash "$_CQ" --rules 2>/dev/null | awk -F'|' '{id=$2; s=$3; gsub(/^ +| +$/,"",id); gsub(/^ +| +$/,"",s)} id ~ /^[SGA]-/ {print id, s}')
+_cn=$(printf '%s\n' "$_cat" | grep -c . || true)
+_tbl=$(awk '/^## 6관점 검증 기준/{f=1;next} f&&/^## /{exit} f&&/^\|/' "$AG")
+_mis=""
+while read -r _id _sev; do
+  [ -n "$_id" ] || continue
+  read -r _c _i _m <<<"$(printf '%s\n' "$_tbl" | awk -F'|' -v k="\`$_id\`" '
+    { if (index($3,k)) c=1; if (index($4,k)) i=1; if (index($5,k)) m=1 } END { print c+0, i+0, m+0 }')"
+  case "$_sev" in
+    Important) _want="0 1 0" ;;
+    Minor)     _want="0 0 1" ;;
+    단계형)    _want="0 1 1" ;;
+    *)         _want="?" ;;
+  esac
+  [ "$_c $_i $_m" = "$_want" ] || _mis="$_mis ${_id}(${_sev}→${_c}${_i}${_m})"   # 중괄호 필수 — bash 3.2 는 `$_sev→` 의 멀티바이트 첫 바이트를 변수명에 붙여 set -u 로 abort 한다
+done <<EOF
+$_cat
+EOF
+if [ "${_cn:-0}" -eq 20 ] && [ -z "$_mis" ] && printf '%s\n' "$_tbl" | grep -qF '| 안티패턴 |'; then
+  ok "T13 관점 표가 카탈로그 20개 ID 를 심각도 열대로 인용 · Critical 0 · 안티패턴 행"
+else
+  nope "T13" "카탈로그 ${_cn}개 불일치:$_mis"
+fi
+
 finish
