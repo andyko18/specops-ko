@@ -85,14 +85,23 @@ _strip_comments() {  # $1=html → stdout
         if (a && (!b || a < b)) { out = out substr(line, 1, a - 1); line = substr(line, a + 4); inh = 1 }
         else                    { out = out substr(line, 1, b - 1); line = substr(line, b + 2); inc = 1 }
       }
-      # 이 줄에서 <script 가 열리면 그 태그 뒤의 // 만 주석 — 앞의 텍스트 // 를 자르면 여는 태그가 사라져 스크립트 블록 통째로 무음 누락
-      sp = index(tolower(out), "<script"); if (sp) insc = 1
-      if (insc && match(substr(out, sp + 1), /(^|[ \t;{}])\/\//)) {
-        # 같은 줄의 </script 는 보존 — 지우면 insc 가 안 풀려 파일 나머지를 script 로 취급한다
-        cut = sp + RSTART + RLENGTH - 3; k = index(tolower(substr(out, cut + 1)), "</script")
-        out = substr(out, 1, cut) (k ? substr(out, cut + k) : "")
+      # // 줄끝 주석은 script 구간 안에서만 — 줄을 <script…>~</script 구간 단위로 잘라 각 구간의 첫 // 부터 구간 끝까지만 지운다.
+      #   script 밖 텍스트 // 와 </script 태그 자체는 보존(한 줄 두 블록 사이·</script> 뒤 텍스트가 잘리면 블록·자리표시 무음 누락).
+      rest = out; out = ""
+      while (length(rest) > 0) {
+        if (!insc) {
+          sp = index(tolower(rest), "<script")
+          if (!sp) { out = out rest; rest = ""; break }
+          out = out substr(rest, 1, sp + 6); rest = substr(rest, sp + 7); insc = 1
+        }
+        k = index(tolower(rest), "</script")
+        seg = (k ? substr(rest, 1, k - 1) : rest)
+        if (match(seg, /(^|[ \t;{}])\/\//)) seg = substr(seg, 1, RSTART + RLENGTH - 3)
+        out = out seg
+        if (!k) { rest = ""; break }
+        rest = substr(rest, k); insc = 0
+        out = out substr(rest, 1, 8); rest = substr(rest, 9)
       }
-      if (tolower(out) ~ /<\/script/) insc = 0
       print out
     }' "$1"
 }

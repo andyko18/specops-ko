@@ -457,6 +457,10 @@ _acase h A-VIEWPORT-HEIGHT '<div class="md:h-screen"></div>' '<div class="min-h-
 _acase j A-VIEWPORT-HEIGHT '<div class="!h-screen"></div>' '<div class="max-h-screen"></div>'
 # <script 앞의 텍스트 // 는 주석이 아니다 — 여는 태그를 지우면 스크립트 블록 통째로 무음 누락 (Phase C Important 2)
 _acase i A-SCROLL-LISTENER '<p>a // b</p><script>window.addEventListener("scroll", f)</script>' '<p>a // b</p><script>foo()</script>'
+# // 절단은 script 구간 안에서만 — 한 줄 두 블록 사이 텍스트 // 가 둘째 여는 태그를 지우면 안 되고 (Phase C 2회차 Important),
+#   </script> 뒤 텍스트 // 도 절단 대상이 아니다 (Minor)
+_acase k A-SCROLL-LISTENER '<script>a()</script><p>x // y</p><script>window.addEventListener("scroll", f)</script>' '<script>a()</script><p>x // y</p><script>foo()</script>'
+_acase l A-PLACEHOLDER-NAME '<script>a()</script><p>x // John Doe</p>' '<script>a() // John Doe</script><p>홍길동 // z</p>'
 
 # ── A4: 기준 화면 오탐 0 (AC-4) — 템플릿 복사본 · design-screen 스캐폴드 · screens/login ──
 cp "$PLUGIN/templates/screen.md" "$TD/tplA.md"; cp "$PLUGIN/templates/screen.html" "$TD/tplA.html"
