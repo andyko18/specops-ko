@@ -180,8 +180,13 @@ _line e-1 | grep -q 'SKIP(timeout)' && ok "T5.n 시간 초과 → SKIP(timeout)"
 WTO=$((1000 + $$ % 8000))   # 실행별 고유 timeout — 같은 머신의 동시 실행과 pgrep 가 섞이지 않게
 _run '{"skills":["karpathy-ko"]}' LLM_EVAL_TIMEOUT="$WTO" -- --trigger
 sleep 1
-[ "$(pgrep -fx "sleep $WTO" | grep -c .)" -eq 0 ] && ok "T5.o 정상 종료 후 워치독 sleep 고아 0" \
-  || { nope "T5.o" "고아 sleep $WTO $(pgrep -fx "sleep $WTO" | grep -c .)개"; pkill -fx "sleep $WTO"; }
+# 워치독 서브셸은 부모 러너의 argv 를 물려받는다(실측) — 러너 경로로 잔존을 센다. 고정 sleep 대신 기한부 대기(병렬 run-all 경합)
+_wd=0; _n=0
+while :; do _wd=$(pgrep -f "$LE/run-skill-evals.sh" | grep -c .); [ "$_wd" -eq 0 ] || [ "$_n" -ge 6 ] && break; sleep 1; _n=$((_n + 1)); done
+_orph=$(pgrep -fx "sleep $WTO" | grep -c .)
+if [ "$_orph" -eq 0 ] && [ "$_wd" -eq 0 ]; then ok "T5.o 정상 종료 후 워치독 sleep 고아 0 · 워치독 서브셸 잔존 0 (≤6s)"
+else nope "T5.o" "고아 sleep $WTO ${_orph}개 · 워치독 서브셸 ${_wd}개 (6s 후)"
+  pkill -fx "sleep $WTO"; pkill -f "$LE/run-skill-evals.sh"; fi
 mkdir -p "$TMP/data2/karpathy-ko"
 jq -n '{skill:"karpathy-ko",should_trigger:[{id:"pos-1",query:"a\\b\tc"}],should_not_trigger:[{id:"neg-1",query:"q"}]}' > "$TMP/data2/karpathy-ko/trigger-queries.json"
 _run '{"skills":["karpathy-ko"]}' SKILL_EVAL_DIR="$TMP/data2" -- --trigger
@@ -197,6 +202,12 @@ RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVA
 if _line pos-1 | grep -q 'SKIP(error' && [ ! -e "$CWD5Q/.git" ] && [ ! -e "$CWD5Q/CLAUDE.md" ] && [ "$RUN_RC" -eq 0 ]; then
   ok "T5.q mktemp 실패 → SKIP(error) · 호출자 cwd 에 .git·CLAUDE.md 미생성 · rc 0"
 else nope "T5.q" "rc=$RUN_RC cwd=[$(ls -A "$CWD5Q" | tr '\n' ' ')] $RUN_OUT"; fi
+# 신호 정리형 워치독 재유입 방지 — flag 폴링 블록(run-pressure-evals run_once 와 동형) 고정 문자열 검사
+_rc_body=$(sed -n '/^eval::run_claude()/,/^}/p' "$LE/eval-lib.sh")
+if printf '%s' "$_rc_body" | grep -qF 'n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done' \
+   && printf '%s' "$_rc_body" | grep -qF 'rm -f "$flag"' && ! printf '%s' "$_rc_body" | grep -qF 'sp=$!'; then
+  ok "T5.s eval::run_claude 워치독 = flag 폴링 (신호 정리형 부재)"
+else nope "T5.s" "eval::run_claude 에 flag 폴링 블록 부재 또는 신호 정리형 워치독 잔존"; fi
 
 # T6 (AC-7) isolated 미확인 표기 + 단발 실행
 _run '{"skills":["advisor-ko"]}\n{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k LLM_EVAL_RUNS=3 -- --trigger
