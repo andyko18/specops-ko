@@ -420,15 +420,19 @@ printf '%s\n' "$_s61" | grep -qF 'genre-override' && ok "G4.d override 문법 �
 # ── G4 역방향: §6.1 판정 라벨 ↔ 계측기 정직성 (FID 20260930-prose-linter-honesty-lock) ──
 #   G4.a 는 계측기 ID ⊂ §6.1 계측 행만 본다. 표가 "자동 검사한다" 고 거짓 주장하는 계측 행,
 #   계측기가 검사하는데 산문으로 적힌 행, 같은 ID 의 중복 행은 G4.a~d 를 모두 통과했다(분석 변이 실측).
-#   규칙 행 = §6.1 에서 (앞 공백·탭 허용) `|` 다음 G- 로 시작하는 행 · 라벨 = 마지막 칸.
+#   판정 대상 = §6.1 의 `### 장르 규칙` 소절(원형 표는 행 수 대조를 오염시키므로 제외).
+#   규칙 행 = (앞 공백·탭 허용) `|` 다음 G- 로 시작하는 행 · 라벨 = 마지막 칸.
+#   데이터 행(`|` 시작 · 헤더(둘째 칸 ID)·구분선 제외) 중 규칙 행으로 추출되지 않은 행은 g 에 첫 칸으로 보고한다 —
+#   정상 행이 하나라도 있으면 `X-`·백틱 ID 의 거짓 계측 행이 조용히 버려져 G4.e 를 통과했다(Phase C 프로브 P9).
 #   $_gids 는 G4 가 _GENRE_IDS 선언 줄에서 sed 로 뽑은 공백 분리 ID 목록이다 — 부분 추출은 G4.a 의 개수(7) 검사가 막는다.
-_g4_honesty() {  # <§6.1 본문> <계측기 ID 목록> → 위반 없으면 무출력 · 있으면 "e|f|g<TAB>사유" 줄 · 추출 0건이면 "none"
-  local body="$1" ids="$2" rows id lb false="" mis="" bad="" dup
+_g4_honesty() {  # <장르 규칙 소절 본문> <계측기 ID 목록> → 위반 없으면 무출력 · 있으면 "e|f|g<TAB>사유" 줄 · 추출 0건이면 "none"
+  local body="$1" ids="$2" rows id lb fake="" mis="" bad="" dup unx
   rows=$(printf '%s\n' "$body" | awk -F'|' '/^[ \t]*\|[ \t]*G-/{id=$2; lb=$(NF-1); gsub(/^[ \t]+|[ \t]+$/,"",id); gsub(/^[ \t]+|[ \t]+$/,"",lb); print id" "lb}')
+  unx=$(printf '%s\n' "$body" | awk -F'|' '/^[ \t]*\|/ && !/^[ \t]*\|[ \t]*G-/ && !/^[ \t|:-]+$/{c=$2; gsub(/^[ \t]+|[ \t]+$/,"",c); if (c!="ID") printf " %s", c}')
   if [ -z "$rows" ] || [ -z "$ids" ]; then echo none; return; fi
   while read -r id lb; do
     case "$lb" in
-      계측) printf '%s\n' $ids | grep -qxF -- "$id" || false="$false $id" ;;
+      계측) printf '%s\n' $ids | grep -qxF -- "$id" || fake="$fake $id" ;;
       산문) printf '%s\n' $ids | grep -qxF -- "$id" && mis="$mis $id" ;;
       *)    bad="$bad $id($lb)" ;;
     esac
@@ -436,28 +440,33 @@ _g4_honesty() {  # <§6.1 본문> <계측기 ID 목록> → 위반 없으면 무
 $rows
 EOF2
   dup=$(printf '%s\n' "$rows" | awk '{print $1}' | sort | uniq -d | tr '\n' ' ')
-  [ -n "$false" ] && printf 'e\t%s\n' "$false"
+  [ -n "$fake" ] && printf 'e\t%s\n' "$fake"
   [ -n "$mis" ] && printf 'f\t%s\n' "$mis"
-  { [ -n "$dup" ] || [ -n "$bad" ]; } && printf 'g\t중복 ID:%s · 라벨 계측/산문 외:%s\n' "${dup:- 없음}" "${bad:- 없음}"
+  { [ -n "$dup" ] || [ -n "$bad" ] || [ -n "$unx" ]; } \
+    && printf 'g\t중복 ID:%s · 라벨 계측/산문 외:%s · 미추출 행:%s\n' "${dup:- 없음}" "${bad:- 없음}" "${unx:- 없음}"
   return 0
 }
-_h=$(_g4_honesty "$_s61" "$_gids")
+_s61g=$(printf '%s\n' "$_s61" | awk '/^### 장르 규칙/{f=1;next} f&&/^#/{exit} f')
+_h=$(_g4_honesty "$_s61g" "$_gids")
 if [ "$_h" = none ]; then
-  nope "G4.e" "판정 불가 — §6.1 규칙 행 또는 계측기 ID 추출 0건 (PASS 로 위장 금지)"
+  nope "G4.e" "판정 불가 — §6.1 장르 규칙 소절 규칙 행 또는 계측기 ID 추출 0건 (PASS 로 위장 금지)"
   nope "G4.f" "판정 불가 — 위와 같음"
   nope "G4.g" "판정 불가 — 위와 같음"
 else
   _he=$(printf '%s\n' "$_h" | sed -n 's/^e\t//p'); _hf=$(printf '%s\n' "$_h" | sed -n 's/^f\t//p'); _hg=$(printf '%s\n' "$_h" | sed -n 's/^g\t//p')
+  # 소절 축소의 역구멍 봉합 — §6.1 의 장르 규칙 소절 밖(원형 표 등)에 놓인 G- 규칙 행은 판정 대상에서 빠지므로 여기서 보고
+  _hout=$(printf '%s\n' "$_s61" | awk -F'|' '/^### 장르 규칙/{f=1;next} f&&/^#/{f=0} !f&&/^[ \t]*\|[ \t]*G-/{c=$2; gsub(/^[ \t]+|[ \t]+$/,"",c); printf " %s", c}')
+  [ -n "$_hout" ] && _hg="${_hg:+$_hg · }소절 밖 규칙 행:$_hout"
   [ -z "$_he" ] && ok "G4.e §6.1 계측 행 전부 계측기 _GENRE_IDS 에 있음" || nope "G4.e" "§6.1 계측 행인데 계측기 _GENRE_IDS 에 없음:$_he"
   [ -z "$_hf" ] && ok "G4.f §6.1 산문 행은 계측기가 검사하지 않음" || nope "G4.f" "계측기가 검사하는데 §6.1 산문 행:$_hf"
-  [ -z "$_hg" ] && ok "G4.g §6.1 규칙 ID 유일 · 판정 라벨 계측/산문 뿐" || nope "G4.g" "$_hg"
+  [ -z "$_hg" ] && ok "G4.g §6.1 규칙 ID 유일 · 판정 라벨 계측/산문 뿐 · 미추출 행 없음" || nope "G4.g" "$_hg"
 fi
 # G4.h 잠금의 잠금 — 판정 함수가 합성 표의 거짓 계측·산문 오표기·중복·라벨 오타·공백 없는 행을 실제로 잡는지 자기 검증
-_fx=$(printf '%s\n' '| G-A | 목록 | 규칙 | 계측 |' '|G-FAKE | 목록 | 규칙 | 계측 |' '| G-A | 목록 | 규칙 | 산문 |' '	| G-B | 목록 | 규칙 | 계층 |' '| G-AX | 목록 | 접두 충돌 | 계측 |')
+_fx=$(printf '%s\n' '| G-A | 목록 | 규칙 | 계측 |' '|G-FAKE | 목록 | 규칙 | 계측 |' '| G-A | 목록 | 규칙 | 산문 |' '	| G-B | 목록 | 규칙 | 계층 |' '| G-AX | 목록 | 접두 충돌 | 계측 |' '| X-FAKE | 목록 | 정규식 미매칭 | 계측 |')
 _fh=$(_g4_honesty "$_fx" "G-A G-C G-AXY")   # G-AX ⊂ G-AXY 접두 — 부분 일치로 통과하면 안 된다(실 ID G-LIST-EMPTY-KIND 와 같은 모양)
 if printf '%s\n' "$_fh" | grep -q $'^e\t.*G-FAKE.*G-AX' && printf '%s\n' "$_fh" | grep -q $'^f\t.*G-A' \
-   && printf '%s\n' "$_fh" | grep -q $'^g\t.*G-A.*G-B(계층)' && [ "$(_g4_honesty "" "G-A")" = none ]; then
-  ok "G4.h 판정 함수 자기 검증 — 거짓 계측·산문 오표기·중복·라벨 오타·공백 없는 행·접두 충돌·추출 0건"
+   && printf '%s\n' "$_fh" | grep -q $'^g\t.*G-A.*G-B(계층).*미추출 행:.*X-FAKE' && [ "$(_g4_honesty "" "G-A")" = none ]; then
+  ok "G4.h 판정 함수 자기 검증 — 거짓 계측·산문 오표기·중복·라벨 오타·공백 없는 행·접두 충돌·미추출 행·추출 0건"
 else nope "G4.h" "합성 표 판정 불일치: $(printf '%s' "$_fh" | tr '\n\t' '  ')"; fi
 
 echo "PASS=$PASS FAIL=$FAIL"
