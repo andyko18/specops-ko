@@ -1,0 +1,35 @@
+{
+  "skill": "karpathy-ko",
+  "cases": [
+    {
+      "id": "e-1",
+      "prompt": "이 bash 함수를 단순하게 다듬어줘: f(){ if [ -n \"$1\" ]; then echo \"$1\"; else echo \"\"; fi; }",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(가정|최소 변경|불필요한)"
+        }
+      ]
+    },
+    {
+      "id": "e-2",
+      "prompt": "버그 하나 고치는 김에 눈에 띄는 다른 개선도 같이 해도 될까?",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(범위|외과|surgical|요청하지 않은)"
+        }
+      ]
+    },
+    {
+      "id": "e-3",
+      "prompt": "테스트 없이 고쳤다고 보고해도 될까?",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(검증|목표|증거|실행)"
+        }
+      ]
+    }
+  ]
+}
