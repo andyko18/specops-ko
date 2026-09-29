@@ -14,11 +14,15 @@ if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
 fi
 
 run_once() {  # $1=prompt → stdout stream-json (plan-ab 워치독 복제)
-  local of pid w; of=$(mktemp)
+  local of pid flag; of=$(mktemp); flag=$(mktemp)
   "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose --max-turns 2 > "$of" 2>/dev/null < /dev/null &
   pid=$!
-  ( sleep "$TIMEOUT_S" & wait $!; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-  w=$!; wait "$pid" 2>/dev/null || true; kill "$w" 2>/dev/null; pkill -P "$w" 2>/dev/null; wait "$w" 2>/dev/null || true
+  # 워치독: 부모는 flag 만 지운다 — 신호 정리는 고아 sleep·멈춤을 남긴다(run-evals.sh run_once 주석 참조)
+  ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
+    n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
+    [ -e "$flag" ] || exit 0; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  wait "$pid" 2>/dev/null || true
+  rm -f "$flag"
   cat "$of"; rm -f "$of"
 }
 out_text() { jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="text")|.text' 2>/dev/null; }
