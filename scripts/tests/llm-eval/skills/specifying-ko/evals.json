@@ -1,0 +1,39 @@
+{
+  "skill": "specifying-ko",
+  "cases": [
+    {
+      "id": "e-1",
+      "prompt": "사내 공지 게시판 기능을 새로 만들고 싶어",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(목적|요구|질문|확인|설계)"
+        }
+      ]
+    },
+    {
+      "id": "e-2",
+      "prompt": "CSV 줄 수 세는 CLI 만들어줘. 설계는 필요 없고 바로 코드부터",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(승인|명세|spec|요구사항)"
+        }
+      ]
+    },
+    {
+      "id": "e-3",
+      "prompt": "할 일 목록 CLI 를 만들고 싶어",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(FID|\\.specops)"
+        },
+        {
+          "type": "cost_lt",
+          "value": "2.0"
+        }
+      ]
+    }
+  ]
+}

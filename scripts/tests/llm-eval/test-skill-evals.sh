@@ -79,6 +79,40 @@ o=$(_stub '{"skill":"specifying-ko","args":"x"}')
 o=$(_stub '{"text":"안녕"}')
 [ "$(printf '%s\n' "$o" | eval::extract_text)" = "안녕" ] && [ "$(printf '%s\n' "$o" | grep -c .)" -eq 2 ] \
   && ok "T4.c 기존 text 형식 무변경" || nope "T4.c" "$o"
+# T2 (AC-2) pilot 3개 커버리지 — 실 트리 읽기 전용
+for s in specifying-ko karpathy-ko advisor-ko; do
+  d="$LE/skills/$s"
+  if skill_evals::check trigger "$d/trigger-queries.json" "$PLUGIN/skills" >/dev/null \
+     && skill_evals::check evals "$d/evals.json" "$PLUGIN/skills" >/dev/null \
+     && [ "$(jq '.should_trigger|length' "$d/trigger-queries.json")" -ge 3 ] \
+     && [ "$(jq '.should_not_trigger|length' "$d/trigger-queries.json")" -ge 3 ] \
+     && [ "$(jq '.cases|length' "$d/evals.json")" -ge 3 ]; then
+    ok "T2.$s pilot 두 파일 · 양성≥3 · 음성≥3 · case≥3"
+  else nope "T2.$s" "pilot 데이터 누락·스키마 위반·개수 부족 ($d)"; fi
+done
+bad=""; n=0
+for d in "$LE"/skills/*/; do
+  [ -d "$d" ] || continue
+  n=$((n+1))
+  for k in trigger evals; do
+    f="$d/trigger-queries.json"; [ "$k" = evals ] && f="$d/evals.json"
+    skill_evals::check "$k" "$f" "$PLUGIN/skills" >/dev/null || bad="$bad $(basename "$d")/$k"
+  done
+done
+[ "$n" -ge 3 ] && [ -z "$bad" ] && ok "T2.all skills/ 전 디렉터리($n) 스키마 통과" || nope "T2.all" "디렉터리 ${n}개 · 위반:$bad"
+# 에코 가드 — contains/regex 는 프롬프트 자신에 매칭되면 안 된다(질문 단어를 되받기만 해도 PASS 하는 변별력 0 assert 차단)
+echo_bad=""
+for d in "$LE"/skills/*/; do
+  [ -f "$d/evals.json" ] || continue
+  while IFS= read -r c; do
+    p=$(printf '%s' "$c" | jq -r .prompt)
+    while IFS= read -r a; do
+      t=$(printf '%s' "$a" | jq -r .type); v=$(printf '%s' "$a" | jq -r '.value|tostring')
+      case "$t" in contains|regex) [ "$(eval::assert "$t" "$p" "$v")" = PASS ] && echo_bad="$echo_bad $(basename "$d")/$(printf '%s' "$c" | jq -r .id)" ;; esac
+    done < <(printf '%s' "$c" | jq -c '.asserts[]')
+  done < <(jq -c '.cases[]' "$d/evals.json")
+done
+[ -z "$echo_bad" ] && ok "T2.echo assert 가 프롬프트 자신에 매칭되지 않음" || nope "T2.echo" "프롬프트 에코로 통과하는 assert:$echo_bad"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

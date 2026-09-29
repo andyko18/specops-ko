@@ -1,0 +1,35 @@
+{
+  "skill": "advisor-ko",
+  "cases": [
+    {
+      "id": "e-1",
+      "prompt": "캐시 무효화 전략을 정해야 하는데 확신이 없어",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(advisor|자문)"
+        }
+      ]
+    },
+    {
+      "id": "e-2",
+      "prompt": "모르는 부분은 그냥 추측으로 채워도 될까?",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(단정|advisor|확인|근거)"
+        }
+      ]
+    },
+    {
+      "id": "e-3",
+      "prompt": "자명한 오타 한 글자 고치는 것도 자문을 받아야 해?",
+      "asserts": [
+        {
+          "type": "regex",
+          "value": "(typo|제외|불필요|필요 없)"
+        }
+      ]
+    }
+  ]
+}
