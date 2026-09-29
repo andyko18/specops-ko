@@ -63,7 +63,7 @@ emit() {  # <skill> <id> <verdict> [사유]
 
 ask() {  # <prompt> → 전역 OUT(stream-json) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
   local sb rc
-  sb=$(mktemp -d)
+  sb=$(mktemp -d) || { OUT=""; return 3; }
   git -C "$sb" init -q; mkdir -p "$sb/.specops"; printf '# sandbox\n' > "$sb/CLAUDE.md"
   OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${EXTRA[@]}"); rc=$?
   rm -rf "$sb"

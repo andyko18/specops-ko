@@ -187,6 +187,16 @@ jq -n '{skill:"karpathy-ko",should_trigger:[{id:"pos-1",query:"a\\b\tc"}],should
 _run '{"skills":["karpathy-ko"]}' SKILL_EVAL_DIR="$TMP/data2" -- --trigger
 head -1 "$TMP/args.log" | grep -qF -- "$(printf -- '-p a\\b\tc ')" && ok "T5.p 질의의 백슬래시·탭을 그대로 전달" \
   || nope "T5.p" "$(head -1 "$TMP/args.log")"
+# macOS mktemp 는 존재하지 않는 TMPDIR 를 무시하고 기본 경로로 폴백한다(실측) — PATH shim 으로 `mktemp -d` 만 실패시킨다
+CWD5Q="$TMP/cwd5q"; mkdir -p "$CWD5Q" "$TMP/failbin"; printf '{"skills":["karpathy-ko"]}\n' > "$TMP/plan.jsonl"; rm -f "$TMP/state"
+printf '#!/usr/bin/env bash\ncase " $* " in *" -d "*) exit 1 ;; esac\nexec %s "$@"\n' "$(command -v mktemp)" > "$TMP/failbin/mktemp"
+chmod +x "$TMP/failbin/mktemp"
+RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS PATH="$TMP/failbin:$PATH" \
+  CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" SKILL_EVAL_DIR="$DATA" \
+  bash "$LE/run-skill-evals.sh" --trigger 2>&1 ); RUN_RC=$?
+if _line pos-1 | grep -q 'SKIP(error' && [ ! -e "$CWD5Q/.git" ] && [ ! -e "$CWD5Q/CLAUDE.md" ] && [ "$RUN_RC" -eq 0 ]; then
+  ok "T5.q mktemp 실패 → SKIP(error) · 호출자 cwd 에 .git·CLAUDE.md 미생성 · rc 0"
+else nope "T5.q" "rc=$RUN_RC cwd=[$(ls -A "$CWD5Q" | tr '\n' ' ')] $RUN_OUT"; fi
 
 # T6 (AC-7) isolated 미확인 표기 + 단발 실행
 _run '{"skills":["advisor-ko"]}\n{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k LLM_EVAL_RUNS=3 -- --trigger
