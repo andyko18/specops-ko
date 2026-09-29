@@ -4,6 +4,41 @@
 
 ## [Unreleased]
 
+### skill 별 활성화·행동 eval 분리 — pilot 3 + 오프라인 계약 스위트 (#66)
+
+- **pilot 3 skill**(`specifying-ko`·`karpathy-ko`·`advisor-ko` — description 과광역 후보): `skills/<name>/trigger-queries.json`(양성 3·음성 3)과 `evals.json`(case 3)을 **별 파일**로 분리
+- **오프라인 계약 스위트** `test-skill-evals.sh`(run-all 편입 · 토큰 0): 스키마 위반 8종 · pilot 커버리지 · 에코 가드(assert 가 프롬프트 자신에 매칭되면 FAIL) · 스트림 파서 · 러너 판정
+- **수동 라이브 러너** `run-skill-evals.sh --trigger|--evals`: `ANTHROPIC_API_KEY` 있으면 isolated(`--bare --plugin-dir`), 없으면 routed — 결과 줄마다 `MODE=` 표기. 음성 판정은 스트림 **전체** Skill 호출을 본다. result 이벤트 부재·timeout·mktemp 실패는 `SKIP(...)` 로 실행 실패와 구분
+- `eval-lib.sh` 에 `eval::all_skills`·`eval::run_claude` 추가(기존 줄 삭제 0). `run_claude` 워치독은 #67 과 같은 flag 폴링
+- ⚠️ 미실측: isolated 모드가 실제로 훅을 끄고 description 으로 Skill 을 고르는지 — 요약줄 `isolated(unverified)` 표기 유지
+
+검증: `test-skill-evals` **42/0** · 기존 llm-eval 5 스위트 수치 불변 · 되돌려-관찰 M1~M9 적발.
+
+### 워치독 5곳 고아 sleep 제거 — 신호 정리 대신 flag 폴링 (#67)
+
+`sleep & wait $!` 워치독(`run-evals`·`run-pressure-evals`·`run-plan-ab`·`run-chain-stage`·**`critic-ask`**)이 정상 종료마다 고아 `sleep 120|300` 을 남겼다 — run-all 1회 약 74개, `critic-ask.sh` 는 플러그인 런타임이라 사용자 세션에서도 호출마다 1개.
+
+- **원인**: `kill watcher` 가 서브셸만 죽이고 자식 sleep 은 재부모화 → 뒤이은 `pkill -P watcher` 가 못 찾음
+- **수정**: `run-bounded.sh` 와 같은 flag 폴링 — 부모는 flag 파일만 지우고, 워치독은 1초마다 확인해 스스로 끝난다. 시간초과 판정·마커는 종전대로. 비정수 timeout 은 올림
+- **TERM trap 대안 기각**: 즉시 끝나는 대상 × 300회 부하에서 신호가 trap 설치 창에 떨어져 **부모가 TIMEOUT 동안 멈췄다**(HUNG) · 잔존 22~25
+- **critic-ask**: 단일 명령 provider `exec` · `cleanup()` 이 SIGTERM 중단 시 flag·워치독·provider 정리 · `wait` 직후 `pid=""` 로 PID 재사용 창 차단
+- **신규 스위트** `test-watchdog-orphans.sh`: 잔존 0 · 시간초과 판정 보존 · SIGTERM · 20회 부하 · 신호 정리형 워치독 재유입 정적 가드 · 5곳 폴링 블록 동일성
+- 범위 밖: Ctrl-C(SIGINT — bash 3.2 는 EXIT trap 미발화) · ollama provider · Linux bash 5 미실측
+
+검증: run-all 전후 고아 sleep **0→0**(종전 +74) · `test-watchdog-orphans` 16/0 · 기존 스위트 수치 불변 · 되돌려-관찰 M1~M5 적발.
+
+### §6.1 판정 라벨 ↔ 계측기 양방향 정직성 락 (#68)
+
+`templates/DESIGN.md` §6.1 장르 규칙 표의 `판정` 라벨(`계측`/`산문`)이 계측기 `_GENRE_IDS` 와 양방향으로 어긋나면 run-all 이 FAIL 한다. 종전 G4.a 는 한 방향만 봐서 거짓 `계측` 주장·라벨 모순·ID 중복이 전부 통과했다(변이 실측).
+
+- **G4.e** `계측` 행 ⊂ 계측기 ID · **G4.f** `산문` 행 ∩ 계측기 ID = ∅ · **G4.g** ID 유일 · 라벨 값 · 추출되지 않은 행 · `### 장르 규칙` 소절 밖 규칙 행 보고
+- **G4.h** 판정 함수를 합성 표(접두 충돌·라벨 오타·추출 0건 등)로 자기 검증. 추출 0건은 "판정 불가" FAIL
+- DESIGN.md 에는 "자동 대조됨" 문구를 넣지 않았다 — 하류로 복사되는 템플릿이라 사본에선 거짓이 된다
+
+검증: `test-design-contract` 69→**73** · 기존 G4.a~d 무수정 · 거짓 라벨 변이 8종 + 판정 함수 변이 3종 적발. 이로써 uiux 고도화 로드맵 잔여 항목 종료.
+
+run-all **172/172** (suite-count doc-lock 170 → 172).
+
 ## [1.103.0] — 2026-09-29
 
 ### 화면 회귀 탐지 — `check-screen-quality.sh --regress` (#65)
