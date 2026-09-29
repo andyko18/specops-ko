@@ -1,0 +1,13 @@
+{
+  "skill": "tdd-ko",
+  "should_trigger": [
+    {"id": "pos-1", "query": "문자열에서 이메일 주소만 뽑는 파이썬 함수 extract_emails(text) 를 구현해줘"},
+    {"id": "pos-2", "query": "장바구니 합계 계산에 10% 할인 쿠폰 기능을 추가해줘: def total(items): return sum(i.price for i in items)"},
+    {"id": "pos-3", "query": "날짜 문자열 '2026-09-30' 을 '9월 30일' 로 바꾸는 JS 유틸을 새로 만들어줘"}
+  ],
+  "should_not_trigger": [
+    {"id": "neg-1", "query": "사내 송년회 공지 문구를 친근하게 써줘"},
+    {"id": "neg-2", "query": "TCP 3-way handshake 가 뭔지 쉽게 설명해줘"},
+    {"id": "neg-3", "query": "이 영어 문장을 자연스러운 한국어로 번역해줘: The meeting has been moved to Friday."}
+  ]
+}
