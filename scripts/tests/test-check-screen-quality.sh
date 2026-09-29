@@ -611,4 +611,18 @@ if [ "$(_rv "$o" a new-rules)" = 1 ] && printf '%s\n' "$_rg4" | grep -q '^  \[ne
 else nope "RG4.a" "new-rules=$(_rv "$o" a new-rules) det='$(printf '%s' "$_rg4" | tr '\n' '|')'"; fi
 _rg_reset
 
+# RG6 verify 배선 (AC-6) — 화면 품질 계측 bullet 과 테스트=spec 커버 점검 사이
+_l_rq=$(grep -n 'check-screen-quality\.sh --all' "$VS" | head -1 | cut -d: -f1)
+_l_rr=$(grep -n 'check-screen-quality\.sh --regress' "$VS" | head -1 | cut -d: -f1)
+_l_rc=$(grep -n '테스트=spec 커버 점검' "$VS" | head -1 | cut -d: -f1)
+if [ -n "$_l_rq" ] && [ -n "$_l_rr" ] && [ -n "$_l_rc" ] && [ "$_l_rr" -gt "$_l_rq" ] && [ "$_l_rr" -lt "$_l_rc" ]; then
+  _rblk=$(sed -n "${_l_rr},$((_l_rc - 1))p" "$VS")
+  { printf '%s' "$_rblk" | grep -qF '## 화면 회귀' && printf '%s' "$_rblk" | grep -qF 'VERIFY: FAIL' \
+    && printf '%s' "$_rblk" | grep -qF '승급' && printf '%s' "$_rblk" | grep -qF 'graceful skip'; } \
+    && ok "RG6 verify SKILL --regress 실행 · ## 화면 회귀 · 비차단 · 승급 조건 · skip" \
+    || nope "RG6" "블록에 '## 화면 회귀'·'VERIFY: FAIL'·'승급'·'graceful skip' 중 누락"
+else
+  nope "RG6" "배선 위치 — 계측=${_l_rq:-없음} 회귀=${_l_rr:-없음} 커버=${_l_rc:-없음}"
+fi
+
 finish
