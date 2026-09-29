@@ -51,6 +51,8 @@ M
 _val() {  # $1=출력 $2=키 → 값 추출
   printf '%s' "$1" | head -1 | grep -oE "$2=[^ ]+" | cut -d= -f2
 }
+_NLT='
+'
 
 bad=$(bash "$SCRIPT" "$TD/bad.md" "$TD/bad.html" 2>/dev/null)
 good=$(bash "$SCRIPT" "$TD/good.md" "$TD/good.html" 2>/dev/null)
@@ -117,7 +119,8 @@ QP='상태 설계
 디자인 시스템 준수
 콘텐츠 품질
 DESIGN 준수
-장르 규칙'
+장르 규칙
+안티패턴'
 QP_N=$(printf '%s\n' "$QP" | wc -l | tr -d ' ')
 
 # ── T1.j: 리뷰어에 품질 관점 전건 + 실측 명령 (AC-5 · 20260821 AC-8) ──
@@ -245,11 +248,11 @@ _g1 login "$PLUGIN/screens/login.md" unknown
 _g1 템플릿복사 "$TD/tpl.md" unknown
 
 # G1.k 요약줄 키 순서 — 기존 5키 뒤 genre 가 마지막 (전체 줄 일치)
-_kre='^SCREEN-QUALITY: [^ ]+  states=[^ ]+  a11y-label=[^ ]+  semantic=[^ ]+  token=[^ ]+  microcopy=[^ ]+  genre=[^ ]+$'
+_kre='^SCREEN-QUALITY: [^ ]+  states=[^ ]+  a11y-label=[^ ]+  semantic=[^ ]+  token=[^ ]+  microcopy=[^ ]+  genre=[^ ]+  anti=[^ ]+$'
 _gk=$(_gout "$TD/g-none.md" | head -1)
 printf '%s\n' "$_gk" | grep -qE "$_kre" && ok "G1.k 요약줄 키 순서 — genre 마지막" || nope "G1.k" "head='$_gk'"
 _gu1=$(bash "$SCRIPT" 2>/dev/null | head -1); _gu2=$(cd "$TD" && bash "$SCRIPT" --all 2>/dev/null | head -1)
-if printf '%s\n' "$_gu1" | grep -qE '  genre=unknown$' && printf '%s\n' "$_gu2" | grep -qE '  genre=unknown$'; then
+if printf '%s\n' "$_gu1" | grep -qE '  genre=unknown  anti=unknown$' && printf '%s\n' "$_gu2" | grep -qE '  genre=unknown  anti=unknown$'; then
   ok "G1.u _unknown_line 도 genre=unknown 으로 끝남"
 else
   nope "G1.u" "인자부족='$_gu1' --all='$_gu2'"
@@ -364,6 +367,129 @@ if [ -n "$_l_sh" ] && [ -n "$_l_cv" ] && [ -n "$_l_q" ] && [ "$_l_q" -gt "$_l_sh
 else
   nope "G6.a" "배선 위치 — 껍데기=${_l_sh:-없음} 계측=${_l_q:-없음} 커버=${_l_cv:-없음} (껍데기 < 계측 < 커버 기대)"
   nope "G6.b" "배선 부재로 판정 불가"
+fi
+
+# ══ 규칙 ID 카탈로그 (FID 20260929-design-rule-id-catalog) ══
+_rules=$(bash "$SCRIPT" --rules 2>/dev/null); _rrc=$?
+# 규칙 행 = 첫 셀이 S-/G-/A- 로 시작. NF==6 강제 — snippet/fix 안 '|' 가 열을 밀면 드러난다
+_rrows=$(printf '%s\n' "$_rules" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c)} c ~ /^[SGA]-/')
+_rids=$(printf '%s\n' "$_rrows" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c); print c}')
+_rn=$(printf '%s\n' "$_rids" | grep -c . || true)
+_rdup=$(printf '%s\n' "$_rids" | sort | uniq -d | tr '\n' ' ')
+_rbad=$(printf '%s\n' "$_rrows" | awk -F'|' '{
+  id=$2; s=$3; sn=$4; fx=$5; gsub(/^ +| +$/,"",id); gsub(/^ +| +$/,"",s); gsub(/^ +| +$/,"",sn); gsub(/^ +| +$/,"",fx)
+  if (NF != 6) print "nf:" id
+  if (s != "Important" && s != "Minor" && s != "단계형") print "sev:" id
+  if (sn == "" || fx == "") print "empty:" id }' | tr '\n' ' ')
+_rR=$(printf '%s\n' "$_rules" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c)} c ~ /^R-/' | grep -c . || true)
+if [ "$_rrc" -eq 0 ] && [ "${_rn:-0}" -eq 20 ] && [ -z "$_rdup" ] && [ -z "$_rbad" ] && [ "${_rR:-0}" -eq 0 ]; then
+  ok "R1.a --rules 20행 · 4필드 · ID 유일 · severity 3종 · R- 없음"
+else
+  nope "R1.a" "rc=$_rrc n=$_rn dup='$_rdup' bad='$_rbad' R=$_rR"
+fi
+_gids=$(sed -n "s/^_GENRE_IDS='\(.*\)'\$/\1/p" "$SCRIPT")
+_gmiss=""
+for id in $_gids; do printf '%s\n' "$_rids" | grep -qx -- "$id" || _gmiss="$_gmiss $id"; done
+{ [ -n "$_gids" ] && [ -z "$_gmiss" ]; } && ok "R1.b _GENRE_IDS 7개 전부 카탈로그에 있음" \
+  || nope "R1.b" "gids='$_gids' 누락:$_gmiss"
+
+# ── R2: 위반·경고 상세줄은 전부 카탈로그 ID 로 끝난다 (판정 불가 사유줄 제외) ──
+printf '## States\n- Loading: 스피너\n' > "$TD/st2.md"          # empty·error 누락
+_gmd "$TD/g-comma.md" ',' "$LIST_OK"                             # nv=0 경로(원형 자리표시자)
+_rdl=""
+for p in "$TD/bad.md|$TD/bad.html" "$TD/st2.md|$TD/good.html" \
+         "$TD/g-none.md|$TD/good.html" "$TD/g-ph.md|$TD/good.html" "$TD/g-bad.md|$TD/good.html" "$TD/g-comma.md|$TD/good.html" \
+         "$TD/ov1.md|$TD/good.html" "$TD/ov2.md|$TD/good.html" "$TD/ov3.md|$TD/good.html" "$TD/ov6.md|$TD/good.html" \
+         "$TD/gn.md|$TD/good.html"; do
+  _rdl="$_rdl$(bash "$SCRIPT" "${p%%|*}" "${p##*|}" 2>/dev/null | grep '^  \[')$_NLT"
+done
+_rdl=$(printf '%s\n' "$_rdl" | grep '^  \[' | grep -vF '[scope]' | grep -vF '화면 스펙 판독 불가')
+_rchk=$(printf '%s\n' "$_rdl" | grep -c . || true)
+_rno=$(printf '%s\n' "$_rdl" | grep -vE '  rule=[SGA]-[A-Z0-9-]+(,[SGA]-[A-Z0-9-]+)*$' | head -3)
+_rukn=""
+for id in $(printf '%s\n' "$_rdl" | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u); do
+  printf '%s\n' "$_rids" | grep -qx -- "$id" || _rukn="$_rukn $id"
+done
+if [ "${_rchk:-0}" -ge 12 ] && [ -z "$_rno" ] && [ -z "$_rukn" ]; then
+  ok "R2.a 상세줄 ${_rchk}건 전부 카탈로그 ID 로 끝남"
+else
+  nope "R2.a" "검사 ${_rchk}건(기대 ≥12) ID 없음='$_rno' 카탈로그 밖:$_rukn"
+fi
+bash "$SCRIPT" "$TD/st2.md" "$TD/good.html" 2>/dev/null | grep -F '[states]' | grep -qE '  rule=S-STATES-EMPTY,S-STATES-ERROR$' \
+  && ok "R2.b [states] 누락 항목별 ID (empty·error)" || nope "R2.b" "$(bash "$SCRIPT" "$TD/st2.md" "$TD/good.html" 2>/dev/null | grep -F '[states]')"
+for want in G-ARCHETYPE-UNDECLARED G-OVERRIDE-INVALID G-OVERRIDE-UNREASONED S-A11Y-LABEL S-LANDMARK S-TOKEN-HEX S-COPY-VAGUE; do
+  printf '%s\n' "$_rdl" | grep -qE "  rule=$want\$" || _rmiss2="${_rmiss2:-} $want"
+done
+[ -z "${_rmiss2:-}" ] && ok "R2.c 경고 규칙 7종이 각 발화 지점에서 실제로 나온다" || nope "R2.c" "미발화:$_rmiss2"
+# R2.d [genre] <ID> 미충족 / <ID> override — 줄은 본문 ID 와 rule ID 가 같다
+_rmm=$(printf '%s\n' "$_rdl" | grep -E '^  \[genre\] G-[A-Z-]+ (미충족|override) — ' \
+  | awk '{ id=$2; r=$0; sub(/.*  rule=/, "", r); if (id != r) print id "≠" r }')
+_rmn=$(printf '%s\n' "$_rdl" | grep -cE '^  \[genre\] G-[A-Z-]+ (미충족|override) — ' || true)
+{ [ "${_rmn:-0}" -ge 3 ] && [ -z "$_rmm" ]; } && ok "R2.d genre 본문 ID == rule ID (${_rmn}줄)" || nope "R2.d" "검사 ${_rmn}줄 불일치:$_rmm"
+
+
+# ══ anti 축 — 금지 패턴 3개 (FID 20260929-design-rule-id-catalog) ══
+_aout() { bash "$SCRIPT" "$TD/good.md" "$1" 2>/dev/null; }
+_adet() { printf '%s\n' "$1" | grep -F '[anti]'; }
+_acase() {  # $1=라벨 $2=ID $3=양성 html $4=음성 html
+  printf '%s\n' "$3" > "$TD/ap.html"; printf '%s\n' "$4" > "$TD/an.html"
+  local p n; p=$(_aout "$TD/ap.html"); n=$(_aout "$TD/an.html")
+  if [ "$(_val "$p" anti)" != 0 ] && [ -n "$(_val "$p" anti)" ] && _adet "$p" | grep -qE "  rule=$2\$" \
+     && [ "$(_val "$n" anti)" = 0 ] && [ -z "$(_adet "$n")" ]; then
+    ok "A1.$1 $2 양성 anti=$(_val "$p" anti) · 음성 anti=0"
+  else
+    nope "A1.$1" "$2 양성 anti=$(_val "$p" anti) det='$(_adet "$p")' · 음성 anti=$(_val "$n" anti) det='$(_adet "$n")'"
+  fi
+}
+_acase a A-PLACEHOLDER-NAME '<main><p>John Doe</p></main>' '<main><!-- 예시
+Lorem ipsum --><p>홍길동</p></main>'
+_acase b A-SCROLL-LISTENER '<script>window.addEventListener("scroll", f);</script>' '<script>/* 예전 코드
+window.addEventListener("scroll", f); */</script>'
+_acase c A-VIEWPORT-HEIGHT '<style>.x { height: 100vh; }</style>' '<style>body { min-height: 100vh; }</style>'
+_acase d A-VIEWPORT-HEIGHT '<div class="flex h-screen"></div>' '<div class="min-h-screen"></div>'
+_acase f A-PLACEHOLDER-NAME '<script>foo(); // c</script><p>John Doe</p>' '<script>foo(); // John Doe</script><p>홍길동</p>'
+_acase g A-PLACEHOLDER-NAME '<input type="file" accept="image/*"><p>John Doe</p>' '<input type="file" accept="image/*"><p>홍길동</p>'
+_acase e A-SCROLL-LISTENER "<script>fetch('https://x.example/a'); window.addEventListener('scroll', g);</script>" "<script>
+  // window.addEventListener('scroll', g);
+</script>"
+# Tailwind 변형 접두(md: · !)는 같은 위반 — min-/max- 는 계속 제외 (Phase C Important 1)
+_acase h A-VIEWPORT-HEIGHT '<div class="md:h-screen"></div>' '<div class="min-h-screen"></div>'
+_acase j A-VIEWPORT-HEIGHT '<div class="!h-screen"></div>' '<div class="max-h-screen"></div>'
+# <script 앞의 텍스트 // 는 주석이 아니다 — 여는 태그를 지우면 스크립트 블록 통째로 무음 누락 (Phase C Important 2)
+_acase i A-SCROLL-LISTENER '<p>a // b</p><script>window.addEventListener("scroll", f)</script>' '<p>a // b</p><script>foo()</script>'
+# // 절단은 script 구간 안에서만 — 한 줄 두 블록 사이 텍스트 // 가 둘째 여는 태그를 지우면 안 되고 (Phase C 2회차 Important),
+#   </script> 뒤 텍스트 // 도 절단 대상이 아니다 (Minor)
+_acase k A-SCROLL-LISTENER '<script>a()</script><p>x // y</p><script>window.addEventListener("scroll", f)</script>' '<script>a()</script><p>x // y</p><script>foo()</script>'
+_acase l A-PLACEHOLDER-NAME '<script>a()</script><p>x // John Doe</p>' '<script>a() // John Doe</script><p>홍길동 // z</p>'
+
+# ── A4: 기준 화면 오탐 0 (AC-4) — 템플릿 복사본 · design-screen 스캐폴드 · screens/login ──
+cp "$PLUGIN/templates/screen.md" "$TD/tplA.md"; cp "$PLUGIN/templates/screen.html" "$TD/tplA.html"
+mkdir -p "$TD/sc/screens"
+( cd "$TD/sc" && bash "$PLUGIN/scripts/_internal/design-screen.sh" demo >/dev/null 2>&1 )
+_a4=""
+for p in "$TD/tplA.md|$TD/tplA.html" "$TD/sc/screens/demo.md|$TD/sc/screens/demo.html" \
+         "$PLUGIN/screens/login.md|$PLUGIN/screens/login.html"; do
+  [ -f "${p##*|}" ] || { _a4="$_a4 부재:${p##*|}"; continue; }
+  o=$(bash "$SCRIPT" "${p%%|*}" "${p##*|}" 2>/dev/null)
+  { [ "$(_val "$o" anti)" = 0 ] && [ -z "$(_adet "$o")" ]; } || _a4="$_a4 $(basename "${p##*|}"):anti=$(_val "$o" anti)"
+done
+[ -z "$_a4" ] && ok "A4 템플릿 복사본·스캐폴드·login 모두 anti=0" || nope "A4" "$_a4"
+
+# ── A6: 판정 불가 (AC-6) ──
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/absent.html" 2>/dev/null)
+{ [ "$(_val "$o" anti)" = unknown ] && [ -z "$(_adet "$o")" ]; } \
+  && ok "A6 .html 부재 → anti=unknown · 금지 패턴 상세줄 없음" || nope "A6" "anti=$(_val "$o" anti) det='$(_adet "$o")'"
+
+# ── A7: anti= 는 적중 건수 합 · 자리표시 이름은 .html 만 (AC-7) ──
+printf '<main><p>John Doe</p><p>john doe</p><div class="h-screen"></div></main>\n' > "$TD/a7.html"
+{ cat "$TD/good.md"; printf '## 필드 정의표\n| 이름 | John Doe |\n'; } > "$TD/a7.md"
+o=$(bash "$SCRIPT" "$TD/a7.md" "$TD/a7.html" 2>/dev/null)
+_a7p=$(_adet "$o" | grep -E '  rule=A-PLACEHOLDER-NAME$')
+_a7v=$(_adet "$o" | grep -E '  rule=A-VIEWPORT-HEIGHT$')
+if [ "$(_val "$o" anti)" = 3 ] && printf '%s' "$_a7p" | grep -q ' 2건 ' && printf '%s' "$_a7v" | grep -q ' 1건 '; then
+  ok "A7 anti=3 (자리표시 2 + 뷰포트 1) · .md 예시값 미집계"
+else
+  nope "A7" "anti=$(_val "$o" anti) p='$_a7p' v='$_a7v'"
 fi
 
 finish

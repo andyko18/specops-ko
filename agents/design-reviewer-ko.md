@@ -50,7 +50,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **실측 불가**: `[검증 불가]` + Minor 강등. 핵심 의심이면 본문에 명시.
 
-- **품질 관점 5종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 5종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다).
+- **품질 관점 6종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙·안티패턴)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 6종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다). 표의 규칙 ID 와 심각도는 `check-screen-quality.sh --rules` 카탈로그가 SoT 다 — 계측 상세줄 끝 `rule=` 로 규칙을 식별한다.
 
 ## 6관점 검증 기준
 
@@ -65,11 +65,12 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 스펙 정합 | 화면/IF가 전 FID spec §범위와 정면 모순 | spec §참조에 경로 누락 | 요약 문장 부재 |
 | 플레이스홀더 | 설계 본문에 미치환 `<PLACEHOLDER>`·빈 템플릿 블록 | TBD/TODO가 must 경로에 잔존 | 주석성 TODO |
 | 잔여 미확정 | — | 담당 FR 범위에서 확정 가능한데 `<미확정 — 근거 필요>` 가 남아 있으면 Important | FR 범위 밖이라 확정 불가 |
-| 상태 설계 | — | `empty`·`error` 미정의 (실측: `check-screen-quality.sh` `states`) | `loading` 만 누락 |
-| 접근성 | — | label 누락 input 존재 (실측: 동 `a11y-label`) | 랜드마크 0개 (동 `semantic`) |
-| 디자인 시스템 준수 | — | 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | 1~2건 |
-| 콘텐츠 품질 | — | 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | 일부 |
-| 장르 규칙 | — | 원형 계측 규칙 미충족 (실측: 동 `genre` 상세줄 `미충족` — DESIGN.md §6.1) | 원형 미선언 `genre=unknown` · 사유 없는 override |
+| 상태 설계 | — | `S-STATES-EMPTY`·`S-STATES-ERROR` — `empty`·`error` 미정의 (실측: `check-screen-quality.sh` `states`) | `S-STATES-LOADING` — `loading` 만 누락 |
+| 접근성 | — | `S-A11Y-LABEL` — label 누락 input 존재 (실측: 동 `a11y-label`) | `S-LANDMARK` — 랜드마크 0개 (동 `semantic`) |
+| 디자인 시스템 준수 | — | `S-TOKEN-HEX` — 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | `S-TOKEN-HEX` — 1~2건 |
+| 콘텐츠 품질 | — | `S-COPY-VAGUE` — 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | `S-COPY-VAGUE` — 일부 |
+| 장르 규칙 | — | 원형 계측 규칙 미충족 `G-LIST-PAGING`·`G-LIST-SORT`·`G-LIST-EMPTY-KIND`·`G-FORM-SUBMIT`·`G-FORM-CANCEL`·`G-WIZARD-STEP`·`G-DASH-PERIOD` (실측: 동 `genre` 상세줄 `미충족` — DESIGN.md §6.1) | 원형 미선언 `genre=unknown` `G-ARCHETYPE-UNDECLARED` · 사유 없는 override `G-OVERRIDE-UNREASONED` · 판독 불가·원형 밖 override `G-OVERRIDE-INVALID` |
+| 안티패턴 | — | `A-PLACEHOLDER-NAME` — 화면에 자리표시 이름 (실측: 동 `anti`) | `A-SCROLL-LISTENER`·`A-VIEWPORT-HEIGHT` |
 | DESIGN 준수 | — | screens/*.md States 가 DESIGN.md §7 과 어긋남, 또는 레이아웃이 §6.1 원형 필수 요소를 빠뜨림 | 표기 순서 차이 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.
