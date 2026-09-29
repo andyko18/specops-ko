@@ -22,6 +22,52 @@ _NL='
 '
 _TAB=$(printf '\t')
 
+# ── 규칙 카탈로그 (FID 20260929-design-rule-id-catalog) — 규칙 ID·심각도의 단일 SoT ──
+# 한 줄 = id|severity|snippet|fix. severity 는 Important · Minor · 단계형(개수 기준 — snippet 에 명시).
+# Critical 은 두지 않는다 — /start-all-auto 가 Critical≥1 에서 무인 실행을 정지시킨다(design-reviewer-ko).
+# snippet·fix 에 '|' 금지 — --rules 표 열이 밀린다(test R1.a 가 NF 로 잠금).
+_RULES=$(cat <<'RULES'
+S-STATES-EMPTY|Important|States 에 empty(빈 상태) 정의 없음|빈 상태 문구와 다음 행동(CTA)을 States 에 적는다
+S-STATES-ERROR|Important|States 에 error(오류) 정의 없음|오류 표현과 복구 방법을 States 에 적는다
+S-STATES-LOADING|Minor|States 에 loading(로딩) 정의 없음|로딩 표현(스켈레톤·스피너)을 States 에 적는다
+S-A11Y-LABEL|Important|label 없는 입력 요소(hidden 제외)|입력마다 label 을 연결한다
+S-LANDMARK|Minor|랜드마크 요소(main·nav·header·section·aside·footer) 0개|영역을 랜드마크 요소로 감싼다
+S-TOKEN-HEX|단계형|--이름: 정의부 밖 색 hex 리터럴 (1~2건 Minor · 3건 이상 Important)|var(--토큰) 으로 바꾼다
+S-COPY-VAGUE|단계형|에러 메시지가 오류·실패·에러 단독 (일부 Minor · 전부 Important)|사용자가 무엇을 해야 하는지 쓴다
+G-LIST-PAGING|Important|목록 원형 — 페이징과 총 건수 표시 없음|페이징(또는 무한 스크롤)과 총 건수를 적는다
+G-LIST-SORT|Important|목록 원형 — 기본 정렬 기준 없음|기본 정렬 기준을 적는다
+G-LIST-EMPTY-KIND|Important|목록 원형 — 빈 상태 두 종류 구분 없음|States 에 데이터 없음과 검색·필터 결과 없음을 나눠 적는다
+G-FORM-SUBMIT|Important|폼 원형 — 제출 중 비활성 없음|제출 중 버튼 비활성과 중복 제출 방지를 적는다
+G-FORM-CANCEL|Important|폼 원형 — 취소 경로 없음|취소 경로를 적는다
+G-WIZARD-STEP|Important|다단 폼 원형 — 단계 표시·이전·중간 저장 중 누락|단계 표시·이전 단계·중간 저장(또는 이탈 시 보존)을 적는다
+G-DASH-PERIOD|Important|대시보드 원형 — 기간 선택 없음|기간 선택을 적는다
+G-ARCHETYPE-UNDECLARED|Minor|원형 미선언·자리표시자·목록 밖 값|화면 스펙 머리에 원형 선언 줄을 적는다(DESIGN.md §6.1)
+G-OVERRIDE-UNREASONED|Minor|사유 없는 genre-override|override 주석에 사유를 적는다
+G-OVERRIDE-INVALID|Minor|원형 밖 ID override 또는 판독 불가 override 주석|한 줄 주석으로 이 화면 원형의 규칙 ID 와 사유를 적는다
+A-PLACEHOLDER-NAME|Important|.html 화면 텍스트의 Lorem·John Doe·Jane Doe·Acme|실제 데이터 형태의 예시로 바꾼다
+A-SCROLL-LISTENER|Minor|script 안 scroll 이벤트 리스너|IntersectionObserver 또는 CSS(position: sticky 등)로 대체한다
+A-VIEWPORT-HEIGHT|Minor|height: 100vh 또는 h-screen 클래스 (min-·max- 제외)|min-height 또는 dvh 단위를 쓴다
+RULES
+)
+
+_rules_print() {
+  printf '| id | severity | snippet | fix |\n|---|---|---|---|\n'
+  printf '%s\n' "$_RULES" | awk -F'|' 'NF == 4 { printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4 }'
+}
+
+# states 누락 항목(empty,loading,error) → 규칙 ID 목록(쉼표)
+_states_ids() {
+  local x out=""
+  for x in $(printf '%s' "$1" | tr ',' ' '); do
+    case "$x" in
+      empty)   out="$out,S-STATES-EMPTY" ;;
+      loading) out="$out,S-STATES-LOADING" ;;
+      error)   out="$out,S-STATES-ERROR" ;;
+    esac
+  done
+  printf '%s' "${out#,}"
+}
+
 # ── genre: 화면 원형별 장르 규칙 (DESIGN.md §6.1 — FID 20260929-enterprise-genre-rules) ──
 # 계측 규칙 ID 단일 선언 — test-design-contract 가 이 줄만 읽어 §6.1 표와 대조한다.
 _GENRE_IDS='G-LIST-PAGING G-LIST-SORT G-LIST-EMPTY-KIND G-FORM-SUBMIT G-FORM-CANCEL G-WIZARD-STEP G-DASH-PERIOD'
@@ -68,7 +114,11 @@ _genre_miss() {  # $1=ID → 빠진 요소(상세줄 문구)
   esac
 }
 
-_gadd() { genre_det="${genre_det:+$genre_det$_NL}$1"; }
+_gadd() {  # $1=상세줄 $2=규칙 ID(없으면 접미 없음 — 판정 불가 사유줄)
+  local l="$1"
+  [ -n "${2:-}" ] && l="$l  rule=$2"
+  genre_det="${genre_det:+$genre_det$_NL}$l"
+}
 
 # 결과: genre · genre_det (호출자 _analyze 의 local — bash 동적 스코프)
 _genre() {  # $1=md
@@ -77,20 +127,20 @@ _genre() {  # $1=md
   if ! _readable "$1"; then _gadd "  [genre] 화면 스펙 판독 불가 — $why"; return 0; fi
   local line val a rs r rules="" nv=0
   line=$(awk '/^## /{exit} /^\*\*원형\*\*:/{print; exit}' "$1")
-  if [ -z "$line" ]; then _gadd "  [genre] 원형 미선언 — $why"; return 0; fi
+  if [ -z "$line" ]; then _gadd "  [genre] 원형 미선언 — $why" G-ARCHETYPE-UNDECLARED; return 0; fi
   val=$(printf '%s' "${line#*:}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-  case "$val" in ''|\[*) _gadd "  [genre] 원형 자리표시자 그대로 — $why"; return 0 ;; esac
+  case "$val" in ''|\[*) _gadd "  [genre] 원형 자리표시자 그대로 — $why" G-ARCHETYPE-UNDECLARED; return 0 ;; esac
   # 복합 원형(쉼표) — 하나라도 목록 밖이면 전체 unknown (부분 계측으로 위장 금지)
   while IFS= read -r a; do
     a=$(printf '%s' "$a" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     [ -n "$a" ] || continue
-    if ! rs=$(_genre_rules "$a"); then _gadd "  [genre] 원형 값 판독 불가: $a — $why"; return 0; fi
+    if ! rs=$(_genre_rules "$a"); then _gadd "  [genre] 원형 값 판독 불가: $a — $why" G-ARCHETYPE-UNDECLARED; return 0; fi
     nv=$((nv+1))
     for r in $rs; do case " $rules " in *" $r "*) ;; *) rules="$rules $r" ;; esac; done
   done <<EOF
 $(printf '%s\n' "$val" | tr ',' '\n')
 EOF
-  [ "$nv" -gt 0 ] || { _gadd "  [genre] 원형 자리표시자 그대로 — $why"; return 0; }
+  [ "$nv" -gt 0 ] || { _gadd "  [genre] 원형 자리표시자 그대로 — $why" G-ARCHETYPE-UNDECLARED; return 0; }
   rules="${rules# }"
   [ -n "$rules" ] || { genre="n/a"; return 0; }
 
@@ -115,7 +165,7 @@ EOF
   # 판독 불가(원문 출현 수 > 단일줄 정규식 파싱 수)를 무음 통과시키지 않는다 — 원칙 5
   raw=$(grep -o 'genre-override:' "$1" 2>/dev/null | grep -c . || true)
   parsed=$(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null | grep -c . || true)
-  [ "$raw" -gt "$parsed" ] && _gadd "  [genre] override 구문 판독 불가 $((raw - parsed))건 — 한 줄 주석으로 적는다(<!-- genre-override: <ID> <사유> -->)"
+  [ "$raw" -gt "$parsed" ] && _gadd "  [genre] override 구문 판독 불가 $((raw - parsed))건 — 한 줄 주석으로 적는다(<!-- genre-override: <ID> <사유> -->)" G-OVERRIDE-INVALID
   while IFS= read -r o; do
     [ -n "$o" ] || continue
     o=$(printf '%s' "$o" | sed -E 's/^<!--[[:space:]]*genre-override:[[:space:]]*//; s/[[:space:]]*-->$//')
@@ -124,8 +174,8 @@ EOF
     case " $rules " in
       *" $id "*)
         if [ -n "$reason" ]; then ovmap="${ovmap}${id}${_TAB}${reason}${_NL}"
-        else _gadd "  [genre] $id override 사유 없음 — 억제하지 않음"; fi ;;
-      *) _gadd "  [genre] $id override 대상 아님 — 이 화면 원형의 계측 규칙이 아니다" ;;
+        else _gadd "  [genre] $id override 사유 없음 — 억제하지 않음" G-OVERRIDE-UNREASONED; fi ;;
+      *) _gadd "  [genre] $id override 대상 아님 — 이 화면 원형의 계측 규칙이 아니다" G-OVERRIDE-INVALID ;;
     esac
   done <<EOF
 $(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null)
@@ -133,9 +183,9 @@ EOF
   for id in $rules; do
     n=$((n+1))
     reason=$(printf '%s' "$ovmap" | awk -F"$_TAB" -v k="$id" '$1==k{print $2; exit}')
-    if [ -n "$reason" ]; then ok=$((ok+1)); _gadd "  [genre] $id override — $reason"
+    if [ -n "$reason" ]; then ok=$((ok+1)); _gadd "  [genre] $id override — $reason" "$id"
     elif _genre_check "$id" "$body" "$st"; then ok=$((ok+1))
-    else _gadd "  [genre] $id 미충족 — $(_genre_miss "$id")"; fi
+    else _gadd "  [genre] $id 미충족 — $(_genre_miss "$id")" "$id"; fi
   done
   genre="$ok/$n"
 }
@@ -210,15 +260,15 @@ _analyze() {  # $1=md $2=html
 
   # 상세 — 위반이 있을 때만
   case "$states" in
-    0/3|1/3|2/3) printf '  [states] 미정의: %s (%s)\n' "${miss:-?}" "$states" ;;
+    0/3|1/3|2/3) printf '  [states] 미정의: %s (%s)  rule=%s\n' "${miss:-?}" "$states" "$(_states_ids "$miss")" ;;
   esac
   if [ "$a11y" != "unknown" ]; then
     local l="${a11y%%/*}" i="${a11y##*/}"
-    [ "$i" -gt "$l" ] && printf '  [a11y-label] 입력 %s개 중 label %s개 — %s개 누락\n' "$i" "$l" "$((i-l))"
+    [ "$i" -gt "$l" ] && printf '  [a11y-label] 입력 %s개 중 label %s개 — %s개 누락  rule=S-A11Y-LABEL\n' "$i" "$l" "$((i-l))"
   fi
-  [ "$semantic" = "0" ] && printf '  [semantic] 랜드마크 요소 0개 — div 수프 의심\n'
-  case "$token" in unknown|0) ;; *) printf '  [token] 색 리터럴 하드코딩 %s건 — var(--…) 사용 권고\n' "$token" ;; esac
-  case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 — 사용자가 무엇을 해야 하는지 쓰기\n' "$microcopy" ;; esac
+  [ "$semantic" = "0" ] && printf '  [semantic] 랜드마크 요소 0개 — div 수프 의심  rule=S-LANDMARK\n'
+  case "$token" in unknown|0) ;; *) printf '  [token] 색 리터럴 하드코딩 %s건 — var(--…) 사용 권고  rule=S-TOKEN-HEX\n' "$token" ;; esac
+  case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 — 사용자가 무엇을 해야 하는지 쓰기  rule=S-COPY-VAGUE\n' "$microcopy" ;; esac
   [ -n "$genre_det" ] && printf '%s\n' "$genre_det"
   return 0
 }
@@ -229,6 +279,11 @@ _unknown_line() {  # $1=name $2=사유
   printf 'SCREEN-QUALITY: %s  states=unknown  a11y-label=unknown  semantic=unknown  token=unknown  microcopy=unknown  genre=unknown\n' "$1"
   printf '  [scope] %s — 계측하지 못했다(위반 없음이 아니다)\n' "$2"
 }
+
+if [ "${1:-}" = "--rules" ]; then
+  _rules_print
+  exit 0
+fi
 
 if [ "${1:-}" = "--all" ]; then
   # cwd 상대 경로다. repo 루트 밖에서 부르면 대상 0개가 된다 — 그때도 침묵하지 않는다.

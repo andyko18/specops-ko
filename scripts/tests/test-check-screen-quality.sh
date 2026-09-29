@@ -51,6 +51,8 @@ M
 _val() {  # $1=출력 $2=키 → 값 추출
   printf '%s' "$1" | head -1 | grep -oE "$2=[^ ]+" | cut -d= -f2
 }
+_NLT='
+'
 
 bad=$(bash "$SCRIPT" "$TD/bad.md" "$TD/bad.html" 2>/dev/null)
 good=$(bash "$SCRIPT" "$TD/good.md" "$TD/good.html" 2>/dev/null)
@@ -365,5 +367,63 @@ else
   nope "G6.a" "배선 위치 — 껍데기=${_l_sh:-없음} 계측=${_l_q:-없음} 커버=${_l_cv:-없음} (껍데기 < 계측 < 커버 기대)"
   nope "G6.b" "배선 부재로 판정 불가"
 fi
+
+# ══ 규칙 ID 카탈로그 (FID 20260929-design-rule-id-catalog) ══
+_rules=$(bash "$SCRIPT" --rules 2>/dev/null); _rrc=$?
+# 규칙 행 = 첫 셀이 S-/G-/A- 로 시작. NF==6 강제 — snippet/fix 안 '|' 가 열을 밀면 드러난다
+_rrows=$(printf '%s\n' "$_rules" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c)} c ~ /^[SGA]-/')
+_rids=$(printf '%s\n' "$_rrows" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c); print c}')
+_rn=$(printf '%s\n' "$_rids" | grep -c . || true)
+_rdup=$(printf '%s\n' "$_rids" | sort | uniq -d | tr '\n' ' ')
+_rbad=$(printf '%s\n' "$_rrows" | awk -F'|' '{
+  id=$2; s=$3; sn=$4; fx=$5; gsub(/^ +| +$/,"",id); gsub(/^ +| +$/,"",s); gsub(/^ +| +$/,"",sn); gsub(/^ +| +$/,"",fx)
+  if (NF != 6) print "nf:" id
+  if (s != "Important" && s != "Minor" && s != "단계형") print "sev:" id
+  if (sn == "" || fx == "") print "empty:" id }' | tr '\n' ' ')
+_rR=$(printf '%s\n' "$_rules" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c)} c ~ /^R-/' | grep -c . || true)
+if [ "$_rrc" -eq 0 ] && [ "${_rn:-0}" -eq 20 ] && [ -z "$_rdup" ] && [ -z "$_rbad" ] && [ "${_rR:-0}" -eq 0 ]; then
+  ok "R1.a --rules 20행 · 4필드 · ID 유일 · severity 3종 · R- 없음"
+else
+  nope "R1.a" "rc=$_rrc n=$_rn dup='$_rdup' bad='$_rbad' R=$_rR"
+fi
+_gids=$(sed -n "s/^_GENRE_IDS='\(.*\)'\$/\1/p" "$SCRIPT")
+_gmiss=""
+for id in $_gids; do printf '%s\n' "$_rids" | grep -qx -- "$id" || _gmiss="$_gmiss $id"; done
+{ [ -n "$_gids" ] && [ -z "$_gmiss" ]; } && ok "R1.b _GENRE_IDS 7개 전부 카탈로그에 있음" \
+  || nope "R1.b" "gids='$_gids' 누락:$_gmiss"
+
+# ── R2: 위반·경고 상세줄은 전부 카탈로그 ID 로 끝난다 (판정 불가 사유줄 제외) ──
+printf '## States\n- Loading: 스피너\n' > "$TD/st2.md"          # empty·error 누락
+_gmd "$TD/g-comma.md" ',' "$LIST_OK"                             # nv=0 경로(원형 자리표시자)
+_rdl=""
+for p in "$TD/bad.md|$TD/bad.html" "$TD/st2.md|$TD/good.html" \
+         "$TD/g-none.md|$TD/good.html" "$TD/g-ph.md|$TD/good.html" "$TD/g-bad.md|$TD/good.html" "$TD/g-comma.md|$TD/good.html" \
+         "$TD/ov1.md|$TD/good.html" "$TD/ov2.md|$TD/good.html" "$TD/ov3.md|$TD/good.html" "$TD/ov6.md|$TD/good.html" \
+         "$TD/gn.md|$TD/good.html"; do
+  _rdl="$_rdl$(bash "$SCRIPT" "${p%%|*}" "${p##*|}" 2>/dev/null | grep '^  \[')$_NLT"
+done
+_rdl=$(printf '%s\n' "$_rdl" | grep '^  \[' | grep -vF '[scope]' | grep -vF '화면 스펙 판독 불가')
+_rchk=$(printf '%s\n' "$_rdl" | grep -c . || true)
+_rno=$(printf '%s\n' "$_rdl" | grep -vE '  rule=[SGA]-[A-Z0-9-]+(,[SGA]-[A-Z0-9-]+)*$' | head -3)
+_rukn=""
+for id in $(printf '%s\n' "$_rdl" | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u); do
+  printf '%s\n' "$_rids" | grep -qx -- "$id" || _rukn="$_rukn $id"
+done
+if [ "${_rchk:-0}" -ge 12 ] && [ -z "$_rno" ] && [ -z "$_rukn" ]; then
+  ok "R2.a 상세줄 ${_rchk}건 전부 카탈로그 ID 로 끝남"
+else
+  nope "R2.a" "검사 ${_rchk}건(기대 ≥12) ID 없음='$_rno' 카탈로그 밖:$_rukn"
+fi
+bash "$SCRIPT" "$TD/st2.md" "$TD/good.html" 2>/dev/null | grep -F '[states]' | grep -qE '  rule=S-STATES-EMPTY,S-STATES-ERROR$' \
+  && ok "R2.b [states] 누락 항목별 ID (empty·error)" || nope "R2.b" "$(bash "$SCRIPT" "$TD/st2.md" "$TD/good.html" 2>/dev/null | grep -F '[states]')"
+for want in G-ARCHETYPE-UNDECLARED G-OVERRIDE-INVALID G-OVERRIDE-UNREASONED S-A11Y-LABEL S-LANDMARK S-TOKEN-HEX S-COPY-VAGUE; do
+  printf '%s\n' "$_rdl" | grep -qE "  rule=$want\$" || _rmiss2="${_rmiss2:-} $want"
+done
+[ -z "${_rmiss2:-}" ] && ok "R2.c 경고 규칙 7종이 각 발화 지점에서 실제로 나온다" || nope "R2.c" "미발화:$_rmiss2"
+# R2.d [genre] <ID> 미충족 / <ID> override — 줄은 본문 ID 와 rule ID 가 같다
+_rmm=$(printf '%s\n' "$_rdl" | grep -E '^  \[genre\] G-[A-Z-]+ (미충족|override) — ' \
+  | awk '{ id=$2; r=$0; sub(/.*  rule=/, "", r); if (id != r) print id "≠" r }')
+_rmn=$(printf '%s\n' "$_rdl" | grep -cE '^  \[genre\] G-[A-Z-]+ (미충족|override) — ' || true)
+{ [ "${_rmn:-0}" -ge 3 ] && [ -z "$_rmm" ]; } && ok "R2.d genre 본문 ID == rule ID (${_rmn}줄)" || nope "R2.d" "검사 ${_rmn}줄 불일치:$_rmm"
 
 finish
