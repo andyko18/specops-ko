@@ -144,6 +144,86 @@ _anti() {  # $1=html
   return 0
 }
 
+# ── regress: 화면 회귀 (FID 20260929-screen-regression-guard — specops-ko 독자 구현) ──
+# 기준 커밋(인자 또는 main/master merge-base)의 같은 화면과 내용 바이트를 비교한다.
+# 원시 바이트는 .html 의 style 블록이 지배해 부적합하고(마크업 절반 손실이 거의 안 보인다),
+# 템플릿 채움 자체가 0.35배 '축소'로 보이므로 기준이 껍데기면 비교하지 않는다(current-state §4).
+_RG_DEF_RATIO='0.60'
+
+_md_bytes() {  # $1=md → frontmatter·껍데기 마커 줄 제외, 공백 제거 바이트
+  awk 'NR == 1 && /^---[[:space:]]*$/ { f = 1; next } f && /^---[[:space:]]*$/ { f = 0; next } !f' "$1" \
+    | grep -vF 'specops:screen-placeholder' | tr -d ' \t\n\r' | wc -c | tr -d ' '
+}
+_html_bytes() {  # $1=html → 주석·script·style 제거 후 공백 제거 바이트
+  _strip_comments "$1" | _blocks script out | _blocks style out | tr -d ' \t\n\r' | wc -c | tr -d ' '
+}
+# 판정은 원시 바이트로 한다(현재 < 기준 × 임계값) — 반올림된 비율 문자열로 비교하면 0.596 이 '0.60' 이 되어 빠진다
+_rg_is_shrink() { awk -v c="$1" -v b="$2" -v t="$3" 'BEGIN { exit !(c + 0 < (b + 0) * (t + 0)) }'; }
+
+_rg_ratio() {  # → rg_thr · rg_cfg
+  local v="${SPECOPS_SCREEN_SHRINK_RATIO:-}"
+  rg_cfg=""; rg_thr="$_RG_DEF_RATIO"
+  [ -n "$v" ] || return 0
+  if grep -qE '^(0?\.[0-9]+|1(\.0+)?)$' <<<"$v" && awk -v x="$v" 'BEGIN { exit !(x > 0 && x <= 1) }'; then
+    rg_thr=$(awk -v x="$v" 'BEGIN { printf "%.2f", x }')
+  else
+    rg_cfg="  [config] SPECOPS_SCREEN_SHRINK_RATIO='$v' 판독 불가 — 기본 $_RG_DEF_RATIO 적용"
+  fi
+}
+
+_rg_base() {  # $1=기준 ref(선택) → rg_base · rg_short. 실패 rc 1 + rg_why
+  local ref="${1:-}" b
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { rg_why='git 저장소가 아니다'; return 1; }
+  if [ -z "$ref" ]; then
+    # 로컬 main/master 우선, 없으면 원격 추적 브랜치(CI·worktree 에서 origin/* 만 있는 경우)
+    for b in main master origin/main origin/master; do
+      case "$b" in origin/*) git show-ref -q --verify "refs/remotes/$b" && break ;; *) git show-ref -q --verify "refs/heads/$b" && break ;; esac
+      b=""
+    done
+    [ -n "$b" ] || { rg_why='main·master 브랜치가 없다(로컬·origin) — 기준 ref 를 인자로 준다'; return 1; }
+    ref=$(git merge-base "$b" HEAD 2>/dev/null) || { rg_why="$b 와 HEAD 의 merge-base 를 구하지 못했다"; return 1; }
+  fi
+  rg_base=$(git rev-parse --verify -q "${ref}^{commit}" 2>/dev/null) || { rg_why="기준 ref '$ref' 를 찾지 못했다"; return 1; }
+  rg_short=$(git rev-parse --short "$rg_base" 2>/dev/null)
+}
+
+_rg_unknown_line() {  # $1=사유
+  printf 'SCREEN-REGRESSION: (none)  base=unknown  md=unknown  html=unknown  new-rules=unknown\n'
+  printf '  [scope] %s — 비교하지 못했다(회귀 없음이 아니다)\n' "$1"
+}
+
+_rg_side() {  # $1=화면명 $2=ext → rv(값) · rb(기준 바이트) · rc(현재 바이트)
+  local cur="screens/$1.$2" bf="$_rg_tmp/$1.$2"
+  rv="unknown"; rb=""; rc=""
+  if ! git show "$rg_base:./$cur" > "$bf" 2>/dev/null; then
+    rm -f "$bf"; [ -f "$cur" ] && rv="new"; return 0
+  fi
+  [ -f "$cur" ] || { rv="deleted"; return 0; }
+  grep -qF 'specops:screen-placeholder' "$bf" && { rv="shell"; return 0; }
+  if [ "$2" = md ]; then rb=$(_md_bytes "$bf"); rc=$(_md_bytes "$cur"); else rb=$(_html_bytes "$bf"); rc=$(_html_bytes "$cur"); fi
+  [ "${rb:-0}" -gt 0 ] || { rv="n/a"; return 0; }
+  rv=$(awk -v a="$rc" -v b="$rb" 'BEGIN { printf "%.2f", a / b }')
+}
+
+_rg_lineage() {  # $1=ext $2=값 → 상세줄(없으면 무출력)
+  case "$2" in
+    new)     printf '  [lineage] .%s 이전 버전 없음 — 새 화면, 비교하지 않았다\n' "$1" ;;
+    shell)   printf '  [lineage] .%s 이전 버전이 템플릿 상태 — 비교하지 않았다\n' "$1" ;;
+    deleted) printf '  [lineage] .%s 기준 커밋에 있던 파일이 없다 — 삭제(또는 이름 변경)\n' "$1" ;;
+  esac
+}
+
+_regress_one() {  # $1=화면명
+  local n="$1" vm vh bm bh cm ch nr="unknown" det="" lbl
+  _rg_side "$n" md;   vm="$rv"; bm="$rb"; cm="$rc"
+  _rg_side "$n" html; vh="$rv"; bh="$rb"; ch="$rc"
+  det="$(_rg_lineage md "$vm")${_NL}$(_rg_lineage html "$vh")"
+  case "$vm" in [0-9]*) _rg_is_shrink "$cm" "$bm" "$rg_thr" && det="${det}${_NL}  [shrink] .md 본문 $bm → $cm 바이트 ($vm < $rg_thr) — 내용이 줄었다" ;; esac
+  case "$vh" in [0-9]*) _rg_is_shrink "$ch" "$bh" "$rg_thr" && det="${det}${_NL}  [shrink] .html 마크업 $bh → $ch 바이트 ($vh < $rg_thr) — 내용이 줄었다" ;; esac
+  printf 'SCREEN-REGRESSION: %s  base=%s  md=%s  html=%s  new-rules=%s\n' "$n" "$rg_short" "$vm" "$vh" "$nr"
+  printf '%s\n' "$det" | grep -v '^$' || true
+}
+
 # ── genre: 화면 원형별 장르 규칙 (DESIGN.md §6.1 — FID 20260929-enterprise-genre-rules) ──
 # 계측 규칙 ID 단일 선언 — test-design-contract 가 이 줄만 읽어 §6.1 표와 대조한다.
 _GENRE_IDS='G-LIST-PAGING G-LIST-SORT G-LIST-EMPTY-KIND G-FORM-SUBMIT G-FORM-CANCEL G-WIZARD-STEP G-DASH-PERIOD'
@@ -360,6 +440,28 @@ _unknown_line() {  # $1=name $2=사유
 
 if [ "${1:-}" = "--rules" ]; then
   _rules_print
+  exit 0
+fi
+
+if [ "${1:-}" = "--regress" ]; then
+  _rg_ratio
+  if ! _rg_base "${2:-}"; then
+    _rg_unknown_line "$rg_why"; [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"; exit 0
+  fi
+  _rg_names=$( { for f in screens/*.md; do [ -f "$f" ] && basename "$f" .md; done
+                 git ls-tree --name-only "$rg_base" -- screens/ 2>/dev/null | sed -n 's#^screens/\(.*\)\.md$#\1#p'; } | sort -u )
+  if [ -z "$_rg_names" ]; then
+    _rg_unknown_line 'screens/*.md 대상 0개 (작업 트리·기준 커밋 모두) — cwd 가 repo 루트인지 확인'
+    [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"; exit 0
+  fi
+  _rg_tmp=$(mktemp -d 2>/dev/null) || { _rg_unknown_line '임시 디렉터리 생성 실패'; exit 0; }
+  trap 'rm -rf "$_rg_tmp"' EXIT
+  while IFS= read -r _rg_n; do
+    [ -n "$_rg_n" ] && _regress_one "$_rg_n"
+  done <<EOF
+$_rg_names
+EOF
+  [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"
   exit 0
 fi
 
