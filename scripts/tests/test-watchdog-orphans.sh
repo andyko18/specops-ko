@@ -60,6 +60,55 @@ _check_llm T1.1 run-evals.sh          "$TMP/fx.jsonl"  'TIMEOUT'     'TIMEOUT 1s
 _check_llm T1.2 run-pressure-evals.sh "$TMP/pfx.jsonl" '\(timeout\)' '\(timeout\)'           2
 _check_llm T1.3 run-plan-ab.sh        "$TMP/ab"        ''            '방식 A: recall=0/2'    3
 _check_llm T1.4 run-chain-stage.sh    "$TMP/cs"        ''            'decompose: recall=0/1' 4
+# T2 (AC-1·AC-2·AC-5) critic-ask — 종료 후 고아 0 · 출력 계약 · 시간초과 provider 자손 정리(exec)
+printf '# p\n' > "$TMP/prompt.md"
+printf '#!/usr/bin/env bash\ncat >/dev/null\necho 의견OK\n' > "$TMP/ok"; chmod +x "$TMP/ok"
+_critic() {  # <timeout> <CRITIC_BIN> → stdout+stderr
+  CRITIC_TIMEOUT="$1" CRITIC_BIN="$2" bash "$PLUGIN/scripts/critic-ask.sh" "$TMP/prompt.md" 2>&1
+}
+v=$((BASE + 5)); h=$((BASE + 105))
+out=$(_critic "$v" "$TMP/ok"); left=$(_leftover "$v" "$TMP/prompt.md")
+if [ "$left" = "0/0" ] && printf '%s' "$out" | grep -qF 'CRITIC[custom]:' && printf '%s' "$out" | grep -qF '의견OK' \
+   && ! printf '%s' "$out" | grep -q 'timeout'; then
+  ok "T2.a critic-ask 정상 응답 → 고아 sleep·워치독 0 · CRITIC[custom]: 출력 계약 유지"
+else nope "T2.a" "잔존 sleep/워치독=$left / out=$(printf '%s' "$out" | tr '\n' ' ')"; fi
+out=$(_critic 1 "$(_hang "$h")"); left=$(_leftover "$h" "$TMP/prompt.md")
+printf '%s' "$out" | grep -qF 'CRITIC: FAIL (timeout 1s)' && ok "T2.b critic-ask 시간초과 → CRITIC: FAIL (timeout 1s)" \
+  || nope "T2.b" "out=$(printf '%s' "$out" | tr '\n' ' ')"
+[ "$left" = "0/0" ] && ok "T2.c critic-ask 시간초과 → 멈춘 provider 의 자식 sleep·워치독 정리 (exec)" \
+  || nope "T2.c" "잔존 provider자손/워치독=$left"
+
+# T3 (AC-3) 옛 워치독 idiom 재유입 가드 — 워치독을 신호로 정리하는 두 형태를 막는다:
+#   `( sleep … & wait $! )` (kill watcher 뒤 sleep 고아) · `( trap …; sleep … & sp=$! … )` (trap 설치 창에서 신호 유실 → 부모 멈춤)
+_old_idiom() { grep -nE 'sleep "\$\{?[A-Za-z_]+\}?" & (wait \$!|sp=\$!)' "$@" 2>/dev/null; }
+printf '%s\n' "  ( sleep \"\$TIMEOUT_S\" & wait \$!; : ) >/dev/null 2>&1 &" > "$TMP/old1.sh"
+printf '%s\n' "  ( trap 'kill \"\${sp:-}\"; exit 0' TERM; sleep \"\${to}\" & sp=\$!; wait \"\$sp\" ) &" > "$TMP/old2.sh"
+if _old_idiom "$TMP/old1.sh" >/dev/null && _old_idiom "$TMP/old2.sh" >/dev/null; then
+  ok "T3.a 가드 자기 검증 — sleep&wait · TERM-trap sp 두 형태 적발"; else nope "T3.a" "옛 형태를 못 잡음"; fi
+hits=$(cd "$PLUGIN" && git ls-files '*.sh' '.githooks/*' | while IFS= read -r f; do _old_idiom "$f" | sed "s|^|$f:|"; done)
+[ -z "$hits" ] && ok "T3.b 저장소 셸 스크립트 옛 워치독 idiom 0건" || nope "T3.b" "옛 idiom 잔존: $(printf '%s' "$hits" | cut -d: -f1-2 | tr '\n' ' ')"
+
+# 5곳 워치독 블록 동일성 — 한 곳만 고쳐 조용히 drift 하지 않게 폴링·재확인 줄을 고정 문자열로 잠근다
+POLL='n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done'
+drift=""
+for f in scripts/tests/llm-eval/run-evals.sh scripts/tests/llm-eval/run-pressure-evals.sh scripts/tests/llm-eval/run-plan-ab.sh \
+         scripts/tests/llm-eval/run-chain-stage.sh scripts/critic-ask.sh; do
+  grep -qF -- "$POLL" "$PLUGIN/$f" && grep -qF -- 'rm -f "$flag"' "$PLUGIN/$f" || drift="$drift $f"
+done
+[ -z "$drift" ] && ok "T3.c 5곳 워치독 폴링 블록·flag 삭제 동일" || nope "T3.c" "블록 불일치:$drift"
+
+# T4 (AC-6) 부하 반복 — 즉시 끝나는 provider 로 20회 연속: 멈춤 없음 · 잔존 0 (신호 정리 방식이 깨진 타이밍)
+v=$((BASE + 6))
+( i=0; while [ "$i" -lt 20 ]; do _critic "$v" "$TMP/fast" >/dev/null; i=$((i + 1)); done; : > "$TMP/stress.done" ) &
+sp_pid=$!
+k=0; while [ "$k" -lt 60 ] && [ ! -e "$TMP/stress.done" ]; do sleep 1; k=$((k + 1)); done
+if [ -e "$TMP/stress.done" ]; then
+  left=$(_leftover "$v" "$TMP/prompt.md")
+  [ "$left" = "0/0" ] && ok "T4 critic-ask 20회 연속(즉시 종료 provider) → 멈춤 없음 · 잔존 0" || nope "T4" "잔존 sleep/워치독=$left"
+else
+  pkill -P "$sp_pid" 2>/dev/null; kill "$sp_pid" 2>/dev/null
+  nope "T4" "20회 연속 실행이 60초 안에 끝나지 않음 — 워치독 정리 경로 멈춤"
+fi
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
