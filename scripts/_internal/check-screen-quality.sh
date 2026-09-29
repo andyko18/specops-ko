@@ -85,10 +85,11 @@ _strip_comments() {  # $1=html → stdout
         if (a && (!b || a < b)) { out = out substr(line, 1, a - 1); line = substr(line, a + 4); inh = 1 }
         else                    { out = out substr(line, 1, b - 1); line = substr(line, b + 2); inc = 1 }
       }
-      if (tolower(out) ~ /<script/) insc = 1
-      if (insc && match(out, /(^|[ \t;{}])\/\//)) {
+      # 이 줄에서 <script 가 열리면 그 태그 뒤의 // 만 주석 — 앞의 텍스트 // 를 자르면 여는 태그가 사라져 스크립트 블록 통째로 무음 누락
+      sp = index(tolower(out), "<script"); if (sp) insc = 1
+      if (insc && match(substr(out, sp + 1), /(^|[ \t;{}])\/\//)) {
         # 같은 줄의 </script 는 보존 — 지우면 insc 가 안 풀려 파일 나머지를 script 로 취급한다
-        cut = RSTART + RLENGTH - 3; k = index(tolower(substr(out, cut + 1)), "</script")
+        cut = sp + RSTART + RLENGTH - 3; k = index(tolower(substr(out, cut + 1)), "</script")
         out = substr(out, 1, cut) (k ? substr(out, cut + k) : "")
       }
       if (tolower(out) ~ /<\/script/) insc = 0
@@ -126,7 +127,7 @@ _anti() {  # $1=html
   hs=$(_strip_comments "$1")
   ap=$(_count "$(printf '%s\n' "$hs" | _blocks script out | _blocks style out | grep -oiE 'lorem|john doe|jane doe|acme' | wc -l)")
   as=$(_count "$(printf '%s\n' "$hs" | _blocks script in | grep -oE "addEventListener\([[:space:]]*['\"]scroll['\"]" | wc -l)")
-  av=$(_count "$(printf '%s\n' "$hs" | grep -oE '(^|[^a-z-])height[[:space:]]*:[[:space:]]*100vh|class="[^"]*"' | grep -oE 'height[[:space:]]*:[[:space:]]*100vh|(["[:space:]])h-screen(["[:space:]])' | wc -l)")
+  av=$(_count "$(printf '%s\n' "$hs" | grep -oE '(^|[^a-z-])height[[:space:]]*:[[:space:]]*100vh|class="[^"]*"' | grep -oE 'height[[:space:]]*:[[:space:]]*100vh|(["[:space:]:!])h-screen(["[:space:]])' | wc -l)")  # 앞 문자 : ! 허용 — md:h-screen · !h-screen 도 위반, min-/max- 는 - 라 제외
   anti=$((ap + as + av))
   [ "$ap" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 자리표시 이름 ${ap}건 — 실제 데이터 형태의 예시로 바꾼다  rule=A-PLACEHOLDER-NAME"
   [ "$as" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 스크롤 이벤트 리스너 ${as}건 — IntersectionObserver 또는 CSS 로 대체  rule=A-SCROLL-LISTENER"

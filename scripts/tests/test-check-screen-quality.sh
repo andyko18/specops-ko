@@ -452,6 +452,11 @@ _acase g A-PLACEHOLDER-NAME '<input type="file" accept="image/*"><p>John Doe</p>
 _acase e A-SCROLL-LISTENER "<script>fetch('https://x.example/a'); window.addEventListener('scroll', g);</script>" "<script>
   // window.addEventListener('scroll', g);
 </script>"
+# Tailwind 변형 접두(md: · !)는 같은 위반 — min-/max- 는 계속 제외 (Phase C Important 1)
+_acase h A-VIEWPORT-HEIGHT '<div class="md:h-screen"></div>' '<div class="min-h-screen"></div>'
+_acase j A-VIEWPORT-HEIGHT '<div class="!h-screen"></div>' '<div class="max-h-screen"></div>'
+# <script 앞의 텍스트 // 는 주석이 아니다 — 여는 태그를 지우면 스크립트 블록 통째로 무음 누락 (Phase C Important 2)
+_acase i A-SCROLL-LISTENER '<p>a // b</p><script>window.addEventListener("scroll", f)</script>' '<p>a // b</p><script>foo()</script>'
 
 # ── A4: 기준 화면 오탐 0 (AC-4) — 템플릿 복사본 · design-screen 스캐폴드 · screens/login ──
 cp "$PLUGIN/templates/screen.md" "$TD/tplA.md"; cp "$PLUGIN/templates/screen.html" "$TD/tplA.html"
