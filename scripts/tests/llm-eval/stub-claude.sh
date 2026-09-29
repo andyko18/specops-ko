@@ -8,6 +8,13 @@ n=0
 n=$((n+1)); printf '%s' "$n" > "$STUB_STATE"
 line=$(sed -n "${n}p" "${STUB_PLAN:?STUB_PLAN 필요}")
 [ -z "$line" ] && line=$(tail -1 "$STUB_PLAN")
+# 다중 Skill 호출(skills 배열) — 활성화 eval 의 "두 번째 이후 호출" 재현용. 없으면 아래 기존 경로 그대로
+skills=$(printf '%s' "$line" | jq -c '.skills // empty')
+if [ -n "$skills" ]; then
+  printf '%s' "$skills" | jq -c '.[] | {type:"assistant",message:{content:[{type:"tool_use",name:"Skill",input:{skill:.,args:""}}]}}'
+  jq -cn --argjson c "$(printf '%s' "$line" | jq -r '.cost // 0')" '{type:"result",subtype:"success",total_cost_usd:$c}'
+  exit 0
+fi
 skill=$(printf '%s' "$line" | jq -r '.skill // empty')
 args=$(printf '%s' "$line" | jq -r '.args // ""')
 text=$(printf '%s' "$line" | jq -r '.text // empty')

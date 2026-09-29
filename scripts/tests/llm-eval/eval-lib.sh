@@ -68,3 +68,30 @@ EOF
   done < "$fixtures"
   echo "matrix: $rows rows $pass pass $fail fail"
 }
+
+eval::all_skills() {  # stdin stream-json → 호출 순서대로 Skill 이름 한 줄씩 (0건이면 빈 출력)
+  jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Skill") | .input.skill // empty' 2>/dev/null
+}
+
+eval::run_claude() {  # <bin> <cwd> <timeout_s> <prompt> [추가 인자...] → stdout stream-json · rc 124=timeout · 3=result 이벤트 없음
+  # 워치독: bash 3.2 · GNU timeout 미의존. < /dev/null: 호출자 루프 FD 0 상속 차단.
+  # run-evals.sh run_once 와 달리 watcher 가 TERM trap 으로 자기 sleep 을 직접 죽인다 — 그쪽 순서
+  # (kill watcher → pkill -P watcher)는 sleep 이 이미 재부모화돼 질의마다 고아 `sleep <timeout>` 이 남는다(실측).
+  # result 이벤트가 없으면(인증 실패·플래그 미지원·크래시로 빈 출력) rc 3 — 음성 질의가 "미호출 PASS" 로 위장되지 않게.
+  local bin="$1" cwd="$2" to="$3" prompt="$4" out_f mark pid watcher
+  shift 4
+  out_f=$(mktemp); mark="$out_f.timeout"
+  (cd "$cwd" && exec "$bin" -p "$prompt" --output-format stream-json --verbose "$@") < /dev/null > "$out_f" 2>/dev/null &
+  pid=$!
+  ( trap 'kill "${sp:-}" 2>/dev/null; exit 0' TERM
+    sleep "$to" & sp=$!; wait "$sp"
+    : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  watcher=$!
+  wait "$pid" 2>/dev/null || true
+  kill "$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null || true
+  cat "$out_f"
+  if [ -f "$mark" ]; then rm -f "$mark" "$out_f"; return 124; fi
+  if ! jq -r 'select(.type=="result") | .type' "$out_f" 2>/dev/null | grep -q .; then rm -f "$out_f"; return 3; fi
+  rm -f "$out_f"; return 0
+}
