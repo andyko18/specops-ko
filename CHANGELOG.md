@@ -4,6 +4,59 @@
 
 ## [Unreleased]
 
+### 화면 회귀 탐지 — `check-screen-quality.sh --regress` (#65)
+
+기존 `--check` 는 **생성 시점** 껍데기만 잡는다. 채워진 화면이 이후 수정에서 줄어들거나 새 위반이 생기는 회귀는 보는 곳이 없었다.
+
+- **`--regress [base]`** — 각 화면을 기준 커밋(인자 또는 main/master → origin 폴백과 HEAD 의 merge-base)의 같은 화면과 비교해 `SCREEN-REGRESSION:` 별도 줄로 보고. 읽기 전용(작업 트리·인덱스·refs 불변)
+  - `[shrink]` — **내용 바이트**(`.html` 주석·script·style 제외 · `.md` frontmatter·마커 제외)가 기준 × 임계값 미만. 기본 0.60, `SPECOPS_SCREEN_SHRINK_RATIO`. 판정은 원시 바이트(반올림 비율 비교 금지)
+  - `[new-rule]` — 기준 사본과 현재 화면의 `rule=` ID 차집합만(기존 위반 미보고)
+  - 비교하지 않은 경우는 **항상 사유** — `new`·`shell`·`deleted`·`unknown` 은 `[lineage]`, git 아님·ref 없음·main/master 없음·기준==HEAD 는 `[scope]`
+- **verify 배선** — 화면 품질 계측 옆, evidence `## 화면 회귀` · 비차단 + 차단 승급 조건 문서화
+- 리뷰가 막은 결함: 한글 화면명을 `git ls-tree` 가 인용해 삭제가 무음(`core.quotePath=false`) · 기준==HEAD 구별 불가 · 반올림 경계 누락 · 로컬 main 만 봐서 CI 에서 조용히 꺼짐
+
+검증: `run-all` **170/170** · `test-check-screen-quality` 67→**92** · 되돌려-관찰 8건 적발 · 기존 단언 변경 0 · Phase B/C PASS. 스킬별 행동 eval(원 FID 4 의 ②)은 별도 FID 로 분리.
+
+### 화면 규칙 ID 카탈로그 — 규칙 20개 · `rule=` · 금지 패턴 `anti=` (#64)
+
+- **카탈로그** — 계측기 안 `_RULES`(4필드 `id|severity|snippet|fix`) 단일 SoT, `--rules` 로 표 출력. 기존 5축 `S-*` 7 · 장르 `G-*` 10 · 금지 패턴 `A-*` 3. Critical 없음
+- **상세줄 `rule=<ID>`** — 모든 위반·경고 줄 끝에 덧붙임(기존 문구 불변)
+- **`anti=` 축** — `.html` 주석(다중줄·한 줄 `</script`·속성값 `/*`·URL `//` 경계 처리)을 걷어낸 뒤 `A-PLACEHOLDER-NAME`·`A-SCROLL-LISTENER`·`A-VIEWPORT-HEIGHT`(Tailwind 변형 포함)
+- **리뷰어 표** — 품질 관점 6종이 카탈로그 ID 를 심각도 열대로 인용, T13 이 어긋남을 잠금
+- ⚠️ 요약줄 키 순서가 `… genre anti` 로 바뀌어 FID 3 의 "genre 마지막" 줄끝 앵커 단언 3줄을 새 순서로 승계(AC-8)
+
+검증: `run-all` **170/170** · `test-check-screen-quality` 46→**67** · 되돌려-관찰 12건 적발 · 기준 화면 `anti=0`.
+
+### 엔터프라이즈 장르 규칙 — 화면 원형별 규칙 + `genre=` 계측 (#63)
+
+- **`templates/DESIGN.md` §6.1** — `다단 폼` 원형 + 장르 규칙 표(계측 7 · 산문 3: 표 정렬·서버 페이징·권한별 표시)
+- **`templates/screen.md`** — `**원형**:` 선언 줄 + States `Empty` 행(템플릿 복사본의 `states` 위반 해소)
+- **계측기 `genre=`** — 원형별 규칙 7개, `<!-- genre-override: ID 사유 -->`(사유 없음·판독 불가는 경고), 복합 원형, 원형 미선언은 `unknown`(숫자 위장 금지)
+- **단일 모드 도달** — verify SKILL 이 `check-screen-quality.sh --all` 실행(비차단)
+- **리뷰어** — `장르 규칙` 심각도 행(미충족 Important · 미선언·사유 없는 override Minor)
+
+검증: `run-all` **170/170** · 되돌려-관찰 8건 적발 · Phase C 가 다중줄 override 무음 누설을 잡아 판독 불가 경고 추가.
+
+### 디자인 방향 카탈로그 — brand-pick 5택 교체 (#62)
+
+- **`templates/design-directions.md` 신설** — 추상 디자인 방향 9종(라이트 6 · 다크 3, 기본 = 절제된 라이트 업무형). 방향마다 특성·다이얼 3값·중립 팔레트 9라벨. 원천 브랜드명·hex 는 옮기지 않음(원천 hex 355개와 정확 일치 0)
+- **`/init-project` Phase 6** — 브랜드명(Stripe·Notion·Linear·Claude) 5택 → 방향 1택(입력 1회·기본 1 불변). 하류 화면 색 주입 1 → 9변수
+- 템플릿 죽은 슬롯 10곳 정리 · AI 지침 섹션 참조 §6 → §9 정정 · 입력 오버플로(2^64+2)·셀 탭 치환 방어
+
+### ⚠️ ui-ux-pro-max 외부 의존 완전 제거 (#61)
+
+- **설치 단순화** — `plugin.json` `dependencies`·`marketplace.json` 교차 의존 허용 삭제. 외부 marketplace 선행 등록 불필요
+- **bash 결합 제거** — `uiux-assets.sh`·엔진/자산 경로·`UIUX_ENGINE_DISABLE` 삭제
+- **Skill 호출 산문 제거** — specifying-ko Step 5.5 · `/design-screen(s)` · `/start-all` Phase 2.5 · `/init-project` 가 `DESIGN.md` 를 단일 출처로
+- 무관 가드는 삭제 전에 `test-design-contract.sh` 로 이관, 재유입 음성 잠금(N0~N4)
+- **하류 영향**: ui-ux-pro-max 가 설치돼 있어도 더는 호출하지 않는다 — 화면 스타일은 `DESIGN.md` 와 방향 카탈로그(#62)가 결정
+
+### 낡은 스위트 수 서술 doc-lock (#60)
+
+- **`check-doc-numbers.sh`** — 문서의 `N 스위트` 서술을 run-all 수집 규칙과 같은 glob 으로 계산한 실측과 대조. `<!-- doc-lock: suite-count -->`(값 일치)·`<!-- doc-lock: historical -->`(과거 기록 면제)·미마커 금지. rc `0`/`1`/`2`(판정 불가)
+- **`test-doc-numbers.sh`** 22 어서션 — sandbox 가 실 저장소 인덱스를 오염시키지 않음을 teeth 로 잠금
+- 현존 낡은 수치 정정 · 스위트 수 **170**
+
 ### 낡은 서술 7파일 정정 — 실측값·원인 확정 반영 (#59)
 
 직전 #58 이 `semgrep --config auto` 를 제거하면서 **그 배선을 전제로 쓰인 주석 4곳이 한꺼번에 낡았고**,
