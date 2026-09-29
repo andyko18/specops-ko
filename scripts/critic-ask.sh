@@ -53,8 +53,8 @@ else
   exit 0
 fi
 
-syn=""; out_f=""; err_f=""; mark=""
-cleanup() { rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" 2>/dev/null; }
+syn=""; out_f=""; err_f=""; mark=""; flag=""; pid=""
+cleanup() { [ -n "${pid:-}" ] && { pkill -P "$pid"; kill "$pid"; } 2>/dev/null; rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" "$flag" 2>/dev/null; }
 trap cleanup EXIT
 
 # 프롬프트 합성: prompt-file + 구분자 + 대상 파일들 (NFR-3 200KB 절단)
@@ -80,27 +80,31 @@ fi
 
 _invoke_provider() {
   # stdin=합성 프롬프트 → stdout=의견.
+  # 단일 명령 provider 는 exec — 백그라운드 서브셸이 곧 provider 가 되어 워치독의 `pkill -P "$pid"` 가
+  #   provider 의 자식까지 닿는다(exec 없으면 시간초과 시 provider 자손이 남는다 — 20260929-run-evals-orphan-sleep 실측)
   # A-2 한계 고백: codex/gemini 플래그는 실측 미확인 (미설치 환경 작성) — 설치 후 본 함수만 보정
   case "$provider" in
-    custom) "$bin" ;;
-    claude) claude -p --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
-    codex)  codex exec - ;;
-    gemini) gemini -p - ;;
+    custom) exec "$bin" ;;
+    claude) exec claude -p --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
+    codex)  exec codex exec - ;;
+    gemini) exec gemini -p - ;;
     ollama) jq -Rs --arg m "${CRITIC_MODEL:-qwen2.5:7b}" '{model:$m, prompt:., stream:false}' \
               | curl -sS -m "$TIMEOUT_S" http://localhost:11434/api/generate -d @- \
               | jq -r '.response // empty' ;;
   esac
 }
 
-out_f=$(mktemp); err_f=$(mktemp); mark=$(mktemp); rm -f "$mark"
+out_f=$(mktemp); err_f=$(mktemp); mark=$(mktemp); rm -f "$mark"; flag=$(mktemp)
 _invoke_provider < "$syn" > "$out_f" 2>"$err_f" &
 pid=$!
-# 워치독 — llm-eval run_once 패턴 (출력 차단 + 마커 + 자식 정리, bash 3.2)
-( sleep "$TIMEOUT_S" & wait $!; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-watcher=$!
+# 워치독 — 출력 차단 + 마커 + 자식 정리 (bash 3.2). 부모는 신호를 보내지 않고 flag 만 지운다 —
+#   워치독이 1초 안에 스스로 끝난다(run-bounded.sh 와 같은 방식 · 신호 정리는 고아 sleep·멈춤을 남긴다 — 20260929-run-evals-orphan-sleep)
+( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
+  n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
+  [ -e "$flag" ] || exit 0; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
 wait "$pid" 2>/dev/null; rc=$?
-# watcher 정리 — compound stderr 억제 (job-control "Terminated" 메시지 누수 차단)
-{ kill "$watcher" 2>/dev/null; pkill -P "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null; } 2>/dev/null || true
+pid=""
+rm -f "$flag"
 
 if [ -f "$mark" ]; then
   echo "CRITIC: FAIL (timeout ${TIMEOUT_S}s)"

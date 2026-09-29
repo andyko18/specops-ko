@@ -96,20 +96,22 @@ trap cleanup EXIT
 run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (bash 3.2, GNU timeout 미의존)
   # I-2: stderr 는 R_ERR 에 보존, timeout kill 은 R_MARK 마커 기록 (호출자 attempt 가 경로 준비)
   # < /dev/null: while 루프의 fixtures FD 0 상속 차단 / cd "$SANDBOX": 부작용 격리 (exec 으로 pid=claude 유지)
-  local out_f pid watcher
+  local out_f pid flag
   out_f=$(mktemp)
   (cd "$SANDBOX" && exec "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose \
     --max-turns "$MAX_TURNS" --allowedTools Skill) < /dev/null > "$out_f" 2>"$R_ERR" &
   pid=$!
   # 워치독 stdout/stderr 차단 필수 — 미차단 시 자식 sleep 이 명령치환 파이프를 물고 EOF 지연 (hang)
-  # 마커는 kill 직전 기록 — 정상 종료 후엔 watcher 를 먼저 kill 해 false 마커 차단
-  # timeout 시 claude 가 띄운 자식 프로세스까지 정리 (pkill -P) 후 본체 kill
-  ( sleep "$TIMEOUT_S" & wait $!; : > "$R_MARK"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-  watcher=$!
+  # 워치독은 신호로 정리하지 않는다 — 부모는 flag 만 지우고 워치독이 1초 안에 스스로 끝난다(run-bounded.sh 와 같은 방식).
+  #   종전 `kill watcher` → `pkill -P watcher` 는 sleep 이 재부모화돼 질의마다 고아 `sleep $TIMEOUT_S` 를 남겼고,
+  #   TERM trap 대안은 신호가 trap 설치 전후 창에 떨어지면 워치독이 살아남아 부모가 멈췄다(20260929-run-evals-orphan-sleep 실측).
+  # timeout 시 claude 가 띄운 자식 프로세스까지 정리 (pkill -P) 후 본체 kill · 마커는 flag 재확인 뒤 기록(정상 종료 후 거짓 마커 차단)
+  flag=$(mktemp)
+  ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
+    n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
+    [ -e "$flag" ] || exit 0; : > "$R_MARK"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   wait "$pid" 2>/dev/null || true
-  kill "$watcher" 2>/dev/null
-  pkill -P "$watcher" 2>/dev/null
-  wait "$watcher" 2>/dev/null || true
+  rm -f "$flag"
   cat "$out_f"; rm -f "$out_f"
 }
 

@@ -25,13 +25,16 @@ fi
 PASS=0; FAIL=0; COST=0
 
 run_once() {  # $1=prompt → stdout stream-json (run-evals 워치독 패턴 복제)
-  local out_f pid watcher mark; out_f=$(mktemp); mark=$(mktemp); rm -f "$mark"
+  local out_f pid flag mark; out_f=$(mktemp); mark=$(mktemp); rm -f "$mark"; flag=$(mktemp)
   ( cd "$SANDBOX" && exec "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose --max-turns "$MAX_TURNS" \
     --allowedTools Skill Write Edit Bash ) > "$out_f" 2>/dev/null < /dev/null &
   pid=$!
-  ( sleep "$TIMEOUT_S" & wait $!; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-  watcher=$!; wait "$pid" 2>/dev/null || true
-  kill "$watcher" 2>/dev/null; pkill -P "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null || true
+  # 워치독: 부모는 flag 만 지운다 — 신호 정리는 고아 sleep·멈춤을 남긴다(run-evals.sh run_once 주석 참조)
+  ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
+    n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
+    [ -e "$flag" ] || exit 0; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  wait "$pid" 2>/dev/null || true
+  rm -f "$flag"
   [ -f "$mark" ] && echo '{"type":"_timeout"}'
   cat "$out_f"; rm -f "$out_f" "$mark"
 }
