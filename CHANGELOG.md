@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.104.0] — 2026-09-30
+
 ### skill 별 활성화·행동 eval 분리 — pilot 3 + 오프라인 계약 스위트 (#66)
 
 - **pilot 3 skill**(`specifying-ko`·`karpathy-ko`·`advisor-ko` — description 과광역 후보): `skills/<name>/trigger-queries.json`(양성 3·음성 3)과 `evals.json`(case 3)을 **별 파일**로 분리
@@ -2580,7 +2582,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.103.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.104.0...HEAD
+[1.104.0]: https://github.com/andyko18/specops-ko/compare/v1.103.0...v1.104.0
 [1.103.0]: https://github.com/andyko18/specops-ko/compare/v1.102.0...v1.103.0
 [1.102.0]: https://github.com/andyko18/specops-ko/compare/v1.101.0...v1.102.0
 [1.101.0]: https://github.com/andyko18/specops-ko/compare/v1.100.0...v1.101.0
