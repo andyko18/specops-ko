@@ -77,6 +77,14 @@ printf '%s' "$out" | grep -qF 'CRITIC: FAIL (timeout 1s)' && ok "T2.b critic-ask
   || nope "T2.b" "out=$(printf '%s' "$out" | tr '\n' ' ')"
 [ "$left" = "0/0" ] && ok "T2.c critic-ask 시간초과 → 멈춘 provider 의 자식 sleep·워치독 정리 (exec)" \
   || nope "T2.c" "잔존 provider자손/워치독=$left"
+# T2.d SIGTERM 중단 — EXIT trap cleanup 이 flag 를 지워 워치독이 스스로 끝나고 멈춘 provider 자손도 남지 않아야 한다
+v=$((BASE + 7)); h=$((BASE + 107))
+CRITIC_TIMEOUT="$v" CRITIC_BIN="$(_hang "$h")" bash "$PLUGIN/scripts/critic-ask.sh" "$TMP/prompt.md" >/dev/null 2>&1 &
+cp_pid=$!
+sleep 1; kill -TERM "$cp_pid" 2>/dev/null; wait "$cp_pid" 2>/dev/null
+left=$(_leftover "$h" "$TMP/prompt.md")
+[ "$left" = "0/0" ] && ok "T2.d critic-ask SIGTERM 중단 → 워치독·멈춘 provider 자식 sleep 잔존 0" \
+  || nope "T2.d" "잔존 provider자손/워치독=$left"
 
 # T3 (AC-3) 옛 워치독 idiom 재유입 가드 — 워치독을 신호로 정리하는 두 형태를 막는다:
 #   `( sleep … & wait $! )` (kill watcher 뒤 sleep 고아) · `( trap …; sleep … & sp=$! … )` (trap 설치 창에서 신호 유실 → 부모 멈춤)

@@ -53,8 +53,8 @@ else
   exit 0
 fi
 
-syn=""; out_f=""; err_f=""; mark=""
-cleanup() { rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" 2>/dev/null; }
+syn=""; out_f=""; err_f=""; mark=""; flag=""; pid=""
+cleanup() { [ -n "${pid:-}" ] && { pkill -P "$pid"; kill "$pid"; } 2>/dev/null; rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" "$flag" 2>/dev/null; }
 trap cleanup EXIT
 
 # 프롬프트 합성: prompt-file + 구분자 + 대상 파일들 (NFR-3 200KB 절단)
@@ -103,6 +103,7 @@ pid=$!
   n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
   [ -e "$flag" ] || exit 0; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
 wait "$pid" 2>/dev/null; rc=$?
+pid=""
 rm -f "$flag"
 
 if [ -f "$mark" ]; then
