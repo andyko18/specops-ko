@@ -197,6 +197,9 @@ printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=isolated(unverified) trigger
 _run '{"text":"x"}' -- --evals
 printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=routed evals ' && [ "$(cat "$TMP/state")" = "1" ] \
   && ok "T6.c 키 미설정 → mode=routed · evals 호출 1회" || nope "T6.c" "$RUN_OUT"
+# T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
+if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
+  ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

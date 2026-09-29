@@ -24,6 +24,9 @@ bash scripts/tests/llm-eval/run-evals.sh
 # LLM eval N-run 신뢰성 (수동 — flakiness 측정): LLM_EVAL_RUNS=10 bash scripts/tests/llm-eval/run-evals.sh
 #   fixture별 성공률·FLAKY(<80%) 리포트. 기본 N=1 은 기존 단발 동작.
 # 주간 자동 smoke: .github/workflows/llm-smoke.yml (ANTHROPIC_API_KEY secret 등록 시 활성 — 미등록 시 graceful skip)
+# skill 별 활성화·행동 eval (수동 전용 — 토큰 비용, run-all 비포함 · 데이터 계약은 test-skill-evals.sh 가 run-all 에서 잠금)
+#   ANTHROPIC_API_KEY 있으면 isolated(--bare, 실측 미확인 — unverified 표기) · 없으면 routed(메타 라우팅 혼합)
+bash scripts/tests/llm-eval/run-skill-evals.sh --trigger   # 또는 --evals · 뒤에 skill 이름으로 대상 한정
 
 # lifecycle E2E 자동 검증 (수동 전용 — 토큰 비용 발생, run-all 비포함)
 # e2e-test-ko skill 이 greet-cli fixture 로 9단계 chain 완주 + 산출물 구조 검증
