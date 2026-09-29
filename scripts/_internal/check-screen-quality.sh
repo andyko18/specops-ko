@@ -95,9 +95,27 @@ EOF
   [ -n "$rules" ] || { genre="n/a"; return 0; }
 
   # override — 주석 구간만 본문에서 지운다(같은 줄 다른 내용 보존 · 사유가 키워드로 새지 않게)
-  local body st o id reason ovmap="" ok=0 n=0
-  body=$(sed -E 's/<!--[[:space:]]*genre-override:[^>]*-->//g' "$1")
+  #   `genre-override:` 부터 `-->` 까지를 지운다 — 다중줄·사유에 '>' 가 든 주석은 아래 단일줄 정규식이
+  #   못 잡으므로(Phase C Important) 여기서 상태 추적으로 걷어내야 사유 키워드가 판정에 새지 않는다.
+  local body st o id reason ovmap="" ok=0 n=0 raw=0 parsed=0
+  body=$(awk '
+    function strip(s,  i, j, pre, rest) {
+      while ((i = index(s, "genre-override:")) > 0) {
+        pre = substr(s, 1, i - 1); rest = substr(s, i)
+        sub(/<!--[[:space:]]*$/, "", pre)
+        j = index(rest, "-->")
+        if (j == 0) { skip = 1; return pre }
+        s = pre substr(rest, j + 3)
+      }
+      return s
+    }
+    skip { j = index($0, "-->"); if (j == 0) next; $0 = substr($0, j + 3); skip = 0 }
+    { print strip($0) }' "$1")
   st=$(printf '%s\n' "$body" | awk '/^## States/{f=1;next} f&&/^## /{exit} f')
+  # 판독 불가(원문 출현 수 > 단일줄 정규식 파싱 수)를 무음 통과시키지 않는다 — 원칙 5
+  raw=$(grep -o 'genre-override:' "$1" 2>/dev/null | grep -c . || true)
+  parsed=$(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null | grep -c . || true)
+  [ "$raw" -gt "$parsed" ] && _gadd "  [genre] override 구문 판독 불가 $((raw - parsed))건 — 한 줄 주석으로 적는다(<!-- genre-override: <ID> <사유> -->)"
   while IFS= read -r o; do
     [ -n "$o" ] || continue
     o=$(printf '%s' "$o" | sed -E 's/^<!--[[:space:]]*genre-override:[[:space:]]*//; s/[[:space:]]*-->$//')

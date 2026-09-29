@@ -317,6 +317,23 @@ o=$(_gout "$TD/ov5.md")
 _gdet "$o" | grep -qF '[genre] G-LIST-SORT 미충족' && ok "G3.e override 사유가 판정 본문에 새지 않음" \
   || nope "G3.e" "det=$(_gdet "$o" | tr '\n' ' ')"
 
+# G3.f·g 판독 불가 override(다중줄 · 사유에 '>') — 무음 통과 금지 (Phase C Important)
+# 정규식이 못 잡으면 사유 키워드('기간 선택')가 본문으로 새어 충족으로 위장되고 override 줄도 안 나온다.
+_gunparse() {  # $1=라벨 $2=md
+  local o; o=$(_gout "$2")
+  if [ "$(_val "$o" genre)" = 0/1 ] && _gdet "$o" | grep -qF '[genre] override 구문 판독 불가 1건' \
+     && _gdet "$o" | grep -qF '[genre] G-DASH-PERIOD 미충족'; then
+    ok "G3.$1 판독 불가 override — 경고 + 사유 키워드 미누설"
+  else nope "G3.$1" "genre=$(_val "$o" genre) det=$(_gdet "$o" | tr '\n' ' ')"; fi
+}
+_gmd "$TD/ov6.md" 대시보드 "${DASH_OK/기간 선택 (최근 7일 기본)/지표 카드 4개}
+<!-- genre-override: G-DASH-PERIOD
+     기간 선택 없음 — 실시간 뷰 -->"
+_gunparse f "$TD/ov6.md"
+_gmd "$TD/ov7.md" 대시보드 "${DASH_OK/기간 선택 (최근 7일 기본)/지표 카드 4개}
+<!-- genre-override: G-DASH-PERIOD 상단 > 기간 선택 대신 실시간 -->"
+_gunparse g "$TD/ov7.md"
+
 # ── G7: 복합 원형 (AC-7 · clarify Q1) ──
 _gmd "$TD/c1.md" '목록, 상세' "$LIST_OK"; o=$(_gout "$TD/c1.md")
 [ "$(_val "$o" genre)" = 3/3 ] && ok "G7.a 목록, 상세 → 3/3" || nope "G7.a" "genre=$(_val "$o" genre)"
