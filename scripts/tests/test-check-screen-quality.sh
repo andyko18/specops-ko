@@ -599,4 +599,16 @@ _st2=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git status --
 { [ "$_rgrc" -eq 0 ] && [ "$_st1" = "$_st2" ] && [ -n "$_st1" ]; } && ok "RGR --regress exit 0 · 작업 트리·인덱스 불변" || nope "RGR" "rc=$_rgrc st1='$_st1' st2='$_st2'"
 _rg_reset
 
+# RG4 새 위반만 보고 (AC-4) — 기준 a 는 이미 S-LANDMARK(랜드마크 0) 보유
+o=$(_rgrun "$_RGB")
+[ "$(_rv "$o" a new-rules)" = 0 ] && ok "RG4.b 변화 없음 → new-rules=0" || nope "RG4.b" "new-rules=$(_rv "$o" a new-rules)"
+{ _rg_html 30 | sed 's#</body>#<p style="color: \#AB12CD">x</p></body>#'; } > "$_RG/screens/a.html"
+o=$(_rgrun "$_RGB")
+_rg4=$(printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: a /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f')
+if [ "$(_rv "$o" a new-rules)" = 1 ] && printf '%s\n' "$_rg4" | grep -q '^  \[new-rule\] S-TOKEN-HEX — ' \
+   && ! printf '%s\n' "$_rg4" | grep -q '\[new-rule\] S-LANDMARK'; then
+  ok "RG4.a 새 위반 S-TOKEN-HEX 만 보고 (기존 S-LANDMARK 제외)"
+else nope "RG4.a" "new-rules=$(_rv "$o" a new-rules) det='$(printf '%s' "$_rg4" | tr '\n' '|')'"; fi
+_rg_reset
+
 finish

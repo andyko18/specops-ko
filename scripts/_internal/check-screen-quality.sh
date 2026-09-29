@@ -220,6 +220,16 @@ _regress_one() {  # $1=화면명
   det="$(_rg_lineage md "$vm")${_NL}$(_rg_lineage html "$vh")"
   case "$vm" in [0-9]*) _rg_is_shrink "$cm" "$bm" "$rg_thr" && det="${det}${_NL}  [shrink] .md 본문 $bm → $cm 바이트 ($vm < $rg_thr) — 내용이 줄었다" ;; esac
   case "$vh" in [0-9]*) _rg_is_shrink "$ch" "$bh" "$rg_thr" && det="${det}${_NL}  [shrink] .html 마크업 $bh → $ch 바이트 ($vh < $rg_thr) — 내용이 줄었다" ;; esac
+  # 새 위반 — 기준 사본과 현재 파일을 각각 _analyze(서브셸 — local 격리)로 계측해 rule= ID 차집합
+  case "$vm" in
+    [0-9]*)
+      _analyze "$_rg_tmp/$n.md" "$_rg_tmp/$n.html" 2>/dev/null | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u > "$_rg_tmp/$n.ids.base"
+      _analyze "screens/$n.md" "screens/$n.html" 2>/dev/null | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u > "$_rg_tmp/$n.ids.cur"
+      lbl=$(comm -13 "$_rg_tmp/$n.ids.base" "$_rg_tmp/$n.ids.cur")
+      nr=$(printf '%s\n' "$lbl" | grep -c . || true)
+      for _rg_id in $lbl; do det="${det}${_NL}  [new-rule] $_rg_id — 이전 버전에 없던 위반"; done
+      ;;
+  esac
   printf 'SCREEN-REGRESSION: %s  base=%s  md=%s  html=%s  new-rules=%s\n' "$n" "$rg_short" "$vm" "$vh" "$nr"
   printf '%s\n' "$det" | grep -v '^$' || true
 }
