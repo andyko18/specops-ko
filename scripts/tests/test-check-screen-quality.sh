@@ -611,6 +611,42 @@ if [ "$(_rv "$o" a new-rules)" = 1 ] && printf '%s\n' "$_rg4" | grep -q '^  \[ne
 else nope "RG4.a" "new-rules=$(_rv "$o" a new-rules) det='$(printf '%s' "$_rg4" | tr '\n' '|')'"; fi
 _rg_reset
 
+# ── 2차 기준 커밋: 로그인(비ASCII 이름) · mdonly(.html 없음) · mix(md 채움 · html 껍데기) — Phase C 재dispatch ──
+_rg_html 20 > "$_RG/screens/로그인.html"; _rg_md 20 > "$_RG/screens/로그인.md"
+_rg_md 20 > "$_RG/screens/mdonly.md"
+_rg_md 20 > "$_RG/screens/mix.md"
+{ printf '<!-- specops:screen-placeholder — 실제 내용으로 채우면 이 줄을 삭제한다 -->\n'; _rg_html 20; } > "$_RG/screens/mix.html"
+_rgit add -A && _rgit commit -q -m base2
+_RGB2=$( cd "$_RG" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git rev-parse HEAD 2>/dev/null )
+if [ -z "$_RGB2" ] || [ "$_RGB2" = "$_RGB" ]; then nope "RG0.b 2차 기준 커밋" "commit 실패"; else
+
+# RG7.c 비ASCII 화면명 삭제 → deleted (Critical — ls-tree 인용 출력이 기준-전용 화면을 무음으로 만들었다)
+rm -f "$_RG/screens/로그인.md" "$_RG/screens/로그인.html"; o=$(_rgrun "$_RGB2")
+{ [ "$(_rv "$o" 로그인 md)" = deleted ] && [ "$(_rv "$o" 로그인 html)" = deleted ]; } \
+  && ok "RG7.c 비ASCII 이름(로그인) 삭제 → deleted 줄 존재" || nope "RG7.c" "$(printf '%s' "$o" | tr '\n' '|')"
+_rg_reset
+
+# RG3.g 기준 == HEAD → [scope] 1줄 (커밋된 변경은 비교되지 않는다) · 기준 ≠ HEAD 면 없음
+o=$(_rgrun HEAD)
+printf '%s\n' "$o" | grep -qF '  [scope] 기준 커밋이 HEAD 와 같다' && ok "RG3.g --regress HEAD → [scope] 기준==HEAD 고백" || nope "RG3.g" "$(printf '%s' "$o" | tr '\n' '|')"
+o=$(_rgrun "$_RGB")
+printf '%s\n' "$o" | grep -qF '  [scope] 기준 커밋이 HEAD 와 같다' && nope "RG3.g-neg" "기준 ≠ HEAD 인데 [scope] 줄" || ok "RG3.g-neg 기준 ≠ HEAD → [scope] 없음"
+
+# RG3.h .html 이 기준·작업 트리 모두 없음 → html=unknown + 사유줄
+o=$(_rgrun "$_RGB2")
+{ [ "$(_rv "$o" mdonly html)" = unknown ] \
+  && printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: mdonly /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f' | grep -qF '[lineage] .html 기준·작업 트리 모두 없음 — 비교하지 않았다'; } \
+  && ok "RG3.h .html 양측 부재 → html=unknown · [lineage] 사유" || nope "RG3.h" "$(printf '%s' "$o" | tr '\n' '|')"
+
+# RG4.c 혼합 계보(md 숫자 · html shell) → new-rules=unknown · [new-rule] 없음 (T2 Important — 자기모순 출력 차단)
+{ _rg_html 20 | sed 's#</body>#<p style="color: \#AB12CD">x</p></body>#'; } > "$_RG/screens/mix.html"
+o=$(_rgrun "$_RGB2")
+_rg4c=$(printf '%s\n' "$o" | awk '/^SCREEN-REGRESSION: mix /{f=1; next} /^SCREEN-REGRESSION: /{f=0} f')
+{ [ "$(_rv "$o" mix html)" = shell ] && [ "$(_rv "$o" mix new-rules)" = unknown ] && ! printf '%s\n' "$_rg4c" | grep -q '\[new-rule\]'; } \
+  && ok "RG4.c md 숫자 · html shell → new-rules=unknown · [new-rule] 없음" || nope "RG4.c" "new-rules=$(_rv "$o" mix new-rules) det='$(printf '%s' "$_rg4c" | tr '\n' '|')'"
+_rg_reset
+fi
+
 # RG6 verify 배선 (AC-6) — 화면 품질 계측 bullet 과 테스트=spec 커버 점검 사이
 _l_rq=$(grep -n 'check-screen-quality\.sh --all' "$VS" | head -1 | cut -d: -f1)
 _l_rr=$(grep -n 'check-screen-quality\.sh --regress' "$VS" | head -1 | cut -d: -f1)

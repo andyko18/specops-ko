@@ -210,6 +210,7 @@ _rg_lineage() {  # $1=ext $2=값 → 상세줄(없으면 무출력)
     new)     printf '  [lineage] .%s 이전 버전 없음 — 새 화면, 비교하지 않았다\n' "$1" ;;
     shell)   printf '  [lineage] .%s 이전 버전이 템플릿 상태 — 비교하지 않았다\n' "$1" ;;
     deleted) printf '  [lineage] .%s 기준 커밋에 있던 파일이 없다 — 삭제(또는 이름 변경)\n' "$1" ;;
+    unknown) printf '  [lineage] .%s 기준·작업 트리 모두 없음 — 비교하지 않았다\n' "$1" ;;
   esac
 }
 
@@ -221,8 +222,9 @@ _regress_one() {  # $1=화면명
   case "$vm" in [0-9]*) _rg_is_shrink "$cm" "$bm" "$rg_thr" && det="${det}${_NL}  [shrink] .md 본문 $bm → $cm 바이트 ($vm < $rg_thr) — 내용이 줄었다" ;; esac
   case "$vh" in [0-9]*) _rg_is_shrink "$ch" "$bh" "$rg_thr" && det="${det}${_NL}  [shrink] .html 마크업 $bh → $ch 바이트 ($vh < $rg_thr) — 내용이 줄었다" ;; esac
   # 새 위반 — 기준 사본과 현재 파일을 각각 _analyze(서브셸 — local 격리)로 계측해 rule= ID 차집합
-  case "$vm" in
-    [0-9]*)
+  #   md·html 둘 다 숫자 계보일 때만 — 한쪽이 shell/new/unknown 이면 "비교하지 않았다" 와 [new-rule] 이 동시에 나온다(Phase C R3)
+  case "$vm/$vh" in
+    [0-9]*/[0-9]*)
       _analyze "$_rg_tmp/$n.md" "$_rg_tmp/$n.html" 2>/dev/null | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u > "$_rg_tmp/$n.ids.base"
       _analyze "screens/$n.md" "screens/$n.html" 2>/dev/null | sed -n 's/.*  rule=//p' | tr ',' '\n' | sort -u > "$_rg_tmp/$n.ids.cur"
       lbl=$(comm -13 "$_rg_tmp/$n.ids.base" "$_rg_tmp/$n.ids.cur")
@@ -459,7 +461,8 @@ if [ "${1:-}" = "--regress" ]; then
     _rg_unknown_line "$rg_why"; [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"; exit 0
   fi
   _rg_names=$( { for f in screens/*.md; do [ -f "$f" ] && basename "$f" .md; done
-                 git ls-tree --name-only "$rg_base" -- screens/ 2>/dev/null | sed -n 's#^screens/\(.*\)\.md$#\1#p'; } | sort -u )
+                 # core.quotePath=false — 기본값은 비ASCII 경로를 "screens/\353…" 로 인용해 sed 가 놓치고 삭제된 한글 화면이 무음이 된다(Phase C R1)
+                 git -c core.quotePath=false ls-tree --name-only "$rg_base" -- screens/ 2>/dev/null | sed -n 's#^screens/\(.*\)\.md$#\1#p'; } | sort -u )
   if [ -z "$_rg_names" ]; then
     _rg_unknown_line 'screens/*.md 대상 0개 (작업 트리·기준 커밋 모두) — cwd 가 repo 루트인지 확인'
     [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"; exit 0
@@ -471,6 +474,9 @@ if [ "${1:-}" = "--regress" ]; then
   done <<EOF
 $_rg_names
 EOF
+  # 기준 == HEAD(main 위·merge 후·--regress HEAD)면 전부 1.00 이라 "회귀 없음" 과 구별되지 않는다 — 한계 고백 1줄(Phase C Q1)
+  [ "$rg_base" = "$(git rev-parse --verify -q 'HEAD^{commit}' 2>/dev/null)" ] \
+    && printf '  [scope] 기준 커밋이 HEAD 와 같다 — 커밋된 변경은 비교되지 않는다(미커밋분만)\n'
   [ -n "$rg_cfg" ] && printf '%s\n' "$rg_cfg"
   exit 0
 fi
