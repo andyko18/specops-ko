@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# specops-ko skill 별 활성화·행동 eval 러너 — skills/<name>/{trigger-queries,evals}.json
+# 사용: bash scripts/tests/llm-eval/run-skill-evals.sh --trigger|--evals [skill...]
+# 환경: CLAUDE_BIN(기본 claude) · SKILL_EVAL_DIR(기본 이 디렉터리의 skills/) · SKILL_EVAL_MODE(routed 강제)
+#       ANTHROPIC_API_KEY(있으면 isolated) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 300초)
+# ⚠️ 실 claude 실행은 토큰 비용 발생(~$0.9/질의) — run-all/CI 비포함, 수동 전용. 질의당 1회, 재시도·N-run 없음.
+# 측정 모드:
+#   isolated — `--bare --plugin-dir <플러그인>`: 훅(SessionStart 메타 주입 포함)을 끄고 description 만으로
+#              Skill 을 고르게 하려는 경로. --bare 는 OAuth 를 읽지 않아 ANTHROPIC_API_KEY 가 필요하다.
+#              훅 차단·description 해석은 **실측 미확인**이라 요약줄에 `isolated(unverified)` 로 적는다
+#              (20260929-skill-behavior-eval IQ-1 — 첫 키 보유 실행에서 확인 후 이 표기를 뗀다).
+#   routed   — 현행 run-evals.sh 와 같은 인자: 메타 skill 라우팅이 섞인 측정. `--plugin-dir` 가 없으므로
+#              사용자 전역에 specops-ko 가 설치·활성이어야 skill 이 존재하고, 사용자 훅도 그대로 발화한다.
+# claude 가 result 이벤트 없이 끝나면(인증 실패·플래그 미지원 등) SKIP(error) — FAIL·PASS 로 세지 않는다.
+# 통과율은 max_turns=4 편향을 상속한다(run-evals.sh 헤더) — 감지율이 아니라 신호로만 읽는다.
+set -uo pipefail
+
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PLUGIN=$(cd "$HERE/../../.." && pwd)
+# shellcheck disable=SC1091
+source "$HERE/eval-lib.sh"
+# shellcheck disable=SC1091
+source "$HERE/skill-evals-lib.sh"
+
+CLAUDE_BIN="${CLAUDE_BIN:-claude}"
+DATA_DIR="${SKILL_EVAL_DIR:-$HERE/skills}"
+MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
+TIMEOUT_S="${LLM_EVAL_TIMEOUT:-300}"
+
+case "${1:-}" in
+  --trigger) KIND=trigger; FILE=trigger-queries.json ;;
+  --evals)   KIND=evals;   FILE=evals.json ;;
+  *) echo "사용: bash run-skill-evals.sh --trigger|--evals [skill...]" >&2; exit 0 ;;  # spec FR-8 — 항상 exit 0
+esac
+shift
+
+MODE=routed; LABEL=routed
+if [ "${SKILL_EVAL_MODE:-}" = routed ]; then
+  echo "NOTE: SKILL_EVAL_MODE=routed 강제 — 메타 라우팅 혼합 측정"
+elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  MODE=isolated; LABEL="isolated(unverified)"
+else
+  echo "NOTE: isolated 불가(ANTHROPIC_API_KEY 부재) — routed: 메타 라우팅 혼합 측정 (전역 설치 플러그인·사용자 훅 의존)"
+fi
+EXTRA=(--max-turns "$MAX_TURNS" --allowedTools Skill)
+[ "$MODE" = isolated ] && EXTRA+=(--bare --plugin-dir "$PLUGIN")
+
+if [ "$#" -gt 0 ]; then SKILLS=("$@")
+else SKILLS=(); for d in "$DATA_DIR"/*/; do [ -d "$d" ] && SKILLS+=("$(basename "$d")"); done; fi
+
+PASS=0; FAIL=0; SKIP=0; COST=0
+summary() { echo "SKILL-EVAL: mode=$LABEL $KIND pass=$PASS fail=$FAIL skip=$SKIP cost=\$$(awk -v c="$COST" 'BEGIN{printf "%.2f", c}')"; }
+
+if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
+  echo "SKIP: claude CLI 부재 (CLAUDE_BIN=$CLAUDE_BIN)"
+  SKIP=${#SKILLS[@]}; summary; exit 0
+fi
+
+emit() {  # <skill> <id> <verdict> [사유]
+  printf 'MODE=%s  %s  %s  %s%s\n' "$MODE" "$1" "$2" "$3" "${4:+  ($4)}"
+  case "$3" in PASS) PASS=$((PASS+1)) ;; FAIL) FAIL=$((FAIL+1)) ;; *) SKIP=$((SKIP+1)) ;; esac
+}
+
+ask() {  # <prompt> → 전역 OUT(stream-json) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
+  local sb rc
+  sb=$(mktemp -d)
+  git -C "$sb" init -q; mkdir -p "$sb/.specops"; printf '# sandbox\n' > "$sb/CLAUDE.md"
+  OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${EXTRA[@]}"); rc=$?
+  rm -rf "$sb"
+  COST=$(awk -v a="$COST" -v b="$(printf '%s\n' "$OUT" | eval::extract_cost)" 'BEGIN{printf "%.6f", a+b}')  # 반올림은 요약에서 1회
+  return "$rc"
+}
+
+skip_reason() {  # <ask rc> → SKIP 문구
+  case "$1" in 124) echo "SKIP(timeout)" ;; *) echo "SKIP(error: result 이벤트 없음 — 실행 실패)" ;; esac
+}
+
+run_trigger() {  # <skill> <file> — 질의는 jq -c 한 줄 객체로 읽는다(@tsv 는 탭·개행·백슬래시를 이스케이프 문자열로 바꾼다)
+  local s="$1" f="$2" o id q want calls rc
+  while IFS= read -r o; do
+    want=$(printf '%s' "$o" | jq -r .w); id=$(printf '%s' "$o" | jq -r .id); q=$(printf '%s' "$o" | jq -r .query)
+    ask "$q"; rc=$?
+    [ "$rc" -eq 0 ] || { emit "$s" "$id" "$(skip_reason "$rc")"; continue; }
+    calls=$(printf '%s\n' "$OUT" | eval::all_skills)
+    if [ "$want" = pos ]; then
+      skill_evals::called "$s" "$calls" && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "불려야 하는데 미호출"
+    else
+      skill_evals::called "$s" "$calls" && emit "$s" "$id" FAIL "불리면 안 되는데 호출됨" || emit "$s" "$id" PASS
+    fi
+  done < <(jq -c '(.should_trigger[] | {w:"pos", id, query}), (.should_not_trigger[] | {w:"neg", id, query})' "$f")
+}
+
+run_evals() {  # <skill> <file>
+  local s="$1" f="$2" o id p asserts a t v verdict text cost first rc
+  while IFS= read -r o; do
+    id=$(printf '%s' "$o" | jq -r .id); p=$(printf '%s' "$o" | jq -r .prompt)
+    ask "$p"; rc=$?
+    [ "$rc" -eq 0 ] || { emit "$s" "$id" "$(skip_reason "$rc")"; continue; }
+    text=$(printf '%s\n' "$OUT" | eval::extract_text)
+    cost=$(printf '%s\n' "$OUT" | eval::extract_cost)
+    first=""
+    asserts=$(printf '%s' "$o" | jq -c '.asserts[]')
+    while IFS= read -r a; do
+      [ -z "$a" ] && continue
+      t=$(printf '%s' "$a" | jq -r .type); v=$(printf '%s' "$a" | jq -r '.value|tostring')
+      if [ "$t" = cost_lt ]; then verdict=$(eval::assert cost_lt "$cost" "$v")
+      else verdict=$(eval::assert "$t" "$text" "$v" "$CLAUDE_BIN"); fi
+      [ "$verdict" = FAIL ] && [ -z "$first" ] && first="$t:$v"
+    done <<EOF
+$asserts
+EOF
+    [ -z "$first" ] && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "첫 실패 $first"
+  done < <(jq -c '.cases[]' "$f")
+}
+
+for s in "${SKILLS[@]+"${SKILLS[@]}"}"; do
+  f="$DATA_DIR/$s/$FILE"
+  if [ ! -f "$f" ]; then emit "$s" - "SKIP(데이터 파일 부재: $FILE)"; continue; fi
+  if ! why=$(skill_evals::check "$KIND" "$f" "$PLUGIN/skills"); then emit "$s" - "SKIP(스키마 위반: $why)"; continue; fi
+  if [ "$KIND" = trigger ]; then run_trigger "$s" "$f"; else run_evals "$s" "$f"; fi
+done
+summary
+exit 0

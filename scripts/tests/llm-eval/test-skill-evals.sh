@@ -113,6 +113,90 @@ for d in "$LE"/skills/*/; do
   done < <(jq -c '.cases[]' "$d/evals.json")
 done
 [ -z "$echo_bad" ] && ok "T2.echo assert 가 프롬프트 자신에 매칭되지 않음" || nope "T2.echo" "프롬프트 에코로 통과하는 assert:$echo_bad"
+# ── T5·T6 러너 픽스처: 실존 skill(karpathy-ko) 1개 · 양성 1 · 음성 1 · case 1 ──
+DATA="$TMP/data"; mkdir -p "$DATA/karpathy-ko"
+jq -n '{skill:"karpathy-ko",should_trigger:[{id:"pos-1",query:"q1"}],should_not_trigger:[{id:"neg-1",query:"q2"}]}' > "$DATA/karpathy-ko/trigger-queries.json"
+jq -n '{skill:"karpathy-ko",cases:[{id:"e-1",prompt:"p1",asserts:[{type:"contains",value:"설계"}]}]}' > "$DATA/karpathy-ko/evals.json"
+cat > "$TMP/rec-claude" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$TMP/args.log"
+exec bash "$LE/stub-claude.sh" "\$@"
+EOF
+chmod +x "$TMP/rec-claude"
+_run() {  # <plan 행들(\n)> <env 할당...> -- <러너 인자...> → 러너 stdout (rc 는 RUN_RC)
+  printf '%b\n' "$1" > "$TMP/plan.jsonl"; shift
+  rm -f "$TMP/state" "$TMP/args.log"
+  local envs=()
+  while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
+  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS \
+    CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" \
+    SKILL_EVAL_DIR="$DATA" "${envs[@]+"${envs[@]}"}" bash "$LE/run-skill-evals.sh" "$@" 2>&1); RUN_RC=$?
+}
+_line() { printf '%s\n' "$RUN_OUT" | grep -F -- "  $1  " | head -1; }
+
+# T5 (AC-5) 러너 판정·모드·경계
+_run '{"skills":["advisor-ko","karpathy-ko"]}\n{"skills":["advisor-ko","karpathy-ko"]}' -- --trigger
+_line pos-1 | grep -q 'PASS' && ok "T5.a ① 양성 — 두 번째 호출도 PASS" || nope "T5.a" "$RUN_OUT"
+_line neg-1 | grep -q 'FAIL' && ok "T5.b ② 음성 — 두 번째 호출된 대상 FAIL" || nope "T5.b" "$RUN_OUT"
+_run '{"skills":["karpathy-ko"]}\n{"skills":["advisor-ko"]}' -- --trigger
+_line neg-1 | grep -q 'PASS' && ok "T5.c ③ 음성 — 다른 skill 만 호출 PASS" || nope "T5.c" "$RUN_OUT"
+_run '{"text":"먼저 설계를 봅니다"}' -- --evals
+_line e-1 | grep -q 'PASS' && ok "T5.d ④ eval asserts 만족 PASS" || nope "T5.d" "$RUN_OUT"
+_run '{"text":"바로 코드 작성"}' -- --evals
+_line e-1 | grep -q 'FAIL' && ok "T5.e ④ eval asserts 불만족 FAIL" || nope "T5.e" "$RUN_OUT"
+_run '{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^MODE=isolated  ')" -eq 2 ] \
+   && grep -qF -- '--bare' "$TMP/args.log" && grep -qF -- "--plugin-dir $PLUGIN" "$TMP/args.log"; then
+  ok "T5.f ⑤ 키 설정 → MODE=isolated + --bare --plugin-dir"; else nope "T5.f" "$RUN_OUT / $(cat "$TMP/args.log")"; fi
+_run '{"skills":["karpathy-ko"]}' -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^MODE=routed  ')" -eq 2 ] \
+   && printf '%s' "$RUN_OUT" | grep -q 'isolated 불가(ANTHROPIC_API_KEY 부재)' \
+   && ! grep -q -- '--bare' "$TMP/args.log" && ! grep -q -- '--plugin-dir' "$TMP/args.log"; then
+  ok "T5.g ⑤ 키 미설정 → MODE=routed + 폴백 고지 + 격리 인자 없음"; else nope "T5.g" "$RUN_OUT"; fi
+_run '{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k SKILL_EVAL_MODE=routed -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^MODE=routed  ')" -eq 2 ] && ! grep -q -- '--bare' "$TMP/args.log" \
+   && ! grep -q -- '--plugin-dir' "$TMP/args.log"; then
+  ok "T5.h ⑤ SKILL_EVAL_MODE=routed 강제"; else nope "T5.h" "$RUN_OUT"; fi
+_run '{}' CLAUDE_BIN="$TMP/no-such-claude" -- --trigger
+printf '%s' "$RUN_OUT" | grep -q '^SKIP: claude CLI 부재' && [ "$RUN_RC" -eq 0 ] \
+  && ok "T5.i ⑥ CLI 부재 → SKIP · rc 0" || nope "T5.i" "rc=$RUN_RC $RUN_OUT"
+_run '{}' -- --trigger advisor-ko
+printf '%s' "$RUN_OUT" | grep -q 'advisor-ko  -  SKIP(데이터 파일 부재' && [ "$RUN_RC" -eq 0 ] \
+  && ok "T5.j ⑦ 데이터 부재 → SKIP(사유)" || nope "T5.j" "rc=$RUN_RC $RUN_OUT"
+_run '{"skills":["advisor-ko"]}\n{"skills":["karpathy-ko"]}' -- --trigger
+printf '%s' "$RUN_OUT" | grep -qE '^SKILL-EVAL: mode=routed trigger pass=0 fail=2 skip=0 cost=\$[0-9.]+$' && [ "$RUN_RC" -eq 0 ] \
+  && ok "T5.k 요약줄 형식 · 전부 FAIL 이어도 rc 0" || nope "T5.k" "rc=$RUN_RC $RUN_OUT"
+
+_run '{}' -- 
+[ "$RUN_RC" -eq 0 ] && printf '%s' "$RUN_OUT" | grep -q '^사용: ' && ok "T5.l 인자 없음 → 사용법 · rc 0 (FR-8)" || nope "T5.l" "rc=$RUN_RC $RUN_OUT"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP/dead-claude"; chmod +x "$TMP/dead-claude"
+_run '{}' CLAUDE_BIN="$TMP/dead-claude" -- --trigger
+if _line neg-1 | grep -q 'SKIP(error' && _line pos-1 | grep -q 'SKIP(error' \
+   && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=0 skip=2'; then
+  ok "T5.m result 이벤트 없음 → SKIP(error) — 음성이 PASS 로 위장되지 않음"; else nope "T5.m" "$RUN_OUT"; fi
+printf '#!/usr/bin/env bash\nsleep 5\n' > "$TMP/slow-claude"; chmod +x "$TMP/slow-claude"
+_run '{}' CLAUDE_BIN="$TMP/slow-claude" LLM_EVAL_TIMEOUT=1 -- --evals
+_line e-1 | grep -q 'SKIP(timeout)' && ok "T5.n 시간 초과 → SKIP(timeout)" || nope "T5.n" "$RUN_OUT"
+WTO=$((1000 + $$ % 8000))   # 실행별 고유 timeout — 같은 머신의 동시 실행과 pgrep 가 섞이지 않게
+_run '{"skills":["karpathy-ko"]}' LLM_EVAL_TIMEOUT="$WTO" -- --trigger
+sleep 1
+[ "$(pgrep -fx "sleep $WTO" | grep -c .)" -eq 0 ] && ok "T5.o 정상 종료 후 워치독 sleep 고아 0" \
+  || { nope "T5.o" "고아 sleep $WTO $(pgrep -fx "sleep $WTO" | grep -c .)개"; pkill -fx "sleep $WTO"; }
+mkdir -p "$TMP/data2/karpathy-ko"
+jq -n '{skill:"karpathy-ko",should_trigger:[{id:"pos-1",query:"a\\b\tc"}],should_not_trigger:[{id:"neg-1",query:"q"}]}' > "$TMP/data2/karpathy-ko/trigger-queries.json"
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_DIR="$TMP/data2" -- --trigger
+head -1 "$TMP/args.log" | grep -qF -- "$(printf -- '-p a\\b\tc ')" && ok "T5.p 질의의 백슬래시·탭을 그대로 전달" \
+  || nope "T5.p" "$(head -1 "$TMP/args.log")"
+
+# T6 (AC-7) isolated 미확인 표기 + 단발 실행
+_run '{"skills":["advisor-ko"]}\n{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k LLM_EVAL_RUNS=3 -- --trigger
+printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=isolated(unverified) trigger ' \
+  && ok "T6.a 키 설정 → mode=isolated(unverified)" || nope "T6.a" "$RUN_OUT"
+[ "$(cat "$TMP/state" 2>/dev/null)" = "2" ] && ok "T6.b 전부 FAIL + LLM_EVAL_RUNS=3 에도 호출 2회(재시도·N-run 없음)" \
+  || nope "T6.b" "stub 호출 $(cat "$TMP/state" 2>/dev/null)회"
+_run '{"text":"x"}' -- --evals
+printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=routed evals ' && [ "$(cat "$TMP/state")" = "1" ] \
+  && ok "T6.c 키 미설정 → mode=routed · evals 호출 1회" || nope "T6.c" "$RUN_OUT"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
