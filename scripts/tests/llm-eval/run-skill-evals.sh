@@ -18,8 +18,9 @@
 #   조사·우회 도구를 막아 "Skill 을 부를지"만으로 응답하게 한다 — 이 변경 전 라이브 결과와는 측정 의미가 달라 비교 불가.
 #   `--tools Skill` 은 Skill 이 내장 목록 밖이라 전 도구가 꺼져 쓰지 않는다(실측).
 #   `--strict-mcp-config`: routed 는 사용자 전역 MCP 도구(실측 31개 · filesystem 포함)가 노출돼 차단을 우회한다 — MCP 서버를 올리지 않는다.
-#   ⚠️ 남은 오염: system 컨텍스트의 git status 가 빈 sandbox 를 드러내, 기존 코드를 전제하는 양성 질의(버그 수정·유지보수)는
-#   도구가 없어도 "파일 없음"으로 끝날 수 있다(실측). 픽스처 시드 또는 질의 문안 재설계는 별도 FID.
+# 픽스처 repo(SKILL_EVAL_FIXTURE · 기본 skill-eval-fixture-repo/): 빈 sandbox 는 system 컨텍스트의 git status 로 드러나
+#   기존 코드를 전제하는 질의가 "파일 없음"으로 끝났다(실측 빈 2/3 · 픽스처 커밋 3/3 — 20260930-skill-eval-fixture-repo).
+#   질의마다 픽스처를 복사해 CLAUDE.md 까지 커밋한다(git status clean). 픽스처가 없으면 종전 빈 sandbox.
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -33,6 +34,10 @@ CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 DATA_DIR="${SKILL_EVAL_DIR:-$HERE/skills}"
 MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-300}"
+FIXTURE_DIR="${SKILL_EVAL_FIXTURE:-$HERE/skill-eval-fixture-repo}"
+# 호출자 셸의 git 위치 변수는 sandbox 의 git·claude(자식 프로세스)를 sandbox 밖으로 끌고 간다(git 훅 안 실행 등) — 러너는 호출자
+#   repo 를 쓰지 않으므로 전부 해제한다(pre-commit 은 GIT_INDEX_FILE 을 설정한다 — 실측)
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 
 case "${1:-}" in
   --trigger) KIND=trigger; FILE=trigger-queries.json ;;
@@ -76,6 +81,12 @@ ask() {  # <prompt> → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자)
   # stderr 는 sandbox 밖에 받는다 — sandbox 안이면 claude 가 보는 git status 에 untracked 로 드러나 측정을 오염시킨다
   ef=$(mktemp) || ef=/dev/null
   git -C "$sb" init -q; mkdir -p "$sb/.specops"; printf '# sandbox\n' > "$sb/CLAUDE.md"
+  if [ -d "$FIXTURE_DIR" ]; then  # 픽스처 복사 + 전부 커밋 — 실패해도 판정 경로는 그대로(sandbox 는 그대로 쓴다)
+    # 사용자 git 설정에 흔들리지 않게: ignore 규칙 전부(전역 gitignore·templateDir 의 info/exclude) 무시(add -f) · hooksPath/templateDir 훅 · 서명을 끈다
+    cp -R "$FIXTURE_DIR/." "$sb/" 2>/dev/null
+    { git -C "$sb" add -Af \
+        && git -C "$sb" -c user.email=eval@local -c user.name=skill-eval -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm fixture; } >/dev/null 2>&1
+  fi
   OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${EXTRA[@]}" 2>"$ef"); rc=$?
   # 첫 줄만 · ANSI 색 시퀀스 → 나머지 제어문자 제거(≥0x80 바이트 보존) · 120자 절단(UTF-8 로케일 전제 — C 로케일이면 바이트 절단)
   ERR=$(head -1 "$ef" 2>/dev/null | sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g' | LC_ALL=C tr -d '\000-\037\177'); ERR=${ERR:0:120}
