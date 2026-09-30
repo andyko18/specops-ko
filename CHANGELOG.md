@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.105.0] — 2026-09-30
+
 ### skill 활성화 측정 정비 + description 조정 — 라이브 eval 이 처음으로 쓸 만한 데이터를 낸다 (#69 · #70 · #71 · #72)
 
 라이브 `run-skill-evals.sh --trigger`(routed · 36질의)가 하니스 결함으로 해석 불가였다(양성 미발동 다수 + SKIP 8건). 결함 셋을 걷어내고, 그 위에서 측정한 활성화율로 description 을 고쳤다.
@@ -2620,7 +2622,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.104.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.105.0...HEAD
+[1.105.0]: https://github.com/andyko18/specops-ko/compare/v1.104.0...v1.105.0
 [1.104.0]: https://github.com/andyko18/specops-ko/compare/v1.103.0...v1.104.0
 [1.103.0]: https://github.com/andyko18/specops-ko/compare/v1.102.0...v1.103.0
 [1.102.0]: https://github.com/andyko18/specops-ko/compare/v1.101.0...v1.102.0
