@@ -308,6 +308,103 @@ printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=isolated(unverified) trigger
 _run '{"text":"x"}' -- --evals
 printf '%s' "$RUN_OUT" | grep -q '^SKILL-EVAL: mode=routed evals ' && [ "$(cat "$TMP/state")" = "1" ] \
   && ok "T6.c 키 미설정 → mode=routed · evals 호출 1회" || nope "T6.c" "$RUN_OUT"
+# T8 (20260930-eval-llm-judge) 진짜 llm_rubric 채점기 · 러너 통합 · 보정 — stub 전용, 토큰 0
+JUDGE_VERDICT=""; JUDGE_REASON=""; JUDGE_COST=""   # 구현이 없을 때 unbound variable 로 스위트가 중단되지 않고 단언이 개별 FAIL 하게
+_judge() {  # <plan 행(JSON 한 줄)> [bin] → JUDGE_* 전역 (서브셸 밖 직접 호출)
+  printf '%s\n' "$1" > "$TMP/jplan.jsonl"; rm -f "$TMP/jstate" "$TMP/args.log"
+  STUB_PLAN="$TMP/jplan.jsonl" STUB_STATE="$TMP/jstate" eval::judge_rubric "${2:-$TMP/rec-claude}" "응답본문" "기준문안" 30
+}
+_judge '{"text":"VERDICT: PASS\n근거 한 줄","cost":0.1}'
+[ "$JUDGE_VERDICT" = PASS ] && [ "$JUDGE_REASON" = "근거 한 줄" ] && [ "$JUDGE_COST" = 0.1 ] \
+  && ok "T8.a VERDICT: PASS 파싱 · 근거 첫 줄 · 비용" || nope "T8.a" "$JUDGE_VERDICT|$JUDGE_REASON|$JUDGE_COST"
+_judge '{"text":"VERDICT: FAIL\n범위를 넘겼다"}'
+[ "$JUDGE_VERDICT" = FAIL ] && [ "$JUDGE_REASON" = "범위를 넘겼다" ] && ok "T8.b VERDICT: FAIL 파싱" || nope "T8.b" "$JUDGE_VERDICT|$JUDGE_REASON"
+_judge '{"text":"`VERDICT: PASS`\n근거"}'; _f1="$JUDGE_VERDICT"; _judge '{"text":"**VERDICT: FAIL**\n근거"}'; _f2="$JUDGE_VERDICT"
+[ "$_f1" = PASS ] && [ "$_f2" = FAIL ] && ok "T8.a2 백틱·굵게로 감싼 첫 줄도 형식 차이로 보고 판정 (의미는 엄격 일치)" || nope "T8.a2" "$_f1|$_f2"
+_judge '{"text":"기준을 만족하므로 통과로 봅니다."}'
+[ "$JUDGE_VERDICT" = ERROR ] && ok "T8.c VERDICT 줄 없는 산문 → ERROR (산문에서 PASS 를 추정하지 않음)" || nope "T8.c" "$JUDGE_VERDICT"
+_judge '{"text":"VERDICT: PASS 그러나 FAIL 일 수도 있다"}'
+[ "$JUDGE_VERDICT" = ERROR ] && ok "T8.d 모호한 첫 줄 → ERROR" || nope "T8.d" "$JUDGE_VERDICT"
+_judge '{"text":"판정을 내립니다.\nVERDICT: PASS\n근거"}'
+[ "$JUDGE_VERDICT" = ERROR ] && ok "T8.e 첫 줄이 아닌 곳의 VERDICT → ERROR" || nope "T8.e" "$JUDGE_VERDICT"
+_judge '{}' "$TMP/dead-claude"
+[ "$JUDGE_VERDICT" = ERROR ] && printf '%s' "$JUDGE_REASON" | grep -q '채점 호출 실패' && ok "T8.f result 없음 → ERROR · 사유" || nope "T8.f" "$JUDGE_VERDICT|$JUDGE_REASON"
+printf '#!/usr/bin/env bash\nprintf "boom: rate limited\\nsecond\\n" >&2\nexit 1\n' > "$TMP/err-claude"; chmod +x "$TMP/err-claude"; _judge '{}' "$TMP/err-claude"
+[ "$JUDGE_VERDICT" = ERROR ] && printf '%s' "$JUDGE_REASON" | grep -qF '채점 호출 실패(rc=' && printf '%s' "$JUDGE_REASON" | grep -qF ' — boom: rate limited' && ! printf '%s' "$JUDGE_REASON" | grep -qF second \
+  && ok "T8.f2 호출 실패 사유에 claude stderr 첫 줄 부착" || nope "T8.f2" "$JUDGE_REASON"
+_x=$(printf 'x%.0s' $(seq 1 100)); _judge '{"text":"VERDICT: FAIL\n\u001b[31m'"$_x"'"}'
+[ "${#JUDGE_REASON}" -eq 80 ] && ! printf '%s' "$JUDGE_REASON" | grep -q "$(printf '\033')" && ok "T8.g 근거 80자 절단 · 제어문자 제거" || nope "T8.g" "len=${#JUDGE_REASON}"
+_judge '{"text":"VERDICT: PASS\nok"}'
+if grep -qF -- '--max-turns 1' "$TMP/args.log" && grep -qF -- '--strict-mcp-config' "$TMP/args.log" \
+   && grep -qF -- '--disallowedTools Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch Skill' "$TMP/args.log" \
+   && ! grep -qF -- '--model' "$TMP/args.log"; then ok "T8.h 격리 인자 (max-turns 1 · strict-mcp · 도구+Skill 차단 · 기본은 --model 없음)"; else nope "T8.h" "$(head -c 300 "$TMP/args.log")"; fi
+LLM_EVAL_JUDGE_MODEL=judge-m _judge '{"text":"VERDICT: PASS\nok"}'
+grep -qF -- '--model judge-m' "$TMP/args.log" && ok "T8.i LLM_EVAL_JUDGE_MODEL → --model" || nope "T8.i" "$(head -c 300 "$TMP/args.log")"
+cat > "$TMP/cwd-claude" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$(ls -A | wc -l | tr -d ' ')" >> "$TMP/cwd.log"
+exec bash "$LE/stub-claude.sh" "\$@"
+EOF
+chmod +x "$TMP/cwd-claude"; rm -f "$TMP/cwd.log"; _judge '{"text":"VERDICT: PASS\nok"}' "$TMP/cwd-claude"
+[ "$(cat "$TMP/cwd.log" 2>/dev/null)" = 0 ] && ok "T8.j 채점 호출 cwd 는 빈 디렉터리" || nope "T8.j" "cwd 파일 수 $(cat "$TMP/cwd.log" 2>/dev/null)"
+mkdir -p "$TMP/data3/karpathy-ko"
+jq -n '{skill:"karpathy-ko",cases:[{id:"e-1",prompt:"질문원문XYZ",asserts:[{type:"llm_rubric",value:"기준"}]}]}' > "$TMP/data3/karpathy-ko/evals.json"
+_run '{"text":"응답","cost":0.2}\n{"text":"VERDICT: PASS\\n근거","cost":0.1}' SKILL_EVAL_DIR="$TMP/data3" -- --evals
+if _line e-1 | grep -q 'PASS' && printf '%s' "$RUN_OUT" | grep -qE 'pass=1 fail=0 skip=0 cost=\$0\.30$'; then
+  ok "T8.k 러너: 채점 PASS → 케이스 PASS · 비용 = 응답 + 채점"; else nope "T8.k" "$RUN_OUT"; fi
+grep -qxF '[질문]' "$TMP/args.log" && ok "T8.w 러너가 케이스 prompt 를 채점자에게 전달" || nope "T8.w" "채점 호출에 [질문] 섹션 없음"
+_run '{"text":"응답"}\n{"text":"VERDICT: FAIL\\n범위를 넘겼다"}' SKILL_EVAL_DIR="$TMP/data3" -- --evals
+_line e-1 | grep -qF '첫 실패 llm_rubric:범위를 넘겼다' && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=1 skip=0' \
+  && ok "T8.l 러너: 채점 FAIL → 사유에 근거" || nope "T8.l" "$RUN_OUT"
+_run '{"text":"응답"}\n{"text":"통과로 봅니다"}' SKILL_EVAL_DIR="$TMP/data3" -- --evals
+_line e-1 | grep -qF 'SKIP(error: 채점 실패' && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=0 skip=1' \
+  && ok "T8.m 러너: 채점 ERROR → SKIP (PASS/FAIL 로 세지 않음)" || nope "T8.m" "$RUN_OUT"
+# 응답 구분자는 호출마다 다른 nonce — 응답이 구분자를 위조해 채점 지시를 끼워 넣기 어렵게(완전 방어는 아님)
+_p1=$(eval::judge_prompt "기준" "응답본문" N123); _p2=$(eval::judge_prompt "기준" "응답본문" N456)
+if printf '%s\n' "$_p1" | grep -qxF '[응답-N123 시작]' && printf '%s\n' "$_p1" | grep -qxF '[응답-N123 끝]' && [ "$_p1" != "$_p2" ] \
+   && printf '%s\n' "$_p1" | grep -qF -- '`VERDICT: PASS` 또는 `VERDICT: FAIL`'; then ok "T8.u 채점 프롬프트 — nonce 응답 구분자 · 출력 형식 지시"; else nope "T8.u" "$_p1"; fi
+# 채점자는 원 질문을 본다 — 질문의 코드와 대조해야 자백 없는 변경을 잡는다
+_q1=$(eval::judge_prompt "기준" "응답본문" N1 "질문원문XYZ"); _q0=$(eval::judge_prompt "기준" "응답본문" N1)
+if printf '%s\n' "$_q1" | grep -qxF '[질문]' && printf '%s\n' "$_q1" | grep -qxF '질문원문XYZ' && ! printf '%s\n' "$_q0" | grep -qxF '[질문]'; then
+  ok "T8.v 채점 프롬프트에 [질문] 섹션 (있을 때만)"; else nope "T8.v" "$_q1"; fi
+CAL="$LE/judge-calibration/cases.jsonl"
+if [ "$(jq -s 'length' "$CAL")" -eq 10 ] \
+   && [ "$(jq -s '[.[]|select((.id|type=="string" and length>0) and (.prompt|type=="string" and length>0) and (.rubric|type=="string" and length>0) and (.response|type=="string" and length>0) and (.note|type=="string" and length>0) and (.expect=="PASS" or .expect=="FAIL"))]|length' "$CAL")" -eq 10 ] \
+   && [ "$(jq -s '[.[].id]|unique|length' "$CAL")" -eq 10 ] \
+   && [ "$(jq -s '[.[]|select(.expect=="PASS")]|length' "$CAL")" -ge 5 ] && [ "$(jq -s '[.[]|select(.expect=="FAIL")]|length' "$CAL")" -ge 5 ]; then
+  ok "T8.n 보정 세트 계약 (10건 · prompt·rubric·response·note 필드 · id 유일 · PASS·FAIL 각 5건 이상)"; else nope "T8.n" "$CAL"; fi
+jq -nc '{id:"a",rubric:"r",response:"x",expect:"PASS",note:"n"}' > "$TMP/cal4.jsonl"; jq -nc '{id:"b",rubric:"r",response:"x",expect:"FAIL",note:"n"}' >> "$TMP/cal4.jsonl"
+jq -nc '{id:"c",rubric:"r",response:"x",expect:"PASS",note:"n"}' >> "$TMP/cal4.jsonl"; jq -nc '{id:"d",rubric:"r",response:"x",expect:"FAIL",note:"n"}' >> "$TMP/cal4.jsonl"
+_cal() {  # <plan 행들(\n)> <claude bin> → 보정 러너 출력
+  printf '%b\n' "$1" > "$TMP/cplan.jsonl"; rm -f "$TMP/cstate"
+  env CLAUDE_BIN="$2" STUB_PLAN="$TMP/cplan.jsonl" STUB_STATE="$TMP/cstate" JUDGE_CAL_FILE="$TMP/cal4.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1
+}
+_o=$(_cal '{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}\n{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}' "$TMP/rec-claude")
+printf '%s' "$_o" | grep -q '^CALIBRATION: agree=4/4 false_pass=0 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: ADOPT$' \
+  && ok "T8.o 보정 러너: 기대와 모두 일치 → ADOPT" || nope "T8.o" "$_o"
+_o=$(_cal '{"text":"VERDICT: PASS\\nok"}' "$TMP/rec-claude")
+printf '%s' "$_o" | grep -q 'false_pass=2 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
+  && ok "T8.p 보정 러너: 오답을 PASS 로 내는 채점기 → false_pass=2 · REJECT" || nope "T8.p" "$_o"
+# 핵심 안전장치: 오답 오통과가 단 1건이면 일치율이 90%(경계)여도 REJECT — 일치율만 보면 관대한 채점기가 통과한다
+: > "$TMP/cal10.jsonl"
+for _i in 1 2 3 4 5; do jq -nc --arg id "p$_i" '{id:$id,rubric:"r",response:"x",expect:"PASS",note:"n"}' >> "$TMP/cal10.jsonl"; done
+for _i in 1 2 3 4 5; do jq -nc --arg id "f$_i" '{id:$id,rubric:"r",response:"x",expect:"FAIL",note:"n"}' >> "$TMP/cal10.jsonl"; done
+_pl=""; for _i in 1 2 3 4 5; do _pl="${_pl}"'{"text":"VERDICT: PASS\\nok"}\n'; done
+for _i in 1 2 3 4; do _pl="${_pl}"'{"text":"VERDICT: FAIL\\nno"}\n'; done
+_pl="${_pl}"'{"text":"VERDICT: PASS\\nleak"}'
+printf '%b\n' "$_pl" > "$TMP/cplan10.jsonl"; rm -f "$TMP/cstate10"
+_o=$(env CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/cplan10.jsonl" STUB_STATE="$TMP/cstate10" JUDGE_CAL_FILE="$TMP/cal10.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1)
+printf '%s' "$_o" | grep -q '^CALIBRATION: agree=9/10 false_pass=1 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
+  && ok "T8.s 보정 러너: 일치 9/10 이어도 오답 오통과 1건이면 REJECT" || nope "T8.s" "$_o"
+_o=$(_cal '{"model":"claude-judge-x","text":"VERDICT: PASS\\nok"}\n{"model":"claude-judge-x","text":"VERDICT: FAIL\\nno"}\n{"model":"claude-judge-x","text":"VERDICT: PASS\\nok"}\n{"model":"claude-judge-x","text":"VERDICT: FAIL\\nno"}' "$TMP/rec-claude")
+printf '%s' "$_o" | grep -q '^CALIBRATION-MODEL: claude-judge-x ' && ok "T8.x 보정 러너: 채점 모델 ID 기록 (모델 변경 시 재보정 안내)" || nope "T8.x" "$_o"
+_o=$(_cal '{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}\n{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}' "$TMP/rec-claude")
+printf '%s' "$_o" | grep -q '^CALIBRATION-MODEL: unknown ' && ok "T8.y 모델 ID 를 알 수 없으면 unknown" || nope "T8.y" "$_o"
+_o=$(_cal '{}' "$TMP/dead-claude")
+printf '%s' "$_o" | grep -q 'agree=0/4 false_pass=0 error=4 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
+  && ok "T8.q 보정 러너: 채점 오류 → error 집계 · REJECT (일치로 세지 않음)" || nope "T8.q" "$_o"
+if grep -q 'run-judge-calibration.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/README.md"; then
+  ok "T8.r CLAUDE.md · scripts/README.md 에 보정 러너 등재"; else nope "T8.r" "run-judge-calibration.sh 미등재"; fi
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
 if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
   ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
