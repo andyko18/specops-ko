@@ -124,25 +124,36 @@ run_trigger() {  # <skill> <file> — 질의는 jq -c 한 줄 객체로 읽는�
 }
 
 run_evals() {  # <skill> <file>
-  local s="$1" f="$2" o id p asserts a t v verdict text cost first rc
+  local s="$1" f="$2" o id p asserts a t v verdict text rawtext cost first jerr rc
   while IFS= read -r o; do
     id=$(printf '%s' "$o" | jq -r .id); p=$(printf '%s' "$o" | jq -r .prompt)
     ask "$p"; rc=$?
     [ "$rc" -eq 0 ] || { emit "$s" "$id" "$(skip_reason "$rc" "$ERR")"; continue; }
     text=$(printf '%s\n' "$OUT" | eval::extract_text)
+    rawtext=$(printf '%s\n' "$OUT" | eval::extract_text_raw)   # 채점용 — 개행 보존(코드 블록·목록이 한 줄로 뭉개지지 않게)
     cost=$(printf '%s\n' "$OUT" | eval::extract_cost)
-    first=""
+    first=""; jerr=""
     asserts=$(printf '%s' "$o" | jq -c '.asserts[]')
     while IFS= read -r a; do
       [ -z "$a" ] && continue
       t=$(printf '%s' "$a" | jq -r .type); v=$(printf '%s' "$a" | jq -r '.value|tostring')
       if [ "$t" = cost_lt ]; then verdict=$(eval::assert cost_lt "$cost" "$v")
+      elif [ "$t" = llm_rubric ]; then  # 진짜 채점기 — 서브셸 밖 직접 호출(비용·근거를 전역으로). ERROR 는 앞선 FAIL 이 없을 때만 케이스를 SKIP 한다
+        eval::judge_rubric "$CLAUDE_BIN" "$rawtext" "$v" "$TIMEOUT_S" "$p"
+        COST=$(awk -v a="$COST" -v b="$JUDGE_COST" 'BEGIN{printf "%.6f", a+b}')
+        case "$JUDGE_VERDICT" in
+          PASS) verdict=PASS ;;
+          FAIL) verdict=FAIL; [ -n "$first" ] || first="llm_rubric:${JUDGE_REASON:-근거 없음}" ;;
+          *) jerr="${JUDGE_REASON:-알 수 없음}"; verdict=ERROR ;;  # 뒤 단언도 계속 평가 — 결정적 FAIL 이 뒤에 있어도 놓치지 않는다
+        esac
       else verdict=$(eval::assert "$t" "$text" "$v" "$CLAUDE_BIN"); fi
       [ "$verdict" = FAIL ] && [ -z "$first" ] && first="$t:$v"
     done <<EOF
 $asserts
 EOF
-    [ -z "$first" ] && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "첫 실패 $first"
+    # 채점 ERROR 는 판정 불가일 때만 SKIP — 앞선 결정적 단언이 이미 FAIL 이면 그 확정 FAIL 을 SKIP 으로 덮지 않는다
+    if [ -n "$jerr" ] && [ -z "$first" ]; then emit "$s" "$id" "SKIP(error: 채점 실패 — $jerr)"; continue; fi
+    [ -z "$first" ] && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "첫 실패 $first${jerr:+ · 채점 실패 — $jerr}"
   done < <(jq -c '.cases[]' "$f")
 }
 

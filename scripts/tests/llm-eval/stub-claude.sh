@@ -8,6 +8,9 @@ n=0
 n=$((n+1)); printf '%s' "$n" > "$STUB_STATE"
 line=$(sed -n "${n}p" "${STUB_PLAN:?STUB_PLAN 필요}")
 [ -z "$line" ] && line=$(tail -1 "$STUB_PLAN")
+# model 필드가 있으면 claude 의 system init 이벤트(모델 ID) 를 먼저 낸다 — 채점 모델 기록 테스트용. 없으면 종전 출력 그대로
+model=$(printf '%s' "$line" | jq -r '.model // empty')
+[ -z "$model" ] || jq -cn --arg m "$model" '{type:"system",subtype:"init",model:$m}'
 # 다중 Skill 호출(skills 배열) — 활성화 eval 의 "두 번째 이후 호출" 재현용. 없으면 아래 기존 경로 그대로
 skills=$(printf '%s' "$line" | jq -c '.skills // empty')
 if [ -n "$skills" ]; then

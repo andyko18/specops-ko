@@ -27,6 +27,8 @@ bash scripts/tests/llm-eval/run-evals.sh
 # skill 별 활성화·행동 eval (수동 전용 — 토큰 비용, run-all 비포함 · 데이터 계약은 test-skill-evals.sh 가 run-all 에서 잠금)
 #   ANTHROPIC_API_KEY 있으면 isolated(--bare, 실측 미확인 — unverified 표기) · 없으면 routed(메타 라우팅 혼합)
 bash scripts/tests/llm-eval/run-skill-evals.sh --trigger   # 또는 --evals · 뒤에 skill 이름으로 대상 한정
+#   행동 eval 의 llm_rubric 채점기 보정 (수동 — 채점 호출 ≈ $5~8, 오답 오통과 0 이고 일치 ≥ 90% 일 때만 ADOPT):
+bash scripts/tests/llm-eval/run-judge-calibration.sh
 
 # lifecycle E2E 자동 검증 (수동 전용 — 토큰 비용 발생, run-all 비포함)
 # e2e-test-ko skill 이 greet-cli fixture 로 9단계 chain 완주 + 산출물 구조 검증
