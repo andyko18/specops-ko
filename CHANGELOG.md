@@ -4,6 +4,43 @@
 
 ## [Unreleased]
 
+### skill 활성화 측정 정비 + description 조정 — 라이브 eval 이 처음으로 쓸 만한 데이터를 낸다 (#69 · #70 · #71 · #72)
+
+라이브 `run-skill-evals.sh --trigger`(routed · 36질의)가 하니스 결함으로 해석 불가였다(양성 미발동 다수 + SKIP 8건). 결함 셋을 걷어내고, 그 위에서 측정한 활성화율로 description 을 고쳤다.
+
+- **pilot 3 → 6 (#69)** — `systematic-debugging-ko`·`tdd-ko`·`analyzing-ko` 의 `trigger-queries.json`·`evals.json`(양성 3·음성 3·case 3) 추가. 오프라인 스위트 T2 커버리지 목록 6 · 전 디렉터리 하한 3 → 6(삭제 시 FAIL). 선정 기준은 PR #66 그대로 — chain 도착점이 아니면서 description 이 과광역이거나 진입 어휘가 겹치는 skill. chain 핵심 skill 은 앞 skill 이 호출하므로 대상 아님
+- **조사·우회 도구 차단 (#70)** — `--allowedTools Skill` 은 허용 목록일 뿐이라 모델이 Bash 로 빈 sandbox 를 조사하고 "코드 없음"으로 끝났다. 두 모드 모두 `--disallowedTools` 11종(Bash·Read·Glob·Grep·Agent·Edit·Write·NotebookEdit·WebFetch·WebSearch·ToolSearch) + `--strict-mcp-config`(routed 는 사용자 전역 MCP 도구 31개가 노출돼 차단을 우회). `--tools Skill` 은 Skill 이 내장 목록 밖이라 전 도구가 꺼져 쓰지 않는다(실측)
+- **SKIP 진단 (#70)** — `eval::run_claude` 가 claude stderr 를 버리지 않고, `SKIP(error: …)` 줄에 ` — stderr: <첫 줄>`(ANSI·제어문자 제거 · 120자)을 붙인다
+- **공유 픽스처 repo (#71)** — 빈 sandbox 는 system 컨텍스트의 git status 로 드러나 기존 코드를 전제하는 질의가 "파일 없음"으로 끝났다(실측 빈 2/3 · 픽스처 커밋 3/3). `skill-eval-fixture-repo/` 를 질의마다 복사해 CLAUDE.md 까지 커밋한다. `SKILL_EVAL_FIXTURE` 로 경로 지정 · 부재 시 종전 동작 · 커밋 실패 시 NOTE 1회 · 픽스처의 `.git` 은 sandbox 에 섞지 않음
+  - 사용자 git 환경에 흔들리지 않는다 — `add -Af`(전역 gitignore·templateDir `info/exclude`) · `-c core.hooksPath=/dev/null` · `commit.gpgsign=false` · `unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE`. `test-skill-evals.sh` 는 run-all 소속이라 개인 git 설정에 따라 FAIL 하면 안 된다
+- **description 조정 (#72)** — "항상 적용"·"반드시 사용" 은 배경 원칙으로 읽혀 원칙은 따르되 skill 은 호출하지 않았다. 호출 조건형("이런 요청이면 호출")으로 바꾸고, 반복 측정에서 채택 기준(양성 +2 이상 · 음성 과발동 0 · analyzing 라우팅 무회귀)을 넘긴 두 skill 만 반영했다
+  - `advisor-ko` — 원래 발동 조건(기획·분석·설계·개발 중 스스로 확신이 없을 때)을 유지하고 사용자 발화 조건(결정을 맡기며 불확실함을 드러내거나 판단 근거의 검증 요청)을 더함
+  - `systematic-debugging-ko` — 버그·테스트 실패·간헐적 오류의 원인을 찾거나 고쳐 달라는 요청이면 픽스 제안 전에 호출
+  - `karpathy-ko` — 초안이 기준 미달(+1)이라 **원문 유지**
+
+**측정 결과** (라이브 routed · 기준 문구는 설치본 v1.103.0 · 수정안은 `--plugin-dir`):
+
+| skill | 원래 양성 9 (기준선 → 수정) | holdout 새 질의 양성 (기준 문구 → 수정) | 걸리면 안 될 질의 |
+|---|---|---|---|
+| advisor | 0 → 9 | 0/6 → 10/11 | 0 |
+| systematic-debugging | 2 → 6 | 3/6 → 7/8 | 0 |
+| karpathy | 2 → 3 → 원복 | — | 0/3 |
+
+- 러너 수정 직후 재측정(pilot 6 · 36질의): pass 17 · fail 11 · skip 8 → **pass 26 · fail 10 · skip 0**(analyzing 양성 0/3 → 3/3)
+
+⚠️ **한계 (정직 고백)** — 이 수치는 신호이지 확정값이 아니다.
+- **표본 수**: 양성 **n=3**(질의당 3회) · 음성 **n=1** · holdout 은 skill 당 양성 2·음성 2. 소표본이다
+- **환경 한정**: 이 사용자의 전역 설정·routed 모드에서만 측정했다. 다른 환경의 활성화율은 미보증
+- **어휘 중첩 편향**: 수정안 어휘가 eval 질의와 일부 겹친다(`확신이 없`·`근거…검증`·`간헐적`·`로그`) — 원래 질의 수치는 상향 편향 가능, holdout 새 질의로 부분 완화
+- **원자료 비공개**: `.specops/` 는 gitignore 라 저장소에서 재현할 수 없다. 측정 비용 약 $45
+- 일부 미발동은 description 만으로 안 올라간다 — `karpathy-ko`(코드 조각 + 다듬기·고치기 요청형)는 후속 분석 대상
+
+⚠️ **사용자 영향**: `advisor-ko`·`systematic-debugging-ko` 의 description 은 모든 세션의 skill 선택에 쓰인다. 발동 빈도가 늘어날 수 있다.
+
+검증: `run-all` **172/172** · `test-skill-evals` 45 → **60** · 되돌려-관찰(도구 차단·MCP·stderr 부착·커밋·복사·`.git` 삭제·`unset`·`-Af`·hooksPath 각 제거 시 해당 단언 FAIL) · 적대 git 환경(실패 훅·templateDir 훅·`info/exclude`·전역 gitignore·서명·`GIT_INDEX_FILE` 누출) 통과 · 크기 래칫 기준선 두 항목 갱신.
+
+후속 후보: 픽스처 읽기 불가로 `cp` 가 실패하면 CLAUDE.md 만으로 커밋 성공 → NOTE 미발화 · 질의↔픽스처 파일명 결합이 README 규칙뿐 · 행동 eval(`--evals`) 정규식 조임 · karpathy 미발동 원인.
+
 ## [1.104.0] — 2026-09-30
 
 ### skill 별 활성화·행동 eval 분리 — pilot 3 + 오프라인 계약 스위트 (#66)
