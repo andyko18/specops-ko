@@ -174,6 +174,28 @@ _run '{}' CLAUDE_BIN="$TMP/dead-claude" -- --trigger
 if _line neg-1 | grep -q 'SKIP(error' && _line pos-1 | grep -q 'SKIP(error' \
    && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=0 skip=2'; then
   ok "T5.m result 이벤트 없음 → SKIP(error) — 음성이 PASS 로 위장되지 않음"; else nope "T5.m" "$RUN_OUT"; fi
+# T5.t~x (20260930-skill-eval-tool-lock) — 조사·우회 도구 차단 인자 · MCP 비활성 · SKIP(error) stderr 부착
+DENY='--allowedTools Skill --disallowedTools Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch'
+_run '{"skills":["karpathy-ko"]}' -- --trigger
+_n=$(grep -c . "$TMP/args.log"); _d=$(grep -cF -- "$DENY" "$TMP/args.log")
+_run '{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k -- --trigger
+_ni=$(grep -c . "$TMP/args.log"); _di=$(grep -cF -- "$DENY" "$TMP/args.log")
+if [ "$_n" -eq 2 ] && [ "$_d" -eq 2 ] && [ "$_ni" -eq 2 ] && [ "$_di" -eq 2 ]; then
+  ok "T5.t routed·isolated 모든 호출에 조사·우회 도구 차단 인자"; else nope "T5.t" "routed $_d/$_n · isolated $_di/$_ni"; fi
+_run '{"skills":["karpathy-ko"]}' -- --trigger; _m=$(grep -cF -- '--strict-mcp-config' "$TMP/args.log")
+_run '{"skills":["karpathy-ko"]}' ANTHROPIC_API_KEY=k -- --trigger; _mi=$(grep -cF -- '--strict-mcp-config' "$TMP/args.log")
+[ "$_m" -eq 2 ] && [ "$_mi" -eq 2 ] && ok "T5.x routed·isolated 모든 호출에 --strict-mcp-config (MCP 우회 차단)" || nope "T5.x" "routed $_m/2 · isolated $_mi/2"
+printf '#!/usr/bin/env bash\nprintf "boom: rate limited\\nsecond line\\n" >&2\nexit 1\n' > "$TMP/err-claude"; chmod +x "$TMP/err-claude"
+_run '{}' CLAUDE_BIN="$TMP/err-claude" -- --trigger
+if _line pos-1 | grep -qF 'SKIP(error: result 이벤트 없음 — 실행 실패) — stderr: boom: rate limited' \
+   && _line neg-1 | grep -qF '— stderr: boom: rate limited' && ! printf '%s' "$RUN_OUT" | grep -qF 'second line' \
+   && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=0 skip=2'; then
+  ok "T5.u SKIP(error) 에 claude stderr 첫 줄 부착 · skip 으로 집계"; else nope "T5.u" "$RUN_OUT"; fi
+printf '#!/usr/bin/env bash\nprintf "%%0200d\\n" 0 | tr 0 x >&2\nexit 1\n' > "$TMP/long-claude"; chmod +x "$TMP/long-claude"
+_run '{}' CLAUDE_BIN="$TMP/long-claude" -- --trigger
+_line pos-1 | grep -qE -- '— stderr: x{120}$' && ok "T5.v stderr 첫 줄 120자 상한" || nope "T5.v" "$(_line pos-1 | tail -c 60)"
+_run '{}' CLAUDE_BIN="$TMP/dead-claude" -- --trigger
+_line pos-1 | grep -qE 'SKIP\(error: result 이벤트 없음 — 실행 실패\)$' && ok "T5.w stderr 없는 실패 → 기존 문구 그대로(부착 없음)" || nope "T5.w" "$(_line pos-1)"
 printf '#!/usr/bin/env bash\nsleep 5\n' > "$TMP/slow-claude"; chmod +x "$TMP/slow-claude"
 _run '{}' CLAUDE_BIN="$TMP/slow-claude" LLM_EVAL_TIMEOUT=1 -- --evals
 _line e-1 | grep -q 'SKIP(timeout)' && ok "T5.n 시간 초과 → SKIP(timeout)" || nope "T5.n" "$RUN_OUT"
