@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging-ko
-description: 버그·테스트 실패·예상치 못한 동작 발생 시, 픽스 제안 전에 반드시 사용 — 근본 원인 조사 없이 픽스 제안 금지
+description: 버그·테스트 실패·간헐적 오류·환경마다 다른 동작의 원인을 찾거나 고쳐 달라는 요청이면 픽스 제안 전에 호출 — 오류 메시지·로그·재현 조건이 주어진 질문에 사용. 근본 원인 조사 없이 픽스 제안 금지
 layer: 2
 discipline: true
 reference_upstream: obra/superpowers@v5.0.7 skills/systematic-debugging/SKILL.md
