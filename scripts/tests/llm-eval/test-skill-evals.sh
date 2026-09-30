@@ -479,6 +479,10 @@ _line e-1 | grep -qF 'FAIL  (첫 실패 contains:없는낱말QQ' && _line e-1 | 
   && ok "T8.aj 러너: 채점 ERROR 뒤의 결정적 FAIL 도 평가 — SKIP 으로 덮지 않음" || nope "T8.aj" "$RUN_OUT"
 if grep -q 'run-judge-calibration.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/README.md"; then
   ok "T8.r CLAUDE.md · scripts/README.md 에 보정 러너 등재"; else nope "T8.r" "run-judge-calibration.sh 미등재"; fi
+# karpathy 행동 eval = 보정을 통과한 llm_rubric — 쓰는 문안이 보정 세트가 검증한 문안과 같아야 한다
+_krub=$(jq -r '[.cases[].asserts[]|select(.type!="llm_rubric")]|length' "$LE/skills/karpathy-ko/evals.json")
+_kmiss=$(jq -rn --slurpfile c "$LE/judge-calibration/cases.jsonl" --slurpfile e "$LE/skills/karpathy-ko/evals.json" '[$e[0].cases[].asserts[].value] - [$c[].rubric] | length')
+[ "$_krub" = 0 ] && [ "$_kmiss" = 0 ] && ok "T8.t karpathy 행동 eval = llm_rubric 이며 문안은 보정 세트가 검증한 문안" || nope "T8.t" "비-rubric ${_krub} · 미검증 문안 ${_kmiss}"
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
 if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
   ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
