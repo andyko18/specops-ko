@@ -472,6 +472,11 @@ jq -n '{skill:"karpathy-ko",cases:[{id:"e-1",prompt:"p",asserts:[{type:"contains
 _run '{"text":"응답"}\n{"text":"통과로 봅니다"}' SKILL_EVAL_DIR="$TMP/data4" -- --evals
 _line e-1 | grep -qF 'SKIP(error: 채점 실패' && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=0 skip=1' \
   && ok "T8.ai 러너: 결정적 통과 + 채점 ERROR → SKIP 유지 (판정 불가)" || nope "T8.ai" "$RUN_OUT"
+# 채점 ERROR 가 뒤 단언 평가를 끊지 않는다 — [llm_rubric(ERROR), contains(FAIL)] 순서여도 확정 FAIL 이 SKIP 으로 덮이지 않는다
+jq -n '{skill:"karpathy-ko",cases:[{id:"e-1",prompt:"p",asserts:[{type:"llm_rubric",value:"기준"},{type:"contains",value:"없는낱말QQ"}]}]}' > "$TMP/data4/karpathy-ko/evals.json"
+_run '{"text":"응답"}\n{"text":"통과로 봅니다"}' SKILL_EVAL_DIR="$TMP/data4" -- --evals
+_line e-1 | grep -qF 'FAIL  (첫 실패 contains:없는낱말QQ' && _line e-1 | grep -qF '채점 실패' && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=1 skip=0' \
+  && ok "T8.aj 러너: 채점 ERROR 뒤의 결정적 FAIL 도 평가 — SKIP 으로 덮지 않음" || nope "T8.aj" "$RUN_OUT"
 if grep -q 'run-judge-calibration.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/README.md"; then
   ok "T8.r CLAUDE.md · scripts/README.md 에 보정 러너 등재"; else nope "T8.r" "run-judge-calibration.sh 미등재"; fi
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다

@@ -144,7 +144,7 @@ run_evals() {  # <skill> <file>
         case "$JUDGE_VERDICT" in
           PASS) verdict=PASS ;;
           FAIL) verdict=FAIL; [ -n "$first" ] || first="llm_rubric:${JUDGE_REASON:-근거 없음}" ;;
-          *) jerr="${JUDGE_REASON:-알 수 없음}"; break ;;
+          *) jerr="${JUDGE_REASON:-알 수 없음}"; verdict=ERROR ;;  # 뒤 단언도 계속 평가 — 결정적 FAIL 이 뒤에 있어도 놓치지 않는다
         esac
       else verdict=$(eval::assert "$t" "$text" "$v" "$CLAUDE_BIN"); fi
       [ "$verdict" = FAIL ] && [ -z "$first" ] && first="$t:$v"
