@@ -196,7 +196,7 @@ _run '{}' CLAUDE_BIN="$TMP/long-claude" -- --trigger
 _line pos-1 | grep -qE -- '— stderr: x{120}$' && ok "T5.v stderr 첫 줄 120자 상한" || nope "T5.v" "$(_line pos-1 | tail -c 60)"
 _run '{}' CLAUDE_BIN="$TMP/dead-claude" -- --trigger
 _line pos-1 | grep -qE 'SKIP\(error: result 이벤트 없음 — 실행 실패\)$' && ok "T5.w stderr 없는 실패 → 기존 문구 그대로(부착 없음)" || nope "T5.w" "$(_line pos-1)"
-# T5.y~ae (20260930-skill-eval-fixture-repo) — 공유 픽스처 repo 를 커밋한 sandbox · 부재 시 종전 · 원본 무변경
+# T5.y~ah (20260930-skill-eval-fixture-repo) — 공유 픽스처 repo 를 커밋한 sandbox · 부재 시 종전 · 원본 무변경
 FIX="$TMP/fixture"; mkdir -p "$FIX/src"; printf 'a\n' > "$FIX/src/a.js"; printf 'b\n' > "$FIX/b.py"
 _fix_before=$(cd "$FIX" && find . | LC_ALL=C sort)
 cat > "$TMP/git-claude" <<EOF
@@ -225,6 +225,26 @@ rm -f "$TMP/git.log"; _run '{"skills":["karpathy-ko"]}' CLAUDE_BIN="$TMP/git-cla
 if [ "$(grep -c '^tracked=CLAUDE.md,b.py,src/a.js$' "$TMP/git.log")" -eq 2 ] && [ "$(grep -c '^dirty=0$' "$TMP/git.log")" -eq 2 ]; then
   ok "T5.ad 적대적 git 환경(실패 훅·templateDir 훅·info/exclude·전역 gitignore·서명·GIT_INDEX_FILE 누출)에도 픽스처 커밋 성립"; else nope "T5.ad" "$(tr '\n' ' ' < "$TMP/git.log")"; fi
 [ ! -e "$TMP/hostile/stray-index" ] && ok "T5.ae 호출자 GIT_INDEX_FILE 이 가리키는 곳에 index 미생성(sandbox 밖 무접촉)" || nope "T5.ae" "stray index 생성됨"
+# 커밋 실패는 무음이면 안 된다 — 빈 sandbox 로 강등됐다는 NOTE 를 1회 낸다(Phase C Important 1)
+mkdir -p "$TMP/failgit"; _realgit=$(command -v git)
+printf '#!/usr/bin/env bash\ncase " $* " in *" commit "*) exit 1 ;; esac\nexec "%s" "$@"\n' "$_realgit" > "$TMP/failgit/git"; chmod +x "$TMP/failgit/git"
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$FIX" PATH="$TMP/failgit:$PATH" -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^NOTE: 픽스처 커밋 실패')" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'pass=1 fail=1 skip=0'; then
+  ok "T5.af 픽스처 커밋 실패 → NOTE 1회 · 판정 경로 불변"; else nope "T5.af" "$RUN_OUT"; fi
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$FIX" -- --trigger
+printf '%s' "$RUN_OUT" | grep -q '^NOTE: 픽스처' && nope "T5.ag" "성공인데 NOTE: $RUN_OUT" || ok "T5.ag 픽스처 커밋 성공 → NOTE 없음"
+# 픽스처에 .git 이 있어도 sandbox 의 git 에 섞이지 않는다(Phase C Important 2 — cp -R 이 .git 을 병합해 HEAD 가 바뀌던 결함)
+FIXG="$TMP/fixture-git"; mkdir -p "$FIXG"; printf 'g\n' > "$FIXG/g.js"
+git -C "$FIXG" init -q; git -C "$FIXG" -c user.email=x@x -c user.name=x -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --allow-empty -m "foreign-fixture-commit"
+cat > "$TMP/head-claude" <<EOF
+#!/usr/bin/env bash
+{ printf 'history=%s\n' "\$(git log --format=%s 2>/dev/null | paste -sd, -)"; printf 'tracked=%s\n' "\$(git ls-files | LC_ALL=C sort | paste -sd, -)"; } >> "$TMP/head.log"
+exec bash "$LE/stub-claude.sh" "\$@"
+EOF
+chmod +x "$TMP/head-claude"; rm -f "$TMP/head.log"
+_run '{"skills":["karpathy-ko"]}' CLAUDE_BIN="$TMP/head-claude" SKILL_EVAL_FIXTURE="$FIXG" -- --trigger
+if [ "$(grep -c '^history=fixture$' "$TMP/head.log")" -eq 2 ] && [ "$(grep -c '^tracked=CLAUDE.md,g.js$' "$TMP/head.log")" -eq 2 ] && [ -d "$FIXG/.git" ]; then
+  ok "T5.ah 픽스처의 .git 은 sandbox 에 섞이지 않음(이력=fixture 커밋 1개 · 원본 .git 보존)"; else nope "T5.ah" "$(tr '\n' ' ' < "$TMP/head.log")"; fi
 _rf="$PLUGIN/scripts/tests/llm-eval/skill-eval-fixture-repo"
 if [ -f "$_rf/src/auth.js" ] && [ -f "$_rf/src/orders/discount.js" ] && [ -f "$_rf/src/export/csv.js" ] && [ -f "$_rf/tests/test_counter.py" ] \
    && [ -z "$(find "$_rf" -name '*.sh' 2>/dev/null)" ] && [ ! -e "$_rf/.git" ]; then
