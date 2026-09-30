@@ -481,8 +481,9 @@ if grep -q 'run-judge-calibration.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-judge-
   ok "T8.r CLAUDE.md · scripts/README.md 에 보정 러너 등재"; else nope "T8.r" "run-judge-calibration.sh 미등재"; fi
 # karpathy 행동 eval = 보정을 통과한 llm_rubric — 쓰는 문안이 보정 세트가 검증한 문안과 같아야 한다
 _krub=$(jq -r '[.cases[].asserts[]|select(.type!="llm_rubric")]|length' "$LE/skills/karpathy-ko/evals.json")
-_kmiss=$(jq -rn --slurpfile c "$LE/judge-calibration/cases.jsonl" --slurpfile e "$LE/skills/karpathy-ko/evals.json" '[$e[0].cases[].asserts[].value] - [$c[].rubric] | length')
-[ "$_krub" = 0 ] && [ "$_kmiss" = 0 ] && ok "T8.t karpathy 행동 eval = llm_rubric 이며 문안은 보정 세트가 검증한 문안" || nope "T8.t" "비-rubric ${_krub} · 미검증 문안 ${_kmiss}"
+# (프롬프트, 루브릭) 쌍으로 대조 — 루브릭만 보면 교차 매핑·미보정 프롬프트에 보정된 루브릭을 재사용해도 통과한다
+_kmiss=$(jq -rn --slurpfile c "$LE/judge-calibration/cases.jsonl" --slurpfile e "$LE/skills/karpathy-ko/evals.json" '[$e[0].cases[] | {p:.prompt, v:(.asserts[].value)} | . as $k | select(([$c[] | select(.prompt==$k.p and .rubric==$k.v)]|length)==0)] | length')
+[ "$_krub" = 0 ] && [ "$_kmiss" = 0 ] && ok "T8.t karpathy 행동 eval = llm_rubric 이며 (프롬프트, 문안) 쌍이 보정 세트가 검증한 쌍" || nope "T8.t" "비-rubric ${_krub} · 미검증 문안 ${_kmiss}"
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
 if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
   ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
