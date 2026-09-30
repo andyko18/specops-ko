@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.106.0] — 2026-10-01
+
 ### 행동 eval 의 `llm_rubric` 이 진짜 채점기를 얻는다 + 픽스처 복사 실패 알림 (#73 · #74)
 
 - **픽스처 복사 실패 알림 (#73)** — `run-skill-evals.sh` 의 픽스처 sandbox 가 복사 실패·빈 픽스처일 때 CLAUDE.md 만으로 커밋이 성공해 NOTE 없이 빈 repo 신호로 측정되던 경로를 NOTE 1회로 알린다. 판정 경로·결과 줄 불변
@@ -2637,7 +2639,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.105.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.106.0...HEAD
+[1.106.0]: https://github.com/andyko18/specops-ko/compare/v1.105.0...v1.106.0
 [1.105.0]: https://github.com/andyko18/specops-ko/compare/v1.104.0...v1.105.0
 [1.104.0]: https://github.com/andyko18/specops-ko/compare/v1.103.0...v1.104.0
 [1.103.0]: https://github.com/andyko18/specops-ko/compare/v1.102.0...v1.103.0
