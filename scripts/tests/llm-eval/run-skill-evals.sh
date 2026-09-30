@@ -138,7 +138,7 @@ run_evals() {  # <skill> <file>
       [ -z "$a" ] && continue
       t=$(printf '%s' "$a" | jq -r .type); v=$(printf '%s' "$a" | jq -r '.value|tostring')
       if [ "$t" = cost_lt ]; then verdict=$(eval::assert cost_lt "$cost" "$v")
-      elif [ "$t" = llm_rubric ]; then  # 진짜 채점기 — 서브셸 밖 직접 호출(비용·근거를 전역으로). ERROR 는 케이스를 SKIP 한다
+      elif [ "$t" = llm_rubric ]; then  # 진짜 채점기 — 서브셸 밖 직접 호출(비용·근거를 전역으로). ERROR 는 앞선 FAIL 이 없을 때만 케이스를 SKIP 한다
         eval::judge_rubric "$CLAUDE_BIN" "$rawtext" "$v" "$TIMEOUT_S" "$p"
         COST=$(awk -v a="$COST" -v b="$JUDGE_COST" 'BEGIN{printf "%.6f", a+b}')
         case "$JUDGE_VERDICT" in
@@ -151,8 +151,9 @@ run_evals() {  # <skill> <file>
     done <<EOF
 $asserts
 EOF
-    [ -z "$jerr" ] || { emit "$s" "$id" "SKIP(error: 채점 실패 — $jerr)"; continue; }
-    [ -z "$first" ] && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "첫 실패 $first"
+    # 채점 ERROR 는 판정 불가일 때만 SKIP — 앞선 결정적 단언이 이미 FAIL 이면 그 확정 FAIL 을 SKIP 으로 덮지 않는다
+    if [ -n "$jerr" ] && [ -z "$first" ]; then emit "$s" "$id" "SKIP(error: 채점 실패 — $jerr)"; continue; fi
+    [ -z "$first" ] && emit "$s" "$id" PASS || emit "$s" "$id" FAIL "첫 실패 $first${jerr:+ · 채점 실패 — $jerr}"
   done < <(jq -c '.cases[]' "$f")
 }
 
