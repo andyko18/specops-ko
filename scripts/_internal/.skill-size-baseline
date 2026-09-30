@@ -1,4 +1,4 @@
-{"skill":"advisor-ko","bytes":10261,"lines":154}
+{"skill":"advisor-ko","bytes":10384,"lines":154}
 {"skill":"analyzing-ko","bytes":16896,"lines":316}
 {"skill":"brainstorming-ko","bytes":15213,"lines":366}
 {"skill":"clarifying-ko","bytes":12970,"lines":198}
@@ -23,7 +23,7 @@
 {"skill":"specifying-ko","bytes":51215,"lines":528}
 {"skill":"sprint-contracts-ko","bytes":4529,"lines":96}
 {"skill":"structured-artifacts-ko","bytes":6709,"lines":143}
-{"skill":"systematic-debugging-ko","bytes":11430,"lines":328}
+{"skill":"systematic-debugging-ko","bytes":11553,"lines":328}
 {"skill":"tdd-ko","bytes":13961,"lines":382}
 {"skill":"using-git-worktrees-ko","bytes":10149,"lines":292}
 {"skill":"using-specops-ko","bytes":11546,"lines":174}
