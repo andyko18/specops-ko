@@ -76,20 +76,24 @@ emit() {  # <skill> <id> <verdict> [사유]
 }
 
 ask() {  # <prompt> → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
-  local sb rc ef
+  local sb rc ef fx_note=""
   ERR=""
   sb=$(mktemp -d) || { OUT=""; return 3; }
   # stderr 는 sandbox 밖에 받는다 — sandbox 안이면 claude 가 보는 git status 에 untracked 로 드러나 측정을 오염시킨다
   ef=$(mktemp) || ef=/dev/null
   # 픽스처는 git init **전에** 복사하고 그 .git 은 버린다 — init 뒤 cp -R 은 픽스처의 .git 을 sandbox .git 에 병합해 이력이 섞인다
-  [ -d "$FIXTURE_DIR" ] && { cp -R "$FIXTURE_DIR/." "$sb/" 2>/dev/null; rm -rf "$sb/.git"; }
+  [ -d "$FIXTURE_DIR" ] && { cp -R "$FIXTURE_DIR/." "$sb/" 2>/dev/null || fx_note="픽스처 복사 실패"; rm -rf "$sb/.git"; }
   git -C "$sb" init -q; mkdir -p "$sb/.specops"; printf '# sandbox\n' > "$sb/CLAUDE.md"
   if [ -d "$FIXTURE_DIR" ]; then  # 전부 커밋 — 실패해도 판정 경로는 그대로(sandbox 는 그대로 쓴다) · 실패는 NOTE 1회로 알린다
     # 사용자 git 설정에 흔들리지 않게: ignore 규칙 전부(전역 gitignore·templateDir 의 info/exclude) 무시(add -f) · hooksPath/templateDir 훅 · 서명을 끈다
     if ! { git -C "$sb" add -Af \
         && git -C "$sb" -c user.email=eval@local -c user.name=skill-eval -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm fixture; } >/dev/null 2>&1; then
-      [ "$FIXTURE_NOTED" = 1 ] || { echo "NOTE: 픽스처 커밋 실패 — 빈 repo 신호가 남은 sandbox 로 측정 ($FIXTURE_DIR)"; FIXTURE_NOTED=1; }
+      [ -n "$fx_note" ] || fx_note="픽스처 커밋 실패"
+    elif [ "$(git -C "$sb" ls-files | wc -l | tr -d ' ')" -le 1 ]; then  # CLAUDE.md 뿐 — 빈 픽스처·복사 결과 없음
+      [ -n "$fx_note" ] || fx_note="픽스처가 비어 있음"
     fi
+    # 근본 원인 우선(복사 실패 > 커밋 실패 > 빈 픽스처 — 앞 두 개는 if/elif 로 배타) · run 당 첫 발생 원인 1회만 알린다
+    [ -z "$fx_note" ] || [ "$FIXTURE_NOTED" = 1 ] || { echo "NOTE: $fx_note — 픽스처가 온전히 반영되지 않은 sandbox 로 측정 ($FIXTURE_DIR)"; FIXTURE_NOTED=1; }
   fi
   OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${EXTRA[@]}" 2>"$ef"); rc=$?
   # 첫 줄만 · ANSI 색 시퀀스 → 나머지 제어문자 제거(≥0x80 바이트 보존) · 120자 절단(UTF-8 로케일 전제 — C 로케일이면 바이트 절단)
