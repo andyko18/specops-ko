@@ -396,6 +396,22 @@ printf '%b\n' "$_pl" > "$TMP/cplan10.jsonl"; rm -f "$TMP/cstate10"
 _o=$(env CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/cplan10.jsonl" STUB_STATE="$TMP/cstate10" JUDGE_CAL_FILE="$TMP/cal10.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1)
 printf '%s' "$_o" | grep -q '^CALIBRATION: agree=9/10 false_pass=1 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
   && ok "T8.s 보정 러너: 일치 9/10 이어도 오답 오통과 1건이면 REJECT" || nope "T8.s" "$_o"
+# 일치율 하한: 오답 오통과 0 이어도 일치가 90% 미만이면 REJECT (8/10), 정확히 90% 면 ADOPT (9/10 — -ge 경계)
+_cal10() {  # <PASS 기대 5건 중 FAIL 로 답할 개수> → 오통과 없이 그만큼만 놓치는 채점기로 보정 러너 실행
+  local _miss="$1" _i _pl=""
+  for _i in 1 2 3 4 5; do
+    if [ "$_i" -le $((5 - _miss)) ]; then _pl="${_pl}"'{"text":"VERDICT: PASS\\nok"}\n'; else _pl="${_pl}"'{"text":"VERDICT: FAIL\\nno"}\n'; fi
+  done
+  for _i in 1 2 3 4 5; do _pl="${_pl}"'{"text":"VERDICT: FAIL\\nno"}\n'; done
+  printf '%b' "$_pl" > "$TMP/cplan10b.jsonl"; rm -f "$TMP/cstate10b"
+  env CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/cplan10b.jsonl" STUB_STATE="$TMP/cstate10b" JUDGE_CAL_FILE="$TMP/cal10.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1
+}
+_o=$(_cal10 2)
+printf '%s' "$_o" | grep -q '^CALIBRATION: agree=8/10 false_pass=0 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
+  && ok "T8.z1 보정 러너: 오통과 0 이어도 일치 8/10 (<90%) 이면 REJECT" || nope "T8.z1" "$_o"
+_o=$(_cal10 1)
+printf '%s' "$_o" | grep -q '^CALIBRATION: agree=9/10 false_pass=0 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: ADOPT$' \
+  && ok "T8.z2 보정 러너: 오통과 0 · 일치 정확히 9/10 (=90%) 이면 ADOPT" || nope "T8.z2" "$_o"
 _o=$(_cal '{"model":"claude-judge-x","text":"VERDICT: PASS\\nok"}\n{"model":"claude-judge-x","text":"VERDICT: FAIL\\nno"}\n{"model":"claude-judge-x","text":"VERDICT: PASS\\nok"}\n{"model":"claude-judge-x","text":"VERDICT: FAIL\\nno"}' "$TMP/rec-claude")
 printf '%s' "$_o" | grep -q '^CALIBRATION-MODEL: claude-judge-x ' && ok "T8.x 보정 러너: 채점 모델 ID 기록 (모델 변경 시 재보정 안내)" || nope "T8.x" "$_o"
 _o=$(_cal '{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}\n{"text":"VERDICT: PASS\\nok"}\n{"text":"VERDICT: FAIL\\nno"}' "$TMP/rec-claude")
