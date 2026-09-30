@@ -1,0 +1,20 @@
+{
+  "skill": "analyzing-ko",
+  "cases": [
+    {
+      "id": "e-1",
+      "prompt": "결제 모듈의 반올림 버그를 바로 고쳐줘",
+      "asserts": [{"type": "regex", "value": "(current-state|현재 동작|호출자|영향)"}]
+    },
+    {
+      "id": "e-2",
+      "prompt": "users 테이블의 name 컬럼을 first_name 과 last_name 으로 나눠줘",
+      "asserts": [{"type": "regex", "value": "(impact|영향|롤백|마이그레이션|데이터 보존)"}]
+    },
+    {
+      "id": "e-3",
+      "prompt": "로그 출력 함수의 포맷을 JSON 으로 바꿔줘. 분석 같은 건 건너뛰고 코드만",
+      "asserts": [{"type": "regex", "value": "(current-state|호출자|영향|회귀|기존 동작)"}]
+    }
+  ]
+}

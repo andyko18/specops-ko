@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skill 별 활성화·행동 eval — 데이터 스키마·pilot 커버리지·파서·stub·러너 판정 (stub 전용, 토큰 0)
+# skill 별 활성화·행동 eval — 데이터 스키마·pilot 6개 커버리지·파서·stub·러너 판정 (stub 전용, 토큰 0)
 # 20260929-skill-behavior-eval AC-1~AC-7
 set -u
 PASS=0; FAIL=0
@@ -79,8 +79,8 @@ o=$(_stub '{"skill":"specifying-ko","args":"x"}')
 o=$(_stub '{"text":"안녕"}')
 [ "$(printf '%s\n' "$o" | eval::extract_text)" = "안녕" ] && [ "$(printf '%s\n' "$o" | grep -c .)" -eq 2 ] \
   && ok "T4.c 기존 text 형식 무변경" || nope "T4.c" "$o"
-# T2 (AC-2) pilot 3개 커버리지 — 실 트리 읽기 전용
-for s in specifying-ko karpathy-ko advisor-ko; do
+# T2 (AC-2) pilot 6개 커버리지 — 실 트리 읽기 전용 (20260930-skill-eval-expand: 3 → 6)
+for s in specifying-ko karpathy-ko advisor-ko systematic-debugging-ko tdd-ko analyzing-ko; do
   d="$LE/skills/$s"
   if skill_evals::check trigger "$d/trigger-queries.json" "$PLUGIN/skills" >/dev/null \
      && skill_evals::check evals "$d/evals.json" "$PLUGIN/skills" >/dev/null \
@@ -99,7 +99,7 @@ for d in "$LE"/skills/*/; do
     skill_evals::check "$k" "$f" "$PLUGIN/skills" >/dev/null || bad="$bad $(basename "$d")/$k"
   done
 done
-[ "$n" -ge 3 ] && [ -z "$bad" ] && ok "T2.all skills/ 전 디렉터리($n) 스키마 통과" || nope "T2.all" "디렉터리 ${n}개 · 위반:$bad"
+[ "$n" -ge 6 ] && [ -z "$bad" ] && ok "T2.all skills/ 전 디렉터리($n) 스키마 통과" || nope "T2.all" "디렉터리 ${n}개 · 위반:$bad"
 # 에코 가드 — contains/regex 는 프롬프트 자신에 매칭되면 안 된다(질문 단어를 되받기만 해도 PASS 하는 변별력 0 assert 차단)
 echo_bad=""
 for d in "$LE"/skills/*/; do
