@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### 행동 eval 의 `llm_rubric` 이 진짜 채점기를 얻는다 + 픽스처 복사 실패 알림 (#73 · #74)
+
+- **픽스처 복사 실패 알림 (#73)** — `run-skill-evals.sh` 의 픽스처 sandbox 가 복사 실패·빈 픽스처일 때 CLAUDE.md 만으로 커밋이 성공해 NOTE 없이 빈 repo 신호로 측정되던 경로를 NOTE 1회로 알린다. 판정 경로·결과 줄 불변
+- **`eval::judge_rubric` (#74)** — 종전 `llm_rubric` 은 문자열 `rubric-pass` 를 보는 stub 뿐이라 진짜 채점이 없었다. 빈 cwd + 도구 12종·MCP 차단 + `--max-turns 1` 로 격리한 채점 호출이 응답을 루브릭과 원 질문에 대조한다. 첫 비어있지 않은 줄이 `VERDICT: PASS|FAIL` 이 아니면 **ERROR** — PASS/FAIL 로 위장하지 않고 러너는 `SKIP(error: 채점 실패 …)`. 결정적 단언이 이미 FAIL 이면 채점 ERROR 가 그 FAIL 을 SKIP 으로 덮지 않는다. 채점 비용은 요약 비용에 합산. 기존 stub `assert_llm_rubric`(test-eval-matrix 가 의존)은 그대로
+- **보정 러너 `run-judge-calibration.sh` (#74)** — `judge-calibration/cases.jsonl`(10건: 정답 5 · 오답 5 — 키워드만 채운 오답·자백 없는 동작 변경 포함)을 채점기에 통과시켜 채택을 판정한다. **오답 오통과 0 이면서 일치 ≥ 90%** 일 때만 `CALIBRATION-VERDICT: ADOPT`. 채점 호출 0회(`JUDGE_CAL_RUNS`)·손상·스키마 위반 세트·채점 모델 혼합·채점 오류로는 ADOPT 가 나오지 않는다
+- **karpathy-ko 행동 eval 3건 이관 (#74)** — regex → 보정한 루브릭 `llm_rubric`(prompt 무변경). 종전 regex 는 정답 응답을 2/3 오FAIL 했다. 테스트가 (프롬프트, 루브릭) 쌍이 보정 세트가 검증한 쌍임을 잠근다
+
+**측정** (라이브 routed · 채점 모델 `claude-sonnet-5-5` · 2026-09-30): 보정 10건 × 2회 = 20회 전부 기대와 일치 · 오통과 0 · 오류 0 · $1.41 → ADOPT. karpathy-ko 행동 eval 3/3 PASS ($0.63)
+
+⚠️ **한계 (정직 고백)**
+- 표본 양성 5 · 음성 5 — 오통과 0/5 여도 실제 오통과율의 95% 상한은 약 45%. 루브릭 R1 은 c01 통과를 보며 다듬었으므로 보정 세트가 독립 검증이 아니다
+- 격리는 도구·MCP 차단이지 사용자 CLAUDE.md·훅 로드까지 막지 못한다. 프롬프트 인젝션은 nonce 구분자로 완화만 한다
+- 보정은 **채점 모델에 묶인다** — 모델을 바꾸면 `run-judge-calibration.sh` 로 재보정. 케이스당 1회 실행이라 3/3 PASS 는 이번 응답이 기준을 통과했다는 뜻이다
+- 다른 5 skill 의 행동 eval 은 이관하지 않았다(오답 케이스 추가 + 재보정 필요)
+
 ## [1.105.0] — 2026-09-30
 
 ### skill 활성화 측정 정비 + description 조정 — 라이브 eval 이 처음으로 쓸 만한 데이터를 낸다 (#69 · #70 · #71 · #72)
