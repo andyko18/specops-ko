@@ -196,7 +196,7 @@ _run '{}' CLAUDE_BIN="$TMP/long-claude" -- --trigger
 _line pos-1 | grep -qE -- '— stderr: x{120}$' && ok "T5.v stderr 첫 줄 120자 상한" || nope "T5.v" "$(_line pos-1 | tail -c 60)"
 _run '{}' CLAUDE_BIN="$TMP/dead-claude" -- --trigger
 _line pos-1 | grep -qE 'SKIP\(error: result 이벤트 없음 — 실행 실패\)$' && ok "T5.w stderr 없는 실패 → 기존 문구 그대로(부착 없음)" || nope "T5.w" "$(_line pos-1)"
-# T5.y~ah (20260930-skill-eval-fixture-repo) — 공유 픽스처 repo 를 커밋한 sandbox · 부재 시 종전 · 원본 무변경
+# T5.y~ak (20260930-skill-eval-fixture-repo · cp-note) — 공유 픽스처 repo 를 커밋한 sandbox · 부재 시 종전 · 원본 무변경
 FIX="$TMP/fixture"; mkdir -p "$FIX/src"; printf 'a\n' > "$FIX/src/a.js"; printf 'b\n' > "$FIX/b.py"
 _fix_before=$(cd "$FIX" && find . | LC_ALL=C sort)
 cat > "$TMP/git-claude" <<EOF
@@ -233,6 +233,21 @@ if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^NOTE: 픽스처 커밋 실패')" -e
   ok "T5.af 픽스처 커밋 실패 → NOTE 1회 · 판정 경로 불변"; else nope "T5.af" "$RUN_OUT"; fi
 _run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$FIX" -- --trigger
 printf '%s' "$RUN_OUT" | grep -q '^NOTE: 픽스처' && nope "T5.ag" "성공인데 NOTE: $RUN_OUT" || ok "T5.ag 픽스처 커밋 성공 → NOTE 없음"
+# 복사 실패·빈 픽스처도 무음이면 안 된다(20260930-skill-eval-fixture-cp-note) — 원인별 NOTE 를 run 당 1회 낸다
+# 픽스처 경로가 인자에 있을 때만 실패하고 그 밖의 cp 는 진짜 cp 로 넘긴다 — 무관한 cp 가 늘어도 이 단언이 흔들리지 않게(root 에서도 재현: chmod 000 은 root 에 무력)
+mkdir -p "$TMP/failcp"; _realcp=$(command -v cp)
+printf '#!/usr/bin/env bash\ncase "$*" in *"%s"*) exit 1 ;; esac\nexec "%s" "$@"\n' "$FIX" "$_realcp" > "$TMP/failcp/cp"; chmod +x "$TMP/failcp/cp"
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$FIX" PATH="$TMP/failcp:$PATH" -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^NOTE: 픽스처 복사 실패')" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'pass=1 fail=1 skip=0'; then
+  ok "T5.ai cp 실패 → NOTE 픽스처 복사 실패 1회 · 판정 요약 불변"; else nope "T5.ai" "$RUN_OUT"; fi
+mkdir -p "$TMP/emptyfix"
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$TMP/emptyfix" -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^NOTE: 픽스처가 비어 있음')" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'pass=1 fail=1 skip=0'; then
+  ok "T5.aj 빈 픽스처 → NOTE 픽스처가 비어 있음 1회 · 판정 요약 불변"; else nope "T5.aj" "$RUN_OUT"; fi
+# 복사 실패와 커밋 실패가 겹치면 근본 원인(복사 실패) 하나만, 그것도 1회 — 우선순위 가드 잠금
+_run '{"skills":["karpathy-ko"]}' SKILL_EVAL_FIXTURE="$FIX" PATH="$TMP/failcp:$TMP/failgit:$PATH" -- --trigger
+if [ "$(printf '%s\n' "$RUN_OUT" | grep -c '^NOTE: 픽스처')" -eq 1 ] && printf '%s\n' "$RUN_OUT" | grep -q '^NOTE: 픽스처 복사 실패'; then
+  ok "T5.ak 복사 실패+커밋 실패 겹침 → 복사 실패 NOTE 하나만"; else nope "T5.ak" "$RUN_OUT"; fi
 # 픽스처에 .git 이 있어도 sandbox 의 git 에 섞이지 않는다(Phase C Important 2 — cp -R 이 .git 을 병합해 HEAD 가 바뀌던 결함)
 FIXG="$TMP/fixture-git"; mkdir -p "$FIXG"; printf 'g\n' > "$FIXG/g.js"
 git -C "$FIXG" init -q; git -C "$FIXG" -c user.email=x@x -c user.name=x -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --allow-empty -m "foreign-fixture-commit"
