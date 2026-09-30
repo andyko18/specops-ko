@@ -82,7 +82,8 @@ eval::run_claude() {  # <bin> <cwd> <timeout_s> <prompt> [추가 인자...] → 
   local bin="$1" cwd="$2" to="$3" prompt="$4" out_f mark pid flag
   shift 4
   out_f=$(mktemp); mark="$out_f.timeout"; flag=$(mktemp)
-  (cd "$cwd" && exec "$bin" -p "$prompt" --output-format stream-json --verbose "$@") < /dev/null > "$out_f" 2>/dev/null &
+  # stderr 는 버리지 않고 호출자 stderr 로 흘린다 — 실행 실패(rc 3) 사유 진단용(20260930-skill-eval-tool-lock). stdout 판정 경로 불변
+  (cd "$cwd" && exec "$bin" -p "$prompt" --output-format stream-json --verbose "$@") < /dev/null > "$out_f" &
   pid=$!
   ( lim=$to; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
     n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
