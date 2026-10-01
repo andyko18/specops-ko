@@ -100,19 +100,21 @@ TAB=$(printf '\t')
 #   범주 M=작업(turn_duration 구간) · H=사람 · N=백그라운드 · U=미분류(턴 종료 뒤 다음 트리거 종류).
 #   짝짓기는 같은 파일 안에서만 한다(파일 경계 F 에서 상태를 비운다) — 동시 세션의 사건이 엮이지 않게.
 #   방치 상한을 넘는 유휴 구간은 세그먼트에서 빼고 건수·합계만 "#x" 줄로 남긴다. 직전 turn_duration 없는 트리거는 "#nod".
+#   한 세션의 턴은 순차라 겹칠 수 없다 — 알림으로 재개된 턴의 durationMs 는 앞 턴 시작부터 누적될 수 있어(실측)
+#   turn_duration 구간의 시작을 같은 파일의 직전 턴 끝 또는 직전 트리거(pend — 턴은 그 턴을 연 트리거보다 앞서 시작할 수 없다)로 잘라낸다.
 seg_stream() (   # 서브셸 + pipefail — 헬퍼가 실패(읽을 수 없는 파일 등)하면 awk 의 rc 0 에 가려지지 않고 측정 불가로 보고한다
   set -o pipefail
   bash "$SELF_DIR/_internal/transcript-turns.sh" --local "${SEG_FILES[@]}" 2>/dev/null \
   | awk -F '\t' -v cap="$CAP" '
     BEGIN { capsec = cap * 60 }
-    $2 == "F" { dend = ""; next }
-    $2 == "D" { te = $1 + 0; tb = te - $3 / 1000; if (tb < te) printf "%.3f\t%.3f\tM\n", tb, te; dend = te; next }
+    $2 == "F" { dend = ""; pend = ""; next }
+    $2 == "D" { te = $1 + 0; tb = te - $3 / 1000; if (pend != "" && tb < pend) tb = pend; pend = te; if (tb < te) printf "%.3f\t%.3f\tM\n", tb, te; dend = te; next }
     {
       if ($2 == "U") nu++
       if (dend == "") { nod++; next }
       g = $1 - dend
       if (g > capsec) { xn[$2]++; xs[$2] += g } else if (g > 0) printf "%.3f\t%.3f\t%s\n", dend, $1, $2
-      dend = ""
+      dend = ""; pend = $1 + 0
     }
     END {
       printf "#nod\t%d\n#u\t%d\n", nod + 0, nu + 0
@@ -258,7 +260,7 @@ END {
   printf "      FID 경계 미교차 · 도착 행의 단계에 귀속 · DST·타임존 변경 경계 ±60분 오차 가능\n"
   if (seg_ok == 1) {
     printf "분리: 작업 = 에이전트 턴 진행 시간(모델 추론 + 도구 실행 포함) · 턴 안의 권한 승인·질문 응답 대기도 섞여 있을 수 있음 · 사람 = 턴 종료 뒤 사람 프롬프트까지 · 백그라운드 = 턴 종료 뒤 알림(서브에이전트 등)이 재개할 때까지\n"
-    printf "      기타 = 나머지(미분류 포함) · 게이트(질문) 구분 없음 · 동시 세션 이중 계상 가능 · transcript 본문은 읽지 않음(구조 필드만) · 구간 경계 ±1분 · 행 끝 [겹침 N] = 겹친 구간이 있어 열 합이 합계와 다를 수 있음\n"
+    printf "      기타 = 나머지(미분류 포함) · 게이트(질문) 구분 없음 · 동시 세션 이중 계상 가능(같은 세션 누적 turn_duration 은 직전 턴 끝·직전 트리거로 잘라냄) · transcript 본문은 읽지 않음(구조 필드만) · 구간 경계 ±1분 · 행 끝 [겹침 N] = 겹친 구간이 있어 열 합이 합계와 다를 수 있음\n"
   }
   printf "원장: %s · FID %d개 · 구간 %d건(통계 %d · 방치 제외 %d) · 방치 상한 %s분 · since %s\n\n", ENVIRON["STAGE_TIMING_LEDGER"], fidn + 0, cnt + gapn, cnt + 0, gapn + 0, ENVIRON["STAGE_TIMING_CAP"], (since + 0 > 0 ? since : "없음")
   if (cnt == 0) {
@@ -299,7 +301,7 @@ END {
     if (ns > 0) printf "transcript 시간 범위(로컬): %s ~ %s · 범위 밖 구간 %d건(합 %d분)은 전부 기타에 포함\n", fmt(cmin), fmt(cmax), outn + 0, outsum + 0
     else printf "transcript 조각 없음 — 모든 구간이 기타입니다\n"
     printf "방치 상한 초과 유휴(transcript, 통계 제외): 사람 %d건 %d분 · 백그라운드 %d건 %d분 · 미분류 %d건 %d분\n", xn["H"] + 0, int(xs["H"] / 60 + 0.5), xn["N"] + 0, int(xs["N"] / 60 + 0.5), xn["U"] + 0, int(xs["U"] / 60 + 0.5)
-    printf "겹침 %d구간 (작업+사람+백그라운드가 구간 wall 을 넘음 — 동시 세션 가능성, 해당 구간의 기타는 0)\n", ovn + 0
+    printf "겹침 %d구간 (작업+사람+백그라운드가 구간 wall 을 넘음 — 같은 세션 누적 turn_duration 은 직전 턴 끝·직전 트리거로 잘라냄 · 남는 겹침 = 동시 세션 가능성, 해당 구간의 기타는 0)\n", ovn + 0
     printf "직전 turn_duration 없이 시작한 트리거 %d건 (세션 시작·턴 중 대기열·기록 누락 포함)\n", nod + 0
   }
 }'

@@ -261,6 +261,31 @@ EOF
 runs l4u --split --transcript-dir "$SB/td4u"
 ck "T4.j 작업 합 = wall 이면 겹침이 아니고(미분류 유휴는 기타의 일부), 기타 중 미분류는 그 구간 기타를 넘지 않는다 — 작업 10 · 기타 0 · 미분류 0분 · 트리거 1건" "$(row '/b 완료')|$(cnt '겹침 0구간')|$(cnt '기타 중 미분류 0분 · 미분류 트리거 1건')" "10 10 0 0 0|1|1"
 
+# 같은 세션의 누적 turn_duration: 알림으로 재개된 턴의 durationMs 가 앞 턴 시작부터 누적되면 구간이 직전 턴을 덮는다.
+#   한 세션의 턴은 순차라 겹칠 수 없다 — 직전 턴 끝(10:05)으로 잘라 10:05~10:10 = 5분만 센다(자르지 않으면 작업 13 = 4분 이중).
+mktr "$SB/td4k/s1.jsonl" <<'EOF'
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:05:00.000Z","durationMs":240000}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:10:00.000Z","durationMs":540000}
+EOF
+ledger l4k <<'EOF'
+## 20261001-aaa · A
+
+- 2026-10-01 10:20 /b 완료 (x)
+- 2026-10-01 10:00 /a 완료 (x)
+EOF
+runs l4k --split --transcript-dir "$SB/td4k"
+ck "T4.k 같은 세션 누적 turn_duration 은 직전 턴 끝으로 절단: 작업 9(4+5) · 기타 11 · 겹침 0구간" "$(row '/b 완료')|$(cnt '겹침 0구간')" "20 9 0 0 11|1"
+# 두 턴 사이에 트리거(알림)가 끼면: 한 턴은 그 턴을 연 트리거보다 앞서 시작할 수 없다 — 둘째 턴을 직전 트리거(10:09)로 잘라
+#   10:09~10:10 = 1분만 작업으로 센다(직전 턴 끝으로만 자르면 백그라운드 10:05~10:09 와 4분 이중).
+mktr "$SB/td4l/s1.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:01:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"content":"x"}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:05:00.000Z","durationMs":240000}
+{"type":"user","timestamp":"2026-10-01T10:09:00.000Z","isMeta":false,"origin":{"kind":"task-notification"},"message":{"content":"x"}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:10:00.000Z","durationMs":540000}
+EOF
+runs l4k --split --transcript-dir "$SB/td4l"
+ck "T4.l 트리거 뒤 누적 turn_duration 은 직전 트리거로 절단: 작업 5(4+1) · 백그라운드 4 · 기타 11 · 겹침 0구간" "$(row '/b 완료')|$(cnt '겹침 0구간')" "20 5 0 4 11|1"
+
 # ══ AC-5: 측정 불가 graceful · 옵션 없는 출력 불변 ══
 ledger l5 <<'EOF'
 ## 20261001-aaa · A
@@ -310,6 +335,8 @@ if [ "$(id -u)" -ne 0 ]; then
   mktr "$SB/tdperm/p.jsonl" < "$SB/td1/s1.jsonl"; chmod 000 "$SB/tdperm/p.jsonl"
   runs l5 --split --transcript-dir "$SB/tdperm"; chmod 644 "$SB/tdperm/p.jsonl"
   ck "T5.g 읽을 수 없는 세션 파일 → rc=0 · 측정 불가(transcript 를 읽을 수 없음) · 기존 표 유지" "$RC|$(printf '%s\n' "$OUT" | grep '^측정 불가(--split)' | grep -c 'transcript 를 읽을 수 없음')|$(printf '%s\n' "$OUT" | sed '$d' | sed "s|$SB/l5/session-progress.md|LEDGER|")" "0|1|$GOLDEN"
+else
+  echo "SKIP T5.g — root 로 실행 중(권한 검사 무의미)"
 fi
 
 # ══ AC-6: 옵션·rc·경로 해석 ══
@@ -341,6 +368,8 @@ if [ -n "$UTF8LOC" ]; then
   mktr "$SB/cfg7b/projects/$ENC_BY/s1.jsonl" < "$SB/td1/s1.jsonl"
   OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg7b" SPECOPS_ROOT="$ROOT7/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
   ck "T6.i 바이트 단위로 치환된 디렉토리도 찾는다" "$RC|$(row '/plan 완료')" "0|15 5 3 4 3"
+else
+  echo "SKIP T6.g~i — UTF-8 로케일(C.UTF-8·en_US.UTF-8) 없음"
 fi
 
 # ══ AC-7: 읽기 전용 · 정적 규약 · 성능 ══
