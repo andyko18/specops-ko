@@ -244,5 +244,59 @@ out2=$(printf 'abcdef' | PATH="$nj" /bin/bash "$REDACT" 2>/dev/null); rc2=$?
 in=$(printf 'a %sS1\nS2%s end' "$PRIV_O" "$PRIV_C")
 out=$(printf '%s\n' "$in" | bash "$REDACT" --last-line 2>/dev/null)
 [ "$out" = " end" ] && pass "T7.k --last-line 마스킹 뒤 마지막 줄" || fail "T7.k" "out=$out"
+
+# ── capture 훅 통합 (AC-4 · AC-6) ──
+mk_work() { mkdir -p "$1"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
+mk_tr() {  # $1=출력 파일 $2=마지막 사용자 프롬프트 — 사용자 발화 뒤에 Edit 이벤트
+  jq -cn --arg t "$2" '{type:"user",message:{content:[{type:"text",text:$t}]}}' > "$1"
+  printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"r.sh"}}]}}' >> "$1"
+}
+
+# T8.a 여러 줄 private 가 마지막 줄에서 닫히고 키·2000자 초과 한글이 마지막 줄에 있다 — 마스킹은 줄 자르기(tail -1) 앞이어야 한다 (AC-4)
+w8="$TMP/w8"; mk_work "$w8"; mk_tr "$TMP/tr8a.jsonl" "앞줄 ${PRIV_O}비밀하나
+비밀둘${PRIV_C} 끝 $K_AWS $(rep 2500 한)"
+out=$(echo "{\"transcript_path\":\"$TMP/tr8a.jsonl\",\"cwd\":\"$w8\"}" | bash "$HOOK" 2>/dev/null)
+P="$w8/.specops/pending-capture.jsonl"
+pr=$(jq -r '.prompt' "$P" 2>/dev/null); len=$(jq -r '.prompt|length' "$P" 2>/dev/null)
+ok=1
+for v in 비밀하나 비밀둘 "$K_AWS"; do case "$pr" in *"$v"*) ok=0 ;; esac; done
+case "$pr" in *"…[TRUNCATED]") ;; *) ok=0 ;; esac
+[ "${len:-99999}" -le 2020 ] || ok=0
+jq -e 'has("redact_failed")|not' "$P" >/dev/null 2>&1 || ok=0
+echo "$out" | grep -q '"continue":true' || ok=0
+[ "$ok" -eq 1 ] && pass "T8.a private 마지막 줄 닫힘·키·2000자 절단 (마스킹→줄→절단 순서)" || fail "T8.a" "len=$len out=$out pr=${pr:0:60}"
+
+# T8.b 평범한 프롬프트는 그대로 · 필드 집합 불변 (AC-4)
+w8b="$TMP/w8b"; mk_work "$w8b"; mk_tr "$TMP/tr8b.jsonl" "이 버그 고쳐줘 commit 0123456789abcdef0123456789abcdef01234567"
+echo "{\"transcript_path\":\"$TMP/tr8b.jsonl\",\"cwd\":\"$w8b\"}" | bash "$HOOK" >/dev/null 2>&1
+Pb="$w8b/.specops/pending-capture.jsonl"
+[ "$(jq -r '.prompt' "$Pb" 2>/dev/null)" = "이 버그 고쳐줘 commit 0123456789abcdef0123456789abcdef01234567" ] \
+  && [ "$(jq -c 'keys' "$Pb" 2>/dev/null)" = '["fid","files","prompt","ts","type"]' ] \
+  && pass "T8.b 평범한 프롬프트 불변·필드 집합 불변" || fail "T8.b" "$(cat "$Pb" 2>/dev/null | head -c 200)"
+
+# T8.c 패턴 파일 없는 플러그인 사본 — prompt 비움 + redact_failed + 실패 로그 1줄(원문 없음) + continue:true (AC-6)
+pl="$TMP/plug"; mkdir -p "$pl/hooks" "$pl/scripts/_internal"
+cp "$PLUGIN/hooks/freecomment-capture.sh" "$PLUGIN/hooks/governance-lib.sh" "$pl/hooks/" 2>/dev/null
+cp "$REDACT" "$pl/scripts/_internal/" 2>/dev/null   # 패턴 파일은 일부러 복사하지 않는다
+w8c="$TMP/w8c"; mk_work "$w8c"; mk_tr "$TMP/tr8c.jsonl" "고쳐줘 $K_AWS"
+out=$(echo "{\"transcript_path\":\"$TMP/tr8c.jsonl\",\"cwd\":\"$w8c\"}" | bash "$pl/hooks/freecomment-capture.sh" 2>/dev/null)
+Pc="$w8c/.specops/pending-capture.jsonl"; L="$w8c/.specops/redact-failures.log"
+ok=1
+[ "$(jq -r '.prompt' "$Pc" 2>/dev/null)" = "" ] || ok=0
+[ "$(jq -r '.redact_failed' "$Pc" 2>/dev/null)" = "true" ] || ok=0
+[ "$(jq -r '.files[0]' "$Pc" 2>/dev/null)" = "r.sh" ] || ok=0
+grep -q "$K_AWS" "$Pc" 2>/dev/null && ok=0
+[ "$(wc -l < "$L" 2>/dev/null | tr -d ' ')" = "1" ] || ok=0
+grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z freecomment-capture$' "$L" 2>/dev/null || ok=0
+echo "$out" | grep -q '"continue":true' || ok=0
+[ "$ok" -eq 1 ] && pass "T8.c 마스킹 불가 → prompt 폐기·redact_failed·로그 1줄" || fail "T8.c" "out=$out pend=$(head -c 160 "$Pc" 2>/dev/null)"
+
+# T8.d 실패 로그가 symlink 면 write-through 거부 — 레코드는 남고 훅은 continue:true (#144 대칭)
+w8d="$TMP/w8d"; od8="$TMP/outside8d"; mk_work "$w8d"; mkdir -p "$w8d/.specops" "$od8"
+ln -s "$od8/leak.log" "$w8d/.specops/redact-failures.log"
+mk_tr "$TMP/tr8d.jsonl" "고쳐줘 $K_AWS"
+out=$(echo "{\"transcript_path\":\"$TMP/tr8d.jsonl\",\"cwd\":\"$w8d\"}" | bash "$pl/hooks/freecomment-capture.sh" 2>/dev/null)
+echo "$out" | grep -q '"continue":true' && [ ! -e "$od8/leak.log" ] && [ -s "$w8d/.specops/pending-capture.jsonl" ] \
+  && pass "T8.d 로그 symlink write 거부" || fail "T8.d" "out=$out leak=$([ -e "$od8/leak.log" ] && echo yes || echo no)"
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

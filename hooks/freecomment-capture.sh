@@ -34,9 +34,10 @@ while IFS= read -r f; do
 done <<< "$edits"
 [ "${#real_files[@]}" -eq 0 ] && safe_exit  # 빈 배열 먼저 exit (bash 3.2 unbound 가드)
 
-lu=$(jq -rs '[.[] | select(.type=="user") | .message.content] | last
+lu_full=$(jq -rs '[.[] | select(.type=="user") | .message.content] | last
       | if type=="array" then (.[] | select(.type=="text") | .text) else . end' \
-      "$transcript" 2>/dev/null | tail -1)
+      "$transcript" 2>/dev/null)
+lu=$(printf '%s\n' "$lu_full" | tail -1)   # type 분류 전용 — 메모리 안에서만 쓰고 저장하지 않는다
 lu=${lu:-""}
 
 type="fix"
@@ -46,6 +47,15 @@ case "$lu" in
   *\?*|*뭐*|*어떻게*|*왜*) type="question" ;;
 esac
 
+# 저장 직전 마스킹(fail-closed) — 줄 자르기보다 앞서 전체 텍스트를 마스킹한 뒤 마지막 줄·2000자만 남긴다.
+#   rc≠0(패턴 부재·redact.sh 부재 127 포함)이면 프롬프트를 버리고 redact_failed 로 표시한다. 정규식 마스킹은 완전 보장이 아니다.
+redact_failed=false
+if lu_r=$(printf '%s\n' "$lu_full" | bash "$plugin_root/scripts/_internal/redact.sh" --last-line --max 2000 2>/dev/null); then
+  lu="$lu_r"
+else
+  lu=""; redact_failed=true
+fi
+
 # symlink 가드 (#144 log_friction 대칭) — 악성 repo 가 .specops 또는 pending 파일을
 # 외부 dir symlink 로 심으면 write-through path-escape. 훅 자기 cwd 가 아닌 $cwd 기준이라 인라인 검사.
 [ ! -L "$cwd/.specops" ] || safe_exit
@@ -54,6 +64,10 @@ mkdir -p "$cwd/.specops"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전
 fid=$(cd "$cwd" && detect_fid 2>/dev/null || echo "")
-jq -cn --arg ts "$ts" --argjson files "$files_json" --arg p "$lu" --arg t "$type" --arg fid "$fid" \
-  '{ts:$ts, files:$files, prompt:$p, type:$t, fid:$fid}' >> "$cwd/.specops/pending-capture.jsonl" 2>/dev/null
+jq -cn --arg ts "$ts" --argjson files "$files_json" --arg p "$lu" --arg t "$type" --arg fid "$fid" --argjson rf "$redact_failed" \
+  '{ts:$ts, files:$files, prompt:$p, type:$t, fid:$fid} + (if $rf then {redact_failed:true} else {} end)' >> "$cwd/.specops/pending-capture.jsonl" 2>/dev/null
+# 실패 건수 로그 — 시각·출처만(원문·프롬프트 일부 금지). 로그 파일 symlink 는 write-through 거부(#144 대칭)
+if [ "$redact_failed" = true ] && [ ! -L "$cwd/.specops/redact-failures.log" ]; then
+  printf '%s freecomment-capture\n' "$ts" >> "$cwd/.specops/redact-failures.log" 2>/dev/null
+fi
 safe_exit
