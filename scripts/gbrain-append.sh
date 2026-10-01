@@ -68,7 +68,7 @@ mkdir -p "$(dirname "$TARGET")"
 # 저장 직전 마스킹(fail-closed) — rc≠0(패턴 부재·redact.sh 부재 127 포함)이면 기록하지 않는다. 끝 개행 보존용 sentinel(x).
 REDACT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/redact.sh"
 if ! INSIGHT_R=$(printf '%s' "$INSIGHT" | bash "$REDACT" 2>/dev/null && printf x); then
-  LOGDIR=$(dirname "$TARGET"); case "$LOGDIR" in */memory) LOGDIR="${LOGDIR%/memory}" ;; esac
+  LOGDIR=$(dirname "$TARGET"); [ "${LOGDIR##*/}" = memory ] && LOGDIR=${LOGDIR%/*}   # 대상이 .../memory/파일 이면 한 단계 위
   if [ -d "$LOGDIR" ] && [ ! -L "$LOGDIR/redact-failures.log" ]; then
     printf '%s gbrain-append\n' "$TS" >> "$LOGDIR/redact-failures.log" 2>/dev/null || true
   fi
