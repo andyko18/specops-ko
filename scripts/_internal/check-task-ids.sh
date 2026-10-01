@@ -6,6 +6,7 @@
 # 왜 필요한가: tasks.md 의 id 가 `T1a` 이면 커밋의 `Task: T1a` 가 hooks/governance-lib.sh `_infer_commit_task` 에서
 #   `T1` 로 잘려 없는 receipt 를 찾고, R-1 implement 창의 receipt 탈출구가 열리지 않는다(사고 2회).
 #   숫자 id 전제가 시스템 전반(hooks/save-review-report.sh 의 tid=T숫자)에 있어 정규식을 넓히지 않고 원천에서 막는다.
+# 인터프리터(PATH)·표준 lib 은 신뢰 경계 — PYTHON* env 는 -E 로 차단하지만 PATH 상의 python3 교체는 emit-context·parse-dag 공통 경계라 이 판정기만으로 못 막는다.
 set -u
 FID="${1:?usage: $0 FID}"
 # ★ 경로는 `.specops` 로 **고정**한다 — SPECOPS_ROOT 를 읽으면 `SPECOPS_ROOT=/nonexistent` 한 줄로 tasks.md 부재 SKIP 이
@@ -29,7 +30,7 @@ source "$PLUGIN/scripts/dag/parse-dag.sh"
 yaml=$(dag::extract_yaml "$TASKS" 2>/dev/null)
 [ -n "$yaml" ] || { echo "TASK-IDS: SKIP (YAML 부재 — id 규격 미검증)"; exit 0; }
 
-verdict=$(SPECOPS_TI_YAML="$yaml" python3 - <<'PYEOF' 2>/dev/null
+verdict=$(SPECOPS_TI_YAML="$yaml" python3 -E - <<'PYEOF' 2>/dev/null
 import os, re, yaml
 try:
     doc = yaml.safe_load(os.environ["SPECOPS_TI_YAML"]) or {}

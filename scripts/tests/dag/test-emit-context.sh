@@ -325,6 +325,46 @@ sed -i.bak 's/id: T1$/id: N1/; s/id: T2$/id: N2/' "$tmp/.specops/20260902-legacy
 out=$(cd "$tmp" && bash "$EMIT" 20260902-legacy 2>&1); rc=$?
 _pf "T2.t_c 레거시 FID(N1·N2) → EMIT 정상" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp"
+# T1.t6 PYTHONPATH 로 주입한 **조건부** 가짜 yaml 모듈로 판정기를 속이지 못한다 (AC-3 후단 · Phase C Important)
+#   가짜는 SPECOPS_TI_YAML(판정기가 python 에 넘기는 env) 이 있을 때만 tasks=[T1] 을 돌려주고 그 외에는 실 pyyaml 로
+#   위임한다 — 판정기만 속고 emit 의 자체 파싱은 실 YAML 을 봐서 T1a-context.md 를 디스크에 쓰던 경로(리뷰 실측).
+#   무조건 가짜는 emit 도 함께 깨져 이 결함을 못 잡는다. 판정기의 `python3 -E` 가 PYTHON* env 를 무시해 막는다.
+_fk=$(mktemp -d); mkdir -p "$_fk/yaml"
+cat > "$_fk/yaml/__init__.py" <<'FKEOF'
+import os, sys, importlib
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _load_real():
+    saved_path, saved_mod = sys.path[:], sys.modules.pop("yaml", None)
+    try:
+        sys.path[:] = [p for p in sys.path if os.path.abspath(p or ".") != _root]
+        return importlib.import_module("yaml")
+    finally:
+        sys.path[:] = saved_path
+        if saved_mod is not None:
+            sys.modules["yaml"] = saved_mod
+_REAL = _load_real()
+def safe_load(s):
+    if os.environ.get("SPECOPS_TI_YAML") is not None:
+        return {"tasks": [{"id": "T1"}]}
+    return _REAL.safe_load(s)
+def __getattr__(name):
+    return getattr(_REAL, name)
+FKEOF
+# 선검사 — 가짜가 실제로 조건부로 동작하는가(트리거 시 T1 · 미트리거 시 실 pyyaml 위임). 아니면 아래 단언이 다른 것을 잰다.
+_fk0=$(PYTHONPATH="$_fk" SPECOPS_TI_YAML=1 python3 -c 'import yaml;print(yaml.safe_load("tasks: [{id: T1a}]"))' 2>&1)
+_fk1=$(env -u SPECOPS_TI_YAML PYTHONPATH="$_fk" python3 -c 'import yaml;print(yaml.safe_load("tasks: [{id: T1a}]"))' 2>&1)
+_pf "T1.t6-0 픽스처: 조건부 가짜 yaml 성립(트리거 T1 · 그 외 실 pyyaml 위임)" "$([ "$_fk0" = "{'tasks': [{'id': 'T1'}]}" ] && [ "$_fk1" = "{'tasks': [{'id': 'T1a'}]}" ] && echo ok || echo no)" "fk0=$_fk0 fk1=$_fk1"
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-fake T1a
+out=$(cd "$tmp" && PYTHONPATH="$_fk" SPECOPS_TI_YAML=1 bash "$CHK" 20261001-fake 2>&1); rc=$?
+_pf "T1.t6 가짜 yaml(PYTHONPATH) 주입에도 FAIL 유지·위반 목록 T1a" "$([ "$rc" -eq 1 ] && _tid_line "$out" | grep -qE '규격 위반: T1a$' && echo ok || echo no)" "rc=$rc out=$(printf '%s' "$out" | head -2)"
+rm -rf "$tmp"
+# T1.t6b 같은 주입에서 emit 도 exit 1 · dispatch 미생성 — intent 까지 갖춘 fixture 라 판정기가 속으면 실제로 산출된다
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-fake"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20261001-fake/"
+sed -i.bak 's/id: T1$/id: T1a/' "$tmp/.specops/20261001-fake/tasks.md"; rm -f "$tmp/.specops/20261001-fake/tasks.md.bak"
+printf '# Intent: 게이트 픽스처\n\n**작성자**: 사용자 · **Status**: accepted\n\n## 문제\n게이트 통과 경로 확인\n\n## 기대 결과\ndispatch 산출\n\n## 영향 사용자·시스템\n- 구현자\n\n## 제약\n- 해당 없음\n\n## 열린 질문\n- 없음\n' > "$tmp/.specops/20261001-fake/intent.md"
+err=$(cd "$tmp" && env -u SPECOPS_TI_YAML PYTHONPATH="$_fk" bash "$EMIT" 20261001-fake 2>&1 >/dev/null); rc=$?
+_pf "T1.t6b 가짜 yaml 주입 → emit exit 1·위반 목록 T1a·dispatch 0" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '규격 위반: T1a$' && [ ! -d "$tmp/.specops/20261001-fake/dispatch" ] && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -2) dispatch=$(ls "$tmp/.specops/20261001-fake/dispatch" 2>/dev/null | tr '\n' ' ')"
+rm -rf "$tmp" "$_fk"
 # (정상 숫자 id 날짜 FID 의 EMIT 은 기존 T4.b(FID 20991231-gate, ok-fid ids T1·T2)가 이미 잠근다 — 새 게이트가 앞에 있어도 통과해야 한다)
 
 echo "PASS=$PASS FAIL=$FAIL"
