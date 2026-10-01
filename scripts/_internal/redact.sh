@@ -10,7 +10,7 @@
 # 성능: Stop 훅 hot path — 외부 프로세스 수를 줄이려 bash 내장을 쓴다(mktemp·cat·wc·tail·awk·sed·jq 만 띄운다).
 set -u
 umask 077   # 임시 파일은 소유자만 읽는다
-case "${BASH_SOURCE[0]}" in */*) _src=${BASH_SOURCE[0]%/*} ;; *) _src=. ;; esac
+_src=${BASH_SOURCE[0]%/*}; [ "$_src" != "${BASH_SOURCE[0]}" ] || _src=.   # 슬래시 없는 호출(bash redact.sh)이면 현재 디렉토리
 DIR=$(cd "$_src" && pwd)
 PATTERNS="$DIR/redact-patterns.sed"
 OVERSIZE=1000000

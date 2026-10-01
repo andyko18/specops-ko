@@ -283,6 +283,13 @@ case "$qout" in *'password: "$TOKEN"'*'password: "{{KEY}}"'*'token: "abcd"'*) ;;
 out=$(printf 'abc' | bounded bash "$REDACT" --max 2>/dev/null); rc=$?
 [ "$rc" -eq 2 ] && [ -z "$out" ] && pass "T7.n --max 값 누락 rc2" || fail "T7.n" "rc=$rc"
 
+# T7.o 슬래시 없는 호출(cd 후 bash redact.sh)·./ 상대 호출도 패턴 파일을 찾는다 — _src 해석의 두 분기 (verify fix loop 1: 한 줄 case 를 확장으로 바꾼 뒤 이 분기를 지키는 테스트가 없었다)
+rd=$(dirname "$REDACT")
+o1=$(cd "$rd" && printf 'k %s' "$K_AWS" | bash redact.sh 2>/dev/null); r1=$?
+o2=$(cd "$rd" && printf 'k %s' "$K_AWS" | bash ./redact.sh 2>/dev/null); r2=$?
+[ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && [ "$o1" = "k [REDACTED:aws]" ] && [ "$o2" = "k [REDACTED:aws]" ] \
+  && pass "T7.o 슬래시 없는·./ 상대 호출" || fail "T7.o" "r1=$r1 o1=$o1 r2=$r2 o2=$o2"
+
 # ── capture 훅 통합 (AC-4 · AC-6) ──
 mk_work() { mkdir -p "$1"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
 mk_tr() {  # $1=출력 파일 $2=마지막 사용자 프롬프트 — 사용자 발화 뒤에 Edit 이벤트
