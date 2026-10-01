@@ -270,4 +270,74 @@ d=$(mk_env t6i); mk_core "$d"
 out=$(run_meter "$d" --since not-a-date); ec=$?
 [ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "bad-baseline" ] && ok "T6.i 기준점 파싱 실패 → bad-baseline" || nope "T6.i" "ec=$ec out='$out' rec=$(cat "$(TOK "$d")" 2>/dev/null)"
 
+# report 는 transcript 를 읽지 않는다 — config·HOME 을 없는 경로로 고정해 실행(조회 전용)
+RUN_REPORT() { ( cd "$1/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR=/nonexistent CLAUDE_CODE_SESSION_ID="$SID" bash "$METER" --report "${@:2}" 2>&1 ); }
+_has() { printf '%s\n' "$1" | /usr/bin/grep -q -- "$2"; }
+_hasx() { printf '%s\n' "$1" | /usr/bin/grep -qxF -- "$2"; }
+
+# T7.a 단일 FID report: 헤더·행·TOTAL·한계 문구 (AC-9)
+#   main(2msg i4 o1018 cr300 cw70) + aaa(2msg i4 o100 cr200 cw100) + bbb(1msg i2 o5 cr100 cw50)
+#   ⇒ TOTAL 5 10 1123 600 220 — 한 열이라도 합산에서 빠지면 이 줄이 달라진다
+d=$(mk_env t7a); mk_core "$d"; mk_sub "$d"; run_meter "$d" >/dev/null
+out=$(RUN_REPORT "$d" "$FID"); ec=$?
+rows=$(printf '%s\n' "$out" | /usr/bin/grep -c '^11111111  ')
+if [ "$ec" -eq 0 ] && [ "$rows" = 3 ] \
+   && _hasx "$out" 'SESSION  AGENT  MODEL  MESSAGES  INPUT  OUTPUT  CACHE_READ  CACHE_WRITE' \
+   && _hasx "$out" '11111111  main  m1  2  4  1018  300  70' \
+   && _hasx "$out" '11111111  general-purpose:aaa  m2  2  4  100  200  100' \
+   && _hasx "$out" '11111111  unknown:bbb  m3  1  2  5  100  50' \
+   && _hasx "$out" 'TOTAL  -  -  5  10  1123  600  220' \
+   && _has "$out" '^※ 중복 제거: message.id 별 최댓값' \
+   && _has "$out" '^※ advisor .*미포함' \
+   && _hasx "$out" '※ 포함 세션: 11111111' \
+   && _has "$out" '^※ 구간과 겹치는 다른 세션 1개 미포함'; then
+  ok "T7.a 단일 FID report 구성(합계 표·중복 제거·advisor·포함 세션·겹침)"
+else
+  nope "T7.a" "ec=$ec rows=$rows out=$out"
+fi
+
+# T7.b FID 생략 → 헤더 없이 FID당 정확히 1줄, unmeasured 는 사유 표기, exit 0 (AC-11)
+d2=$(mk_env t7b); FID2=20261001-other; mkdir -p "$d2/work/.specops/$FID2"
+cp "$d/work/.specops/$FID/tokens.jsonl" "$d2/work/.specops/$FID/tokens.jsonl"
+jq -nc --arg fid "$FID2" '{schema_version:1,ts:"2026-10-01T00:00:00Z",fid:$fid,session:"x",status:"unmeasured",reason:"no-messages-in-window"}' > "$d2/work/.specops/$FID2/tokens.jsonl"
+out=$(RUN_REPORT "$d2"); ec=$?; n=$(printf '%s\n' "$out" | /usr/bin/wc -l | tr -d ' ')
+if [ "$ec" -eq 0 ] && [ "$n" = 2 ] \
+   && _hasx "$out" "$FID2  측정 안 됨 (no-messages-in-window)" \
+   && _hasx "$out" "$FID  input=10 output=1123 cache_read=600 cache_write=220 sessions=1"; then
+  ok "T7.b FID 생략 → FID당 1줄(합계 / 측정 안 됨 (사유))"
+else
+  nope "T7.b" "ec=$ec n=$n out=$out"
+fi
+
+# T7.c 기록 없는 FID → '측정 안 됨 (기록 없음)' (0 이 아님), exit 0
+d3=$(mk_env t7c); out=$(RUN_REPORT "$d3" "$FID"); ec=$?
+[ "$ec" -eq 0 ] && _hasx "$out" "$FID  측정 안 됨 (기록 없음)" && ! _has "$out" 'TOTAL' \
+  && ok "T7.c 기록 없음 표기" || nope "T7.c" "ec=$ec out=$out"
+
+# T7.d 다중 세션(--session) + 다중 서브에이전트 → TOTAL·포함 세션·FID 생략 요약이 두 세션을 합산
+#   T7.a 값 + SID2 main(1msg i2 o77 cr100 cw50) ⇒ TOTAL 6 12 1200 700 270 · sessions=2
+#   (겹침 수는 단언하지 않는다 — 두 번째 세션 레코드는 이미 포함된 첫 세션 파일도 세므로)
+d4=$(mk_env t7d); mk_core "$d4"; mk_sub "$d4"; run_meter "$d4" >/dev/null
+{ _line msg_X m9 77 2026-09-30T10:10:00.000Z; } > "$d4/cfg/projects/-p/$SID2.jsonl"
+run_meter "$d4" --session "$SID2" >/dev/null
+out=$(RUN_REPORT "$d4" "$FID"); sum=$(RUN_REPORT "$d4")
+if _hasx "$out" 'TOTAL  -  -  6  12  1200  700  270' \
+   && _hasx "$out" '22222222  main  m9  1  2  77  100  50' \
+   && _hasx "$out" '※ 포함 세션: 11111111,22222222' \
+   && [ "$sum" = "$FID  input=12 output=1200 cache_read=700 cache_write=270 sessions=2" ]; then
+  ok "T7.d 다중 세션·서브에이전트 TOTAL·요약 합산"
+else
+  nope "T7.d" "out=$out sum=$sum"
+fi
+
+# T7.e report 는 조회 전용 — transcript 를 열지 않고(config 없는 경로) tokens.jsonl 도 바꾸지 않는다
+cp "$(TOK "$d")" "$TD/t7e.before"
+out=$(RUN_REPORT "$d" "$FID"); ec=$?
+if [ "$ec" -eq 0 ] && cmp -s "$TD/t7e.before" "$(TOK "$d")" \
+   && _hasx "$out" 'TOTAL  -  -  5  10  1123  600  220' && ! _has "$out" '측정 안 됨'; then
+  ok "T7.e report 읽기 전용(transcript 미접근·기록 불변)"
+else
+  nope "T7.e" "ec=$ec out=$out rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
+
 finish

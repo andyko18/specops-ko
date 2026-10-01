@@ -144,4 +144,40 @@ if [ "$MODE" = record ]; then
   _upsert "$NEWREC"
   exit 0
 fi
+
+# 조회 모드: tokens.jsonl 만 읽는다(transcript·config 미접근, 기록 없음)
+if [ "$MODE" = report ]; then
+  _fid_line() { # <FID> — FID 생략 모드의 1줄 요약
+    local f="$SPECOPS/$1/tokens.jsonl" rs
+    [ -f "$f" ] && [ ! -L "$f" ] || return 0
+    if jq -e 'select(.status==null)' "$f" >/dev/null 2>&1; then
+      jq -rs --arg fid "$1" '[.[]|select(.status==null)] as $m
+        | "\($fid)  input=\($m|map(.input)|add) output=\($m|map(.output)|add) cache_read=\($m|map(.cache_read)|add) cache_write=\($m|map(.cache_write)|add) sessions=\($m|map(.session)|unique|length)"' "$f"
+    else
+      rs=$(jq -r 'select(.status=="unmeasured")|.reason' "$f" | sort -u | paste -sd, -)
+      printf '%s  측정 안 됨 (%s)\n' "$1" "${rs:-사유 없음}"
+    fi
+  }
+  if [ -z "$FID" ]; then
+    for tf in "$SPECOPS"/*/tokens.jsonl; do
+      [ -f "$tf" ] || continue
+      _fid_line "$(basename "$(dirname "$tf")")"
+    done
+    exit 0
+  fi
+  f="$SPECOPS/$FID/tokens.jsonl"
+  if [ ! -f "$f" ] || [ -L "$f" ]; then printf '%s  측정 안 됨 (기록 없음)\n' "$FID"; exit 0; fi
+  if ! jq -e 'select(.status==null)' "$f" >/dev/null 2>&1; then _fid_line "$FID"; exit 0; fi
+  echo "SESSION  AGENT  MODEL  MESSAGES  INPUT  OUTPUT  CACHE_READ  CACHE_WRITE"
+  jq -r 'select(.status==null) | [.session[0:8], .agent, .model, .messages, .input, .output, .cache_read, .cache_write] | @tsv' "$f" \
+    | awk -F'\t' '{ printf "%s  %s  %s  %s  %s  %s  %s  %s\n", $1,$2,$3,$4,$5,$6,$7,$8
+                    m+=$4; i+=$5; o+=$6; cr+=$7; cw+=$8 }
+                  END { printf "TOTAL  -  -  %d  %d  %d  %d  %d\n", m,i,o,cr,cw }'
+  echo "※ 중복 제거: message.id 별 최댓값(max-per-message-id) — 줄 합산이 아님"
+  echo "※ advisor 도구 호출 토큰은 usage 에 나타나지 않아 미포함"
+  echo "※ 포함 세션: $(jq -r 'select(.status==null)|.session[0:8]' "$f" | sort -u | paste -sd, -)"
+  ov=$(jq -r 'select(.overlap_other_sessions!=null)|.overlap_other_sessions' "$f" | sort -n | tail -1)
+  [ "${ov:-0}" -gt 0 ] && echo "※ 구간과 겹치는 다른 세션 ${ov}개 미포함 (--session <uuid> 로 추가)"
+  exit 0
+fi
 exit 0
