@@ -436,4 +436,104 @@ else
   nope "T9.d" "rc=$dn_rc $(printf '%s\n' "$dn_out" | /usr/bin/grep 'DOC-NUMBERS: FAIL' | head -3)"
 fi
 
+# ── T10 Phase C 지적 반영 (AC-5·AC-6·AC-9) ─────────────────────────────────────
+# T10.a usage 타입 방어: 이상값 줄마다 고유 id — max 가 이상값을 가리지 못하게 한다.
+#   제외(usage 비객체): msg_str(문자열)·msg_nul(null)·msg_arr(배열)·msg_mstr(.message 가 문자열)
+#   포함·숫자 아님→0: msg_tstr(4필드 전부 문자열) — 메시지로는 센다(messages 에 1 기여)
+#   포함·음수→0: msg_neg(o -5 · i 1, 이 id 의 유일한 줄) — 토큰 수는 정의상 0 이상이라 음수는 형식 이상으로 본다
+#   같은 id 공존: msg_V2 유효 줄(o20) + 문자열 토큰 줄(o "999") — 미방어 jq 는 max 에서 문자열을 숫자보다 크게 친다
+#   ⇒ messages 4(V1·tstr·neg·V2) · input 2+0+1+3=6 · output 10+0+0+20=30 · cache_read 100+0+0+200=300 · cache_write 50+0+0+20=70
+d=$(mk_env t10a)
+{
+  _line msg_V1 m1 10 2026-09-30T10:01:00.000Z 2 100 50
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:01.000Z","message":{"id":"msg_str","model":"m1","usage":"x"}}'
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:02.000Z","message":{"id":"msg_nul","model":"m1","usage":null}}'
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:03.000Z","message":{"id":"msg_arr","model":"m1","usage":[1,2]}}'
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:04.000Z","message":"msg_mstr"}'
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:05.000Z","message":{"id":"msg_tstr","model":"m1","usage":{"input_tokens":"5","output_tokens":"7","cache_read_input_tokens":"1","cache_creation_input_tokens":"2"}}}'
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:06.000Z","message":{"id":"msg_neg","model":"m1","usage":{"input_tokens":1,"output_tokens":-5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}'
+  _line msg_V2 m1 20 2026-09-30T10:01:07.000Z 3 200 20
+  printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:01:07.500Z","message":{"id":"msg_V2","model":"m1","usage":{"input_tokens":"9","output_tokens":"999","cache_read_input_tokens":"9","cache_creation_input_tokens":"9"}}}'
+} > "$d/cfg/projects/-p/$SID.jsonl"
+out=$(run_meter "$d"); ec=$?
+if [ "$ec" -eq 0 ] && [ -z "$out" ] && [ -z "$(_one "$(TOK "$d")")" ] \
+   && jq -e 'select(.agent=="main") |
+        .messages==4 and .input==6 and .output==30 and .cache_read==300 and .cache_write==70' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T10.a usage 타입 이상(비객체·문자열·음수) 줄 혼재 → 유효 줄만 집계·사유 오기록 없음"
+else
+  nope "T10.a" "ec=$ec out='$out' rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
+
+# T10.b FID 디렉토리 부재 + --since → stderr·stdout 무출력·exit 0·디렉토리 재생성 없음 (AC-5)
+d=$(mk_env t10b); mk_core "$d"; rm -rf "$d/work/.specops/$FID"
+out=$(run_meter "$d" --since 2026-09-30T10:00:00Z); ec=$?
+if [ "$ec" -eq 0 ] && [ -z "$out" ] && [ ! -e "$d/work/.specops/$FID" ]; then
+  ok "T10.b FID 디렉토리 부재 + --since → 무출력·exit 0"
+else
+  nope "T10.b" "ec=$ec out='$out'"
+fi
+
+# T10.c 가드 결합 잠금 (AC-6): record-metric.sh 의 **실제 출력 줄**이 run-verification 가드 문자열에 매치해야 한다.
+#   가드 문자열은 run-verification.sh 에서 추출 — 한쪽 직렬화·가드가 바뀌면 여기서 갈라진다.
+#   추출 실패 시 grep -q "" 는 모든 줄에 매치하므로(공허 통과) 비어 있지 않고 fid-start 를 담는지 먼저 본다.
+guard=$(sed -n "s/.*grep -q '\\([^']*\\)' \"\\.specops\\/\\\$FID\\/metrics\\.jsonl\".*/\\1/p" "$RV" | head -1)
+mkdir -p "$TD/rm10"
+( cd "$TD/rm10" && SPECOPS_ROOT="$TD/rm10/.specops" bash "$PLUGIN/scripts/_internal/record-metric.sh" --fid "$FID" --phase fid-start >/dev/null 2>&1 ); rmrc=$?
+case "$guard" in *fid-start*) g_ok=1 ;; *) g_ok=0 ;; esac
+if [ "$g_ok" = 1 ] && [ "$rmrc" -eq 0 ] && /usr/bin/grep -q -- "$guard" "$TD/rm10/.specops/$FID/metrics.jsonl"; then
+  ok "T10.c record-metric fid-start 실출력 ↔ run-verification 가드 문자열 결합"
+else
+  nope "T10.c" "guard='$guard' rmrc=$rmrc line=$(cat "$TD/rm10/.specops/$FID/metrics.jsonl" 2>/dev/null)"
+fi
+
+# T10.d 임시 파일 잔존 0 — 전용 TMPDIR 에서 meter-tokens.* 만 센다(bounded_run 의 specops-bounded.* 는 대상 아님)
+#   (i) TERM 경로: _unmeasured 의 jq 를 shim 으로 붙잡아 두고 bounded_run 1 로 죽인다 — rc 124 로 TERM 경로를 실제로 탔음을 확인.
+#       bounded_run 은 TERM 을 두 번 보낸다(그룹 → pid). 신호→exit trap 이 없으면 두 번째 TERM 이 EXIT trap 의 rm 전에
+#       셸을 죽이는 경쟁이 생긴다(실측 15회 중 4회 잔존) — 확률적이라 3회 반복해 판별력을 올린다.
+#   (ii) 정상 경로 4종: 성공·transcript-not-found·bad-baseline·no-messages-in-window
+source "$PLUGIN/scripts/_internal/run-bounded.sh"
+REALJQ=$(command -v jq)
+mkdir -p "$TD/shim" "$TD/tmp10" "$TD/tmp10n"
+printf '#!/bin/bash\ncase "$*" in *unmeasured*) sleep 4 ;; esac\nexec "%s" "$@"\n' "$REALJQ" > "$TD/shim/jq"; chmod +x "$TD/shim/jq"
+d=$(mk_env t10d); brc=124; left=0
+for _k in 1 2 3; do
+  ( cd "$d/work" && export TMPDIR="$TD/tmp10" PATH="$TD/shim:$PATH" CLAUDE_CONFIG_DIR="$d/cfg" CLAUDE_CODE_SESSION_ID="$SID" \
+      && bounded_run 1 bash "$METER" "$FID" >/dev/null 2>&1 ); r=$?
+  [ "$r" -eq 124 ] || brc=$r
+  n=$(find "$TD/tmp10" "$d/work/.specops/$FID" -name 'meter-tokens.*' -o -name 'tokens.jsonl.tmp.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')
+  left=$((left + n))
+done
+d1=$(mk_env t10d1); mk_core "$d1"; d2=$(mk_env t10d2); d3=$(mk_env t10d3); mk_core "$d3"
+d4=$(mk_env t10d4); { _line msg_P m1 1000 2026-09-30T09:59:59.900Z; } > "$d4/cfg/projects/-p/$SID.jsonl"
+for e in "$d1" "$d2" "$d4"; do TMPDIR="$TD/tmp10n" run_meter "$e" >/dev/null; done
+TMPDIR="$TD/tmp10n" run_meter "$d3" --since not-a-date >/dev/null
+leftn=$(find "$TD/tmp10n" -name 'meter-tokens.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')
+if [ "$brc" -eq 124 ] && [ "$left" = 0 ] && [ "$leftn" = 0 ] \
+   && [ -n "$(_one "$(TOK "$d2")")" ] && [ "$(_one "$(TOK "$d3")")" = bad-baseline ]; then
+  ok "T10.d 임시 파일 잔존 0 (TERM 경로·정상 4경로)"
+else
+  nope "T10.d" "brc=$brc left=$left leftn=$leftn files=$(find "$TD/tmp10" "$TD/tmp10n" -name 'meter-tokens.*' 2>/dev/null | tr '\n' ' ')"
+fi
+
+# T10.e 손상된 tokens.jsonl report → stderr 무출력·exit 0·"읽을 수 없음" 표기(거짓 "측정 안 됨 (사유 없음)" 아님) (AC-9)
+#   FID 지정·생략 두 모드 모두 — 생략 모드에서도 그 FID 는 정확히 1줄
+d=$(mk_env t10e); mk_core "$d"; run_meter "$d" >/dev/null; echo 'broken{' >> "$(TOK "$d")"
+want="$FID  읽을 수 없음 (tokens.jsonl 손상 — 파일 삭제 후 재측정)"
+out=$( cd "$d/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR=/nonexistent bash "$METER" --report "$FID" 2>"$TD/t10e.err" ); ec=$?
+sum=$( cd "$d/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR=/nonexistent bash "$METER" --report 2>"$TD/t10e2.err" ); ec2=$?
+if [ "$ec" -eq 0 ] && [ "$ec2" -eq 0 ] && [ ! -s "$TD/t10e.err" ] && [ ! -s "$TD/t10e2.err" ] \
+   && [ "$out" = "$want" ] && [ "$sum" = "$want" ] && ! _has "$out" '사유 없음'; then
+  ok "T10.e 손상 tokens.jsonl report → '읽을 수 없음'·stderr 0·exit 0"
+else
+  nope "T10.e" "ec=$ec/$ec2 out='$out' sum='$sum' err=$(cat "$TD/t10e.err" "$TD/t10e2.err" 2>/dev/null | head -2)"
+fi
+# T10.e2 유효 JSON 이지만 객체가 아닌 줄(5) — jq 파싱은 통과하나 레코드가 아니다. 같은 표기·stderr 0
+d=$(mk_env t10e2); mk_core "$d"; run_meter "$d" >/dev/null; echo '5' >> "$(TOK "$d")"
+out=$( cd "$d/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR=/nonexistent bash "$METER" --report "$FID" 2>"$TD/t10e3.err" ); ec=$?
+if [ "$ec" -eq 0 ] && [ ! -s "$TD/t10e3.err" ] && [ "$out" = "$want" ]; then
+  ok "T10.e2 객체 아닌 줄 → '읽을 수 없음'·stderr 0"
+else
+  nope "T10.e2" "ec=$ec out='$out' err=$(head -2 "$TD/t10e3.err" 2>/dev/null)"
+fi
+
 finish

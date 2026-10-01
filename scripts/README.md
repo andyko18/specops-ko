@@ -382,3 +382,5 @@ main 행에는 `overlap_other_sessions`·`synthetic_excluded`(제외한 `<synthe
 6. **측정·미측정 세션이 섞이면 report 는 측정된 행만 보인다** — 한 FID 에 `unmeasured` 세션이 함께 있어도 표·TOTAL 에 표시되지 않는다. 전부 미측정일 때만 `측정 안 됨 (<사유>)` 이 나온다. 의심되면 `tokens.jsonl` 원본의 `status` 를 직접 본다.
 7. **symlink 는 건너뛴다(NFR-3)** — FID 생략 report 는 symlink 인 `tokens.jsonl` 을 **표시 없이** 건너뛰고, FID 지정 report 는 `측정 안 됨 (기록 없음)` 으로 표시한다(실제로는 파일이 있다). 기록 모드도 경로상 symlink 를 만나면 무기록 종료한다.
 8. **구간은 fid-start 기준** — FID 마다 독립 구간이라, 같은 세션에서 두 FID 가 동시에 진행되면 겹친 구간의 토큰이 **양쪽 FID 에 이중 계상**된다. FID 간 합산은 하지 않는다.
+9. **`--transcript` 단독 사용은 현재 env 세션으로 귀속된다** — `--session` 을 함께 주지 않으면 레코드 `session` 은 `CLAUDE_CODE_SESSION_ID` 가 되고(env 가 비었을 때만 transcript 파일명), upsert 가 **현재 세션의 기존 행을 그 transcript 의 숫자로 덮어쓸 수 있다**. 다른 세션의 transcript 를 지정할 때는 `--session <uuid>` 를 같이 쓴다.
+10. **손상된 `tokens.jsonl` 은 갱신이 건너뛰어진다** — 파일에 JSON 객체로 읽히지 않는 줄(깨진 줄·객체 아닌 값)이 하나라도 있으면 이후 기록은 사유 레코드 없이 **무음으로 갱신되지 않고**, report 는 그 FID 를 `읽을 수 없음 (tokens.jsonl 손상 — 파일 삭제 후 재측정)` 으로 표시한다. 복구는 그 파일을 지우고 다시 측정하는 것이다(관측 기록일 뿐이라 다른 판정에 영향은 없다).

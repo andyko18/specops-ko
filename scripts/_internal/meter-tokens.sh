@@ -33,6 +33,8 @@ if [ "$MODE" = record ]; then
   [ ! -L "$SPECOPS" ] && [ ! -L "$SPECOPS/$FID" ] || exit 0
   MET="$SPECOPS/$FID/metrics.jsonl"; TOK="$SPECOPS/$FID/tokens.jsonl"
   [ ! -L "$MET" ] && [ ! -L "$TOK" ] || exit 0
+  # FID 디렉토리 선검사 — 없으면 --since 경로에서도 기록할 곳이 없다(쓰기 시도의 open 오류가 stderr 로 새지 않게)
+  [ -d "$SPECOPS/$FID" ] || exit 0
   # 기준점: --since 우선, 없으면 metrics.jsonl 의 첫 phase=fid-start. 없으면 transcript 를 열지 않고 종료.
   SCOPE=fid-window
   if [ -n "$SINCE_ARG" ]; then
@@ -48,23 +50,34 @@ if [ "$MODE" = record ]; then
   if [ -n "$TRANSCRIPT_ARG" ] && [ -z "$SID" ]; then SID=$(basename "$TRANSCRIPT_ARG" .jsonl); fi
   E=$(date -u +%s); NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # E 먼저 — window_end(NOW) ≥ 필터 상한 E
 
+  # 임시 파일은 여기서 한꺼번에 만들고 정리는 이 EXIT trap 한 곳에서만 한다 — _unmeasured·TERM(bounded_run 상한) 경로 포함.
+  #   변수를 먼저 비워 두고 trap 을 건 뒤에 mktemp 한다 — 생성과 trap 사이에 신호가 와도 새지 않게,
+  #   set -u 에서 미할당 변수가 trap 안에서 stderr 를 내지 않게(빈 인자 rm -f "" 는 2>/dev/null 로 무음).
+  NEWREC=""; NR=""; UPTMP="$TOK.tmp.$$"
+  trap 'rm -f "$NEWREC" "$NR" "$UPTMP" 2>/dev/null' EXIT
+  #   bounded_run 은 TERM 을 두 번 보낸다(그룹 → pid). 신호 trap 이 없으면 두 번째 TERM 이 EXIT trap 의 rm 전에 셸을 죽이는
+  #   경쟁이 있다(bash 3.2 실측 15회 중 4회 잔존 · 신호 trap 후 0회) — 신호를 exit 로 바꿔(지연 처리) 위 trap 으로 모은다
+  trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+  NEWREC=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
+  NR=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
+
   # 같은 세션의 기존 레코드를 모두 제거하고 새 레코드를 추가(upsert) — tmp 파일 후 mv
   _upsert() {
-    local newrec="$1" tmp="$TOK.tmp.$$" old=""
+    local newrec="$1" old=""
     if [ -f "$TOK" ]; then
       old=$(jq -c --arg s "${SID:-unknown}" 'select(.session != $s)' "$TOK" 2>/dev/null) || return 0
     fi
-    { [ -n "$old" ] && printf '%s\n' "$old"; cat "$newrec"; } > "$tmp" 2>/dev/null \
-      && mv "$tmp" "$TOK" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+    { [ -n "$old" ] && printf '%s\n' "$old"; cat "$newrec"; } > "$UPTMP" 2>/dev/null \
+      && mv "$UPTMP" "$TOK" 2>/dev/null
     return 0
   }
 
   # _unmeasured <reason> — 토큰 필드 없이 사유만 기록(착시 방지). fid-start 가 있는데 측정 못 한 경우에만 호출.
   _unmeasured() {
-    local nr; nr=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
     jq -nc --arg ts "$NOW" --arg fid "$FID" --arg sid "${SID:-unknown}" --arg r "$1" \
-      '{schema_version:1,ts:$ts,fid:$fid,session:$sid,status:"unmeasured",reason:$r}' > "$nr"
-    _upsert "$nr"; rm -f "$nr"; exit 0
+      '{schema_version:1,ts:$ts,fid:$fid,session:$sid,status:"unmeasured",reason:$r}' > "$NR" 2>/dev/null \
+      && _upsert "$NR"
+    exit 0
   }
 
   _epoch() { jq -rn --arg t "$1" '$t | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601' 2>/dev/null; }
@@ -82,15 +95,19 @@ if [ "$MODE" = record ]; then
   if [ -z "$TRANSCRIPT_ARG" ] && [ -z "$SID" ]; then _unmeasured no-session-id; fi
   [ -n "$TR" ] && [ -f "$TR" ] || _unmeasured transcript-not-found
 
+  # tok: 토큰 값은 0 이상의 숫자만 — 숫자 아님(문자열·null·부재)과 음수는 0. 한 줄의 이상값이 max·add 를 깨거나
+  #   (문자열은 jq 정렬에서 숫자보다 크다) 합계를 줄이지 않게 한다. usage 가 객체가 아닌 줄은 메시지로 세지 않는다.
   AGG_JQ='
+    def tok: if type == "number" and . >= 0 then . else 0 end;
     [ inputs | (fromjson? // empty)
-      | select(type == "object" and .type == "assistant" and (.message.id? != null) and (.message.usage? != null))
+      | select(type == "object" and .type == "assistant" and (.message | type) == "object"
+               and .message.id != null and (.message.usage | type) == "object")
       | (try (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) catch null) as $t
       | select($t != null and $t >= $s and $t <= $e)
       | { id: .message.id, model: (.message.model // "unknown"),
-          i: (.message.usage.input_tokens // 0), o: (.message.usage.output_tokens // 0),
-          cr: (.message.usage.cache_read_input_tokens // 0),
-          cw: (.message.usage.cache_creation_input_tokens // 0) } ] as $all
+          i: (.message.usage.input_tokens | tok), o: (.message.usage.output_tokens | tok),
+          cr: (.message.usage.cache_read_input_tokens | tok),
+          cw: (.message.usage.cache_creation_input_tokens | tok) } ] as $all
     | ($all | map(select(.model == "<synthetic>")) | group_by(.id) | length) as $syn
     | ($all | map(select(.model != "<synthetic>")) | group_by(.id)
         | map({ model: .[0].model, i: (map(.i) | max), o: (map(.o) | max),
@@ -115,8 +132,6 @@ if [ "$MODE" = record ]; then
       + (if $ov != "" then { overlap_other_sessions: ($ov | tonumber), synthetic_excluded: $r.synthetic_excluded } else {} end)'
   }
 
-  NEWREC=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
-  trap 'rm -f "$NEWREC"' EXIT
   PDIR=$(dirname "$TR")
   M=$(( (E - S) / 60 + 1 ))
   OV=$(find "$PDIR" -maxdepth 1 -name '*.jsonl' ! -name "$(basename "$TR")" -mmin "-$M" 2>/dev/null | wc -l | tr -d ' ')
@@ -150,11 +165,16 @@ if [ "$MODE" = report ]; then
   _fid_line() { # <FID> — FID 생략 모드의 1줄 요약
     local f="$SPECOPS/$1/tokens.jsonl" rs
     [ -f "$f" ] && [ ! -L "$f" ] || return 0
+    # 레코드로 읽을 수 없는 줄(깨진 JSON·객체 아닌 값)이 있으면 상태를 추정하지 않는다
+    #   — "측정 안 됨 (사유 없음)" 은 측정 레코드가 있어도 나오던 거짓 표기였다
+    if ! jq -se 'all(.[]; type == "object")' "$f" >/dev/null 2>&1; then
+      printf '%s  읽을 수 없음 (tokens.jsonl 손상 — 파일 삭제 후 재측정)\n' "$1"; return 0
+    fi
     if jq -e 'select(.status==null)' "$f" >/dev/null 2>&1; then
       jq -rs --arg fid "$1" '[.[]|select(.status==null)] as $m
         | "\($fid)  input=\($m|map(.input)|add) output=\($m|map(.output)|add) cache_read=\($m|map(.cache_read)|add) cache_write=\($m|map(.cache_write)|add) sessions=\($m|map(.session)|unique|length)"' "$f"
     else
-      rs=$(jq -r 'select(.status=="unmeasured")|.reason' "$f" | sort -u | paste -sd, -)
+      rs=$(jq -r 'select(.status=="unmeasured")|.reason' "$f" 2>/dev/null | sort -u | paste -sd, -)
       printf '%s  측정 안 됨 (%s)\n' "$1" "${rs:-사유 없음}"
     fi
   }
