@@ -6,6 +6,7 @@
 #   - 본 테스트는 게이트가 "존재하는지"(구조) 만 — 무료·결정적·CI 상시.
 #   - recurring 결함 클래스(feedback_skill_body_infra_propagation: teeth in body, 인프라 소실)의
 #     "게이트 자체 소실" 절반을 봉쇄. cross-skill signal 정합은 validate-structure contract_consistency(①) 담당.
+# (templates·scripts 파일의 문구·배선 존재도 has 로 확인한다 — task id 규약 등)
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd) || exit 1
 source "$PLUGIN/scripts/tests/harness.sh"
@@ -191,5 +192,9 @@ if has scripts/dag/emit-context.sh 'check-task-ids\.sh' 'task id 규격 위반';
 else
   nope "task-ids: emit-context 배선 부재"
 fi
+
+# ── 숫자 전용 task id 규약 문서화 (20261001-task-id-guard AC-7) ──
+if has templates/tasks.md '숫자 전용' 'T1a'; then ok "task-ids: templates/tasks.md 숫자 전용 규약"; else nope "task-ids: templates/tasks.md 규약 문구 부재"; fi
+if has skills/decomposing-ko/SKILL.md '숫자 전용' 'check-task-ids'; then ok "task-ids: decomposing-ko 숫자 전용 규약·판정기 언급"; else nope "task-ids: decomposing-ko 규약 문구 부재"; fi
 
 finish
