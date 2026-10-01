@@ -217,4 +217,57 @@ else
   nope "T5.e" "rec=$(jq -c 'select(.agent=="main")' "$(TOK "$d")" 2>/dev/null)"
 fi
 
+_one() { jq -c 'select(.status=="unmeasured")|.reason' "$1" 2>/dev/null | tr -d '"'; }
+
+# T6.a env 부재 → exit 0·unmeasured(no-session-id)·무출력 (AC-5)
+d=$(mk_env t6a); mk_core "$d"
+out=$( cd "$d/work" && env -u CLAUDE_CODE_SESSION_ID CLAUDE_CONFIG_DIR="$d/cfg" bash "$METER" "$FID" 2>&1 ); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "no-session-id" ] && ok "T6.a env 부재 → no-session-id" || nope "T6.a" "ec=$ec out='$out' rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
+# T6.a2 같은 env 부재 호출 2회 → session "unknown" 레코드가 교체(1줄 유지) — _upsert 의 ${SID:-unknown}
+( cd "$d/work" && env -u CLAUDE_CODE_SESSION_ID CLAUDE_CONFIG_DIR="$d/cfg" bash "$METER" "$FID" >/dev/null 2>&1 )
+n=$(/usr/bin/wc -l < "$(TOK "$d")" 2>/dev/null | tr -d ' ')
+[ "$n" = 1 ] && jq -e '.session=="unknown"' "$(TOK "$d")" >/dev/null 2>&1 && ok "T6.a2 unknown 세션 멱등 (1줄)" || nope "T6.a2" "n=$n rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
+# T6.b transcript 부재 → transcript-not-found
+d=$(mk_env t6b)
+out=$(run_meter "$d"); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "transcript-not-found" ] && ok "T6.b transcript 부재" || nope "T6.b" "ec=$ec out='$out' rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
+# T6.c usage 없는 줄만 / T6.d 깨진 줄만 → no-messages-in-window
+d=$(mk_env t6c); echo '{"type":"assistant","timestamp":"2026-09-30T10:01:00.000Z","message":{"id":"msg_n","model":"m1"}}' > "$d/cfg/projects/-p/$SID.jsonl"
+out=$(run_meter "$d"); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "no-messages-in-window" ] && ok "T6.c usage 없음" || nope "T6.c" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+d=$(mk_env t6d); printf 'broken{\n{also broken\n' > "$d/cfg/projects/-p/$SID.jsonl"
+out=$(run_meter "$d"); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "no-messages-in-window" ] && ok "T6.d 깨진 JSON" || nope "T6.d" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
+# T6.e jq 부재(PATH 비움, /bin/bash 절대경로) → exit 0·무기록·무출력
+d=$(mk_env t6e); mk_core "$d"; mkdir -p "$TD/empty"
+out=$( cd "$d/work" && env PATH="$TD/empty" CLAUDE_CONFIG_DIR="$d/cfg" CLAUDE_CODE_SESSION_ID="$SID" /bin/bash "$METER" "$FID" 2>&1 ); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ ! -e "$(TOK "$d")" ] && ok "T6.e jq 부재 → 무기록·무출력" || nope "T6.e" "ec=$ec out='$out'"
+
+# T6.f(NFR-3) tokens.jsonl 이 symlink → 링크 유지·원본(victim) 불변·exit 0·무출력
+#   victim 은 유효 JSON — 비 JSON 이면 검사 줄을 지워도 _upsert 의 jq 실패로 mv 전에 빠져 판별력이 없다
+d=$(mk_env t6f); mk_core "$d"; echo '{"session":"victim"}' > "$TD/victim"; ln -s "$TD/victim" "$(TOK "$d")"
+out=$(run_meter "$d"); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ -L "$(TOK "$d")" ] && [ "$(cat "$TD/victim")" = '{"session":"victim"}' ] && ok "T6.f symlink 거부" || nope "T6.f" "ec=$ec link=$([ -L "$(TOK "$d")" ] && echo y || echo n) victim=$(cat "$TD/victim")"
+
+# T6.g(NFR-3) FID 경로 이탈 → exit 2·무기록
+d=$(mk_env t6g)
+( cd "$d/work" && bash "$METER" '../x' >/dev/null 2>&1 ); ec=$?
+[ "$ec" -eq 2 ] && ok "T6.g FID 검증 exit 2" || nope "T6.g" "ec=$ec"
+
+# T6.h(AC-8 테스트 격리) fid-start 없음 + 읽을 수 없는 CLAUDE_CONFIG_DIR → 에러·출력·기록 없음·3초 이내
+d=$(mk_env t6h); : > "$d/work/.specops/$FID/metrics.jsonl"; mkdir -p "$TD/noread"; chmod 000 "$TD/noread"
+t0=$(date +%s)
+out=$( cd "$d/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR="$TD/noread" CLAUDE_CODE_SESSION_ID="$SID" bash "$METER" "$FID" 2>&1 ); ec=$?
+t1=$(date +%s); chmod 755 "$TD/noread"
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ ! -e "$(TOK "$d")" ] && [ $((t1 - t0)) -le 3 ] && ok "T6.h fid-start 부재 → 접근 시도 없음(출력·에러·기록 0)" || nope "T6.h" "ec=$ec out='$out' dt=$((t1 - t0)) rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
+# T6.i 기준점 파싱 실패(--since 비 ISO) → exit 0·무출력·unmeasured(bad-baseline)
+d=$(mk_env t6i); mk_core "$d"
+out=$(run_meter "$d" --since not-a-date); ec=$?
+[ "$ec" -eq 0 ] && [ -z "$out" ] && [ "$(_one "$(TOK "$d")")" = "bad-baseline" ] && ok "T6.i 기준점 파싱 실패 → bad-baseline" || nope "T6.i" "ec=$ec out='$out' rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+
 finish

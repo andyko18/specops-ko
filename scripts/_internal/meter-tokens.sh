@@ -42,21 +42,45 @@ if [ "$MODE" = record ]; then
     BASE=$(jq -r 'select(.phase=="fid-start") | .ts' "$MET" 2>/dev/null | head -1)
   fi
   [ -n "${BASE:-}" ] || exit 0
+
+  # 세션 확정 — 이후의 모든 unmeasured 사유 레코드가 이 SID 로 기록된다(비면 "unknown")
+  SID="${SESSION_ARG:-${CLAUDE_CODE_SESSION_ID:-}}"
+  if [ -n "$TRANSCRIPT_ARG" ] && [ -z "$SID" ]; then SID=$(basename "$TRANSCRIPT_ARG" .jsonl); fi
+  E=$(date -u +%s); NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # E 먼저 — window_end(NOW) ≥ 필터 상한 E
+
+  # 같은 세션의 기존 레코드를 모두 제거하고 새 레코드를 추가(upsert) — tmp 파일 후 mv
+  _upsert() {
+    local newrec="$1" tmp="$TOK.tmp.$$" old=""
+    if [ -f "$TOK" ]; then
+      old=$(jq -c --arg s "${SID:-unknown}" 'select(.session != $s)' "$TOK" 2>/dev/null) || return 0
+    fi
+    { [ -n "$old" ] && printf '%s\n' "$old"; cat "$newrec"; } > "$tmp" 2>/dev/null \
+      && mv "$tmp" "$TOK" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+    return 0
+  }
+
+  # _unmeasured <reason> — 토큰 필드 없이 사유만 기록(착시 방지). fid-start 가 있는데 측정 못 한 경우에만 호출.
+  _unmeasured() {
+    local nr; nr=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
+    jq -nc --arg ts "$NOW" --arg fid "$FID" --arg sid "${SID:-unknown}" --arg r "$1" \
+      '{schema_version:1,ts:$ts,fid:$fid,session:$sid,status:"unmeasured",reason:$r}' > "$nr"
+    _upsert "$nr"; rm -f "$nr"; exit 0
+  }
+
   _epoch() { jq -rn --arg t "$1" '$t | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601' 2>/dev/null; }
-  S=$(_epoch "$BASE"); E=$(date -u +%s)
-  case "$S" in ''|*[!0-9]*) exit 0 ;; esac
-  NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  S=$(_epoch "$BASE")
+  case "$S" in ''|*[!0-9]*) _unmeasured bad-baseline ;; esac
 
   # transcript 탐색 — cwd 유도 금지, glob 사용
-  SID="${SESSION_ARG:-${CLAUDE_CODE_SESSION_ID:-}}"
   TR=""
   if [ -n "$TRANSCRIPT_ARG" ]; then
-    TR="$TRANSCRIPT_ARG"; [ -n "$SID" ] || SID=$(basename "$TR" .jsonl)
+    TR="$TRANSCRIPT_ARG"
   elif [ -n "$SID" ] && printf '%s' "$SID" | grep -qE '^[A-Za-z0-9._-]+$'; then
     ROOT="${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/projects"
     for f in "$ROOT"/*/"$SID.jsonl"; do [ -f "$f" ] && { TR="$f"; break; }; done
   fi
-  [ -n "$TR" ] && [ -f "$TR" ] || exit 0
+  if [ -z "$TRANSCRIPT_ARG" ] && [ -z "$SID" ]; then _unmeasured no-session-id; fi
+  [ -n "$TR" ] && [ -f "$TR" ] || _unmeasured transcript-not-found
 
   AGG_JQ='
     [ inputs | (fromjson? // empty)
@@ -89,25 +113,6 @@ if [ "$MODE" = record ]; then
         cache_read: .cache_read, cache_write: .cache_write, dedupe: "max-per-message-id" }
       + (if $am != "" then { agent_model: $am } else {} end)
       + (if $ov != "" then { overlap_other_sessions: ($ov | tonumber), synthetic_excluded: $r.synthetic_excluded } else {} end)'
-  }
-
-  # 같은 세션의 기존 레코드를 모두 제거하고 새 레코드를 추가(upsert) — tmp 파일 후 mv
-  _upsert() {
-    local newrec="$1" tmp="$TOK.tmp.$$" old=""
-    if [ -f "$TOK" ]; then
-      old=$(jq -c --arg s "$SID" 'select(.session != $s)' "$TOK" 2>/dev/null) || return 0
-    fi
-    { [ -n "$old" ] && printf '%s\n' "$old"; cat "$newrec"; } > "$tmp" 2>/dev/null \
-      && mv "$tmp" "$TOK" 2>/dev/null || rm -f "$tmp" 2>/dev/null
-    return 0
-  }
-
-  # _unmeasured <reason> — 토큰 필드 없이 사유만 기록(착시 방지). fid-start 가 있는데 측정 못 한 경우에만 호출.
-  _unmeasured() {
-    local nr; nr=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
-    jq -nc --arg ts "$NOW" --arg fid "$FID" --arg sid "${SID:-unknown}" --arg r "$1" \
-      '{schema_version:1,ts:$ts,fid:$fid,session:$sid,status:"unmeasured",reason:$r}' > "$nr"
-    _upsert "$nr"; rm -f "$nr"; exit 0
   }
 
   NEWREC=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
