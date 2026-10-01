@@ -1156,6 +1156,42 @@ rm -f "$_PTI/.specops/20260910-z/receipts/T1.json"
 msg6=$(_deny_msg "$_PTI" "$HOOK" "$_in_i")
 _nocheck "T-cause.h-2 receipt 부재 → 무효 문안 미출력" '기록된 receipt 가 유효하지 않습니다' "$msg6"
 check "T-cause.h-3 receipt 부재 → 기록 안내" 'record-task-receipt.sh' "$msg6"
+# ── 20261001-task-id-guard — open-id-mismatch 문안 (원인별 분기: 거짓 원인 방지) ──
+# ★ 이 시점 _PTI 는 receipts/T1.json 이 제거된 상태다(위 h-2) — 유효 receipt 가 있으면
+#   `Task: T1a`→T1 이 허용되어 아래 deny 단언이 성립하지 않는다.
+_in_a=$(mkstdin $'git commit -m "feat: x\n\nTask: T1a"' "$FIX/exec-evidence-pass.jsonl")
+msg_a=$(_deny_msg "$_PTI" "$HOOK" "$_in_a")
+check "T5.a (AC-4) 선언≠해석 → 원인 표시" '원인: 커밋 메시지의 task id' "$msg_a"
+check "T5.a2 선언값 표시" 'Task: T1a' "$msg_a"
+check "T5.a3 절단 안내(숫자 전용)" '접미사는 T1 로 잘려' "$msg_a"
+_in_d=$(mkstdin $'git commit -m "feat: x\n\nTask: T9"' "$FIX/exec-evidence-pass.jsonl")
+msg_d=$(_deny_msg "$_PTI" "$HOOK" "$_in_d")
+check "T5.d 선언=해석인데 tasks.md 에 없음 → id 없음 원인" '해당 task id(T9)가 없습니다' "$msg_d"
+_nocheck "T5.d2 절단이 일어나지 않았으면 절단 문구를 말하지 않는다(거짓 원인 방지)" '접미사는 T1 로 잘려' "$msg_d"
+_in_f=$(mkstdin $'git commit -m "feat: x\n\nTask: task-3"' "$FIX/exec-evidence-pass.jsonl")
+msg_f=$(_deny_msg "$_PTI" "$HOOK" "$_in_f")
+check "T5.f 선언은 있는데 해석 빈값 → 미해석 원인" '해석되지 않았습니다' "$msg_f"
+_nocheck "T5.f2 미해석에는 절단 문구를 말하지 않는다" '접미사는 T1 로 잘려' "$msg_f"
+# 회귀: 기존 open-missing 문안 불변 — 새 원인 문구가 끼지 않고 기록 안내가 유지된다 (AC-R-2)
+_nocheck "T5.b (AC-R-2) 정상 선언 + receipt 부재 → 새 원인 문구 없음" '원인: 커밋 메시지의 task id' "$msg6"
+check "T5.b2 (AC-R-2) 기록 안내 유지" 'record-task-receipt.sh' "$msg6"
+# 거짓 원인 방지 (a1): 선언이 T숫자 형식이 아니고 해석 id 는 산문 fallback 에서 왔다 — 절단이 아니다.
+_in_g=$(mkstdin $'git commit -m "feat: x (T1)\n\nTask: fix the parser"' "$FIX/exec-evidence-pass.jsonl")
+msg_g=$(_deny_msg "$_PTI" "$HOOK" "$_in_g")
+check "T5.g0 (a1) deny 유지" 'verify 면제 조건' "$msg_g"
+_nocheck "T5.g 선언 fix + 산문 (T1) → 절단 문구 미출력(거짓 원인 방지)" '접미사는 T1 로 잘려' "$msg_g"
+check "T5.g2 (a1) 사실 진술 — 형식 아님 + 다른 id 로 해석" 'task id 형식(T숫자)이 아니며, 훅은 본문의 다른 id(T1)로 해석' "$msg_g"
+# 선언 없음 (b'): 산문 (T7) 만 있고 tasks.md 에 T7 없음 — 존재하지 않는 Task: 줄을 언급하지 않는다.
+_in_h=$(mkstdin 'git commit -m "fix: y (T7)"' "$FIX/exec-evidence-pass.jsonl")
+msg_h=$(_deny_msg "$_PTI" "$HOOK" "$_in_h")
+check "T5.h 산문 (T7) 만 → id 없음 원인" '해당 task id(T7)가 없습니다' "$msg_h"
+_nocheck "T5.h2 선언 없음 → 'Task: 값이' 미출력" 'Task: 값이' "$msg_h"
+check "T5.h3 선언 없음을 사실대로 진술" 'Task: 선언이 없어' "$msg_h"
+# R-2(PR, receipt=n/a) 는 `*)` 로 같은 헬퍼를 지나간다 — open-id-mismatch 가 아니면 원인 문안을 내지 않는다.
+_in_i2=$(mkstdin 'gh pr create --title "fix: y (T7)" --body x' "$FIX/exec-evidence-pass.jsonl")
+msg_i2=$(_deny_msg "$_PTI" "$HOOK" "$_in_i2")
+check "T5.i0 R-2 deny 유지(대조군)" 'verify 면제 조건' "$msg_i2"
+_nocheck "T5.i R-2(n/a) 에는 receipt 원인 문안 미출력" 'receipt 경로가 열리지 않는 원인' "$msg_i2"
 rm -rf "$_PTI" "$_PTC"
 
 

@@ -1646,3 +1646,47 @@ _receipt_cause() {
   fi
   printf 'open-missing'
 }
+# pretool deny 안내의 receipt 원인 문안 — $1=cause 코드 $2=tool_cmd. 알 수 없는 cause(n/a 등)는 빈 출력.
+#   pretool 의 `*)` case 한 줄이 부른다 — 문안 본체를 여기(파일 끝)에 두어 pretool·lib 의 줄번호 핀을 보존한다.
+#   ★ 실제로 일어난 일만 말한다(거짓 원인 → 재시도 낭비·BYPASS): 절단은 선언이 해석 id 로 **시작**할 때만이다.
+#     `Task: fix …` + 산문 `(T1)` 처럼 해석 id 가 산문 fallback 에서 왔으면 절단이 아니다.
+_receipt_hint_extra() {
+  local cause="${1:-}" cmd="${2:-}" decl infer
+  [ "$cause" = "open-id-mismatch" ] || return 0
+  decl=$(_declared_task_token "$cmd" 2>/dev/null || true)
+  infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)
+  if [ -n "$decl" ] && [ -z "$infer" ]; then
+    # (a0) 선언은 있는데 T숫자 로 해석되지 않았다(예: task-3) — 절단이 아니라 미해석이다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 Task: ${decl} 가 task id 로 해석되지 않았습니다.
+   task id 는 숫자 전용(T1~Tn)입니다 — tasks.md 의 id 를 확인하고 커밋 메시지를 그 숫자 id 로 맞추세요(예: Task: T1)."
+  elif [ -n "$decl" ] && [ "$decl" != "$infer" ]; then
+    case "$decl" in
+      "$infer"*)
+        # (a) 선언 토큰이 해석 과정에서 잘렸다(T1a → T1) — 절단을 원인으로 말한다.
+        printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 task id 가 tasks.md 의 id 와 일치하지 않습니다.
+   커밋 메시지 선언: Task: ${decl}  →  훅이 해석한 id: ${infer}
+   task id 는 숫자 전용(T1~Tn)입니다 — T1a 같은 접미사는 T1 로 잘려 존재하지 않는 receipt 를 찾습니다.
+   tasks.md 의 id 를 확인하고 커밋 메시지를 그 숫자 id 로 맞추세요(예: Task: T1).
+   tasks.md 에 접미사 id 가 있으면 T숫자로 재명명한 뒤 emit-context 를 재실행하세요." ;;
+      *)
+        # (a1) 선언이 T숫자 형식이 아니고, 해석 id 는 본문 산문에서 왔다 — 절단은 일어나지 않았다.
+        printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 Task: ${decl} 는 task id 형식(T숫자)이 아니며, 훅은 본문의 다른 id(${infer})로 해석했습니다.
+   선언과 해석이 다르면 receipt 를 신뢰할 수 없습니다 — Task: 줄을 tasks.md 의 숫자 id 로 쓰세요(예: Task: T1, task id 는 숫자 전용 T1~Tn)." ;;
+    esac
+  elif [ -n "$decl" ]; then
+    # (b) 선언=해석인데 tasks.md 에 그 id 가 없다 — 절단은 일어나지 않았다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: tasks.md 에 해당 task id(${infer})가 없습니다.
+   커밋 메시지의 Task: 값이 tasks.md 의 id 와 정확히 일치해야 receipt 를 찾을 수 있습니다.
+   tasks.md 의 id 목록을 확인하고 커밋 메시지를 그 id 로 맞추세요(task id 는 숫자 전용 T1~Tn)."
+  else
+    # (b') 선언 없음 — 훅이 본문 산문에서 id 를 집었다. 존재하지 않는 Task: 줄을 언급하지 않는다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: tasks.md 에 해당 task id(${infer:-(없음)})가 없습니다.
+   커밋 메시지에 Task: 선언이 없어 훅은 본문의 산문 id(${infer:-(없음)})를 task id 로 집었습니다.
+   tasks.md 의 숫자 id 를 확인하고 커밋 메시지에 그 id 를 Task: T숫자 형식으로 명시하세요(예: Task: T1)."
+  fi
+}
