@@ -155,4 +155,66 @@ else
   nope "T4.b" "rec=$(jq -c 'select(.agent=="main")' "$T" 2>/dev/null)"
 fi
 
+# T5.a 같은 호출 2회 → 레코드 수 불변, 값 교체 (AC-4)
+d=$(mk_env t5a); mk_core "$d"; mk_sub "$d"
+run_meter "$d" >/dev/null; n1=$(/usr/bin/wc -l < "$(TOK "$d")" | tr -d ' ')
+run_meter "$d" >/dev/null; n2=$(/usr/bin/wc -l < "$(TOK "$d")" | tr -d ' ')
+if [ "$n1" = "$n2" ] && [ "$n1" -ge 3 ]; then ok "T5.a 멱등 upsert (줄 수 $n1 불변)"; else nope "T5.a" "n1=$n1 n2=$n2"; fi
+
+# T5.b 키 집합 정확 일치 + 원문 필드 부재
+T=$(TOK "$d")
+base='agent,cache_read,cache_write,dedupe,fid,input,messages,model,output,schema_version,scope,session,ts,window_end,window_start'
+# jq keys 는 코드포인트 정렬 — 기대값도 같은 규칙으로 정렬해 "집합" 일치만 본다(순서 무관)
+_ksort() { jq -rn --arg w "$1" '$w | split(",") | sort | join(",")'; }
+want_main=$(_ksort "$base,overlap_other_sessions,synthetic_excluded"); want_sub=$(_ksort "$base,agent_model")
+got_main=$(jq -r 'select(.agent=="main")|keys|join(",")' "$T"); got_sub=$(jq -r 'select(.agent=="general-purpose:aaa")|keys|join(",")' "$T")
+# 원문 필드 검사는 -s any — 줄별 -e 는 마지막 레코드의 판정만 종료 코드에 남는다
+if [ -n "$want_main" ] && [ "$got_main" = "$want_main" ] && [ "$got_sub" = "$want_sub" ] \
+   && jq -se 'length >= 3 and (any(.[]; has("prompt") or has("content") or has("text") or has("message")) | not)' "$T" >/dev/null 2>&1; then
+  ok "T5.b 키 집합 정확 일치·원문 필드 없음"
+else
+  nope "T5.b" "main=$got_main sub=$got_sub"
+fi
+
+# T5.c --session 으로 다른 세션 추가 → 두 세션 레코드 공존, 첫 세션 보존
+SID2=22222222-3333-4444-5555-666666666666
+{ _line msg_X m9 77 2026-09-30T10:10:00.000Z; } > "$d/cfg/projects/-p/$SID2.jsonl"
+run_meter "$d" --session "$SID2" >/dev/null
+if jq -e --arg s "$SID" 'select(.session==$s and .agent=="main")' "$T" >/dev/null 2>&1 \
+   && jq -e --arg s "$SID2" 'select(.session==$s and .agent=="main" and .output==77)' "$T" >/dev/null 2>&1; then
+  ok "T5.c --session 두 세션 공존"
+else
+  nope "T5.c" "sessions=$(jq -r '.session' "$T" | sort -u | tr '\n' ' ')"
+fi
+
+# T5.d 같은 id 의 여러 줄에서 input·cache_read·cache_write 도 달라질 때 4필드 모두 id별 최댓값 (AC-1·AC-4)
+#   msg_D: 최댓값이 가운데 줄 — 첫 줄(.[0])·마지막 줄(.[-1]) 채택 변이와 구분된다
+#     (i1 cr90 cw40 o5) → (i3 cr120 cw60 o7) → (i2 cr100 cw50 o6)  ⇒ max i3 cr120 cw60 o7
+#   msg_E: 1줄 (i4 cr10 cw5 o1) — id 간 합산
+d=$(mk_env t5d)
+{
+  _line msg_D m1 5 2026-09-30T10:00:10.000Z 1 90  40
+  _line msg_D m1 7 2026-09-30T10:00:10.300Z 3 120 60
+  _line msg_D m1 6 2026-09-30T10:00:10.600Z 2 100 50
+  _line msg_E m1 1 2026-09-30T10:00:11.000Z 4 10  5
+} > "$d/cfg/projects/-p/$SID.jsonl"
+run_meter "$d" >/dev/null
+if jq -e 'select(.agent=="main") |
+     .input==7 and .output==8 and .cache_read==130 and .cache_write==65 and .messages==2' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T5.d id별 4필드 모두 max(가운데 줄 최댓값) 합산"
+else
+  nope "T5.d" "rec=$(jq -c 'select(.agent=="main")' "$(TOK "$d")" 2>/dev/null)"
+fi
+
+# T5.e 구간 밖 mtime 의 다른 세션 파일은 overlap 에서 제외 (기준점 2026-09-30T10:00Z 이전 mtime)
+d=$(mk_env t5e); mk_core "$d"; mk_sub "$d"
+echo '{}' > "$d/cfg/projects/-p/other-old.jsonl"
+touch -t 202609290000 "$d/cfg/projects/-p/other-old.jsonl"
+run_meter "$d" >/dev/null
+if jq -e 'select(.agent=="main") | .overlap_other_sessions==1' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T5.e 구간 밖 mtime 세션 파일 제외 (overlap 1 유지)"
+else
+  nope "T5.e" "rec=$(jq -c 'select(.agent=="main")' "$(TOK "$d")" 2>/dev/null)"
+fi
+
 finish
