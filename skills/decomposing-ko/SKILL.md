@@ -73,6 +73,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 10. **DAG 의존 그래프 작성 (v0.4a 신규, 의무)** — `tasks.md` 끝에 `## 의존 그래프` 섹션 추가:
     - **Mermaid block** (사람용 시각화): `graph TD` + 노드·edge
     - **YAML fenced block** (기계용 단일 소스 진실): 루트에 `review_mode: end-loaded`(기본) + `tasks:` 배열 — 각 task에 `id`·`depends_on`·`inputs`·`outputs`·`ac` 필드
+      - **`id` 는 숫자 전용**(`T1`~`Tn`) — T1a·task-3 같은 접미사·비숫자 id 는 `emit-context`(`check-task-ids.sh`)가 구현 전에 거부한다(FID 날짜 20261001 이후). 커밋 메시지의 `Task: T숫자` 와 정확히 일치해야 R-1 receipt 탈출구가 열린다
     - **`review_mode`**: 기본 `end-loaded`(implementing이 A만 wave → FID 말미 B·C 각 1회). 고위험 FID만 `per-task` opt-in(태스크마다 A→B→C). §batch(`/start-all`)도 **FID end-loaded** — FR마다 implementing이 B/C까지 수행. 필드 부재 시 implementing은 end-loaded로 취급.
     - 형식 표준: `templates/tasks.md` 끝 placeholder + `scripts/tests/dag/fixtures/tasks-md/05-diamond.md` 예시 참조
     - **자체 검증**: 작성 직후 다음 명령으로 YAML 정합 + leaf 식별 확인

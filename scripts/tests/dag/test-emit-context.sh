@@ -248,5 +248,124 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.b should 과잉 차단"
 fi
 
+# ── 20261001-task-id-guard — check-task-ids.sh (판정기 단독) ──
+CHK="$PLUGIN/scripts/_internal/check-task-ids.sh"
+_pf() { if [ "$2" = ok ]; then PASS=$((PASS+1)); echo "PASS $1"; else FAIL=$((FAIL+1)); echo "FAIL $1${3:+ — $3}"; fi; }
+# mk_tid_fixture TMPDIR FID ID값... — tasks.md YAML 만 있는 최소 FID (id 값은 따옴표 포함 원문)
+mk_tid_fixture() {
+  local d="$1" fid="$2"; shift 2
+  mkdir -p "$d/.specops/$fid"
+  { echo '# tasks'; echo; echo '## 의존 그래프'; echo; echo '```yaml'; echo 'tasks:'
+    for v in "$@"; do echo "  - id: $v"; echo '    depends_on: []'; echo '    ac: [AC-1]'; done
+    echo '```'; } > "$d/.specops/$fid/tasks.md"
+}
+
+# T1.t1 숫자 id 만 있는 신규 FID → PASS (AC-1)
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-ok T1 T2 T10
+out=$(cd "$tmp" && bash "$CHK" 20261001-ok 2>&1); rc=$?
+_pf "T1.t1 숫자 id → TASK-IDS: PASS" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'TASK-IDS: PASS (3 tasks)' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t2 접미사·비 T숫자·숫자형·따옴표 접미사 → FAIL + 위반 목록 + 사유 (AC-2·AC-10)
+#   위반 id 는 '규격 위반:' 목록 줄에서 찾는다 — 안내 문구에도 'T1a' 가 있어 전체 출력 grep 은 공허하다.
+#   '1'(숫자형)은 목록 안의 독립 토큰으로 확인한다(AC-10 — 순서 무관). 정상 id T1 은 목록에 없어야 한다.
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-bad T1 T1a task-3 1 '"T1b"'
+out=$(cd "$tmp" && bash "$CHK" 20261001-bad 2>&1); rc=$?
+vl=$(printf '%s\n' "$out" | grep '규격 위반:')
+_pf "T1.t2 위반 id → rc=1·목록·숫자 전용 사유" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'TASK-IDS: FAIL' && printf '%s' "$vl" | grep -q 'T1a' && printf '%s' "$vl" | grep -q 'task-3' && printf '%s' "$vl" | grep -qE '(: |, )1(,|$)' &&printf '%s' "$vl" | grep -q 'T1b' && ! printf '%s' "$vl" | grep -qE '(: |, )T1(,|$)' && printf '%s' "$out" | grep -q '숫자 전용' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t3 레거시(cutoff 미만)·비날짜 FID → SKIP, 막지 않는다 (AC-3)
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20260902-legacy N1 FIRST; mk_tid_fixture "$tmp" fid-test N1
+o1=$(cd "$tmp" && bash "$CHK" 20260902-legacy 2>&1); r1=$?; o2=$(cd "$tmp" && bash "$CHK" fid-test 2>&1); r2=$?
+_pf "T1.t3 레거시·비날짜 FID → SKIP rc=0" "$([ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o1" | grep -q 'SKIP' && printf '%s' "$o2" | grep -q 'SKIP' && echo ok || echo no)" "o1=$o1 o2=$o2"
+rm -rf "$tmp"
+
+# T1.t4 YAML 파싱 불가 → SKIP + 사유(검증하지 못했다는 사실을 숨기지 않는다), rc=0 (AC-8)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-broken"
+printf '```yaml\ntasks:\n  - id: "T1\n    depends_on: []\n```\n' > "$tmp/.specops/20261001-broken/tasks.md"
+out=$(cd "$tmp" && bash "$CHK" 20261001-broken 2>&1); rc=$?
+_pf "T1.t4 깨진 YAML → SKIP + 파싱 불가 사유" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'SKIP' && printf '%s' "$out" | grep -q '파싱 불가' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t5 어떤 env 로도 신규 FID 의 거부가 풀리지 않는다 (AC-3 후단) — 실제 우회 경로 SPECOPS_ROOT 포함
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-bad T1a
+okv=ok
+for e in "SPECOPS_TASK_IDS_CUTOFF=20300101" "SPECOPS_ROOT=/nonexistent" "SPECOPS_ROOT=" "SPECOPS_GOVERNANCE_BYPASS=1"; do
+  out=$(cd "$tmp" && env "$e" bash "$CHK" 20261001-bad 2>&1); rc=$?
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'TASK-IDS: FAIL'; } || { okv=no; echo "  (풀림: $e rc=$rc out=$out)"; }
+done
+_pf "T1.t5 env 우회 4종 프로브 → FAIL 유지" "$okv"
+rm -rf "$tmp"
+
+# ── emit-context 통합 (20261001-task-id-guard T2) — 라벨 T2.t* (기존 T2.a·T2.b 는 h2 헤더·drift 케이스) ──
+_ok_spec_ac() { cp "$FIXTURES/ok-fid/spec.md" "$FIXTURES/ok-fid/acceptance-criteria.md" "$1/.specops/$2/"; }
+# _tid_line ERR — 판정기의 'TASK-IDS: FAIL' 줄만. '숫자 전용' 은 emit 의 안내 echo 에도, 'T1a' 는 판정기 안내 줄에도
+#   있어 전체 stderr grep 은 공허하다 — 위반 목록이 정확히 T1a 인지를 이 한 줄에서 본다.
+_tid_line() { printf '%s\n' "$1" | grep '^TASK-IDS: FAIL'; }
+# T2.t_a 접미사 id → emit exit 1 · 위반 목록=T1a · dispatch 미생성(원자성) (AC-2)
+#   intent.md 부재 fixture 라 intent 게이트 안내가 stderr 에 없어야 한다 — 게이트가 intent 보다 앞에 있고
+#   위반 시 자기가 exit 한다는 증거(`exit 1` 삭제 시 intent 게이트로 낙하해 rc=1 이 유지되는 변이를 잡는다).
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-tid-bad T1a; _ok_spec_ac "$tmp" 20261001-tid-bad
+err=$(cd "$tmp" && bash "$EMIT" 20261001-tid-bad 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a 접미사 id → emit exit 1·위반 목록 T1a·intent 낙하 없음·dispatch 0" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '숫자 전용.*규격 위반: T1a$' && ! printf '%s' "$err" | grep -q 'intent\.md' && [ ! -d "$tmp/.specops/20261001-tid-bad/dispatch" ] && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -3)"
+# T2.t_a4 SPECOPS_ROOT 로 면제되지 않는다 (AC-3 후단)
+err=$(cd "$tmp" && SPECOPS_ROOT=/nonexistent bash "$EMIT" 20261001-tid-bad 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a4 SPECOPS_ROOT=/nonexistent 로도 거부 유지" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '규격 위반: T1a$' && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -3)"
+rm -rf "$tmp"
+# T2.t_a2 깨진 YAML(AC-8 후단) → check 는 SKIP(차단 안 함), emit 은 다른 게이트·YAML 오류로 exit 1, TASK-IDS: FAIL 은 없음
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-tid-broken"; _ok_spec_ac "$tmp" 20261001-tid-broken
+printf '```yaml\ntasks:\n  - id: "T1\n    depends_on: []\n```\n' > "$tmp/.specops/20261001-tid-broken/tasks.md"
+err=$(cd "$tmp" && bash "$EMIT" 20261001-tid-broken 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a2 깨진 YAML → emit exit 1 · TASK-IDS: FAIL 없음" "$([ "$rc" -eq 1 ] && ! printf '%s' "$err" | grep -q 'TASK-IDS: FAIL' && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -2)"
+rm -rf "$tmp"
+# T2.t_c 레거시 FID(cutoff 미만, 비 T숫자 id) → emit 정상 산출 (AC-3 · 회귀)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-legacy"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-legacy/"
+sed -i.bak 's/id: T1$/id: N1/; s/id: T2$/id: N2/' "$tmp/.specops/20260902-legacy/tasks.md"; rm -f "$tmp/.specops/20260902-legacy/tasks.md.bak"
+out=$(cd "$tmp" && bash "$EMIT" 20260902-legacy 2>&1); rc=$?
+_pf "T2.t_c 레거시 FID(N1·N2) → EMIT 정상" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+# T1.t6 PYTHONPATH 로 주입한 **조건부** 가짜 yaml 모듈로 판정기를 속이지 못한다 (AC-3 후단 · Phase C Important)
+#   가짜는 SPECOPS_TI_YAML(판정기가 python 에 넘기는 env) 이 있을 때만 tasks=[T1] 을 돌려주고 그 외에는 실 pyyaml 로
+#   위임한다 — 판정기만 속고 emit 의 자체 파싱은 실 YAML 을 봐서 T1a-context.md 를 디스크에 쓰던 경로(리뷰 실측).
+#   무조건 가짜는 emit 도 함께 깨져 이 결함을 못 잡는다. 판정기의 `python3 -E` 가 PYTHON* env 를 무시해 막는다.
+_fk=$(mktemp -d); mkdir -p "$_fk/yaml"
+cat > "$_fk/yaml/__init__.py" <<'FKEOF'
+import os, sys, importlib
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _load_real():
+    saved_path, saved_mod = sys.path[:], sys.modules.pop("yaml", None)
+    try:
+        sys.path[:] = [p for p in sys.path if os.path.abspath(p or ".") != _root]
+        return importlib.import_module("yaml")
+    finally:
+        sys.path[:] = saved_path
+        if saved_mod is not None:
+            sys.modules["yaml"] = saved_mod
+_REAL = _load_real()
+def safe_load(s):
+    if os.environ.get("SPECOPS_TI_YAML") is not None:
+        return {"tasks": [{"id": "T1"}]}
+    return _REAL.safe_load(s)
+def __getattr__(name):
+    return getattr(_REAL, name)
+FKEOF
+# 선검사 — 가짜가 실제로 조건부로 동작하는가(트리거 시 T1 · 미트리거 시 실 pyyaml 위임). 아니면 아래 단언이 다른 것을 잰다.
+_fk0=$(PYTHONPATH="$_fk" SPECOPS_TI_YAML=1 python3 -c 'import yaml;print(yaml.safe_load("tasks: [{id: T1a}]"))' 2>&1)
+_fk1=$(env -u SPECOPS_TI_YAML PYTHONPATH="$_fk" python3 -c 'import yaml;print(yaml.safe_load("tasks: [{id: T1a}]"))' 2>&1)
+_pf "T1.t6-0 픽스처: 조건부 가짜 yaml 성립(트리거 T1 · 그 외 실 pyyaml 위임)" "$([ "$_fk0" = "{'tasks': [{'id': 'T1'}]}" ] && [ "$_fk1" = "{'tasks': [{'id': 'T1a'}]}" ] && echo ok || echo no)" "fk0=$_fk0 fk1=$_fk1"
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-fake T1a
+out=$(cd "$tmp" && PYTHONPATH="$_fk" SPECOPS_TI_YAML=1 bash "$CHK" 20261001-fake 2>&1); rc=$?
+_pf "T1.t6 가짜 yaml(PYTHONPATH) 주입에도 FAIL 유지·위반 목록 T1a" "$([ "$rc" -eq 1 ] && _tid_line "$out" | grep -qE '규격 위반: T1a$' && echo ok || echo no)" "rc=$rc out=$(printf '%s' "$out" | head -2)"
+rm -rf "$tmp"
+# T1.t6b 같은 주입에서 emit 도 exit 1 · dispatch 미생성 — intent 까지 갖춘 fixture 라 판정기가 속으면 실제로 산출된다
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-fake"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20261001-fake/"
+sed -i.bak 's/id: T1$/id: T1a/' "$tmp/.specops/20261001-fake/tasks.md"; rm -f "$tmp/.specops/20261001-fake/tasks.md.bak"
+printf '# Intent: 게이트 픽스처\n\n**작성자**: 사용자 · **Status**: accepted\n\n## 문제\n게이트 통과 경로 확인\n\n## 기대 결과\ndispatch 산출\n\n## 영향 사용자·시스템\n- 구현자\n\n## 제약\n- 해당 없음\n\n## 열린 질문\n- 없음\n' > "$tmp/.specops/20261001-fake/intent.md"
+err=$(cd "$tmp" && env -u SPECOPS_TI_YAML PYTHONPATH="$_fk" bash "$EMIT" 20261001-fake 2>&1 >/dev/null); rc=$?
+_pf "T1.t6b 가짜 yaml 주입 → emit exit 1·위반 목록 T1a·dispatch 0" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '규격 위반: T1a$' && [ ! -d "$tmp/.specops/20261001-fake/dispatch" ] && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -2) dispatch=$(ls "$tmp/.specops/20261001-fake/dispatch" 2>/dev/null | tr '\n' ' ')"
+rm -rf "$tmp" "$_fk"
+# (정상 숫자 id 날짜 FID 의 EMIT 은 기존 T4.b(FID 20991231-gate, ok-fid ids T1·T2)가 이미 잠근다 — 새 게이트가 앞에 있어도 통과해야 한다)
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

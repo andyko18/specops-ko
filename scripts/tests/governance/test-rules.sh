@@ -208,6 +208,48 @@ else
 fi
 rm -rf "$_sb3"
 
+# ── 20261001-task-id-guard — R-1 receipt 원인 open-id-mismatch (진단 전용: deny 여부 불변) ──
+_tid_setup() {  # $1=sandbox  $2...=tasks.md id 값(따옴표·주석 포함 원문)
+  local sb="$1"; shift
+  mkdir -p "$sb/.specops/$_bfid"
+  printf '## %s\n\n- 2026-01-01 10:00 /implement DONE (T1)\n' "$_bfid" > "$sb/.specops/session-progress.md"
+  { echo '```yaml'; echo 'tasks:'; for v in "$@"; do echo "  - id: $v"; echo '    depends_on: []'; done; echo '```'; } > "$sb/.specops/$_bfid/tasks.md"
+}
+_tid_cause() {  # $1=sandbox $2=커밋 명령 → .cause.receipt (매칭 없음이면 NOMATCH)
+  local o; o=$(cd "$1" && apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/exec-evidence-absent.jsonl" "Bash" "$2")
+  if [ -n "$o" ]; then printf '%s' "$o" | jq -r '.cause.receipt'; else echo NOMATCH; fi
+}
+_tcase() {  # $1=id $2=기대 cause $3=실제
+  if [ "$3" = "$2" ]; then PASS=$((PASS+1)); echo "PASS $1"; else FAIL=$((FAIL+1)); echo "FAIL $1 — want=$2 got=$3"; fi
+}
+_sbt=$(mktemp -d); _tid_setup "$_sbt" T1
+_tcase "T4.a (AC-4) 선언 T1a ≠ 해석 T1 → open-id-mismatch" open-id-mismatch "$(_tid_cause "$_sbt" $'git commit -m "feat: x\n\nTask: T1a"')"
+_tcase "T4.b (AC-5) 선언=해석 T9 인데 tasks.md 에 없음 → open-id-mismatch" open-id-mismatch "$(_tid_cause "$_sbt" $'git commit -m "feat: x\n\nTask: T9"')"
+_tcase "T4.f (AC-4) 판정 불변 — 불일치여도 매칭(deny) 유지(NOMATCH 아님)" open-id-mismatch "$(_tid_cause "$_sbt" $'git commit -m "x\n\nTask: T1a"')"
+_tcase "T4.g0 정상 선언 T1·receipt 부재 → 기존 open-missing" open-missing "$(_tid_cause "$_sbt" $'git commit -m "feat: x\n\nTask: T1"')"
+_tcase "T4.g1 Task 줄 없음 → open-missing(진단 대상 아님)" open-missing "$(_tid_cause "$_sbt" 'git commit -m "feat: x"')"
+# T4.c receipt rc=1(무효)은 open-invalid 가 우선 (AC-5 후단)
+_stub=$(mktemp); printf '#!/usr/bin/env bash\nexit 1\n' > "$_stub"; chmod +x "$_stub"
+_old_cts=$_CHECK_TASK_RECEIPT_SH; _CHECK_TASK_RECEIPT_SH=$_stub
+_tcase "T4.c (AC-5) receipt rc=1 이면 open-invalid 우선" open-invalid "$(_tid_cause "$_sbt" $'git commit -m "x\n\nTask: T1a"')"
+_CHECK_TASK_RECEIPT_SH=$_old_cts; rm -f "$_stub"; rm -rf "$_sbt"
+# T4.d 판정 불가 → fail-open (AC-6): id 줄 0건(YAML 아님)·읽기 불가
+_sbd=$(mktemp -d); _b_setup "$_sbd" no
+_tcase "T4.d1 (AC-6) tasks.md 가 YAML 아님(id 줄 0건) → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T1"')"
+_tid_setup "$_sbd" T1; chmod 000 "$_sbd/.specops/$_bfid/tasks.md"
+_tcase "T4.d2 (AC-6) tasks.md 읽기 불가 → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T9"')"
+chmod 644 "$_sbd/.specops/$_bfid/tasks.md"; rm -rf "$_sbd"
+# T4.e 따옴표·주석 변형은 있는 id 로 인정 (AC-9)
+_sbe=$(mktemp -d); _tid_setup "$_sbe" T1 '"T2"' "'T3'" 'T4 # 비고'
+for _n in 2 3 4; do _tcase "T4.e$_n (AC-9) Task: T$_n 변형 표기 → open-missing(오탐 아님)" open-missing "$(_tid_cause "$_sbe" "$(printf 'git commit -m "x\n\nTask: T%s"' "$_n")")"; done
+_tcase "T4.e9 같은 tasks.md 에서 진짜 없는 T9 → open-id-mismatch" open-id-mismatch "$(_tid_cause "$_sbe" $'git commit -m "x\n\nTask: T9"')"
+rm -rf "$_sbe"
+# T4.g (AC-R-1) _infer_commit_task 기준선 7케이스 — 변경 전 값(current-state.md §4)과 정확 일치
+_ir_in=( $'git commit -m "feat: x\n\nTask: T1a"' $'git commit -m "feat: x\n\nTask: T4"' $'git commit -m "출력층 (T1~T4 집약)\n\nTask: T4"' 'git commit -m "fix: y (T7)"' 'git commit -m "fix: z"' $'git commit -m "x\n\nTask: T12b."' $'git commit -m "x\n\nTask: task-3"' )
+_ir_want=( T1 T4 T4 T7 "" T12 "" )
+_ir_ok=ok; for _i in 0 1 2 3 4 5 6; do _got=$(_infer_commit_task "${_ir_in[$_i]}"); [ "$_got" = "${_ir_want[$_i]}" ] || { _ir_ok=no; echo "  (기준선 불일치 #$_i: got=[$_got] want=[${_ir_want[$_i]}])"; }; done
+_tcase "T4.g (AC-R-1) _infer_commit_task 7케이스 기준선 불변" ok "$_ir_ok"
+
 # T6 격리 해제 — 원 repo cwd 복귀 (T7+ 는 자체 mktemp/subshell 격리)
 cd "$_t6_orig" || exit 1; rm -rf "$_t6_sb"
 
@@ -915,7 +957,7 @@ fi
 # ★ 빈 cwd 격리 — 실 repo 에서 부르면 detect_fid 가 진행 중 FID 를 집어 cause 가 오염된다.
 _cz=$(mktemp -d) || exit 1; _cz_orig=$PWD; cd "$_cz" || exit 1
 out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'git commit -m "feat: x"')
-if echo "$out" | jq -e '(.cause.exec | IN("ok","missing")) and (.cause.anchor | IN("ok","missing","stale","no-fid")) and (.cause.receipt | IN("open-missing","open-invalid","closed-verified","n/a"))' >/dev/null 2>&1; then
+if echo "$out" | jq -e '(.cause.exec | IN("ok","missing")) and (.cause.anchor | IN("ok","missing","stale","no-fid")) and (.cause.receipt | IN("open-missing","open-invalid","open-id-mismatch","closed-verified","n/a"))' >/dev/null 2>&1; then
   PASS=$((PASS+1)); echo "PASS T6.cause-1 R-1 cause 3축 열거값"
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.cause-1 R-1 cause: $(echo "$out" | jq -c '.cause // "부재"')"

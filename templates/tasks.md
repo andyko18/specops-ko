@@ -139,7 +139,7 @@ tasks:
 
 **필드 의미**:
 - `review_mode`: `end-loaded`(기본·부재 시 동일) | `per-task`(레거시 opt-in). implementing-ko가 소비
-- `id`: 태스크 식별자 (T1, T2, ...) — `## 태스크 N` 헤더와 일치
+- `id`: 태스크 식별자 — **숫자 전용**(T1, T2, ..., T10). T1a 같은 문자 접미사는 거부된다(커밋의 `Task: T1a` 가 T1 로 잘려 R-1 receipt 탈출구가 열리지 않는다 — emit-context 가 check-task-ids 로 구현 전에 거부). `## 태스크 N` 헤더와 일치
 - `depends_on`: 본 태스크 시작 전 완료 필요한 태스크 id 배열 ([] 면 절대 leaf)
 - `inputs`: 본 태스크가 **읽기**만 하는 파일 (다른 태스크 outputs 가능)
 - `outputs`: 본 태스크가 생성·수정하는 파일 — 다른 leaf 와 disjoint 시 병렬 후보

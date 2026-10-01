@@ -1168,7 +1168,7 @@ apply_lookback_rule() {
       #   초기값 _rrc=2 라 T# 미기재도 여기로 떨어진다 — 없는 receipt 를 "무효" 라 부르면
       #   pretool 이 "staged 를 확인하라" 고 오안내한다(축 B 가 다시 거짓말하는 경로).
       local _cr
-      [ "$_rrc" -eq 1 ] && _cr="open-invalid" || _cr="open-missing"
+      _cr=$(_receipt_cause "$_rrc" "$tool_cmd" "$_rtask" "$_rfid" 2>/dev/null) || _cr="open-missing"
       _emit_violation "$rule_id" "$tool_cmd" \
         "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
         "$([ "$_exec_rc" -eq 1 ] && printf 'missing' || printf 'ok')" \
@@ -1603,4 +1603,90 @@ apply_gbrain_absence_rule() {
   local snippet="lifecycle 완주 후 gbrain-append 호출 부재 — 1줄 인사이트 작성 권장: bash scripts/gbrain-append.sh '<insight>' --fid $fid"
   jq -nc --arg id "R-6" --arg snippet "$snippet" --argjson offset "$last_evi_line" --arg fid "$fid" \
     '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset, fid: $fid }'
+}
+
+# ── R-1 receipt 원인 진단 (20261001-task-id-guard) — 진단 전용, deny/허용 판정 불변 ──
+# ★ 이 헬퍼들은 **파일 끝**에 둔다. mutation-equivalent.conf 가 이 파일을 절대 줄번호로 핀하므로
+#   앞쪽에 줄을 넣으면 핀이 밀려 등가변이 제외가 무음으로 엉뚱한 가드에 붙는다. 함수는 source 시
+#   정의만 되고 런타임에 호출되므로 정의 위치는 동작과 무관하다.
+
+# 커밋 명령에서 `Task:` 뒤 선언 토큰 전체 — `_infer_commit_task` 는 T숫자 로 자르므로(T1a→T1)
+#   잘리기 전 원문을 본다. 마침표는 토큰에서 제외(`T12.`). 없으면 빈 문자열. 진단 전용.
+#   한계: 첫 `Task:` 토큰만 집는다(두 번 선언하면 첫 값 기준 — 진단 전용이라 피해는 문안에 한정).
+_declared_task_token() {
+  printf '%s' "${1:-}" | grep -oE 'Task:[[:space:]]*[A-Za-z0-9_-]+' | head -1 | sed -E 's/^Task:[[:space:]]*//'
+}
+# tasks.md 에 해당 task id 줄이 있는가 — 0=있음 · 1=id 줄은 있으나 이 id 없음 · 2=판정불가(파일 부재/읽기 불가/id 줄 0건)
+#   id 는 `_infer_commit_task` 반환값(T숫자)만 들어오므로 정규식에 안전하다. YAML 파서 대신 grep —
+#   훅 hot path 라 python 기동을 피한다. 따옴표·인라인 주석 변형을 허용한다.
+_tasks_has_id() {
+  local f="${1:-}" id="${2:-}"
+  [ -r "$f" ] && [ -n "$id" ] || return 2
+  grep -qE '^[[:space:]]*-[[:space:]]+id:' "$f" 2>/dev/null || return 2
+  grep -qE "^[[:space:]]*-[[:space:]]+id:[[:space:]]*[\"']?${id}[\"']?[[:space:]]*(#.*)?\$" "$f" 2>/dev/null && return 0
+  return 1
+}
+# R-1 receipt 분기의 원인 코드 — $1=_rrc $2=tool_cmd $3=_rtask $4=_rfid.
+#   stdout 으로 open-invalid | open-id-mismatch | open-missing 중 정확히 하나를 낸다.
+#   receipt rc=1(무효)은 open-invalid 우선. 그 밖의 실패·판정불가는 전부 종전 open-missing.
+_receipt_cause() {
+  local rrc="${1:-2}" cmd="${2:-}" rtask="${3:-}" rfid="${4:-}" decl hid_rc=0
+  if [ "$rrc" -eq 1 ] 2>/dev/null; then
+    printf 'open-invalid'; return 0
+  fi
+  decl=$(_declared_task_token "$cmd" 2>/dev/null || true)
+  if [ -n "$decl" ] && [ "$decl" != "$rtask" ]; then
+    printf 'open-id-mismatch'; return 0
+  fi
+  if [ -n "$rtask" ]; then
+    _tasks_has_id ".specops/$rfid/tasks.md" "$rtask" || hid_rc=$?
+    if [ "$hid_rc" -eq 1 ]; then
+      printf 'open-id-mismatch'; return 0
+    fi
+  fi
+  printf 'open-missing'
+}
+# pretool deny 안내의 receipt 원인 문안 — $1=cause 코드 $2=tool_cmd. 알 수 없는 cause(n/a 등)는 빈 출력.
+#   pretool 의 `*)` case 한 줄이 부른다 — 문안 본체를 여기(파일 끝)에 두어 pretool·lib 의 줄번호 핀을 보존한다.
+#   ★ 실제로 일어난 일만 말한다(거짓 원인 → 재시도 낭비·BYPASS): 절단은 선언이 해석 id 로 **시작**할 때만이다.
+#     `Task: fix …` + 산문 `(T1)` 처럼 해석 id 가 산문 fallback 에서 왔으면 절단이 아니다.
+_receipt_hint_extra() {
+  local cause="${1:-}" cmd="${2:-}" decl infer
+  [ "$cause" = "open-id-mismatch" ] || return 0
+  decl=$(_declared_task_token "$cmd" 2>/dev/null || true)
+  infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)
+  if [ -n "$decl" ] && [ -z "$infer" ]; then
+    # (a0) 선언은 있는데 T숫자 로 해석되지 않았다(예: task-3) — 절단이 아니라 미해석이다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 Task: ${decl} 가 task id 로 해석되지 않았습니다.
+   task id 는 숫자 전용(T1~Tn)입니다 — tasks.md 의 id 를 확인하고 커밋 메시지를 그 숫자 id 로 맞추세요(예: Task: T1)."
+  elif [ -n "$decl" ] && [ "$decl" != "$infer" ]; then
+    case "$decl" in
+      "$infer"*)
+        # (a) 선언 토큰이 해석 과정에서 잘렸다(T1a → T1) — 절단을 원인으로 말한다.
+        printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 task id 가 tasks.md 의 id 와 일치하지 않습니다.
+   커밋 메시지 선언: Task: ${decl}  →  훅이 해석한 id: ${infer}
+   task id 는 숫자 전용(T1~Tn)입니다 — T1a 같은 접미사는 T1 로 잘려 존재하지 않는 receipt 를 찾습니다.
+   tasks.md 의 id 를 확인하고 커밋 메시지를 그 숫자 id 로 맞추세요(예: Task: T1).
+   tasks.md 에 접미사 id 가 있으면 T숫자로 재명명한 뒤 emit-context 를 재실행하세요." ;;
+      *)
+        # (a1) 선언이 T숫자 형식이 아니고, 해석 id 는 본문 산문에서 왔다 — 절단은 일어나지 않았다.
+        printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: 커밋 메시지의 Task: ${decl} 는 task id 형식(T숫자)이 아니며, 훅은 본문의 다른 id(${infer})로 해석했습니다.
+   선언과 해석이 다르면 receipt 를 신뢰할 수 없습니다 — Task: 줄을 tasks.md 의 숫자 id 로 쓰세요(예: Task: T1, task id 는 숫자 전용 T1~Tn)." ;;
+    esac
+  elif [ -n "$decl" ]; then
+    # (b) 선언=해석인데 tasks.md 에 그 id 가 없다 — 절단은 일어나지 않았다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: tasks.md 에 해당 task id(${infer})가 없습니다.
+   커밋 메시지의 Task: 값이 tasks.md 의 id 와 정확히 일치해야 receipt 를 찾을 수 있습니다.
+   tasks.md 의 id 목록을 확인하고 커밋 메시지를 그 id 로 맞추세요(task id 는 숫자 전용 T1~Tn)."
+  else
+    # (b') 선언 없음 — 훅이 본문 산문에서 id 를 집었다. 존재하지 않는 Task: 줄을 언급하지 않는다.
+    printf '%s' "
+▶ receipt 경로가 열리지 않는 원인: tasks.md 에 해당 task id(${infer:-(없음)})가 없습니다.
+   커밋 메시지에 Task: 선언이 없어 훅은 본문의 산문 id(${infer:-(없음)})를 task id 로 집었습니다.
+   tasks.md 의 숫자 id 를 확인하고 커밋 메시지에 그 id 를 Task: T숫자 형식으로 명시하세요(예: Task: T1)."
+  fi
 }

@@ -437,7 +437,7 @@ if [ -n "$violation" ]; then
    implement 창에서만 열립니다(PASS·STALE·WAIVED 는 닫힘 — 특히 STALE 은 검증 이후 코드가 바뀐
    상태라 receipt 로 우회하지 않습니다). 지금은 ①·② 로 통과해야 합니다.
    현재 verdict 확인: bash scripts/_internal/verification-state.sh current ${fid:-<FID>}" ;;
-      *) _receipt_hint="" ;;   # n/a (R-2)
+      *) _receipt_hint=$(_receipt_hint_extra "$_c_receipt" "$tool_cmd" 2>/dev/null) || _receipt_hint="" ;;   # open-id-mismatch(문안은 governance-lib 끝 — 줄번호 핀 보존) · 그 밖(n/a R-2)은 빈 값
     esac
   else
     _receipt_hint="

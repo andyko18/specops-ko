@@ -30,6 +30,17 @@ source "$SCRIPT_DIR/parse-dag.sh"
 yaml=$(dag::extract_yaml "$TASKS")
 [ -n "$yaml" ] || { echo "emit-context: YAML 부재 — $TASKS" >&2; exit 1; }
 
+# task id 규격 게이트 — 숫자 전용(T1~Tn). 접미사 id 는 커밋의 `Task: T1a` 가 T1 로 잘려 R-1 receipt 탈출구가 열리지 않는다.
+#   다른 게이트보다 앞에 둔다 — 원인이 id 규격일 때 그것을 먼저 말한다(디스크 작성 0 원자성은 다른 게이트와 동일).
+_TID_SH="$SCRIPT_DIR/../_internal/check-task-ids.sh"
+if [ -f "$_TID_SH" ]; then
+  if ! tid_out=$(bash "$_TID_SH" "$FID" 2>&1); then
+    printf '%s\n' "$tid_out" >&2
+    echo "emit-context: task id 규격 위반 — tasks.md 의 id 를 T1~Tn 숫자 전용으로 고친 뒤 재실행" >&2
+    exit 1
+  fi
+fi
+
 # foundation 재사용 게이트 (소비측) — 구현 **전** fail-fast.
 #   decomposing-ko 계약: §유형≠foundation 이고 manifest 가 있으면 각 task 가
 #   `**재사용 foundation**` 또는 `**미재사용 근거**` 를 기재해야 한다. 종전엔 산문뿐이라
