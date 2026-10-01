@@ -91,5 +91,12 @@ if grep -q '1% 가능성이라도' "$META"; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.d — '1% 가능성이라도' 문구 소실 = 화이트리스트 전환 위험"
 fi
+# T7.a 민감 문자열 제외·마스킹 한계·redact_failed 설명 (AC-8 · AC-10)
+if grep -q '민감' "$FREEWORK" && grep -q '완전 보장' "$FREEWORK" && grep -q 'redact_failed' "$FREEWORK" \
+   && grep -q '완전 보장이 아니다' "$PLUGIN/scripts/_internal/redact.sh" 2>/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T7.a 민감 문자열 제외·한계·redact_failed 지침"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.a 민감 문자열 제외·한계·redact_failed 지침"
+fi
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
