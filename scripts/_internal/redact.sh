@@ -52,32 +52,41 @@ fi
 nl=1; [ "$bytes" -gt 0 ] && [ -n "$(tail -c1 "$t1")" ] && nl=0
 
 export LC_ALL=C
+# 구간 제거는 split 기반 선형 스캔 — 줄을 매번 substr 로 되복사하면 한 줄에 태그가 많을 때 이차 시간이 된다(실측: 8,000개 5.3초 · 32,000개 60초 초과).
+# 출력은 printf 로 바로 내보낸다(문자열 이어붙임도 이차). 1단계 private 구간 → 2단계 PEM 블록 → sed 패턴 치환.
 awk '
-function emit(s) { out = out s }
-BEGIN { inp = 0; pem = 0 }
+BEGIN { inp = 0 }
 {
-  line = $0; out = ""; touched = 0
-  while (length(line) > 0) {
+  n = split($0, a, "<private>"); outlen = 0; touched = 0
+  for (k = 1; k <= n; k++) {
+    seg = a[k]
+    if (k > 1) { inp = 1; touched = 1 }
     if (inp) {
-      i = index(line, "</private>")
-      if (i == 0) { line = ""; touched = 1 } else { line = substr(line, i + 10); inp = 0; touched = 1 }
-    } else if (pem) {
-      if (match(line, /-----END [A-Z ]*PRIVATE KEY-----/)) { line = substr(line, RSTART + RLENGTH); pem = 0 } else { line = "" }
-      touched = 1
-    } else {
-      p = index(line, "<private>")
-      k = 0; kl = 0
-      if (match(line, /-----BEGIN [A-Z ]*PRIVATE KEY-----/)) { k = RSTART; kl = RLENGTH }
-      if (p == 0 && k == 0) { emit(line); line = "" }
-      else if (k == 0 || (p > 0 && p < k)) { emit(substr(line, 1, p - 1)); line = substr(line, p + 9); inp = 1; touched = 1 }
-      else { emit(substr(line, 1, k - 1) "[REDACTED:pem]"); line = substr(line, k + kl); pem = 1; touched = 1 }
+      i = index(seg, "</private>")
+      if (i == 0) { touched = 1; continue }
+      seg = substr(seg, i + 10); inp = 0; touched = 1
     }
+    printf "%s", seg; outlen += length(seg)
   }
-  if (out != "" || !touched) print out
-}' "$t1" | sed -E -f "$PATTERNS" > "$t3"
-# 파이프 전체의 실패를 잡는다 — awk 나 sed 가 실패하면 마스킹 불가(rc 3). PIPESTATUS 는 다음 명령에서 덮이므로 한 번에 복사한다
+  if (outlen > 0 || !touched) printf "\n"
+}' "$t1" | awk '
+BEGIN { pem = 0 }
+{
+  n = split($0, a, /-----BEGIN [A-Z ]*PRIVATE KEY-----/); outlen = 0; touched = 0
+  for (k = 1; k <= n; k++) {
+    seg = a[k]
+    if (k > 1) { if (!pem) { printf "[REDACTED:pem]"; outlen += 14 } pem = 1; touched = 1 }
+    if (pem) {
+      if (match(seg, /-----END [A-Z ]*PRIVATE KEY-----/)) { seg = substr(seg, RSTART + RLENGTH); pem = 0 } else { touched = 1; continue }
+      touched = 1
+    }
+    printf "%s", seg; outlen += length(seg)
+  }
+  if (outlen > 0 || !touched) printf "\n"
+}' | sed -E -f "$PATTERNS" > "$t3"
+# 파이프 전체의 실패를 잡는다 — awk·awk·sed 중 하나라도 실패하면 마스킹 불가(rc 3). PIPESTATUS 는 다음 명령에서 덮이므로 한 번에 복사한다
 ps=("${PIPESTATUS[@]}")
-[ "${ps[0]}" -eq 0 ] && [ "${ps[1]}" -eq 0 ] || { echo "redact: 구간 제거·패턴 치환 실패" >&2; exit 3; }
+[ "${ps[0]}" -eq 0 ] && [ "${ps[1]}" -eq 0 ] && [ "${ps[2]}" -eq 0 ] || { echo "redact: 구간 제거·패턴 치환 실패" >&2; exit 3; }
 unset LC_ALL
 
 res="$t3"

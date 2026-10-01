@@ -245,6 +245,19 @@ in=$(printf 'a %sS1\nS2%s end' "$PRIV_O" "$PRIV_C")
 out=$(printf '%s\n' "$in" | bash "$REDACT" --last-line 2>/dev/null)
 [ "$out" = " end" ] && pass "T7.k --last-line 마스킹 뒤 마지막 줄" || fail "T7.k" "out=$out"
 
+# T7.l 한 줄에 private 태그·PEM 블록이 수만 개여도 선형 시간 (AC-7) — 구간 제거 루프가 매번 나머지를 되복사하면 이차(실측 3.2만 개 60초 초과)
+bounded() { if command -v perl >/dev/null 2>&1; then perl -e 'alarm 20; exec @ARGV' "$@"; else "$@"; fi; }
+pv="$TMP/pv.txt"; yes "${PRIV_O}PRIVPAYLOAD${PRIV_C} k" | head -c 600000 | tr -d '\n' > "$pv"   # 개행 없는 한 줄
+t0=$(date +%s); out=$(bounded bash "$REDACT" < "$pv" 2>/dev/null); rc=$?; t1=$(date +%s)
+pe="$TMP/pe.txt"; yes "$PEM_B abc $PEM_E k" | head -c 900000 | tr -d '\n' > "$pe"
+t2=$(date +%s); out2=$(bounded bash "$REDACT" < "$pe" 2>/dev/null); rc2=$?; t3=$(date +%s)
+ok=1
+[ "$rc" -eq 0 ] && [ $((t1-t0)) -le 5 ] || ok=0
+case "$out" in *PRIVPAYLOAD*) ok=0 ;; esac
+[ "$rc2" -eq 0 ] && [ $((t3-t2)) -le 3 ] || ok=0
+case "$out2" in *abc*) ok=0 ;; esac
+[ "$ok" -eq 1 ] && pass "T7.l 한 줄 태그·PEM 수만 개 선형 시간" || fail "T7.l" "rc=$rc rc2=$rc2 sec1=$((t1-t0)) sec2=$((t3-t2))"
+
 # ── capture 훅 통합 (AC-4 · AC-6) ──
 mk_work() { mkdir -p "$1"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
 mk_tr() {  # $1=출력 파일 $2=마지막 사용자 프롬프트 — 사용자 발화 뒤에 Edit 이벤트
