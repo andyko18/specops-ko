@@ -234,7 +234,8 @@ ck "T5.a 실행 전후 원장 바이트·git status 동일(읽기 전용)" "$AFT
 ck "T5.b mktime 호출 없음(BSD awk 에 없다)" "$(grep -cE 'mktime *\(' "$ST")" "0"
 ck "T5.c 행 단위 read 루프 없음(외부 프로세스 줄 스폰 금지)" "$(grep -cE 'while +(IFS= +)?(-r +)?read' "$ST")" "0"
 OUT_DEFAULT="$OUT"
-OUT_KO=$(LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8 SPECOPS_ROOT="$FX1" bash "$ST" 2>&1)
+# stdout 만 비교한다 — 로케일이 없는 러너(Ubuntu CI)에선 bash 가 stderr 에 setlocale 경고를 내고 C 로 되돌아가므로 이 단언은 best-effort 보험이고, 실질 잠금은 T1.g(동률 정렬)다.
+OUT_KO=$(LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8 SPECOPS_ROOT="$FX1" bash "$ST" 2>/dev/null)
 ck "T5.d 로케일을 바꿔도 출력 동일(LC_ALL 고정 — 동률 정렬 비교가 로케일 의존이라 T1.g 와 함께 잠근다)" "$OUT_KO" "$OUT_DEFAULT"
 BIG="$SB/big"; mkdir -p "$BIG"
 awk 'BEGIN {
