@@ -219,5 +219,35 @@ T5_d() {  # --fid 미지정(빈값)은 정상 — 자유작업 인사이트
 }
 run "T5.d --fid 생략 → 빈값 허용" T5_d
 
+# ── redact 관문 적용 (FID 20261001-redact-capture · AC-5 · AC-6) ──
+# 가짜 키는 실행 중 조각 조립 — 저장소에 실제 형태 리터럴을 두지 않는다
+T9_a() {
+  local tmp k; tmp=$(mktemp); k="AK""IA$(printf 'A%.0s' $(seq 16))"
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "키 $k 를 붙여넣음" --fid 20261001-redact-capture >/dev/null 2>&1 \
+    && ! grep -q "$k" "$tmp" && grep -q 'REDACTED:aws' "$tmp" \
+    && [ "$(jq -c 'keys' "$tmp")" = '["fid","insight","tags","ts"]' ]
+}
+run "T9.a insight 의 가짜 키 마스킹·필드 불변" T9_a
+T9_b() {
+  local tmp ins; tmp=$(mktemp); ins=$(printf '가%.0s' $(seq 3000))
+  GBRAIN_FILE="$tmp" bash "$PLUGIN/scripts/gbrain-append.sh" "$ins" >/dev/null 2>&1 \
+    && [ "$(jq -r '.insight' "$tmp")" = "$ins" ]
+}
+run "T9.b 3000자 정상 insight 는 절단 없이 보존" T9_b
+T9_c() {
+  local d rc=0 before=0 after=0; d=$(mktemp -d)
+  mkdir -p "$d/p/scripts/_internal" "$d/w/.specops/memory"
+  cp "$PLUGIN/scripts/gbrain-append.sh" "$d/p/scripts/"
+  cp "$PLUGIN/scripts/_internal/redact.sh" "$d/p/scripts/_internal/" 2>/dev/null   # 패턴 파일은 일부러 복사하지 않는다
+  [ -e "$PLUGIN/.specops/redact-failures.log" ] && before=1
+  (cd "$d/w" && GBRAIN_FILE="$d/w/.specops/memory/learnings.jsonl" bash "$d/p/scripts/gbrain-append.sh" "비밀 insight 텍스트" 2>"$d/err") || rc=$?
+  [ -e "$PLUGIN/.specops/redact-failures.log" ] && after=1
+  [ "$rc" -eq 1 ] && [ ! -s "$d/w/.specops/memory/learnings.jsonl" ] && grep -q '마스킹 불가' "$d/err" \
+    && [ "$(wc -l < "$d/w/.specops/redact-failures.log" | tr -d ' ')" = "1" ] \
+    && ! grep -q '비밀 insight' "$d/w/.specops/redact-failures.log" && [ "$before" = "$after" ]
+  local r=$?; rm -rf "$d"; return $r
+}
+run "T9.c 마스킹 불가 → 미기록·exit 1·로그 1줄·실트리 무쓰기" T9_c
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

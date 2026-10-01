@@ -65,6 +65,18 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 TARGET="${GBRAIN_FILE:-.specops/memory/learnings.jsonl}"
 mkdir -p "$(dirname "$TARGET")"
 
+# 저장 직전 마스킹(fail-closed) — rc≠0(패턴 부재·redact.sh 부재 127 포함)이면 기록하지 않는다. 끝 개행 보존용 sentinel(x).
+REDACT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/redact.sh"
+if ! INSIGHT_R=$(printf '%s' "$INSIGHT" | bash "$REDACT" 2>/dev/null && printf x); then
+  LOGDIR=$(dirname "$TARGET"); [ "${LOGDIR##*/}" = memory ] && LOGDIR=${LOGDIR%/*}   # 대상이 .../memory/파일 이면 한 단계 위
+  if [ -d "$LOGDIR" ] && [ ! -L "$LOGDIR/redact-failures.log" ]; then
+    printf '%s gbrain-append\n' "$TS" >> "$LOGDIR/redact-failures.log" 2>/dev/null || true
+  fi
+  echo "gbrain-append: 마스킹 불가 — 기록하지 않음(redact 실패, 로그: redact-failures.log)" >&2
+  exit 1
+fi
+INSIGHT="${INSIGHT_R%x}"
+
 # 전체 객체를 jq 로 생성 — insight/fid 의 제어문자(개행·탭, U+0000~U+001F)·"·\ 까지 완전 이스케이프.
 # (printf+수동 json_esc 는 제어문자 미처리 → 무효 JSON 줄 + recall 유실 결함. TAGS 는 이미 valid JSON array → --argjson.)
 jq -cn \

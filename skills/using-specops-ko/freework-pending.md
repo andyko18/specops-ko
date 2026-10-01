@@ -4,7 +4,7 @@
 
 SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사용자 턴 시작 시** 자동 처리한다:
 
-1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다 (`{ts,files,prompt,type,fid}`).
+1. `.specops/pending-capture.jsonl` 각 레코드를 읽는다 (`{ts,files,prompt,type,fid}`). `prompt` 는 캡처 시점에 마스킹돼 있다(시크릿·private 구간 제거, 2000자 절단). `redact_failed: true` 레코드는 마스킹을 할 수 없어 프롬프트가 보안상 폐기된 것이다 — 빈값 처리(변경 파일 기반 추론)하고 원문 복구를 시도하지 않는다.
 2. 각 자유작업을 **요약**하고 `type` 을 프롬프트+변경파일 기준으로 **재분류**한다.
 3. **귀속/신규 판정**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/freework-resolve-fid.sh "<레코드 fid>"` 호출.
    - 출력 `ATTACH:<fid>` → **귀속 분기** (진행 중 lifecycle): 새 FID 생성 안 함. `<fid>` 를 대상 FID 로 사용 (쉘로 추출 시 `fid=${out#ATTACH:}`) (4·5·6 단계 진행, freework.md·mkdir 생략).
@@ -13,6 +13,7 @@ SessionStart 가 `<freecomment-pending>` 안내를 주입했으면, **다음 사
      - `.specops/<FID>/freework.md` 작성 (`templates/freework.md` 의 `{{...}}` 치환 — prompt 빈값 시 `(빈값 — 변경파일 기반 추론)`).
 4. **session-progress 기록**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <대상FID> /freework 완료 "<요약>"`.
 5. **learnings 기록**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "<요약>" --fid <대상FID> --tags freelog,<type> --confidence <low|medium|high>` (fid 비빈값 — AC-6).
+> **민감 문자열 제외 (5·6단계 공통)**: 요약·insight·freelog 에 키·토큰·비밀번호·private 구간을 옮겨 적지 않는다. 캡처 마스킹은 정규식 기반이라 **완전 보장이 아니다** — 자유 서술형 비밀번호는 못 잡으므로 요약 단계에서도 직접 제외한다.
 6. **freelog 기록**: `.specops/freelog.md` 에 `## YYYYMMDD` 하위 `- HH:MM [<type>] (<대상FID>) <files> — <요약>` append (escape 유의).
 7. `type` 이 `design-change` 면 **requirements 반자동 연결** (승인형 — 기존 유지): requirements.md 확인 → 새 기능 요구사항 판단 → FR 초안 [y/n] → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/requirements-append-fr.sh ...`.
 8. 처리 완료 후 `.specops/pending-capture.jsonl` 을 **비운다** (멱등): `: > .specops/pending-capture.jsonl` (truncate — 빈 파일이라야 SessionStart `[ -s ]` 가 재안내 skip).
