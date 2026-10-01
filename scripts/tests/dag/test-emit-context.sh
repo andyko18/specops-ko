@@ -248,5 +248,55 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T3.b should 과잉 차단"
 fi
 
+# ── 20261001-task-id-guard — check-task-ids.sh (판정기 단독) ──
+CHK="$PLUGIN/scripts/_internal/check-task-ids.sh"
+_pf() { if [ "$2" = ok ]; then PASS=$((PASS+1)); echo "PASS $1"; else FAIL=$((FAIL+1)); echo "FAIL $1${3:+ — $3}"; fi; }
+# mk_tid_fixture TMPDIR FID ID값... — tasks.md YAML 만 있는 최소 FID (id 값은 따옴표 포함 원문)
+mk_tid_fixture() {
+  local d="$1" fid="$2"; shift 2
+  mkdir -p "$d/.specops/$fid"
+  { echo '# tasks'; echo; echo '## 의존 그래프'; echo; echo '```yaml'; echo 'tasks:'
+    for v in "$@"; do echo "  - id: $v"; echo '    depends_on: []'; echo '    ac: [AC-1]'; done
+    echo '```'; } > "$d/.specops/$fid/tasks.md"
+}
+
+# T1.t1 숫자 id 만 있는 신규 FID → PASS (AC-1)
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-ok T1 T2 T10
+out=$(cd "$tmp" && bash "$CHK" 20261001-ok 2>&1); rc=$?
+_pf "T1.t1 숫자 id → TASK-IDS: PASS" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'TASK-IDS: PASS (3 tasks)' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t2 접미사·비 T숫자·숫자형·따옴표 접미사 → FAIL + 위반 목록 + 사유 (AC-2·AC-10)
+#   위반 id 는 '규격 위반:' 목록 줄에서 찾는다 — 안내 문구에도 'T1a' 가 있어 전체 출력 grep 은 공허하다.
+#   '1'(숫자형)은 목록 안의 독립 토큰으로 확인한다(AC-10 — 순서 무관). 정상 id T1 은 목록에 없어야 한다.
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-bad T1 T1a task-3 1 '"T1b"'
+out=$(cd "$tmp" && bash "$CHK" 20261001-bad 2>&1); rc=$?
+vl=$(printf '%s\n' "$out" | grep '규격 위반:')
+_pf "T1.t2 위반 id → rc=1·목록·숫자 전용 사유" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'TASK-IDS: FAIL' && printf '%s' "$vl" | grep -q 'T1a' && printf '%s' "$vl" | grep -q 'task-3' && printf '%s' "$vl" | grep -qE '(: |, )1(,|$)' &&printf '%s' "$vl" | grep -q 'T1b' && ! printf '%s' "$vl" | grep -qE '(: |, )T1(,|$)' && printf '%s' "$out" | grep -q '숫자 전용' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t3 레거시(cutoff 미만)·비날짜 FID → SKIP, 막지 않는다 (AC-3)
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20260902-legacy N1 FIRST; mk_tid_fixture "$tmp" fid-test N1
+o1=$(cd "$tmp" && bash "$CHK" 20260902-legacy 2>&1); r1=$?; o2=$(cd "$tmp" && bash "$CHK" fid-test 2>&1); r2=$?
+_pf "T1.t3 레거시·비날짜 FID → SKIP rc=0" "$([ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o1" | grep -q 'SKIP' && printf '%s' "$o2" | grep -q 'SKIP' && echo ok || echo no)" "o1=$o1 o2=$o2"
+rm -rf "$tmp"
+
+# T1.t4 YAML 파싱 불가 → SKIP + 사유(검증하지 못했다는 사실을 숨기지 않는다), rc=0 (AC-8)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-broken"
+printf '```yaml\ntasks:\n  - id: "T1\n    depends_on: []\n```\n' > "$tmp/.specops/20261001-broken/tasks.md"
+out=$(cd "$tmp" && bash "$CHK" 20261001-broken 2>&1); rc=$?
+_pf "T1.t4 깨진 YAML → SKIP + 파싱 불가 사유" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'SKIP' && printf '%s' "$out" | grep -q '파싱 불가' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T1.t5 어떤 env 로도 신규 FID 의 거부가 풀리지 않는다 (AC-3 후단) — 실제 우회 경로 SPECOPS_ROOT 포함
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-bad T1a
+okv=ok
+for e in "SPECOPS_TASK_IDS_CUTOFF=20300101" "SPECOPS_ROOT=/nonexistent" "SPECOPS_ROOT=" "SPECOPS_GOVERNANCE_BYPASS=1"; do
+  out=$(cd "$tmp" && env "$e" bash "$CHK" 20261001-bad 2>&1); rc=$?
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'TASK-IDS: FAIL'; } || { okv=no; echo "  (풀림: $e rc=$rc out=$out)"; }
+done
+_pf "T1.t5 env 우회 4종 프로브 → FAIL 유지" "$okv"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
