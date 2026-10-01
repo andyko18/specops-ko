@@ -116,6 +116,25 @@ if [ "$MODE" = record ]; then
   M=$(( (E - S) / 60 + 1 ))
   OV=$(find "$PDIR" -maxdepth 1 -name '*.jsonl' ! -name "$(basename "$TR")" -mmin "-$M" 2>/dev/null | wc -l | tr -d ' ')
   _records "$TR" main "" "${OV:-0}" >> "$NEWREC"
+  SUBDIR="${TR%.jsonl}/subagents"
+  if [ -d "$SUBDIR" ]; then
+    for sf in "$SUBDIR"/agent-*.jsonl; do
+      [ -f "$sf" ] || continue
+      aid=$(basename "$sf" .jsonl); aid=${aid#agent-}
+      aid=$(printf '%s' "$aid" | tr -c 'A-Za-z0-9._-' '_')
+      atype=unknown; amodel=unknown
+      meta="${sf%.jsonl}.meta.json"
+      if [ -f "$meta" ]; then
+        atype=$(jq -r '.agentType // "unknown"' "$meta" 2>/dev/null) || atype=unknown
+        amodel=$(jq -r '.model // "unknown"' "$meta" 2>/dev/null) || amodel=unknown
+        [ -n "$atype" ] || atype=unknown
+        [ -n "$amodel" ] || amodel=unknown
+        atype=$(printf '%s' "$atype" | tr -c 'A-Za-z0-9._-' '_')
+        amodel=$(printf '%s' "$amodel" | tr -c 'A-Za-z0-9._/@+-' '_')
+      fi
+      _records "$sf" "$atype:$aid" "$amodel" "" >> "$NEWREC"
+    done
+  fi
   [ -s "$NEWREC" ] || _unmeasured no-messages-in-window
   _upsert "$NEWREC"
   exit 0

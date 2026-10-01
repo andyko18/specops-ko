@@ -127,4 +127,32 @@ else
   nope "T3.c" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
 fi
 
+# mk_sub <envdir> — 서브에이전트 2개(aaa: meta 있음 / bbb: meta 없음) + 겹치는 다른 세션 파일 1개
+mk_sub() {
+  local d="$1" sd="$1/cfg/projects/-p/$SID/subagents"
+  mkdir -p "$sd"
+  { _line msg_a1 m2 40 2026-09-30T10:01:00.000Z; _line msg_a2 m2 60 2026-09-30T10:02:00.000Z; } > "$sd/agent-aaa.jsonl"
+  printf '{"agentType":"general-purpose","model":"sonnet"}' > "$sd/agent-aaa.meta.json"
+  { _line msg_b1 m3 5 2026-09-30T10:03:00.000Z; } > "$sd/agent-bbb.jsonl"
+  echo '{}' > "$d/cfg/projects/-p/other-session.jsonl"
+}
+
+# T4.a 서브에이전트 레코드: agent/model/agent_model, 메인과 분리 (AC-3)
+d=$(mk_env t4a); mk_core "$d"; mk_sub "$d"; run_meter "$d" >/dev/null
+T=$(TOK "$d")
+if jq -e 'select(.agent=="general-purpose:aaa") | .model=="m2" and .agent_model=="sonnet" and .output==100 and .messages==2' "$T" >/dev/null 2>&1 \
+   && jq -e 'select(.agent=="unknown:bbb") | .model=="m3" and .agent_model=="unknown" and .output==5' "$T" >/dev/null 2>&1 \
+   && jq -e 'select(.agent=="main") | .output==1018' "$T" >/dev/null 2>&1; then
+  ok "T4.a 서브에이전트 별도 레코드·meta 누락 unknown·메인 불변"
+else
+  nope "T4.a" "rec=$(cat "$T" 2>/dev/null)"
+fi
+
+# T4.b main 레코드의 overlap_other_sessions (mtime 이 구간 안인 다른 세션 파일 1개 — "최근 M분" 근사, 최대 1분 오차)
+if jq -e 'select(.agent=="main") | .overlap_other_sessions==1' "$T" >/dev/null 2>&1; then
+  ok "T4.b overlap_other_sessions=1"
+else
+  nope "T4.b" "rec=$(jq -c 'select(.agent=="main")' "$T" 2>/dev/null)"
+fi
+
 finish
