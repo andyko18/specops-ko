@@ -340,4 +340,79 @@ else
   nope "T7.e" "ec=$ec out=$out rec=$(cat "$(TOK "$d")" 2>/dev/null)"
 fi
 
+# ── T8 verify 러너 배선 (AC-6·AC-13) ─────────────────────────────────────────
+FIDW=20260101-wiring   # 도입 cutoff 이전 날짜 — 신규 게이트(intent 등)가 fixture 를 막지 않게
+mk_plugin() {
+  local p="$TD/plugin"; rm -rf "$p"; mkdir -p "$p/scripts"
+  cp -R "$PLUGIN/scripts/_internal" "$p/scripts/_internal"
+  cp -R "$PLUGIN/scripts/dag" "$p/scripts/dag"   # extract-test-commands.sh 가 ../dag/parse-dag.sh 를 source
+  echo "$p"
+}
+# mk_vwork <name> <cmd-script> [nofidstart] — tasks.md 에 해당 dummy 한 줄, fid-start(compact) 기록
+mk_vwork() {
+  local w="$TD/$1"; rm -rf "$w"; mkdir -p "$w/.specops/$FIDW" "$w/scripts/tests"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$w/scripts/tests/dummy-pass.sh"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$w/scripts/tests/dummy-fail.sh"
+  printf -- '- [ ] **스텝 4**: 실행: `bash scripts/tests/%s`\n' "$2" > "$w/.specops/$FIDW/tasks.md"
+  if [ "${3:-}" = nofidstart ]; then
+    jq -nc '{phase:"risk-profile",ts:"2026-09-30T10:00:00Z"}' > "$w/.specops/$FIDW/metrics.jsonl"
+  else
+    jq -nc '{phase:"fid-start",ts:"2026-09-30T10:00:00Z"}' > "$w/.specops/$FIDW/metrics.jsonl"
+  fi
+  echo "$w"
+}
+# mk_stub <marker> <tail-cmd> — meter 자리를 대체: marker touch + stdout·stderr 에 'meter-stub' 출력 후 <tail-cmd>
+#   (출력이 있어야 배선의 >/dev/null 2>&1 이 빠졌을 때 누출이 보인다 — 무출력 stub 은 그 변이를 못 잡는다)
+mk_stub() {
+  printf '#!/usr/bin/env bash\ntouch "%s/%s"\necho meter-stub-out\necho meter-stub-err >&2\n%s\n' \
+    "$TD" "$1" "$2" > "$P/scripts/_internal/meter-tokens.sh"
+}
+
+# T8.a 정적 배선: bounded_run 5 + fid-start 가드 (AC-6)
+RV="$PLUGIN/scripts/_internal/run-verification.sh"
+if /usr/bin/grep -q 'bounded_run 5 bash "\$METER_SH"' "$RV" && /usr/bin/grep -q '"phase":"fid-start"' "$RV"; then
+  ok "T8.a 배선 문자열(bounded_run 5·fid-start 가드)"; else nope "T8.a" "미배선"; fi
+
+# T8.b meter 를 sleep stub 으로 교체 — 호출됐는지(marker)와 5초 상한·verdict·stamp 불변·출력 무누출 (AC-13·AC-6)
+P=$(mk_plugin)
+mk_stub meter-ran 'sleep 30'
+W=$(mk_vwork vw1 dummy-pass.sh); rm -f "$TD/meter-ran"
+t0=$(date +%s); out=$( cd "$W" && bash "$P/scripts/_internal/run-verification.sh" "$FIDW" 2>"$TD/vw1.err" ); ec=$?; t1=$(date +%s)
+if [ -e "$TD/meter-ran" ] && [ "$ec" -eq 0 ] && [ $((t1 - t0)) -lt 12 ] \
+   && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+   && ! printf '%s\n' "$out" | /usr/bin/grep -qiE 'meter|Terminated' \
+   && ! /usr/bin/grep -qiE 'meter|Terminated' "$TD/vw1.err" \
+   && [ "$(/usr/bin/grep -c 'RUN-VERIFICATION-RESULT: PASS' "$W/.specops/$FIDW/evidence.md")" = 1 ]; then
+  ok "T8.b meter 호출됨·5초 상한 후 VERIFY: PASS·rc 0·PASS stamp·meter 출력 없음"
+else
+  nope "T8.b" "ran=$([ -e "$TD/meter-ran" ] && echo y || echo n) ec=$ec dt=$((t1 - t0)) out='$out' err=$(/usr/bin/grep -iE 'meter|Terminated' "$TD/vw1.err")"
+fi
+
+# T8.c meter 가 exit 1 이어도 PASS 경로 불변
+mk_stub meter-ran2 'exit 1'
+W=$(mk_vwork vw2 dummy-pass.sh); rm -f "$TD/meter-ran2"
+out=$( cd "$W" && bash "$P/scripts/_internal/run-verification.sh" "$FIDW" 2>/dev/null ); ec=$?
+[ -e "$TD/meter-ran2" ] && [ "$ec" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+  && ok "T8.c meter exit 1 → verdict 불변" || nope "T8.c" "ec=$ec out='$out'"
+
+# T8.d verify FAIL 경로: rc 1·stderr VERIFY: FAIL·evidence stamp 불변·출력 무누출 (AC-6)
+W=$(mk_vwork vw3 dummy-fail.sh); rm -f "$TD/meter-ran2"
+( cd "$W" && bash "$P/scripts/_internal/run-verification.sh" "$FIDW" >"$TD/vw3.out" 2>"$TD/vw3.err" ); ec=$?
+if [ "$ec" -eq 1 ] && /usr/bin/grep -q 'VERIFY: FAIL' "$TD/vw3.err" \
+   && /usr/bin/grep -q 'RUN-VERIFICATION-RESULT: FAIL' "$W/.specops/$FIDW/evidence.md" \
+   && [ -e "$TD/meter-ran2" ] && ! /usr/bin/grep -qiE 'meter|Terminated' "$TD/vw3.err" "$TD/vw3.out"; then
+  ok "T8.d FAIL 경로 불변(rc 1·stderr·stamp)·meter 호출됨"
+else
+  nope "T8.d" "ec=$ec err=$(head -3 "$TD/vw3.err") leak=$(/usr/bin/grep -iE 'meter|Terminated' "$TD/vw3.err" "$TD/vw3.out")"
+fi
+
+# T8.e fid-start 가드: metrics.jsonl 에 fid-start 가 없는 FID(=기존 스위트 fixture)는 meter 호출 자체가 없다 (AC-6)
+W=$(mk_vwork vw4 dummy-pass.sh nofidstart); rm -f "$TD/meter-ran2"
+out=$( cd "$W" && bash "$P/scripts/_internal/run-verification.sh" "$FIDW" 2>/dev/null ); ec=$?
+if [ ! -e "$TD/meter-ran2" ] && [ "$ec" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ]; then
+  ok "T8.e fid-start 부재 FID → meter 비호출·verdict 불변"
+else
+  nope "T8.e" "ran=$([ -e "$TD/meter-ran2" ] && echo y || echo n) ec=$ec out='$out'"
+fi
+
 finish
