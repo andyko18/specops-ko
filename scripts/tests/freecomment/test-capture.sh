@@ -304,6 +304,18 @@ jq -e 'has("redact_failed")|not' "$P" >/dev/null 2>&1 || ok=0
 echo "$out" | grep -q '"continue":true' || ok=0
 [ "$ok" -eq 1 ] && pass "T8.a private 마지막 줄 닫힘·키·2000자 절단 (마스킹→줄→절단 순서)" || fail "T8.a" "len=$len out=$out pr=${pr:0:60}"
 
+# T8.e 절단 경계 — 본문 1988자(=2000-표식 12)는 손실 없음이라 표식 없이 그대로, 1989자부터 절단 표식 포함 총 2000자 (AC-4 · 끝 개행 계수 off-by-one)
+w8e="$TMP/w8e"; mk_work "$w8e"; mk_tr "$TMP/tr8e.jsonl" "$(rep 1988 한)"
+echo "{\"transcript_path\":\"$TMP/tr8e.jsonl\",\"cwd\":\"$w8e\"}" | bash "$HOOK" >/dev/null 2>&1
+Pe="$w8e/.specops/pending-capture.jsonl"
+le1=$(jq -r '.prompt|length' "$Pe" 2>/dev/null); te1=$(jq -r '.prompt|endswith("…[TRUNCATED]")' "$Pe" 2>/dev/null)
+w8f="$TMP/w8f"; mk_work "$w8f"; mk_tr "$TMP/tr8f.jsonl" "$(rep 1989 한)"
+echo "{\"transcript_path\":\"$TMP/tr8f.jsonl\",\"cwd\":\"$w8f\"}" | bash "$HOOK" >/dev/null 2>&1
+Pf="$w8f/.specops/pending-capture.jsonl"
+le2=$(jq -r '.prompt|length' "$Pf" 2>/dev/null); te2=$(jq -r '.prompt|endswith("…[TRUNCATED]")' "$Pf" 2>/dev/null)
+[ "$le1" = "1988" ] && [ "$te1" = "false" ] && [ "$le2" = "2000" ] && [ "$te2" = "true" ] \
+  && pass "T8.e 1988자는 그대로·1989자는 절단 총 2000자" || fail "T8.e" "1988→len=$le1 trunc=$te1 · 1989→len=$le2 trunc=$te2"
+
 # T8.b 평범한 프롬프트는 그대로 · 필드 집합 불변 (AC-4)
 w8b="$TMP/w8b"; mk_work "$w8b"; mk_tr "$TMP/tr8b.jsonl" "이 버그 고쳐줘 commit 0123456789abcdef0123456789abcdef01234567"
 echo "{\"transcript_path\":\"$TMP/tr8b.jsonl\",\"cwd\":\"$w8b\"}" | bash "$HOOK" >/dev/null 2>&1

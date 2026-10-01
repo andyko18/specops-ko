@@ -53,7 +53,8 @@ redact_failed=false
 # 총 상한 2000자(AC-4, 표식 포함). redact.sh --max N 은 본문 N자 + 표식 "…[TRUNCATED]"(12자)를 내므로 표식 길이를 뺀다.
 #   12 는 redact.sh 의 표식 문자열 길이와 연동 — 표식을 바꾸면 이 값도 바꾼다.
 prompt_max=2000; trunc_mark_len=12
-if lu_r=$(printf '%s\n' "$lu_full" | bash "$plugin_root/scripts/_internal/redact.sh" --last-line --max $((prompt_max - trunc_mark_len)) 2>/dev/null); then
+#   입력은 끝 개행 없이 넘긴다 — '%s\n' 의 끝 개행이 --max 길이에 계수되어 정확히 1988자에 거짓 절단 표식이 붙던 off-by-one.
+if lu_r=$(printf '%s' "$lu_full" | bash "$plugin_root/scripts/_internal/redact.sh" --last-line --max $((prompt_max - trunc_mark_len)) 2>/dev/null); then
   lu="$lu_r"
 else
   lu=""; redact_failed=true
