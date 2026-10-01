@@ -258,6 +258,31 @@ case "$out" in *PRIVPAYLOAD*) ok=0 ;; esac
 case "$out2" in *abc*) ok=0 ;; esac
 [ "$ok" -eq 1 ] && pass "T7.l 한 줄 태그·PEM 수만 개 선형 시간" || fail "T7.l" "rc=$rc rc2=$rc2 sec1=$((t1-t0)) sec2=$((t3-t2))"
 
+# T7.m 따옴표 값 — 이스케이프 따옴표 뒤 꼬리·닫는 따옴표 없는 값(잘린 붙여넣기)도 마스킹, 플레이스홀더·짧은 약한 키 값은 불변 (AC-2·AC-9 보강, Phase C 지적)
+qin=$(printf '%s\n' \
+  'password: "has \"esc\" ZQtail"' \
+  '{"password":"p\"w ZQjson","user":"bob"}' \
+  'password: "ZQunterminated' \
+  "token: \"${VQ}" \
+  "pass""word='ZQsingle" \
+  'redis://:ZQonlypass@host' \
+  'password: "abc\"ZQesc2' \
+  'password: "\nZQbs' \
+  'password: "$TOKEN"' \
+  'password: "{{KEY}}"' \
+  'token: "abcd"')
+qout=$(printf '%s' "$qin" | bash "$REDACT" 2>/dev/null)
+ok=1
+for v in ZQtail ZQjson ZQunterminated "$VQ" ZQsingle ZQonlypass ZQesc2 ZQbs; do case "$qout" in *"$v"*) ok=0 ;; esac; done
+case "$qout" in *'"user":"bob"'*) ;; *) ok=0 ;; esac
+case "$qout" in *'password: "$TOKEN"'*'password: "{{KEY}}"'*'token: "abcd"'*) ;; *) ok=0 ;; esac
+[ "$(printf '%s' "$qout" | bash "$REDACT" 2>/dev/null)" = "$qout" ] || ok=0
+[ "$ok" -eq 1 ] && pass "T7.m 따옴표 값 이스케이프·미닫힘 마스킹" || fail "T7.m" "out=$qout"
+
+# T7.n --max 값 누락 → rc 2 (무한 루프 아님) — bash 3.2 에서 $#=1 일 때 shift 2 가 실패해 루프가 영원히 돈다 (Phase C 지적)
+out=$(printf 'abc' | bounded bash "$REDACT" --max 2>/dev/null); rc=$?
+[ "$rc" -eq 2 ] && [ -z "$out" ] && pass "T7.n --max 값 누락 rc2" || fail "T7.n" "rc=$rc"
+
 # ── capture 훅 통합 (AC-4 · AC-6) ──
 mk_work() { mkdir -p "$1"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
 mk_tr() {  # $1=출력 파일 $2=마지막 사용자 프롬프트 — 사용자 발화 뒤에 Edit 이벤트

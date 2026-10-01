@@ -5,7 +5,8 @@
 # --last-line: 마스킹이 끝난 뒤 마지막 줄만 남긴다 — 줄 자르기가 마스킹보다 앞서면 여러 줄 private 구간의 여는 태그가 잘려 새어 나간다
 # rc: 0 성공 · 2 인자 오류 · 3 마스킹 불가(stdout 비움 — 호출자는 원문을 저장하지 않는다)
 # 한계: 정규식 마스킹은 일부만 잡는다 — 자유 서술형 비밀번호는 못 잡으므로 완전 보장이 아니다.
-#       처리 중 원문이 $TMPDIR(0700 디렉토리)에 잠시 놓이고 trap 으로 지운다 — SIGKILL 이면 남을 수 있다(트랜스크립트 자체가 이미 원문을 디스크에 둔다).
+#       처리 중 원문이 임시 디렉토리(mktemp -d — macOS 는 TMPDIR 과 무관하게 사용자별 0700 디렉토리, umask 077)에 잠시 놓이고 trap 으로 지운다 — SIGKILL 이면 남을 수 있다(트랜스크립트 자체가 이미 원문을 디스크에 둔다).
+#       NUL 바이트: BSD awk 는 NUL 이후 줄 내용을 버린다(gawk 는 보존) — 제거 방향이라 누출은 아니나 조용한 손실.
 # 성능: Stop 훅 hot path — 외부 프로세스 수를 줄이려 bash 내장을 쓴다(mktemp·cat·wc·tail·awk·sed·jq 만 띄운다).
 set -u
 umask 077   # 임시 파일은 소유자만 읽는다
@@ -18,7 +19,7 @@ MAX=""
 LAST=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --max) MAX="${2:-}"; shift 2 ;;
+    --max) [ $# -ge 2 ] || { echo "redact: --max 값 필요" >&2; exit 2; }; MAX="$2"; shift 2 ;;
     --last-line) LAST=1; shift ;;
     *) echo "Usage: redact.sh [--last-line] [--max N]" >&2; exit 2 ;;
   esac
