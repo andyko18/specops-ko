@@ -88,4 +88,43 @@ else
   nope "T2.b" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
 fi
 
+# mk_window <envdir> — 구간 fixture: P(1000·기준점 이전) S(7·같은 초) N(3) F(500·미래)
+mk_window() {
+  local f="$1/cfg/projects/-p/$SID.jsonl"
+  {
+    _line msg_P m1 1000 2026-09-30T09:59:59.900Z
+    _line msg_S m1 7    2026-09-30T10:00:00.100Z
+    _line msg_N m1 3    2026-09-30T10:05:00.000Z
+    _line msg_F m1 500  2099-01-01T00:00:00.000Z
+  } > "$f"
+}
+
+# T3.a 기준점 이전·미래 제외, 같은 초 포함 (AC-2)
+d=$(mk_env t3a); mk_window "$d"; run_meter "$d" >/dev/null
+if jq -e 'select(.agent=="main") | .messages==2 and .output==10 and .scope=="fid-window"' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T3.a 구간 경계(같은 초 포함·이전/미래 제외)"
+else
+  nope "T3.a" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
+
+# T3.b 구간 안 메시지 0건 → 0 레코드가 아니라 unmeasured 사유 레코드 (AC-10)
+d=$(mk_env t3b)
+{ _line msg_P m1 1000 2026-09-30T09:59:59.900Z; } > "$d/cfg/projects/-p/$SID.jsonl"
+run_meter "$d" >/dev/null
+if [ "$(/usr/bin/wc -l < "$(TOK "$d")" | tr -d ' ')" = 1 ] \
+   && jq -e '.status=="unmeasured" and .reason=="no-messages-in-window" and (has("input")|not)' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T3.b 0건 → unmeasured(no-messages-in-window), 토큰 필드 없음"
+else
+  nope "T3.b" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
+
+# T3.c --since 수동 기준점 → scope since-manual (AC-12)
+d=$(mk_env t3c); : > "$d/work/.specops/$FID/metrics.jsonl"; mk_window "$d"
+run_meter "$d" --since 2026-09-30T10:00:00Z >/dev/null
+if jq -e 'select(.agent=="main") | .scope=="since-manual" and .window_start=="2026-09-30T10:00:00Z" and .output==10' "$(TOK "$d")" >/dev/null 2>&1; then
+  ok "T3.c --since → scope=since-manual"
+else
+  nope "T3.c" "rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
+
 finish

@@ -34,8 +34,9 @@ if [ "$MODE" = record ]; then
   MET="$SPECOPS/$FID/metrics.jsonl"; TOK="$SPECOPS/$FID/tokens.jsonl"
   [ ! -L "$MET" ] && [ ! -L "$TOK" ] || exit 0
   # 기준점: --since 우선, 없으면 metrics.jsonl 의 첫 phase=fid-start. 없으면 transcript 를 열지 않고 종료.
+  SCOPE=fid-window
   if [ -n "$SINCE_ARG" ]; then
-    BASE="$SINCE_ARG"
+    BASE="$SINCE_ARG"; SCOPE=since-manual
   else
     [ -f "$MET" ] || exit 0
     BASE=$(jq -r 'select(.phase=="fid-start") | .ts' "$MET" 2>/dev/null | head -1)
@@ -60,6 +61,8 @@ if [ "$MODE" = record ]; then
   AGG_JQ='
     [ inputs | (fromjson? // empty)
       | select(type == "object" and .type == "assistant" and (.message.id? != null) and (.message.usage? != null))
+      | (try (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) catch null) as $t
+      | select($t != null and $t >= $s and $t <= $e)
       | { id: .message.id, model: (.message.model // "unknown"),
           i: (.message.usage.input_tokens // 0), o: (.message.usage.output_tokens // 0),
           cr: (.message.usage.cache_read_input_tokens // 0),
@@ -79,7 +82,7 @@ if [ "$MODE" = record ]; then
     local res; res=$(_agg "$1") || return 0
     [ -n "$res" ] || return 0
     printf '%s' "$res" | jq -c --arg ts "$NOW" --arg fid "$FID" --arg sid "$SID" --arg agent "$2" \
-      --arg am "$3" --arg ov "$4" --arg scope "fid-window" --arg ws "$BASE" --arg we "$NOW" '
+      --arg am "$3" --arg ov "$4" --arg scope "$SCOPE" --arg ws "$BASE" --arg we "$NOW" '
       . as $r | $r.rows[] |
       { schema_version: 1, ts: $ts, fid: $fid, session: $sid, agent: $agent, model: .model, scope: $scope,
         window_start: $ws, window_end: $we, messages: .messages, input: .input, output: .output,
@@ -99,13 +102,21 @@ if [ "$MODE" = record ]; then
     return 0
   }
 
+  # _unmeasured <reason> — 토큰 필드 없이 사유만 기록(착시 방지). fid-start 가 있는데 측정 못 한 경우에만 호출.
+  _unmeasured() {
+    local nr; nr=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
+    jq -nc --arg ts "$NOW" --arg fid "$FID" --arg sid "${SID:-unknown}" --arg r "$1" \
+      '{schema_version:1,ts:$ts,fid:$fid,session:$sid,status:"unmeasured",reason:$r}' > "$nr"
+    _upsert "$nr"; rm -f "$nr"; exit 0
+  }
+
   NEWREC=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
   trap 'rm -f "$NEWREC"' EXIT
   PDIR=$(dirname "$TR")
   M=$(( (E - S) / 60 + 1 ))
   OV=$(find "$PDIR" -maxdepth 1 -name '*.jsonl' ! -name "$(basename "$TR")" -mmin "-$M" 2>/dev/null | wc -l | tr -d ' ')
   _records "$TR" main "" "${OV:-0}" >> "$NEWREC"
-  [ -s "$NEWREC" ] || exit 0
+  [ -s "$NEWREC" ] || _unmeasured no-messages-in-window
   _upsert "$NEWREC"
   exit 0
 fi
