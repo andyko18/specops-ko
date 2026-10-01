@@ -202,6 +202,17 @@ run "$FX1" --since 20261002
 ck "T4.h --since 20261002: 도착 행 날짜가 기준일 이상인 구간만(bbb /clarify 2분)" "$(row '/clarify 완료')|$(printf '%s\n' "$OUT" | grep -cE '^ *[0-9]+ +[0-9.]+% .* /plan 완료$')" "2 100.0% 1 2 2 2|0"
 ck "T4.j --since 20261002: since 이전에 끝난 FID(aaa)는 대상에서 빼고 그 수를 같은 줄에 표시" \
    "$(printf '%s\n' "$OUT" | grep -c 'FID 첫 행 1개는 기준 행이 없어 집계에 없음 (행 1개뿐인 FID 0개) · since 이전에 끝난 FID 1개 제외')" "1"
+# since 가 FID 중간에 걸친다 — 첫 행(10-01)은 since 이전, 마지막 행(10-02)은 이후. "끝난" 판정은 마지막 행 날짜라 대상이다.
+MID=$(mkroot mid <<'EOF'
+## 20261001-mid · M
+
+- 2026-10-02 00:10 /b 완료 (x)
+- 2026-10-01 23:50 /a 완료 (x)
+EOF
+)
+run "$MID" --since 20261002
+ck "T4.m since 가 FID 중간에 걸치면 대상(마지막 행 기준) — 자정 넘김 20분 · 제외 0개" \
+   "$(row '/b 완료')|$(printf '%s\n' "$OUT" | grep -c 'FID 첫 행 1개는 기준 행이 없어 집계에 없음 (행 1개뿐인 FID 0개) · since 이전에 끝난 FID 0개 제외')" "20 100.0% 1 20 20 20|1"
 EMPTY=$(mkroot empty <<'EOF'
 # Session Progress (행 없음)
 EOF
