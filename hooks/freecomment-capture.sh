@@ -50,7 +50,10 @@ esac
 # 저장 직전 마스킹(fail-closed) — 줄 자르기보다 앞서 전체 텍스트를 마스킹한 뒤 마지막 줄·2000자만 남긴다.
 #   rc≠0(패턴 부재·redact.sh 부재 127 포함)이면 프롬프트를 버리고 redact_failed 로 표시한다. 정규식 마스킹은 완전 보장이 아니다.
 redact_failed=false
-if lu_r=$(printf '%s\n' "$lu_full" | bash "$plugin_root/scripts/_internal/redact.sh" --last-line --max 2000 2>/dev/null); then
+# 총 상한 2000자(AC-4, 표식 포함). redact.sh --max N 은 본문 N자 + 표식 "…[TRUNCATED]"(12자)를 내므로 표식 길이를 뺀다.
+#   12 는 redact.sh 의 표식 문자열 길이와 연동 — 표식을 바꾸면 이 값도 바꾼다.
+prompt_max=2000; trunc_mark_len=12
+if lu_r=$(printf '%s\n' "$lu_full" | bash "$plugin_root/scripts/_internal/redact.sh" --last-line --max $((prompt_max - trunc_mark_len)) 2>/dev/null); then
   lu="$lu_r"
 else
   lu=""; redact_failed=true

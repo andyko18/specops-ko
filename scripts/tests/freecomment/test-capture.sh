@@ -261,7 +261,7 @@ pr=$(jq -r '.prompt' "$P" 2>/dev/null); len=$(jq -r '.prompt|length' "$P" 2>/dev
 ok=1
 for v in 비밀하나 비밀둘 "$K_AWS"; do case "$pr" in *"$v"*) ok=0 ;; esac; done
 case "$pr" in *"…[TRUNCATED]") ;; *) ok=0 ;; esac
-[ "${len:-99999}" -le 2020 ] || ok=0
+[ "${len:-99999}" -le 2000 ] || ok=0
 jq -e 'has("redact_failed")|not' "$P" >/dev/null 2>&1 || ok=0
 echo "$out" | grep -q '"continue":true' || ok=0
 [ "$ok" -eq 1 ] && pass "T8.a private 마지막 줄 닫힘·키·2000자 절단 (마스킹→줄→절단 순서)" || fail "T8.a" "len=$len out=$out pr=${pr:0:60}"
