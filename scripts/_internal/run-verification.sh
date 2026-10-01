@@ -31,6 +31,8 @@ PRESENCE_SH="$PLUGIN/scripts/_internal/check-review-presence.sh"
 ACFMT_SH="$PLUGIN/scripts/_internal/check-ac-format.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
+METER_SH="$PLUGIN/scripts/_internal/meter-tokens.sh"
+[ -f "$PLUGIN/scripts/_internal/run-bounded.sh" ] && source "$PLUGIN/scripts/_internal/run-bounded.sh"
 
 all_pass=1
 executed=0
@@ -58,6 +60,12 @@ _record_result() { # <verdict>
   if ! bash "$METRIC_SH" --fid "$FID" --phase verify --wall-ms "$duration_ms" \
       --verdict "$verdict" 2>/dev/null; then
     echo "WARN: verify metric 기록 실패 (FID=$FID)" >&2
+  fi
+  # 토큰 관측(관측 전용·fail-open): fid-start 가 기록된 실 FID 에서만 호출 — fixture FID 는 호출 자체가 없다.
+  # 출력 0, 실패·시간초과(124) 무시 — verdict·종료 코드·evidence stamp 에 영향 없음.
+  if command -v bounded_run >/dev/null 2>&1 && [ -f "$METER_SH" ] \
+     && grep -q '"phase":"fid-start"' ".specops/$FID/metrics.jsonl" 2>/dev/null; then
+    bounded_run 5 bash "$METER_SH" "$FID" >/dev/null 2>&1 || true
   fi
 }
 

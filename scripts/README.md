@@ -342,3 +342,45 @@ bash scripts/_internal/check-matrix-patterns.sh
 ## check-doc-numbers.sh — 문서 수치 doc-lock
 
 - `_internal/check-doc-numbers.sh` — 문서의 스위트 수 주장을 실측과 대조 (doc-lock). `DOC_NUMBERS_ROOT` 로 대상 트리 지정 가능. `run-all` 은 `test-doc-numbers.sh` 스위트를 통해 이 검사를 돌립니다 — 단독 실행도 가능합니다. 실측 재현이 `run-all.sh` 수집 목록과 드리프트하지 않도록 `doc-number-lock` 레코드가 양쪽 앵커를 잠급니다
+
+## meter-tokens.sh — 토큰 사용량 관측 (관측 전용)
+
+FID 구간(`metrics.jsonl` 의 첫 `phase=fid-start` 부터 지금까지)에 Claude Code transcript 가 남긴 `usage` 를 모아 `.specops/<FID>/tokens.jsonl` 에 기록합니다. **관측 전용 · fail-open** — 런타임 실패는 언제나 exit 0(무기록 또는 `unmeasured` 사유 레코드)이고 인자 오류만 exit 2 입니다.
+
+```bash
+bash scripts/_internal/meter-tokens.sh <FID>                                # 현재 세션(CLAUDE_CODE_SESSION_ID) 기록
+bash scripts/_internal/meter-tokens.sh <FID> --session <uuid>               # 이전·다른 세션을 추가 기록
+bash scripts/_internal/meter-tokens.sh <FID> --since 2026-10-01T00:00:00Z   # 기준점 수동 지정 (scope=since-manual)
+bash scripts/_internal/meter-tokens.sh <FID> --transcript ~/.claude/projects/<proj>/<uuid>.jsonl   # transcript 직접 지정
+bash scripts/_internal/meter-tokens.sh --report <FID>                       # 세션·agent·모델별 표 + TOTAL + 신뢰 한계 문구
+bash scripts/_internal/meter-tokens.sh --report                             # FID 마다 1줄 요약
+```
+
+- **자동 호출**: `run-verification.sh` 가 verify 결과 기록 직후 `bounded_run 5` 로 부른다 — `metrics.jsonl` 에 `fid-start` 가 있는 FID 만, 출력은 버리고 실패·시간초과는 무시한다(verdict·종료 코드·evidence stamp 불변). 5초 안에 못 끝나면(큰 transcript) 그 회차는 **아무것도 갱신하지 않는다** — 사유 레코드도 남지 않고, 그 세션의 이전 회차 레코드가 그대로 남는다(낡았는지는 `ts`·`window_end` 로만 보인다).
+- env: `SPECOPS_ROOT`(기본 `.specops`) · `CLAUDE_CODE_SESSION_ID`(없으면 `no-session-id`) · `CLAUDE_CONFIG_DIR`(기본 `$HOME/.claude`, transcript 는 `projects/*/<uuid>.jsonl` glob 으로 찾는다).
+- upsert 단위는 **세션**: 같은 세션으로 다시 돌리면 그 세션의 행(메인·서브에이전트·모델별)이 통째로 교체된다. 쓰기는 같은 디렉토리 tmp 파일 후 `mv`.
+
+**레코드 스키마** (`schema_version: 1`, 숫자·식별자만 — 프롬프트·응답 원문 없음):
+
+```
+{"schema_version":1,"ts":"<ISO Z>","fid":"<FID>","session":"<uuid>","agent":"main"|"<agentType>:<agentId>",
+ "model":"<model>","scope":"fid-window"|"since-manual","window_start":"<ISO Z>","window_end":"<ISO Z>",
+ "messages":N,"input":N,"output":N,"cache_read":N,"cache_write":N,"dedupe":"max-per-message-id"}
+```
+
+main 행에는 `overlap_other_sessions`·`synthetic_excluded`(제외한 `<synthetic>` 고유 id 수), 서브에이전트 행에는 `agent_model`(`.meta.json` 의 `model`, 없으면 `unknown`)이 붙는다. 측정 불가는 토큰 필드 없이 `{"status":"unmeasured","reason":"no-session-id|transcript-not-found|bad-baseline|no-messages-in-window"}` — 빈 0 이 "측정했다"는 착시를 주지 않게 한다.
+
+**거버넌스 격리**: `hooks/` 는 이 기록을 **읽지 않는다** — R-1~R-5 판정은 토큰 수에 의존하지 않는다(AC-7). `test-meter-tokens.sh` T9.a 가 `hooks/` 에서 `meter-tokens`·`tokens.jsonl` 참조 0건을 잠그고 T9.a2 가 그 검사의 판별력(주입 사본 탐지)을 입증한다. 단 이것은 **문자열 정적 검사**다 — 변수로 조립한 경로나 `hooks/` 밖 스크립트를 경유한 간접 접근은 잡지 못하므로, 훅이 새 파일을 source·호출하게 바꿀 때는 수동으로 확인한다. 배선(집계기 ↔ `run-verification.sh` ↔ 회귀)은 `propagation-matrix.jsonl` 의 `token-metering` 레코드가 잠근다.
+
+**신뢰 한계** — 근사치이며 청구서가 아니다:
+
+1. **중복 제거는 message.id 별 최댓값**(`max-per-message-id`, 4필드 각각). transcript 는 한 응답을 여러 줄로 남기므로 줄을 그대로 합하면 실측 약 2.95배 과대가 된다.
+2. **advisor 도구 토큰은 미포함** — advisor 호출의 소비는 transcript `usage` 에 나타나지 않는다.
+3. **자동은 현재 세션만** — 이전 세션·다른 터미널 세션은 `--session <uuid>` 로 직접 추가해야 한다. report 가 `구간과 겹치는 다른 세션 N개 미포함` 으로 알린다.
+4. **겹침 세션 수는 근사치** — `find -mmin` 으로 구간 동안 수정된 같은 프로젝트 디렉토리의 다른 `*.jsonl` 수를 센다. (a) 분 단위 올림이라 **최대 1분 오차**, (b) **macOS(BSD find)에서만 실측 검증**(GNU find 의 `-mmin` 경계는 미검증), (c) 같은 프로젝트의 **무관한 작업 세션도 센다**, (d) 레코드에 세션 id 목록이 없어 이미 `--session` 으로 포함한 세션도 다시 셀 수 있다 — 다중 세션이면 report 의 "미포함 N개" 는 과대일 수 있다.
+5. **transcript 는 비공개 내부 형식** — 필드명·경로가 바뀌면 대개 `unmeasured`(`no-messages-in-window`·`transcript-not-found`)로 떨어진다. 그러나 **탐지하지 못하는 변경**도 있다: 같은 필드명에 의미만 바뀌면(예: `usage` 가 누적값이 되거나 id 재사용 규칙이 바뀜) max-per-id 가 조용히 틀린 숫자를 내고, `subagents/` 배치만 바뀌면 main 은 측정된 채 서브에이전트 행만 조용히 빠진다.
+6. **측정·미측정 세션이 섞이면 report 는 측정된 행만 보인다** — 한 FID 에 `unmeasured` 세션이 함께 있어도 표·TOTAL 에 표시되지 않는다. 전부 미측정일 때만 `측정 안 됨 (<사유>)` 이 나온다. 의심되면 `tokens.jsonl` 원본의 `status` 를 직접 본다.
+7. **symlink 는 건너뛴다(NFR-3)** — FID 생략 report 는 symlink 인 `tokens.jsonl` 을 **표시 없이** 건너뛰고, FID 지정 report 는 `측정 안 됨 (기록 없음)` 으로 표시한다(실제로는 파일이 있다). 기록 모드도 경로상 symlink 를 만나면 무기록 종료한다.
+8. **구간은 fid-start 기준** — FID 마다 독립 구간이라, 같은 세션에서 두 FID 가 동시에 진행되면 겹친 구간의 토큰이 **양쪽 FID 에 이중 계상**된다. FID 간 합산은 하지 않는다.
+9. **`--transcript` 단독 사용은 현재 env 세션으로 귀속된다** — `--session` 을 함께 주지 않으면 레코드 `session` 은 `CLAUDE_CODE_SESSION_ID` 가 되고(env 가 비었을 때만 transcript 파일명), upsert 가 **현재 세션의 기존 행을 그 transcript 의 숫자로 덮어쓸 수 있다**. 다른 세션의 transcript 를 지정할 때는 `--session <uuid>` 를 같이 쓴다.
+10. **손상된 `tokens.jsonl` 은 갱신이 건너뛰어진다** — 파일에 JSON 객체로 읽히지 않는 줄(깨진 줄·객체 아닌 값)이 하나라도 있으면 이후 기록은 사유 레코드 없이 **무음으로 갱신되지 않고**, report 는 그 FID 를 `읽을 수 없음 (tokens.jsonl 손상 — 파일 삭제 후 재측정)` 으로 표시한다. 복구는 그 파일을 지우고 다시 측정하는 것이다(관측 기록일 뿐이라 다른 판정에 영향은 없다).
