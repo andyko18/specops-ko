@@ -298,5 +298,34 @@ done
 _pf "T1.t5 env 우회 4종 프로브 → FAIL 유지" "$okv"
 rm -rf "$tmp"
 
+# ── emit-context 통합 (20261001-task-id-guard T2) — 라벨 T2.t* (기존 T2.a·T2.b 는 h2 헤더·drift 케이스) ──
+_ok_spec_ac() { cp "$FIXTURES/ok-fid/spec.md" "$FIXTURES/ok-fid/acceptance-criteria.md" "$1/.specops/$2/"; }
+# _tid_line ERR — 판정기의 'TASK-IDS: FAIL' 줄만. '숫자 전용' 은 emit 의 안내 echo 에도, 'T1a' 는 판정기 안내 줄에도
+#   있어 전체 stderr grep 은 공허하다 — 위반 목록이 정확히 T1a 인지를 이 한 줄에서 본다.
+_tid_line() { printf '%s\n' "$1" | grep '^TASK-IDS: FAIL'; }
+# T2.t_a 접미사 id → emit exit 1 · 위반 목록=T1a · dispatch 미생성(원자성) (AC-2)
+#   intent.md 부재 fixture 라 intent 게이트 안내가 stderr 에 없어야 한다 — 게이트가 intent 보다 앞에 있고
+#   위반 시 자기가 exit 한다는 증거(`exit 1` 삭제 시 intent 게이트로 낙하해 rc=1 이 유지되는 변이를 잡는다).
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261001-tid-bad T1a; _ok_spec_ac "$tmp" 20261001-tid-bad
+err=$(cd "$tmp" && bash "$EMIT" 20261001-tid-bad 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a 접미사 id → emit exit 1·위반 목록 T1a·intent 낙하 없음·dispatch 0" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '숫자 전용.*규격 위반: T1a$' && ! printf '%s' "$err" | grep -q 'intent\.md' && [ ! -d "$tmp/.specops/20261001-tid-bad/dispatch" ] && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -3)"
+# T2.t_a4 SPECOPS_ROOT 로 면제되지 않는다 (AC-3 후단)
+err=$(cd "$tmp" && SPECOPS_ROOT=/nonexistent bash "$EMIT" 20261001-tid-bad 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a4 SPECOPS_ROOT=/nonexistent 로도 거부 유지" "$([ "$rc" -eq 1 ] && _tid_line "$err" | grep -qE '규격 위반: T1a$' && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -3)"
+rm -rf "$tmp"
+# T2.t_a2 깨진 YAML(AC-8 후단) → check 는 SKIP(차단 안 함), emit 은 다른 게이트·YAML 오류로 exit 1, TASK-IDS: FAIL 은 없음
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20261001-tid-broken"; _ok_spec_ac "$tmp" 20261001-tid-broken
+printf '```yaml\ntasks:\n  - id: "T1\n    depends_on: []\n```\n' > "$tmp/.specops/20261001-tid-broken/tasks.md"
+err=$(cd "$tmp" && bash "$EMIT" 20261001-tid-broken 2>&1 >/dev/null); rc=$?
+_pf "T2.t_a2 깨진 YAML → emit exit 1 · TASK-IDS: FAIL 없음" "$([ "$rc" -eq 1 ] && ! printf '%s' "$err" | grep -q 'TASK-IDS: FAIL' && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -2)"
+rm -rf "$tmp"
+# T2.t_c 레거시 FID(cutoff 미만, 비 T숫자 id) → emit 정상 산출 (AC-3 · 회귀)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-legacy"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-legacy/"
+sed -i.bak 's/id: T1$/id: N1/; s/id: T2$/id: N2/' "$tmp/.specops/20260902-legacy/tasks.md"; rm -f "$tmp/.specops/20260902-legacy/tasks.md.bak"
+out=$(cd "$tmp" && bash "$EMIT" 20260902-legacy 2>&1); rc=$?
+_pf "T2.t_c 레거시 FID(N1·N2) → EMIT 정상" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+# (정상 숫자 id 날짜 FID 의 EMIT 은 기존 T4.b(FID 20991231-gate, ok-fid ids T1·T2)가 이미 잠근다 — 새 게이트가 앞에 있어도 통과해야 한다)
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

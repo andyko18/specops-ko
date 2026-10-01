@@ -185,4 +185,11 @@ else
   nope "security-scan self-config 토큰 경고 소실" "3 서브에이전트 dispatch 무경고"
 fi
 
+# ── task id 규격 게이트 배선 (20261001-task-id-guard) ──
+if has scripts/dag/emit-context.sh 'check-task-ids\.sh' 'task id 규격 위반'; then
+  ok "task-ids: emit-context 가 check-task-ids 를 구현 전에 호출"
+else
+  nope "task-ids: emit-context 배선 부재"
+fi
+
 finish
