@@ -415,4 +415,25 @@ else
   nope "T8.e" "ran=$([ -e "$TD/meter-ran2" ] && echo y || echo n) ec=$ec out='$out'"
 fi
 
+# ── T9 거버넌스 격리·propagation·문서·doc-lock (AC-7) ─────────────────────────
+# T9.a 거버넌스 격리: hooks/ 어디에도 meter-tokens·tokens.jsonl 참조 없음 (AC-7)
+if ! /usr/bin/grep -rqE 'meter-tokens|tokens\.jsonl' "$PLUGIN/hooks"; then ok "T9.a hooks/ 비참조"; else nope "T9.a" "hooks 에 참조 존재"; fi
+# T9.a2 판별력: hooks 임시 사본에 문자열 주입하면 탐지된다
+mkdir -p "$TD/hk"; cp -R "$PLUGIN/hooks/." "$TD/hk/"; echo '# meter-tokens' >> "$TD/hk/session-start.sh"
+/usr/bin/grep -rqE 'meter-tokens|tokens\.jsonl' "$TD/hk" && ok "T9.a2 격리 검사 판별력" || nope "T9.a2" "주입을 못 잡음"
+# T9.b propagation 레코드
+/usr/bin/grep -q '"id": *"token-metering"' "$PLUGIN/scripts/_internal/propagation-matrix.jsonl" && ok "T9.b propagation 레코드" || nope "T9.b" "미등록"
+# T9.c README 절
+/usr/bin/grep -q '^## meter-tokens.sh' "$PLUGIN/scripts/README.md" && ok "T9.c README 절" || nope "T9.c" "미작성"
+# T9.d doc-lock: 이 스위트 추가로 CLAUDE.md·.githooks/pre-push 의 suite-count 잠금 줄이 실측과 일치해야 한다.
+#   수치를 리터럴로 박지 않고 검사기에 위임한다 — 리터럴이면 다음 스위트 추가 때 이 기능 스위트가 오탐 red 가 되고,
+#   그 줄 자체가 check-doc-numbers 의 무마커 수치로 잡힌다. DOC_NUMBERS_ROOT 는 이 호출에만 prefix,
+#   훅 git env 는 서브셸에서만 뗀다(test-doc-numbers.sh 와 같은 호출 — pre-push 안 run-all 에서 공허 통과 방지).
+dn_out=$( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE; DOC_NUMBERS_ROOT="$PLUGIN" bash "$PLUGIN/scripts/_internal/check-doc-numbers.sh" 2>&1 ); dn_rc=$?
+if [ "$dn_rc" -eq 0 ] && printf '%s\n' "$dn_out" | /usr/bin/grep -q '^DOC-NUMBERS: OK (suite-count='; then
+  ok "T9.d doc-lock suite-count 일치(CLAUDE.md·pre-push)"
+else
+  nope "T9.d" "rc=$dn_rc $(printf '%s\n' "$dn_out" | /usr/bin/grep 'DOC-NUMBERS: FAIL' | head -3)"
+fi
+
 finish
