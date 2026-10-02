@@ -12,8 +12,8 @@ ck() { if [ "$2" = "$3" ]; then echo "PASS $1"; PASS=$((PASS+1)); else echo "FAI
 yn() { if printf '%s\n' "$1" | grep -qF -- "$2"; then printf y; else printf n; fi; }
 # "## 이름" 으로 시작하는 절을 다음 "## " 직전까지 뽑는다
 section() { awk -v h="$2" 'index($0, h) == 1 { on = 1; print; next } /^## / { on = 0 } on' "$1"; }
-# 줄 번호(없으면 0)
-lineno() { local n; n=$(grep -nF -- "$2" "$1" | head -1 | cut -d: -f1); echo "${n:-0}"; }
+# 줄 번호(줄 머리가 일치하는 첫 줄 — 본문 속 언급은 세지 않는다. 없으면 0)
+lineno() { local n; n=$(awk -v h="$2" 'index($0, h) == 1 { print NR; exit }' "$1"); echo "${n:-0}"; }
 
 # 증거 규칙 절: 존재 · [검증 불가] · Minor 강등 · 메모리 안전 · 동시성 · 호환성 · 제거 금지 · diff 블록 → 8글자
 rules_check() {
