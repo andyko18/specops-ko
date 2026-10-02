@@ -402,3 +402,18 @@ bash scripts/stage-timing.sh --since 20260901
 bash scripts/stage-timing.sh --split --since 20260902      # transcript 범위 안만 — 어느 단계에서 사람·백그라운드 대기가 큰가
 bash scripts/stage-timing.sh --by-agent --since 20260902   # 어느 역할(구현자·리뷰어·플랜 리뷰어)의 서브에이전트 시간이 큰가
 ```
+
+## review-cost.sh — plan-reviewer 비용·재dispatch 집계 (관측 전용)
+
+- `review-cost.sh` — `.specops/*/dispatch-log.md` 의 plan-reviewer 구조화 행으로 **FID 별 라운드 수·첫/끝 판정·Critical/Important 건수**를 집계한다(읽기 전용). 요약은 라운드 분포·평균·**첫 라운드 FAIL 비율**·마지막 판정 PASS·Critical/Important 합·첫 라운드 FAIL 의 심각도 분해·predispatch 도입 전후·월별 줄이고, 원장(`session-progress.md`)의 FID 별 plan 창과 서브에이전트 transcript(`scripts/_internal/agent-spans.sh` 재사용)를 조인해 plan-reviewer **wall(분)** 을 FID 에 귀속한 뒤 비용 상위 FID 표를 낸다. "plan 리뷰 비용의 어디를 줄이면 되는가"를 숫자로 보는 도구다 — 개선안을 제안하지는 않는다.
+- 옵션: `--since YYYYMMDD`(FID 이름의 날짜 접두가 그 이상인 FID 만 — 요약·표·전후 비교·월별 모두) · `--predispatch-date YYYYMMDD`(전/후 비교 기준일, 기본 `20260809` = `check-plan-predispatch.sh` 도입일) · `--top N`(표 행 수, 기본 10) · `--transcript-dir DIR`(서브에이전트 transcript 위치 직접 지정 — 기본은 `stage-timing.sh` 와 같은 규칙으로 `CLAUDE_CONFIG_DIR/projects/` 아래 원장 루트 실경로의 비영숫자를 `-` 로 바꾼 디렉토리). 잘못된 값·알 수 없는 옵션·`$SPECOPS` 부재는 rc 2. 라운드 집계는 `jq`·transcript 없이도 나오고, wall 만 `wall 측정 불가(사유)` 한 줄이 된다.
+- 라운드 정의: dispatch-log 의 `|` 로 시작하고 **단계 필드가 `plan-reviewer`** 인 행 중 판정의 첫 단어(`*` 제거 후)가 `PASS`·`FAIL` 인 것(`FAIL→PASS` 는 FAIL). `ABORT`·`PROCEED`·`DEFERRED`·`—` 등은 `기타 행` 으로 세고 분모에서 뺀다. FID 안 순서는 `#` 오름차순이고 숫자가 아닌 번호는 숫자 행 뒤에 파일 순서로 둔다. `Critical N`·`Important N` 은 FAIL 행 비고에서 키워드 뒤 6자 안의 첫 숫자만 읽는다.
+- ⚠️ **해석 주의**: 첫 라운드 FAIL 비율은 표본 n 과 함께 읽어야 한다(월별 표본이 작다). predispatch 도입 전후·월별 비교는 **FID 이름 날짜 접두 기준의 관찰이지 인과가 아니다** — 표본이 작고 플랜 복잡도·검토 방식이 함께 변했다. wall 은 원장 plan 창(`/clarify`(없으면 `/specify`)의 가장 이른 시각 ~ `/plan` 의 가장 늦은 시각, 앞 60초·뒤 120초 여유)과 서브에이전트 시작 시각의 **조인**이다 — 후보 FID 가 정확히 1개일 때만 귀속하고(여럿이면 `모호`, 없으면 `미귀속` 으로 건수를 보인다) 동시에 진행된 FID 가 겹치거나 창 밖에서 돈 재dispatch 는 귀속되지 않는다. wall 은 에이전트가 살아 있던 시간이라 권한 승인 대기가 섞일 수 있다. 표의 `라운드 0` 행은 서브에이전트는 돌았지만 dispatch-log 에 구조화 행이 없는 FID 다(행 기록 누락).
+- 한계: 사유 **클래스**(예: predispatch 3클래스)는 비고가 자유 서술이라 구조로 얻지 못한다 — 숫자 `Critical`·`Important` 만 읽고 둘 다 못 읽은 FAIL 행은 건수로 보인다(키워드 뒤 6자 안의 첫 숫자를 건수로 읽으므로 `Important: AC-2 누락` 처럼 숫자가 건수가 아닌 비고는 오독한다 — 읽힌 행 수는 맞아도 값은 검증되지 않는다). 라운드는 구현자가 쓴 dispatch-log 행 수라 누락·산문 행은 세지 못한다. 서브에이전트 transcript 는 개발자 로컬 자산이라 기간이 dispatch-log 보다 짧다(그 앞 FID 는 wall 이 없다). 서브에이전트 파일은 원장 최초 행 날짜 이후에 수정된 것만 모집단이 된다(`stage-timing.sh` 와 같은 규약 — 그 이전에 끝난 파일은 보지 않는다). 비고는 7번째 칸 하나만 읽으므로 비고 안에 `|` 가 있으면 뒤쪽 숫자를 놓쳐 `읽지 못함` 으로 보인다. 시각이 있는 서브에이전트가 하나도 없으면 `에이전트 0개 중` 으로 표시된다. Phase B/C 리뷰어·외부 critic·토큰은 범위 밖이다. 서브에이전트 transcript 위치·meta 키는 Claude Code 내부 포맷이다.
+- 프라이버시: 리뷰어 보고서 파일·프롬프트·서브에이전트·transcript 본문·dispatch-log 비고의 비숫자 텍스트는 출력도 저장도 하지 않는다 — 읽는 것은 dispatch-log 구조화 행(번호·단계·판정·비고에서 숫자)·원장의 FID 섹션 행·`agent-spans.sh` 출력(숫자·역할)이고, 서브에이전트 meta 는 plan-reviewer 후보를 고르려고 `agentType` 일치 여부만 본다(`grep -l` — 내용 출력 없음). 임시 파일에는 FID 이름·정수·역할 이름만 쓰고 종료 시 지우며 카나리 테스트가 이를 잠근다.
+
+```bash
+bash scripts/review-cost.sh
+bash scripts/review-cost.sh --since 20260901 --top 5
+bash scripts/review-cost.sh --predispatch-date 20260901      # 전/후 비교 기준일 바꾸기
+```
