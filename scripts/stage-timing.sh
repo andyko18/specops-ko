@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # stage-timing.sh — session-progress 원장을 FID 간 단계별 소요로 집계한다 (읽기 전용 관측)
-# Usage: bash scripts/stage-timing.sh [--since YYYYMMDD] [--gap-cap-min N] [--min-n N] [--split [--transcript-dir DIR]]
+# Usage: bash scripts/stage-timing.sh [--since YYYYMMDD] [--gap-cap-min N] [--min-n N] [--split | --by-agent] [--transcript-dir DIR]
 # rc: 0 = 집계 성공(구간 0건이어도 그 사실을 표시) · 2 = 원장 부재·읽기 불가·잘못된 인자
 #
 # 원장 규약: "## FID" 섹션 아래 "- YYYY-MM-DD HH:MM /cmd 상태 (...)" 행 (시각 = 로컬 · 분 해상도 — session-progress-append.sh).
@@ -9,6 +9,8 @@
 #
 # --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
 #   transcript 본문은 읽지 않는다 — 읽는 일은 scripts/_internal/transcript-turns.sh(프라이버시 경계) 한 곳이 맡는다.
+# --by-agent: --split 을 내포하고, 서브에이전트 transcript(세션폴더/subagents/agent-ID.jsonl + .meta.json)의 구조 필드로
+#   서브에이전트 역할별 소요 표를 --split 표 뒤에 더한다. 읽는 일은 scripts/_internal/agent-spans.sh(프라이버시 경계) 한 곳이 맡는다.
 set -u
 # 프로토타입은 한글이 섞인 단계 키를 sort 하다 로케일(en_US.UTF-8)에 따라 그룹이 갈라져 표가 뒤섞였다(실측).
 # 이 스크립트의 sort 키는 ASCII FID·숫자뿐이지만, awk 의 단계 이름 비교(동률 정렬)는 로케일을 따라 달라진다 —
@@ -18,7 +20,7 @@ export LC_ALL=C
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 LEDGER="$SPECOPS/session-progress.md"
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SINCE=0; CAP=720; MINN=1; SPLIT=0; TDIR=""
+SINCE=0; CAP=720; MINN=1; SPLIT=0; BYAGENT=0; TDIR=""
 
 die() { echo "stage-timing: $1" >&2; exit 2; }
 need_val() { [ "$#" -ge 2 ] && [ -n "${2:-}" ] || die "$1 값 필요"; }
@@ -38,6 +40,7 @@ while [ "$#" -gt 0 ]; do
       printf '%s' "$2" | grep -qE '^[1-9][0-9]*$' || die "--min-n 은 1 이상의 정수여야 합니다: $2"
       MINN="$2"; shift 2 ;;
     --split) SPLIT=1; shift ;;
+    --by-agent) BYAGENT=1; SPLIT=1; shift ;;
     --transcript-dir) need_val "$@"; TDIR="$2"; shift 2 ;;
     *) die "알 수 없는 옵션: $1" ;;
   esac
@@ -122,14 +125,52 @@ seg_stream() (   # 서브셸 + pipefail — 헬퍼가 실패(읽을 수 없는 �
     }'
 )
 
-SEG_OK=0; SEGTMP=""
+SEG_OK=0; SEGTMP=""; AGTMP=""; BGTMP=""
+trap 'rm -f "$SEGTMP" "$AGTMP" "$BGTMP"' EXIT
+
+# 서브에이전트(--by-agent): 세션폴더/subagents/agent-*.jsonl 을 찾아 헬퍼로 에이전트당 1줄(시작·끝·wall·간격·역할)을 임시 파일에 낸다.
+#   273MB 를 파싱해 약 4초가 걸려 세그먼트 생성과 병렬로 돌린다(wait 은 아래). --split 이 측정 불가면 그 사유를 그대로 따른다.
+#   임시 파일에는 파생 숫자와 형식 검사를 통과한 역할 이름만 쓰인다.
+AGENT_NA=""; AG_OK=0; AG_FILES=(); AG_CUT=""; AGENT_PID=""
+if [ "$BYAGENT" = 1 ]; then
+  if [ -n "$SPLIT_NA" ]; then
+    AGENT_NA="$SPLIT_NA"
+  else
+    AG_NEWER=$MINDATE   # 파일 선별: --since 가 더 늦으면 그 날짜 이상으로(그 전에 끝난 파일에는 기준일 이후 시작한 에이전트가 있을 수 없다)
+    if [ "$SINCE" != 0 ]; then AG_SD="${SINCE:0:4}-${SINCE:4:2}-${SINCE:6:2}"; if [[ "$AG_SD" > "$MINDATE" ]]; then AG_NEWER=$AG_SD; fi; fi
+    AG_RAW=$(find "$TDIR" -mindepth 3 -maxdepth 3 -type f -name 'agent-*.jsonl' -path '*/subagents/*' -newermt "$AG_NEWER" 2>/dev/null | sort)
+    if [ -n "$AG_RAW" ]; then   # 줄 단위 분할(경로의 공백 보존 · 글롭 해석 금지)
+      OLD_IFS=$IFS; IFS='
+'
+      set -f
+      # shellcheck disable=SC2206
+      AG_FILES=($AG_RAW)
+      set +f; IFS=$OLD_IFS
+    fi
+    [ "${#AG_FILES[@]}" -gt 0 ] || AGENT_NA="서브에이전트 파일 0개: $TDIR"
+  fi
+  if [ -z "$AGENT_NA" ]; then
+    AGTMP=$(mktemp "${TMPDIR:-/tmp}/stage-timing.XXXXXX" 2>/dev/null) || AGENT_NA="임시 파일을 만들 수 없음"
+    [ -n "$AGENT_NA" ] || BGTMP=$(mktemp "${TMPDIR:-/tmp}/stage-timing.XXXXXX" 2>/dev/null) || AGENT_NA="임시 파일을 만들 수 없음"
+  fi
+  if [ -z "$AGENT_NA" ]; then
+    AG_CUT=$SINCE; [ "$SINCE" != 0 ] || AG_CUT=${MINDATE//-/}
+    ( bash "$SELF_DIR/_internal/agent-spans.sh" --local --gap-cap-min "$CAP" "${AG_FILES[@]}" > "$AGTMP" 2>/dev/null ) &
+    AGENT_PID=$!
+  fi
+fi
+
 if [ "$SPLIT" = 1 ] && [ -z "$SPLIT_NA" ]; then
   # 임시 파일에는 파생 숫자(시작·끝·범주)만 쓴다 — transcript 본문은 헬퍼 밖으로 나오지 않는다.
   SEGTMP=$(mktemp "${TMPDIR:-/tmp}/stage-timing.XXXXXX" 2>/dev/null) || SPLIT_NA="임시 파일을 만들 수 없음"
   if [ -z "$SPLIT_NA" ]; then
-    trap 'rm -f "$SEGTMP"' EXIT
     seg_stream > "$SEGTMP" 2>/dev/null && SEG_OK=1 || SPLIT_NA="transcript 를 읽을 수 없음"
   fi
+fi
+
+if [ -n "$AGENT_PID" ]; then
+  if wait "$AGENT_PID"; then AG_OK=1; else AGENT_NA="서브에이전트 transcript 를 읽을 수 없음"; fi
+  if [ "$SEG_OK" != 1 ]; then AG_OK=0; AGENT_NA="$SPLIT_NA"; fi   # 본 표가 측정 불가가 되면(백그라운드 열 합을 비교할 수 없다) 사유를 따른다
 fi
 
 # 1단계: 원장 행 → "FID·분·줄번호·단계키·날짜"(탭 구분). 날짜는 일수 산술로 분으로 바꾼다.
@@ -154,7 +195,7 @@ function dn(y, m, d,   yy, mm) {
 }
 END { printf "\t%d\n", bad + 0 }' "$LEDGER" \
 | sort -t "$TAB" -k1,1 -k2,2n -k3,3nr \
-| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_SEGFILE="$SEGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
+| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
 # 표시용 원장 경로·방치 상한은 ENVIRON 으로 받아 원문 그대로 쓴다 — awk -v 는 역슬래시 이스케이프를 해석하고,
 # 거대 정수는 awk 구현마다 %d 표기가 갈린다. 비교용 숫자(cap·since·minn)는 -v 로 받는다.
 function dn(y, m, d,   yy, mm) {
@@ -278,6 +319,7 @@ END {
     else printf "   합계    비중     n  중앙값    p90    max  단계\n"
     for (r = 1; r <= nk; r++) {
       k = keys[r]; m = n[k]
+      if (seg_ok == 1) gNa += tN[k]   # --by-agent 비교용 백그라운드 열 합은 --min-n 으로 가려진 단계도 포함한다
       if (m < minn) { hidden++; continue }
       for (i = 1; i <= m; i++) tmp[i] = v[k, i]
       isort(tmp, m)
@@ -303,8 +345,68 @@ END {
     printf "방치 상한 초과 유휴(transcript, 통계 제외): 사람 %d건 %d분 · 백그라운드 %d건 %d분 · 미분류 %d건 %d분\n", xn["H"] + 0, int(xs["H"] / 60 + 0.5), xn["N"] + 0, int(xs["N"] / 60 + 0.5), xn["U"] + 0, int(xs["U"] / 60 + 0.5)
     printf "겹침 %d구간 (작업+사람+백그라운드가 구간 wall 을 넘음 — 같은 세션 누적 turn_duration 은 직전 턴 끝·직전 트리거로 잘라냄 · 남는 겹침 = 동시 세션 가능성, 해당 구간의 기타는 0)\n", ovn + 0
     printf "직전 turn_duration 없이 시작한 트리거 %d건 (세션 시작·턴 중 대기열·기록 누락 포함)\n", nod + 0
+    if (ENVIRON["STAGE_TIMING_BGFILE"] != "") { bgf = ENVIRON["STAGE_TIMING_BGFILE"]; printf "%d\n", int(gNa / 60 + 0.5) > bgf; close(bgf) }   # --by-agent 푸터가 비교할 백그라운드 열 합
   }
 }'
+if [ "$BYAGENT" = 1 ] && [ "$AG_OK" = 1 ]; then
+  BG_MIN=$(cat "$BGTMP" 2>/dev/null); BG_MIN=${BG_MIN:-0}
+  # 역할별 표는 서브에이전트가 살아 있던 시간(첫~끝 timestamp − 방치 상한 초과 간격)을 초 단위로 모아 표시 시점에만 분으로 반올림한다.
+  #   중앙값·p90 은 단계 표와 같은 nearest-rank. 합계 동률은 역할 이름 오름차순. --min-n 은 이 표에 적용하지 않는다(숨김 없음 원칙).
+  awk -F '\t' -v cut="$AG_CUT" -v bg="$BG_MIN" '
+  function dn(y, m, d,   yy, mm) {
+    yy = y - (m <= 2); mm = m + (m <= 2 ? 12 : 0)
+    return 365 * yy + int(yy / 4) - int(yy / 100) + int(yy / 400) + int((153 * (mm - 3) + 2) / 5) + d
+  }
+  function isort(a, n,   gi, g, i, j, t) {
+    for (gi = 1; gi <= ngap; gi++) {
+      g = GAP[gi]; if (g > n) continue
+      for (i = g + 1; i <= n; i++) { t = a[i]; for (j = i - g; j >= 1 && a[j] > t; j -= g) a[j + g] = a[j]; a[j + g] = t }
+    }
+  }
+  function qn(a, n, p,   i) { i = int((p * n + 99) / 100); if (i < 1) i = 1; if (i > n) i = n; return a[i] }
+  function mn(x) { return int(x / 60 + 0.5) }
+  BEGIN {
+    ngap = split("701 301 132 57 23 10 4 1", GAP, " ")
+    cs = sprintf("%s", cut); y = substr(cs, 1, 4) + 0; m = substr(cs, 5, 2) + 0; d = substr(cs, 7, 2) + 0
+    cutsec = (dn(y, m, d) - dn(1970, 1, 1)) * 86400
+  }
+  {
+    all++
+    if ($1 + 0 < cutsec) { old++; next }
+    w = $3 + 0; bn += $4; bs += $5; xn += $6; xs += $7
+    if ($8 == "-") { un++; us += w; next }
+    n[$8]++; v[$8, n[$8]] = w; sum[$8] += w; tot += w; cls++
+  }
+  END {
+    printf "\n서브에이전트 역할별 소요(분) — 서브에이전트가 살아 있던 시간(부모가 기다린 시간이 아님) · %s 이후 시작\n", substr(cs, 1, 4) "-" substr(cs, 5, 2) "-" substr(cs, 7, 2)
+    printf "서브에이전트 %d개 중 기준일 이전 시작 %d개 제외 (집계 %d개: 역할 판정 %d · 미분류 %d)\n", all + 0, old + 0, cls + un, cls + 0, un + 0
+    if (cls == 0) {
+      printf "역할을 판정할 수 있는 서브에이전트가 없음\n"
+    } else {
+      nk = 0; for (k in n) keys[++nk] = k
+      for (i = 1; i < nk; i++) {
+        b = i
+        for (j = i + 1; j <= nk; j++)
+          if (sum[keys[j]] > sum[keys[b]] || (sum[keys[j]] == sum[keys[b]] && keys[j] < keys[b])) b = j
+        t = keys[i]; keys[i] = keys[b]; keys[b] = t
+      }
+      printf "   합계    비중     n  중앙값    p90    max  역할\n"
+      for (r = 1; r <= nk; r++) {
+        k = keys[r]; m = n[k]
+        for (i = 1; i <= m; i++) tmp[i] = v[k, i]
+        isort(tmp, m)
+        printf "%7d %6.1f%% %5d %7d %6d %6d  %s\n", mn(sum[k]), (tot > 0 ? sum[k] * 100 / tot : 0), m, mn(qn(tmp, m, 50)), mn(qn(tmp, m, 90)), mn(tmp[m]), k
+      }
+    }
+    printf "미분류(이름 지정) %d건 합계 %d분 — 역할 표에서 제외\n", un + 0, mn(us + 0)
+    printf "역할 wall 합 %d분 · 같은 기간 백그라운드 열 합 %d분 — 병렬·작업 중 실행으로 같지 않음\n", mn(tot + 0), bg + 0
+    printf "서브에이전트 내부 간격 10분 초과 %d건(합 %d분) — 권한 대기·유휴 포함, 제외하지 않음\n", bn + 0, mn(bs + 0)
+    printf "방치 상한 초과 내부 간격 %d건(합 %d분) 제외\n", xn + 0, mn(xs + 0)
+  }' "$AGTMP"
+fi
 if [ "$SPLIT" = 1 ] && [ -n "$SPLIT_NA" ]; then
   printf '측정 불가(--split): %s\n' "$SPLIT_NA"
+fi
+if [ "$BYAGENT" = 1 ] && [ -n "$AGENT_NA" ]; then
+  printf '측정 불가(--by-agent): %s\n' "$AGENT_NA"
 fi
