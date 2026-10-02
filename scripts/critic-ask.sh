@@ -43,7 +43,7 @@ _usable() {
 _sandboxable() {
   local h=""
   case "$1" in
-    claude) h=$("$1" --help </dev/null 2>&1); case "$h" in *--tools*) return 0 ;; esac ;;
+    claude) h=$("$1" --help </dev/null 2>&1); case "$h" in *--tools*) case "$h" in *--strict-mcp-config*) return 0 ;; esac ;; esac ;;
     codex)  h=$("$1" exec --help </dev/null 2>&1); case "$h" in *--sandbox*) return 0 ;; esac ;;
     *) return 0 ;;
   esac
@@ -95,11 +95,11 @@ _invoke_provider() {
   # 단일 명령 provider 는 exec — 백그라운드 서브셸이 곧 provider 가 되어 워치독의 `pkill -P "$pid"` 가
   #   provider 의 자식까지 닿는다(exec 없으면 시간초과 시 provider 자손이 남는다 — 20260929-run-evals-orphan-sleep 실측)
   # 읽기 전용 호출 — 실측(2026-10-02, claude 2.1.287 · codex-cli 0.153.2): claude 는 기본 호출에서 도구(Bash)를 실제 실행했고
-  #   `--tools ""` 로 도구가 전부 꺼진다(의견 생성 정상). codex 는 `exec --help` 가 `--sandbox read-only`·`--ephemeral`·stdin 프롬프트(`-`)를 내고,
+  #   `--tools ""` 는 내장 도구만 끄고 사용자 전역 MCP 도구는 그대로 노출돼(실측: mcp__ 도구 보유 YES) `--strict-mcp-config` 를 함께 줘야 닫힌다(NO — 의견 생성 정상). codex 는 `exec --help` 가 `--sandbox read-only`·`--ephemeral`·stdin 프롬프트(`-`)를 내고,
   #   실제 호출은 외부 전송이라 하지 않았다. gemini 는 미설치라 실측하지 못했다 — 추측 플래그를 넣지 않았다(설치 후 본 함수만 보정).
   case "$provider" in
     custom) exec "$bin" ;;
-    claude) exec claude -p --tools "" --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
+    claude) exec claude -p --tools "" --strict-mcp-config --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
     codex)  exec codex exec --sandbox read-only --ephemeral - ;;
     gemini) exec gemini -p - ;;
     ollama) jq -Rs --arg m "${CRITIC_MODEL:-qwen2.5:7b}" '{model:$m, prompt:., stream:false}' \

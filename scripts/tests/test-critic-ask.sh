@@ -223,9 +223,9 @@ STUB
 }
 argv() { tr '\n' ',' < "$1"; }
 runc() { env -i PATH="$1:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" --files "$TD/target.md" 2>&1; }
-mkprov "$TD/p-claude" claude '  --tools <tools...>  Specify the list of available tools'
+mkprov "$TD/p-claude" claude '  --tools <tools...>  Specify the list of available tools   --strict-mcp-config  Only use MCP servers from --mcp-config'
 out=$(runc "$TD/p-claude")
-t4 "T4.a claude 는 -p --tools \"\"(빈 인자 보존) --model --fallback-model 로 호출되고 합성 프롬프트가 stdin 으로 간다" "$(printf '%s' "$out" | grep -c '^CRITIC\[claude\]:')|$(argv "$TD/p-claude/argv.claude")|$(grep -c '검토 지시문' "$TD/p-claude/stdin.claude")" "1|[-p],[--tools],[],[--model],[fable],[--fallback-model],[opus],|1"
+t4 "T4.a claude 는 -p --tools \"\"(빈 인자 보존) --strict-mcp-config(전역 MCP 도구 차단) --model --fallback-model 로 호출되고 합성 프롬프트가 stdin 으로 간다" "$(printf '%s' "$out" | grep -c '^CRITIC\[claude\]:')|$(argv "$TD/p-claude/argv.claude")|$(grep -c '검토 지시문' "$TD/p-claude/stdin.claude")" "1|[-p],[--tools],[],[--strict-mcp-config],[--model],[fable],[--fallback-model],[opus],|1"
 mkprov "$TD/p-codex" codex '      --sandbox <SANDBOX_MODE>  [possible values: read-only, workspace-write, danger-full-access]'
 out=$(runc "$TD/p-codex")
 t4 "T4.b codex 는 exec --sandbox read-only --ephemeral - 로 호출된다" "$(printf '%s' "$out" | grep -c '^CRITIC\[codex\]:')|$(argv "$TD/p-codex/argv.codex")" "1|[exec],[--sandbox],[read-only],[--ephemeral],[-],"
@@ -236,6 +236,9 @@ mkprov "$TD/p-weak" claude 'usage: claude [options]'
 mkprov "$TD/p-weak" codex '      --sandbox <SANDBOX_MODE>'
 out=$(runc "$TD/p-weak")
 t4 "T4.d fail closed: --tools 를 모르는 claude 는 플래그 없이 호출되지 않고 제외된다(stderr 사유 1줄) — 다음 후보 codex 로 cascade" "$(printf '%s' "$out" | grep -c '^CRITIC\[codex\]:')|$(printf '%s' "$out" | grep -c 'claude 가 읽기 전용 플래그를 지원하지 않음')|$([ -e "$TD/p-weak/argv.claude" ] && echo called || echo never)" "1|1|never"
+mkprov "$TD/p-nomcp" claude '  --tools <tools...>  Specify the list of available tools'
+out=$(runc "$TD/p-nomcp"); rc=$?
+t4 "T4.g fail closed: --strict-mcp-config 를 모르는 claude(--tools 만 있음)는 전역 MCP 도구가 열린 채 호출되지 않고 제외된다" "$rc|$(printf '%s' "$out" | grep -c '^CRITIC: SKIP (외부 CLI 부재)')|$([ -e "$TD/p-nomcp/argv.claude" ] && echo called || echo never)" "0|1|never"
 mkprov "$TD/p-weak2" codex 'usage: codex exec [OPTIONS]'
 out=$(runc "$TD/p-weak2"); rc=$?
 t4 "T4.e fail closed: --sandbox 를 모르는 codex 단독이면 SKIP + exit 0 이고 호출 기록이 없다" "$rc|$(printf '%s' "$out" | grep -c '^CRITIC: SKIP (외부 CLI 부재)')|$([ -e "$TD/p-weak2/argv.codex" ] && echo called || echo never)" "0|1|never"
