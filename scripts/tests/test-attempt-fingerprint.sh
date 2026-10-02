@@ -181,12 +181,21 @@ same_fp "T3.h2 중복 줄(같은 실패 3번 vs 1번)" $'CMD: x\nEXIT: 1\nFAIL T
 same_fp "T3.h3 통과 줄이 늘어도 불변" "$b" "$b"$'\nPASS T1 ok\nPASS T2 error handling ok\nok  \tpkg/x\t0.003s'
 same_fp "T3.h4 CRLF·ANSI 색 코드 무시" $'CMD: x\nEXIT: 1\nFAIL T15 boom' $'CMD: x\r\nEXIT: 1\r\n\033[31mFAIL T15 boom\033[0m\r'
 # 원문 미저장 — 해시만 남는다
+RAW_RE='SECRET|hunter2|boom|test-x|FAIL T15'   # 재료 원문 토큰 — 'T15' 단독은 ts 의 UTC 15시(…T15:…)와 겹친다
 d=$(mkd); A=$(attempts "$d")
 mat "$d/S" 'CMD: bash scripts/tests/test-x.sh' 'EXIT: 1' 'FAIL T15 SECRET-TOKEN-7781 password=hunter2'
 afp_in "$d" record fx FAIL --material "$d/S" >/dev/null 2>&1
-if [ -s "$A" ] && ! grep -Eq 'SECRET|hunter2|boom|test-x|T15' "$A" && ! grep -rEq 'SECRET|hunter2' "$d/.specops"; then
+if [ -s "$A" ] && ! grep -Eq "$RAW_RE" "$A" && ! grep -rEq 'SECRET|hunter2' "$d/.specops"; then
   ok "T3.i 원문 미저장 — attempts.jsonl·.specops 어디에도 출력 원문 없음"
 else nope "T3.i" "$(cat "$A" 2>/dev/null)"; fi
+# 같은 단언이 기록 시각에 따라 갈리지 않는다 — UTC 15시 ts(…T15:13:28Z)를 date 스텁으로 강제(CI 실측 오탐)
+d=$(mkd); A=$(attempts "$d"); mkdir -p "$d/dshim"
+printf '#!/bin/sh\necho 2026-10-02T15:13:28Z\n' > "$d/dshim/date"; chmod +x "$d/dshim/date"
+mat "$d/S" 'CMD: bash scripts/tests/test-x.sh' 'EXIT: 1' 'FAIL T15 SECRET-TOKEN-7781 password=hunter2'
+( cd "$d" && PATH="$d/dshim:$PATH" "$SH" "$AFP" record fx FAIL --material "$d/S" >/dev/null 2>&1 )
+if [ "$(field "$(line_at "$A" 1)" ts)" = 2026-10-02T15:13:28Z ] && grep -Eq "$RAW_RE" "$d/S" && ! grep -Eq "$RAW_RE" "$A"; then
+  ok "T3.i2 ts 가 UTC 15시(T15:…)여도 원문 미저장 단언이 시각과 충돌하지 않는다(같은 패턴이 재료 원문에는 적중)"
+else nope "T3.i2" "$(cat "$A" 2>/dev/null)"; fi
 # 해시 = 정규화 집합의 sha256 앞 16자 / 해시 도구 폴백 체인
 if command -v shasum >/dev/null 2>&1; then hsh() { shasum -a 256 | cut -c1-16; }; else hsh() { sha256sum | cut -c1-16; }; fi
 exp=$(afp::normalize "$d/S" | hsh)
