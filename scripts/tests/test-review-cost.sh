@@ -168,6 +168,36 @@ $(pr 1 FAIL 'Critical (see below) 2 … Critical 4 · Important (none)')
 EOF
 runs a3c
 ck "T3.e 키워드의 첫 출현 뒤에 6자 안의 숫자가 없으면 다음 출현에서 읽는다(Critical 4 · Important 는 못 읽음 → 읽힌 행 1/1)" "$(printf '%s\n' "$OUT" | grep -F 'Critical 합')" "FAIL 행 Critical 합 4 · Important 합 0 (숫자 읽힌 FAIL 행 1/1)"
+dl a3p 20260901-p1 <<EOF
+$HDR
+$(pr 1 FAIL 'Critical 2 | Important 3 · Minor 1')
+EOF
+dl a3p 20260902-p2 <<EOF
+$HDR
+$(pr 1 FAIL 'Important 4 | 비숫자 CANARY-PIPE | Critical 1')
+EOF
+dl a3p 20260903-p3 <<EOF
+$HDR
+$(pr 1 FAIL 'Critical 5 · Important 6')
+EOF
+dl a3p 20260904-p4 <<EOF
+$HDR
+$(pr 1 FAIL '서술 | 숫자 없음 | 끝')
+EOF
+runs a3p
+ck "T3.f 비고 안의 | 를 넘어 읽는다: Critical 합 8(2+1+5) · Important 합 13(3+4+6) · 읽힌 행 3/4 · 못 읽은 행 1건 · 비숫자 본문(CANARY-PIPE)은 출력에 없다" "$(printf '%s\n' "$OUT" | grep -F 'Critical 합')|$(cnt '숫자 못 읽은 FAIL 행 1건')|$(printf '%s\n%s\n' "$OUT" "$ERR" | grep -c 'CANARY-PIPE')" "FAIL 행 Critical 합 8 · Important 합 13 (숫자 읽힌 FAIL 행 3/4)|1|0"
+dl a3q 20260901-q1 <<EOF
+$HDR
+| 1 | 2026-09-01T10:00:00+09:00 | plan-reviewer | plan-reviewer-ko | FAIL | Critical 1 | Important 2
+EOF
+runs a3q
+ck "T3.g 끝 파이프가 없는 행도 마지막 칸까지 이어 읽는다(Critical 1 · Important 2)" "$(printf '%s\n' "$OUT" | grep -F 'Critical 합')" "FAIL 행 Critical 합 1 · Important 합 2 (숫자 읽힌 FAIL 행 1/1)"
+dl a3r 20260901-r1 <<EOF
+$HDR
+$(pr 1 FAIL 'Important 1|2 · Critical 3')
+EOF
+runs a3r
+ck "T3.h 칸을 이을 때 구분자(|)를 유지한다: 'Important 1|2' 는 12 가 아니라 1 로 읽는다" "$(printf '%s\n' "$OUT" | grep -F 'Critical 합')" "FAIL 행 Critical 합 3 · Important 합 1 (숫자 읽힌 FAIL 행 1/1)"
 
 # ══ AC-4: 도입 전후·--since ══
 dl a4 20260801-a <<EOF
@@ -377,6 +407,27 @@ EOF
 { rec 04:05:00 2026-09-02; rec 04:11:00 2026-09-02; } | mkag "$SB/w5std/s1/subagents" d1 "$META_PLAN"
 TZV=Asia/Seoul runs w5s --transcript-dir "$SB/w5std" --since 20260902
 ck "T5.f --since 20260902: 이전 FID(A)에 귀속될 에이전트는 표·합에서 빠지고 건수만 밝힌다" "$(printf '%s\n' "$OUT" | grep -F 'wall:')|$(order)" "wall: 에이전트 1개 중 귀속 1 · 모호 0 · 미귀속 0 — FID 합 6분 · 라운드당 평균 6.0분 · since 이전 FID 귀속 1개 제외|20260902-fidd,"
+ledger w5n <<EOF
+## 20260901-fida · A
+
+- 2026-09-01 10:30 /plan 완료 (x)
+- 2026-09-01 10:00 /clarify 완료 (x)
+EOF
+dl w5n 20260901-fida <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+{ echo '{"type":"user"}'; echo 'x'; } | mkag "$SB/w5ntd/s1/subagents" n1 "$META_PLAN"
+{ echo '{"type":"user"}'; } | mkag "$SB/w5ntd/s1/subagents" n2 "$META_PLAN"
+TZV=Asia/Seoul runs w5n --transcript-dir "$SB/w5ntd"
+ck "T5.i 서브에이전트 파일은 있지만 시각 있는 레코드가 없으면 rc=0 · wall 측정 불가 한 줄 · 가짜 '에이전트 0개 중' 줄 없음 · 라운드 줄은 그대로" "$RC|$(cnt 'wall 측정 불가(시각 있는 서브에이전트 0개)')|$(cnt '에이전트 0개 중')|$(cnt 'FID 1개')" "0|1|0|1"
+mkdir -p "$SB/w5z"; cp -R "$SB/w5s/." "$SB/w5z/"
+dl w5z 20260903-fide <<EOF
+$HDR
+$(pr 1 FAIL)
+EOF
+TZV=Asia/Seoul runs w5z --transcript-dir "$SB/w5std" --since 20260903
+ck "T5.j --since 로 귀속 에이전트가 전부 빠지면(총계 0 · 제외 2) 측정 불가가 아니라 제외 건수를 밝힌 종전 wall 줄을 낸다" "$(printf '%s\n' "$OUT" | grep -F 'wall:')|$(cnt 'wall 측정 불가')" "wall: 에이전트 0개 중 귀속 0 · 모호 0 · 미귀속 0 — FID 합 0분 · 라운드당 평균 0.0분 · since 이전 FID 귀속 2개 제외|0"
 
 ledger w5r <<EOF
 ## 20260901-fida · A
@@ -507,6 +558,9 @@ ck "T9.c 합성 대형 입력(FID 400개 · 라운드 1200행 · 서브에이전
 SEC=$(awk '/^## review-cost.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md")
 kw() { if printf '%s\n' "$SEC" | grep -qF -- "$1"; then printf y; else printf n; fi; }
 ck "T10.a README 에 review-cost 절이 있고 사용법·해석 주의(표본 n·인과가 아니다·plan 창 조인)·한계(사유 클래스 불가·행 기록 누락)·프라이버시(카나리)가 적혀 있다" "$(kw 'bash scripts/review-cost.sh')$(kw '표본 n')$(kw '인과가 아니다')$(kw '조인')$(kw '클래스')$(kw '누락')$(kw '카나리')" "yyyyyyy"
+SEC2=$(awk '/^## review-cost.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md")
+kw2() { if printf '%s\n' "$SEC2" | grep -qF -- "$1"; then printf y; else printf n; fi; }
+ck "T10.b README 한계는 코드와 일치한다: 해결된 두 문장(비고 | 열 밀림 · 에이전트 0개 중)은 없고 mtime 모집단 문장은 남아 있다" "$(kw2 '비고 안에 `|` 가 있으면')$(kw2 '`에이전트 0개 중` 으로 표시')$(kw2 '원장 최초 행 날짜 이후에 수정된')" "nny"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

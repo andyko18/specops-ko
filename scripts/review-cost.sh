@@ -3,7 +3,7 @@
 # Usage: bash scripts/review-cost.sh [--since YYYYMMDD] [--predispatch-date YYYYMMDD] [--top N] [--transcript-dir DIR]
 # rc: 0 = 집계 성공(행 0건·wall 측정 불가여도 그 사실을 표시) · 2 = $SPECOPS 부재·잘못된 인자
 #
-# 읽는 것: $SPECOPS/*/dispatch-log.md 의 plan-reviewer 구조화 행(필드 2=번호 · 4=단계 · 6=판정 · 7=비고에서 Critical/Important 숫자만),
+# 읽는 것: $SPECOPS/*/dispatch-log.md 의 plan-reviewer 구조화 행(필드 2=번호 · 4=단계 · 6=판정 · 7번째 칸부터 마지막 칸까지를 | 로 이은 비고에서 Critical/Important 숫자만),
 #   $SPECOPS/session-progress.md 의 FID 섹션 행(plan 창), scripts/_internal/agent-spans.sh 출력(서브에이전트 wall·역할 — 숫자와 역할 이름뿐).
 #   리뷰어 보고서 파일·프롬프트·transcript 본문은 읽지 않는다. 임시 파일에는 FID 이름과 정수만 쓴다.
 # 라운드 = PASS·FAIL 행. 그 밖(ABORT·PROCEED·—·DEFERRED 등)은 "기타" 로 세고 분모에서 뺀다.
@@ -63,7 +63,7 @@ if [ -f "${LOGS[0]}" ]; then
     num = $2; gsub(/ /, "", num); if (num !~ /^[0-9]+$/) num = 1000000 + seq
     if (w == "PASS" || w == "FAIL") {
       c = -1; i = -1
-      if (w == "FAIL") { c = numafter($7, "Critical"); i = numafter($7, "Important") }
+      if (w == "FAIL") { note = $7; for (j = 8; j <= NF; j++) note = note "|" $j; c = numafter(note, "Critical"); i = numafter(note, "Important") }
       printf "%s\t%d\t%s\t%d\t%d\n", fid, num + 0, w, c, i
     } else printf "%s\t%d\tO\t-1\t-1\n", fid, num + 0
   }' "${LOGS[@]}" > "$ROWSTMP" 2>/dev/null || die "dispatch-log 파싱 실패"
@@ -220,6 +220,7 @@ END {
   for (i = 1; i <= nm; i++) printf "  %s  FID %d · 첫 라운드 FAIL %d (%d%%)\n", ml[i], mn[ml[i]], mf[ml[i]] + 0, pct(mf[ml[i]] + 0, mn[ml[i]])
   nu = 0
   if (ENVIRON["WALL_NA_TEXT"] != "") printf "wall 측정 불가(%s)\n", ENVIRON["WALL_NA_TEXT"]
+  else if (haswall && wt + 0 == 0 && wsk + 0 == 0) printf "wall 측정 불가(시각 있는 서브에이전트 0개)\n"
   else if (haswall) {
     printf "wall: 에이전트 %d개 중 귀속 %d · 모호 %d · 미귀속 %d — FID 합 %d분 · 라운드당 평균 %.1f분%s\n", wt, wu, wa, wm, wmin + 0, (wu > 0 ? wmin / wu : 0), (wsk > 0 ? sprintf(" · since 이전 FID 귀속 %d개 제외", wsk) : "")
   }
