@@ -70,8 +70,95 @@ if [ -f "${LOGS[0]}" ]; then
 fi
 
 # >>> wall
-# 2) wall(선택) — 1단계 stub: wall 귀속은 아직 구현되지 않았다(사유를 그대로 표시)
-WALL_NA="wall 귀속 미구현"
+# 2) wall(선택) — 사유가 있으면 WALL_NA 에 담고 라운드 집계는 그대로 낸다
+WALL_NA=""
+if ! command -v jq >/dev/null 2>&1; then
+  WALL_NA="jq 없음"
+elif [ ! -f "$LEDGER" ] || [ ! -r "$LEDGER" ]; then
+  WALL_NA="원장 없음"
+else
+  WINTMP=$(mktemp "${TMPDIR:-/tmp}/review-cost.XXXXXX") || WALL_NA="임시 파일을 만들 수 없음"
+  SPANTMP=$(mktemp "${TMPDIR:-/tmp}/review-cost.XXXXXX") || WALL_NA="임시 파일을 만들 수 없음"
+fi
+AG_FILES=(); MINDATE=""
+if [ -z "$WALL_NA" ]; then
+  # 원장 FID 섹션 행으로 plan 창(로컬 벽시계 초)을 만든다
+  awk '
+  function dn(y, m, d,   yy, mm) { yy = y - (m <= 2); mm = m + (m <= 2 ? 12 : 0); return 365 * yy + int(yy / 4) - int(yy / 100) + int(yy / 400) + int((153 * (mm - 3) + 2) / 5) + d }
+  /^## / { fid = ($2 ~ /^[0-9]+-[a-z0-9-]+$/) ? $2 : ""; next }
+  /^- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9] \/[a-z-]+/ {
+    if (fid == "") next
+    split($2, D, "-"); split($3, T, ":")
+    t = (dn(D[1] + 0, D[2] + 0, D[3] + 0) - dn(1970, 1, 1)) * 86400 + (T[1] + 0) * 3600 + (T[2] + 0) * 60
+    if (min == "" || $2 < min) min = $2
+    if ($4 == "/specify" && (sp[fid] == "" || t < sp[fid])) sp[fid] = t
+    if ($4 == "/clarify" && (cl[fid] == "" || t < cl[fid])) cl[fid] = t
+    if ($4 == "/plan" && (pl[fid] == "" || t > pl[fid])) pl[fid] = t
+  }
+  END {
+    for (f in pl) { s = (cl[f] != "") ? cl[f] : sp[f]; if (s != "" && pl[f] >= s) printf "%s\t%d\t%d\n", f, s, pl[f] }
+    if (min != "") print "#min\t" min
+  }' "$LEDGER" > "$WINTMP" 2>/dev/null || WALL_NA="원장 파싱 실패"
+  MINDATE=$(awk -F '\t' '$1 == "#min" { print $2 }' "$WINTMP")
+  NWIN=$(awk -F '\t' '$1 != "#min" { n++ } END { print n + 0 }' "$WINTMP")
+  if [ -z "$WALL_NA" ] && { [ -z "$MINDATE" ] || [ "$NWIN" = 0 ]; }; then WALL_NA="원장 plan 창 없음"; fi
+fi
+if [ -z "$WALL_NA" ]; then
+  if [ -z "$TDIR" ]; then
+    PROJ_ROOT="${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/projects"
+    ROOT_DIR=$(cd "$(dirname "$SPECOPS")" 2>/dev/null && pwd -P) || ROOT_DIR=""
+    if [ -z "$ROOT_DIR" ]; then
+      WALL_NA="원장 루트 경로를 해석할 수 없음 — --transcript-dir 로 지정하세요"
+    else
+      ENC_B=$(printf '%s' "$ROOT_DIR" | sed 's/[^A-Za-z0-9]/-/g'); ENC_C=""
+      for LOC in C.UTF-8 en_US.UTF-8; do
+        if [ "$(LC_ALL=$LOC locale charmap 2>/dev/null)" = "UTF-8" ]; then ENC_C=$(printf '%s' "$ROOT_DIR" | LC_ALL=$LOC sed 's/[^A-Za-z0-9]/-/g'); break; fi
+      done
+      if [ -d "$PROJ_ROOT/$ENC_B" ]; then TDIR="$PROJ_ROOT/$ENC_B"
+      elif [ -n "$ENC_C" ] && [ -d "$PROJ_ROOT/$ENC_C" ]; then TDIR="$PROJ_ROOT/$ENC_C"
+      else TDIR="$PROJ_ROOT/$ENC_B"; WALL_NA="transcript 디렉토리 없음: $TDIR — --transcript-dir 로 지정하세요"; fi
+    fi
+  fi
+fi
+if [ -z "$WALL_NA" ]; then
+  # 서브에이전트 jsonl 중 meta 의 agentType 이 plan-reviewer-ko 인 것만 헬퍼로 읽는다(파싱량 1/10 — meta 는 작다)
+  AG_RAW=$(find "$TDIR" -mindepth 3 -maxdepth 3 -type f -name 'agent-*.jsonl' -path '*/subagents/*' -newermt "$MINDATE" 2>/dev/null | sort)
+  if [ -n "$AG_RAW" ]; then
+    # 파일이 수천 개여도 인자 길이 한계에 걸리지 않게 xargs 로 나눠 grep 한다
+    HIT_RAW=$(printf '%s\n' "$AG_RAW" | sed 's/\.jsonl$/.meta.json/' | tr '\n' '\0' | xargs -0 grep -lE '"agentType"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_.-]+:)?plan-reviewer-ko"' 2>/dev/null | sed 's/\.meta\.json$/.jsonl/' | sort)
+    if [ -n "$HIT_RAW" ]; then
+      OLD_IFS=$IFS; IFS='
+'
+      set -f
+      # shellcheck disable=SC2206
+      AG_FILES=($HIT_RAW)
+      set +f; IFS=$OLD_IFS
+    fi
+  fi
+  if [ "${#AG_FILES[@]}" -eq 0 ]; then
+    WALL_NA="서브에이전트 파일 0개: $TDIR"
+  elif ! bash "$SELF_DIR/_internal/agent-spans.sh" --local "${AG_FILES[@]}" > "$SPANTMP" 2>/dev/null; then
+    WALL_NA="서브에이전트 transcript 를 읽을 수 없음"
+  fi
+fi
+if [ -z "$WALL_NA" ]; then
+  # 조인: 시작이 창 [-60, +120] 안인 후보 FID 가 정확히 1개면 귀속. --since 이전 FID 귀속은 제외하고 건수만 센다
+  awk -F '\t' -v since="$SINCE" '
+  FILENAME == ARGV[1] { if ($1 != "#min") { ws[$1] = $2 + 0; we[$1] = $3 + 0 } next }
+  $8 !~ /(^|:)plan-reviewer-ko$/ { next }
+  {
+    st = $1 + 0; hit = 0; m = ""
+    for (f in ws) if (st >= ws[f] - 60 && st <= we[f] + 120) { hit++; m = f }
+    if (hit == 1) {
+      if (since + 0 > 0 && substr(m, 1, 8) + 0 < since + 0) { skip++ }
+      else { sec[m] += $3; cnt[m]++; uniq++; tot++ }
+    } else if (hit > 1) { amb++; tot++ } else { unm++; tot++ }
+  }
+  END {
+    for (f in cnt) printf "%s\t%d\t%d\n", f, sec[f], cnt[f]
+    printf "#agents\t%d\t%d\t%d\t%d\t%d\n", tot + 0, uniq + 0, amb + 0, unm + 0, skip + 0
+  }' "$WINTMP" "$SPANTMP" > "$WALLTMP" 2>/dev/null || WALL_NA="귀속 계산 실패"
+fi
 # <<< wall
 
 # 3) 보고

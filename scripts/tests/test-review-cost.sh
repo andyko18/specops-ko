@@ -275,6 +275,233 @@ EOF
 runs a12c
 ck "T12.c 첫 라운드 FAIL 이 0건이면 심각도 줄이 '첫 라운드 FAIL 없음'" "$(cnt '첫 라운드 FAIL 없음')|$(cnt '심각도')" "1|0"
 
-# ── Part B ──
+# ── Part B: wall 귀속·옵션·부재·프라이버시·읽기 전용 ──
+# Part B 는 서브에이전트 fixture 를 jq(agent-spans.sh)로 읽는다 — jq 가 없으면 Part A 결과만 보고하고 끝낸다(Part A 는 jq 없이 돈다)
+if ! command -v jq >/dev/null 2>&1; then echo "SKIP: Part B 는 jq 필요"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]; exit; fi
+# 서브에이전트 fixture: mkag 폴더 ID META — 본문(jsonl)은 stdin. META 가 "-" 면 meta 파일이 없다. meta 는 끝 개행 없이 쓴다(실제 포맷).
+mkag() { mkdir -p "$1" && cat > "$1/agent-$2.jsonl" && touch -t 203001010000 "$1/agent-$2.jsonl"; [ "$3" = "-" ] || printf '%s' "$3" > "$1/agent-$2.meta.json"; }
+# 레코드 한 줄: rec HH:MM:SS [YYYY-MM-DD] (기본 2026-09-01 UTC) — KST 로컬은 +9시간
+rec() { printf '{"type":"user","timestamp":"%sT%s.000Z","message":{"content":"x"}}\n' "${2:-2026-09-01}" "$1"; }
+META_PLAN='{"agentType":"specops-ko:plan-reviewer-ko","toolUseId":"toolu_p","spawnDepth":1}'
+META_SPEC='{"agentType":"specops-ko:spec-reviewer-ko","toolUseId":"toolu_s","spawnDepth":1}'
+
+# ══ AC-5: wall 귀속 — 원장 plan 창 [시작−60초, 끝+120초] ══
+ledger w5 <<EOF
+## 20260901-fida · A
+
+- 2026-09-01 10:30 /plan 완료 (x)
+- 2026-09-01 10:10 /clarify 완료 (x)
+- 2026-09-01 10:00 /clarify 완료 (x)
+- 2026-09-01 09:50 /specify 완료 (x)
+
+## 20260901-fidb · B
+
+- 2026-09-01 10:50 /plan 완료 (x)
+- 2026-09-01 10:20 /clarify 완료 (x)
+EOF
+dl w5 20260901-fida <<EOF
+$HDR
+$(pr 1 FAIL)
+$(pr 2 PASS)
+EOF
+dl w5 20260901-fidb <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+W5="$SB/w5td/s1/subagents"
+{ rec 01:05:00; rec 01:15:00; } | mkag "$W5" a1 "$META_PLAN"
+{ rec 01:12:00; rec 01:17:00; } | mkag "$W5" a2 "$META_PLAN"
+{ rec 01:40:00; rec 01:48:00; } | mkag "$W5" b1 "$META_PLAN"
+{ rec 01:25:00; rec 01:31:00; } | mkag "$W5" am "$META_PLAN"
+{ rec 03:00:00; rec 03:04:00; } | mkag "$W5" no "$META_PLAN"
+{ rec 01:06:00; rec 01:16:00; } | mkag "$W5" sp "$META_SPEC"
+{ rec 00:59:00; rec 01:02:00; } | mkag "$W5" m60 "$META_PLAN"
+{ rec 00:58:59; rec 01:00:59; } | mkag "$W5" m61 "$META_PLAN"
+{ rec 01:06:00; rec 01:16:00; } | mkag "$W5" old "$META_PLAN"; touch -t 200001010000 "$W5/agent-old.jsonl"
+TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td"
+ck "T5.a wall 줄: 에이전트 7개(spec-reviewer 제외) 중 귀속 4(A 3·B 1) · 모호 1(두 창 겹침) · 미귀속 2(창 밖·−61초) — FID 합 26분 · 라운드당 6.5분" "$RC|$(printf '%s\n' "$OUT" | grep -F 'wall:')" "0|wall: 에이전트 7개 중 귀속 4 · 모호 1 · 미귀속 2 — FID 합 26분 · 라운드당 평균 6.5분"
+ck "T5.b 표: wall 내림차순 A(18분 = 10+5+3, −60초 에이전트 포함) → B(8분) · 시작은 /clarify 시각(09:50 /specify 가 아님)" "$(order)|$(trow 20260901-fida)|$(trow 20260901-fidb)" "20260901-fida,20260901-fidb,|2 FAIL PASS 0 0 18|1 PASS PASS 0 0 8"
+TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td" --top 1
+ck "T5.c --top 1 이면 A 한 행만" "$(order)" "20260901-fida,"
+TZV=UTC runs w5 --transcript-dir "$SB/w5td"
+ck "T5.d 로컬 시각 기준: TZ=UTC 로 돌리면 원장(로컬 10시대)과 서브에이전트(UTC 01시대)가 어긋나 귀속 0 · 미귀속 7(TZ 를 무시하지 않는다)" "$(printf '%s\n' "$OUT" | grep -F 'wall:' | cut -d'—' -f1)" "wall: 에이전트 7개 중 귀속 0 · 모호 0 · 미귀속 7 "
+ledger w5b <<EOF
+## 20260901-fidc · C
+
+- 2026-09-01 11:20 /plan 완료 (x)
+- 2026-09-01 11:15 /plan 완료 (x)
+- 2026-09-01 11:00 /specify 완료 (x)
+EOF
+dl w5b 20260901-fidc <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+{ rec 02:10:00; rec 02:14:29; } | mkag "$SB/w5btd/s1/subagents" c1 "$META_PLAN"
+{ rec 02:22:00; rec 02:25:30; } | mkag "$SB/w5btd/s1/subagents" c2 "$META_PLAN"
+{ rec 02:22:01; rec 02:24:01; } | mkag "$SB/w5btd/s1/subagents" c3 "$META_PLAN"
+TZV=Asia/Seoul runs w5b --transcript-dir "$SB/w5btd"
+ck "T5.e /clarify 행이 없으면 /specify 행이 시작 · /plan 행이 둘이면 가장 늦은 시각이 끝(+120초 = 11:22:00 시작은 귀속, 11:22:01 은 미귀속) · 초는 합친 뒤 분으로 반올림(269+210=479초 → 8분)" "$(trow 20260901-fidc)|$(printf '%s\n' "$OUT" | grep -F 'wall:')" "1 PASS PASS 0 0 8|wall: 에이전트 3개 중 귀속 2 · 모호 0 · 미귀속 1 — FID 합 8분 · 라운드당 평균 4.0분"
+dl w5b 20260901-fidx <<EOF
+$HDR
+$(pr 1 FAIL)
+$(pr 2 FAIL)
+$(pr 3 PASS)
+EOF
+dl w5b 20260901-fidy <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+TZV=Asia/Seoul runs w5b --transcript-dir "$SB/w5btd"
+ck "T5.h 표 정렬은 행 단위다: wall 이 있는 행(fidc 8분)이 먼저, wall 이 없는 행끼리는 라운드 내림차순(fidx 3회 → fidy 1회)" "$(order)" "20260901-fidc,20260901-fidx,20260901-fidy,"
+ledger w5s <<EOF
+## 20260902-fidd · D
+
+- 2026-09-02 13:20 /plan 완료 (x)
+- 2026-09-02 13:00 /clarify 완료 (x)
+
+## 20260901-fida · A
+
+- 2026-09-01 10:30 /plan 완료 (x)
+- 2026-09-01 10:00 /clarify 완료 (x)
+EOF
+dl w5s 20260901-fida <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+dl w5s 20260902-fidd <<EOF
+$HDR
+$(pr 1 FAIL)
+$(pr 2 PASS)
+EOF
+{ rec 01:05:00; rec 01:15:00; } | mkag "$SB/w5std/s1/subagents" a1 "$META_PLAN"
+{ rec 04:05:00 2026-09-02; rec 04:11:00 2026-09-02; } | mkag "$SB/w5std/s1/subagents" d1 "$META_PLAN"
+TZV=Asia/Seoul runs w5s --transcript-dir "$SB/w5std" --since 20260902
+ck "T5.f --since 20260902: 이전 FID(A)에 귀속될 에이전트는 표·합에서 빠지고 건수만 밝힌다" "$(printf '%s\n' "$OUT" | grep -F 'wall:')|$(order)" "wall: 에이전트 1개 중 귀속 1 · 모호 0 · 미귀속 0 — FID 합 6분 · 라운드당 평균 6.0분 · since 이전 FID 귀속 1개 제외|20260902-fidd,"
+
+ledger w5r <<EOF
+## 20260901-fida · A
+
+- 2026-09-01 10:30 /plan 완료 (x)
+- 2026-09-01 10:00 /clarify 완료 (x)
+EOF
+dl w5r 20260901-fida <<EOF
+$HDR
+$(pr 1 PASS)
+EOF
+{ rec 01:05:00; rec 01:15:00; } | mkag "$SB/w5rtd/s1/subagents" a1 "$META_PLAN"
+{ rec 01:12:00; rec 01:17:00; } | mkag "$SB/w5rtd/s1/subagents" a9 '{"agentType":"specops-ko:plan-reviewer-ko","toolUseId":"","spawnDepth":0}'
+{ rec 01:13:00; rec 01:18:00; } | mkag "$SB/w5rtd/s1/subagents" a8 '{"agentType":"plan-reviewer-ko","toolUseId":"toolu_q","spawnDepth":1}'
+TZV=Asia/Seoul runs w5r --transcript-dir "$SB/w5rtd"
+ck "T5.g 역할은 agent-spans 가 판정한다: meta 에 plan-reviewer-ko 가 있어도 toolUseId 가 비면 역할 '-' 라 세지 않고(a9), 네임스페이스 없는 이름은 센다(a8) — 에이전트 2개(10+5분) 귀속" "$(printf '%s\n' "$OUT" | grep -F 'wall:')" "wall: 에이전트 2개 중 귀속 2 · 모호 0 · 미귀속 0 — FID 합 15분 · 라운드당 평균 7.5분"
+
+# ══ AC-6: 옵션·rc·transcript 디렉토리 해석 ══
+BADS=""
+bad() { runs a2 "$@"; BADS="$BADS$RC:${#OUT}:${ERR:+e},"; }
+bad --since 2026-09-01; bad --since abc; bad --since; bad --predispatch-date 1; bad --predispatch-date
+bad --top 0; bad --top x; bad --top -1; bad --top; bad --bogus
+bad --transcript-dir "$SB/없는디렉토리"; bad --transcript-dir "$SB/a2/20260901-f1/dispatch-log.md"; bad --transcript-dir
+ck "T6.a 잘못된 값·값 누락·알 수 없는 옵션·없는 디렉토리·파일을 준 --transcript-dir 13가지 모두 rc=2 · stdout 비어 있음 · 사유는 stderr" "$BADS" "2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,2:0:e,"
+TZV=Asia/Seoul runs w5 --since 20260901 --top 1 --transcript-dir "$SB/w5td" --predispatch-date 20260901
+ck "T6.b 옵션 병용(--since --top --transcript-dir --predispatch-date)이 동작한다" "$RC|$(order)|$(cnt '도입 전 FID 0개 (20260901 미만)')|$(cnt 'wall: 에이전트 7개')" "0|20260901-fida,|1|1"
+mkdir -p "$SB/proj/.specops"; cp -R "$SB/w5/." "$SB/proj/.specops/"
+PHYS=$(cd "$SB/proj" && pwd -P); ENC=$(printf '%s' "$PHYS" | sed 's/[^A-Za-z0-9]/-/g')
+mkdir -p "$SB/cfg/projects/$ENC"; cp -Rp "$SB/w5td/." "$SB/cfg/projects/$ENC/"
+TZV=Asia/Seoul runs proj/.specops
+ck "T6.c --transcript-dir 없이: CLAUDE_CONFIG_DIR/projects/<원장 루트 실경로의 비영숫자→-> 를 기본으로 찾는다(stage-timing.sh 와 같은 규칙)" "$RC|$(printf '%s\n' "$OUT" | grep -F 'wall:' | cut -d'—' -f1)" "0|wall: 에이전트 7개 중 귀속 4 · 모호 1 · 미귀속 2 "
+
+# ══ AC-7: 부재는 오류가 아니라 사실 ══
+TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td"; CORE_FULL=$(core)
+TZV=Asia/Seoul runs w5
+A_RC=$RC; A_CORE=$(core); A_WALL=$(cnt 'wall 측정 불가(transcript 디렉토리 없음')
+mkdir -p "$SB/emptytd"
+TZV=Asia/Seoul runs w5 --transcript-dir "$SB/emptytd"
+B_RC=$RC; B_CORE=$(core); B_WALL=$(cnt 'wall 측정 불가(서브에이전트 파일 0개')
+mkdir -p "$SB/nojq"; for t in awk sort grep sed find mktemp rm cat dirname; do p=$(command -v "$t") && [ -n "$p" ] && ln -sf "$p" "$SB/nojq/$t"; done
+OUT=$(PATH="$SB/nojq" TZ=Asia/Seoul TMPDIR="$SB/tmp" HOME="$SB/home" CLAUDE_CONFIG_DIR="$SB/cfg" SPECOPS_ROOT="$SB/w5" "$BASH_BIN" "$RCS_SH" --transcript-dir "$SB/w5td" 2>/dev/null); C_RC=$?
+C_CORE=$(core); C_WALL=$(cnt 'wall 측정 불가(jq 없음')
+ck "T7.a transcript 디렉토리 없음 · 서브에이전트 파일 0개 · jq 없음 — 모두 rc=0 이고 라운드·FAIL·전후 비교·월별 줄은 wall 이 있을 때와 같다" "$A_RC$B_RC$C_RC|$([ "$A_CORE" = "$CORE_FULL" ] && [ "$B_CORE" = "$CORE_FULL" ] && [ "$C_CORE" = "$CORE_FULL" ] && echo same)|$([ -n "$CORE_FULL" ] && echo nonempty)" "000|same|nonempty"
+ck "T7.b wall 자리에 사유가 한 줄로 표시된다(transcript 디렉토리 없음 · 서브에이전트 파일 0개 · jq 없음)" "$A_WALL$B_WALL$C_WALL" "111"
+mkdir -p "$SB/w7d"; cp -R "$SB/w5/." "$SB/w7d/"
+ledger w7d <<EOF
+## 20260901-fida · A
+
+- 2026-09-01 10:00 /specify 완료 (x)
+EOF
+TZV=Asia/Seoul runs w7d --transcript-dir "$SB/w5td"
+D_RC=$RC; D_CORE=$(core); D_WALL=$(cnt 'wall 측정 불가(원장 plan 창 없음)')
+mkdir -p "$SB/w7e"; cp -R "$SB/w5/." "$SB/w7e/"; rm -f "$SB/w7e/session-progress.md"
+TZV=Asia/Seoul runs w7e --transcript-dir "$SB/w5td"
+ck "T7.c 원장에 plan 창이 없거나 원장 자체가 없어도 rc=0 · 라운드 줄은 같고 사유(원장 plan 창 없음 · 원장 없음)가 표시된다" "$D_RC$RC|$([ "$D_CORE" = "$CORE_FULL" ] && [ "$(core)" = "$CORE_FULL" ] && echo same)|$D_WALL$(cnt 'wall 측정 불가(원장 없음)')" "00|same|11"
+dl e0 20260901-x <<EOF
+$HDR
+$(pr 1 PASS - A:T1)
+$(pr 2 PASS - End-loaded-B)
+EOF
+runs e0
+E0=$RC; E0_N=$(cnt 'plan-reviewer 행 없음'); E0_TBL=$(cnt '비용 상위')
+mkdir -p "$SB/e1"; cp "$SB/w5/session-progress.md" "$SB/e1/"
+TZV=Asia/Seoul runs e1 --transcript-dir "$SB/w5td"
+E1=$RC; E1_N=$(cnt 'plan-reviewer 행 없음'); E1_BOGUS=$(cnt '라운드 분포')
+mkdir -p "$SB/e2"; runs e2
+ck "T7.d plan-reviewer 행이 0건이면(다른 단계 행만 · 서브에이전트·원장만 있음 · 빈 \$SPECOPS) rc=0 으로 사실 줄만 — 표·분포·가짜 FID 줄 없음" "$E0|$E0_N|$E0_TBL|$E1|$E1_N|$E1_BOGUS|$RC|$(cnt 'plan-reviewer 행 없음')" "0|1|0|0|1|0|0|1"
+runs 없는루트
+ck "T7.e \$SPECOPS 디렉토리가 없으면 rc=2 · stdout 비어 있음 · 사유는 stderr" "$RC|${#OUT}|${ERR:+e}" "2|0|e"
+# awk 가 실패하면(구현 차이·읽기 불가) 빈 결과가 정상 집계로 위장되지 않는다 — 특정 awk 프로그램만 실패하게 하는 shim(FAILPAT 이 인자에 있으면 rc 3)
+mkdir -p "$SB/shimawk"; REAL_AWK=$(command -v awk)
+printf '#!/bin/sh\ncase "$*" in *"$FAILPAT"*) echo "shim awk failure" >&2; exit 3 ;; esac\nexec "$REAL_AWK" "$@"\n' > "$SB/shimawk/awk"; chmod +x "$SB/shimawk/awk"
+shimrun() {
+  local pat="$1" nm="$2"; shift 2
+  OUT=$(FAILPAT="$pat" REAL_AWK="$REAL_AWK" PATH="$SB/shimawk:$PATH" TZ=Asia/Seoul TMPDIR="$SB/tmp" HOME="$SB/home" CLAUDE_CONFIG_DIR="$SB/cfg" SPECOPS_ROOT="$SB/$nm" "$BASH_BIN" "$RCS_SH" "$@" 2>"$SB/err"); RC=$?; ERR=$(cat "$SB/err")
+}
+shimrun 'function numafter' w5 --transcript-dir "$SB/w5td"; F1="$RC:${#OUT}:$(printf '%s' "$ERR" | grep -c '파싱 실패')"
+shimrun 'sp[fid]' w5 --transcript-dir "$SB/w5td"; F2="$RC:$([ "$(core)" = "$CORE_FULL" ] && echo same):$(cnt 'wall 측정 불가(원장 파싱 실패)')"
+shimrun 'ws[$1]' w5 --transcript-dir "$SB/w5td"; F3="$RC:$([ "$(core)" = "$CORE_FULL" ] && echo same):$(cnt 'wall 측정 불가(귀속 계산 실패)')"
+shimrun 'nfid++' w5 --transcript-dir "$SB/w5td"; F4="$RC:${#OUT}"
+ck "T7.f awk 실패는 삼키지 않는다: 파서 실패 → rc 2 · 원장 창 실패·귀속 계산 실패 → rc 0 + 사유 줄 + 라운드 줄은 그대로 · 보고 awk 실패 → 0 이 아닌 rc 와 빈 stdout" "$F1|$F2|$F3|$F4" "2:0:1|0:same:1|0:same:1|3:0"
+
+# ══ AC-8: 프라이버시 — 보고서·본문은 어디에도 나오지 않는다 ══
+CAN="CANARY-$$-ZQX"
+dl p8 20260901-fida <<EOF
+$HDR
+$(pr 1 FAIL "Critical 1 · Important 2 · $CAN-NOTE")
+$(pr 2 PASS "$CAN-NOTE2")
+$(pr 3 ABORT "$CAN-NOTE3")
+EOF
+mkdir -p "$SB/p8/20260901-fida/reviews"; printf '%s-REPORT\n' "$CAN" > "$SB/p8/20260901-fida/reviews/T1-C-report.md"; printf '%s-PRB\n' "$CAN" > "$SB/p8/20260901-fida/reviews/plan-review-1.md"
+cp "$SB/w5/session-progress.md" "$SB/p8/"
+{ printf '{"type":"user","timestamp":"2026-09-01T01:05:00.000Z","message":{"content":"%s-BODY"},"toolUseResult":{"x":"%s-TR"}}\n' "$CAN" "$CAN"; printf '{"type":"assistant","timestamp":"2026-09-01T01:15:00.000Z","message":{"content":"%s-IN"}}\n' "$CAN"; } | mkag "$SB/p8td/s1/subagents" x1 "{\"agentType\":\"specops-ko:plan-reviewer-ko\",\"toolUseId\":\"toolu_p\",\"description\":\"$CAN-DESC\"}"
+mkdir -p "$SB/shim" "$SB/keep"
+printf '#!/bin/sh\nfor a in "$@"; do [ -f "$a" ] && cp "$a" "'"$SB"'/keep/$(basename "$a").$$.$RANDOM" 2>/dev/null; done\nexec /bin/rm "$@"\n' > "$SB/shim/rm"; chmod +x "$SB/shim/rm"
+ALL=""
+OUT=$(PATH="$SB/shim:$PATH" TZ=Asia/Seoul TMPDIR="$SB/tmp" HOME="$SB/home" CLAUDE_CONFIG_DIR="$SB/cfg" SPECOPS_ROOT="$SB/p8" "$BASH_BIN" "$RCS_SH" --transcript-dir "$SB/p8td" 2>"$SB/err"); RC=$?; ERR=$(cat "$SB/err")
+P_WALL=$(printf '%s\n' "$OUT" | grep -cF 'wall: 에이전트 1개 중 귀속 1')
+ALL="$OUT$ERR"
+runs p8 --bogus; ALL="$ALL$OUT$ERR"
+runs p8없음; ALL="$ALL$OUT$ERR"
+TZV=Asia/Seoul runs p8; ALL="$ALL$OUT$ERR"
+ck "T8.a 정상(wall 귀속 포함)·오류·부재 경로 모두 stdout·stderr 에 카나리 0건 — 보고서 파일·비고 본문·서브에이전트 본문·meta description 모두(fixture 가 카나리를 실제로 품고 있고 wall 이 실제로 귀속됐음도 확인)" "$(printf '%s' "$ALL" | grep -c "$CAN")|$(grep -rl "$CAN" "$SB/p8" "$SB/p8td" | /usr/bin/wc -l | tr -d ' ')|$P_WALL" "0|5|1"
+ck "T8.b 실행 중 임시 파일(삭제 직전에 복사해 둔 것)에도 카나리가 없고 임시 파일이 실제로 만들어졌으며 실행 뒤 TMPDIR 에 잔존이 없다" "$(cat "$SB/keep"/* 2>/dev/null | grep -c "$CAN")|$([ "$(ls -A "$SB/keep" | /usr/bin/wc -l | tr -d ' ')" -ge 3 ] && echo made)|$(ls -A "$SB/tmp" | /usr/bin/wc -l | tr -d ' ')" "0|made|0"
+ck "T8.c 정적: 스크립트에 reviews 경로·본문을 읽는 키워드가 없다(읽는 입력은 dispatch-log·원장·agent-spans 출력뿐) — 그리고 jq 를 직접 호출하지 않는다(헬퍼 경유)" "$(grep -c 'reviews' "$RCS_SH")|$(grep -vE '^[[:space:]]*#' "$RCS_SH" | grep -cE '(\||\$\(|^)[[:space:]]*jq[[:space:]]')" "0|0"
+
+# ══ AC-9: 읽기 전용·성능·정적 규약 ══
+ALLF() { find "$SB/w5" "$SB/w5td" -type f | sort | xargs cksum; }
+CK_BEFORE=$(ALLF)
+TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td"
+CK_AFTER=$(ALLF)
+ck "T9.a dispatch-log·원장·서브에이전트 파일은 실행 전후 동일하고 TMPDIR 에 잔존 파일이 없다" "$([ -n "$CK_BEFORE" ] && [ "$CK_BEFORE" = "$CK_AFTER" ] && echo same)|$(ls -A "$SB/tmp" | /usr/bin/wc -l | tr -d ' ')" "same|0"
+ck "T9.b 정적: 스크립트에 mktime( 호출·행 단위 read 루프가 없다" "$(grep -vE '^[[:space:]]*#' "$RCS_SH" | grep -cE 'mktime\(|while[[:space:]]+(IFS=[^ ]* )?read')" "0"
+mkdir -p "$SB/big"; : > "$SB/big/session-progress.md"
+for i in $(seq 1 400); do
+  f=$(printf '2026%02d%02d-big%03d' $((i % 12 + 1)) $((i % 28 + 1)) "$i")
+  mkdir -p "$SB/big/$f"
+  { echo "$HDR"; pr 1 FAIL 'Critical 1 · Important 2'; pr 2 FAIL 'Important 3'; pr 3 PASS; pr 1 PASS - A:T1; pr 4 ABORT; } > "$SB/big/$f/dispatch-log.md"
+  printf '## %s · big\n\n- 2026-09-01 10:30 /plan 완료 (x)\n- 2026-09-01 10:00 /clarify 완료 (x)\n\n' "$f" >> "$SB/big/session-progress.md"
+done
+for i in $(seq 1 150); do { rec 01:05:00; rec 01:15:00; } | mkag "$SB/bigtd/s$i/subagents" "g$i" "$META_PLAN"; done
+T0=$SECONDS
+TZV=Asia/Seoul runs big --transcript-dir "$SB/bigtd"
+T1=$SECONDS
+ck "T9.c 합성 대형 입력(FID 400개 · 라운드 1200행 · 서브에이전트 150개)이 rc=0 · 20초 이내(CPU 경합 여유 — 실측 수 초. 10초 상한 M-1 은 verify 가 실환경으로 잰다)" "$RC|$(printf '%s\n' "$OUT" | grep -cF 'FID 400개')|$([ $((T1 - T0)) -le 20 ] && echo fast)" "0|1|fast"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
