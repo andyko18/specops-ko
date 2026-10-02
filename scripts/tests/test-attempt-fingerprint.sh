@@ -344,20 +344,30 @@ out=$(afp_in "$d" check "$FIDF"); rc=$?
 [ "$rc" -eq 1 ] && [[ "$out" == "ATTEMPT-STOP:"* ]] && ok "T5.c 같은 실패 2회 후 check rc1" || nope "T5.c" "rc=$rc out=$out"
 if ! grep -rEq 'FAIL T15|boom' "$A"; then ok "T5.d attempts.jsonl 에 출력 원문 없음"; else nope "T5.d" "원문 유출"; fi
 # 재료 임시 파일은 종료 후 남지 않는다 — mktemp 를 래퍼로 바꿔(macOS 는 TMPDIR 를 무시한다) 만든 파일을 추적한다
-d=$(mkd); mkdir -p "$d/shim" "$d/matdir"; mk_fix "$d" "$FIDF" 'echo "FAIL T15 boom"; exit 1'
-printf '#!/bin/sh\nf="%s/mat.$$"\n: > "$f"\necho "$f" >> "%s/calls"\necho "$f"\n' "$d/matdir" "$d/shim" > "$d/shim/mktemp"; chmod +x "$d/shim/mktemp"
+# mk_mkshim <dir> — 무인자 호출(run-verification 의 MATERIAL)만 matdir/ 에 만들고 calls 에 적는다.
+#   인자 있는 호출(bounded_run 의 flag · meter-tokens 의 NEWREC·NR)은 other/ 에 만들고 argcalls 에 적는다.
+#   분리 이유(실측): meter 는 세션 transcript 를 읽어 run-all 부하에서 bounded_run 5초 상한 TERM 을 받고, 그 TERM 이
+#   meter 의 mktemp 도중이나 EXIT trap 정리 경쟁에 걸리면 meter 자기 파일이 남는다 — 재료와 무관한 잔존이 단언을 깼다.
+#   인자 있는 호출도 파일은 **만든다** — bounded_run 워치독은 flag 파일이 없으면 즉시 빠져 상한 경로가 사라진다.
+mk_mkshim() {
+  local d="$1"; mkdir -p "$d/shim" "$d/matdir" "$d/other"
+  printf '#!/bin/sh\nif [ $# -eq 0 ]; then f="%s/mat.$$"; l="%s/calls"; else f="%s/mat.$$"; l="%s/argcalls"; fi\n: > "$f"\necho "$f" >> "$l"\necho "$f"\n' \
+    "$d/matdir" "$d/shim" "$d/other" "$d/shim" > "$d/shim/mktemp"
+  chmod +x "$d/shim/mktemp"
+}
+d=$(mkd); mk_mkshim "$d"; mk_fix "$d" "$FIDF" 'echo "FAIL T15 boom"; exit 1'
 ( cd "$d" && PATH="$d/shim:$PATH" "$SH" "$RUN" "$FIDF" >/dev/null 2>&1 )
 ncall=$(wc -l < "$d/shim/calls" 2>/dev/null | tr -d ' ')
 if [ "${ncall:-0}" -ge 1 ] && [ -z "$(ls -A "$d/matdir")" ]; then ok "T5.e 재료 임시 파일(mktemp ${ncall}회 호출)은 종료 후 삭제된다(원문이 디스크에 남지 않는다)"
 else nope "T5.e" "mktemp 호출 ${ncall:-0}회 · 잔존=$(ls -A "$d/matdir")"; fi
 # 실 FID(fid-start 기록 있음 — meter-tokens 가 bounded_run 으로 호출되는 경로)에서도 재료 파일이 삭제된다
-d=$(mkd); mkdir -p "$d/shim" "$d/matdir"; mk_fix "$d" "$FIDF" 'echo "FAIL T15 boom"; exit 1'
+d=$(mkd); mk_mkshim "$d"; mk_fix "$d" "$FIDF" 'echo "FAIL T15 boom"; exit 1'
 printf '%s\n' '{"ts":"2026-10-02T00:00:00Z","phase":"fid-start","fid":"x"}' > "$d/.specops/$FIDF/metrics.jsonl"
-printf '#!/bin/sh\nf="%s/mat.$$"\n: > "$f"\n[ $# -eq 0 ] && echo "$f" >> "%s/calls"\necho "$f"\n' "$d/matdir" "$d/shim" > "$d/shim/mktemp"; chmod +x "$d/shim/mktemp"
 ( cd "$d" && PATH="$d/shim:$PATH" "$SH" "$RUN" "$FIDF" >/dev/null 2>&1 )
 ncall=$(wc -l < "$d/shim/calls" 2>/dev/null | tr -d ' ')
-if [ "${ncall:-0}" -ge 1 ] && [ -z "$(ls -A "$d/matdir")" ]; then ok "T5.e2 meter 경로(fid-start 있는 실 FID)에서도 재료 임시 파일 삭제(EXIT trap 이 덮이지 않는다)"
-else nope "T5.e2" "mktemp(무인자) ${ncall:-0}회 · 잔존=$(ls -A "$d/matdir")"; fi
+nargc=$(wc -l < "$d/shim/argcalls" 2>/dev/null | tr -d ' ')   # ≥1 = bounded_run(meter 경로)에 실제로 들어갔다
+if [ "${ncall:-0}" -ge 1 ] && [ "${nargc:-0}" -ge 1 ] && [ -z "$(ls -A "$d/matdir")" ]; then ok "T5.e2 meter 경로(fid-start 있는 실 FID)에서도 재료 임시 파일 삭제(EXIT trap 이 덮이지 않는다)"
+else nope "T5.e2" "mktemp(무인자) ${ncall:-0}회 · 인자 ${nargc:-0}회 · 잔존=$(ls -A "$d/matdir")"; fi
 # PASS fixture
 FIDP=20261002-afp-pass
 d=$(mkd); A=$(attempts "$d" "$FIDP"); mk_fix "$d" "$FIDP" 'exit 0'
