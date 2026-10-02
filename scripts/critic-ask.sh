@@ -38,11 +38,23 @@ _usable() {
   echo "CRITIC: $1 감지됐으나 실행 불가(--version rc≠0) — stale shim/PATH 의심, 다음 후보 시도" >&2
   return 1
 }
+# 읽기 전용 호출 플래그를 이 CLI 가 지원하는지 --help 로 검출한다(버전 비교 대신 기능 검출).
+#   미지원이면 플래그 없는 약한 호출로 되돌리지 않고 부재로 강등한다(fail closed — 도구·쓰기가 열린 채 위탁하지 않는다).
+_sandboxable() {
+  local h=""
+  case "$1" in
+    claude) h=$("$1" --help </dev/null 2>&1); case "$h" in *--tools*) return 0 ;; esac ;;
+    codex)  h=$("$1" exec --help </dev/null 2>&1); case "$h" in *--sandbox*) return 0 ;; esac ;;
+    *) return 0 ;;
+  esac
+  echo "CRITIC: $1 가 읽기 전용 플래그를 지원하지 않음 — 다음 후보 시도" >&2
+  return 1
+}
 if [ -n "${CRITIC_BIN:-}" ]; then
   provider="custom"; bin="$CRITIC_BIN"
-elif command -v claude >/dev/null 2>&1 && _usable claude; then
+elif command -v claude >/dev/null 2>&1 && _usable claude && _sandboxable claude; then
   provider="claude"; bin="claude"
-elif command -v codex >/dev/null 2>&1 && _usable codex; then
+elif command -v codex >/dev/null 2>&1 && _usable codex && _sandboxable codex; then
   provider="codex"; bin="codex"
 elif command -v gemini >/dev/null 2>&1 && _usable gemini; then
   provider="gemini"; bin="gemini"
@@ -82,11 +94,13 @@ _invoke_provider() {
   # stdin=합성 프롬프트 → stdout=의견.
   # 단일 명령 provider 는 exec — 백그라운드 서브셸이 곧 provider 가 되어 워치독의 `pkill -P "$pid"` 가
   #   provider 의 자식까지 닿는다(exec 없으면 시간초과 시 provider 자손이 남는다 — 20260929-run-evals-orphan-sleep 실측)
-  # A-2 한계 고백: codex/gemini 플래그는 실측 미확인 (미설치 환경 작성) — 설치 후 본 함수만 보정
+  # 읽기 전용 호출 — 실측(2026-10-02, claude 2.1.287 · codex-cli 0.153.2): claude 는 기본 호출에서 도구(Bash)를 실제 실행했고
+  #   `--tools ""` 로 도구가 전부 꺼진다(의견 생성 정상). codex 는 `exec --help` 가 `--sandbox read-only`·`--ephemeral`·stdin 프롬프트(`-`)를 내고,
+  #   실제 호출은 외부 전송이라 하지 않았다. gemini 는 미설치라 실측하지 못했다 — 추측 플래그를 넣지 않았다(설치 후 본 함수만 보정).
   case "$provider" in
     custom) exec "$bin" ;;
-    claude) exec claude -p --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
-    codex)  exec codex exec - ;;
+    claude) exec claude -p --tools "" --model "$CLAUDE_MODEL" --fallback-model "$CLAUDE_FALLBACK" ;;
+    codex)  exec codex exec --sandbox read-only --ephemeral - ;;
     gemini) exec gemini -p - ;;
     ollama) jq -Rs --arg m "${CRITIC_MODEL:-qwen2.5:7b}" '{model:$m, prompt:., stream:false}' \
               | curl -sS -m "$TIMEOUT_S" http://localhost:11434/api/generate -d @- \

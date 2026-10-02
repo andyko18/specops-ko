@@ -47,7 +47,7 @@ else
 fi
 
 # T1.i cascade — 깨진 claude shim + 정상 codex → 다음 provider 로 넘어가 실효 유지
-printf '#!/usr/bin/env bash\n[ "$1" = "--version" ] 2>/dev/null && { echo 0.1; exit 0; }\ncat >/dev/null\necho "코덱스 의견"\n' > "$TD/shim/codex"
+printf '#!/usr/bin/env bash\n[ "$1" = "--version" ] 2>/dev/null && { echo 0.1; exit 0; }\ncase "$*" in *--help*) echo "      --sandbox <SANDBOX_MODE>"; exit 0 ;; esac\ncat >/dev/null\necho "코덱스 의견"\n' > "$TD/shim/codex"
 chmod +x "$TD/shim/codex"
 out=$(env -i PATH="$TD/shim:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" 2>/dev/null); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^CRITIC\[codex\]:' && echo "$out" | grep -q '코덱스 의견'; then
@@ -205,6 +205,43 @@ if grep -q 'CRITIC_CLAUDE_MODEL:-fable' "$SRC_FILE" && grep -q 'CRITIC_CLAUDE_FA
 else
   FAIL=$((FAIL+1)); echo "FAIL T-claude-3 기본 모델 계약 누락"
 fi
+
+# ══ T4 (20261002-critic-readonly-flags): provider argv 읽기 전용 · fail closed — argv 기록 stub(실제 CLI·네트워크 미사용) ══
+t4() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "PASS $1"; else FAIL=$((FAIL+1)); echo "FAIL $1 — exp '$3' got '$2'"; fi; }
+# mkprov DIR NAME HELP — --version·--help 에 응답하고, 그 밖 호출은 인자를 [인자] 줄로 기록하고 stdin 을 받아 의견을 낸다
+mkprov() {
+  mkdir -p "$1"
+  cat > "$1/$2" <<STUB
+#!/usr/bin/env bash
+case "\$1" in --version) echo 1.0; exit 0 ;; esac
+case "\$*" in *--help*) printf '%s\n' "$3"; exit 0 ;; esac
+for a in "\$@"; do printf '[%s]\n' "\$a"; done > "$1/argv.$2"
+cat > "$1/stdin.$2"
+echo "$2 의견"
+STUB
+  chmod +x "$1/$2"
+}
+argv() { tr '\n' ',' < "$1"; }
+runc() { env -i PATH="$1:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" --files "$TD/target.md" 2>&1; }
+mkprov "$TD/p-claude" claude '  --tools <tools...>  Specify the list of available tools'
+out=$(runc "$TD/p-claude")
+t4 "T4.a claude 는 -p --tools \"\"(빈 인자 보존) --model --fallback-model 로 호출되고 합성 프롬프트가 stdin 으로 간다" "$(printf '%s' "$out" | grep -c '^CRITIC\[claude\]:')|$(argv "$TD/p-claude/argv.claude")|$(grep -c '검토 지시문' "$TD/p-claude/stdin.claude")" "1|[-p],[--tools],[],[--model],[fable],[--fallback-model],[opus],|1"
+mkprov "$TD/p-codex" codex '      --sandbox <SANDBOX_MODE>  [possible values: read-only, workspace-write, danger-full-access]'
+out=$(runc "$TD/p-codex")
+t4 "T4.b codex 는 exec --sandbox read-only --ephemeral - 로 호출된다" "$(printf '%s' "$out" | grep -c '^CRITIC\[codex\]:')|$(argv "$TD/p-codex/argv.codex")" "1|[exec],[--sandbox],[read-only],[--ephemeral],[-],"
+mkprov "$TD/p-gemini" gemini 'usage'
+out=$(runc "$TD/p-gemini")
+t4 "T4.c gemini 는 실측하지 못해 종전 그대로(-p -) — 추측 플래그를 넣지 않는다" "$(printf '%s' "$out" | grep -c '^CRITIC\[gemini\]:')|$(argv "$TD/p-gemini/argv.gemini")" "1|[-p],[-],"
+mkprov "$TD/p-weak" claude 'usage: claude [options]'
+mkprov "$TD/p-weak" codex '      --sandbox <SANDBOX_MODE>'
+out=$(runc "$TD/p-weak")
+t4 "T4.d fail closed: --tools 를 모르는 claude 는 플래그 없이 호출되지 않고 제외된다(stderr 사유 1줄) — 다음 후보 codex 로 cascade" "$(printf '%s' "$out" | grep -c '^CRITIC\[codex\]:')|$(printf '%s' "$out" | grep -c 'claude 가 읽기 전용 플래그를 지원하지 않음')|$([ -e "$TD/p-weak/argv.claude" ] && echo called || echo never)" "1|1|never"
+mkprov "$TD/p-weak2" codex 'usage: codex exec [OPTIONS]'
+out=$(runc "$TD/p-weak2"); rc=$?
+t4 "T4.e fail closed: --sandbox 를 모르는 codex 단독이면 SKIP + exit 0 이고 호출 기록이 없다" "$rc|$(printf '%s' "$out" | grep -c '^CRITIC: SKIP (외부 CLI 부재)')|$([ -e "$TD/p-weak2/argv.codex" ] && echo called || echo never)" "0|1|never"
+rd=$(awk '/^## critic-ask.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md")
+kw() { if printf '%s\n' "$rd" | grep -qF -- "$1"; then printf y; else printf n; fi; }
+t4 "T4.f 주석·README 에 실측 사실(버전)과 gemini 미실측 한계가 있고 '실측 미확인' 문구는 없다" "$(grep -c '실측 미확인' "$SCRIPT")|$(grep -c '2.1.287' "$SCRIPT")|$(grep -c '0.153.2' "$SCRIPT")|$(grep -c 'gemini 는 미설치라 실측하지 못했다' "$SCRIPT")|$(kw '--tools')$(kw 'read-only')$(kw 'fail closed')$(kw 'gemini')" "0|1|1|1|yyyy"
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

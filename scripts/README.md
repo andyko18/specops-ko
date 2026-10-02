@@ -202,6 +202,12 @@ bash scripts/gate-coverage.sh ~/Project/Argus ~/Project/gobiseo
 
 plan.md·diff 를 Codex/Gemini CLI 에 위탁해 이종 모델 의견을 받습니다. CLI 부재 시 `CRITIC: SKIP` (chain 비차단).
 
+**읽기 전용 호출** — provider CLI 는 도구·쓰기가 닫힌 채 호출됩니다: claude 는 `--tools ""`(도구 전부 비활성), codex 는 `exec --sandbox read-only --ephemeral -`. 실측(2026-10-02, claude 2.1.287·codex-cli 0.153.2): 종전 claude 호출은 도구가 켜져 있어 프롬프트가 시키면 Bash 를 실제 실행했고 `--tools ""` 로 막혔습니다(의견 생성은 정상). codex 는 `exec --help` 로 플래그를 확인했고 외부 전송이라 실제 호출은 하지 않았습니다.
+
+**fail closed** — `claude --help` 에 `--tools` 가, `codex exec --help` 에 `--sandbox` 가 없는 CLI 는 플래그 없는 약한 호출로 되돌리지 않고 부재로 강등합니다(stderr 사유 1줄 후 다음 후보, 모두 부재면 `CRITIC: SKIP`). 버전 비교가 아니라 `--help` 기능 검출이라 최소 지원 버전은 확인하지 못했습니다.
+
+**한계**: gemini 는 이 환경에 설치돼 있지 않아 플래그를 실측하지 못했고 종전 호출(`-p -`)을 유지합니다 — 추측 플래그를 넣지 않았으며 설치 환경에서 실측해 보정해야 합니다(후속). `CRITIC_BIN` custom provider 는 호출 규약(stdin/stdout)만 요구하므로 읽기 전용 여부는 provider 책임입니다.
+
 ```bash
 bash scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
 CRITIC_BIN=/path/to/cli bash scripts/critic-ask.sh ...   # provider 강제 (테스트 stub 포함)
