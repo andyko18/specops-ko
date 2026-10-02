@@ -503,5 +503,10 @@ TZV=Asia/Seoul runs big --transcript-dir "$SB/bigtd"
 T1=$SECONDS
 ck "T9.c 합성 대형 입력(FID 400개 · 라운드 1200행 · 서브에이전트 150개)이 rc=0 · 20초 이내(CPU 경합 여유 — 실측 수 초. 10초 상한 M-1 은 verify 가 실환경으로 잰다)" "$RC|$(printf '%s\n' "$OUT" | grep -cF 'FID 400개')|$([ $((T1 - T0)) -le 20 ] && echo fast)" "0|1|fast"
 
+# ══ AC-10: 문서 ══
+SEC=$(awk '/^## review-cost.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md")
+kw() { if printf '%s\n' "$SEC" | grep -qF -- "$1"; then printf y; else printf n; fi; }
+ck "T10.a README 에 review-cost 절이 있고 사용법·해석 주의(표본 n·인과가 아니다·plan 창 조인)·한계(사유 클래스 불가·행 기록 누락)·프라이버시(카나리)가 적혀 있다" "$(kw 'bash scripts/review-cost.sh')$(kw '표본 n')$(kw '인과가 아니다')$(kw '조인')$(kw '클래스')$(kw '누락')$(kw '카나리')" "yyyyyyy"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
