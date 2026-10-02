@@ -247,6 +247,12 @@ FAIL 항목 존재?
         │    FAIL: <AC 목록>
         │    원인 분석 필요 — systematic-debugging-ko 또는 사용자 결정"
         └─ fix_count ≤ 3 →
+            동일 실패 지문 검사 — fix task dispatch 직전, 스크립트가 판정한다:
+              bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/attempt-fp.sh check <FID>
+              ├─ rc 1 (ATTEMPT-STOP) → fix task dispatch 없이 cap 초과와 같은 경로로 처리:
+              │   단일 모드: HARD GATE "VERIFY-HARD-GATE: <FID> 동일 실패 지문 <n>회 연속 (fp=<앞8자>) — 원인 분석 필요"
+              │   §auto: 아래 "[§auto 모드]" 흐름 (systematic-debugging-ko → 전역 재시도)
+              └─ rc 0 (지문 상이·PASS 개재·기록 부재 포함) → 계속
             verify-loop.md 갱신 (fix_count, last_fails)
             fix task 컨텍스트 작성:
               - FAIL AC ID 목록
@@ -258,7 +264,7 @@ FAIL 항목 존재?
 
 ### [§auto 모드] fix_loop cap 초과 처리
 
-fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
+fix_count > 3 **또는 `attempt-fp.sh check` rc 1(동일 실패 지문 연속)** 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
 
 ```
 §auto 감지? (grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md)
@@ -278,6 +284,13 @@ fix_count > 3 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시�
 
 **auto_retry_count 공유**: implementing-ko Phase B/C cap 초과와 동일 카운터 사용 (per-FID 전역, `.specops/<FID>/auto-state.md`).
 ```
+
+### 동일 실패 지문 정지 (attempt fingerprint)
+
+- `run-verification.sh` 가 FAIL·PASS 판정마다 `.specops/<FID>/attempts.jsonl` 에 실패 출력 정규화 해시 1줄을 기록한다(원문 미저장 · PARTIAL·NOT_RUN 은 기록 안 함). 이 파일은 스크립트 전용 기록이다 — 모델은 읽거나 쓰지 않고 `check` 의 rc 만 따른다.
+- `check` rc 1 = 같은 지문의 FAIL 연속 2회(`ATTEMPT_FP_MAX=2`, env 로 못 바꾼다) — cap(3) 이내여도 fix 를 더 돌리지 않는다. rc 0 = 계속(기록 부재·판독 불가는 fail-open — 기존 cap 경로). 지문이 달라져도 `fix_count` 상한은 그대로다 — cap 은 우회되지 않는다.
+- 정지 시 session-progress BLOCK 줄은 `fix_loop=3/3 초과` 대신 `동일 실패 지문 <n>회 연속` 으로 쓴다.
+- 한계: 실패 줄에 키워드가 없는 출력(한글 전용 메시지·`set -e` 중단·go 상세 줄·긴 메시지만 다른 같은-테스트 실패)과 8자 이상 hex/10진 id(`test_deadbeef01` vs `test_cafebabe02`)는 CMD·EXIT·테스트 id 단위로 같은 지문에 접힌다 — 정지 시 재료 부족일 수 있다.
 
 ### 규칙
 

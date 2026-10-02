@@ -32,7 +32,25 @@ ACFMT_SH="$PLUGIN/scripts/_internal/check-ac-format.sh"
 STATE_SH="$PLUGIN/scripts/_internal/verification-state.sh"
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
 METER_SH="$PLUGIN/scripts/_internal/meter-tokens.sh"
+ATTEMPT_SH="$PLUGIN/scripts/_internal/attempt-fp.sh"
 [ -f "$PLUGIN/scripts/_internal/run-bounded.sh" ] && source "$PLUGIN/scripts/_internal/run-bounded.sh"
+
+# 동일 실패 지문 재료 (FID 20261002-attempt-fingerprint) — 실패한 테스트 명령(CMD·EXIT·출력)과 사전 검사
+#   실패 사유(REASON)를 임시 파일에 모아 판정 합류점(_record_result)에서 attempt-fp.sh record 에 넘긴다.
+#   관측 전용·fail-open: mktemp·쓰기 실패는 재료 없이 진행하고 VERIFY 판정·출력·종료 코드에 영향 없다.
+#   재료 원문은 임시 파일에만 있고(EXIT trap 으로 삭제) attempts.jsonl 에는 해시만 남는다.
+MATERIAL=$(mktemp 2>/dev/null) || MATERIAL=""
+[ -n "$MATERIAL" ] && trap 'rm -f "$MATERIAL"' EXIT
+_mat_cmd() { # <cmd> <exit> <출력>
+  [ -n "$MATERIAL" ] || return 0
+  { printf 'CMD: %s\nEXIT: %s\n' "$1" "$2"; printf '%s\n' "$3"; } 2>/dev/null >> "$MATERIAL"
+  return 0
+}
+_mat_reason() { # <tag> [<검사 출력>] — 출력 줄은 attempt-fp 의 실패 줄 필터를 거친다(위반 대상 구분용)
+  [ -n "$MATERIAL" ] || return 0
+  { printf 'REASON: %s\n' "$1"; [ $# -ge 2 ] && printf '%s\n' "$2"; } 2>/dev/null >> "$MATERIAL"
+  return 0
+}
 
 all_pass=1
 executed=0
@@ -61,6 +79,14 @@ _record_result() { # <verdict>
       --verdict "$verdict" 2>/dev/null; then
     echo "WARN: verify metric 기록 실패 (FID=$FID)" >&2
   fi
+  # 동일 실패 지문 기록(관측 전용·fail-open) — FAIL·PASS 만. stdout 은 버리고 실패해도 판정·종료 코드는 불변.
+  case "$verdict" in
+    PASS|FAIL)
+      if [ -f "$ATTEMPT_SH" ]; then
+        bash "$ATTEMPT_SH" record "$FID" "$verdict" --material "${MATERIAL:-}" >/dev/null \
+          || echo "WARN: attempt 지문 기록 실패 (FID=$FID)" >&2
+      fi ;;
+  esac
   # 토큰 관측(관측 전용·fail-open): fid-start 가 기록된 실 FID 에서만 호출 — fixture FID 는 호출 자체가 없다.
   # 출력 0, 실패·시간초과(124) 무시 — verdict·종료 코드·evidence stamp 에 영향 없음.
   if command -v bounded_run >/dev/null 2>&1 && [ -f "$METER_SH" ] \
@@ -85,6 +111,7 @@ _ac_contract_check() {
   local out ec
   out=$(bash "$ACFMT_SH" "$FID" 2>&1); ec=$?
   [ "$ec" -eq 2 ] || return 0               # 2 = AC 파일 부재. 그 외(포맷 FAIL)는 emit-context 관할
+  _mat_reason ac-format "$out"
   echo "VERIFY: FAIL ac-format" >&2
   echo "$out" >&2
   echo "  acceptance-criteria.md 가 없으면 Phase B 가 대조할 계약이 없다 — specifying-ko 가 spec.md 와 쌍으로 산출한다." >&2
@@ -100,6 +127,7 @@ if [ -z "$commands" ]; then
   if [ -f "$AUDIT_SH" ]; then
     audit_out=$(bash "$AUDIT_SH" "$FID" 2>&1) || {
       failed=$((failed + 1))
+      _mat_reason review-audit "$audit_out"
       _record_result FAIL
       echo "VERIFY: FAIL review-audit" >&2
       echo "$audit_out" >&2
@@ -111,6 +139,7 @@ if [ -z "$commands" ]; then
   if [ -f "$FND_SH" ]; then
     fnd_out=$(bash "$FND_SH" "$FID" 2>&1) || {
       failed=$((failed + 1))
+      _mat_reason foundation-manifest "$fnd_out"
       _record_result FAIL
       echo "VERIFY: FAIL foundation-manifest 미산출" >&2
       echo "$fnd_out" >&2
@@ -205,6 +234,7 @@ while IFS= read -r cmd; do
     all_pass=0
     failed=$((failed + 1))
     echo "VERIFY: FAIL $cmd (exit=$ec)" >&2
+    _mat_cmd "$cmd" "$ec" "$out"
   fi
 done <<< "$commands"
 
@@ -227,6 +257,7 @@ if [ -f "$AUDIT_SH" ]; then
   if [ "$audit_ec" -ne 0 ]; then
     all_pass=0
     failed=$((failed + 1))
+    _mat_reason review-audit "$audit_out"
     echo "VERIFY: FAIL review-audit (exit=$audit_ec)" >&2
     echo "$audit_out" >&2
   fi
@@ -250,6 +281,7 @@ if [ -f "$PRESENCE_SH" ]; then
     # §lite 만 rc=1 (하드) — 비-lite 는 rc=0 WARN 이라 여기 오지 않는다.
     all_pass=0
     failed=$((failed + 1))
+    _mat_reason review-presence "$presence_out"
     echo "VERIFY: FAIL review-presence (§lite Phase B/C 생략)" >&2
     printf '%s\n' "$presence_out" >&2
   else
@@ -271,6 +303,7 @@ if [ -f "$LABEL_SH" ]; then
   if [ "$label_ec" -ne 0 ]; then
     all_pass=0
     failed=$((failed + 1))
+    _mat_reason spec-label "$label_out"
     echo "VERIFY: FAIL spec-label hybrid (exit=$label_ec)" >&2
     echo "$label_out" >&2
   fi
@@ -293,6 +326,7 @@ if [ -f "$FND_SH" ]; then
   if [ "$fnd_ec" -ne 0 ]; then
     all_pass=0
     failed=$((failed + 1))
+    _mat_reason foundation-manifest "$fnd_out"
     echo "VERIFY: FAIL foundation-manifest 미산출 (exit=$fnd_ec)" >&2
     echo "$fnd_out" >&2
   fi
