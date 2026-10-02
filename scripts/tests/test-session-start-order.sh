@@ -35,8 +35,8 @@ make_ctx(){ # $1=sandbox dir  $2=with_optional(1|0)
 
 # 오프셋은 **decode 된 additionalContext** 기준으로 잰다. harness 절단이 인코딩 원문
 # 기준일 수 있으나, 인코딩 기준 실측(436B)도 상한 대비 여유가 커서 어느 기준이든 계약이 선다.
-SB=$(mktemp -d); SB2=""; SB3=""; SB4=""; SB5=""
-trap 'rm -rf "$SB" "$SB2" "$SB3" "$SB4" "$SB5"' EXIT
+SB=$(mktemp -d); SB2=""; SB3=""; SB4=""; SB5=""; SB6=""; SB7=""
+trap 'rm -rf "$SB" "$SB2" "$SB3" "$SB4" "$SB5" "$SB6" "$SB7"' EXIT
 make_ctx "$SB" 1
 CTX="$SB/ctx.txt"
 
@@ -245,7 +245,7 @@ doc_has CLAUDE.md '문자 10,000' "T-ord.i" "CLAUDE.md 인라인 한도(문자 1
 doc_has CLAUDE.md 'UTF-16 단위' "T-ord.j" "CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 
 # T-bud.i 앞 블록 폭주 — 미완 batch 14개여도 batch-resume 은 상세 3개 + 건수 1줄로 접혀 총량이 9,500 이하다 (20261002-batch-resume-hook-cap)
-#   ★ 공허 가드: 상한 없이는 같은 픽스처가 한도(10,000)를 넘는다(프로브: batch 10개 = 10,044). 상세 3줄·건수 줄을 함께 단정한다.
+#   ★ 공허 가드(실행 단언): 같은 픽스처의 직접 실행(상한 없음) 블록이 훅 블록의 2배 이상이어야 한다 — 상한이 실제로 접고 있다는 증거.
 SB6=$(mktemp -d); make_ctx "$SB6" 1
 for i in $(seq 1 14); do
   b="$SB6/.specops/batch-2026082$((i % 10))-09$(printf %02d "$i")"; mkdir -p "$b"
@@ -255,12 +255,53 @@ done
 for i in $(seq 1 450); do printf '  메모 %03d: 가나다라마바사아자차카타파하 세션 기록 누적 확인용 한글 채움 문장입니다\n' "$i"; done >> "$SB6/.specops/session-progress.md"
 ctx_j "$SB6"
 n_i=$(u16_of "$SB6/outj.json")
-if [ "${n_i:-99999}" -le 9500 ] && [ "$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")" -eq 3 ] && grep -q '외 미완 batch 11개' "$SB6/ctxj.txt"; then
-  ok "T-bud.i 미완 batch 14개 → 상세 3 + '외 11개' · ${n_i}자 <= 9500"
+bres_of(){ sed -n '/^<batch-resume>/,/^<\/batch-resume>/p' "$1" | sed '1d;$d'; }   # 블록 본문(태그 제외)
+direct_bytes(){ ( cd "$1" && SPECOPS_ROOT="$1/.specops" bash "$PLUGIN/scripts/_internal/batch-resume-check.sh" 2>/dev/null ) | LC_ALL=C wc -c | tr -d ' '; }
+hb_i=$(bres_of "$SB6/ctxj.txt" | LC_ALL=C wc -c | tr -d ' '); db_i=$(direct_bytes "$SB6")
+if [ "${n_i:-99999}" -le 9500 ] && [ "$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")" -eq 3 ] && grep -q '외 미완 batch 11개' "$SB6/ctxj.txt" \
+   && [ "${hb_i:-0}" -gt 0 ] && [ "${db_i:-0}" -ge $((hb_i * 2)) ]; then
+  ok "T-bud.i 미완 batch 14개 → 상세 3 + '외 11개' · ${n_i}자 <= 9500 (공허 가드: 직접 ${db_i}B >= 2×훅 ${hb_i}B)"
 else
-  ng "T-bud.i batch 폭주 상한" "chars=${n_i:-없음} 상세=$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")/3 건수줄=$(grep -c '외 미완 batch 11개' "$SB6/ctxj.txt")"
+  ng "T-bud.i batch 폭주 상한" "chars=${n_i:-없음} 상세=$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")/3 건수줄=$(grep -c '외 미완 batch 11개' "$SB6/ctxj.txt") 직접=${db_i:-없음}B 훅=${hb_i:-없음}B"
 fi
 rm -rf "$SB6"
+
+# T-bud.j 완료형 batch 3개(전 FR IMPL_DONE + evidence.md 존재 + 게이트 헤더 없음) — 개수(3) 안이어도 총량이 예산 안 (Phase C Critical)
+#   완료형 상세는 3줄 + 절대경로 2회(SPECOPS_ROOT="$(pwd)/.specops")라 cwd 깊이에 비례한다. 개수 상한만으로는 실 repo 경로에서
+#   총 10,411 / head 10,196 이었다 → 바이트 예산이 2번째부터 접는다. mktemp 기본 경로와 cwd 150자 두 변형을 잰다.
+#   ★ 공허 가드(실행 단언): 직접 실행(상한 없음) 블록이 훅 블록의 2배 이상 — 예산이 실제로 접고 있다는 증거.
+mk_done3(){ # $1=sandbox — make_ctx(…,1) + 거대 rehydrate + 완료형 batch 3개
+  local i b
+  make_ctx "$1" 1
+  for i in 1 2 3; do
+    b="$1/.specops/batch-20260828-090$i"; mkdir -p "$b" "$1/.specops/20260101-e$i"
+    printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-1 | 20260101-e%s | d | IMPL_DONE |\n' "$i" > "$b/queue.md"
+    : > "$b/ACTIVE"; : > "$1/.specops/20260101-e$i/evidence.md"
+  done
+  for i in $(seq 1 450); do printf '  메모 %03d: 가나다라마바사아자차카타파하 세션 기록 누적 확인용 한글 채움 문장입니다\n' "$i"; done >> "$1/.specops/session-progress.md"
+  ctx_j "$1"
+}
+SB7=$(mktemp -d)
+pad_j=$((150 - ${#SB7} - 1)); [ "$pad_j" -ge 1 ] || pad_j=1
+deep_j="$SB7/$(printf 'p%.0s' $(seq 1 "$pad_j"))"
+# 얕은 변형은 session-start 내부 가드(CTX_BUDGET 9,500)로, 깊은 변형은 실제 harness 한도(UTF-16 10,000)로 단언한다 —
+#   깊은 변형은 pending 블록의 플러그인 루트 경로 길이(1자당 +2)에 민감해 9,500 은 clone 위치에 따라 흔들린다(134자 실측 9,650).
+for sb_j in "$SB7/s" "$deep_j"; do
+  if [ "$sb_j" = "$deep_j" ]; then lim_j=10000; else lim_j=9500; fi
+  mkdir -p "$sb_j"; mk_done3 "$sb_j"
+  n_j=$(u16_of "$sb_j/outj.json")
+  hd_j=$(jq '.hookSpecificOutput.additionalContext | split("\n\n<session-progress-rehydrate>")[0] | [explode[] | if . > 65535 then 2 else 1 end] | add' "$sb_j/outj.json" 2>/dev/null)
+  d_j=$(grep -c '미완 batch — batch-' "$sb_j/ctxj.txt")
+  hb_j=$(bres_of "$sb_j/ctxj.txt" | LC_ALL=C wc -c | tr -d ' '); db_j=$(direct_bytes "$sb_j")
+  if [ "${n_j:-99999}" -le "$lim_j" ] && [ "${hd_j:-99999}" -le "$lim_j" ] && jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' "$sb_j/outj.json" >/dev/null 2>&1 \
+     && [ "$d_j" -ge 1 ] && [ "$d_j" -le 2 ] && [ "$(grep -c "외 미완 batch $((3 - d_j))개" "$sb_j/ctxj.txt")" -eq 1 ] \
+     && [ "${hb_j:-0}" -gt 0 ] && [ "${db_j:-0}" -ge $((hb_j * 2)) ]; then
+    ok "T-bud.j 완료형 3개 cwd ${#sb_j}자 → 상세 ${d_j} + '외 $((3 - d_j))개' · 총 ${n_j} / head ${hd_j} <= ${lim_j} (직접 ${db_j}B >= 2×훅 ${hb_j}B)"
+  else
+    ng "T-bud.j 완료형 batch 예산 (cwd ${#sb_j}자)" "chars=${n_j:-없음} head=${hd_j:-없음} limit=$lim_j 상세=$d_j 건수줄=$(grep -c '외 미완 batch' "$sb_j/ctxj.txt") 직접=${db_j:-없음}B 훅=${hb_j:-없음}B"
+  fi
+done
+rm -rf "$SB7"
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
