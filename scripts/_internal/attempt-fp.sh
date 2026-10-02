@@ -29,6 +29,9 @@
 #
 # 한계(정직): 정지 판정(check)을 부르는 쪽은 verifying-ko 산문(모델)이라 훅 수준 강제가 아니다.
 #   이 기록은 R-1/R-2 verify 면제 판정이 읽지 않는다 — 면제를 넓히지 않는다.
+#   실패 줄에 키워드가 없는 출력(한글 전용 메시지·set -e 중단·go 상세 줄·긴 메시지만 다른 같은-테스트 실패)은
+#   CMD·EXIT·테스트 id 단위로 접힌다 — 정지 시 재료 부족일 수 있다. 8자 이상 hex/10진 id(test_deadbeef01 vs
+#   test_cafebabe02)도 접힌다. 반대로 줄 머리 `●`(jest 외 도구의 글머리표)는 실패 줄로 취해질 수 있다 — 지문이 달라지는 미탐 방향이다.
 set -u
 
 # 상수 — env 로 바꿀 수 없다(무조건 대입). 값을 바꾸는 것은 코드 변경이다.
@@ -48,7 +51,7 @@ afp::fid_ok() { # <FID> — 경로 탈출 차단
 # 정규화 awk (gawk·mawk·BSD awk 공용 — interval expression·gensub·IGNORECASE 금지).
 #   1) CMD:/EXIT:/REASON: 구조 줄은 항상 취한다(키워드가 없어도 — 조용한 exit 1 이 빈 지문이 되지 않게).
 #   2) 요약 카운트 줄(PASS=N FAIL=M · N failed, M passed · Results: · ==== … ==== · TAP `# fail N`)은 제외.
-#   3) 강한 실패 시작(FAIL·ERROR·not ok·✗·✕·Traceback·panic·--- FAIL)은 취한다.
+#   3) 강한 실패 시작(FAIL·ERROR·not ok·✗·✕·Traceback·panic·--- FAIL · jest 기본 리포터 `●` 헤더 — `● Console` 제외)은 취한다.
 #   4) 통과 줄(PASS … · ok … · ✓ · … PASSED · go 의 --- PASS/=== RUN · run-all 의 `--- <스위트>.sh` 헤더 · TAP `# Subtest:` 헤더)은 제외.
 #   5) 나머지는 키워드(FAIL|ERROR|not ok|✗|✕|Traceback|panic, 대소문자 무시) 포함 줄만 취한다.
 #   취한 줄에서 ANSI·ISO 시각·소요시간·tmp 경로·16진·PID 를 치환하고 공백을 접는다. 테스트 id 는 보존.
@@ -102,6 +105,8 @@ function is_summary(low) {
 function strong_fail(low, t) {
   if (low ~ /^(fail|error|not ok|panic|--- fail|traceback)/) return 1
   if (index(t, "✗") == 1 || index(t, "✕") == 1) return 1
+  # jest 기본 리포터의 실패 테스트 헤더(`● suite › name`). `● Console` 은 통과 테스트에도 나오는 console 머리줄이다.
+  if (index(t, "●") == 1 && t != "● Console") return 1
   return 0
 }
 

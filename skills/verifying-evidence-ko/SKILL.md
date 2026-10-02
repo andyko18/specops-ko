@@ -290,6 +290,7 @@ fix_count > 3 **또는 `attempt-fp.sh check` rc 1(동일 실패 지문 연속)**
 - `run-verification.sh` 가 FAIL·PASS 판정마다 `.specops/<FID>/attempts.jsonl` 에 실패 출력 정규화 해시 1줄을 기록한다(원문 미저장 · PARTIAL·NOT_RUN 은 기록 안 함). 이 파일은 스크립트 전용 기록이다 — 모델은 읽거나 쓰지 않고 `check` 의 rc 만 따른다.
 - `check` rc 1 = 같은 지문의 FAIL 연속 2회(`ATTEMPT_FP_MAX=2`, env 로 못 바꾼다) — cap(3) 이내여도 fix 를 더 돌리지 않는다. rc 0 = 계속(기록 부재·판독 불가는 fail-open — 기존 cap 경로). 지문이 달라져도 `fix_count` 상한은 그대로다 — cap 은 우회되지 않는다.
 - 정지 시 session-progress BLOCK 줄은 `fix_loop=3/3 초과` 대신 `동일 실패 지문 <n>회 연속` 으로 쓴다.
+- 한계: 실패 줄에 키워드가 없는 출력(한글 전용 메시지·`set -e` 중단·go 상세 줄·긴 메시지만 다른 같은-테스트 실패)과 8자 이상 hex/10진 id(`test_deadbeef01` vs `test_cafebabe02`)는 CMD·EXIT·테스트 id 단위로 같은 지문에 접힌다 — 정지 시 재료 부족일 수 있다.
 
 ### 규칙
 

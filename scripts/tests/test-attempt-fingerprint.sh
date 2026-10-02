@@ -546,6 +546,14 @@ else nope "T6.j" "$(grep -rEn 'attempts\.jsonl|attempt-fp' "$PLUGIN/hooks" "$PLU
 printf 'x attempts.jsonl y\n' > "$sk/probe.sh"
 if grep -Eq 'attempts\.jsonl|attempt-fp' "$sk/probe.sh"; then ok "T6.k 음성: 같은 grep 이 참조가 있는 파일에서는 적중한다"; else nope "T6.k" "grep 헛돎"; fi
 [ -x "$AFP" ] && [ "$(head -1 "$AFP")" = '#!/usr/bin/env bash' ] && ok "T6.l attempt-fp.sh: 실행권한·shebang" || nope "T6.l" "exec-bit/shebang"
+# 한계 고백(원칙 5) — 키워드 없는 실패 출력·긴 hex/10진 id 의 접힘을 SKILL 지문 절과 스크립트 헤더 둘 다 밝힌다
+fp_section() { sed -n '/^### 동일 실패 지문 정지/,/^### 규칙/p' "$1"; }
+if fp_section "$SKILL" | grep -q '키워드가 없는 출력.*접힌다.*재료 부족'; then ok "T6.m SKILL 지문 절: 키워드 없는 출력 접힘 한계 고백"
+else nope "T6.m" "SKILL 지문 절에 한계 문구 없음"; fi
+if sed -n '/^# 한계(정직)/,/^set -u$/p' "$AFP" | grep -q '키워드가 없는 출력' \
+   && sed -n '/^# 한계(정직)/,/^set -u$/p' "$AFP" | grep -q '재료 부족' \
+   && sed -n '/^# 한계(정직)/,/^set -u$/p' "$AFP" | grep -q 'test_deadbeef01'; then ok "T6.n attempt-fp.sh 헤더 한계 절: 키워드 없는 출력·긴 id 접힘 고백"
+else nope "T6.n" "헤더 한계 절에 문구 없음"; fi
 
 # ── T7 (AC-7) 러너 5형상 — 실패 줄만 재료 ─────────────────────────
 shape() { # <id> <이름> <FAILS> <NOISE_A> <NOISE_B> <FAILS2> <기대 정규화 집합(정렬)>
@@ -609,5 +617,24 @@ eq "T7.w FAIL/ERROR 로 시작하는 줄은 ' passed ' 가 있어도 취한다(P
 # 실패 줄 안의 가변부는 정규화돼 실제 러너 형상에서 지문이 안정된다
 same_fp "T7.y go: --- FAIL 줄의 소요시간만 달라도 같은 실패" $'--- FAIL: TestA (0.00s)' $'--- FAIL: TestA (1.37s)'
 diff_fp "T7.z pytest: 같은 파일 다른 테스트(test_a ≠ test_b)는 다른 실패" 'FAILED tests/x.py::test_a - AssertionError' 'FAILED tests/x.py::test_b - AssertionError'
+# jest 기본(비-verbose) 리포터: 다중 파일 실행에서 실패 테스트는 `● <suite> › <name>` 헤더로만 나온다(✕ 줄 없음).
+#   상세 줄(expect·Expected·at …)에는 키워드가 없어 ● 헤더를 취하지 않으면 같은 파일의 다른 실패가 같은 fp 로 접힌다
+#   (Phase C 입력 프로브 R3 실측 [SAME]). `● Console`(구 jest 의 console 출력 머리줄 — 통과 테스트에도 나온다)는 실패가 아니다.
+jest_mat() { # <케이스 이름> <파일 소요> <✓ 소요> <Time 값>
+  printf '%s\n' 'CMD: npx jest' 'EXIT: 1' " FAIL  src/a.test.js ($2)" "  ✓ passes ($3)" '  ● Console' '' \
+    '    console.log' '      hello' '' "  ● suite › $1" '' '    expect(received).toBe(expected) // Object.is equality' '' \
+    '    Expected: 2' '    Received: 1' '' '      at Object.<anonymous> (src/a.test.js:5:13)' '' \
+    'Test Suites: 1 failed, 1 total' 'Tests:       1 failed, 1 passed, 2 total' "Time:        $4"
+}
+d=$(mkd); jest_mat 'case A' '5.123 s' '3 ms' '1.234 s' > "$d/m"
+got=$(afp::normalize "$d/m")
+eq "T7.ja jest 기본 리포터: ● 실패 헤더는 취하고 ✓ 통과 줄·● Console·상세 줄·요약 줄은 제외" \
+  "$(printf '%s\n' 'CMD: npx jest' 'EXIT: 1' 'FAIL src/a.test.js (<DUR>)' '● suite › case A' | LC_ALL=C sort -u)" "$got"
+diff_fp "T7.jb jest 기본 리포터: 같은 파일의 다른 실패 테스트(● case A ≠ ● case B, 키워드 없는 줄)는 다른 실패" \
+  "$(jest_mat 'case A' '5.123 s' '3 ms' '1.234 s')" "$(jest_mat 'case B' '5.123 s' '3 ms' '1.234 s')"
+same_fp "T7.jc jest 기본 리포터: 같은 실패 테스트의 소요시간만 다르면(취한 FAIL 줄 포함) 같은 실패" \
+  "$(jest_mat 'case A' '5.123 s' '3 ms' '1.234 s')" "$(jest_mat 'case A' '12.4 s' '9 ms' '7.5 s')"
+same_fp "T7.jd jest 기본 리포터: ● 헤더의 ANSI 색 코드는 무시" \
+  "$(jest_mat 'case A' '5.123 s' '3 ms' '1.234 s')" "$(jest_mat 'case A' '5.123 s' '3 ms' '1.234 s' | sed $'s/  ● suite/  \033[1m\033[31m● \033[22msuite/')"
 
 finish
