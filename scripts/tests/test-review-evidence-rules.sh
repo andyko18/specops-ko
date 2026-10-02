@@ -42,6 +42,9 @@ awk 'index($0, "## 증거 규칙") == 1 { skip = 1; next } /^## / { skip = 0 } !
 grep -vF '메모리 안전' "$AG" > "$SB/no-areas.md"
 sed 's/\[검증 불가\]/[미확인]/g' "$AG" > "$SB/no-label.md"
 ck "T1.c 음성 대조: 절을 지운 사본 · 강등 금지 줄을 지운 사본 · 라벨을 바꾼 사본은 검사에서 걸린다(검사가 헛돌지 않는다)" "$(rules_check "$SB/no-section.md")|$(rules_check "$SB/no-areas.md")|$(rules_check "$SB/no-label.md")" "nnnnnnnn|yyynnnyy|ynyyyyyy"
+sed 's/ — \*\*증거 인용 필수\*\*(아래 「증거 규칙」)//' "$AG" > "$SB/no-mark.md"
+mark_check() { printf '%s%s' "$(grep -F '🔴 **Critical**' "$1" | head -1 | grep -qF '증거 인용 필수' && echo y || echo n)" "$(grep -F '🟡 **Important**' "$1" | head -1 | grep -qF '증거 인용 필수' && echo y || echo n)"; }
+ck "T1.d 이슈 분류의 Critical·Important 줄에 증거 인용 필수 표시가 있고(음성 대조: 표시를 지운 사본은 걸린다)" "$(mark_check "$AG")|$(mark_check "$SB/no-mark.md")" "yy|nn"
 
 # ══ AC-2: 출력 포맷·절대 금지 ══
 ck "T2.a 출력 포맷에 리스크 플랜 절(high·medium·low + 검증 명령, (none) 허용)이 종합 판정 앞에 있다" "$(risk_check "$AG")" "yyyyyyy"
