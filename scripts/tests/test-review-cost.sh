@@ -324,7 +324,7 @@ ck "T5.b 표: wall 내림차순 A(18분 = 10+5+3, −60초 에이전트 포함) 
 TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td" --top 1
 ck "T5.c --top 1 이면 A 한 행만" "$(order)" "20260901-fida,"
 TZV=UTC runs w5 --transcript-dir "$SB/w5td"
-ck "T5.d 로컬 시각 기준: TZ=UTC 로 돌리면 원장(로컬 10시대)과 서브에이전트(UTC 01시대)가 어긋나 귀속 0 · 미귀속 7(TZ 를 무시하지 않는다)" "$(printf '%s\n' "$OUT" | grep -F 'wall:' | cut -d'—' -f1)" "wall: 에이전트 7개 중 귀속 0 · 모호 0 · 미귀속 7 "
+ck "T5.d 로컬 시각 기준: TZ=UTC 로 돌리면 원장(로컬 10시대)과 서브에이전트(UTC 01시대)가 어긋나 귀속 0 · 미귀속 7(TZ 를 무시하지 않는다)" "$(printf '%s\n' "$OUT" | grep -F 'wall:' | sed 's/—.*//')" "wall: 에이전트 7개 중 귀속 0 · 모호 0 · 미귀속 7 "
 ledger w5b <<EOF
 ## 20260901-fidc · C
 
@@ -407,7 +407,7 @@ mkdir -p "$SB/proj/.specops"; cp -R "$SB/w5/." "$SB/proj/.specops/"
 PHYS=$(cd "$SB/proj" && pwd -P); ENC=$(printf '%s' "$PHYS" | sed 's/[^A-Za-z0-9]/-/g')
 mkdir -p "$SB/cfg/projects/$ENC"; cp -Rp "$SB/w5td/." "$SB/cfg/projects/$ENC/"
 TZV=Asia/Seoul runs proj/.specops
-ck "T6.c --transcript-dir 없이: CLAUDE_CONFIG_DIR/projects/<원장 루트 실경로의 비영숫자→-> 를 기본으로 찾는다(stage-timing.sh 와 같은 규칙)" "$RC|$(printf '%s\n' "$OUT" | grep -F 'wall:' | cut -d'—' -f1)" "0|wall: 에이전트 7개 중 귀속 4 · 모호 1 · 미귀속 2 "
+ck "T6.c --transcript-dir 없이: CLAUDE_CONFIG_DIR/projects/<원장 루트 실경로의 비영숫자→-> 를 기본으로 찾는다(stage-timing.sh 와 같은 규칙)" "$RC|$(printf '%s\n' "$OUT" | grep -F 'wall:' | sed 's/—.*//')" "0|wall: 에이전트 7개 중 귀속 4 · 모호 1 · 미귀속 2 "
 
 # ══ AC-7: 부재는 오류가 아니라 사실 ══
 TZV=Asia/Seoul runs w5 --transcript-dir "$SB/w5td"; CORE_FULL=$(core)
