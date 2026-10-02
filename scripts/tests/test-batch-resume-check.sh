@@ -194,4 +194,61 @@ else
   nope "T14 진행 중 오경보" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
 fi
 
+
+# ── T15·T16 훅 모드 상세 상한(20261002-batch-resume-hook-cap) ──
+#    SessionStart 앞 블록은 상한이 없으면 총량이 harness 한도를 넘어 meta 본문을 프리뷰 밖으로 민다(프로브: batch 10개 = 10,044).
+mk_n() {  # <dir> <개수> — 미완 batch N개(ACTIVE, IMPL_DONE 1 + PENDING 1)
+  local d="$1" n="$2" i b
+  for i in $(seq 1 "$n"); do
+    b="$d/.specops/batch-20260828-090$i"; mkdir -p "$b"
+    printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-1 | 20260101-d%s | d | IMPL_DONE |\n| FR-p1 | TBD | p | PENDING |\n' "$i" > "$b/queue.md"
+    : > "$b/ACTIVE"
+  done
+}
+rm -rf "$TMP/t15"; mk_n "$TMP/t15" 5
+hook_out=$(cd "$TMP/t15" && bash "$SCRIPT" --hook 2>&1); code=$?
+full_out=$(cd "$TMP/t15" && bash "$SCRIPT" 2>&1)
+if [ "$code" -eq 0 ] \
+   && [ "$(printf '%s\n' "$hook_out" | grep -c '미완 batch — batch-')" -eq 3 ] \
+   && [ "$(printf '%s\n' "$hook_out" | grep -c '외 미완 batch 2개')" -eq 1 ] \
+   && printf '%s' "$hook_out" | grep -q 'batch-20260828-0903' && ! printf '%s' "$hook_out" | grep -q 'batch-20260828-0904' \
+   && [ "$(printf '%s\n' "$full_out" | grep -c '미완 batch — batch-')" -eq 5 ] \
+   && ! printf '%s' "$full_out" | grep -q '외 미완 batch'; then
+  ok "T15 훅 모드 상세 3개 + '외 미완 batch 2개' 1줄 · 직접 실행은 5개 전부"
+else
+  nope "T15 훅 모드 상한" "exit=$code hook=$(printf '%s' "$hook_out" | tr '\n' ' ') full_n=$(printf '%s\n' "$full_out" | grep -c '미완 batch — batch-')"
+fi
+
+rm -rf "$TMP/t16"; mk_n "$TMP/t16" 3
+hook3=$(cd "$TMP/t16" && bash "$SCRIPT" --hook 2>&1); full3=$(cd "$TMP/t16" && bash "$SCRIPT" 2>&1)
+if [ -n "$hook3" ] && [ "$hook3" = "$full3" ] && ! printf '%s' "$hook3" | grep -q '외 미완 batch'; then
+  ok "T16 batch 3개 이하는 훅 출력이 직접 실행과 동일(상한 줄 없음)"
+else
+  nope "T16 3개 이하 불변" "hook=$(printf '%s' "$hook3" | tr '\n' ' ')"
+fi
+
+# ── T17 완료형 3개 — 개수(3) 안이어도 바이트 예산이 접는다 (Phase C Critical: 완료형 3개 = 총 10,411) ──
+#    완료형 상세는 3줄 + 절대경로 2회라 진행형의 ~3배다. 훅은 첫 batch 만 상세(예산은 2번째부터 적용) + 건수 줄,
+#    직접 실행은 3개 전부 + 게이트 전파 줄 3개. SPECOPS_ROOT 절대경로는 session-start.sh 의 호출 형태 그대로다.
+rm -rf "$TMP/t17"
+for i in 1 2 3; do
+  b="$TMP/t17/.specops/batch-20260828-090$i"; mkdir -p "$b"
+  printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-1 | 20260101-e%s | d | IMPL_DONE |\n' "$i" > "$b/queue.md"
+  : > "$b/ACTIVE"
+  mk_evidence "$TMP/t17" "20260101-e$i" ""
+done
+hook17=$(cd "$TMP/t17" && SPECOPS_ROOT="$TMP/t17/.specops" bash "$SCRIPT" --hook 2>&1); code=$?
+full17=$(cd "$TMP/t17" && SPECOPS_ROOT="$TMP/t17/.specops" bash "$SCRIPT" 2>&1)
+h17=$(printf '%s\n' "$hook17" | grep -c '미완 batch — batch-')
+if [ "$code" -eq 0 ] && [ "$h17" -ge 1 ] && [ "$h17" -le 2 ] \
+   && [ "$(printf '%s\n' "$hook17" | grep -c "외 미완 batch $((3 - h17))개")" -eq 1 ] \
+   && printf '%s' "$hook17" | grep -q 'batch-20260828-0901' \
+   && [ "$(printf '%s\n' "$full17" | grep -c '미완 batch — batch-')" -eq 3 ] \
+   && [ "$(printf '%s\n' "$full17" | grep -c '게이트 전파 누락')" -eq 3 ] \
+   && ! printf '%s' "$full17" | grep -q '외 미완 batch'; then
+  ok "T17 완료형 3개 → 훅 상세 ${h17}개 + '외 미완 batch $((3 - h17))개' · 직접 실행은 3개 전부"
+else
+  nope "T17 완료형 바이트 예산" "exit=$code 훅상세=$h17 hook=$(printf '%s' "$hook17" | cut -c1-60 | tr '\n' ' ') full_n=$(printf '%s\n' "$full17" | grep -c '미완 batch — batch-')"
+fi
+
 finish

@@ -2,7 +2,7 @@
 # batch-resume-check.sh — 미완 batch 자동 표면화 (FID 20260828-batch-resume-teeth)
 #
 # Usage: batch-resume-check.sh [--hook]
-#   항상 exit 0. 미완 batch 가 있을 때만 stdout 1~2줄, 그 외 무출력.
+#   항상 exit 0. 미완 batch 가 있을 때만 stdout — batch 당 2~3줄 + 훅 모드 건수 1줄, 그 외 무출력.
 #
 # 왜 필요한가 (argus batch-20260729 실측):
 #   FR 31건이 IMPL_DONE 에서 멈췄고 Phase 3 완료(batch 보안·통합·성능 → batch PR)가
@@ -40,33 +40,17 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/queue-lib.sh"
 # ACTIVE 마커 탐색 — start-all Phase 0·pretool 훅과 **동일 관용구**.
 #   마커는 PR 성공 시 Step D 가 제거한다 → 존재 = 미완.
 found=0
-for marker in "$SPECOPS"/batch-*/ACTIVE; do
-  [ -f "$marker" ] || continue
-  batch_dir=$(dirname "$marker")
-  batch_id=$(basename "$batch_dir")
-  queue="$batch_dir/queue.md"
-  # 판정 불가는 조용히 넘어간다 — 근거 없이 단정하지 않는다.
-  [ -f "$queue" ] || continue
+# 훅 모드 상한 — SessionStart 앞 블록은 상한이 없으면 총량이 harness 한도(UTF-16 10,000)를 넘어 meta 본문을 선두 프리뷰 밖으로 민다
+#   (20261002-batch-resume-hook-cap 프로브: ACTIVE batch 10개 = 10,044). 개수(HOOK_MAX)와 상세 바이트(HOOK_BYTES) **이중** 상한이다 —
+#   개수만으로는 완료형(3줄 + 절대경로 2회, 진행형의 ~3배)을 못 묶는다(Phase C 실측: 완료형 3개 = 총 10,411).
+#   HOOK_BYTES=700: 진행형 3개(573B)는 통과(훅=직접 동일)하고 완료형(1개 ≈ 600B + 절대경로 2회)은 2번째부터 접힌다.
+#   실측(T-bud.j, 전 블록 + 거대 rehydrate): 완료형 3개 cwd 150자 = 총 9,481 / head 9,248 (상한 전 10,960 / 10,744).
+#   첫 batch 는 크기와 무관하게 항상 상세, 한 번 접히면 이후 batch 도 전부 접는다(이름 순 앞 K개 + 나머지 건수 — 단조).
+#   바이트는 LC_ALL=C 서브셸의 ${#var} 로 센다(locale 무관). 직접 실행(--hook 없음)은 전부 보인다.
+HOOK_MAX=3; HOOK_BYTES=700; shown=0; extra=0; used=0
 
-  # 표 행에서 Status 집계. SKIP 은 분모에서 뺀다(시드·공통부 스코프는 batch 대상이 아니다).
-  counts=$(awk -F'|' "$QUEUE_AWK_QNORM"'
-    /^[[:space:]]*\|/ {
-      id = qnorm($2)
-      # 헤더(`| FR-ID |`)가 `^FR-` 에 걸린다 — 리터럴로 제외한다. 구분선(`---`)은 자연 배제.
-      if (id == "FR-ID" || id !~ /^FR-/) next
-      st = ""
-      for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
-      if (st == "SKIP") next
-      total++
-      if (st ~ /^(IMPL_DONE|MERGED)$/) done_n++
-    }
-    END { printf "%d %d", done_n + 0, total + 0 }
-  ' "$queue")
-  done_n=${counts% *}; total=${counts#* }
-
-  [ "${total:-0}" -gt 0 ] || continue   # 추적 FR 0건 — 보고할 진행률이 없다
-
-  found=1
+# batch 1개의 상세(2~3줄, 끝 개행 없음) — 루프 변수 batch_dir·batch_id·queue·done_n·total 을 읽는다.
+_detail() {
   if [ "$done_n" -eq "$total" ]; then
     # argus 가 정확히 이 상태였다. "완료" 가 아니라 "다음 단계가 안 돌았다" 를 말해야 재개된다.
     echo "⚠️ 미완 batch — ${batch_id}: 전 FR 완료(${done_n}/${total})인데 **Phase 3 완료 미실행**(batch 보안·통합·성능 → batch PR). ACTIVE 마커가 남아 있다."
@@ -78,6 +62,7 @@ for marker in "$SPECOPS"/batch-*/ACTIVE; do
     # 전파 대상 = IMPL_DONE **이면서 evidence.md 가 있는** FID.
     #   record-batch-gate.sh:63 이 evidence.md 없는 FID 를 skip 하므로, 분모를 IMPL_DONE 전체로
     #   잡으면 안내한 명령을 실행해도 그 몫이 남아 **영구 해소 불가 누락**이 된다.
+    local raw fids n_fid f miss pair short hdr have
     raw=$(awk -F'|' "$QUEUE_AWK_QNORM"'
       /^[[:space:]]*\|/ {
         id = qnorm($2)
@@ -110,8 +95,53 @@ for marker in "$SPECOPS"/batch-*/ACTIVE; do
     echo "⚠️ 미완 batch — ${batch_id}: ${done_n}/${total} 완료. ACTIVE 마커가 남아 있다."
     echo "   재개: /start-all 재호출 시 Phase 0 이 이 batch 를 재개한다(PENDING/PLAN_DONE 부터)."
   fi
+  return 0
+}
+
+for marker in "$SPECOPS"/batch-*/ACTIVE; do
+  [ -f "$marker" ] || continue
+  batch_dir=$(dirname "$marker")
+  batch_id=$(basename "$batch_dir")
+  queue="$batch_dir/queue.md"
+  # 판정 불가는 조용히 넘어간다 — 근거 없이 단정하지 않는다.
+  [ -f "$queue" ] || continue
+
+  # 표 행에서 Status 집계. SKIP 은 분모에서 뺀다(시드·공통부 스코프는 batch 대상이 아니다).
+  counts=$(awk -F'|' "$QUEUE_AWK_QNORM"'
+    /^[[:space:]]*\|/ {
+      id = qnorm($2)
+      # 헤더(`| FR-ID |`)가 `^FR-` 에 걸린다 — 리터럴로 제외한다. 구분선(`---`)은 자연 배제.
+      if (id == "FR-ID" || id !~ /^FR-/) next
+      st = ""
+      for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+      if (st == "SKIP") next
+      total++
+      if (st ~ /^(IMPL_DONE|MERGED)$/) done_n++
+    }
+    END { printf "%d %d", done_n + 0, total + 0 }
+  ' "$queue")
+  done_n=${counts% *}; total=${counts#* }
+
+  [ "${total:-0}" -gt 0 ] || continue   # 추적 FR 0건 — 보고할 진행률이 없다
+
+  found=1
+  if [ "$MODE" = "--hook" ]; then
+    # 개수 초과·이미 접힘이면 상세(완료형 게이트 계산 포함)를 만들지 않는다.
+    if [ "$extra" -gt 0 ] || [ "$shown" -ge "$HOOK_MAX" ]; then extra=$((extra + 1)); continue; fi
+    detail=$(_detail)
+    n=$(LC_ALL=C; echo $(( ${#detail} + 1 )))
+    if [ "$shown" -gt 0 ] && [ $((used + n)) -gt "$HOOK_BYTES" ]; then extra=$((extra + 1)); continue; fi
+    used=$((used + n)); shown=$((shown + 1))
+    printf '%s\n' "$detail"
+  else
+    _detail
+  fi
 done
 
+if [ "$extra" -gt 0 ]; then
+  # 건수 줄은 짧게 둔다 — 첫 batch 는 항상 상세라 완료형 + 깊은 cwd 에서 이 줄 길이가 곧 예산 여유다(T-bud.j).
+  echo "⚠️ 외 미완 batch ${extra}개 — 상세는 batch-resume-check.sh 를 직접 실행해 본다."
+fi
 [ "$found" -eq 1 ] || exit 0
 [ "$MODE" = "--hook" ] && exit 0
 exit 0
