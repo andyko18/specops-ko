@@ -244,5 +244,23 @@ doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-
 doc_has CLAUDE.md '문자 10,000' "T-ord.i" "CLAUDE.md 인라인 한도(문자 10,000) 서술"
 doc_has CLAUDE.md 'UTF-16 단위' "T-ord.j" "CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 
+# T-bud.i 앞 블록 폭주 — 미완 batch 14개여도 batch-resume 은 상세 3개 + 건수 1줄로 접혀 총량이 9,500 이하다 (20261002-batch-resume-hook-cap)
+#   ★ 공허 가드: 상한 없이는 같은 픽스처가 한도(10,000)를 넘는다(프로브: batch 10개 = 10,044). 상세 3줄·건수 줄을 함께 단정한다.
+SB6=$(mktemp -d); make_ctx "$SB6" 1
+for i in $(seq 1 14); do
+  b="$SB6/.specops/batch-2026082$((i % 10))-09$(printf %02d "$i")"; mkdir -p "$b"
+  printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-1 | 20260101-d%s | d | IMPL_DONE |\n| FR-p1 | TBD | p | PENDING |\n' "$i" > "$b/queue.md"
+  : > "$b/ACTIVE"
+done
+for i in $(seq 1 450); do printf '  메모 %03d: 가나다라마바사아자차카타파하 세션 기록 누적 확인용 한글 채움 문장입니다\n' "$i"; done >> "$SB6/.specops/session-progress.md"
+ctx_j "$SB6"
+n_i=$(u16_of "$SB6/outj.json")
+if [ "${n_i:-99999}" -le 9500 ] && [ "$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")" -eq 3 ] && grep -q '외 미완 batch 11개' "$SB6/ctxj.txt"; then
+  ok "T-bud.i 미완 batch 14개 → 상세 3 + '외 11개' · ${n_i}자 <= 9500"
+else
+  ng "T-bud.i batch 폭주 상한" "chars=${n_i:-없음} 상세=$(grep -c '미완 batch — batch-' "$SB6/ctxj.txt")/3 건수줄=$(grep -c '외 미완 batch 11개' "$SB6/ctxj.txt")"
+fi
+rm -rf "$SB6"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

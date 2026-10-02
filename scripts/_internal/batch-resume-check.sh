@@ -40,6 +40,10 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/queue-lib.sh"
 # ACTIVE 마커 탐색 — start-all Phase 0·pretool 훅과 **동일 관용구**.
 #   마커는 PR 성공 시 Step D 가 제거한다 → 존재 = 미완.
 found=0
+# 훅 모드는 상세를 HOOK_MAX 개까지만 낸다 — SessionStart 앞 블록은 상한이 없으면 총량이 harness 한도(UTF-16 10,000)를 넘어
+#   meta 본문을 선두 프리뷰 밖으로 민다(20261002-batch-resume-hook-cap 프로브: ACTIVE batch 10개 = 10,044). 나머지는 끝의 건수 1줄로 접는다.
+#   직접 실행(--hook 없음)은 전부 보인다.
+HOOK_MAX=3; shown=0; extra=0
 for marker in "$SPECOPS"/batch-*/ACTIVE; do
   [ -f "$marker" ] || continue
   batch_dir=$(dirname "$marker")
@@ -67,6 +71,8 @@ for marker in "$SPECOPS"/batch-*/ACTIVE; do
   [ "${total:-0}" -gt 0 ] || continue   # 추적 FR 0건 — 보고할 진행률이 없다
 
   found=1
+  shown=$((shown + 1))
+  if [ "$MODE" = "--hook" ] && [ "$shown" -gt "$HOOK_MAX" ]; then extra=$((extra + 1)); continue; fi
   if [ "$done_n" -eq "$total" ]; then
     # argus 가 정확히 이 상태였다. "완료" 가 아니라 "다음 단계가 안 돌았다" 를 말해야 재개된다.
     echo "⚠️ 미완 batch — ${batch_id}: 전 FR 완료(${done_n}/${total})인데 **Phase 3 완료 미실행**(batch 보안·통합·성능 → batch PR). ACTIVE 마커가 남아 있다."
@@ -112,6 +118,9 @@ for marker in "$SPECOPS"/batch-*/ACTIVE; do
   fi
 done
 
+if [ "$extra" -gt 0 ]; then
+  echo "⚠️ 외 미완 batch ${extra}개 — 상세는 bash \${CLAUDE_PLUGIN_ROOT}/scripts/_internal/batch-resume-check.sh 를 직접 실행해 본다."
+fi
 [ "$found" -eq 1 ] || exit 0
 [ "$MODE" = "--hook" ] && exit 0
 exit 0
