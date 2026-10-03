@@ -100,7 +100,7 @@ eval::run_claude() {  # <bin> <cwd> <timeout_s> <prompt> [추가 인자...] → 
 # stub eval::assert_llm_rubric(rubric-pass 문자열 검사)은 매트릭스 러너·T7/T8 이 의존하므로 그대로 두고, 진짜 채점은 별도 함수다.
 # 결과를 전역(JUDGE_VERDICT·JUDGE_REASON·JUDGE_COST)으로 받으므로 서브셸 $( ) 밖에서 직접 호출한다.
 JUDGE_DENY=(Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch Skill)
-JUDGE_VERDICT=""; JUDGE_REASON=""; JUDGE_COST=0; JUDGE_MODEL=""
+JUDGE_VERDICT=""; JUDGE_REASON=""; JUDGE_COST=0; JUDGE_MODEL=""; JUDGE_PASS_NOREASON=0
 
 eval::extract_text_raw() {  # stdin stream-json → assistant text (개행 보존 — extract_text 는 공백으로 뭉갠다)
   jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="text") | .text' 2>/dev/null
@@ -123,7 +123,7 @@ eval::judge_prompt() {  # <rubric> <응답> <nonce> [질문] → 채점 프롬�
 eval::judge_rubric() {  # <bin> <응답> <rubric> [timeout_s] [질문] → JUDGE_VERDICT(PASS|FAIL|ERROR)·JUDGE_REASON(≤80자)·JUDGE_COST·JUDGE_MODEL(claude init 이벤트의 모델 ID — 보정은 모델에 묶인다) · rc 0=판정 3=ERROR
   local bin="$1" resp="$2" rubric="$3" to="${4:-${LLM_EVAL_TIMEOUT:-300}}" cwd out rc text first second ef nonce err
   local extra=(--max-turns 1 --disallowedTools "${JUDGE_DENY[@]}" --strict-mcp-config)
-  JUDGE_VERDICT=ERROR; JUDGE_REASON=""; JUDGE_COST=0; JUDGE_MODEL=""
+  JUDGE_VERDICT=ERROR; JUDGE_REASON=""; JUDGE_COST=0; JUDGE_MODEL=""; JUDGE_PASS_NOREASON=0
   [ -n "${LLM_EVAL_JUDGE_MODEL:-}" ] && extra+=(--model "$LLM_EVAL_JUDGE_MODEL")
   # 빈 임시 cwd — 채점자가 저장소를 볼 수 없게(도구도 전부 차단)
   cwd=$(mktemp -d) || { JUDGE_REASON="mktemp 실패"; return 3; }
@@ -141,8 +141,8 @@ eval::judge_rubric() {  # <bin> <응답> <rubric> [timeout_s] [질문] → JUDGE
   [ "$ef" = /dev/null ] || rm -f "$ef"
   text=$(printf '%s\n' "$out" | eval::extract_text_raw)
   # 첫 비어있지 않은 줄이 정확히 VERDICT: PASS|FAIL 이어야 한다 — 산문에서 판정을 추정하지 않는다(모호하면 ERROR)
-  # 프롬프트가 형식을 백틱으로 보여 주므로 채점자가 `…`·**…** 로 감싸도 형식 차이일 뿐이다 — 감싸는 기호만 벗기고 나머지는 엄격 일치
-  first=$(printf '%s\n' "$text" | awk 'NF{print; exit}' | tr -d '\r' | sed 's/^[][`*_[:space:]]*//;s/[`*_[:space:]]*$//')
+  # 프롬프트가 형식을 백틱으로 보여 주므로 채점자가 `…`·**…**·[…] 로 감싸도 형식 차이일 뿐이다 — 감싸는 기호만 벗기고 나머지는 엄격 일치
+  first=$(printf '%s\n' "$text" | awk 'NF{print; exit}' | tr -d '\r' | sed 's/^[][`*_[:space:]]*//;s/[][`*_[:space:]]*$//')
   case "$first" in
     'VERDICT: PASS') JUDGE_VERDICT=PASS ;;
     'VERDICT: FAIL') JUDGE_VERDICT=FAIL ;;
@@ -150,5 +150,7 @@ eval::judge_rubric() {  # <bin> <응답> <rubric> [timeout_s] [질문] → JUDGE
   esac
   second=$(printf '%s\n' "$text" | awk 'NF{n++; if(n==2){print; exit}}' | sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g' | LC_ALL=C tr -d '\000-\037\177')
   JUDGE_REASON=${second:0:80}
+  # 근거 줄은 프롬프트가 요구하는 계약이다 — PASS 인데 근거가 없으면 증거 없는 통과라 ERROR (FAIL 은 근거 없어도 보수 방향이라 유지)
+  if [ "$JUDGE_VERDICT" = PASS ] && [ -z "$JUDGE_REASON" ]; then JUDGE_VERDICT=ERROR; JUDGE_REASON="근거 줄 없는 PASS"; JUDGE_PASS_NOREASON=1; return 3; fi
   return 0
 }
