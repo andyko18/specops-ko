@@ -18,7 +18,7 @@ NEWH_LINE0='증거 약함 (적용 증거 2종 이상 가드(check) 중 판정 �
 trap 'rm -rf "$SB"' EXIT
 mkdir -p "$SB/tmp" "$SB/home"
 
-ck() { if [ "$2" = "$3" ]; then echo "PASS $1"; PASS=$((PASS+1)); else echo "FAIL $1 — exp '$3' got '$2'"; FAIL=$((FAIL+1)); fi; }
+ck() { if [ "$2" = "$3" ]; then echo "PASS $1"; PASS=$((PASS+1)); else echo "FAIL $1 — exp '${3//$'\n'/⏎}' got '${2//$'\n'/⏎}'"; FAIL=$((FAIL+1)); fi; }  # 줄바꿈은 ⏎ 로 한 줄에 — run-all --quiet 는 FAIL 줄만 보여 준다
 ckn() { if [ "$2" != "$3" ]; then echo "PASS $1"; PASS=$((PASS+1)); else echo "FAIL $1 — 같으면 안 된다: '$2'"; FAIL=$((FAIL+1)); fi; }
 
 # ── fixture 헬퍼 ───────────────────────────────────────────────────────────
@@ -509,7 +509,7 @@ if [ -f "$REAL_ROOT/hooks/rules.jsonl" ] && [ -d "$REAL_ROOT/scripts/_internal" 
   ck "T7.d 종류별 요약의 칸마다 있음+없음+미측정+- = 가드 수" "$SUMOK" "ok"
   VOCAB=$(printf '%s\n' "$OUT" | awk -F'  +' '($1 == "rule" || $1 == "check" || $1 == "structure") { for (i = 3; i <= 5; i++) if ($i !~ /^(있음\(.+\)|없음|미측정\(.+\)|-|비활성|자기잠금)$/) bad++ } END { print bad + 0 }')
   ck "T7.e 표의 모든 칸이 허용 어휘(있음(근거)·없음·미측정(사유)·-·비활성·자기잠금)다" "$VOCAB" "0"
-  ck "T7.f 증거 약함: 요약의 수 = 머리의 N = 목록 줄 수 · 목록은 check 행뿐(rule·structure 제외) · 푸터 4종" "$(printf '%s\n' "$OUT" | awk '/^- 가드/ { s = $0; sub(/^.*증거 약함 /, "", s); sub(/개$/, "", s) } /^증거 약함/ { n = $0; sub(/개$/, "", n); sub(/^.*: /, "", n); on = 1; next } /^한계/ { on = 0 } on && /^  check / { c++ } on && /^  (rule|structure) / { o++ } END { print (s + 0 == n + 0 && n + 0 == c + 0 && o + 0 == 0) ? "ok" : "bad " s " " n " " c + 0 " " o + 0 }')|$(printf '%s\n' "$OUT" | grep -c '^ [①②③④] ')" "ok|4"
+  ck "T7.f 증거 약함: 요약의 수 = 머리의 N = 목록 줄 수 · 목록은 check 행뿐(rule·structure 제외) · 푸터 4종" "$(printf '%s\n' "$OUT" | awk '/^- 가드/ { s = $0; sub(/^.*증거 약함 /, "", s); sub(/개$/, "", s) } /^증거 약함/ { n = $0; sub(/개$/, "", n); sub(/^.*: /, "", n); on = 1; next } /^한계/ { on = 0 } on && /^  check / { c++ } on && /^  (rule|structure) / { o++ } END { print (s + 0 == n + 0 && n + 0 == c + 0 && o + 0 == 0) ? "ok" : "bad " s " " n " " c + 0 " " o + 0 }')|$(printf '%s\n' "$OUT" | grep -c -e '^ ① ' -e '^ ② ' -e '^ ③ ' -e '^ ④ ')" "ok|4"
 else
   ck "T7.pre 실 repo 구조(hooks/rules.jsonl · scripts/_internal)를 찾을 수 있다" "none" "found"
 fi
