@@ -136,6 +136,147 @@ else
   skip "AC-5-sg·AC-6-sg·AC-3-sg semgrep 미설치 — 실 스캔 미실행 (PASS 집계 제외)"
 fi
 
+# ── 다중 인자·존재 검증 (FID 20261003-ops-debt) ─────────────────────────────
+# ※ 외부 스캐너는 위에서 SPECOPS_SAST_EXTERNAL=0 으로 기본 차단 — self-check 레이어만 본다.
+T=$(mktemp -d); printf 'def f():\n    return 1\n' > "$T/clean.py"
+printf 'aws=%s\n' "AKIA""IOSFODNN7EXAMPLE" > "$T/leak.py"; mkdir -p "$T/d"; cp "$T/leak.py" "$T/d/leak2.py"
+o_single=$(bash "$SC" "$T/leak.py" 2>&1)
+o1=$(bash "$SC" "$T/clean.py" "$T/leak.py" 2>&1); e1=$?
+o2=$(bash "$SC" "$T/leak.py" "$T/clean.py" 2>&1); e2=$?
+o3=$(bash "$SC" "$T/clean.py" "$T/d" 2>&1); e3=$?
+o4=$(bash "$SC" "$T/d" "$T/clean.py" 2>&1); e4=$?
+oc=$(bash "$SC" "$T/clean.py" 2>&1); ec=$?
+{ [ "$e1" = 1 ] && [ "$e2" = 1 ] && [ "$e3" = 1 ] && [ "$e4" = 1 ] && printf '%s%s%s%s' "$o1" "$o2" "$o3" "$o4" | grep -qE 'crit=[1-9]' && [ "$ec" = 0 ] && printf '%s' "$oc" | grep -q 'crit=0 high=0'; } \
+  && ok "AC-2-ma 다중 인자: 순서·파일/디렉터리 혼합과 무관하게 위험한 인자를 놓치지 않는다(둘째만 위험해도 차단)" \
+  || nope "AC-2-ma" "e=$e1/$e2/$e3/$e4 o1=$o1 oc=$oc ec=$ec"
+for bad in "$T/none" "" "$T/clean.py $T/leak.py"; do
+  ob=$(bash "$SC" "$bad" 2>"$T/err"); eb=$?
+  { [ "$eb" = 2 ] && [ -z "$ob" ] && grep -qF "SECURITY: 대상 없음 — $bad" "$T/err" && ! grep -q 'syntax error' "$T/err"; } \
+    && ok "AC-3-ne 존재하지 않는 인자 → rc 2·stdout 없음·'대상 없음' (인자='${bad:0:20}')" || nope "AC-3-ne" "bad='$bad' eb=$eb ob=$ob err=$(cat "$T/err")"
+done
+ob=$(bash "$SC" "$T/leak.py" "$T/none" 2>"$T/err"); eb=$?
+{ [ "$eb" = 2 ] && [ -z "$ob" ]; } && ok "AC-3-ne2 실존+미존재 혼합 → rc 2·부분 스캔 없음(stdout 없음)" || nope "AC-3-ne2" "eb=$eb ob=$ob"
+ob=$(bash "$SC" "$(printf '%s\n%s' "$T/clean.py" "$T/leak.py")" 2>"$T/err"); eb=$?
+{ [ "$eb" = 2 ] && grep -q '대상 없음' "$T/err"; } && ok "AC-3-nl 개행 이은 목록 문자열 → rc 2" || nope "AC-3-nl" "eb=$eb"
+od=$(bash "$SC" "$T/leak.py" "$T/leak.py" 2>&1); ed=$?
+od2=$(bash "$SC" "$T/leak.py" "$T/clean.py" "$T/leak.py" 2>&1); ed2=$?
+{ [ "$od" = "$o_single" ] && [ "$ed" = 1 ] && [ "$od2" = "$o_single" ] && [ "$ed2" = 1 ]; } \
+  && ok "AC-5-dup 문자열 완전 일치 중복 인자는 1회만 스캔(단독과 같은 출력·건수)" || nope "AC-5-dup" "od=$od single=$o_single od2=$od2"
+oe=$(bash "$SC" "$T/clean.py" "" 2>"$T/err"); ee=$?
+{ [ "$ee" = 2 ] && [ -z "$oe" ] && grep -q '대상 없음' "$T/err"; } && ok "AC-5-empty 빈 문자열 인자 → rc 2·부분 스캔 없음" || nope "AC-5-empty" "ee=$ee"
+o_dot=$( cd "$T" && bash "$SC" 2>&1 ); e_dot=$?; o_dot2=$( cd "$T" && bash "$SC" . 2>&1 ); e_dot2=$?
+{ [ "$o_dot" = "$o_dot2" ] && [ "$e_dot" = "$e_dot2" ] && [ "$e_dot" = 1 ]; } \
+  && ok "AC-R-1-noarg 인자 없음 = '.' (출력·rc 동일)" || nope "AC-R-1-noarg" "o_dot=$o_dot o_dot2=$o_dot2"
+rm -rf "$T"
+
+# 외부 스캐너 계약 — 다중 인자에서도 gitleaks 인자별 호출·합산, 시간 상한·강등 표기 유지 (PATH stub — 설치 여부 무관)
+T=$(mktemp -d); mkdir -p "$T/bin"
+printf 'def f():\n    return 1\n' > "$T/a.py"; printf 'x=1\n' > "$T/b.py"
+cat > "$T/bin/gitleaks" <<'STUB'
+#!/usr/bin/env bash
+# source/report-path 를 기록하고 report 에 1건짜리 JSON 배열을 쓴다
+src=""; rep=""
+while [ "$#" -gt 0 ]; do case "$1" in --source) src="$2"; shift 2;; --report-path) rep="$2"; shift 2;; *) shift;; esac; done
+printf '%s\n' "$src" >> "$STUB_LOG"; printf '[{"RuleID":"x"}]\n' > "$rep"; exit 0
+STUB
+chmod +x "$T/bin/gitleaks"
+out=$(STUB_LOG="$T/log" PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/a.py" "$T/b.py" 2>&1); ec=$?
+calls=$(wc -l < "$T/log" | tr -d ' ')
+{ [ "$calls" = 2 ] && printf '%s' "$out" | grep -qE 'crit=2 ' && [ "$ec" = 1 ]; } \
+  && ok "AC-4-gl 다중 인자 gitleaks 인자별 2회 호출·건수 합산(crit=2)" || nope "AC-4-gl" "calls=$calls out=$out ec=$ec"
+rm -rf "$T"
+
+# 첫 호출만 1건을 쓰고 이후 호출은 리포트 없이 rc 3 으로 실패 — stale 리포트 이중 계상 방지(: > 리포트)와 강등 표기 1회를 잠근다
+T=$(mktemp -d); mkdir -p "$T/bin"
+printf 'x=1\n' > "$T/a.py"; printf 'x=2\n' > "$T/b.py"; printf 'x=3\n' > "$T/c.py"
+cat > "$T/bin/gitleaks" <<'STUB'
+#!/usr/bin/env bash
+rep=""
+while [ "$#" -gt 0 ]; do case "$1" in --report-path) rep="$2"; shift 2;; *) shift;; esac; done
+n=$(cat "$STUB_N" 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > "$STUB_N"
+if [ "$n" = 1 ]; then printf '[{"RuleID":"x"}]\n' > "$rep"; exit 0; fi
+exit 3
+STUB
+chmod +x "$T/bin/gitleaks"
+out=$(STUB_N="$T/n" PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/a.py" "$T/b.py" "$T/c.py" 2>&1); ec=$?
+notes=$(printf '%s' "$out" | grep -o 'gitleaks(실행실패 rc=3)' | wc -l | tr -d ' ')
+{ printf '%s' "$out" | grep -qE 'crit=1 ' && [ "$notes" = 1 ] && [ "$ec" = 1 ]; } \
+  && ok "AC-4-fail 일부 인자 gitleaks 실패: stale 리포트 이중 계상 없음(crit=1)·강등 표기 1회·rc 1" || nope "AC-4-fail" "notes=$notes out=$out ec=$ec"
+# 리포트가 JSON 이 아니어도 산술 구문 오류 없이 0 건으로 집계
+cat > "$T/bin/gitleaks" <<'STUB'
+#!/usr/bin/env bash
+rep=""
+while [ "$#" -gt 0 ]; do case "$1" in --report-path) rep="$2"; shift 2;; *) shift;; esac; done
+printf 'not json at all\n' > "$rep"; exit 0
+STUB
+out=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/a.py" "$T/b.py" 2>&1); ec=$?
+{ ! printf '%s' "$out" | grep -q 'syntax error' && printf '%s' "$out" | grep -qE 'crit=0 ' && [ "$ec" = 0 ]; } \
+  && ok "AC-4-garbage 비 JSON 리포트 → 산술 오류 없이 crit=0" || nope "AC-4-garbage" "out=$out ec=$ec"
+rm -rf "$T"
+
+# semgrep PATH stub — 다중 경로가 **한 번의** 호출 argv 에 모두 들어가는지(CI 러너에 semgrep 이 없어도 회귀를 잠근다)
+if command -v jq >/dev/null 2>&1; then
+  T=$(mktemp -d); mkdir -p "$T/bin"; printf 'x=1\n' > "$T/a.py"; printf 'x=2\n' > "$T/b.py"
+  cat > "$T/bin/semgrep" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STUB_LOG"; printf '{"results":[]}\n'; exit 0
+STUB
+  chmod +x "$T/bin/semgrep"
+  out=$(STUB_LOG="$T/log" PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/a.py" "$T/b.py" 2>&1); ec=$?
+  calls=$(wc -l < "$T/log" | tr -d ' ')
+  { [ "$calls" = 1 ] && grep -qF "$T/a.py $T/b.py" "$T/log" && [ "$ec" = 0 ] && printf '%s' "$out" | grep -qF '(룰셋: 로컬 bash-injection)'; } \
+    && ok "AC-4-sgstub semgrep 1회 호출에 모든 경로(a.py b.py 순서대로)가 들어간다 · 룰셋 receipt" || nope "AC-4-sgstub" "calls=$calls log=$(cat "$T/log") out=$out ec=$ec"
+  rm -rf "$T"
+else
+  skip "AC-4-sgstub jq 미설치 — 외부 집계 skip 경로라 semgrep 호출 없음 (PASS 집계 제외)"
+fi
+
+# 실 semgrep — 다중 경로를 한 번에 넘겨도 둘째 파일의 위험(eval 변수 전개)을 놓치지 않고 룰셋 receipt 가 남는다
+if command -v semgrep >/dev/null 2>&1; then
+  T=$(mktemp -d); printf 'echo ok\n' > "$T/a.sh"; printf '#!/usr/bin/env bash\neval "$1"\n' > "$T/b.sh"
+  oa=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/a.sh" 2>&1); ea=$?
+  o1=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/a.sh" "$T/b.sh" 2>&1); e1=$?
+  o2=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/b.sh" "$T/a.sh" 2>&1); e2=$?
+  { printf '%s' "$oa" | grep -qE 'crit=0 ' && [ "$ea" = 0 ] \
+    && printf '%s%s' "$o1" "$o2" | grep -qE 'crit=1 ' && [ "$e1" = 1 ] && [ "$e2" = 1 ] \
+    && printf '%s' "$o1" | grep -qF '(룰셋: 로컬 bash-injection)' && ! printf '%s' "$o1" | grep -q 'semgrep('; } \
+    && ok "AC-4-sg 실 semgrep 다중 경로: 둘째만 위험해도 순서 무관 crit=1·룰셋 receipt·강등 없음" || nope "AC-4-sg" "oa=$oa o1=$o1 e1=$e1 o2=$o2 e2=$e2"
+  rm -rf "$T"
+else
+  skip "AC-4-sg semgrep 미설치 — 실 다중 경로 스캔 미실행 (PASS 집계 제외)"
+fi
+
+# semgrep 경로 하나가 실패해도 나머지 경로의 탐지는 살아남는다 (Phase C 보정) — PATH stub: argv 에 bad.py 가 있으면 rc 2
+T=$(mktemp -d); mkdir -p "$T/bin"; printf 'x=1\n' > "$T/evil.py"; printf 'x=2\n' > "$T/bad.py"; printf 'x=3\n' > "$T/ok.py"
+cat > "$T/bin/semgrep" <<'STUB'
+#!/usr/bin/env bash
+case " $* " in *"/bad.py "*) exit 2;; esac
+case "$*" in *evil.py*) printf '{"results":[{"extra":{"severity":"ERROR"}}]}\n';; *) printf '{"results":[]}\n';; esac; exit 0
+STUB
+chmod +x "$T/bin/semgrep"
+if command -v jq >/dev/null 2>&1; then
+  o1=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/evil.py" "$T/bad.py" "$T/ok.py" 2>&1); e1=$?
+  o2=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/bad.py" "$T/ok.py" "$T/evil.py" 2>&1); e2=$?
+  o3=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/ok.py" "$T/evil.py" 2>&1); e3=$?
+  { printf '%s%s' "$o1" "$o2" | grep -qE 'crit=1 ' && [ "$e1" = 1 ] && [ "$e2" = 1 ] \
+    && printf '%s' "$o1" | grep -qF 'semgrep(실행실패 rc=2)' && ! printf '%s' "$o1" | grep -qF '(룰셋:' \
+    && printf '%s' "$o3" | grep -qF '(룰셋: 로컬 bash-injection)' && printf '%s' "$o3" | grep -qE 'crit=1 ' && [ "$e3" = 1 ]; } \
+    && ok "AC-4-fallback 한 경로 semgrep 실패 → 경로별 재시도로 성한 경로 탐지 보존·강등 표기·receipt 없음 (전부 성공이면 receipt)" \
+    || nope "AC-4-fallback" "o1=$o1 e1=$e1 o2=$o2 e2=$e2 o3=$o3 e3=$e3"
+else
+  skip "AC-4-fallback jq 미설치 — 외부 집계 skip 경로 (PASS 집계 제외)"
+fi
+rm -rf "$T"
+if command -v semgrep >/dev/null 2>&1; then
+  T=$(mktemp -d); printf 'echo ok\n' > "$T/a.sh"; printf '#!/usr/bin/env bash\neval "$1"\n' > "$T/evil.sh"; ln -s a.sh "$T/link.sh"
+  o=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/evil.sh" "$T/link.sh" 2>&1); e=$?
+  { printf '%s' "$o" | grep -qE 'crit=1 ' && [ "$e" = 1 ] && printf '%s' "$o" | grep -qF 'semgrep(실행실패'; } \
+    && ok "AC-4-sglink 실 semgrep: 심볼릭 링크 인자가 섞여도 evil.sh 탐지 보존(crit=1)·강등 표기" || nope "AC-4-sglink" "o=$o e=$e"
+  rm -rf "$T"
+else
+  skip "AC-4-sglink semgrep 미설치 — 실 심볼릭 링크 인자 스캔 미실행 (PASS 집계 제외)"
+fi
+
 # SKIP 을 요약에 드러낸다 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
 #   SKIP=0 이면 종전 출력과 바이트 동일하다.
 sk=""; [ "${SKIP:-0}" -gt 0 ] && sk=" SKIP=$SKIP"

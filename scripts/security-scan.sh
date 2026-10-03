@@ -1,7 +1,25 @@
 #!/usr/bin/env bash
 # SAST 래퍼 — semgrep + gitleaks, graceful skip (critic-ask.sh 패턴)
 set -u
-TARGET="${1:-.}"
+# ── 대상 인자 (FID 20261003-ops-debt) ──
+# 0개 = "." · 1개 이상 = 전부 스캔(변경 파일 목록을 인자로 줄 수 있다). 문자열 완전 일치 중복은 첫 위치만.
+# 존재하지 않는 인자(빈 문자열·공백/개행으로 이은 목록 문자열 포함)는 침묵 통과가 아니라 사용 오류(rc 2) —
+#   스캔 전에 판정하므로 부분 스캔이 없다. 종전엔 첫 인자만 스캔하고 나머지를 침묵 무시했다(둘째 인자의 secret 을 놓침).
+[ "$#" -gt 0 ] || set -- .
+TARGETS=(); nt=0
+for _a in "$@"; do
+  _dup=0; _i=0
+  while [ "$_i" -lt "$nt" ]; do [ "${TARGETS[$_i]}" = "$_a" ] && { _dup=1; break; }; _i=$((_i+1)); done
+  [ "$_dup" = 1 ] || { TARGETS[nt]="$_a"; nt=$((nt+1)); }
+done
+for _t in "${TARGETS[@]}"; do
+  [ -e "$_t" ] || { echo "SECURITY: 대상 없음 — ${_t} (파일 여러 개는 별도 인자로 넘기세요)" >&2; exit 2; }
+done
+# 한계: (1) 인자 `""`(빈 문자열)은 종전에 `.` 로 대체돼 repo 전체를 스캔했지만 이제 사용 오류(rc 2)다 — 빈 변수가 조용히 전체 스캔으로
+#   번지는 것도 같은 부류의 침묵이다. (2) `git diff --name-only` 목록을 넘길 때 삭제된 파일이 섞이면 존재 검증이 rc 2 로 거절하니
+#   `--diff-filter=d` 로 거른다. (3) gitleaks 는 인자별 호출이라 총 시간이 호출당 상한(SPECOPS_SAST_TIMEOUT) x 인자 수까지 늘 수 있다.
+# 외부 스캐너 건수 집계용 숫자 가드 — 빈 출력·비숫자가 `crit + ` 산술 구문 오류로 새지 않게 한다.
+_num() { local v="${1%%$'\n'*}"; case "$v" in ''|*[!0-9]*) v=0;; esac; printf '%s' "$v"; }
 crit=0; high=0; med=0; ran=0
 
 # ── 외부 스캐너 상한·차단 스위치 (FID 20260828-sast-timeout) ──
@@ -40,15 +58,15 @@ _selfcheck_file() {
     grep -Eq '(query|execute).*\+.*(req\.|request\.|params)|f["'"'"'][^"'"'"']*SELECT[^"'"'"']*\{' "$f" 2>/dev/null && high=$((high+1))
   fi
 }
-if [ -e "$TARGET" ]; then
-  ran=1
-  if [ -f "$TARGET" ]; then _selfcheck_file "$TARGET"
+ran=1
+for _t in "${TARGETS[@]}"; do
+  if [ -f "$_t" ]; then _selfcheck_file "$_t"
   else
     # 디렉토리: 텍스트 파일 순회 (.git·node_modules·.specops 제외)
     # */tests/* 제외 (C-1) — 보안 테스트 fixture 가 의도적 가짜 secret 보유 → 자기 오탐 방지
-    while IFS= read -r f; do _selfcheck_file "$f"; done < <(find "$TARGET" -type f \( -name '*.py' -o -name '*.js' -o -name '*.ts' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.sh' -o -name '*.bash' -o -name '*.go' -o -name '*.rb' -o -name '*.java' -o -name '*.php' \) -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/.specops/*' -not -path '*/tests/*' 2>/dev/null)
+    while IFS= read -r f; do _selfcheck_file "$f"; done < <(find "$_t" -type f \( -name '*.py' -o -name '*.js' -o -name '*.ts' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.sh' -o -name '*.bash' -o -name '*.go' -o -name '*.rb' -o -name '*.java' -o -name '*.php' \) -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/.specops/*' -not -path '*/tests/*' 2>/dev/null)
   fi
-fi
+done
 
 # jq 부재 가드 (code-reviewer I-2) — 외부 스캐너 결과는 jq 없으면 집계 불가라 SKIP 하되,
 # self-check(grep, jq 무관) 결과는 보존: early-exit 0 으로 self-check crit 폐기하지 않음.
@@ -69,7 +87,21 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
     j='{}'
   else
     j=$(bounded_run "$SAST_TIMEOUT" env SEMGREP_ENABLE_VERSION_CHECK=0 \
-          semgrep --config "$SEMGREP_RULES" --json --quiet "$TARGET" 2>/dev/null); src=$?
+          semgrep --config "$SEMGREP_RULES" --json --quiet -- "${TARGETS[@]}" 2>/dev/null); src=$?
+    # 한 경로가 semgrep 을 실패시키면(예: 심볼릭 링크 인자 rc=2) 나머지 경로의 탐지까지 사라진다 — 경로별로 다시 돌려 성한 경로의
+    #   결과를 살린다. 실패한 경로가 하나라도 있으면 아래 강등 표기가 남고 룰셋 receipt 는 붙지 않는다(부분 스캔을 완전 스캔으로 오인 방지).
+    _sg_partial=0
+    if [ "$src" -gt 1 ] && [ "$nt" -gt 1 ] && ! bounded_timed_out "$src" && command -v jq >/dev/null 2>&1; then
+      _sg_partial=1; j='{"results":[]}'; src_fail=0; _i=0
+      while [ "$_i" -lt "$nt" ]; do
+        _j1=$(bounded_run "$SAST_TIMEOUT" env SEMGREP_ENABLE_VERSION_CHECK=0 \
+              semgrep --config "$SEMGREP_RULES" --json --quiet -- "${TARGETS[$_i]}" 2>/dev/null); _rc1=$?
+        if [ "$_rc1" -gt 1 ]; then [ "$src_fail" -gt 1 ] || src_fail=$_rc1
+        else j=$(printf '%s\n%s' "$j" "$_j1" | jq -s '{results: (map(.results // []) | add)}' 2>/dev/null || printf '%s' "$j"); fi
+        _i=$((_i+1))
+      done
+      src=$src_fail   # 0 = 전부 성공(receipt 허용) · 2 = 일부 실패(강등 표기)
+    fi
     if bounded_timed_out "$src"; then
       sast_timeout_note="${sast_timeout_note} semgrep(시간초과)"
       j='{}'
@@ -79,7 +111,7 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
       #   통과한 것이 구분되지 않는 **무음 통과**다. 시간초과와 같은 축으로 강등 표기한다.
       #   rc=1 은 제외 — semgrep 은 findings 존재를 1 로 낼 수 있어 정상 결과다.
       sast_timeout_note="${sast_timeout_note} semgrep(실행실패 rc=$src)"
-      j='{}'
+      [ "$_sg_partial" = 1 ] || j='{}'
     else
       # 실행 receipt — 스캔이 실제로 끝난 뒤에만 룰셋을 표기한다.
       #   분기 진입 시점에 표기하면 rc=2·시간초과에도 표기가 남아 "룰셋이 보이면 돌았다"가 거짓이 된다.
@@ -88,8 +120,8 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
   fi
   [ -n "$j" ] || j='{}'
   if command -v jq >/dev/null 2>&1; then
-    crit=$((crit + $(printf '%s' "$j" | jq '[.results[]?|select(.extra.severity=="ERROR")]|length' 2>/dev/null || echo 0)))
-    high=$((high + $(printf '%s' "$j" | jq '[.results[]?|select(.extra.severity=="WARNING")]|length' 2>/dev/null || echo 0)))
+    crit=$((crit + $(_num "$(printf '%s' "$j" | jq '[.results[]?|select(.extra.severity=="ERROR")]|length' 2>/dev/null)")))
+    high=$((high + $(_num "$(printf '%s' "$j" | jq '[.results[]?|select(.extra.severity=="WARNING")]|length' 2>/dev/null)")))
   fi
 fi
 # gitleaks (secret) — --no-git: 작업트리 파일시스템 스캔(git 히스토리 아님, code-reviewer I-1).
@@ -99,17 +131,25 @@ if [ "$ext_skip" = 0 ] && command -v gitleaks >/dev/null 2>&1; then
   glrep=$(mktemp "${TMPDIR:-/tmp}/specops-gl.XXXXXX") || glrep=""
   if [ -n "$glrep" ]; then
     trap 'rm -f "$glrep"' EXIT
-    bounded_run "$SAST_TIMEOUT" gitleaks detect --source "$TARGET" --no-git --no-banner --exit-code 0 --report-format json --report-path "$glrep" >/dev/null 2>&1
-    glrc=$?
-    # gitleaks 는 --exit-code 0 이라 정상 경로 rc 가 항상 0 — 0 이 아니면 시간초과이거나 실행 실패다.
-    if bounded_timed_out "$glrc"; then
-      sast_timeout_note="${sast_timeout_note} gitleaks(시간초과)"
-    elif [ "$glrc" -ne 0 ]; then
-      sast_timeout_note="${sast_timeout_note} gitleaks(실행실패 rc=$glrc)"
-    fi
-    if [ -f "$glrep" ] && command -v jq >/dev/null 2>&1; then
-      crit=$((crit + $(jq 'length' "$glrep" 2>/dev/null || echo 0)))  # secret = Critical
-    fi
+    # gitleaks --source 는 경로 하나만 받는다 — 인자별로 부르고 건수를 합산한다(강등 표기는 1회만).
+    for _t in "${TARGETS[@]}"; do
+      : > "$glrep"   # 이전 인자의 리포트가 남아 이중 계상되지 않게 비운다
+      bounded_run "$SAST_TIMEOUT" gitleaks detect --source "$_t" --no-git --no-banner --exit-code 0 --report-format json --report-path "$glrep" >/dev/null 2>&1
+      glrc=$?
+      # gitleaks 는 --exit-code 0 이라 정상 경로 rc 가 항상 0 — 0 이 아니면 시간초과이거나 실행 실패다.
+      case "$sast_timeout_note" in
+        *gitleaks\(*) ;;
+        *)
+          if bounded_timed_out "$glrc"; then
+            sast_timeout_note="${sast_timeout_note} gitleaks(시간초과)"
+          elif [ "$glrc" -ne 0 ]; then
+            sast_timeout_note="${sast_timeout_note} gitleaks(실행실패 rc=$glrc)"
+          fi ;;
+      esac
+      if [ -f "$glrep" ] && command -v jq >/dev/null 2>&1; then
+        crit=$((crit + $(_num "$(jq 'length' "$glrep" 2>/dev/null)")))  # secret = Critical
+      fi
+    done
   fi
 fi
 if [ "$ran" = 0 ]; then
