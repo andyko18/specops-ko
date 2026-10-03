@@ -283,7 +283,7 @@ structure  lbl_a             없음        -           -
  ① 명명 규약 밖 게이트(release-ready.sh·reconcile-check.sh·batch-state.sh --gate 등)와 훅 deny 분기는 인벤토리에 없다.
  ② 테스트 `참조` 는 가드를 단언한다는 뜻이 아니다 — 증거 있음 ≠ 가드 작동.
  ③ 변이 점수는 직접 재계산하지 않는다 — M 은 mutation-targets.conf 등록 여부만 본다.
- ④ propagation edge 는 문자열 존재만 본다.'
+ ④ propagation edge 는 must_match 를 단어 단위로만 읽고 문자열 존재만 본다 — 교대(|)·glob·부정 정규식은 오탐·미탐이 날 수 있다.'
 gm g1
 ck "T2.p 골든: 전체 출력(표 정렬 — 한글 칸 폭·요약·약함·푸터)이 바이트 단위로 일치한다" "$OUT" "$GOLDEN_G1"
 
@@ -430,7 +430,7 @@ ck "T4b.f 음성 대조: 같은 fixture 에 증거 없는 check(solo)를 더하�
 
 # ═════ T5 (AC-5): 푸터 한계 고지 · 읽기 전용 · 종료 코드 ═════
 gm f4
-ck "T5.a 푸터 한계 4종(고정 문구 — ① 명명 규약 밖·훅 deny 분기 ② 참조≠단언 ③ 변이 점수 미재계산 ④ edge 문자열 존재만)" "$(hasline ' ① 명명 규약 밖 게이트(release-ready.sh·reconcile-check.sh·batch-state.sh --gate 등)와 훅 deny 분기는 인벤토리에 없다.')$(hasline ' ② 테스트 `참조` 는 가드를 단언한다는 뜻이 아니다 — 증거 있음 ≠ 가드 작동.')$(hasline ' ③ 변이 점수는 직접 재계산하지 않는다 — M 은 mutation-targets.conf 등록 여부만 본다.')$(hasline ' ④ propagation edge 는 문자열 존재만 본다.')|$(hasline '한계')" "1111|1"
+ck "T5.a 푸터 한계 4종(고정 문구 — ① 명명 규약 밖·훅 deny 분기 ② 참조≠단언 ③ 변이 점수 미재계산 ④ edge 문자열 존재만)" "$(hasline ' ① 명명 규약 밖 게이트(release-ready.sh·reconcile-check.sh·batch-state.sh --gate 등)와 훅 deny 분기는 인벤토리에 없다.')$(hasline ' ② 테스트 `참조` 는 가드를 단언한다는 뜻이 아니다 — 증거 있음 ≠ 가드 작동.')$(hasline ' ③ 변이 점수는 직접 재계산하지 않는다 — M 은 mutation-targets.conf 등록 여부만 본다.')$(hasline ' ④ propagation edge 는 must_match 를 단어 단위로만 읽고 문자열 존재만 본다 — 교대(|)·glob·부정 정규식은 오탐·미탐이 날 수 있다.')|$(hasline '한계')" "1111|1"
 snap() { (cd "$SB/$1" && find . -type f -print0 | sort -z | xargs -0 cksum; find . -type f -exec ls -l {} + | awk '{print $1, $NF}' | sort; find . | sort) | cksum; }
 SNAP1=$(snap f2); gm f2; SNAP2=$(snap f2)
 ck "T5.b 읽기 전용: 실행 전후 fixture 트리 해시(내용·모드·파일 목록)가 같다" "$SNAP2" "$SNAP1"
@@ -445,6 +445,9 @@ env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" stray >/dev/null 2>"$SB/e
 ck "T5.g 위치 인자(옵션 아님) → rc 2" "$RCP" "2"
 env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" -h >"$SB/out" 2>"$SB/err"; RCH=$?
 ck "T5.h -h → rc 0 · stdout 에 사용법" "$RCH|$(grep -c '^사용: guard-map.sh' "$SB/out")" "0|1"
+env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" --repo "" >"$SB/out" 2>"$SB/err"; RCE=$?
+env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" --weak-only --repo "" >"$SB/out2" 2>"$SB/err2"; RCE2=$?
+ck "T5.j --repo \"\"(빈 값) → rc 2 · stdout 비어 있음 · stderr 에 사유와 사용법 (단독·--weak-only 함께)" "$RCE|$(wc -c < "$SB/out" | tr -d ' ')|$(grep -c '^guard-map: --repo 값이 비어 있다' "$SB/err")|$(grep -c '^사용: guard-map.sh' "$SB/err")|$RCE2|$(wc -c < "$SB/out2" | tr -d ' ')" "2|0|1|1|2|0"
 cpfx f1 f1ro; gm f1; RO_BASE="$OUT"; chmod -R a-w "$SB/f1ro"; gm f1ro; RO_RC=$RC; RO_OUT="$OUT"; chmod -R u+w "$SB/f1ro"
 ck "T5.ro 읽기 전용 root(chmod a-w)에서도 rc 0 · 같은 출력 — 임시 파일을 대상 repo 안에 만들지 않는다" "$RO_RC|$([ "$RO_OUT" = "$RO_BASE" ] && echo same)" "0|same"
 ck "T5.i 오류 실행 뒤에도 임시 파일 잔존 0" "$(ls -A "$SB/tmp" | wc -l | tr -d ' ')" "0"
@@ -575,12 +578,22 @@ GMX="LC_ALL=en_US.UTF-8" gm o1; unset GMX
 ck "T9.d 로케일 독립: UTF-8 로케일에서도 같은 출력 — 대문자 이름(Bb)은 C 순서대로 aa 앞(정렬을 로케일에 맡기지 않는다)" "$OUT" "$O1"
 ck "T9.e 대문자 이름 정렬: Bb < aa < mm < zz (C 순서)" "$(printf '%s\n' "$O1" | awk -F'  +' '$1 == "check" { printf "%s,", $2 }')" "Bb,aa,mm,zz,"
 
+SRCO=$("$BASH_BIN" -c '
+  source "$1" || exit 9
+  a=$(set -o | grep -E "^(nounset|pipefail)" | tr -s " \t" " " | tr "\n" ,)
+  gm::main --repo "$2" >/dev/null
+  b=$(set -o | grep -E "^(nounset|pipefail)" | tr -s " \t" " " | tr "\n" ,)
+  echo "$a|$b"' _ "$GM" "$SB/s1" 2>&1)
+ck "T9.f source 해도 호출자 셸의 nounset·pipefail 이 켜지지 않는다(source 직후·gm::main 호출 뒤 모두 off)" "$SRCO" "nounset off,pipefail off,|nounset off,pipefail off,"
+ck "T9.g 엄격 모드는 gm::main 서브셸 첫 줄에서 켜고 최상위에는 없다(정적 잠금 — 서브셸 안 옵션은 블랙박스로 못 본다)" "$(awk '/^gm::main\(\) \($/ { getline; print; exit }' "$GM")|$(grep -c '^set -uo pipefail' "$GM")" "  set -uo pipefail|0"
+
 # ═════ T10: 문서(scripts/README.md 의 guard-map 절) ═════
 SECF="$SB/readme-sec.txt"
 awk '/^## guard-map.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md" > "$SECF"
 kw() { if grep -qF -- "$1" "$SECF"; then printf y; else printf n; fi; }
 ck "T10.a README 에 guard-map 절: 사용법(--weak-only·--repo)·증거 종류(T·M·P 호출 배선)·미측정·해석 주의(증거 있음 ≠ 가드 작동)·한계(명명 규약 밖 게이트·참조·변이 점수·edge 문자열)·읽기 전용" "$(kw 'bash scripts/guard-map.sh')$(kw '--weak-only')$(kw '--repo')$(kw '미측정')$(kw '자기잠금')$(kw '산문')$(kw '증거 있음 ≠ 가드 작동')$(kw '명명 규약 밖')$(kw '변이 점수')$(kw '문자열 존재')$(kw '읽기 전용')" "yyyyyyyyyyy"
 ck "T10.b README 절은 --json·--tsv 를 지원 옵션으로 소개하지 않는다(YAGNI — 후속 FID)" "$(grep -cE '^[[:space:]]*(bash scripts/guard-map.sh .*--(json|tsv)|- `--(json|tsv)`)' "$SECF")" "0"
+ck "T10.c README 해석 주의에 P 판정 한계(must_match 단어 단위·교대·glob·부정 정규식 오탐·미탐)가 있다" "$(kw 'must_match` 를 단어 단위로만 읽는다')$(kw '교대')$(kw 'glob')$(kw '오탐·미탐')" "yyyy"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

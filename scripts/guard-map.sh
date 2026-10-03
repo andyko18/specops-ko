@@ -26,7 +26,7 @@
 #   판정 가능한 칸이 하나도 없으면(전부 미측정) 판정에서 제외한다. 적용 증거가 1종뿐인 가드(rule·structure 는 T 뿐)는
 #   약함 판정에서 제외하고 표·요약에 T 개수만 보인다(요약에 `판정 제외(적용 증거 1종)` 표기). 약함 판정은 check 에만 적용된다.
 #
-# 종료 코드(rc): 0 정상(증거 약함이 있어도 0 — 관측 도구) · 2 사용 오류(알 수 없는 옵션·--repo 값 부재·root 가 디렉터리 아님)
+# 종료 코드(rc): 0 정상(증거 약함이 있어도 0 — 관측 도구) · 2 사용 오류(알 수 없는 옵션·--repo 값 부재 또는 빈 값·root 가 디렉터리 아님)
 # 읽기 전용: 어떤 파일도 쓰거나 바꾸지 않는다(임시 파일은 mktemp -d 아래에만 만들고 EXIT trap 으로 삭제).
 #   시각·세션 환경변수·실 ~/.claude 에 의존하지 않는다. awk 는 LC_ALL=C 로 돌려 gawk·mawk·BSD awk 출력이 같다.
 # 소스 가능 — gm:: 함수만 정의, main 은 직접 실행일 때만 돈다.
@@ -34,7 +34,7 @@
 # 한계: 증거 있음 ≠ 가드 작동 — 테스트 참조·원장 edge 는 존재만 본다. 가드 강도(차단/경고)는 판정하지 않는다.
 #   인벤토리는 `check-*.sh`·rules.jsonl·`emit` 라벨뿐이다(명명 규약 밖 게이트·훅 deny 분기는 없음 — 출력 푸터에도 고지).
 #   호출처 판정은 이름 언급(주석 포함)으로 하므로 호출처가 실제 호출인지는 보지 않는다.
-set -uo pipefail
+# 엄격 모드(set -uo pipefail)는 gm::main 서브셸 첫 줄에서만 켠다 — source 한 호출자 셸로 새지 않게.
 
 GM_HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
@@ -389,19 +389,21 @@ gm::footer() {
  ① 명명 규약 밖 게이트(release-ready.sh·reconcile-check.sh·batch-state.sh --gate 등)와 훅 deny 분기는 인벤토리에 없다.
  ② 테스트 `참조` 는 가드를 단언한다는 뜻이 아니다 — 증거 있음 ≠ 가드 작동.
  ③ 변이 점수는 직접 재계산하지 않는다 — M 은 mutation-targets.conf 등록 여부만 본다.
- ④ propagation edge 는 문자열 존재만 본다.
+ ④ propagation edge 는 must_match 를 단어 단위로만 읽고 문자열 존재만 본다 — 교대(|)·glob·부정 정규식은 오탐·미탐이 날 수 있다.
 EOF
 }
 
 # ── main ────────────────────────────────────────────────────────────────────
 
 gm::main() (
+  set -uo pipefail
   local root="" weak_only=0 missing="" tmp
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --weak-only) weak_only=1; shift ;;
       --repo)
         [ "$#" -ge 2 ] || { echo "guard-map: --repo 에 값이 없다" >&2; gm::usage >&2; return 2; }
+        [ -n "$2" ] || { echo "guard-map: --repo 값이 비어 있다" >&2; gm::usage >&2; return 2; }
         root="$2"; shift 2 ;;
       -h|--help) gm::usage; return 0 ;;
       *) echo "guard-map: 알 수 없는 옵션/인자: $1" >&2; gm::usage >&2; return 2 ;;
