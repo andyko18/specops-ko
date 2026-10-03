@@ -333,6 +333,14 @@ _judge '{"text":"VERDICT: FAIL"}'; _rc4=$?; _r4="$JUDGE_VERDICT"
 _judge '{"text":"VERDICT: PASS\n근거 있음"}'; _rc5=$?; _r5="$JUDGE_VERDICT"
 [ "$_r1" = ERROR ] && [ "$_r1r" = "근거 줄 없는 PASS" ] && [ "$_rc1" = 3 ] && [ "$_r2" = ERROR ] && [ "$_r3" = ERROR ] && [ "$_r4" = FAIL ] && [ "$_rc4" = 0 ] && [ "$_r5" = PASS ] && [ "$_rc5" = 0 ] \
   && ok "T8.an 근거 줄 없는 PASS(1줄·공백 줄·대괄호) → ERROR+사유·rc 3 · FAIL 유지(rc 0) · 근거 있는 PASS 유지(rc 0)" || nope "T8.an" "$_r1|$_r1r|rc$_rc1|$_r2|$_r3|$_r4|rc$_rc4|$_r5|rc$_rc5"
+# (Phase C) 근거 없는 PASS 는 보정 러너가 오통과로 세어야 하므로 신호(JUDGE_PASS_NOREASON)를 남긴다 — 제어문자만 있는 근거 줄도 근거 없음, FAIL·산문 ERROR·정상 PASS 는 0
+_judge '{"text":"VERDICT: PASS\n\u0001\u0002"}'; _n1="$JUDGE_VERDICT|${JUDGE_PASS_NOREASON:-unset}"
+_judge '{"text":"VERDICT: PASS"}'; _n2="${JUDGE_PASS_NOREASON:-unset}"
+_judge '{"text":"VERDICT: FAIL"}'; _n3="${JUDGE_PASS_NOREASON:-unset}"
+_judge '{"text":"기준을 만족하므로 통과로 봅니다."}'; _n4="$JUDGE_VERDICT|${JUDGE_PASS_NOREASON:-unset}"
+_judge '{"text":"VERDICT: PASS\n근거 있음"}'; _n5="${JUDGE_PASS_NOREASON:-unset}"
+[ "$_n1" = "ERROR|1" ] && [ "$_n2" = 1 ] && [ "$_n3" = 0 ] && [ "$_n4" = "ERROR|0" ] && [ "$_n5" = 0 ] \
+  && ok "T8.an2 근거 없는 PASS 신호 JUDGE_PASS_NOREASON — 제어문자만 근거=1 · 1줄 PASS=1 · FAIL=0 · 산문 ERROR=0 · 정상 PASS=0" || nope "T8.an2" "$_n1|$_n2|$_n3|$_n4|$_n5"
 _judge '{"text":"기준을 만족하므로 통과로 봅니다."}'
 [ "$JUDGE_VERDICT" = ERROR ] && ok "T8.c VERDICT 줄 없는 산문 → ERROR (산문에서 PASS 를 추정하지 않음)" || nope "T8.c" "$JUDGE_VERDICT"
 _judge '{"text":"VERDICT: PASS 그러나 FAIL 일 수도 있다"}'
