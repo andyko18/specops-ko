@@ -553,7 +553,7 @@ SRC=$("$BASH_BIN" -c '
   nf=$(comm -13 <(printf "%s\n" "$before_f") <(printf "%s\n" "$after_f") | grep -vc "^gm::")
   nv=$(comm -13 <(printf "%s\n" "$before_v") <(printf "%s\n" "$after_v") | grep -v -e "^GM_" -e "^BASH_" -e "^_$" -e "^before_" -e "^after_" -e "^nf$" -e "^nv$" | wc -l | tr -d " ")
   echo "newfn=$nf newvar=$nv"
-  gm::main --repo "$2" | head -1
+  echo "$(gm::main --repo "$2" | sed -n 1p)"   # head -1 은 SIGPIPE 가 무시되는 환경(CI 러너)에서 cat 의 Broken pipe 를 stderr 로 흘린다
   echo "after-main"' _ "$GM" "$SB/s1" 2>&1)
 ck "T9.a source 만으로는 아무것도 출력·실행하지 않고(main 미실행) 새 함수는 전부 gm:: · 새 변수는 GM_ 접두 · gm::main 호출 뒤에도 호출자의 EXIT trap 이 살아 있다" "$SRC" "newfn=0 newvar=0
 인벤토리: rules 0 · check 1 · structure 0
