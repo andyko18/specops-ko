@@ -79,6 +79,29 @@ rm -rf "$TD"
 [ "$rc" -eq 1 ] && echo "$out" | grep -q "클린하지 않" \
   && ok "T2.a git unclean → exit 1 + 메시지" || fail "T2.a (rc=$rc out='$out')"
 
+# T2.b/c/d (FID 20261003-ops-debt): 클린 검사는 추적 변경(수정·스테이징·삭제)만 차단하고 untracked 는 경고
+TD=$(mktemp -d); _make_git_fixture "$TD"
+echo "x" > "$TD/scratch-note.txt"; mkdir -p "$TD/tmp-ui"; echo "y" > "$TD/tmp-ui/a.html"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+rm -rf "$TD"
+{ [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q "클린하지 않" && printf '%s' "$out" | grep -qE "Warning: untracked 2개 — .*scratch-note.txt" && printf '%s' "$out" | grep -qF "tmp-ui/"; } \
+  && ok "T2.b untracked 만 있음 → 클린 검사 통과(rc 0) + untracked 경고(개수·이름)" || fail "T2.b (rc=$rc out='$out')"
+TD=$(mktemp -d); _make_git_fixture "$TD"
+for i in 1 2 3 4 5 6 7; do echo "$i" > "$TD/u$i.txt"; done
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc=$?
+rm -rf "$TD"
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF "Warning: untracked 7개" && printf '%s' "$out" | grep -qF "외 2개"; } \
+  && ok "T2.c untracked 7개 → 앞 5개 이름 + 외 2개" || fail "T2.c (rc=$rc out='$out')"
+TD=$(mktemp -d); _make_git_fixture "$TD"
+echo "staged" >> "$TD/README.md"; git -C "$TD" add README.md
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc1=$?
+git -C "$TD" reset -q HEAD README.md; git -C "$TD" checkout -q -- README.md
+rm "$TD/commands/cmd.md"
+out2=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 --dry-run 2>&1); rc2=$?
+rm -rf "$TD"
+{ [ "$rc1" -eq 1 ] && printf '%s' "$out" | grep -q "클린하지 않" && [ "$rc2" -eq 1 ] && printf '%s' "$out2" | grep -q "클린하지 않"; } \
+  && ok "T2.d 스테이징 변경·추적 파일 삭제는 계속 차단(rc 1)" || fail "T2.d (rc1=$rc1 rc2=$rc2)"
+
 # T3: AC-2 already tagged
 TD=$(mktemp -d); _make_git_fixture "$TD"
 git -C "$TD" tag v1.11.0

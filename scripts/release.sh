@@ -18,10 +18,19 @@ if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   exit 1
 fi
 
-# FR-2: git 워킹트리 클린 확인
-if [ -n "$(git -C "$PLUGIN_ROOT" status --porcelain 2>/dev/null)" ]; then
+# FR-2: git 워킹트리 클린 확인 — 추적 파일 변경(수정·삭제·스테이징)만 차단한다.
+#   untracked 는 경고만: 릴리즈 커밋은 CHANGED_FILES 명시 목록만 add 하므로 untracked 가 섞이지 않는다
+#   (v1.106.0 때 사용자 소유 untracked 폴더 때문에 GIT_CONFIG_* 우회가 필요했다 — FID 20261003-ops-debt).
+if [ -n "$(git -C "$PLUGIN_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
   echo "Error: git 워킹트리가 클린하지 않습니다. 커밋 또는 stash 후 재시도하세요." >&2
   exit 1
+fi
+_untracked=$(git -C "$PLUGIN_ROOT" status --porcelain 2>/dev/null | sed -n 's/^?? //p' || true)
+if [ -n "$_untracked" ]; then
+  _un_n=$(printf '%s\n' "$_untracked" | awk 'END { print NR }')
+  _un_names=$(printf '%s\n' "$_untracked" | awk 'NR <= 5 { printf "%s%s", (NR > 1 ? ", " : ""), $0 }')
+  _un_more=""; [ "$_un_n" -gt 5 ] && _un_more=" 외 $((_un_n - 5))개"
+  echo "Warning: untracked ${_un_n}개 — ${_un_names}${_un_more} (릴리즈 커밋에는 포함되지 않습니다 — CHANGED_FILES 만 add)" >&2
 fi
 
 # FR-11: 이미 태그된 버전 확인
