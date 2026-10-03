@@ -87,7 +87,21 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
     j='{}'
   else
     j=$(bounded_run "$SAST_TIMEOUT" env SEMGREP_ENABLE_VERSION_CHECK=0 \
-          semgrep --config "$SEMGREP_RULES" --json --quiet "${TARGETS[@]}" 2>/dev/null); src=$?
+          semgrep --config "$SEMGREP_RULES" --json --quiet -- "${TARGETS[@]}" 2>/dev/null); src=$?
+    # 한 경로가 semgrep 을 실패시키면(예: 심볼릭 링크 인자 rc=2) 나머지 경로의 탐지까지 사라진다 — 경로별로 다시 돌려 성한 경로의
+    #   결과를 살린다. 실패한 경로가 하나라도 있으면 아래 강등 표기가 남고 룰셋 receipt 는 붙지 않는다(부분 스캔을 완전 스캔으로 오인 방지).
+    _sg_partial=0
+    if [ "$src" -gt 1 ] && [ "$nt" -gt 1 ] && ! bounded_timed_out "$src" && command -v jq >/dev/null 2>&1; then
+      _sg_partial=1; j='{"results":[]}'; src_fail=0; _i=0
+      while [ "$_i" -lt "$nt" ]; do
+        _j1=$(bounded_run "$SAST_TIMEOUT" env SEMGREP_ENABLE_VERSION_CHECK=0 \
+              semgrep --config "$SEMGREP_RULES" --json --quiet -- "${TARGETS[$_i]}" 2>/dev/null); _rc1=$?
+        if [ "$_rc1" -gt 1 ]; then [ "$src_fail" -gt 1 ] || src_fail=$_rc1
+        else j=$(printf '%s\n%s' "$j" "$_j1" | jq -s '{results: (map(.results // []) | add)}' 2>/dev/null || printf '%s' "$j"); fi
+        _i=$((_i+1))
+      done
+      src=$src_fail   # 0 = 전부 성공(receipt 허용) · 2 = 일부 실패(강등 표기)
+    fi
     if bounded_timed_out "$src"; then
       sast_timeout_note="${sast_timeout_note} semgrep(시간초과)"
       j='{}'
@@ -97,7 +111,7 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
       #   통과한 것이 구분되지 않는 **무음 통과**다. 시간초과와 같은 축으로 강등 표기한다.
       #   rc=1 은 제외 — semgrep 은 findings 존재를 1 로 낼 수 있어 정상 결과다.
       sast_timeout_note="${sast_timeout_note} semgrep(실행실패 rc=$src)"
-      j='{}'
+      [ "$_sg_partial" = 1 ] || j='{}'
     else
       # 실행 receipt — 스캔이 실제로 끝난 뒤에만 룰셋을 표기한다.
       #   분기 진입 시점에 표기하면 rc=2·시간초과에도 표기가 남아 "룰셋이 보이면 돌았다"가 거짓이 된다.

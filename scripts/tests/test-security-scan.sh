@@ -246,6 +246,37 @@ else
   skip "AC-4-sg semgrep 미설치 — 실 다중 경로 스캔 미실행 (PASS 집계 제외)"
 fi
 
+# semgrep 경로 하나가 실패해도 나머지 경로의 탐지는 살아남는다 (Phase C 보정) — PATH stub: argv 에 bad.py 가 있으면 rc 2
+T=$(mktemp -d); mkdir -p "$T/bin"; printf 'x=1\n' > "$T/evil.py"; printf 'x=2\n' > "$T/bad.py"; printf 'x=3\n' > "$T/ok.py"
+cat > "$T/bin/semgrep" <<'STUB'
+#!/usr/bin/env bash
+case " $* " in *"/bad.py "*) exit 2;; esac
+case "$*" in *evil.py*) printf '{"results":[{"extra":{"severity":"ERROR"}}]}\n';; *) printf '{"results":[]}\n';; esac; exit 0
+STUB
+chmod +x "$T/bin/semgrep"
+if command -v jq >/dev/null 2>&1; then
+  o1=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/evil.py" "$T/bad.py" "$T/ok.py" 2>&1); e1=$?
+  o2=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/bad.py" "$T/ok.py" "$T/evil.py" 2>&1); e2=$?
+  o3=$(PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$T/ok.py" "$T/evil.py" 2>&1); e3=$?
+  { printf '%s%s' "$o1" "$o2" | grep -qE 'crit=1 ' && [ "$e1" = 1 ] && [ "$e2" = 1 ] \
+    && printf '%s' "$o1" | grep -qF 'semgrep(실행실패 rc=2)' && ! printf '%s' "$o1" | grep -qF '(룰셋:' \
+    && printf '%s' "$o3" | grep -qF '(룰셋: 로컬 bash-injection)' && printf '%s' "$o3" | grep -qE 'crit=1 ' && [ "$e3" = 1 ]; } \
+    && ok "AC-4-fallback 한 경로 semgrep 실패 → 경로별 재시도로 성한 경로 탐지 보존·강등 표기·receipt 없음 (전부 성공이면 receipt)" \
+    || nope "AC-4-fallback" "o1=$o1 e1=$e1 o2=$o2 e2=$e2 o3=$o3 e3=$e3"
+else
+  skip "AC-4-fallback jq 미설치 — 외부 집계 skip 경로 (PASS 집계 제외)"
+fi
+rm -rf "$T"
+if command -v semgrep >/dev/null 2>&1; then
+  T=$(mktemp -d); printf 'echo ok\n' > "$T/a.sh"; printf '#!/usr/bin/env bash\neval "$1"\n' > "$T/evil.sh"; ln -s a.sh "$T/link.sh"
+  o=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/evil.sh" "$T/link.sh" 2>&1); e=$?
+  { printf '%s' "$o" | grep -qE 'crit=1 ' && [ "$e" = 1 ] && printf '%s' "$o" | grep -qF 'semgrep(실행실패'; } \
+    && ok "AC-4-sglink 실 semgrep: 심볼릭 링크 인자가 섞여도 evil.sh 탐지 보존(crit=1)·강등 표기" || nope "AC-4-sglink" "o=$o e=$e"
+  rm -rf "$T"
+else
+  skip "AC-4-sglink semgrep 미설치 — 실 심볼릭 링크 인자 스캔 미실행 (PASS 집계 제외)"
+fi
+
 # SKIP 을 요약에 드러낸다 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
 #   SKIP=0 이면 종전 출력과 바이트 동일하다.
 sk=""; [ "${SKIP:-0}" -gt 0 ] && sk=" SKIP=$SKIP"
