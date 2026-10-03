@@ -102,6 +102,25 @@ rm -rf "$TD"
 { [ "$rc1" -eq 1 ] && printf '%s' "$out" | grep -q "클린하지 않" && [ "$rc2" -eq 1 ] && printf '%s' "$out2" | grep -q "클린하지 않"; } \
   && ok "T2.d 스테이징 변경·추적 파일 삭제는 계속 차단(rc 1)" || fail "T2.d (rc1=$rc1 rc2=$rc2)"
 
+# T2.e/f (Phase C 보정): untracked commands/*.md 는 stamp 수정·릴리즈 커밋·롤백 어디에도 끼지 않는다
+TD=$(mktemp -d); _make_git_fixture "$TD"
+printf -- '---\nname: draft\nspecops_version: 1.9.0\n---\n\n*specops-ko v1.0.0 · t*\n' > "$TD/commands/draft.md"
+cp "$TD/commands/draft.md" "$TD/draft.before"
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 2>&1); rc=$?
+tr_=$(git -C "$TD" ls-files commands/draft.md); stat_=$(git -C "$TD" show --stat --format= HEAD)
+{ [ "$rc" -eq 0 ] && [ -z "$tr_" ] && cmp -s "$TD/commands/draft.md" "$TD/draft.before" && ! printf '%s' "$stat_" | grep -q "draft.md"; } \
+  && ok "T2.e untracked commands/draft.md → 릴리즈 커밋에 안 실리고 내용도 불변(rc 0)" || fail "T2.e (rc=$rc tracked='$tr_' stat='$stat_')"
+rm -rf "$TD"
+TD=$(mktemp -d); _make_git_fixture "$TD"
+printf -- '---\nname: draft\nspecops_version: 1.9.0\n---\n\n*specops-ko v1.0.0 · t*\n' > "$TD/commands/draft.md"
+cp "$TD/commands/draft.md" "$TD/draft.before"
+# post-flight 만 실패하게 한다(버전 bump 후 README 에 v1.11.0 이 생기면 실패) — 파일이 이미 수정된 뒤의 롤백 경로를 탄다
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD="! grep -q v1.11.0 $TD/README.md" bash "$RELEASE" 1.11.0 2>&1); rc=$?
+dirty=$(git -C "$TD" status --porcelain --untracked-files=no)
+{ [ "$rc" -eq 1 ] && [ -z "$dirty" ] && cmp -s "$TD/commands/draft.md" "$TD/draft.before"; } \
+  && ok "T2.f untracked 가 있어도 중간 실패 롤백이 추적 파일을 전부 복원(pathspec 오류 없음)" || fail "T2.f (rc=$rc dirty='$dirty')"
+rm -rf "$TD"
+
 # T3: AC-2 already tagged
 TD=$(mktemp -d); _make_git_fixture "$TD"
 git -C "$TD" tag v1.11.0

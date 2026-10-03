@@ -209,6 +209,9 @@ fi
 # FR-7: commands/*.md footer 스탬프 불일치 수정
 for cmd_file in "$PLUGIN_ROOT/commands/"*.md; do
   [ -f "$cmd_file" ] || continue
+  # 추적되지 않는 파일은 릴리즈 대상이 아니다 — 클린 검사가 untracked 를 허용하면서 이 glob 이 파일시스템을 그대로 훑으면
+  #   사용자 WIP 가 stamp 수정·릴리즈 커밋에 섞이고, 롤백의 git restore 가 pathspec 오류로 통째로 무력화된다(Phase C 실측).
+  git -C "$PLUGIN_ROOT" ls-files --error-unmatch -- "commands/$(basename "$cmd_file")" >/dev/null 2>&1 || continue
   fm_ver=$(awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2}' "$cmd_file")
   [ -z "$fm_ver" ] && continue
   if grep -qE '^\*specops-ko v[0-9]' "$cmd_file"; then
