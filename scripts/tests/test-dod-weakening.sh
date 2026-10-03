@@ -40,6 +40,11 @@ rev_check() {
 # BSD awk 는 `==` 를 로케일 정렬로 비교해 한글 줄이 서로 같다고 나온다 — 정확 일치는 LC_ALL=C(바이트 비교)로 한다
 lineq() { local n; n=$(LC_ALL=C awk -v h="$2" '$0 == h { print NR; exit }' "$1"); echo "${n:-0}"; }
 secq() { LC_ALL=C awk -v h="$2" '$0 == h { on = 1; print; next } /^## / { on = 0 } on' "$1"; }
+# ── 등급 정책 문구 7종(사유 없음 Important · AC 소멸 Critical · 판정 연결 · 반-자기발급 단서 · 보고 위치 · 강등 금지 영역 · (none) 재확인) → 7글자
+grade_check() {
+  local r; r=$(section "$1" '## 기준 약화 탐지')
+  printf '%s%s%s%s%s%s%s' "$(yn "$r" '사유가 없으면 **Important**')" "$(yn "$r" '비면 **Critical**')" "$(yn "$r" 'Critical 1건 이상이면 `NEEDS_FIX`')" "$(yn "$r" '작성자의 한 줄 해명')" "$(yn "$r" '`## 🔴 Critical`·`## 🟡 Important` 절에도')" "$(yn "$r" '강등 금지 영역')" "$(yn "$r" 'git diff --stat')"
+}
 # ── 프로세스·출력 포맷 연결 → 프로세스 항목 · 출력 섹션 위치(테스트 커버리지 뒤 리스크 플랜 앞) · (none) → 3글자
 wire_check() {
   local f="$1"
@@ -48,7 +53,7 @@ wire_check() {
 # ── 기존 불변식: role · tools(Write/Edit 없음) · 저장 계약 3 · A4 증거 규칙·빈 출력 규칙·5원칙 룰 절 각 1회 → 8글자
 inv_check() {
   local f="$1" fm tools sc
-  fm=$(awk 'NR == 1 && $0 == "---" { on = 1; next } on && $0 == "---" { exit } on' "$f")
+  fm=$(LC_ALL=C awk 'NR == 1 && $0 == "---" { on = 1; next } on && $0 == "---" { exit } on' "$f")
   tools=$(printf '%s\n' "$fm" | grep '^tools:')
   sc=$(section "$f" '## 최종 메시지 형식')
   printf '%s%s%s%s%s' "$(yn "$fm" 'role: evaluator')" "$([ "$tools" = 'tools: Read, Grep, Glob, Bash' ] && echo y || echo n)" "$(yn "$sc" '<<<REVIEW fid=')" "$(yn "$sc" 'phase=C')" "$(yn "$sc" '<<<END>>>')"
@@ -81,6 +86,13 @@ ck "T2.b 음성 대조: 절을 지운 사본 · 클래스 줄을 지운 사본 �
 ck "T2.c 교차 정합: 템플릿 바닥선의 신호어 6종(억제·삭제·skip·assertion·임계·무력화)이 템플릿과 리뷰어 절 양쪽에 있다" "$(cross_check "$TS" "$AG")" "yyyyyy"
 ck "T2.d 교차 음성 대조: 템플릿에서 임계 줄을 지운 사본 · 리뷰어에서 클래스 줄을 지운 사본은 걸린다" "$(cross_check "$SB/ts-noroof.md" "$AG")|$(cross_check "$TS" "$SB/ag-noclass.md")" "yyyyny|yyyyyn"
 
+ck "T2.e 등급 정책 문구 7종이 모두 있다(사유 없음 Important · AC 소멸 Critical · Critical 1건 이상 NEEDS_FIX · 한 줄 해명 단서 · 🔴·🟡 절 보고 · 강등 금지 영역 · git diff --stat 재확인)" "$(grade_check "$AG")" "yyyyyyy"
+sed 's/사유가 없으면 \*\*Important\*\*/사유가 없으면 **Critical**/' "$AG" > "$SB/ag-swap.md"
+sed 's/Critical 1건 이상이면 `NEEDS_FIX`/Critical 1건 이상이면 `READY_TO_MERGE`/' "$AG" > "$SB/ag-verdict.md"
+sed 's/작성자의 한 줄 해명/작성자 해명/' "$AG" > "$SB/ag-selfgrant.md"
+sed 's/`## 🔴 Critical`·`## 🟡 Important` 절에도/표에만/' "$AG" > "$SB/ag-where.md"
+ck "T2.f 음성 대조: 등급을 맞바꾼 사본 · 판정 연결을 뒤집은 사본 · 한 줄 해명 단서를 지운 사본 · 보고 위치를 지운 사본은 각자 해당 위치에서 걸린다(침묵 통과 없음)" "$(grade_check "$SB/ag-swap.md")|$(grade_check "$SB/ag-verdict.md")|$(grade_check "$SB/ag-selfgrant.md")|$(grade_check "$SB/ag-where.md")" "nyyyyyy|yynyyyy|yyynyyy|yyyynyy"
+
 # ══ AC-3: 프로세스·출력 포맷 연결 · 기존 불변식 ══
 ck "T3.a 프로세스에 기준 약화 평가 항목 · 출력 포맷 기준 약화 섹션이 테스트 커버리지 뒤 리스크 플랜 앞 · (none) 허용" "$(wire_check "$AG")" "yyy"
 LC_ALL=C awk '$0 == "## 기준 약화" { skip = 1; next } /^## / { skip = 0 } !skip' "$AG" > "$SB/ag-nowire.md"
@@ -91,6 +103,11 @@ sed 's/^tools: Read, Grep, Glob, Bash$/tools: Read, Write, Grep, Glob, Bash/' "$
 sed 's/<<<END>>>/<<<FIN>>>/' "$AG" > "$SB/ag-noend.md"
 awk 'index($0, "## 증거 규칙") == 1 { skip = 1; next } /^## / { skip = 0 } !skip' "$AG" > "$SB/ag-noevid.md"
 ck "T3.d 음성 대조: Write 를 준 사본 · 저장 계약 종료 마커를 바꾼 사본 · A4 증거 규칙 절을 지운 사본은 걸린다" "$(inv_check "$SB/ag-write.md")|$(inv_check "$SB/ag-noend.md")|$(inv_check "$SB/ag-noevid.md")" "ynyyyyyy|yyyynyyy|yyyyynyy"
+
+# 출력 헤딩 `## 기준 약화` 는 정확히 1회(중복되면 위치 검사가 첫 줄만 본다)
+cntq() { LC_ALL=C awk -v h="$2" '$0 == h { n++ } END { print n + 0 }' "$1"; }
+LC_ALL=C awk '{ print } $0 == "## 기준 약화" { print }' "$AG" > "$SB/ag-dupout.md"
+ck "T3.e 출력 헤딩 ## 기준 약화 는 정확히 1회 · 헤딩을 중복한 사본은 걸린다" "$(cntq "$AG" '## 기준 약화')|$(cntq "$SB/ag-dupout.md" '## 기준 약화')" "1|2"
 
 # ══ 한계 고지 ══
 ck "T4.a 이 스위트의 머리에 한계(문구의 존재·위치만 잠그고 모델 준수는 수동 llm-eval 몫)가 적혀 있다" "$(head -4 "${BASH_SOURCE[0]}" | grep -c -e '모델이 그 규칙을 실제로 따르는지' -e '수동 llm-eval')" "1"
