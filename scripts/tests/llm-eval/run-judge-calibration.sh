@@ -44,6 +44,9 @@ bad=$(jq -r 'select((type != "object")
   | if type == "object" then (.id // "?" | tostring) else "(객체 아님)" end' "$PARSED" 2>/dev/null) \
   || reject "보정 세트 스키마 검사 실행 실패 ($CASES)"
 [ -z "$bad" ] || reject "보정 세트 스키마 위반 — id·rubric·response(문자열)·expect(PASS|FAIL) 필수: $(printf '%s' "$bad" | tr '\n' ' ')"
+# id 중복 거절 — 오버라이드 세트에서 같은 id 가 분모를 부풀리지 않게, 채점(유료) 전에 전부 나열해 한 번에 고치게 한다 (문자열 완전 일치·대소문자 구분)
+dups=$(jq -r '.id' "$PARSED" | LC_ALL=C sort | uniq -d | tr '\n' ' ') || reject "보정 세트 id 중복 검사 실행 실패 ($CASES)"
+[ -z "$dups" ] || reject "보정 세트 id 중복 — ${dups% }"
 rows=$(wc -l < "$PARSED" | tr -d ' ')
 
 agree=0; total=0; false_pass=0; errors=0; COST=0; models=""
@@ -63,6 +66,7 @@ while IFS= read -r o; do
     [ "$JUDGE_VERDICT" = ERROR ] && errors=$((errors + 1))
     [ "$expect" = FAIL ] && [ "$JUDGE_VERDICT" = PASS ] && fp=1
   done
+  # 방어 심층 — JUDGE_CAL_RUNS ≥ 1 가드(위)가 회차 0 을 이미 거절하므로 이 줄은 현재 도달 불가(단독 변이로 검출 불가). 가드가 완화될 때를 위해 남긴다
   [ -n "$got" ] || ok=0   # 채점 0회는 일치가 아니다 (낙관 초기화 ok=1 이 증거 없이 통과되지 않게)
   agree=$((agree + ok)); false_pass=$((false_pass + fp))
   printf 'CASE %s expect=%s got=%s\n' "$id" "$expect" "$got"
@@ -74,6 +78,7 @@ if [ "$mixed" -eq 1 ]; then model_label="mixed($models)"; else model_label="${mo
 printf 'CALIBRATION-MODEL: %s (보정은 이 채점 모델에 묶인다 — 모델을 바꾸면 재보정)\n' "$model_label"
 printf 'CALIBRATION: agree=%s/%s false_pass=%s error=%s cost=$%s\n' "$agree" "$total" "$false_pass" "$errors" "$(awk -v c="$COST" 'BEGIN{printf "%.2f", c}')"
 [ "$mixed" -eq 0 ] || echo "ERROR: 회차 간 채점 모델이 바뀌었다 ($models) — 보정이 어느 한 모델에 묶이지 않는다"
+# 방어 심층 — jq -c 가 행마다 개행 1개를 내 행 수(wc -l)와 채점 루프 수가 항상 같아 현재 도달 불가. 파싱 방식이 바뀌어 부분 채점이 생기면 ADOPT 되지 않게 남긴다
 [ "$total" -eq "$rows" ] || echo "ERROR: 파싱한 행 수($rows) 와 채점한 케이스 수($total) 불일치"
 if [ "$mixed" -eq 0 ] && [ "$total" -eq "$rows" ] && [ "$false_pass" -eq 0 ] && [ "$total" -gt 0 ] && [ $((agree * 10)) -ge $((total * 9)) ]; then
   echo "CALIBRATION-VERDICT: ADOPT"

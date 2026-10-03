@@ -448,16 +448,50 @@ _schema_bad() {  # <3행째로 넣을 JSON> → 출력
   { sed -n '1,2p' "$TMP/cal4.jsonl"; printf '%s\n' "$1"; sed -n '4p' "$TMP/cal4.jsonl"; } > "$TMP/calschema.jsonl"
   _calx "$TMP/calschema.jsonl" 1 "$_ok4"
 }
+_SCHEMA_RE='^ERROR: .*스키마 위반'   # (20261003-eval-debt) 스키마 거절 사유 패턴 단일 정의 — T8.ae·af 가 쓰고 T8.al 이 정밀도를 잠근다
 _sbad=""
 for _row in '{"id":"c","rubric":"r","response":"x","note":"n"}' '{"id":"c","rubric":"r","expect":"PASS"}' '{"id":"c","response":"x","expect":"PASS"}' \
             '{"rubric":"r","response":"x","expect":"PASS"}' '{"id":"c","rubric":"r","response":"x","expect":"pass"}' '{"id":"c","rubric":"r","response":1,"expect":"PASS"}' '"문자열 행"'; do
   _o=$(_schema_bad "$_row")
-  { printf '%s' "$_o" | grep -q '^ERROR: .*스키마' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' && [ ! -e "$TMP/cstate" ]; } || _sbad="$_sbad [$_row → $(printf '%s' "$_o" | tr '\n' '|')]"
+  { printf '%s' "$_o" | grep -q "$_SCHEMA_RE" && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' && [ ! -e "$TMP/cstate" ]; } || _sbad="$_sbad [$_row → $(printf '%s' "$_o" | tr '\n' '|')]"
 done
 [ -z "$_sbad" ] && ok "T8.ae 보정 러너: 스키마 위반 행(id·rubric·response·expect 누락/타입·expect 값) → 스키마 ERROR · REJECT · 채점 호출 0회" || nope "T8.ae" "$_sbad"
 # prompt 는 선택 — 없어도 스키마 통과 (T8.o 가 prompt 없는 cal4 로 ADOPT 를 잠근다) · 있는데 문자열이 아니면 위반
 _o=$(_schema_bad '{"id":"c","rubric":"r","response":"x","expect":"PASS","prompt":3}')
-printf '%s' "$_o" | grep -q '^ERROR: .*스키마' && [ ! -e "$TMP/cstate" ] && ok "T8.af 보정 러너: prompt 가 있으면 문자열이어야 함" || nope "T8.af" "$_o"
+printf '%s' "$_o" | grep -q "$_SCHEMA_RE" && [ ! -e "$TMP/cstate" ] && ok "T8.af 보정 러너: prompt 가 있으면 문자열이어야 함" || nope "T8.af" "$_o"
+# (20261003-eval-debt AC-2) T8.ae/af 가 실제로 쓰는 패턴($_SCHEMA_RE)은 "스키마 위반" 사유만 매치하고 "스키마 검사 실행 실패" 사유는 매치하지 않는다 (음성 대조) —
+# 실행 실패로 T8.ae/af 가 거짓 통과하지 않게. T8.ae/af 가 이 공유 패턴을 계속 쓰는지(느슨한 리터럴로 되돌리지 않았는지)도 함께 잠근다.
+_re_uses=$(sed -n '/^_sbad=""$/,/ok "T8.af/p' "$LE/test-skill-evals.sh" | grep -c 'grep -q "\$_SCHEMA_RE"')
+if grep -qF '스키마 검사 실행 실패' "$LE/run-judge-calibration.sh" && [ "$_re_uses" = 2 ] \
+   && ! printf '%s\n' 'ERROR: 보정 세트 스키마 검사 실행 실패 (/x)' | grep -q "$_SCHEMA_RE" \
+   && printf '%s\n' 'ERROR: 보정 세트 스키마 위반 — id·rubric·response(문자열)·expect(PASS|FAIL) 필수: c' | grep -q "$_SCHEMA_RE"; then
+  ok "T8.al T8.ae/af 사유 패턴 정밀도 — 위반 사유만 매치 · 실행 실패 사유는 불매치 · ae/af 가 공유 패턴 사용(2곳)"; else nope "T8.al" "re_uses=$_re_uses RE=$_SCHEMA_RE"; fi
+# (AC-1) 보정 세트 id 중복 — 채점(유료) 전에 거절. 중복 id 전부를 정렬·유일화해 한 줄에 나열
+{ sed -n '1,2p' "$TMP/cal4.jsonl"; sed -n '1,2p' "$TMP/cal4.jsonl"; } > "$TMP/caldup2.jsonl"   # id a b a b
+_o=$(_calx "$TMP/caldup2.jsonl" 1 "$_ok4")
+printf '%s\n' "$_o" | grep -qxF 'ERROR: 보정 세트 id 중복 — a b' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' && ! printf '%s' "$_o" | grep -q ADOPT && [ ! -e "$TMP/cstate" ] \
+  && ok "T8.ak 보정 러너: 중복 id 세트 → 'id 중복 — a b' ERROR · REJECT · 채점 호출 0회" || nope "T8.ak" "calls=$(cat "$TMP/cstate" 2>/dev/null) $_o"
+{ sed -n '1,3p' "$TMP/cal4.jsonl"; sed -n '1p' "$TMP/cal4.jsonl"; } > "$TMP/caldup1.jsonl"   # id a b c a
+_o=$(_calx "$TMP/caldup1.jsonl" 1 "$_ok4")
+printf '%s\n' "$_o" | grep -qxF 'ERROR: 보정 세트 id 중복 — a' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' && [ ! -e "$TMP/cstate" ] \
+  && ok "T8.ak2 보정 러너: 중복 id 한 쌍(a b c a) → 'id 중복 — a' 만 나열" || nope "T8.ak2" "calls=$(cat "$TMP/cstate" 2>/dev/null) $_o"
+# 음성 대조 — id 가 유일한 세트(4행 · 기본 보정 세트 10행)는 중복 오류 없이 채점까지 간다
+_o=$(_calx "$TMP/cal4.jsonl" 1 "$_ok4"); _c4=$(cat "$TMP/cstate" 2>/dev/null)
+_o10=$(_calx "$CAL" 1 '{"text":"VERDICT: PASS\\nok"}')
+! printf '%s' "$_o" | grep -q 'id 중복' && [ "$_c4" = 4 ] && ! printf '%s' "$_o10" | grep -q 'id 중복' && printf '%s' "$_o10" | grep -q '^CALIBRATION: agree=' \
+  && ok "T8.ak3 id 유일 세트(4행·기본 10행)는 중복 오류 없이 채점 진행 (호출 4회)" || nope "T8.ak3" "c4=$_c4 $_o | $_o10"
+# id 비교는 문자열 완전 일치 — 대소문자만 다른 id(a·A)는 중복이 아니다 (정규화하지 않는다)
+{ sed -n '1,2p' "$TMP/cal4.jsonl"; jq -nc '{id:"A",rubric:"r",response:"x",expect:"PASS",note:"n"}'; } > "$TMP/calcase.jsonl"   # id a b A
+_o=$(_calx "$TMP/calcase.jsonl" 1 "$_ok4"); _c3=$(cat "$TMP/cstate" 2>/dev/null)
+! printf '%s' "$_o" | grep -q 'id 중복' && [ "$_c3" = 3 ] \
+  && ok "T8.ak4 대소문자만 다른 id(a·A)는 중복이 아님 — 완전 일치 비교 (채점 3회)" || nope "T8.ak4" "c3=$_c3 $_o"
+# (AC-5) 도달 불가 가드: 바로 윗줄 주석에 '방어 심층' 과 '도달 불가' 가 있고 가드 코드는 그대로 존속
+_gok=1
+for _pat in '[ -n "$got" ] || ok=0' '[ "$total" -eq "$rows" ] || echo "ERROR'; do
+  _n=$(grep -nF -- "$_pat" "$LE/run-judge-calibration.sh" | sed -n 1p | cut -d: -f1)
+  { [ -n "$_n" ] && [ "$_n" -gt 1 ] && sed -n "$((_n - 1))p" "$LE/run-judge-calibration.sh" | grep -q '^ *#.*방어 심층.*도달 불가'; } || _gok=0
+done
+[ "$_gok" = 1 ] && ok "T8.ao 보정 러너 got 빈값 가드·행 수 대조 — 윗줄에 '방어 심층 … 도달 불가' 주석 · 가드 코드 존속" || nope "T8.ao" "주석 부재 또는 가드 줄 소실"
 # 채점 모델이 회차 간 바뀌면 보정이 어느 모델에도 묶이지 않는다 — mixed 로 드러내고 REJECT
 _o=$(_calx "$TMP/cal4.jsonl" 1 '{"model":"m-a","text":"VERDICT: PASS\\nok"}\n{"model":"m-a","text":"VERDICT: FAIL\\nno"}\n{"model":"m-b","text":"VERDICT: PASS\\nok"}\n{"model":"m-a","text":"VERDICT: FAIL\\nno"}')
 printf '%s' "$_o" | grep -q '^CALIBRATION-MODEL: mixed(m-a,m-b) ' && printf '%s' "$_o" | grep -q '^CALIBRATION: agree=4/4 false_pass=0 error=0 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
