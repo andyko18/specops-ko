@@ -45,7 +45,7 @@ bad=$(jq -r 'select((type != "object")
   || reject "보정 세트 스키마 검사 실행 실패 ($CASES)"
 [ -z "$bad" ] || reject "보정 세트 스키마 위반 — id·rubric·response(문자열)·expect(PASS|FAIL) 필수: $(printf '%s' "$bad" | tr '\n' ' ')"
 # id 중복 거절 — 오버라이드 세트에서 같은 id 가 분모를 부풀리지 않게, 채점(유료) 전에 전부 나열해 한 번에 고치게 한다 (문자열 완전 일치·대소문자 구분)
-dups=$(jq -r '.id' "$PARSED" | LC_ALL=C sort | uniq -d | tr '\n' ' ') || reject "보정 세트 id 중복 검사 실행 실패 ($CASES)"
+dups=$(jq -r '.id' "$PARSED" | LC_ALL=C sort | LC_ALL=C uniq -d | tr '\n' ' ') || reject "보정 세트 id 중복 검사 실행 실패 ($CASES)"
 [ -z "$dups" ] || reject "보정 세트 id 중복 — ${dups% }"
 rows=$(wc -l < "$PARSED" | tr -d ' ')
 
@@ -64,7 +64,8 @@ while IFS= read -r o; do
     got="$got${got:+,}$JUDGE_VERDICT"
     [ "$JUDGE_VERDICT" = "$expect" ] || ok=0
     [ "$JUDGE_VERDICT" = ERROR ] && errors=$((errors + 1))
-    [ "$expect" = FAIL ] && [ "$JUDGE_VERDICT" = PASS ] && fp=1
+    # 오통과 0 불변식 — 근거 없는 PASS 는 ERROR 로 강등되지만 expect=FAIL 이면 오통과로 센다(ERROR 로 빠져 ADOPT 가 열리지 않게)
+    [ "$expect" = FAIL ] && { [ "$JUDGE_VERDICT" = PASS ] || [ "${JUDGE_PASS_NOREASON:-0}" = 1 ]; } && fp=1
   done
   # 방어 심층 — JUDGE_CAL_RUNS ≥ 1 가드(위)가 회차 0 을 이미 거절하므로 이 줄은 현재 도달 불가(단독 변이로 검출 불가). 가드가 완화될 때를 위해 남긴다
   [ -n "$got" ] || ok=0   # 채점 0회는 일치가 아니다 (낙관 초기화 ok=1 이 증거 없이 통과되지 않게)

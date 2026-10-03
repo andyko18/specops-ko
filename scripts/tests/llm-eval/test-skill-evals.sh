@@ -505,6 +505,31 @@ _o10=$(_calx "$CAL" 1 '{"text":"VERDICT: PASS\\nok"}')
 _o=$(_calx "$TMP/calcase.jsonl" 1 "$_ok4"); _c3=$(cat "$TMP/cstate" 2>/dev/null)
 ! printf '%s' "$_o" | grep -q 'id 중복' && [ "$_c3" = 3 ] \
   && ok "T8.ak4 대소문자만 다른 id(a·A)는 중복이 아님 — 완전 일치 비교 (채점 3회)" || nope "T8.ak4" "c3=$_c3 $_o"
+# (Phase C) id 비교는 바이트 단위 — 로케일 콜레이션으로 한글 NFC('가')·NFD(ᄀ+ᅡ) 가 거짓 중복이 되지 않는다 (UTF-8 로케일이 없는 환경에서는 C 로 폴백해 자명 통과)
+{ sed -n '1,2p' "$TMP/cal4.jsonl"
+  jq -nc --arg id "$(printf '\352\260\200')" '{id:$id,rubric:"r",response:"x",expect:"PASS",note:"n"}'
+  jq -nc --arg id "$(printf '\341\204\200\341\205\241')" '{id:$id,rubric:"r",response:"x",expect:"FAIL",note:"n"}'; } > "$TMP/calnfc.jsonl"
+_o=$(LC_ALL=en_US.UTF-8 _calx "$TMP/calnfc.jsonl" 1 "$_ok4"); _c4n=$(cat "$TMP/cstate" 2>/dev/null)
+! printf '%s' "$_o" | grep -q 'id 중복' && [ "$_c4n" = 4 ] \
+  && ok "T8.ak5 한글 NFC/NFD 로 다른 id 는 중복이 아님 — 바이트 비교 (채점 4회)" || nope "T8.ak5" "c4=$_c4n $_o"
+# (Phase C) 중복 검사 파이프라인 자체가 실패하면(uniq rc≠0) 조용히 통과하지 않고 실행 실패 ERROR·REJECT·채점 0회 (pipefail + || reject)
+mkdir -p "$TMP/fakebin"; printf '#!/bin/sh\nexit 1\n' > "$TMP/fakebin/uniq"; chmod +x "$TMP/fakebin/uniq"
+_o=$(PATH="$TMP/fakebin:$PATH" _calx "$TMP/cal4.jsonl" 1 "$_ok4")
+printf '%s' "$_o" | grep -q '^ERROR: 보정 세트 id 중복 검사 실행 실패' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' && [ ! -e "$TMP/cstate" ] \
+  && ok "T8.ak6 중복 검사 파이프라인 실패(uniq rc 1) → 실행 실패 ERROR · REJECT · 채점 호출 0회" || nope "T8.ak6" "calls=$(cat "$TMP/cstate" 2>/dev/null) $_o"
+# (Phase C) 오통과 0 불변식 — expect=FAIL 행에서 근거 없는 PASS(ERROR 로 강등)도 오통과로 센다: 일치 9/10 이어도 REJECT. 음성 대조: expect=PASS 행의 근거 없는 PASS 는 오통과가 아니다(ADOPT 가능)
+_pl=""; for _i in 1 2 3 4 5; do _pl="${_pl}"'{"text":"VERDICT: PASS\\nok"}\n'; done
+for _i in 1 2 3 4; do _pl="${_pl}"'{"text":"VERDICT: FAIL\\nno"}\n'; done
+_pl="${_pl}"'{"text":"VERDICT: PASS"}'
+printf '%b\n' "$_pl" > "$TMP/cplan10n.jsonl"; rm -f "$TMP/cstate10n"
+_o=$(env CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/cplan10n.jsonl" STUB_STATE="$TMP/cstate10n" JUDGE_CAL_FILE="$TMP/cal10.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1)
+_pl='{"text":"VERDICT: PASS"}\n'; for _i in 1 2 3 4; do _pl="${_pl}"'{"text":"VERDICT: PASS\\nok"}\n'; done
+for _i in 1 2 3 4 5; do _pl="${_pl}"'{"text":"VERDICT: FAIL\\nno"}\n'; done
+printf '%b' "$_pl" > "$TMP/cplan10m.jsonl"; rm -f "$TMP/cstate10m"
+_o2=$(env CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/cplan10m.jsonl" STUB_STATE="$TMP/cstate10m" JUDGE_CAL_FILE="$TMP/cal10.jsonl" JUDGE_CAL_RUNS=1 bash "$LE/run-judge-calibration.sh" 2>&1)
+printf '%s' "$_o" | grep -q '^CALIBRATION: agree=9/10 false_pass=1 error=1 ' && printf '%s' "$_o" | grep -q '^CALIBRATION-VERDICT: REJECT$' \
+  && printf '%s' "$_o2" | grep -q '^CALIBRATION: agree=9/10 false_pass=0 error=1 ' && printf '%s' "$_o2" | grep -q '^CALIBRATION-VERDICT: ADOPT$' \
+  && ok "T8.ap 보정 러너: expect=FAIL 행의 근거 없는 PASS → false_pass 계상·REJECT (오통과 0 불변식) · expect=PASS 행의 것은 오통과 아님" || nope "T8.ap" "$_o | $_o2"
 # (AC-5) 도달 불가 가드: 바로 윗줄 주석에 '방어 심층' 과 '도달 불가' 가 있고 가드 코드는 그대로 존속
 _gok=1
 for _pat in '[ -n "$got" ] || ok=0' '[ "$total" -eq "$rows" ] || echo "ERROR'; do
