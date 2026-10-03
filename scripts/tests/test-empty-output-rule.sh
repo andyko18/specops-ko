@@ -24,6 +24,8 @@ trap 'rm -rf "$SB"' EXIT
 
 H='## 빈 출력 규칙'
 LABEL='[검증 불가 — 출력 비어 있음]'
+# 필터 없는 경로는 파이프 선두만 보호하지 않는다 — 출력 필터가 파이프 후단 명령을 재작성하므로 "각 단계" 를 요구한다(Phase C Important 1)
+PIPE='파이프라인이면 각 단계'
 # 현재 Bash 보유 에이전트 8개 — 도출 목록이 이걸 포함하는지만 본다(도출이 공회전해 0개를 돌려주는 것을 막는 하한)
 KNOWN="auditor-ko blue-team-ko code-reviewer-ko design-reviewer-ko implementer-ko plan-reviewer-ko red-team-ko spec-reviewer-ko"
 EVAL7="auditor-ko blue-team-ko code-reviewer-ko design-reviewer-ko plan-reviewer-ko red-team-ko spec-reviewer-ko"
@@ -76,13 +78,14 @@ has_4500() { printf '%s\n' "$1" | grep -qE '(^|[^0-9])45/0([^0-9]|$)'; }
 # 6요소 + 러너(6번째 적용 대상) + 가공 계층 — 길이·개수·rtk 표기는 뺀 "내용" 플래그
 skill_core() { # <file>
   local t; t=$(sec "$1" "$H")
-  printf 'e1=%s layer=%s a1=%s a2=%s a3=%s a4=%s a5=%s run=%s rc1=%s rc2=%s rc3=%s lab=%s nc=%s act=%s case=%s' \
+  printf 'e1=%s layer=%s a1=%s a2=%s a3=%s a4=%s a5=%s run=%s rc1=%s rc2=%s rc3=%s pipe=%s lab=%s nc=%s act=%s case=%s' \
     "$(has "$t" '증거가 아니다')" \
     "$(lha "$t" '증거가 아니다' '필터 훅' '파이프' '2>/dev/null' '부재와 구별되지 않는다')" \
     "$(lha "$t" '적용 대상' '프로세스 생존')" "$(lha "$t" '적용 대상' '파일/경로 존재')" "$(lha "$t" '적용 대상' '건수')" \
     "$(lha "$t" '적용 대상' '변경 유무')" "$(lha "$t" '적용 대상' '로그 부재')" \
     "$(lha "$t" '적용 대상' '러너' '아무것도 출력하지 않' '0건' '통과가 아니라 미실행' 'NOT_RUN')" \
     "$(lha "$t" '재확인 수단' '종료 코드')" "$(lha "$t" '재확인 수단' '필터 없는 경로')" "$(lha "$t" '재확인 수단' '교차 확인')" \
+    "$(lha "$t" '재확인 수단' '필터 없는 경로' "$PIPE")" \
     "$(has "$t" "$LABEL")" "$(lha "$t" "$LABEL" '결론을 내리지 않는다')" \
     "$(lha "$t" '행동' '재확인 전' '재실행' '삭제' '재시도' '하지 않는다')" \
     "$(lha "$t" '사례' '`ps`' '`39/6`' '`45/0`' '2026-09-06')"
@@ -141,10 +144,10 @@ bash_agents() { # <dir>
 agent_flags() { # <file>
   local t np; t=$(sec "$1" "$H")
   np=y; { has_ps "$t" || has_3906 "$t" || has_4500 "$t"; } && np=n
-  printf 'cnt=%s pre=%s len=%s ev=%s rc1=%s rc2=%s rc3=%s lab=%s act=%s ref=%s nocase=%s nortk=%s' \
+  printf 'cnt=%s pre=%s len=%s ev=%s rc1=%s rc2=%s rc3=%s pipe=%s lab=%s act=%s ref=%s nocase=%s nortk=%s' \
     "$(cnt_ex "$1")" "$(cnt_pre "$1")" "$(len_ok "$t" 8)" \
     "$(has "$t" '증거가 아니다')" "$(has "$t" '종료 코드')" "$(has "$t" '필터 없는 경로')" "$(has "$t" '교차 확인')" \
-    "$(has "$t" "$LABEL")" "$(lha "$t" '재실행' '삭제' '재시도' '바꾸지 않는다' '재확인')" "$(has "$t" 'verifying-evidence-ko')" \
+    "$(lha "$t" '필터 없는 경로' "$PIPE")" "$(has "$t" "$LABEL")" "$(lha "$t" '재실행' '삭제' '재시도' '바꾸지 않는다' '재확인')" "$(has "$t" 'verifying-evidence-ko')" \
     "$np" "$(printf '%s\n' "$t" | grep -qi 'rtk' && echo n || echo y)"
 }
 # 디렉터리의 Bash 보유 에이전트 각각의 위반 플래그 → "name:flag ..." (빈 문자열 = 전부 정상)
@@ -192,6 +195,7 @@ eq "T1.e ③ 재확인 수단 3종(종료 코드·필터 없는 경로·교차 �
 eq "T1.f ④ 라벨 $LABEL 정확 표기 + 결론을 내리지 않는다" "$(bad "$SF" | tr ' ' '\n' | grep -E '^(lab|nc)$' | tr '\n' ' ')" ""
 eq "T1.g ⑤ 재확인 전 행동 변경 금지(재실행·삭제·재시도)" "$(bad "$SF" | tr ' ' '\n' | grep -E '^act$' | tr '\n' ' ')" ""
 eq "T1.h ⑥ 사례 1줄에 2026-09-06 · ps · 39/6 · 45/0" "$(bad "$SF" | tr ' ' '\n' | grep -E '^case$' | tr '\n' ' ')" ""
+eq "T1.j ③' 필터 없는 경로는 파이프라인이면 각 단계에 적용(재확인 수단 줄 — 후단 명령 재작성 대비)" "$(bad "$SF" | tr ' ' '\n' | grep -E '^pipe$' | tr '\n' ' ')" ""
 eq "T1.i 절이 ## 다음 skill 터미널 블록보다 앞에 있다(chain 말미를 밀어내지 않는다)" \
    "$([ "$(awk -v h="$H" 'index($0, h) == 1 { print NR; exit }' "$SKILL")" -lt "$(awk 'index($0, "## 다음 skill") == 1 { print NR; exit }' "$SKILL")" ] && echo y || echo n)" "y"
 
@@ -213,6 +217,7 @@ for a in $(bash_agents "$AGDIR"); do
   eq "T4.b $a: 절 정확히 1개" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^(cnt|pre)$' | tr '\n' ' ')" ""
   eq "T4.c $a: 절 길이 ≤8줄(제목 포함)" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^len$' | tr '\n' ' ')" ""
   eq "T4.d $a: 핵심 요지 — 증거가 아니다 · 재확인 수단 3종 · $LABEL · 재확인 전 행동 변경 금지 · verifying-evidence-ko 참조" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^(ev|rc1|rc2|rc3|lab|act|ref)$' | tr '\n' ' ')" ""
+  eq "T4.h $a: 필터 없는 경로는 파이프라인이면 각 단계에 적용(같은 줄)" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^pipe$' | tr '\n' ' ')" ""
   eq "T4.e $a: 에이전트 절에는 사례(ps · 39/6 · 45/0)가 없다(AC-7)" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^nocase$' | tr '\n' ' ')" ""
   eq "T4.f $a: 에이전트 절에 rtk 언급이 없다(도구 중립)" "$(printf '%s' "$AB" | tr ' ' '\n' | grep -E '^nortk$' | tr '\n' ' ')" ""
 done
@@ -256,8 +261,8 @@ mk "$SKILL" "$N/s-long.md" '- **행동 금지**' "${FILL}
 eq "T7.f 상한(16줄)을 넘긴 사본 → len 이 걸린다" "$(bad "$(skill_flags "$N/s-long.md")")" "len"
 { cat "$SKILL"; printf '\n'; sec "$SKILL" "$H"; } > "$N/s-dup.md"
 eq "T7.g 절이 두 번 있는 사본 → cnt·pre·len 이 걸린다" "$(bad "$(skill_flags "$N/s-dup.md")" | tr ' ' '\n' | grep -E '^(cnt|pre|len)$' | tr '\n' ' ')" "cnt pre len "
-mk "$SKILL" "$N/s-req.md" '필터 없는 경로(절대경로 바이너리·환경이 제공하는 raw 실행 수단)' '`rtk proxy <cmd>` 를 반드시 쓴다' && \
-eq "T7.h rtk 를 필수 전제로 쓴 사본(재확인 수단을 rtk proxy 로 대체) → rc2·rtkmark·rtk1·rcfree·rtkfree 가 걸린다" "$(bad "$(skill_flags "$N/s-req.md")")" "rc2 rtkmark rtk1 rcfree rtkfree"
+mk "$SKILL" "$N/s-req.md" '필터 없는 경로(절대경로 바이너리·환경이 제공하는 raw 실행 수단 — 파이프라인이면 각 단계 모두; 출력 필터는 파이프 후단 명령도 재작성하므로 선두만으론 부족하다. 파이프 없이 단계별로 따로 실행해 중간 출력을 봐도 된다)' '`rtk proxy <cmd>` 를 반드시 쓴다' && \
+eq "T7.h rtk 를 필수 전제로 쓴 사본(재확인 수단을 rtk proxy 로 대체) → rc2·pipe·rtkmark·rtk1·rcfree·rtkfree 가 걸린다" "$(bad "$(skill_flags "$N/s-req.md")")" "rc2 pipe rtkmark rtk1 rcfree rtkfree"
 mk "$SKILL" "$N/s-unmark.md" '사례**(2026-09-06): 예: rtk 훅이' '사례**(2026-09-06): rtk 훅이' && \
 eq "T7.i rtk 사례의 \"예:\" 표기를 지운 사본 → rtkmark·rtkex 가 걸린다" "$(bad "$(skill_flags "$N/s-unmark.md")")" "rtkmark rtkex"
 mk "$SKILL" "$N/s-tbl3.md" '| "부분 검사로 충분" | 부분은 아무것도 증명 못 함 |' '| "부분 검사로 충분" | 부분은 아무것도 증명 못 함 |
@@ -270,9 +275,11 @@ eq "T7.l 새 행의 닫는 파이프가 빠진 사본 → two 가 걸린다" "$(
 mk "$SKILL" "$N/s-rtk2.md" '- **행동 금지**' '- 예: 재확인은 `rtk proxy` 로만 한다.
 - **행동 금지**' && \
 eq "T7.x rtk 를 별도 줄에 \"예:\" 만 붙여 끌어들인 사본 → rtk1 이 걸린다(어휘 검사로는 못 잡는 우회 — 사례 줄 단 1곳 잠금)" "$(bad "$(skill_flags "$N/s-rtk2.md")")" "rtk1"
+mk "$SKILL" "$N/s-pipe.md" "$PIPE" '파이프라인이면 선두' && \
+eq "T7.z 파이프라인 각 단계 구를 선두로 바꾼 사본 → pipe 가 걸린다(rtk 를 지워도 성립 검사는 pipe 도 잡는다)" "$(bad "$(skill_flags "$N/s-pipe.md")")" "pipe rtkfree"
 # --- 에이전트 절 ---
 dropsec "$CR" "$H" "$N/a-del.md"
-eq "T7.m 에이전트 1개의 절을 지운 사본 → cnt·pre·핵심 요지 전부 걸린다" "$(bad "$(agent_flags "$N/a-del.md")")" "cnt pre ev rc1 rc2 rc3 lab act ref"
+eq "T7.m 에이전트 1개의 절을 지운 사본 → cnt·pre·핵심 요지 전부 걸린다" "$(bad "$(agent_flags "$N/a-del.md")")" "cnt pre ev rc1 rc2 rc3 pipe lab act ref"
 # 원본이 읽기 전용(a-w)인 트리에서도 돈다 — cp 는 모드를 따라가 사본이 읽기 전용이면 덮어쓰기가 거부되므로 사본 디렉터리를 쓰기 가능으로 만든다
 cpag() { mkdir -p "$1"; cp "$AGDIR"/*.md "$1/" && chmod u+w "$1"/*.md; }
 cpag "$N/ag-one"; cp "$N/a-del.md" "$N/ag-one/code-reviewer-ko.md"
@@ -283,8 +290,10 @@ eq "T7.o 에이전트 핵심 구를 바꾼 사본 → ev 가 걸린다" "$(bad "
 mk "$CR" "$N/a-case.md" '- 정본:' '- 사례: `ps` 가 비어 39/6 대신 45/0 이었다.
 - 정본:' && \
 eq "T7.p 에이전트 절에 사례(ps·39/6·45/0)를 넣은 사본 → nocase 만 걸린다(1줄 추가는 8줄 한도 이내라 len 은 그대로 — 사례 금지는 길이와 독립)" "$(bad "$(agent_flags "$N/a-case.md")")" "nocase"
-mk "$CR" "$N/a-rtk.md" '절대경로 바이너리)' '절대경로 바이너리·rtk proxy)' && \
+mk "$CR" "$N/a-rtk.md" '(절대경로 바이너리' '(절대경로 바이너리·rtk proxy' && \
 eq "T7.q 에이전트 절에 rtk 를 언급한 사본 → nortk 가 걸린다" "$(bad "$(agent_flags "$N/a-rtk.md")")" "nortk"
+mk "$CR" "$N/a-pipe.md" "$PIPE" '파이프라인이면 선두' && \
+eq "T7.aa 에이전트 절의 파이프라인 각 단계 구를 선두로 바꾼 사본 → pipe 만 걸린다" "$(bad "$(agent_flags "$N/a-pipe.md")")" "pipe"
 mk "$CR" "$N/a-long.md" '- 정본:' '- 군더더기 1
 - 군더더기 2
 - 정본:' && \
