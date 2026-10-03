@@ -85,6 +85,19 @@ jobs:
 - **mock vs real**: 외부 API 는 통합 테스트에서 sandbox 사용. 단위 테스트는 mock
 - **테스트 데이터**: fixture / factory 패턴. seed 데이터는 별도 디렉토리
 
+## 6.5. 완료 정의(DoD)
+
+Phase C(`code-reviewer-ko`)가 "기준 약화"를 판정하는 **바닥선**이다 — 이 아래로 내려가는 변경은 사유 없이 통과하지 않는다.
+
+- **테스트가 통과한다** — 실패를 가리거나 미루지 않는다(러너 종료 코드가 기준).
+- **assertion 이 줄지 않는다** — 테스트 파일의 단언 줄(`expect(`·`assert`·프로젝트의 단언 관용구)이 순감소하지 않는다.
+- **린트·타입 억제를 새로 달지 않는다** — `eslint-disable`·`@ts-ignore`·`# noqa`·`# type: ignore` 같은 억제 주석 신규 0.
+- **테스트를 삭제하거나 skip 하지 않는다** — 테스트 파일·함수 삭제, `.skip`·`xit`·`@pytest.mark.skip`·`t.Skip(` 신규 0.
+- **커버리지 등 임계를 낮추지 않는다** — §3 의 임계값·`--cov-fail-under` 하향, 타임아웃 상향 금지.
+- **검증 명령을 무력화하지 않는다** — 테스트·린트·빌드 명령 뒤 `|| true`·`continue-on-error: true`·`set +e`·`exit 0` 강제 금지.
+
+**예외 절차**: 바닥선을 의도적으로 낮출 때는 같은 diff 에 사유(주석·AC·커밋 메시지)를 남긴다. 사유가 있으면 Phase C 는 Suggestion 으로 강등하되 항목을 지우지 않는다(AC 소멸은 AC·spec 정정을 가리키는 사유만 인정). 사유 없는 약화는 Important, 삭제·skip 된 테스트가 지키던 AC 가 비면 Critical 이다.
+
 ## 7. 참조
 
 - 헌법: `.specops/memory/constitution.md` (TDD 원칙 강제 시)
