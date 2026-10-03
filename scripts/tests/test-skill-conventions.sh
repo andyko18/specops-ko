@@ -133,13 +133,15 @@ fi
 disc_files=$(grep -l '^discipline: true' "$PLUGIN"/skills/*/SKILL.md 2>/dev/null || true)
 disc_count=$(printf '%s' "$disc_files" | grep -c . || true)
 disc_missing=()
+disc_nored=()
 for ds in $disc_files; do
   grep -q '^## 합리화 차단표' "$ds" || disc_missing+=("${ds#"$PLUGIN"/}")
+  grep -q '^## 레드 플래그' "$ds" || disc_nored+=("${ds#"$PLUGIN"/}")
 done
-if [ "$disc_count" -ge 3 ] && [ ${#disc_missing[@]} -eq 0 ]; then
-  PASS=$((PASS+1)); echo "PASS: T9 discipline marker ${disc_count}종 합리화 차단표 존재"
+if [ "$disc_count" -ge 3 ] && [ ${#disc_missing[@]} -eq 0 ] && [ ${#disc_nored[@]} -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS: T9 discipline marker ${disc_count}종 합리화 차단표·레드 플래그 존재"
 else
-  FAIL=$((FAIL+1)); echo "FAIL: T9 discipline 하한/차단표 위반 (count=$disc_count, 누락=${disc_missing[*]:-없음})"
+  FAIL=$((FAIL+1)); echo "FAIL: T9 discipline 하한/차단표 위반 (count=$disc_count, 누락=${disc_missing[*]:-없음}, 레드플래그누락=${disc_nored[*]:-없음})"
 fi
 
 # T9.r/T9.s red-green — inner 재귀 1회 (grep 판정만, inner exit code 미사용)
@@ -169,6 +171,21 @@ if [ -z "${SPECOPS_T9_INNER:-}" ]; then
     PASS=$((PASS+1)); echo "PASS: T9.s 하한 3 방어"
   else
     FAIL=$((FAIL+1)); echo "FAIL: T9.s 하한 미방어"
+  fi
+  rm -rf "$sb"
+
+  # T9.t 레드 플래그 없는 discipline(차단표는 있음) 적발
+  sb=$(mktemp -d) || exit 1
+  mkdir -p "$sb/skills/fake-nored-ko"
+  printf -- '---\nname: fake-nored-ko\ndiscipline: true\n---\n\n## 합리화 차단표\n\n| 변명 | 실제 |\n|---|---|\n' > "$sb/skills/fake-nored-ko/SKILL.md"
+  for real in systematic-debugging-ko tdd-ko verifying-evidence-ko; do
+    mkdir -p "$sb/skills/$real"; cp "$PLUGIN/skills/$real/SKILL.md" "$sb/skills/$real/"
+  done
+  out=$(SPECOPS_T9_INNER=1 SPECOPS_PLUGIN_ROOT="$sb" bash "$SELF" 2>&1)
+  if printf '%s' "$out" | grep -q 'FAIL: T9 .*레드플래그누락=skills/fake-nored-ko/SKILL.md' && ! printf '%s' "$out" | grep -q '레드플래그누락=.*tdd-ko'; then
+    PASS=$((PASS+1)); echo "PASS: T9.t 레드 플래그 없는 discipline 적발(실제 3종은 통과)"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T9.t 레드 플래그 누락 미적발"
   fi
   rm -rf "$sb"
 fi

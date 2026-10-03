@@ -35,6 +35,7 @@ tools: Read, Grep, Glob, Bash
    - **안전**: 비밀 노출, 입력 검증, 의존성 취약점, injection 경로
    - **5원칙 준수**: 투명성·문지기·깊이·주권·한계 고백 위반 자동 탐지
    - **테스트 커버리지**: 실패 시나리오·경계값·모의 외부 API 포함 여부
+   - **기준 약화**: 억제 주석 신규·테스트 삭제·skip·assertion 순감소·임계값 하향·검증 무력화 — 아래 「기준 약화 탐지」
    - **[조건부] DB 스키마 관점** (변경이 `.specops/memory/data-model.md`·마이그레이션 파일·DDL·ORM 스키마를 건드릴 때만 — 해당 표면 없으면 skip):
      - **인덱스**: FK 무인덱스, 조회 패턴 대비 인덱스 누락/과다, 미사용 인덱스
      - **제약**: FK `ON DELETE` 정책(CASCADE/RESTRICT/SET NULL) 명시 여부, NOT NULL/CHECK/UNIQUE 누락
@@ -75,6 +76,25 @@ tools: Read, Grep, Glob, Bash
 - 재확인하지 못하면 `[검증 불가 — 출력 비어 있음]` 로 라벨하고 결론을 내리지 않는다.
 - 빈 출력만 보고 행동(재실행·삭제·재시도·"죽었다/없다" 선언)을 바꾸지 않는다 — 재확인이 먼저다.
 - 정본: `verifying-evidence-ko` 의 `## 빈 출력 규칙`.
+
+## 기준 약화 탐지
+
+변경이 기능이 아니라 **품질 기준을 낮추는지** 본다. 기준점은 프로젝트 `.specops/memory/test-strategy.md` 의 `## 6.5. 완료 정의(DoD)` 이고, 없으면 아래 5클래스 기본값을 쓴다.
+
+- **억제 주석 신규** — 추가 줄의 `eslint-disable`·`@ts-ignore`·`@ts-expect-error`·`# noqa`·`# type: ignore`·`# pylint: disable`·`//nolint`·`#[allow(`·`shellcheck disable=` (예시 — 완전하지 않다).
+- **테스트 삭제·skip** — 테스트 파일·함수 삭제, 추가 줄의 `.skip`·`xit`·`xdescribe`·`@pytest.mark.skip`·`t.Skip(`·`@Disabled`, 조기 `return`·`SKIP`.
+- **assertion 순감소** — 테스트 파일에서 `expect(`·`assert`·`ck "` 류(프로젝트의 단언 관용구) 줄이 추가보다 삭제가 많다(테스트 파일별로 `git diff <range> -- <테스트 파일>` 의 `-`·`+` 단언 줄 수 비교 — range 는 리뷰 대상 diff 범위).
+- **임계값 하향** — 커버리지 임계·`--cov-fail-under`·`threshold` 하향, 타임아웃 상향, 기대 건수 하향.
+- **검증 무력화** — 테스트·린트·빌드 명령 뒤 `|| true`·`continue-on-error: true`·`set +e`·`exit 0` 강제.
+
+규칙:
+- **증거는 diff 줄 인용**(`파일:줄` 또는 `-`·`+` 줄 원문 ≤5줄)이다 — 「증거 규칙」을 그대로 따른다. 증거를 못 대면 `[검증 불가]` 라벨을 붙여 Suggestion 으로 강등한다(단 「증거 규칙」의 강등 금지 영역 — 메모리 안전·동시성·호환성 — 은 라벨만 붙이고 등급을 유지한다).
+- **등급**: 사유가 없으면 **Important**. 삭제·skip 된 테스트가 지키던 AC 가 대체 테스트 없이 비면 **Critical**. 같은 diff 에 사유(주석·AC·커밋 메시지·DoD 예외)가 있으면 **Suggestion** 으로 강등한다 — 단 Critical 후보는 사유가 AC·spec 정정 같은 계약 문서를 가리킬 때만 Suggestion 으로, 주석·커밋 메시지뿐이면 Important 로 강등한다(작성자의 한 줄 해명으로 Critical 이 사라지지 않게). 타당성 판단과 그 근거는 보고서에 적는다.
+- **판정 연결**: 등급은 기존 판정 규칙을 그대로 따른다 — Critical 1건 이상이면 `NEEDS_FIX`, Important 는 `READY_TO_MERGE` 를 막지 않는다.
+- **보고 위치**: Critical·Important 후보는 `## 기준 약화` 표뿐 아니라 `## 🔴 Critical`·`## 🟡 Important` 절에도 올린다(릴리즈 게이트가 🔴 절만 본다).
+- **지우지 않는다**: 사유가 있어도 항목은 출력의 `## 기준 약화` 와 `## 리스크 플랜`(low)에 남긴다 — 강등이지 제거가 아니다(「증거 규칙」의 제거 금지와 같은 방향).
+- **`(none)` 전에 재확인**: 후보 없음을 쓰기 전에 `git diff --stat <range>` 가 비어 있지 않은지 확인한다 — 범위가 틀려 diff 가 비면 `(none)` 이 거짓이 된다(「빈 출력 규칙」).
+- 정상 리팩터(테스트 합치기·억제 구문 제거)는 약화가 아니다 — 기준이 **내려가는 방향**의 변경만 후보다.
 
 ## 5원칙 자동 탐지 룰
 
@@ -146,6 +166,14 @@ tools: Read, Grep, Glob, Bash
 - 해당 테스트: <파일:테스트명> 또는 "없음"
 - 실패 시나리오 커버: ✓ / ✗ / 해당 없음
 - 경계값 커버: ✓ / ✗
+
+## 기준 약화
+
+| 클래스 | 증거 (`<file>:<line>` 또는 diff 줄) | 사유 | 등급 |
+|---|---|---|---|
+| 억제 주석 신규 / 테스트 삭제·skip / assertion 순감소 / 임계값 하향 / 검증 무력화 | <diff 줄 인용> | 없음 / <같은 diff 의 사유> | Critical / Important / Suggestion |
+
+(후보가 없으면 이 표 대신 `(none)` 한 줄)
 
 ## 리스크 플랜
 
