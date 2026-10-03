@@ -141,8 +141,8 @@ eval::judge_rubric() {  # <bin> <응답> <rubric> [timeout_s] [질문] → JUDGE
   [ "$ef" = /dev/null ] || rm -f "$ef"
   text=$(printf '%s\n' "$out" | eval::extract_text_raw)
   # 첫 비어있지 않은 줄이 정확히 VERDICT: PASS|FAIL 이어야 한다 — 산문에서 판정을 추정하지 않는다(모호하면 ERROR)
-  # 프롬프트가 형식을 백틱으로 보여 주므로 채점자가 `…`·**…** 로 감싸도 형식 차이일 뿐이다 — 감싸는 기호만 벗기고 나머지는 엄격 일치
-  first=$(printf '%s\n' "$text" | awk 'NF{print; exit}' | tr -d '\r' | sed 's/^[][`*_[:space:]]*//;s/[`*_[:space:]]*$//')
+  # 프롬프트가 형식을 백틱으로 보여 주므로 채점자가 `…`·**…**·[…] 로 감싸도 형식 차이일 뿐이다 — 감싸는 기호만 벗기고 나머지는 엄격 일치
+  first=$(printf '%s\n' "$text" | awk 'NF{print; exit}' | tr -d '\r' | sed 's/^[][`*_[:space:]]*//;s/[][`*_[:space:]]*$//')
   case "$first" in
     'VERDICT: PASS') JUDGE_VERDICT=PASS ;;
     'VERDICT: FAIL') JUDGE_VERDICT=FAIL ;;
@@ -150,5 +150,7 @@ eval::judge_rubric() {  # <bin> <응답> <rubric> [timeout_s] [질문] → JUDGE
   esac
   second=$(printf '%s\n' "$text" | awk 'NF{n++; if(n==2){print; exit}}' | sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g' | LC_ALL=C tr -d '\000-\037\177')
   JUDGE_REASON=${second:0:80}
+  # 근거 줄은 프롬프트가 요구하는 계약이다 — PASS 인데 근거가 없으면 증거 없는 통과라 ERROR (FAIL 은 근거 없어도 보수 방향이라 유지)
+  if [ "$JUDGE_VERDICT" = PASS ] && [ -z "$JUDGE_REASON" ]; then JUDGE_VERDICT=ERROR; JUDGE_REASON="근거 줄 없는 PASS"; return 3; fi
   return 0
 }

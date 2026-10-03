@@ -321,6 +321,18 @@ _judge '{"text":"VERDICT: FAIL\n범위를 넘겼다"}'
 [ "$JUDGE_VERDICT" = FAIL ] && [ "$JUDGE_REASON" = "범위를 넘겼다" ] && ok "T8.b VERDICT: FAIL 파싱" || nope "T8.b" "$JUDGE_VERDICT|$JUDGE_REASON"
 _judge '{"text":"`VERDICT: PASS`\n근거"}'; _f1="$JUDGE_VERDICT"; _judge '{"text":"**VERDICT: FAIL**\n근거"}'; _f2="$JUDGE_VERDICT"
 [ "$_f1" = PASS ] && [ "$_f2" = FAIL ] && ok "T8.a2 백틱·굵게로 감싼 첫 줄도 형식 차이로 보고 판정 (의미는 엄격 일치)" || nope "T8.a2" "$_f1|$_f2"
+# (20261003-eval-debt AC-3) 대괄호로 감싼 첫 줄도 앞뒤 대칭으로 벗겨 판정 (그 밖의 모호한 첫 줄은 종전대로 ERROR)
+_judge '{"text":"[VERDICT: PASS]\n근거"}'; _b1="$JUDGE_VERDICT"; _judge '{"text":"[VERDICT: FAIL]\n근거"}'; _b2="$JUDGE_VERDICT"
+_judge '{"text":"[VERDICT: PASS] 그러나 FAIL 일 수도"}'; _b3="$JUDGE_VERDICT"
+[ "$_b1" = PASS ] && [ "$_b2" = FAIL ] && [ "$_b3" = ERROR ] && ok "T8.am 대괄호 감쌈 [VERDICT: PASS|FAIL] 판정 · 대괄호 뒤 산문은 여전히 ERROR" || nope "T8.am" "$_b1|$_b2|$_b3"
+# (AC-4) 근거 줄 없는 PASS 는 ERROR (증거 없는 통과) · FAIL 은 근거 없어도 유지 · 근거 있는 PASS 는 PASS
+_judge '{"text":"VERDICT: PASS"}'; _rc1=$?; _r1="$JUDGE_VERDICT"; _r1r="$JUDGE_REASON"
+_judge '{"text":"VERDICT: PASS\n   \n"}'; _r2="$JUDGE_VERDICT"
+_judge '{"text":"[VERDICT: PASS]"}'; _r3="$JUDGE_VERDICT"
+_judge '{"text":"VERDICT: FAIL"}'; _rc4=$?; _r4="$JUDGE_VERDICT"
+_judge '{"text":"VERDICT: PASS\n근거 있음"}'; _rc5=$?; _r5="$JUDGE_VERDICT"
+[ "$_r1" = ERROR ] && [ "$_r1r" = "근거 줄 없는 PASS" ] && [ "$_rc1" = 3 ] && [ "$_r2" = ERROR ] && [ "$_r3" = ERROR ] && [ "$_r4" = FAIL ] && [ "$_rc4" = 0 ] && [ "$_r5" = PASS ] && [ "$_rc5" = 0 ] \
+  && ok "T8.an 근거 줄 없는 PASS(1줄·공백 줄·대괄호) → ERROR+사유·rc 3 · FAIL 유지(rc 0) · 근거 있는 PASS 유지(rc 0)" || nope "T8.an" "$_r1|$_r1r|rc$_rc1|$_r2|$_r3|$_r4|rc$_rc4|$_r5|rc$_rc5"
 _judge '{"text":"기준을 만족하므로 통과로 봅니다."}'
 [ "$JUDGE_VERDICT" = ERROR ] && ok "T8.c VERDICT 줄 없는 산문 → ERROR (산문에서 PASS 를 추정하지 않음)" || nope "T8.c" "$JUDGE_VERDICT"
 _judge '{"text":"VERDICT: PASS 그러나 FAIL 일 수도 있다"}'
