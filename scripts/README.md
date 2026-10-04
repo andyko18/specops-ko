@@ -145,6 +145,19 @@ bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 # ↑ validate-structure.sh 가 이 모두를 자동화 — 직접 실행 불필요
 ```
 
+## skill-routing-eval — 결정론 skill 라우팅 eval (토큰 0)
+
+skill description 간 tf-idf 코사인(한글 조사 제거 → 글자 bigram → df 상한)으로 충돌 후보·드리프트를 보고하고, `scripts/tests/llm-eval/skills/*/trigger-queries.json` 의 owner 라우팅을 참고 지표로 냅니다. 모델·네트워크 호출 0, **warn-first**(경고만 rc 0).
+
+```bash
+bash scripts/skill-routing-eval.sh                       # 요약 · PAIR-WARN(≥0.20) · PAIR-DRIFT(기준선 대비) · QUERY-ROUTING/QUERY-WARN
+bash scripts/skill-routing-eval.sh --strict              # PAIR-DRIFT ≥1 이면 rc 1 (향후 CI 전환용)
+bash scripts/skill-routing-eval.sh --emit-baseline > /tmp/b.json && mv /tmp/b.json scripts/tests/llm-eval/skill-routing-baseline.json   # description 을 의도적으로 바꾼 뒤 기준선 갱신(사람이 확인·커밋). 직접 리다이렉트하면 오류 시 파일이 비므로 임시 파일 경유
+bash scripts/tests/test-skill-routing-eval.sh            # fixture·계약 스위트 (run-all 포함)
+```
+
+구현이 jq 인 이유: macOS awk·Ubuntu mawk 는 바이트 단위(`length("가나다")`=9)라 한글 글자 bigram 이 불가합니다. 한계: 조사 제거는 말미 1개 휴리스틱·임계값 미보정이라 절대값이 아니라 **기준선 대비 변화**를 봅니다(질의 지표는 모델 라우팅과 다른 참고용).
+
 ## llm-eval — LLM 동작 smoke eval (수동 전용)
 
 메타 skill 의 신호 감지 + 체인 진입을 headless `claude -p` 로 검증합니다.
