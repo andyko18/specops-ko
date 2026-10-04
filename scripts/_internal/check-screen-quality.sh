@@ -272,9 +272,9 @@ _genre_check() {  # $1=ID $2=본문(override 주석 제거) $3=States 섹션
     G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN]+ ?건|total' ;;
     G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort|최신순|오래된순|오름차순|내림차순|으로 정렬' ;;
     G-LIST-EMPTY-KIND) _has "$3" '데이터 없음|no data' && _has "$3" '결과 없음|no results' ;;
-    G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting|(처리|요청|전송|로그인|등록|가입) ?중($|[][:space:].,;:!?")]|입니다|이다|이에요|에)' && _has "$2" '비활성|disabled|중복 제출' ;;
-    G-FORM-CANCEL)     _has "$2" '취소|cancel|닫기 버튼|닫기 링크|돌아가기|뒤로|\bclose\b' ;;
-    G-WIZARD-STEP)     _has "$2" '단계 표시|진행 단계|step indicator|\bstepper\b|스테퍼|진행 표시' && _has "$2" '이전 단계|이전 버튼|이전으로|previous|\bprev\b' && _has "$2" '임시 ?저장|중간 저장|이탈 시 보존|draft|자동 저장|\bautosave\b' ;;
+    G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting|(처리|요청|전송|로그인|등록|가입) ?중($|[][:space:].,;:!?"()]|입|이|일|인|으로|에)' && _has "$2" '비활성|disabled|중복 제출' ;;
+    G-FORM-CANCEL)     _has "$2" '취소|cancel|닫기 버튼|닫기 링크|돌아가기|뒤로|(^|[^A-Za-z0-9_])close([^A-Za-z0-9_]|$)' ;;
+    G-WIZARD-STEP)     _has "$2" '단계 표시|진행 단계|step indicator|(^|[^A-Za-z0-9_])stepper([^A-Za-z0-9_]|$)|스테퍼|진행 표시' && _has "$2" '이전 단계|이전 버튼|이전으로|previous|(^|[^A-Za-z0-9_])prev([^A-Za-z0-9_]|$)' && _has "$2" '임시 ?저장|중간 저장|이탈 시 보존|draft|자동 저장|(^|[^A-Za-z0-9_])autosave([^A-Za-z0-9_]|$)' ;;
     G-DASH-PERIOD)     _has "$2" '기간 선택|기간 필터|date range|조회 기간|기간 설정|기간을 선택|기간을 설정' ;;
     *) return 1 ;;
   esac
@@ -420,7 +420,7 @@ _analyze() {  # $1=md $2=html
   if _readable "$html"; then
     # ── a11y-label: label 수 / 입력 요소 수 ──
     local inp lab aria nrm tags
-    # 주석·<script> 를 걷고 줄바꿈·탭을 공백으로 정규화(CR 은 [[:space:]] 가 흡수) — 여러 줄 태그를 한 줄로 만들어 태그 단위로 센다(커스텀 엘리먼트 <input-group> 제외)
+    # 주석·<script> 를 걷고 줄바꿈·탭을 공백으로 정규화(CR 은 [[:space:]] 가 흡수) — 여러 줄 태그를 한 줄로 만들어 태그 단위로 센다(커스텀 엘리먼트 <input-group> 제외). 한계: ① aria 와 <label for> 가 한 입력에 겹치면 label 수가 입력 수를 넘어 종전 보고되던 누락이 가려진다 ② 닫히지 않은 <script·/*(CSS 블록 주석)·<!-- 이후 입력은 집계되지 않는다(본문·속성값 안의 ' /*' 도 걸린다) ③ 속성값 안의 '>' 에서 태그가 끊긴다(그 뒤 aria 는 못 본다 — 오탐 방향) ④ 공백 없이 붙은 속성(<input/type=hidden>)의 hidden 제외는 종전보다 좁다 ⑤ for/id 짝·fieldset 은 미지원
     nrm=$(_strip_comments "$html" | _blocks script out | tr '\n\t' '  ')
     tags=$(printf '%s' "$nrm" | grep -oiE '<(input|select|textarea)([[:space:]/][^>]*)?>' | grep -viE "[[:space:]]type[[:space:]]*=[[:space:]]*[\"']?(hidden|submit|button|reset|image)")
     inp=$(_count "$(printf '%s\n' "$tags" | grep -c . || true)")
