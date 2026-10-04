@@ -737,4 +737,42 @@ o=$(_hq "$TD/h1a.md")
 if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o" | head -1 | grep -qE "$_kre"; then
   ok "H4 신규 경로에서도 exit 0 · 요약줄 키 순서 불변"; else nope "H4" "rc=$r1/$r2"; fi
 
+# ── K: FID 20261004-screen-lint-gaps — 변이 생존 9곳 격추 (되돌려-관찰 · mutation-score.sh 생존 `&&` 사이트) ──
+# K1 _readable 의 `&&` — 디렉터리는 -f 가 거짓이라 판독 불가(unknown). `||` 로 바뀌면 -r 만 보고 읽으려 든다.
+o=$(bash "$SCRIPT" "$TD" "$TD/good.html" 2>/dev/null)
+[ "$(_val "$o" states)" = "unknown" ] && ok "K1 md 자리에 디렉터리 → 판독 불가 states=unknown(-f 와 -r 둘 다 요구)" || nope "K1" "states=$(_val "$o" states)"
+
+# K2 _strip_comments 의 `<!--` 선행 판정 — `/* */` 만 있는 줄에서 주석 앞 텍스트는 남기고 주석 안만 걷는다
+#   (앞의 Lorem 1건은 세고 주석 안의 Acme 는 세지 않는다 → anti=1. `<!--` 분기로 오인하면 앞 텍스트까지 잃어 anti=0)
+printf '<main><p>Lorem</p> /* Acme */ <p>끝</p></main>\n' > "$TD/k2.html"
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/k2.html" 2>/dev/null)
+[ "$(_val "$o" anti)" = "1" ] && ok "K2 본문 속 /* */ — 앞 텍스트(Lorem)는 세고 주석 안(Acme)은 걷는다(anti=1)" || nope "K2" "anti=$(_val "$o" anti)"
+
+# K3·K4 --regress 설정 오류 줄 — SPECOPS_SCREEN_SHRINK_RATIO 판독 불가 고백이 두 조기 종료 경로에서 나온다
+#   K3: git 저장소 밖(+ '0x' — 숫자 모양 검사 grep 이 거짓이어야 한다: awk 단독이면 0x 가 통과한다)
+_k=$(mktemp -d); o=$(cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && GIT_CEILING_DIRECTORIES="$(dirname "$_k")" SPECOPS_SCREEN_SHRINK_RATIO=0x bash "$SCRIPT" --regress 2>/dev/null)
+printf '%s' "$o" | grep -q "\[config\] SPECOPS_SCREEN_SHRINK_RATIO='0x' 판독 불가" && ok "K3 git 밖 --regress + 비정상 비율(0x) → [config] 판독 불가 줄(숫자 모양 검사)" || nope "K3" "$(printf '%s' "$o" | tr '\n' '|')"
+#   K4: 저장소는 있으나 screens/ 가 어느 쪽에도 없을 때
+( cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git init -q && git symbolic-ref HEAD refs/heads/main && git -c user.email=t@t -c user.name=t -c core.hooksPath= -c commit.gpgsign=false commit -q --allow-empty -m base ) >/dev/null 2>&1
+o=$(cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && SPECOPS_SCREEN_SHRINK_RATIO=abc bash "$SCRIPT" --regress 2>/dev/null)
+printf '%s' "$o" | grep -q "대상 0개" && printf '%s' "$o" | grep -q "\[config\] SPECOPS_SCREEN_SHRINK_RATIO='abc' 판독 불가" && ok "K4 screens 없는 저장소 --regress + 비정상 비율 → 대상 0개 + [config] 줄" || nope "K4" "$(printf '%s' "$o" | tr '\n' '|')"
+rm -rf "$_k"
+
+# K5 G-FORM-SUBMIT — 두 조건(제출 중 · 비활성) 중 하나만으로는 충족이 아니다
+printf '# F\n\n**원형**: 폼\n\n## States\n- Empty\n- Loading: 제출 중 표시\n- Error\n\n## 흐름\n취소 버튼으로 이전 화면 복귀\n' > "$TD/k5a.md"
+printf '# F\n\n**원형**: 폼\n\n## States\n- Empty\n- Loading: 버튼 비활성\n- Error\n\n## 흐름\n취소 버튼으로 이전 화면 복귀\n' > "$TD/k5b.md"
+_kbad=""
+for f in k5a k5b; do o=$(bash "$SCRIPT" "$TD/$f.md" "$TD/good.html" 2>/dev/null); printf '%s' "$o" | grep -q 'G-FORM-SUBMIT' || _kbad="$_kbad [$f]"; done
+[ -z "$_kbad" ] && ok "K5 G-FORM-SUBMIT — '제출 중' 만 · '비활성' 만 있으면 미충족(둘 다 요구)" || nope "K5" "미보고:$_kbad"
+
+# K6 G-WIZARD-STEP — 세 조건 중 '단계 표시' 가 빠지면 미충족(이전·중간 저장만으로 충족되지 않는다)
+printf '# W\n\n**원형**: 다단 폼\n\n## States\n- Empty\n- Loading: 제출 중 버튼 비활성\n- Error\n\n## 흐름\n취소 버튼 · 이전 버튼 · 중간 저장\n' > "$TD/k6.md"
+o=$(bash "$SCRIPT" "$TD/k6.md" "$TD/good.html" 2>/dev/null)
+printf '%s' "$o" | grep -q 'G-WIZARD-STEP' && ok "K6 G-WIZARD-STEP — 단계 표시 없이 이전·중간 저장만 있으면 미충족" || nope "K6" "$(printf '%s' "$o" | grep genre)"
+
+# K7·K8 정상 화면은 a11y-label·semantic 상세줄이 없다(위반이 있을 때만 출력)
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/good.html" 2>/dev/null)
+printf '%s' "$o" | grep -q '\[a11y-label\]' && nope "K7" "정상 화면에 a11y-label 상세줄" || ok "K7 label 1/입력 1 → [a11y-label] 상세줄 없음"
+printf '%s' "$o" | grep -q '\[semantic\]' && nope "K8" "정상 화면에 semantic 상세줄" || ok "K8 랜드마크 있음 → [semantic] 상세줄 없음"
+
 finish
