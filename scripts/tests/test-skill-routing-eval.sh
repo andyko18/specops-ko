@@ -154,4 +154,29 @@ _n7=$(bash "$EVAL" --skills-dir "$TMP/fx7/skills" --queries-dir "$NOQ" --baselin
 if printf '%s\n' "$_n7" | grep -q '^SKILL-ROUTING: skills=7 ' && printf '%s\n' "$_n7" | grep -q '^DRIFT: 0$'; then ok "T1.n 무관한 skill 추가(6→7)에도 기준선 대비 DRIFT: 0 — N 변화 안정성"
 else nope "T1.n" "$(printf '%s\n' "$_n7" | grep -E 'SKILL-ROUTING|DRIFT')"; fi
 
+# ══ T2: 실 repo (AC-R-1) — warn-first: description 드리프트는 경고만, 기준선 형식·참조 손상과 문서 등재는 실패 ══
+BASEF="$PLUGIN/scripts/tests/llm-eval/skill-routing-baseline.json"
+nskills=$(ls "$PLUGIN"/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
+# T2.a 기준선 계약 — 유효 JSON · version 1 · pairs 값 전부 수 · 키 'a~b'(a<b) 의 두 skill 이 모두 실재(이름 변경·삭제로 낡은 기준선은 실패)
+_bad=""
+if jq -e '.version == 1 and (.pairs | type) == "object" and all(.pairs[]; type == "number")' "$BASEF" >/dev/null 2>&1; then
+  for _k in $(jq -r '.pairs | keys[]' "$BASEF"); do
+    _a=${_k%%~*}; _b=${_k##*~}
+    { [ "$_a" \< "$_b" ] && [ -f "$PLUGIN/skills/$_a/SKILL.md" ] && [ -f "$PLUGIN/skills/$_b/SKILL.md" ]; } || _bad="$_bad $_k"
+  done
+else _bad=" (JSON 형식)"; fi
+if [ -z "$_bad" ]; then ok "T2.a 커밋된 기준선 계약 — version 1 · pairs 수 · 키 a~b(a<b) 두 skill 실재"; else nope "T2.a" "손상:$_bad"; fi
+# T2.b 실 repo 실행 — rc 0 · skills 수 일치 · 질의 라우팅 소비(trigger-queries 6종 — QUERY-ROUTING: pos=N) · DRIFT 판정(warn-first: 드리프트는 경고로만 알린다)
+_r=$(bash "$EVAL" 2>&1); _rrc=$?; _dn=$(printf '%s\n' "$_r" | sed -n 's/^DRIFT: \([0-9][0-9]*\)$/\1/p')
+if [ "$_rrc" = 0 ] && printf '%s\n' "$_r" | grep -q "^SKILL-ROUTING: skills=$nskills " && [ -n "$_dn" ] && printf '%s\n' "$_r" | grep -qE '^QUERY-ROUTING: pos=[0-9]+ '; then
+  if [ "$_dn" = 0 ]; then ok "T2.b 실 repo 실행 — rc 0 · skills=$nskills · DRIFT: 0 (기준선 일치)"
+  else ok "T2.b 실 repo 실행 — rc 0 · skills=$nskills · ⚠️ DRIFT: $_dn (warn-first — 기준선 갱신 검토: bash scripts/skill-routing-eval.sh --emit-baseline)"; printf '%s\n' "$_r" | grep '^PAIR-DRIFT' | sed 's/^/    /'; fi
+else nope "T2.b" "rc=$_rrc skills=$nskills out=$(printf '%s\n' "$_r" | head -3)"; fi
+# T2.c --emit-baseline 출력이 두 번 같고 유효 JSON(결정론) — 커밋된 기준선과 다르면 갱신 권장 경고(warn-first)
+_em1=$(bash "$EVAL" --emit-baseline 2>/dev/null); _em2=$(bash "$EVAL" --emit-baseline 2>/dev/null)
+if [ -n "$_em1" ] && [ "$_em1" = "$_em2" ] && printf '%s' "$_em1" | jq -e '.version == 1' >/dev/null 2>&1; then
+  if [ "$(printf '%s' "$_em1" | jq -S -c .)" = "$(jq -S -c . "$BASEF")" ]; then ok "T2.c --emit-baseline 결정론 · 커밋된 기준선과 동일"
+  else ok "T2.c --emit-baseline 결정론 · ⚠️ 커밋된 기준선과 다름(warn-first — 갱신 권장)"; fi
+else nope "T2.c" "emit 출력 비결정 또는 형식 오류"; fi
+
 finish
