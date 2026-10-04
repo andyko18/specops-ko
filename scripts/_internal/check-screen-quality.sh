@@ -269,7 +269,7 @@ _has() { grep -qiE "$2" <<<"$1"; }
 #   되돌려-관찰 변이가 sed 한 줄로 가능해야 한다.
 _genre_check() {  # $1=ID $2=본문(override 주석 제거) $3=States 섹션
   case "$1" in
-    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN]+ ?건|total' ;;
+    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN][0-9nN,]* ?건|total' ;;
     G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort|최신순|오래된순|오름차순|내림차순|으로 정렬' ;;
     G-LIST-EMPTY-KIND) _has "$3" '데이터 없음|no data' && _has "$3" '결과 없음|no results' ;;
     G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting|(처리|요청|전송|로그인|등록|가입) ?중($|[][:space:].,;:!?"()]|입|이|일|인|으로|에)' && _has "$2" '비활성|disabled|중복 제출' ;;

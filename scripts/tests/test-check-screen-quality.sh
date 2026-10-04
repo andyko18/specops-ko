@@ -877,4 +877,27 @@ if [ "$(_val "$o" a11y-label)" = "0/3" ] && printf '%s' "$o" | grep -q '\[a11y-l
 [ "$(_pa '<LABEL for=a>A</LABEL><input id=a>')" = "1/1" ] && ok "P8 대문자 <LABEL> 도 label 로 센다(-i 잠금) → 1/1" || nope "P8" "$(_pa '<LABEL for=a>A</LABEL><input id=a>')"
 [ "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")" = "1/1" ] && ok "P6 CRLF 여러 줄 label+input 정상 화면 → 1/1(상세줄 없음 — 오탐 없음)" || nope "P6" "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")"
 
+# ── N1.d·L: FID 20261004-screen-lint-gaps-3 — 총 건수 천 단위 쉼표 · 영문 어휘 경계 로케일 매트릭스 ──
+_loc_utf8=$(_lx=$(locale -a 2>/dev/null || true); printf '%s\n' "$_lx" | grep -iE -m1 '^(en_US|C)\.utf-?8$' || true)
+# N1.d: 총 건수 천 단위 쉼표
+o1=$(_nrun 목록 '페이징. 목록 상단에 총 1,234건 표시. 정렬 기준 최신순.' "$_nlist"); o2=$(_nrun 목록 '페이징. 전체 12,345건 표시. 정렬 기준 최신순.' "$_nlist")
+if _nmiss "$o1" G-LIST-PAGING || _nmiss "$o2" G-LIST-PAGING; then nope "N1.d" "쉼표 건수가 미충족으로 읽힘"; else ok "N1.d 총 건수 천 단위 쉼표('총 1,234건'·'전체 12,345건') 충족"; fi
+o1=$(_nrun 목록 '페이징. 총 ,,, 건 표시. 정렬 기준 최신순.' "$_nlist"); o2=$(_nrun 목록 '페이징. 총 , 건 표시. 정렬 기준 최신순.' "$_nlist")
+if _nmiss "$o1" G-LIST-PAGING; then if _nmiss "$o2" G-LIST-PAGING; then ok "N1.e 음성 — 숫자·N 없이 쉼표만('총 ,,, 건'·'총 , 건')은 총 건수가 아니다"; else nope "N1.e" "'총 , 건' 이 충족으로 읽힘"; fi; else nope "N1.e" "'총 ,,, 건' 이 충족으로 읽힘"; fi
+
+# L: 로케일 매트릭스 — 영문 어휘 단어 경계(ASCII 경계 클래스)는 LC_ALL=C 와 UTF-8 에서 같은 결과여야 한다
+_lbad=""; _llocs="C"; [ -n "$_loc_utf8" ] && _llocs="C $_loc_utf8"
+for _l in $_llocs; do
+  o=$(LC_ALL=$_l _nrun '다단 폼' 'stepper로 위치 안내. 이전 단계 버튼. 중간 저장. 닫기.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _lbad="$_lbad [$_l:stepper로]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' '단계 표시. prev버튼. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _lbad="$_lbad [$_l:prev버튼]"
+  o=$(LC_ALL=$_l _nrun '폼' '제출 중 비활성. close버튼.' ''); _nmiss "$o" G-FORM-CANCEL && _lbad="$_lbad [$_l:close버튼]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' '단계 표시. prevent 중복. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _lbad="$_lbad [$_l:prevent]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' 'stepperx 로 위치 안내. 이전 단계. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _lbad="$_lbad [$_l:stepperx]"
+  o=$(LC_ALL=$_l _nrun '폼' '제출 중 비활성. disclose 안내.' ''); _nmiss "$o" G-FORM-CANCEL || _lbad="$_lbad [$_l:disclose]"
+done
+if [ -z "$_lbad" ]; then
+  if [ -n "$_loc_utf8" ]; then ok "L1 영문 어휘 경계 6종(양성 stepper로·prev버튼·close버튼 / 음성 prevent·stepperx·disclose)이 LC_ALL=C·$_loc_utf8 양쪽에서 같은 결과"
+  else ok "L1 (UTF-8 로케일 없음 — C 만 실행, UTF-8 단언 건너뜀) 영문 어휘 경계 6종 LC_ALL=C 결과 일치"; fi
+else nope "L1" "$_lbad"; fi
+
 finish
