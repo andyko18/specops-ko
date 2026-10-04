@@ -80,20 +80,22 @@ mkbase "$_w";  run --baseline "$TMP/base.json" --strict >/dev/null; _s2=$?
 run --baseline "$TMP/nonexistent.json" --strict >/dev/null; _s3=$?
 if [ "$_s1" = 1 ] && [ "$_s2" = 0 ] && [ "$_s3" = 0 ]; then ok "T1.g --strict: 드리프트 rc 1 · 무드리프트 rc 0 · 기준선 부재(판정 없음) rc 0"; else nope "T1.g" "s1=$_s1 s2=$_s2 s3=$_s3"; fi
 
-# T1.h (AC-4) 입력 오류 rc 2 + stderr 사유 — skills 없음·description 누락·기준선 손상·질의 손상·미지 옵션·잘못된 숫자
+# T1.h (AC-4) 입력 오류 rc 2 + stderr 사유 — skills 없음·description 누락·기준선 손상·질의 손상·미지 옵션·잘못된 숫자·block scalar description
 _err() { { bash "$EVAL" "$@" >/dev/null; } 2>&1; }
 mkdir -p "$TMP/nodesc/skills/x-ko" "$TMP/nodesc/skills/y-ko"; printf -- '---\nname: x-ko\n---\n' > "$TMP/nodesc/skills/x-ko/SKILL.md"; cp "$FX/skills/alpha-ko/SKILL.md" "$TMP/nodesc/skills/y-ko/SKILL.md"
 echo '{broken' > "$TMP/base-bad.json"
 mkdir -p "$TMP/qbad/alpha-ko"; echo '{broken' > "$TMP/qbad/alpha-ko/trigger-queries.json"
 _bad=""
+mkdir -p "$TMP/blk/skills/blk-ko" "$TMP/blk/skills/ok-ko"   # description 이 YAML block scalar(`>`) — 한 줄만 지원이라 조용히 빠지면 안 된다
+printf -- '---\nname: blk-ko\ndescription: >\n  여러 줄 설명\n  둘째 줄\n---\n' > "$TMP/blk/skills/blk-ko/SKILL.md"; cp "$FX/skills/alpha-ko/SKILL.md" "$TMP/blk/skills/ok-ko/SKILL.md"
 mkdir -p "$TMP/qfmt/alpha-ko"; echo '{"skill":"alpha-ko","should_trigger":[{"id":"p","query":5}]}' > "$TMP/qfmt/alpha-ko/trigger-queries.json"
-for _spec in "skills 디렉터리 없음|--skills-dir $TMP/none" "description 누락|--skills-dir $TMP/nodesc/skills" "기준선 손상|--skills-dir $FX/skills --baseline $TMP/base-bad.json" "trigger-queries 손상|--skills-dir $FX/skills --queries-dir $TMP/qbad" "형식 오류|--skills-dir $FX/skills --queries-dir $TMP/qfmt" "알 수 없는 인자|--bogus" "--warn-pair|--skills-dir $FX/skills --warn-pair abc"; do
+for _spec in "skills 디렉터리 없음|--skills-dir $TMP/none" "description 누락|--skills-dir $TMP/nodesc/skills" "기준선 손상|--skills-dir $FX/skills --baseline $TMP/base-bad.json" "trigger-queries 손상|--skills-dir $FX/skills --queries-dir $TMP/qbad" "형식 오류|--skills-dir $FX/skills --queries-dir $TMP/qfmt" "알 수 없는 인자|--bogus" "--warn-pair|--skills-dir $FX/skills --warn-pair abc" "block scalar|--skills-dir $TMP/blk/skills"; do
   _want=${_spec%%|*}; _case=${_spec#*|}
   # shellcheck disable=SC2086
   _e=$(_err $_case); _rc=$(bash "$EVAL" $_case >/dev/null 2>&1; echo $?)
   { [ "$_rc" = 2 ] && printf '%s' "$_e" | grep -q "^ERROR: .*$_want"; } || _bad="$_bad [$_case → rc=$_rc '$_e' (기대 '$_want')]"
 done
-if [ -z "$_bad" ]; then ok "T1.h 입력 오류 7종(skills 없음·description 누락·기준선 손상·질의 손상·질의 형식·미지 옵션·잘못된 숫자) → stderr ERROR+고유 사유 + rc 2"; else nope "T1.h" "$_bad"; fi
+if [ -z "$_bad" ]; then ok "T1.h 입력 오류 8종(skills 없음·description 누락·기준선 손상·질의 손상·질의 형식·미지 옵션·잘못된 숫자·block scalar) → stderr ERROR+고유 사유 + rc 2"; else nope "T1.h" "$_bad"; fi
 
 # T1.i (AC-4) jq 부재 — SKIP 한 줄 · rc 0 (오류를 경고로 위장하지 않음: jq 없이는 계산 자체가 불가)
 NOJQ="$TMP/nojq"; mkdir -p "$NOJQ"; ln -s "$(command -v dirname)" "$NOJQ/dirname"
@@ -117,6 +119,18 @@ if [ "$_qrc" = 0 ] && printf '%s\n' "$_q" | grep -q '^QUERY-ROUTING: pos=3 owner
    && [ "$(printf '%s\n' "$_q" | grep '^QUERY-WARN:' | sed 's/^QUERY-WARN: alpha-ko \(pos-[0-9]\).*/\1/' | tr '\n' ' ')" = 'pos-2 pos-3 ' ] && ! printf '%s\n' "$_q" | grep -q '^QUERY-WARN: alpha-ko pos-1'; then
   ok "T1.j 질의 라우팅 — 요약(pos=3 owner-rank1=1 owner-top3=1 · neg owner-rank1=0) · owner 순위 밖 긍정 질의만 QUERY-WARN(pos-2 top1=- · pos-3 top1=gamma-ko, pos 순 정렬) · rc 0"
 else nope "T1.j" "rc=$_qrc out=$(printf '%s\n' "$_q" | grep QUERY)"; fi
+
+# T1.j2 (AC-5) 부정 질의 owner-rank1 카운터 구동 — owner 가 1위인 부정 질의(neg-1)만 센다(neg-2 는 owner 순위 밖)
+mkdir -p "$TMP/q2/alpha-ko"
+cat > "$TMP/q2/alpha-ko/trigger-queries.json" <<'JSON'
+{"skill":"alpha-ko",
+ "should_trigger":[{"id":"pos-1","query":"alphaonly API 계약 데이터를 검증해줘"}],
+ "should_not_trigger":[{"id":"neg-1","query":"alphaonly API 계약 데이터를 검증해줘"},{"id":"neg-2","query":"이미지 파일 압축 썸네일"}]}
+JSON
+_q2=$(bash "$EVAL" --skills-dir "$FX/skills" --queries-dir "$TMP/q2" 2>&1); _q2rc=$?
+if [ "$_q2rc" = 0 ] && printf '%s\n' "$_q2" | grep -q '^QUERY-ROUTING: pos=1 owner-rank1=1 owner-top3=1 · neg=2 owner-rank1=1$'; then
+  ok "T1.j2 부정 질의 카운터 — owner 가 1위인 부정 질의만 센다(neg=2 owner-rank1=1)"
+else nope "T1.j2" "rc=$_q2rc out=$(printf '%s\n' "$_q2" | grep QUERY)"; fi
 
 # T1.k (AC-6) --emit-baseline — stdout 에만 JSON(임계 0.15 이상 쌍) · 결정론 · 파일 무변경 · 형식이 기준선으로 쓰임(drift 0)
 _e1=$(bash "$EVAL" --skills-dir "$FX/skills" --queries-dir "$NOQ" --baseline "$TMP/never-written.json" --emit-baseline 2>"$TMP/emit.err"); _e2=$(bash "$EVAL" --skills-dir "$FX/skills" --queries-dir "$NOQ" --emit-baseline 2>/dev/null)
@@ -178,5 +192,9 @@ if [ -n "$_em1" ] && [ "$_em1" = "$_em2" ] && printf '%s' "$_em1" | jq -e '.vers
   if [ "$(printf '%s' "$_em1" | jq -S -c .)" = "$(jq -S -c . "$BASEF")" ]; then ok "T2.c --emit-baseline 결정론 · 커밋된 기준선과 동일"
   else ok "T2.c --emit-baseline 결정론 · ⚠️ 커밋된 기준선과 다름(warn-first — 갱신 권장)"; fi
 else nope "T2.c" "emit 출력 비결정 또는 형식 오류"; fi
+# T2.d 기준선 하한 경계 — 점수가 정확히 하한(0.15)인 planning-ko~specifying-ko 쌍이 emit·커밋된 기준선에 모두 포함(하한 비교 >= 를 > 로 바꾸면 이 쌍이 빠져 실패)
+if [ "$(printf '%s' "$_em1" | jq -r '.pairs["planning-ko~specifying-ko"] // "없음"')" = "0.15" ] && [ "$(jq -r '.pairs["planning-ko~specifying-ko"] // "없음"' "$BASEF")" = "0.15" ]; then
+  ok "T2.d 기준선 하한 경계 — 점수 정확히 0.15 인 planning-ko~specifying-ko 가 emit·커밋된 기준선에 포함"
+else nope "T2.d" "emit='$(printf '%s' "$_em1" | jq -c '.pairs["planning-ko~specifying-ko"]')' base='$(jq -c '.pairs["planning-ko~specifying-ko"]' "$BASEF")'"; fi
 
 finish

@@ -6,9 +6,10 @@
 #   기본: 경고만(rc 0) · --strict 면 PAIR-DRIFT ≥1 일 때 rc 1 · 입력 오류 rc 2 · jq 부재 SKIP rc 0
 #   --emit-baseline: 현재 상태(임계 0.15 이상 쌍)의 기준선 JSON 을 stdout 으로만 출력(파일 무변경 — 갱신은 사람이 리다이렉트·커밋)
 #   --dump-tokens TEXT: 토큰화 결과 출력(테스트·디버그용)
+#   예외: --emit-baseline 은 jq 부재 시 SKIP(rc 0)이 아니라 rc 2(SKIP 문구가 기준선 파일에 섞이지 않게)
 # df 상한: 문서의 50% 이상(df ≥ N/2)에 나오는 토큰은 제외한다(경계 포함 제외).
 # 구현이 awk 가 아니라 jq 인 이유: macOS awk(20200816)·Ubuntu mawk 모두 length("가나다")=9(바이트 단위)라 한글 글자 bigram 이 불가하다(실측).
-# 한계: 조사 제거는 말미 1개 휴리스틱 · 임계값 미보정 — 절대값이 아니라 기준선 대비 변화를 본다. 질의↔description 코사인은 모델의 실제 라우팅과 다르다(참고용).
+# 한계: description 은 한 줄만 지원(YAML block scalar `>`·`|` 는 rc 2 로 거부) · 조사 제거는 말미 1개 휴리스틱 · 임계값 미보정 — 절대값이 아니라 기준선 대비 변화를 본다. 질의↔description 코사인은 모델의 실제 라우팅과 다르다(참고용).
 set -uo pipefail
 export LC_ALL=C
 
@@ -31,7 +32,7 @@ while [ $# -gt 0 ]; do
     --strict)       STRICT=1; shift ;;
     --emit-baseline) EMIT=1; shift ;;
     --dump-tokens)  [ $# -ge 2 ] || die "--dump-tokens 값 필요"; DUMP="$2"; DUMP_SET=1; shift 2 ;;
-    -h|--help)      sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)              die "알 수 없는 인자: $1" ;;
   esac
 done
@@ -71,6 +72,7 @@ for f in "$SKILLS_DIR"/*/SKILL.md; do
   name=$(basename "$(dirname "$f")")
   d=$(awk 'BEGIN{n=0} /^---[[:space:]]*$/{n++; next} n==1 && /^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$f" | sed 's/^"\(.*\)"$/\1/')
   [ -n "$d" ] || die "description 누락: $name ($f)"
+  [[ "$d" =~ ^[\>\|][-+0-9]*[[:space:]]*$ ]] && die "description 이 block scalar(한 줄만 지원): $name"
   printf '%s\t%s\n' "$name" "$d" >> "$TMP/docs.tsv"; nskills=$((nskills + 1))
 done
 [ "$nskills" -ge 2 ] || die "skill 이 2개 미만이다: $SKILLS_DIR"
