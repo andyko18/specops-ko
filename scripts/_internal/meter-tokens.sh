@@ -57,7 +57,9 @@ if [ "$MODE" = record ]; then
   trap 'rm -f "$NEWREC" "$NR" "$UPTMP" 2>/dev/null' EXIT
   #   bounded_run 은 TERM 을 두 번 보낸다(그룹 → pid). 신호 trap 이 없으면 두 번째 TERM 이 EXIT trap 의 rm 전에 셸을 죽이는
   #   경쟁이 있다(bash 3.2 실측 15회 중 4회 잔존 · 신호 trap 후 0회) — 신호를 exit 로 바꿔(지연 처리) 위 trap 으로 모은다
-  trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+  #   두 번째 신호가 첫 신호의 exit 처리 중(EXIT trap 의 rm 시작 전)에 도착하면 nested exit 로 rm 이 생략돼 임시 파일이 남는다
+  #   (Ubuntu CI T10.d left=2 · bash 3.2 모형 다수 잔존) — 핸들러 첫 동작으로 이후 신호를 무시해 정리를 끝까지 마친다
+  trap 'trap "" HUP INT TERM; exit 129' HUP; trap 'trap "" HUP INT TERM; exit 130' INT; trap 'trap "" HUP INT TERM; exit 143' TERM
   NEWREC=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
   NR=$(mktemp "${TMPDIR:-/tmp}/meter-tokens.XXXXXX") || exit 0
 
