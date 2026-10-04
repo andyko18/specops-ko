@@ -515,6 +515,69 @@ else
   nope "T10.d" "brc=$brc left=$left leftn=$leftn files=$(find "$TD/tmp10" "$TD/tmp10n" -name 'meter-tokens.*' 2>/dev/null | tr '\n' ' ')"
 fi
 
+# T10.f 신호 중복 도착(bounded_run 의 그룹→pid TERM 두 번)에도 임시 파일 잔존 0 — 20261004
+#   Ubuntu CI T10.d `left=2` 의 기전: 두 번째 TERM 이 첫 신호의 exit 처리 중(EXIT trap 의 rm 시작 전)에 도착하면 nested exit 로 rm 이
+#   생략돼 임시 파일 2개가 남는다. 실제 meter-tokens.sh 는 외부 자식(shim jq)을 기다리는 동안 두 TERM 이 합쳐져 창이 좁아 결정적으로 못 만든다 —
+#   그래서 product 의 EXIT trap 줄·신호 trap 줄을 **그대로 추출**해 builtin wait 로 대기하는 피해 셸에 이식하고 TERM 을 연속 두 번 보낸다
+#   (창이 넓어져 핸들러 원복 변이에서 bash 3.2 다수 잔존). 공허 통과 방지: 줄 추출이 비면 FAIL · 임시 파일 2개가 생긴 회차(armed)가 전 회차여야 한다.
+_ext_exit=$(sed -n "/^  trap 'rm -f .*' EXIT$/p" "$METER" | sed -n 1p)
+_ext_sig=$(sed -n "/^  trap '.*' HUP; trap '.*' INT; trap '.*' TERM$/p" "$METER" | sed -n 1p)
+_ign_n=$(printf '%s\n' "$_ext_sig" | grep -o 'trap "" HUP INT TERM' | /usr/bin/wc -l | tr -d ' ')   # HUP·INT·TERM 핸들러 모두 추가 신호를 무시하는지(3)
+mkdir -p "$TD/tmp10f"
+{ printf '#!/usr/bin/env bash\nset -u\nNEWREC=""; NR=""; UPTMP=""\n'; printf '%s\n' "$_ext_exit" "$_ext_sig"
+  printf 'NEWREC=$(mktemp "$TMPDIR/mt.XXXXXX"); NR=$(mktemp "$TMPDIR/mt.XXXXXX")\nsleep 30 & wait $!\n'; } > "$TD/victim10f.sh"
+_model_left=0; _model_bad=0; _model_armed=0; _model_n=20
+if [ -n "$_ext_exit" ] && [ -n "$_ext_sig" ]; then
+  for _k in $(seq 1 "$_model_n"); do
+    rm -f "$TD/tmp10f"/mt.* 2>/dev/null
+    set -m; TMPDIR="$TD/tmp10f" bash "$TD/victim10f.sh" >/dev/null 2>&1 & _p=$!; set +m
+    _w=0; while [ "$(find "$TD/tmp10f" -name 'mt.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')" -lt 2 ] && [ "$_w" -lt 200 ]; do sleep 0.05; _w=$((_w + 1)); done
+    [ "$(find "$TD/tmp10f" -name 'mt.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')" -ge 2 ] && _model_armed=$((_model_armed + 1))
+    kill -TERM "$_p" 2>/dev/null; kill -TERM "$_p" 2>/dev/null
+    { wait "$_p"; } 2>/dev/null; _r=$?
+    [ "$_r" -eq 143 ] || _model_bad=$((_model_bad + 1))
+    kill -KILL -- "-$_p" 2>/dev/null
+    _model_left=$((_model_left + $(find "$TD/tmp10f" -name 'mt.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')))
+  done
+fi
+if [ -n "$_ext_exit" ] && [ -n "$_ext_sig" ] && [ "$_ign_n" = 3 ] && [ "$_model_armed" = "$_model_n" ] && [ "$_model_left" = 0 ] && [ "$_model_bad" = 0 ]; then
+  ok "T10.f 연속 TERM ${_model_n}회(product 핸들러 줄 이식 모형) → 임시 파일 잔존 0 · 종료 코드 143 · HUP/INT/TERM 핸들러 모두 추가 신호 무시"
+else nope "T10.f" "추출 exit='$_ext_exit' sig='$_ext_sig' 무시핸들러수=$_ign_n armed=$_model_armed/$_model_n 잔존=$_model_left 종료코드이상=$_model_bad"; fi
+# T10.g 핸들러 계약 보존 — 실제 meter-tokens.sh 에 TERM·INT·HUP 하나씩(그룹+pid 동시) → 종료 코드 143·130·129 · 잔존 0
+#   INT·HUP 가 진입 시 무시된 환경(nohup·INT 무시 부모)에서는 bash 가 그 신호의 trap 을 걸지 못한다 — 사전 프로브(같은 방식으로 띄운 셸이 자기에게 신호를 쏴 살아남는지)로
+#   판별해 그 신호의 단언은 SKIP 한다(환경 의존 새 플레이크를 심지 않는다). TERM 은 항상 단언한다. armed(임시 파일 2개가 생긴 뒤 신호)도 확인한다.
+_sig_ignored() {  # <시그널> → 0=진입 시 무시됨(trap 불가)
+  local sg="$1" of="$TD/ign10g.$1" _p
+  rm -f "$of"; set -m
+  ( exec bash -c 'kill -'"$sg"' $$; sleep 0.3; echo alive' >"$of" 2>/dev/null ) &
+  _p=$!; set +m; { wait "$_p"; } 2>/dev/null
+  [ "$(cat "$of" 2>/dev/null)" = alive ]
+}
+_sigrun() {  # <시그널> → "잔존수 종료코드 armed"
+  local sg="$1" _p _w _r df left armed=0
+  df=$(mk_env "t10g$sg"); rm -f "$TD/tmp10f"/meter-tokens.* 2>/dev/null
+  set -m
+  ( cd "$df/work" && export TMPDIR="$TD/tmp10f" PATH="$TD/shim:$PATH" CLAUDE_CONFIG_DIR="$df/cfg" CLAUDE_CODE_SESSION_ID="$SID" \
+      && exec bash "$METER" "$FID" >/dev/null 2>&1 ) &
+  _p=$!; set +m
+  _w=0; while [ "$(find "$TD/tmp10f" -name 'meter-tokens.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')" -lt 2 ] && [ "$_w" -lt 200 ]; do sleep 0.05; _w=$((_w + 1)); done
+  [ "$(find "$TD/tmp10f" -name 'meter-tokens.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')" -ge 2 ] && armed=1
+  kill -"$sg" -- "-$_p" "$_p" 2>/dev/null
+  { wait "$_p"; } 2>/dev/null; _r=$?
+  left=$(find "$TD/tmp10f" -name 'meter-tokens.*' 2>/dev/null | /usr/bin/wc -l | tr -d ' ')
+  echo "$left $_r $armed"
+}
+_g=$(_sigrun TERM)
+if [ "$_g" = "0 143 1" ]; then ok "T10.g TERM 종료 코드 143 · 임시 파일 잔존 0 (armed)"; else nope "T10.g" "TERM 잔존·종료코드·armed='$_g'"; fi
+for _sg in INT:130 HUP:129; do
+  _name=${_sg%%:*}; _want=${_sg##*:}
+  if _sig_ignored "$_name"; then skip "T10.g $_name — 진입 시 무시된 환경(nohup·$_name 무시 부모)이라 trap 불가: 종료 코드 단언 생략"
+  else
+    _g=$(_sigrun "$_name")
+    if [ "$_g" = "0 $_want 1" ]; then ok "T10.g $_name 종료 코드 $_want · 임시 파일 잔존 0 (armed)"; else nope "T10.g" "$_name 잔존·종료코드·armed='$_g' (기대 '0 $_want 1')"; fi
+  fi
+done
+
 # T10.e 손상된 tokens.jsonl report → stderr 무출력·exit 0·"읽을 수 없음" 표기(거짓 "측정 안 됨 (사유 없음)" 아님) (AC-9)
 #   FID 지정·생략 두 모드 모두 — 생략 모드에서도 그 FID 는 정확히 1줄
 d=$(mk_env t10e); mk_core "$d"; run_meter "$d" >/dev/null; echo 'broken{' >> "$(TOK "$d")"
