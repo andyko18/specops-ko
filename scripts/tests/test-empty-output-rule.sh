@@ -325,9 +325,12 @@ if [ -z "${SPECOPS_EO_INNER:-}" ]; then
   printf '#!/bin/sh\necho "2026-12-31T15:59:59Z"\nexit 97\n' > "$SB/shim/date"; chmod +x "$SB/shim/date"
   SHIM_RC=$(PATH="$SB/shim:$PATH" date >/dev/null 2>&1; echo $?)
   eq "T8.a (사전) date shim 이 실제로 가로챈다 — rc 97(헛도는 스윕 방지)" "$SHIM_RC" "97"
-  BASE=$(SPECOPS_EO_INNER=1 "$SH" "$SELF" 2>&1)
-  HOST=$(SPECOPS_EO_INNER=1 PATH="$SB/shim:$PATH" CLAUDE_CODE_SESSION_ID="hostile-T15-session" HOME="$SB/home" "$SH" "$SELF" 2>&1)
-  BARE=$(SPECOPS_EO_INNER=1 env -u CLAUDE_CODE_SESSION_ID HOME="$SB/home" "$SH" "$SELF" 2>&1)
+  # 내부 재실행은 stdout(결과 줄)만 비교한다 — CI 러너는 SIGPIPE 를 무시해 조기 종료 파이프(`printf | grep -q`)가 stderr 로
+  #   `printf: write error: Broken pipe` 를 흘리고(타이밍 의존·경로 길이만큼 길어짐) 그 잡음이 cksum 에 섞여 간헐 실패했다(20261004).
+  #   환경 의존성은 결과 줄(stdout)로 드러나고, 내부 실행이 깨지면 T8.d(BASE 종결 줄 FAIL=0)가 잡는다.
+  BASE=$(SPECOPS_EO_INNER=1 "$SH" "$SELF" 2>/dev/null)
+  HOST=$(SPECOPS_EO_INNER=1 PATH="$SB/shim:$PATH" CLAUDE_CODE_SESSION_ID="hostile-T15-session" HOME="$SB/home" "$SH" "$SELF" 2>/dev/null)
+  BARE=$(SPECOPS_EO_INNER=1 env -u CLAUDE_CODE_SESSION_ID HOME="$SB/home" "$SH" "$SELF" 2>/dev/null)
   eq "T8.b 가짜 date(UTC 15시·rc 97)·세션 ID 설정·빈 HOME 에서 재실행해도 출력이 동일하다" "$(printf '%s' "$HOST" | cksum)" "$(printf '%s' "$BASE" | cksum)"
   eq "T8.c 세션 ID 미설정·빈 HOME 에서도 출력이 동일하다" "$(printf '%s' "$BARE" | cksum)" "$(printf '%s' "$BASE" | cksum)"
   eq "T8.d 재실행 결과가 FAIL 0 으로 끝난다(동일하게 실패한 것이 아니다)" "$(printf '%s\n' "$BASE" | tail -1 | grep -c ' FAIL=0$')" "1"
