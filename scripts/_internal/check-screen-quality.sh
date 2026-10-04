@@ -419,14 +419,14 @@ _analyze() {  # $1=md $2=html
 
   if _readable "$html"; then
     # ── a11y-label: label 수 / 입력 요소 수 ──
-    local inp lab
-    # hidden input(csrf 등)은 label 대상이 아니다 — 세면 오탐이 된다(외부 리뷰 M-1)
-    local hid
-    inp=$(_count "$(grep -oE '<(input|select|textarea)\b' "$html" | wc -l)")
-    hid=$(_count "$(grep -oE '<input[^>]*type=["'"'"']?hidden' "$html" | wc -l)")
-    inp=$((inp - hid)); [ "$inp" -lt 0 ] && inp=0
-    lab=$(_count "$(grep -oE '<label\b' "$html" | wc -l)")
-    a11y="$lab/$inp"
+    local inp lab aria nrm tags
+    # 주석·<script> 를 걷고 줄바꿈·탭을 공백으로 정규화(CR 은 [[:space:]] 가 흡수) — 여러 줄 태그를 한 줄로 만들어 태그 단위로 센다(커스텀 엘리먼트 <input-group> 제외)
+    nrm=$(_strip_comments "$html" | _blocks script out | tr '\n\t' '  ')
+    tags=$(printf '%s' "$nrm" | grep -oiE '<(input|select|textarea)([[:space:]/][^>]*)?>' | grep -viE "[[:space:]]type[[:space:]]*=[[:space:]]*[\"']?(hidden|submit|button|reset|image)")
+    inp=$(_count "$(printf '%s\n' "$tags" | grep -c . || true)")
+    lab=$(_count "$(printf '%s' "$nrm" | grep -oiE '<label([[:space:]>]|$)' | wc -l)")
+    aria=$(_count "$(printf '%s\n' "$tags" | grep -ciE '[[:space:]]aria-label(ledby)?[[:space:]]*=' || true)")
+    a11y="$((lab + aria))/$inp"
     # ── semantic: 랜드마크 요소 수 ──
     semantic=$(_count "$(grep -oE '<(main|nav|header|section|aside|footer)\b' "$html" | wc -l)")
     # ── token: 색 리터럴 중 `--이름:` 정의부를 뺀 하드코딩 ──

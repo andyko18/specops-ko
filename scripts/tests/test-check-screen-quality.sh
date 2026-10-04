@@ -848,4 +848,31 @@ for w in '조회 기간(최근 7일)' '기간 설정(최근 7일)' '기간을 �
 [ -z "$_nbad" ] && ok "N4.a 대시보드 기간 표현 4종 각각 충족" || nope "N4.a" "미충족:$_nbad"
 o=$(_nrun 대시보드 '쿠폰 만료 기간이 지나면 숨긴다.'); _nmiss "$o" G-DASH-PERIOD && ok "N4.b 음성 — 무관한 '기간'(만료 기간) 은 기간 선택이 아니다" || nope "N4.b" "$(printf '%s' "$o" | grep genre | head -n 1)"
 
+# ── P: FID 20261004-screen-lint-gaps-2 — S-A11Y-LABEL 태그 단위 계측 (aria·버튼형·hidden 변형·경계·정규화) ──
+_ph() { printf '%s' "$1" > "$TD/p.html"; bash "$SCRIPT" "$TD/good.md" "$TD/p.html" 2>/dev/null; }
+_pa() { _val "$(_ph "$1")" a11y-label; }
+_pbad=""
+[ "$(_pa '<main><input aria-label="이메일"></main>')" = "1/1" ] || _pbad="$_pbad [aria-label]"
+[ "$(_pa '<main><span id=t>이름</span><input aria-labelledby="t"></main>')" = "1/1" ] || _pbad="$_pbad [aria-labelledby]"
+[ "$(_pa "$(printf '<main><INPUT\tTYPE=text\tARIA-LABEL="x"></main>')")" = "1/1" ] || _pbad="$_pbad [대문자·탭 aria]"
+[ -z "$_pbad" ] && ok "P1 aria-label·aria-labelledby 입력(대문자·탭 변형 포함)은 접근 가능한 이름 있음 → 1/1" || nope "P1" "$_pbad"
+_pbad=""
+[ "$(_pa '<main><input type=submit><input type=button><input type=reset><input type=image></main>')" = "0/0" ] || _pbad="$_pbad [버튼형]"
+[ "$(_pa '<main><input type=HIDDEN name=c></main>')" = "0/0" ] || _pbad="$_pbad [HIDDEN]"
+[ "$(_pa '<main><input type = "hidden" name=c></main>')" = "0/0" ] || _pbad="$_pbad [type = hidden]"
+[ "$(_pa "$(printf '<main><input\n type="hidden" name=c></main>\n')")" = "0/0" ] || _pbad="$_pbad [여러 줄 hidden]"
+[ "$(_pa "$(printf '<main><input\r\n\ttype="hidden" name=c></main>\r\n')")" = "0/0" ] || _pbad="$_pbad [CRLF·탭 hidden]"
+[ -z "$_pbad" ] && ok "P2 버튼형 4종·hidden 변형(대문자·공백·여러 줄·CRLF·탭)은 입력 집계에서 제외 → 0/0" || nope "P2" "$_pbad"
+_pbad=""
+[ "$(_pa '<main><input-group></input-group><select-box></select-box></main>')" = "0/0" ] || _pbad="$_pbad [커스텀 엘리먼트]"
+[ "$(_pa '<main><!-- <input> --><p>x</p></main>')" = "0/0" ] || _pbad="$_pbad [주석]"
+[ "$(_pa '<main><script>var s="<input>";</script></main>')" = "0/0" ] || _pbad="$_pbad [script 문자열]"
+[ -z "$_pbad" ] && ok "P3 커스텀 엘리먼트(<input-group>)·주석·<script> 문자열 속 <input> 은 입력이 아니다 → 0/0" || nope "P3" "$_pbad"
+o=$(_ph '<main><input type=text><input type=password><select></select><input type=hidden><input type=submit><!-- <input> --></main>')
+if [ "$(_val "$o" a11y-label)" = "0/3" ] && printf '%s' "$o" | grep -q '\[a11y-label\] 입력 3개 중 label 0개 — 3개 누락  rule=S-A11Y-LABEL'; then
+  ok "P4 음성 — 이름 없는 일반 입력 3개는 종전 문구·형식 그대로 누락 보고(버튼형·hidden·주석은 제외)"; else nope "P4" "a11y=$(_val "$o" a11y-label)"; fi
+[ "$(_pa '<main><input data-type=button id=a><input data-aria-label=x id=b></main>')" = "0/2" ] && [ "$(_pa '<main><!-- <label>x</label> --><label-x>y</label-x><input></main>')" = "0/1" ] && ok "P7 data-type=button·data-aria-label 은 type·aria 속성이 아니다(입력으로 센다, 구 스크립트가 잡던 누락 유지) · 주석 속 <label>·<label-x> 는 label 이 아니다" || nope "P7" "$(_pa '<main><input data-type=button id=a><input data-aria-label=x id=b></main>') $(_pa '<main><!-- <label>x</label> --><label-x>y</label-x><input></main>')"
+[ "$(_pa '<main><input/><textarea></textarea></main>')" = "0/2" ] && ok "P5 자기 닫힘 <input/>·<textarea> 는 입력으로 센다 → 0/2" || nope "P5" "$(_pa '<main><input/><textarea></textarea></main>')"
+[ "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")" = "1/1" ] && ok "P6 CRLF 여러 줄 label+input 정상 화면 → 1/1(상세줄 없음 — 오탐 없음)" || nope "P6" "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")"
+
 finish
