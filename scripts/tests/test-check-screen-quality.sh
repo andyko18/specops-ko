@@ -900,4 +900,52 @@ if [ -z "$_lbad" ]; then
   else ok "L1 (UTF-8 로케일 없음 — C 만 실행, UTF-8 단언 건너뜀) 영문 어휘 경계 6종 LC_ALL=C 결과 일치"; fi
 else nope "L1" "$_lbad"; fi
 
+# ── Q: FID 20261004-screen-lint-gaps-3 — S-A11Y-LABEL 이름 있는 입력 수(aria · label for↔id 짝 · label 감쌈) ──
+_qchk() {  # $1=html $2=기대 값 → 일치하면 0 (실패 시 _qbad 에 사유 누적)
+  [ "$(_pa "$1")" = "$2" ] || _qbad="$_qbad [$2≠$(_pa "$1")]"
+}
+_qbad=""
+_qchk '<main><label for=a>A</label><input id=a></main>' "1/1"
+_qchk '<main><label>A <input></label></main>' "1/1"
+_qchk '<main><input id=a><label for=a>A</label></main>' "1/1"
+_qchk '<main><label for=s>S</label><select id=s></select><label for=t>T</label><textarea id=t></textarea></main>' "2/2"
+_qchk '<main><label for=a>A</label><input id=a aria-label=x><input id=b></main>' "1/2"
+_qchk '<main><label>A <input><input></label></main>' "1/2"
+_qchk '<main><label>A <input aria-label=q><input></label></main>' "1/2"
+_qchk '<main><label for=a><input id=a></label></main>' "1/1"
+_qchk '<main><label>S <select></select></label><label>T <textarea></textarea></label></main>' "2/2"
+[ -z "$_qbad" ] && ok "Q1 이름 인정 — for/id 짝(앞·뒤 순서)·label 감쌈(select·textarea 포함)·select/textarea 짝·aria 겹침(이름 없는 입력 1개는 누락 유지)·감싼 label 의 둘째 입력은 이름 아님" || nope "Q1" "$_qbad"
+_qbad=""
+_qchk '<main><label for=a>A</label><input id=b></main>' "0/1"
+_qchk '<main><label for=a>A</label><input></main>' "0/1"
+_qchk '<main><label for=a>A</label><input id=a><input id=b><label for=zz>Z</label></main>' "1/2"
+_qchk '<main><label for=a>A</label><label for=a>B</label><input id=a><input id=b></main>' "1/2"
+_qchk '<main><label>이름</label><input></main>' "0/1"
+_qchk '<main><label for=x><input id=y></label></main>' "0/1"
+_qchk '<main><label for=h>H</label><input type=hidden id=h><input></main>' "0/1"
+_qchk '<main><fieldset><legend>성별</legend><input type=radio name=g id=r1><input type=radio name=g id=r2></fieldset></main>' "0/2"
+_qchk '<main><label for=a>A</label></main>' "0/0"
+_qchk '<main><label for=a type=button>A</label><input id=a></main>' "1/1"
+[ -z "$_qbad" ] && ok "Q2 음성 — for/id 불일치·for 대상 없음·짝 없는 label 상쇄·중복 for·sibling label·for 우선(감싼 id 다름)·숨김 입력 짝·legend 만·입력 없는 label(0/0)은 이름 없음, label 태그의 type 속성은 입력 제외 필터에 걸리지 않는다(1/1)" || nope "Q2" "$_qbad"
+o=$(_ph '<main><label for=a>A</label><input id=a><input id=b><label for=zz>Z</label></main>')
+printf '%s' "$o" | grep -q '\[a11y-label\] 입력 2개 중 label 1개 — 1개 누락  rule=S-A11Y-LABEL' && ok "Q2.b orphan label 이 상쇄하던 누락이 종전 문구·형식 그대로 보고된다" || nope "Q2.b" "$(printf '%s' "$o" | grep a11y | head -n 1)"
+
+# Q3: 속성 파싱 변형 — 로케일 두 개로 같은 값이어야 한다(_loc_utf8 은 위 L 블록 앞에서 정의)
+_qloc() {  # $1=html $2=기대 → LC_ALL=C·UTF-8 양쪽에서 같은 기대 값
+  _qlocs="C"; [ -n "$_loc_utf8" ] && _qlocs="C $_loc_utf8"
+  for _l in $_qlocs; do [ "$(LC_ALL=$_l _pa "$1")" = "$2" ] || _qbad="$_qbad [$_l:$2≠$(LC_ALL=$_l _pa "$1")]"; done
+}
+_qbad=""
+_qloc '<main><LABEL FOR=A>A</LABEL><INPUT ID=A></main>' "1/1"
+_qloc "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label\tfor=a>A</label><input\ttype=text\tid=a></main>')" "1/1"
+_qloc "$(printf '<main><label for=a\r\n>A</label><input\r\n id=a\r\n></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label for=a\r\n>A</label><input id=a></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label\nfor="a">A</label>\n<input\nid=\x27a\x27></main>\n')" "1/1"
+_qloc '<main><label for = "a">A</label><input id = a/></main>' "1/1"
+_qloc '<main><label for=이름>이름</label><input id=이름></main>' "1/1"
+_qloc '<main><label for=A>A</label><input id=a></main>' "0/1"
+_qloc '<main><label for="">A</label><input id=""></main>' "0/1"
+[ -z "$_qbad" ] && ok "Q3 속성명 대소문자·따옴표 3종·공백·CRLF(값 뒤 줄바꿈 포함)·탭·여러 줄·자기 닫힘·한글 id 는 같은 짝(1/1), 값 대소문자 불일치·빈 값은 짝 아님(0/1) — LC_ALL=C·UTF-8 양쪽 동일" || nope "Q3" "$_qbad"
+
 finish
