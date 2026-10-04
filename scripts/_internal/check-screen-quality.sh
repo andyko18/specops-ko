@@ -251,6 +251,16 @@ _genre_rules() {  # $1=원형 → 계측 규칙 ID(공백 구분). rc 1 = 허용
   esac
 }
 
+# States 섹션 추출 — stdin 의 md 에서 `## States`·`## 상태` 헤딩(대소문자 무시·접두 일치) 아래 다음 `## ` 앞까지.
+#   states 계측과 genre(G-LIST-EMPTY-KIND 입력)가 같은 규칙을 쓰도록 한 곳에 둔다 — 한쪽만 확장하면
+#   states=3/3 인데 G-LIST-EMPTY-KIND 는 미충족인 모순이 생긴다(FID 20261004-screen-lint-gaps clarify).
+_states_sec() { awk 'tolower($0) ~ /^## (states|상태)/{f=1;next} f&&/^## /{exit} f'; }
+
+# 원형 선언 줄 — 첫 `## ` 앞에서 `**원형**:`·`**원형:**`·`원형:` (앞 `- `·`> ` 허용 · 콜론 앞 공백 · 전각 콜론 `：`) 첫 줄.
+_ARCH_RE='^([-*>]|[[:space:]])*([*][*])?원형([*][*])?[[:space:]]*(:|：)'
+_arch_line() { awk -v re="$_ARCH_RE" '/^## /{exit} $0 ~ re {print; exit}' "$1"; }
+_arch_value() { printf '%s' "$1" | sed -E "s/${_ARCH_RE}([*][*])?//" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+
 # here-string — `set -o pipefail` 아래 `printf | grep -q` 는 grep 조기 종료로 printf 가 SIGPIPE 를 받으면
 #   큰 본문에서 충족을 미충족으로 오판한다(외부 critic 지적).
 _has() { grep -qiE "$2" <<<"$1"; }
@@ -294,9 +304,9 @@ _genre() {  # $1=md
   local why='장르 규칙을 계측하지 않았다(위반 없음이 아니다)'
   if ! _readable "$1"; then _gadd "  [genre] 화면 스펙 판독 불가 — $why"; return 0; fi
   local line val a rs r rules="" nv=0
-  line=$(awk '/^## /{exit} /^\*\*원형\*\*:/{print; exit}' "$1")
+  line=$(_arch_line "$1")
   if [ -z "$line" ]; then _gadd "  [genre] 원형 미선언 — $why" G-ARCHETYPE-UNDECLARED; return 0; fi
-  val=$(printf '%s' "${line#*:}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  val=$(_arch_value "$line")
   case "$val" in ''|\[*) _gadd "  [genre] 원형 자리표시자 그대로 — $why" G-ARCHETYPE-UNDECLARED; return 0 ;; esac
   # 복합 원형(쉼표) — 하나라도 목록 밖이면 전체 unknown (부분 계측으로 위장 금지)
   while IFS= read -r a; do
@@ -329,7 +339,7 @@ EOF
     }
     skip { j = index($0, "-->"); if (j == 0) next; $0 = substr($0, j + 3); skip = 0 }
     { print strip($0) }' "$1")
-  st=$(printf '%s\n' "$body" | awk '/^## States/{f=1;next} f&&/^## /{exit} f')
+  st=$(printf '%s\n' "$body" | _states_sec)
   # 판독 불가(원문 출현 수 > 단일줄 정규식 파싱 수)를 무음 통과시키지 않는다 — 원칙 5
   raw=$(grep -o 'genre-override:' "$1" 2>/dev/null | grep -c . || true)
   parsed=$(grep -oE '<!--[[:space:]]*genre-override:[^>]*-->' "$1" 2>/dev/null | grep -c . || true)
@@ -364,15 +374,15 @@ _analyze() {  # $1=md $2=html
 
   # ── states: empty·loading·error 3종. 영문+한글 둘 다 인정 ──
   # 영문만 보면 한국어 문서에서 항상 0/3 이 나와 검사가 무의미해진다.
-  local st=0 sec miss="" states a11y semantic token microcopy genre genre_det anti anti_det
+  local st=0 sec miss="" states a11y semantic token microcopy mc_total=0 genre genre_det anti anti_det
   if _readable "$md"; then
     # 종료 앵커를 `^## ` 로 두고 시작줄만 제외한다 — `/^## [^S]/` 는 후속 헤딩이 S 로
     # 시작하면(## Summary 등) 범위가 새어 다음 섹션까지 먹는다(외부 critic 지적).
-    sec=$(awk '/^## States/{f=1;next} f&&/^## /{exit} f' "$md")
+    sec=$(_states_sec < "$md")
     # ★ 누락 '항목명' 을 남긴다 — 리뷰어 표는 심각도를 종류로 가른다
     #   (empty·error 미정의=Important / loading 만 누락=Minor). 비율만 내면 그 판정을
     #   계측 결과에서 도출할 수 없어 리뷰어가 md 를 재독하게 되고, 그건 추측 판정 금지 계약과 어긋난다.
-    if printf '%s' "$sec" | grep -qiE 'empty|빈 상태|빈상태'; then st=$((st+1)); else miss="$miss,empty"; fi
+    if printf '%s' "$sec" | grep -qiE 'empty|빈 상태|빈상태|데이터 없음|결과 없음|no data|no results'; then st=$((st+1)); else miss="$miss,empty"; fi
     if printf '%s' "$sec" | grep -qiE 'loading|로딩'; then st=$((st+1)); else miss="$miss,loading"; fi
     if printf '%s' "$sec" | grep -qiE 'error|오류|에러'; then st=$((st+1)); else miss="$miss,error"; fi
     miss="${miss#,}"
@@ -386,7 +396,23 @@ _analyze() {  # $1=md $2=html
     # States 와 동일한 종료 앵커를 쓴다 — `/^## 에러 메시지/,0` 은 EOF 까지 열려 있어
     # 뒤따르는 섹션의 `- 오류` 같은 행까지 먹는다(States 에서 막은 것과 같은 범위 누수).
     sec=$(awk '/^## 에러 메시지/{f=1;next} f&&/^## /{exit} f' "$md")
-    microcopy=$(_count "$(printf '%s' "$sec" | grep -cE '^-[[:space:]]*(오류|실패|에러)[[:space:]]*$' || true)")
+    # 불릿(`- 오류`)과 표 데이터 행의 둘째 칸(템플릿 `| 상황 | 사용자에게 보이는 문구 | 복구 경로 |`)을 센다 — 정확 일치만.
+    #   헤더(구분 행 바로 앞 줄)·구분 행·자리표시자 `[…]`·빈 칸은 분모에서도 제외한다.
+    mc=$(printf '%s\n' "$sec" | awk '
+      function trim(x) { gsub(/^[ \t\r]+|[ \t\r]+$/, "", x); return x }
+      /^-[ \t]*[^ \t-]/ { t = trim(substr($0, 2)); if (t !~ /^\[/) { tot++; if (t ~ /^(오류|실패|에러)$/) bad++ } ; next }
+      /^[ \t]*\|/ { n++; row[n] = $0; next }
+      END {
+        for (i = 1; i <= n; i++) { c = row[i]; gsub(/[ \t\r|:-]/, "", c); sep[i] = (c == "") }
+        for (i = 1; i <= n; i++) {
+          if (sep[i] || (i < n && sep[i + 1])) continue
+          m = split(row[i], f, "|"); t = trim(f[3])
+          if (m < 4 || t == "" || t ~ /^\[/) continue
+          tot++; if (t ~ /^(오류|실패|에러)$/) bad++
+        }
+        printf "%d %d", bad + 0, tot + 0
+      }')
+    microcopy=$(_count "${mc% *}"); mc_total=$(_count "${mc#* }")
   else
     microcopy="unknown"
   fi
@@ -437,7 +463,7 @@ _analyze() {  # $1=md $2=html
   fi
   [ "$semantic" = "0" ] && printf '  [semantic] 랜드마크 요소 0개 — div 수프 의심  rule=S-LANDMARK\n'
   case "$token" in unknown|0) ;; *) printf '  [token] 색 리터럴 하드코딩 %s건 — var(--…) 사용 권고  rule=S-TOKEN-HEX\n' "$token" ;; esac
-  case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 — 사용자가 무엇을 해야 하는지 쓰기  rule=S-COPY-VAGUE\n' "$microcopy" ;; esac
+  case "$microcopy" in unknown|0) ;; *) printf '  [microcopy] 무정보 에러 문구 %s건 (전체 %s건) — 사용자가 무엇을 해야 하는지 쓰기  rule=S-COPY-VAGUE\n' "$microcopy" "$mc_total" ;; esac
   [ -n "$genre_det" ] && printf '%s\n' "$genre_det"
   [ -n "$anti_det" ] && printf '%s\n' "$anti_det"
   return 0

@@ -661,4 +661,142 @@ else
   nope "RG6" "배선 위치 — 계측=${_l_rq:-없음} 회귀=${_l_rr:-없음} 커버=${_l_rc:-없음}"
 fi
 
+# ── H: FID 20261004-screen-lint-gaps — 표 형식 에러 문구 · 한글 States · 원형 선언 변형 (양성·음성 쌍) ──
+_hq() { bash "$SCRIPT" "$1" "$TD/good.html" 2>/dev/null; }
+_hbase() { printf '# X\n\n**원형**: 기타\n\n## States\n- Empty: e\n- Loading: l\n- Error: x\n\n## 에러 메시지\n\n'; }
+_hhead='| 상황 | 사용자에게 보이는 문구 | 복구 경로 |
+|---|---|---|'
+
+# H1: S-COPY-VAGUE — 표 데이터 행의 둘째 칸 (정확 일치만 · 자리표시자·헤더·구분 행 제외)
+{ _hbase; printf '%s\n| 검증 | 오류 | 포커스 |\n| 네트워크 | 실패 | 재시도 |\n| 권한 | 접근 권한이 없습니다 | 문의 |\n' "$_hhead"; } > "$TD/h1a.md"
+o=$(_hq "$TD/h1a.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '무정보 에러 문구 2건 (전체 3건).*rule=S-COPY-VAGUE'; then
+  ok "H1.a 표 형식 무정보 2/3행 → microcopy=2 · 상세줄 '(전체 3건)' 분모"; else nope "H1.a" "microcopy=$(_val "$o" microcopy) out=$(printf '%s' "$o" | grep microcopy)"; fi
+{ _hbase; printf '%s\n| a | [예: 오류] | b |\n| c | "오류" | d |\n| e | **실패** | f |\n| g | 에러. | h |\n' "$_hhead"; } > "$TD/h1b.md"
+o=$(_hq "$TD/h1b.md")
+if [ "$(_val "$o" microcopy)" = "0" ] && ! printf '%s' "$o" | grep -q 'S-COPY-VAGUE'; then
+  ok "H1.b 음성 — 자리표시자·따옴표·굵게·마침표 변형·헤더 행은 집계하지 않는다(정확 일치만)"; else nope "H1.b" "microcopy=$(_val "$o" microcopy)"; fi
+{ _hbase; printf -- '- 오류\n- 저장에 실패했습니다\n| 상황 | 문구 | 경로 |\n|---|---|---|\n| a | 에러 | b |\n'; } > "$TD/h1c.md"
+o=$(_hq "$TD/h1c.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 3건)'; then
+  ok "H1.c 불릿+표 혼합 → 무정보 2 · 전체 3"; else nope "H1.c" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+o=$(_hq "$TD/bad.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 2건)'; then
+  ok "H1.d 불릿 전용(기존 fixture) 결과 불변 — microcopy=2 · 전체 2"; else nope "H1.d" "microcopy=$(_val "$o" microcopy)"; fi
+
+{ _hbase; printf -- '- [예: 오류]\n%s\n| a | [예: 실패] | b |\n| c | 오류 | d |\n' "$_hhead"; } > "$TD/h1e.md"
+o=$(_hq "$TD/h1e.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.e 분모 — 불릿·표 자리표시자 [예: …] 는 전체 건수에서도 제외(무정보 1 · 전체 1)"; else nope "H1.e" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+{ _hbase; printf -- '---\n- 오류\n%s\n| a | 에러 | b |\n' "$_hhead"; } > "$TD/h1f.md"
+o=$(_hq "$TD/h1f.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 2건)'; then
+  ok "H1.f 수평선 --- 은 불릿이 아니다 — 분모에서 제외(무정보 2 · 전체 2)"; else nope "H1.f" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+# CRLF 줄끝 — 구 grep 은 [[:space:]] 로 \r 을 흡수했다(Phase C Critical). \r 을 공백처럼 걷지 않으면 불릿은 0건이 되고 표는 헤더·구분 행이 분모로 샌다.
+{ _hbase; printf -- '- 오류\r\n- 실패\r\n- 저장에 실패했습니다\r\n'; } > "$TD/h1g.md"
+o=$(_hq "$TD/h1g.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 3건)'; then
+  ok "H1.g CRLF 불릿 — \\r 을 공백처럼 걷는다(무정보 2 · 전체 3)"; else nope "H1.g" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+{ _hbase; printf '| 상황 | 사용자에게 보이는 문구 | 복구 경로 |\r\n|---|---|---|\r\n| a | 오류 | b |\r\n'; } > "$TD/h1h.md"
+o=$(_hq "$TD/h1h.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.h CRLF 표 — 헤더·구분 행이 분모로 새지 않는다(무정보 1 · 전체 1)"; else nope "H1.h" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+# H1.i 표 파서 경계 — 빈 둘째 칸(분모 제외) · 끝 파이프 없는 행(집계·분모 모두 제외)
+{ _hbase; printf '%s\n| a | 오류 | b |\n| c |  | d |\n| e | 오류\n' "$_hhead"; } > "$TD/h1i.md"
+o=$(_hq "$TD/h1i.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.i 표 경계 — 빈 둘째 칸·끝 파이프 없는 행은 집계·분모에서 제외(무정보 1 · 전체 1)"; else nope "H1.i" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+# H2: S-STATES — `## 상태` 헤딩 · 한글 empty 어휘, states 와 G-LIST-EMPTY-KIND 가 같은 섹션 규칙
+printf '# L\n\n**원형**: 목록\n\n## 상태\n- 데이터 없음: 등록 유도\n- 결과 없음: 필터 초기화\n- 로딩\n- 오류\n\n## 기타\n페이징 총 건수 표시. 기본 정렬 기준 최신순.\n' > "$TD/h2a.md"
+o=$(_hq "$TD/h2a.md")
+if [ "$(_val "$o" states)" = "3/3" ] && [ "$(_val "$o" genre)" = "3/3" ] && ! printf '%s' "$o" | grep -q 'S-STATES-EMPTY'; then
+  ok "H2.a ## 상태 + 데이터 없음/결과 없음 → states=3/3 ∧ genre=3/3 (G-LIST-EMPTY-KIND 와 모순 없음)"; else nope "H2.a" "states=$(_val "$o" states) genre=$(_val "$o" genre)"; fi
+printf '# L\n\n**원형**: 기타\n\n## states\n- empty\n- loading\n- error\n' > "$TD/h2b.md"
+o=$(_hq "$TD/h2b.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H2.b 소문자 ## states 헤딩 인정"; else nope "H2.b" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 기타\n\n## 상태\n- 로딩\n- 오류\n' > "$TD/h2c.md"
+o=$(_hq "$TD/h2c.md")
+if [ "$(_val "$o" states)" = "2/3" ] && printf '%s' "$o" | grep -q '미정의: empty (2/3).*rule=S-STATES-EMPTY'; then
+  ok "H2.c 음성 — empty 어휘 없는 ## 상태 는 empty 만 미정의(loading·error 판정 불변)"; else nope "H2.c" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 목록\n\n## 상태\n- 결과 없음: 필터 초기화\n- 로딩\n- 오류\n\n## 기타\n페이징 총 건수. 기본 정렬 기준 최신순.\n' > "$TD/h2d.md"
+o=$(_hq "$TD/h2d.md")
+if [ "$(_val "$o" genre)" = "2/3" ] && printf '%s' "$o" | grep -q 'G-LIST-EMPTY-KIND'; then
+  ok "H2.d genre 입력도 ## 상태 에서 읽는다 — 한 종류만 있으면 G-LIST-EMPTY-KIND 미충족"; else nope "H2.d" "genre=$(_val "$o" genre)"; fi
+
+# H3: G-ARCHETYPE — 선언 변형 인식(양성) · 미선언·자리표시자·목록 밖·첫 ## 뒤(음성)
+_hbad=""
+for v in '**원형:** 목록' '원형: 목록' '- **원형**: 목록' '> **원형**: 목록' '**원형** : 목록' '원형：목록'; do
+  printf '# A\n\n%s\n\n## States\n- Empty\n- Loading\n- Error\n' "$v" > "$TD/h3a.md"
+  o=$(_hq "$TD/h3a.md"); g=$(_val "$o" genre)
+  case "$g" in */3) ;; *) _hbad="$_hbad [$v → genre=$g]" ;; esac
+done
+[ -z "$_hbad" ] && ok "H3.a 원형 선언 변형 6종(**원형:**·원형:·불릿·인용·콜론 앞 공백·전각 콜론) → 목록 규칙 계측" || nope "H3.a" "$_hbad"
+_hbad=""
+for v in '' '**원형**: [목록]' '**원형**: 달력'; do
+  printf '# A\n\n%s\n\n## States\n- Empty\n- Loading\n- Error\n' "$v" > "$TD/h3b.md"
+  o=$(_hq "$TD/h3b.md")
+  { [ "$(_val "$o" genre)" = "unknown" ] && printf '%s' "$o" | grep -q 'rule=G-ARCHETYPE-UNDECLARED'; } || _hbad="$_hbad [$v]"
+done
+printf '# A\n\n## States\n- Empty\n- Loading\n- Error\n\n**원형**: 목록\n' > "$TD/h3c.md"
+o=$(_hq "$TD/h3c.md")
+{ [ "$(_val "$o" genre)" = "unknown" ] && printf '%s' "$o" | grep -q 'rule=G-ARCHETYPE-UNDECLARED'; } || _hbad="$_hbad [첫 ## 뒤]"
+[ -z "$_hbad" ] && ok "H3.b 음성 — 미선언·자리표시자·목록 밖 값·첫 ## 뒤 원형 줄은 종전처럼 G-ARCHETYPE-UNDECLARED" || nope "H3.b" "$_hbad"
+
+# H4: 계약 불변 — 어떤 입력에서도 exit 0, 요약줄 키 순서 불변
+bash "$SCRIPT" "$TD/h1a.md" "$TD/good.html" >/dev/null 2>&1; r1=$?
+bash "$SCRIPT" "$TD/h3c.md" "$TD/good.html" >/dev/null 2>&1; r2=$?
+o=$(_hq "$TD/h1a.md")
+if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o" | head -1 | grep -qE "$_kre"; then
+  ok "H4 신규 경로에서도 exit 0 · 요약줄 키 순서 불변"; else nope "H4" "rc=$r1/$r2"; fi
+
+# H5: FR-5 영문 empty 어휘 — `no data`·`no results` 각각이 단독으로 empty 를 충족한다(어휘를 지우면 states=2/3)
+printf '# L\n\n**원형**: 기타\n\n## States\n- No data\n- Loading\n- Error\n' > "$TD/h5a.md"
+o=$(_hq "$TD/h5a.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H5.a '- No data' → empty 인정(states=3/3)"; else nope "H5.a" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 기타\n\n## States\n- No results\n- Loading\n- Error\n' > "$TD/h5b.md"
+o=$(_hq "$TD/h5b.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H5.b '- No results' → empty 인정(states=3/3)"; else nope "H5.b" "states=$(_val "$o" states)"; fi
+
+# ── K: FID 20261004-screen-lint-gaps — 변이 생존 9곳 격추 (되돌려-관찰 · mutation-score.sh 생존 `&&` 사이트) ──
+# K1 _readable 의 `&&` — 디렉터리는 -f 가 거짓이라 판독 불가(unknown). `||` 로 바뀌면 -r 만 보고 읽으려 든다.
+o=$(bash "$SCRIPT" "$TD" "$TD/good.html" 2>/dev/null)
+[ "$(_val "$o" states)" = "unknown" ] && ok "K1 md 자리에 디렉터리 → 판독 불가 states=unknown(-f 와 -r 둘 다 요구)" || nope "K1" "states=$(_val "$o" states)"
+
+# K2 _strip_comments 의 `<!--` 선행 판정 — `/* */` 만 있는 줄에서 주석 앞 텍스트는 남기고 주석 안만 걷는다
+#   (앞의 Lorem 1건은 세고 주석 안의 Acme 는 세지 않는다 → anti=1. `<!--` 분기로 오인하면 앞 텍스트까지 잃어 anti=0)
+printf '<main><p>Lorem</p> /* Acme */ <p>끝</p></main>\n' > "$TD/k2.html"
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/k2.html" 2>/dev/null)
+[ "$(_val "$o" anti)" = "1" ] && ok "K2 본문 속 /* */ — 앞 텍스트(Lorem)는 세고 주석 안(Acme)은 걷는다(anti=1)" || nope "K2" "anti=$(_val "$o" anti)"
+
+# K3·K4 --regress 설정 오류 줄 — SPECOPS_SCREEN_SHRINK_RATIO 판독 불가 고백이 두 조기 종료 경로에서 나온다
+#   K3: git 저장소 밖(+ '0x' — 숫자 모양 검사 grep 이 거짓이어야 한다: awk 단독이면 0x 가 통과한다)
+_k=$(mktemp -d); o=$(cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && GIT_CEILING_DIRECTORIES="$(dirname "$_k")" SPECOPS_SCREEN_SHRINK_RATIO=0x bash "$SCRIPT" --regress 2>/dev/null)
+printf '%s' "$o" | grep -q "\[config\] SPECOPS_SCREEN_SHRINK_RATIO='0x' 판독 불가" && ok "K3 git 밖 --regress + 비정상 비율(0x) → [config] 판독 불가 줄(숫자 모양 검사)" || nope "K3" "$(printf '%s' "$o" | tr '\n' '|')"
+#   K4: 저장소는 있으나 screens/ 가 어느 쪽에도 없을 때
+( cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git init -q && git symbolic-ref HEAD refs/heads/main && git -c user.email=t@t -c user.name=t -c core.hooksPath= -c commit.gpgsign=false commit -q --allow-empty -m base ) >/dev/null 2>&1
+o=$(cd "$_k" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && SPECOPS_SCREEN_SHRINK_RATIO=abc bash "$SCRIPT" --regress 2>/dev/null)
+printf '%s' "$o" | grep -q "대상 0개" && printf '%s' "$o" | grep -q "\[config\] SPECOPS_SCREEN_SHRINK_RATIO='abc' 판독 불가" && ok "K4 screens 없는 저장소 --regress + 비정상 비율 → 대상 0개 + [config] 줄" || nope "K4" "$(printf '%s' "$o" | tr '\n' '|')"
+rm -rf "$_k"
+
+# K5 G-FORM-SUBMIT — 두 조건(제출 중 · 비활성) 중 하나만으로는 충족이 아니다
+printf '# F\n\n**원형**: 폼\n\n## States\n- Empty\n- Loading: 제출 중 표시\n- Error\n\n## 흐름\n취소 버튼으로 이전 화면 복귀\n' > "$TD/k5a.md"
+printf '# F\n\n**원형**: 폼\n\n## States\n- Empty\n- Loading: 버튼 비활성\n- Error\n\n## 흐름\n취소 버튼으로 이전 화면 복귀\n' > "$TD/k5b.md"
+_kbad=""
+for f in k5a k5b; do o=$(bash "$SCRIPT" "$TD/$f.md" "$TD/good.html" 2>/dev/null); printf '%s' "$o" | grep -q 'G-FORM-SUBMIT' || _kbad="$_kbad [$f]"; done
+[ -z "$_kbad" ] && ok "K5 G-FORM-SUBMIT — '제출 중' 만 · '비활성' 만 있으면 미충족(둘 다 요구)" || nope "K5" "미보고:$_kbad"
+
+# K6 G-WIZARD-STEP — 세 조건 중 '단계 표시' 가 빠지면 미충족(이전·중간 저장만으로 충족되지 않는다)
+printf '# W\n\n**원형**: 다단 폼\n\n## States\n- Empty\n- Loading: 제출 중 버튼 비활성\n- Error\n\n## 흐름\n취소 버튼 · 이전 버튼 · 중간 저장\n' > "$TD/k6.md"
+o=$(bash "$SCRIPT" "$TD/k6.md" "$TD/good.html" 2>/dev/null)
+printf '%s' "$o" | grep -q 'G-WIZARD-STEP' && ok "K6 G-WIZARD-STEP — 단계 표시 없이 이전·중간 저장만 있으면 미충족" || nope "K6" "$(printf '%s' "$o" | grep genre)"
+
+# K7·K8 정상 화면은 a11y-label·semantic 상세줄이 없다(위반이 있을 때만 출력)
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/good.html" 2>/dev/null)
+printf '%s' "$o" | grep -q '\[a11y-label\]' && nope "K7" "정상 화면에 a11y-label 상세줄" || ok "K7 label 1/입력 1 → [a11y-label] 상세줄 없음"
+printf '%s' "$o" | grep -q '\[semantic\]' && nope "K8" "정상 화면에 semantic 상세줄" || ok "K8 랜드마크 있음 → [semantic] 상세줄 없음"
+
 finish
