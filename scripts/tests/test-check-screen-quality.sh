@@ -799,4 +799,53 @@ o=$(bash "$SCRIPT" "$TD/good.md" "$TD/good.html" 2>/dev/null)
 printf '%s' "$o" | grep -q '\[a11y-label\]' && nope "K7" "정상 화면에 a11y-label 상세줄" || ok "K7 label 1/입력 1 → [a11y-label] 상세줄 없음"
 printf '%s' "$o" | grep -q '\[semantic\]' && nope "K8" "정상 화면에 semantic 상세줄" || ok "K8 랜드마크 있음 → [semantic] 상세줄 없음"
 
+# ── N: FID 20261004-screen-lint-gaps-2 — G-* 자연 표현 어휘·위장 문구 (양성·음성 쌍) ──
+_nmd() { printf '# X\n\n**원형**: %s\n\n## States\n- Empty%s\n- Loading\n- Error\n\n## 기타\n%s\n' "$1" "$3" "$2"; }
+_nrun() { _nmd "$1" "$2" "${3:-}" > "$TD/n.md"; bash "$SCRIPT" "$TD/n.md" "$TD/good.html" 2>/dev/null; }
+_nmiss() { printf '%s' "$1" | grep -q "$2 미충족"; }   # 출력에 규칙 미충족 상세줄이 있다
+_nlist=': 데이터 없음 · 결과 없음'
+
+# N1: 목록 — 총 N건(총/전체 + 숫자·N + 건) · 정렬 표현
+o=$(_nrun 목록 '페이징. 목록 상단에 총 123건 표시. 최신순으로 정렬한다.' "$_nlist")
+[ "$(_val "$o" genre)" = "3/3" ] && ok "N1.a 목록 '총 123건'·'최신순으로 정렬한다' → genre=3/3" || nope "N1.a" "genre=$(_val "$o" genre)"
+_nbad=""
+for w in '전체 50건' '총 N건' '총 7 건'; do o=$(_nrun 목록 "페이징. $w 표시. 정렬 기준 최신순." "$_nlist"); _nmiss "$o" G-LIST-PAGING && _nbad="$_nbad [$w]"; done
+for w in 최신순 오래된순 오름차순 내림차순 '으로 정렬'; do o=$(_nrun 목록 "페이징. 총 건수 표시. 목록은 $w 한다." "$_nlist"); _nmiss "$o" G-LIST-SORT && _nbad="$_nbad [$w]"; done
+[ -z "$_nbad" ] && ok "N1.b 총 건수 변형 3종·정렬 표현 5종(최신순 포함) 각각 충족" || nope "N1.b" "미충족:$_nbad"
+o=$(_nrun 목록 '페이징. 등록된 5건. 정렬 기준 최신순.' "$_nlist")
+_nmiss "$o" G-LIST-PAGING && ok "N1.c 음성 — '등록된 5건'(총/전체 없음)·'건수' 단독은 총 건수가 아니다" || nope "N1.c" "$(printf '%s' "$o" | grep -c G-LIST-PAGING)"
+
+# N2: 폼 — 진행 중 표현·닫기·뒤로 (영문 close 단어 경계)
+_nbad=""
+for w in '로그인 중' '처리 중' '요청 중' '전송 중' '등록 중' '가입 중'; do o=$(_nrun 폼 '취소 버튼.' ": 버튼 비활성 + $w"); _nmiss "$o" G-FORM-SUBMIT && _nbad="$_nbad [$w]"; done
+for w in '닫기 버튼' '닫기 링크' '돌아가기 버튼' '뒤로 버튼' 'close 버튼'; do o=$(_nrun 폼 "$w." ': 제출 중 버튼 비활성'); _nmiss "$o" G-FORM-CANCEL && _nbad="$_nbad [$w]"; done
+[ -z "$_nbad" ] && ok "N2.a 폼 진행 중 표현 6종·취소 경로 5종(닫기 버튼·닫기 링크·돌아가기·뒤로·close) 각각 충족" || nope "N2.a" "미충족:$_nbad"
+_nbad=""
+o=$(_nrun 폼 '취소 버튼.' ': 로그인 중 표시'); _nmiss "$o" G-FORM-SUBMIT || _nbad="$_nbad [중만→충족]"
+o=$(_nrun 폼 'prevent double submit. disclose info. background.' ': 제출 중 버튼 비활성'); _nmiss "$o" G-FORM-CANCEL || _nbad="$_nbad [prevent·disclose·background→충족]"
+o=$(_nrun 폼 '키보드: Esc 로 모달 닫기.' ': 제출 중 버튼 비활성'); _nmiss "$o" G-FORM-CANCEL || _nbad="$_nbad [모달 닫기 단독→충족]"
+o=$(_nrun 폼 '취소 버튼.' ': 요청 중복 방지 · 가입 중복 확인 후 버튼 비활성'); _nmiss "$o" G-FORM-SUBMIT || _nbad="$_nbad [요청 중복·가입 중복→충족]"
+for w in '전송 중단' '등록 중지' '처리 중간'; do o=$(_nrun 폼 '취소 버튼.' ": $w 시 버튼 비활성"); _nmiss "$o" G-FORM-SUBMIT || _nbad="$_nbad [${w}→충족]"; done
+for w in '로그인 중입니다' '처리중...' '요청 중에도' '가입 중'; do o=$(_nrun 폼 '취소 버튼.' ": $w 버튼 비활성"); _nmiss "$o" G-FORM-SUBMIT && _nbad="$_nbad [${w}→미충족]"; done
+[ -z "$_nbad" ] && ok "N2.b 음성 — '중' 표현만(비활성 없음)은 미충족 · '요청 중복'·'가입 중복'·'전송 중단'·'등록 중지'·'처리 중간' 은 진행 중이 아니고 '로그인 중입니다'·'처리중...'·'요청 중에도' 는 진행 중이다 · prevent/disclose/background·템플릿 '모달 닫기' 단독은 취소 경로가 아니다" || nope "N2.b" "$_nbad"
+
+# N3: 다단 폼 — stepper·이전 단계·임시저장 · 위장 문구 제거
+_nbad=""
+for st in 'stepper' '스테퍼' '진행 표시'; do o=$(_nrun '다단 폼' "$st 로 현재 위치를 안내한다. 이전 단계 버튼. 중간 저장. 닫기." ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _nbad="$_nbad [단계:$st]"; done
+for pv in '이전 단계' '이전 버튼' '이전으로' 'previous' 'prev'; do o=$(_nrun '다단 폼' "단계 표시. $pv 이동. 중간 저장. 닫기." ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _nbad="$_nbad [이전:$pv]"; done
+for sv in '임시저장' '임시 저장' '자동 저장' 'autosave'; do o=$(_nrun '다단 폼' "단계 표시. 이전 단계. $sv 지원. 닫기." ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _nbad="$_nbad [저장:$sv]"; done
+[ -z "$_nbad" ] && ok "N3.a 다단 폼 단계 표시 3종·이전 5종·중간 저장 4종 각각 충족" || nope "N3.a" "미충족:$_nbad"
+_nbad=""
+o=$(_nrun '다단 폼' '단계 표시. [이전 화면으로] 링크. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _nbad="$_nbad [이전 화면으로 위장→충족]"
+o=$(_nrun '다단 폼' '단계 표시. prevent 중복. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _nbad="$_nbad [prevent→충족]"
+o=$(_nrun '다단 폼' 'stepperx 로 위치 안내. 이전 단계. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _nbad="$_nbad [stepperx→충족]"
+o=$(_nrun '다단 폼' '단계 표시. 이전 단계. autosavex 지원. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _nbad="$_nbad [autosavex→충족]"
+[ -z "$_nbad" ] && ok "N3.b 음성 — 템플릿 '[이전 화면으로]'·prevent·stepperx·autosavex 는 단계 표시·이전 단계·중간 저장이 아니다(위장·부분 일치 제거)" || nope "N3.b" "$_nbad"
+
+# N4: 대시보드 — 기간 표현
+_nbad=""
+for w in '조회 기간(최근 7일)' '기간 설정(최근 7일)' '기간을 선택한다' '기간을 설정한다'; do o=$(_nrun 대시보드 "$w"); _nmiss "$o" G-DASH-PERIOD && _nbad="$_nbad [$w]"; done
+[ -z "$_nbad" ] && ok "N4.a 대시보드 기간 표현 4종 각각 충족" || nope "N4.a" "미충족:$_nbad"
+o=$(_nrun 대시보드 '쿠폰 만료 기간이 지나면 숨긴다.'); _nmiss "$o" G-DASH-PERIOD && ok "N4.b 음성 — 무관한 '기간'(만료 기간) 은 기간 선택이 아니다" || nope "N4.b" "$(printf '%s' "$o" | grep genre | head -n 1)"
+
 finish

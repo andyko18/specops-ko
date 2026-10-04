@@ -269,13 +269,13 @@ _has() { grep -qiE "$2" <<<"$1"; }
 #   되돌려-관찰 변이가 sed 한 줄로 가능해야 한다.
 _genre_check() {  # $1=ID $2=본문(override 주석 제거) $3=States 섹션
   case "$1" in
-    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|total' ;;
-    G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort' ;;
+    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN]+ ?건|total' ;;
+    G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort|최신순|오래된순|오름차순|내림차순|으로 정렬' ;;
     G-LIST-EMPTY-KIND) _has "$3" '데이터 없음|no data' && _has "$3" '결과 없음|no results' ;;
-    G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting' && _has "$2" '비활성|disabled|중복 제출' ;;
-    G-FORM-CANCEL)     _has "$2" '취소|cancel' ;;
-    G-WIZARD-STEP)     _has "$2" '단계 표시|진행 단계|step indicator' && _has "$2" '이전|previous' && _has "$2" '임시 저장|중간 저장|이탈 시 보존|draft' ;;
-    G-DASH-PERIOD)     _has "$2" '기간 선택|기간 필터|date range' ;;
+    G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting|(처리|요청|전송|로그인|등록|가입) ?중($|[][:space:].,;:!?")]|입니다|이다|이에요|에)' && _has "$2" '비활성|disabled|중복 제출' ;;
+    G-FORM-CANCEL)     _has "$2" '취소|cancel|닫기 버튼|닫기 링크|돌아가기|뒤로|\bclose\b' ;;
+    G-WIZARD-STEP)     _has "$2" '단계 표시|진행 단계|step indicator|\bstepper\b|스테퍼|진행 표시' && _has "$2" '이전 단계|이전 버튼|이전으로|previous|\bprev\b' && _has "$2" '임시 ?저장|중간 저장|이탈 시 보존|draft|자동 저장|\bautosave\b' ;;
+    G-DASH-PERIOD)     _has "$2" '기간 선택|기간 필터|date range|조회 기간|기간 설정|기간을 선택|기간을 설정' ;;
     *) return 1 ;;
   esac
 }
