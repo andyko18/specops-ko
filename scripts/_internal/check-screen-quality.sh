@@ -399,11 +399,11 @@ _analyze() {  # $1=md $2=html
     # 불릿(`- 오류`)과 표 데이터 행의 둘째 칸(템플릿 `| 상황 | 사용자에게 보이는 문구 | 복구 경로 |`)을 센다 — 정확 일치만.
     #   헤더(구분 행 바로 앞 줄)·구분 행·자리표시자 `[…]`·빈 칸은 분모에서도 제외한다.
     mc=$(printf '%s\n' "$sec" | awk '
-      function trim(x) { gsub(/^[ \t]+|[ \t]+$/, "", x); return x }
+      function trim(x) { gsub(/^[ \t\r]+|[ \t\r]+$/, "", x); return x }
       /^-[ \t]*[^ \t-]/ { t = trim(substr($0, 2)); if (t !~ /^\[/) { tot++; if (t ~ /^(오류|실패|에러)$/) bad++ } ; next }
       /^[ \t]*\|/ { n++; row[n] = $0; next }
       END {
-        for (i = 1; i <= n; i++) { c = row[i]; gsub(/[ \t|:-]/, "", c); sep[i] = (c == "") }
+        for (i = 1; i <= n; i++) { c = row[i]; gsub(/[ \t\r|:-]/, "", c); sep[i] = (c == "") }
         for (i = 1; i <= n; i++) {
           if (sep[i] || (i < n && sep[i + 1])) continue
           m = split(row[i], f, "|"); t = trim(f[3])

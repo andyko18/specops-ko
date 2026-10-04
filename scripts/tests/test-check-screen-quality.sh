@@ -694,6 +694,22 @@ o=$(_hq "$TD/h1f.md")
 if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 2건)'; then
   ok "H1.f 수평선 --- 은 불릿이 아니다 — 분모에서 제외(무정보 2 · 전체 2)"; else nope "H1.f" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
 
+# CRLF 줄끝 — 구 grep 은 [[:space:]] 로 \r 을 흡수했다(Phase C Critical). \r 을 공백처럼 걷지 않으면 불릿은 0건이 되고 표는 헤더·구분 행이 분모로 샌다.
+{ _hbase; printf -- '- 오류\r\n- 실패\r\n- 저장에 실패했습니다\r\n'; } > "$TD/h1g.md"
+o=$(_hq "$TD/h1g.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 3건)'; then
+  ok "H1.g CRLF 불릿 — \\r 을 공백처럼 걷는다(무정보 2 · 전체 3)"; else nope "H1.g" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+{ _hbase; printf '| 상황 | 사용자에게 보이는 문구 | 복구 경로 |\r\n|---|---|---|\r\n| a | 오류 | b |\r\n'; } > "$TD/h1h.md"
+o=$(_hq "$TD/h1h.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.h CRLF 표 — 헤더·구분 행이 분모로 새지 않는다(무정보 1 · 전체 1)"; else nope "H1.h" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+# H1.i 표 파서 경계 — 빈 둘째 칸(분모 제외) · 끝 파이프 없는 행(집계·분모 모두 제외)
+{ _hbase; printf '%s\n| a | 오류 | b |\n| c |  | d |\n| e | 오류\n' "$_hhead"; } > "$TD/h1i.md"
+o=$(_hq "$TD/h1i.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.i 표 경계 — 빈 둘째 칸·끝 파이프 없는 행은 집계·분모에서 제외(무정보 1 · 전체 1)"; else nope "H1.i" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
 # H2: S-STATES — `## 상태` 헤딩 · 한글 empty 어휘, states 와 G-LIST-EMPTY-KIND 가 같은 섹션 규칙
 printf '# L\n\n**원형**: 목록\n\n## 상태\n- 데이터 없음: 등록 유도\n- 결과 없음: 필터 초기화\n- 로딩\n- 오류\n\n## 기타\n페이징 총 건수 표시. 기본 정렬 기준 최신순.\n' > "$TD/h2a.md"
 o=$(_hq "$TD/h2a.md")
@@ -736,6 +752,14 @@ bash "$SCRIPT" "$TD/h3c.md" "$TD/good.html" >/dev/null 2>&1; r2=$?
 o=$(_hq "$TD/h1a.md")
 if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o" | head -1 | grep -qE "$_kre"; then
   ok "H4 신규 경로에서도 exit 0 · 요약줄 키 순서 불변"; else nope "H4" "rc=$r1/$r2"; fi
+
+# H5: FR-5 영문 empty 어휘 — `no data`·`no results` 각각이 단독으로 empty 를 충족한다(어휘를 지우면 states=2/3)
+printf '# L\n\n**원형**: 기타\n\n## States\n- No data\n- Loading\n- Error\n' > "$TD/h5a.md"
+o=$(_hq "$TD/h5a.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H5.a '- No data' → empty 인정(states=3/3)"; else nope "H5.a" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 기타\n\n## States\n- No results\n- Loading\n- Error\n' > "$TD/h5b.md"
+o=$(_hq "$TD/h5b.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H5.b '- No results' → empty 인정(states=3/3)"; else nope "H5.b" "states=$(_val "$o" states)"; fi
 
 # ── K: FID 20261004-screen-lint-gaps — 변이 생존 9곳 격추 (되돌려-관찰 · mutation-score.sh 생존 `&&` 사이트) ──
 # K1 _readable 의 `&&` — 디렉터리는 -f 가 거짓이라 판독 불가(unknown). `||` 로 바뀌면 -r 만 보고 읽으려 든다.
