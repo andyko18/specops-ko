@@ -661,4 +661,80 @@ else
   nope "RG6" "배선 위치 — 계측=${_l_rq:-없음} 회귀=${_l_rr:-없음} 커버=${_l_rc:-없음}"
 fi
 
+# ── H: FID 20261004-screen-lint-gaps — 표 형식 에러 문구 · 한글 States · 원형 선언 변형 (양성·음성 쌍) ──
+_hq() { bash "$SCRIPT" "$1" "$TD/good.html" 2>/dev/null; }
+_hbase() { printf '# X\n\n**원형**: 기타\n\n## States\n- Empty: e\n- Loading: l\n- Error: x\n\n## 에러 메시지\n\n'; }
+_hhead='| 상황 | 사용자에게 보이는 문구 | 복구 경로 |
+|---|---|---|'
+
+# H1: S-COPY-VAGUE — 표 데이터 행의 둘째 칸 (정확 일치만 · 자리표시자·헤더·구분 행 제외)
+{ _hbase; printf '%s\n| 검증 | 오류 | 포커스 |\n| 네트워크 | 실패 | 재시도 |\n| 권한 | 접근 권한이 없습니다 | 문의 |\n' "$_hhead"; } > "$TD/h1a.md"
+o=$(_hq "$TD/h1a.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '무정보 에러 문구 2건 (전체 3건).*rule=S-COPY-VAGUE'; then
+  ok "H1.a 표 형식 무정보 2/3행 → microcopy=2 · 상세줄 '(전체 3건)' 분모"; else nope "H1.a" "microcopy=$(_val "$o" microcopy) out=$(printf '%s' "$o" | grep microcopy)"; fi
+{ _hbase; printf '%s\n| a | [예: 오류] | b |\n| c | "오류" | d |\n| e | **실패** | f |\n| g | 에러. | h |\n' "$_hhead"; } > "$TD/h1b.md"
+o=$(_hq "$TD/h1b.md")
+if [ "$(_val "$o" microcopy)" = "0" ] && ! printf '%s' "$o" | grep -q 'S-COPY-VAGUE'; then
+  ok "H1.b 음성 — 자리표시자·따옴표·굵게·마침표 변형·헤더 행은 집계하지 않는다(정확 일치만)"; else nope "H1.b" "microcopy=$(_val "$o" microcopy)"; fi
+{ _hbase; printf -- '- 오류\n- 저장에 실패했습니다\n| 상황 | 문구 | 경로 |\n|---|---|---|\n| a | 에러 | b |\n'; } > "$TD/h1c.md"
+o=$(_hq "$TD/h1c.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 3건)'; then
+  ok "H1.c 불릿+표 혼합 → 무정보 2 · 전체 3"; else nope "H1.c" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+o=$(_hq "$TD/bad.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 2건)'; then
+  ok "H1.d 불릿 전용(기존 fixture) 결과 불변 — microcopy=2 · 전체 2"; else nope "H1.d" "microcopy=$(_val "$o" microcopy)"; fi
+
+{ _hbase; printf -- '- [예: 오류]\n%s\n| a | [예: 실패] | b |\n| c | 오류 | d |\n' "$_hhead"; } > "$TD/h1e.md"
+o=$(_hq "$TD/h1e.md")
+if [ "$(_val "$o" microcopy)" = "1" ] && printf '%s' "$o" | grep -q '(전체 1건)'; then
+  ok "H1.e 분모 — 불릿·표 자리표시자 [예: …] 는 전체 건수에서도 제외(무정보 1 · 전체 1)"; else nope "H1.e" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+{ _hbase; printf -- '---\n- 오류\n%s\n| a | 에러 | b |\n' "$_hhead"; } > "$TD/h1f.md"
+o=$(_hq "$TD/h1f.md")
+if [ "$(_val "$o" microcopy)" = "2" ] && printf '%s' "$o" | grep -q '(전체 2건)'; then
+  ok "H1.f 수평선 --- 은 불릿이 아니다 — 분모에서 제외(무정보 2 · 전체 2)"; else nope "H1.f" "microcopy=$(_val "$o" microcopy) $(printf '%s' "$o" | grep microcopy)"; fi
+
+# H2: S-STATES — `## 상태` 헤딩 · 한글 empty 어휘, states 와 G-LIST-EMPTY-KIND 가 같은 섹션 규칙
+printf '# L\n\n**원형**: 목록\n\n## 상태\n- 데이터 없음: 등록 유도\n- 결과 없음: 필터 초기화\n- 로딩\n- 오류\n\n## 기타\n페이징 총 건수 표시. 기본 정렬 기준 최신순.\n' > "$TD/h2a.md"
+o=$(_hq "$TD/h2a.md")
+if [ "$(_val "$o" states)" = "3/3" ] && [ "$(_val "$o" genre)" = "3/3" ] && ! printf '%s' "$o" | grep -q 'S-STATES-EMPTY'; then
+  ok "H2.a ## 상태 + 데이터 없음/결과 없음 → states=3/3 ∧ genre=3/3 (G-LIST-EMPTY-KIND 와 모순 없음)"; else nope "H2.a" "states=$(_val "$o" states) genre=$(_val "$o" genre)"; fi
+printf '# L\n\n**원형**: 기타\n\n## states\n- empty\n- loading\n- error\n' > "$TD/h2b.md"
+o=$(_hq "$TD/h2b.md")
+if [ "$(_val "$o" states)" = "3/3" ]; then ok "H2.b 소문자 ## states 헤딩 인정"; else nope "H2.b" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 기타\n\n## 상태\n- 로딩\n- 오류\n' > "$TD/h2c.md"
+o=$(_hq "$TD/h2c.md")
+if [ "$(_val "$o" states)" = "2/3" ] && printf '%s' "$o" | grep -q '미정의: empty (2/3).*rule=S-STATES-EMPTY'; then
+  ok "H2.c 음성 — empty 어휘 없는 ## 상태 는 empty 만 미정의(loading·error 판정 불변)"; else nope "H2.c" "states=$(_val "$o" states)"; fi
+printf '# L\n\n**원형**: 목록\n\n## 상태\n- 결과 없음: 필터 초기화\n- 로딩\n- 오류\n\n## 기타\n페이징 총 건수. 기본 정렬 기준 최신순.\n' > "$TD/h2d.md"
+o=$(_hq "$TD/h2d.md")
+if [ "$(_val "$o" genre)" = "2/3" ] && printf '%s' "$o" | grep -q 'G-LIST-EMPTY-KIND'; then
+  ok "H2.d genre 입력도 ## 상태 에서 읽는다 — 한 종류만 있으면 G-LIST-EMPTY-KIND 미충족"; else nope "H2.d" "genre=$(_val "$o" genre)"; fi
+
+# H3: G-ARCHETYPE — 선언 변형 인식(양성) · 미선언·자리표시자·목록 밖·첫 ## 뒤(음성)
+_hbad=""
+for v in '**원형:** 목록' '원형: 목록' '- **원형**: 목록' '> **원형**: 목록' '**원형** : 목록' '원형：목록'; do
+  printf '# A\n\n%s\n\n## States\n- Empty\n- Loading\n- Error\n' "$v" > "$TD/h3a.md"
+  o=$(_hq "$TD/h3a.md"); g=$(_val "$o" genre)
+  case "$g" in */3) ;; *) _hbad="$_hbad [$v → genre=$g]" ;; esac
+done
+[ -z "$_hbad" ] && ok "H3.a 원형 선언 변형 6종(**원형:**·원형:·불릿·인용·콜론 앞 공백·전각 콜론) → 목록 규칙 계측" || nope "H3.a" "$_hbad"
+_hbad=""
+for v in '' '**원형**: [목록]' '**원형**: 달력'; do
+  printf '# A\n\n%s\n\n## States\n- Empty\n- Loading\n- Error\n' "$v" > "$TD/h3b.md"
+  o=$(_hq "$TD/h3b.md")
+  { [ "$(_val "$o" genre)" = "unknown" ] && printf '%s' "$o" | grep -q 'rule=G-ARCHETYPE-UNDECLARED'; } || _hbad="$_hbad [$v]"
+done
+printf '# A\n\n## States\n- Empty\n- Loading\n- Error\n\n**원형**: 목록\n' > "$TD/h3c.md"
+o=$(_hq "$TD/h3c.md")
+{ [ "$(_val "$o" genre)" = "unknown" ] && printf '%s' "$o" | grep -q 'rule=G-ARCHETYPE-UNDECLARED'; } || _hbad="$_hbad [첫 ## 뒤]"
+[ -z "$_hbad" ] && ok "H3.b 음성 — 미선언·자리표시자·목록 밖 값·첫 ## 뒤 원형 줄은 종전처럼 G-ARCHETYPE-UNDECLARED" || nope "H3.b" "$_hbad"
+
+# H4: 계약 불변 — 어떤 입력에서도 exit 0, 요약줄 키 순서 불변
+bash "$SCRIPT" "$TD/h1a.md" "$TD/good.html" >/dev/null 2>&1; r1=$?
+bash "$SCRIPT" "$TD/h3c.md" "$TD/good.html" >/dev/null 2>&1; r2=$?
+o=$(_hq "$TD/h1a.md")
+if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && printf '%s' "$o" | head -1 | grep -qE "$_kre"; then
+  ok "H4 신규 경로에서도 exit 0 · 요약줄 키 순서 불변"; else nope "H4" "rc=$r1/$r2"; fi
+
 finish
