@@ -432,4 +432,31 @@ if ! _chmod_inert; then
   chmod 644 "$TG/locked.dat"; git -C "$TG" checkout -q -- app.sh
 fi
 
+# S18.h unborn HEAD(첫 커밋 전) — mktemp 가 만든 0바이트 인덱스를 git 이 손상으로 보아 add 가 fatal(rc 128)이 된다.
+#   읽을 수 없는 파일 때문이 아니므로 UNHASHABLE 로 분류하면 안 된다(AC-R-1 — 새 repo 의 첫 커밋을 R-1 이 STALE 로 막는다).
+#   종전 값(workspace NO_GIT·nondoc EMPTY — 퇴행 지문)을 유지한다: 이 케이스의 값은 고정하지 않고 UNHASHABLE 만 금지한다.
+_g_ub=$(mktemp -d)
+git -C "$_g_ub" init -q
+printf 'a\n' > "$_g_ub/app.sh"
+_g_ub_ws=$(cd "$_g_ub" && bash -c ". \"$STATE\"; vs::workspace_fingerprint")
+_g_ub_nd=$(cd "$_g_ub" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint")
+[ -n "$_g_ub_ws" ] && [ "$_g_ub_ws" != "UNHASHABLE" ] && [ -n "$_g_ub_nd" ] && [ "$_g_ub_nd" != "UNHASHABLE" ] \
+  && ok "S18.h unborn HEAD 는 UNHASHABLE 이 아니다 (ws=$_g_ub_ws nd=${_g_ub_nd:0:12})" \
+  || nope "S18.h unborn HEAD 는 UNHASHABLE 이 아니다" "ws=$_g_ub_ws nd=$_g_ub_nd"
+rm -rf "$_g_ub"
+
+# S18.i add.ignoreErrors=true 설정이 있어도 읽을 수 없는 tracked 파일은 UNHASHABLE 이다
+#   (설정이 켜지면 git add 가 실패 대신 rc 1 로 끝나 파일을 조용히 건너뛴다 — 그 파일의 변경이 지문에 안 보인다)
+if ! _chmod_inert; then
+  git -C "$TG" config add.ignoreErrors true
+  chmod 000 "$TG/locked.dat"; printf 'chg\n' >> "$TG/app.sh"
+  [ "$(_g_ws)" = "UNHASHABLE" ] && [ "$(_g_nd)" = "UNHASHABLE" ] \
+    && ok "S18.i add.ignoreErrors=true 에서도 읽을 수 없는 tracked 파일 → UNHASHABLE" \
+    || nope "S18.i add.ignoreErrors=true 에서도 UNHASHABLE" "ws=$(_g_ws) nd=$(_g_nd)"
+  chmod 644 "$TG/locked.dat"; git -C "$TG" checkout -q -- app.sh; git -C "$TG" config --unset add.ignoreErrors
+else
+  skip "S18.i add.ignoreErrors — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+fi
+
+
 finish
