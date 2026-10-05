@@ -367,5 +367,100 @@ _pf "T1.t6b 가짜 yaml 주입 → emit exit 1·위반 목록 T1a·dispatch 0" "
 rm -rf "$tmp" "$_fk"
 # (정상 숫자 id 날짜 FID 의 EMIT 은 기존 T4.b(FID 20991231-gate, ok-fid ids T1·T2)가 이미 잠근다 — 새 게이트가 앞에 있어도 통과해야 한다)
 
+
+# ── T5 test_command whitelist 사전 경고 (FID 20261005-implement-bookkeeping) ──
+# whitelist 밖 test_command 는 구현 뒤에야 VERIFY: PARTIAL·R-1 커밋 거부로 드러난다 — 분해 시점에 경고한다.
+# 경고는 fail-open: 종료 코드와 EMIT 산출은 그대로여야 한다(docs-only FID 의 비코드 명령을 막지 않는다).
+# wl_run <test_command> → "rc|warn|emit" (ok-fid 사본의 T1 test_command 를 교체해 실행. 날짜형 FID 는 intent 게이트가 걸려 비날짜 FID 를 쓴다)
+wl_run() {
+  local tmp out rc w e
+  tmp=$(mktemp -d); mkdir -p "$tmp/.specops/wl-fid"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/wl-fid/"
+  python3 - "$tmp/.specops/wl-fid/tasks.md" "$1" <<'PYE'
+import sys
+p, c = sys.argv[1], sys.argv[2]
+s = open(p, encoding="utf-8").read()
+old = 'test_command: "bash scripts/tests/test-parser.sh"'
+assert old in s
+open(p, "w", encoding="utf-8").write(s.replace(old, 'test_command: "' + c + '"', 1))
+PYE
+  out=$(cd "$tmp" && bash "$EMIT" wl-fid 2>"$tmp/err"); rc=$?
+  w=$(grep -c 'WARN T[0-9]* test_command whitelist 밖' "$tmp/err")
+  e=$(printf '%s\n' "$out" | grep -c '^EMIT: 2 files')
+  rm -rf "$tmp"
+  printf '%s|%s|%s' "$rc" "$w" "$e"
+}
+wl_ok_n=0; wl_bad_n=0; wl_miss=""
+for c in "bash scripts/tests/test-x.sh" "bash tests/test-x.sh" "bash test/test-x.sh" "pytest tests/" "python -m pytest -q" "npm test" "npm run test:unit" "go test ./pkg/foo" "cargo test" "npx vitest run"; do
+  r=$(wl_run "$c"); [ "$r" = "0|0|1" ] && wl_ok_n=$((wl_ok_n+1)) || wl_miss="$wl_miss [허용 '$c' → $r]"
+done
+for c in "bash test-greet.sh" "bash ./scripts/x.sh" "ls commands/x.md" "git ls-files examples | wc -l" "sed -n '1,3p' CHANGELOG.md" "bash scripts/tests/a.sh && bash scripts/tests/b.sh" "bash scripts/../x.sh" "make test" "node test.js" "bash /abs/test.sh"; do
+  r=$(wl_run "$c"); [ "$r" = "0|1|1" ] && wl_bad_n=$((wl_bad_n+1)) || wl_miss="$wl_miss [불허 '$c' → $r]"
+done
+if [ "$wl_ok_n" -eq 10 ] && [ "$wl_bad_n" -eq 10 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.a whitelist 허용 10종 경고 0 · 불허 10종 경고 1 · 전부 rc 0 + EMIT 2 files (fail-open)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.a ok=$wl_ok_n bad=$wl_bad_n miss=$wl_miss"
+fi
+# T5.b 판정 근거 단일화: run-verification.sh 의 _WHITELIST_PAT 와 같은 판정(복제 금지) — 같은 sed 추출로 대조한다
+RVPAT=$(grep -m1 '^_WHITELIST_PAT=' "$PLUGIN/scripts/_internal/run-verification.sh" | sed -E "s/^_WHITELIST_PAT='(.*)'\$/\1/")
+par_miss=""
+for c in "bash scripts/tests/test-x.sh" "bash test-greet.sh" "pytest tests/" "make test" "npx vitest run" "bash scripts/../x.sh" "cd apps/web && npx vitest run" "bash a.sh && bash b.sh"; do
+  if [[ "$c" =~ $RVPAT ]] && [[ "$c" != *..* ]]; then want="0|0|1"; else want="0|1|1"; fi
+  got=$(wl_run "$c"); [ "$got" = "$want" ] || par_miss="$par_miss [$c want=$want got=$got]"
+done
+if [ -n "$RVPAT" ] && [ -z "$par_miss" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.b emit-context 경고 판정 = run-verification.sh whitelist 판정 (8종 일치)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.b parity miss=$par_miss pat-len=${#RVPAT}"
+fi
+# T5.c 정규식 리터럴을 emit-context 에 복제하지 않는다(이미 run-verification·record-task-receipt 두 곳 — 세 번째 금지)
+if ! grep -q "^_WHITELIST_PAT='" "$EMIT" && ! grep -q 'poetry|uv|pdm|rye' "$EMIT"; then
+  PASS=$((PASS+1)); echo "PASS T5.c emit-context 에 whitelist 정규식 리터럴 없음(단일 근거 읽기)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.c whitelist 정규식이 emit-context 에 복제됨"
+fi
+# T5.c2 변수명·내용을 바꾼 복제도 잡는다 — whitelist 정규식의 특징 토큰([[:blank:]] 클래스)이 emit-context 에 한 번도 없어야 한다
+if [ "$(grep -c '\[\[:blank:\]\]' "$EMIT")" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T5.c2 emit-context 에 정규식 특징 토큰([[:blank:]]) 없음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.c2 emit-context 에 정규식 조각이 있음"
+fi
+# T5.d 실제 러너와 대조 — T5.b 는 같은 패턴으로 기대값을 재계산해 반쯤 동어반복이다. 실제 run-verification.sh 가 그 명령을 건너뛰는지(WARN: SKIP) 와 비교한다
+RUNV="$PLUGIN/scripts/_internal/run-verification.sh"
+rv_skips() {  # $1=test_command → y(러너가 whitelist 로 건너뜀)|n
+  local tmp
+  tmp=$(mktemp -d); mkdir -p "$tmp/.specops/rv-fid"
+  printf '%s\n' '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' "    test_command: \"$1\"" '    depends_on: []' '    inputs: []' '    outputs: []' '    ac: [AC-1]' '```' > "$tmp/.specops/rv-fid/tasks.md"
+  (cd "$tmp" && bash "$RUNV" rv-fid >/dev/null 2>"$tmp/err"; true)
+  if grep -q 'WARN: SKIP' "$tmp/err"; then printf y; else printf n; fi
+  rm -rf "$tmp"
+}
+rv_miss=""
+for c in "bash test-greet.sh" "make test" "bash scripts/../x.sh" "bash scripts/tests/a.sh && bash scripts/tests/b.sh" "bash scripts/tests/nonexist-wl.sh" "bash tests/nonexist-wl.sh" "cd sub && bash tests/nonexist-wl.sh"; do
+  rv=$(rv_skips "$c"); w=$(wl_run "$c" | cut -d'|' -f2); [ "$w" = 1 ] && em=y || em=n
+  [ "$rv" = "$em" ] || rv_miss="$rv_miss [$c runner=$rv emit=$em]"
+done
+if [ -z "$rv_miss" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.d emit-context 경고 유무 = 실제 run-verification.sh 의 WARN: SKIP (7종 일치)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.d runner 대조 불일치:$rv_miss"
+fi
+# T5.e 정규식 사본 동기 — run-verification 과 record-task-receipt 가 각자 복제본을 갖는다. 한쪽만 바뀌면 분해 경고 없음 → receipt 거부가 재발한다
+if [ -n "$RVPAT" ] && [ "$(grep -m1 '^_WHITELIST_PAT=' "$PLUGIN/scripts/_internal/record-task-receipt.sh")" = "$(grep -m1 '^_WHITELIST_PAT=' "$RUNV")" ]; then
+  PASS=$((PASS+1)); echo "PASS T5.e record-task-receipt·run-verification 의 _WHITELIST_PAT 사본 동일"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.e whitelist 정규식 사본이 갈라짐(run-verification ≠ record-task-receipt)"
+fi
+# T5.f 경고 안내 줄 잠금 — 불허 명령 경고 뒤에 허용 형태·docs-only 안내가 한 번 나와야 한다
+gtmp=$(mktemp -d); mkdir -p "$gtmp/.specops/wl-fid"; cp "$FIXTURES/ok-fid"/*.md "$gtmp/.specops/wl-fid/"
+sed -i.bak 's#test_command: "bash scripts/tests/test-parser.sh"#test_command: "bash test-greet.sh"#' "$gtmp/.specops/wl-fid/tasks.md"; rm -f "$gtmp/.specops/wl-fid/tasks.md.bak"
+gerr=$(cd "$gtmp" && bash "$EMIT" wl-fid 2>&1 >/dev/null); rm -rf "$gtmp"
+if [ "$(printf '%s\n' "$gerr" | grep -c '허용 형태')" -eq 1 ] && printf '%s' "$gerr" | grep -q 'docs-only FID 면 무시해도 됩니다' \
+   && printf '%s\n' "$gerr" | grep -qxF "emit-context: WARN T1 test_command whitelist 밖 — 'bash test-greet.sh'"; then
+  PASS=$((PASS+1)); echo "PASS T5.f 경고 줄(task id·명령 에코 정확 일치) + 허용 형태·docs-only 안내가 정확히 한 번"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5.f 안내 줄 누락/중복: $gerr"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

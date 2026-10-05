@@ -185,6 +185,29 @@ if errors:
 sys.exit(0)
 PYEOF
 
+# test_command whitelist 사전 경고 (FID 20261005-implement-bookkeeping) — fail-open.
+#   run-verification·record-task-receipt 는 whitelist 밖 test_command 를 실행하지 않아 VERIFY: PARTIAL·receipt 거부 → R-1 커밋 거부로
+#   이어진다. 구현 뒤에야 드러나던 그 실패를 분해 시점에 알린다(실측: 무인 FID 에서 이 마찰이 약 8턴·메인 약 10%).
+#   판정 근거는 run-verification.sh 의 단일 라인 _WHITELIST_PAT 다 — 정규식을 복제하지 않는다(추출 실패 시 경고만 건너뛴다).
+#   docs-only FID 의 비코드 test_command 도 경고는 나지만 R-1 이 docs-only 를 면제하므로 차단하지 않는다.
+_RV_SH="$SCRIPT_DIR/../_internal/run-verification.sh"
+_wl_pat=""
+[ -f "$_RV_SH" ] && _wl_pat=$(grep -m1 '^_WHITELIST_PAT=' "$_RV_SH" 2>/dev/null | sed -E "s/^_WHITELIST_PAT='(.*)'\$/\1/") || true
+if [ -n "$_wl_pat" ]; then
+  _wl_warn=0
+  for _wl_tid in $(printf '%s\n' "$yaml" | grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' | sed -E 's/^[[:space:]]*-[[:space:]]*id:[[:space:]]*//; s/[[:space:]]*$//'); do
+    _wl_tc=$(dag::get_task_test_command "$yaml" "$_wl_tid" 2>/dev/null || true)
+    [ -z "$_wl_tc" ] && continue
+    if [[ ! "$_wl_tc" =~ $_wl_pat ]] || [[ "$_wl_tc" == *..* ]]; then
+      echo "emit-context: WARN ${_wl_tid} test_command whitelist 밖 — '${_wl_tc}'" >&2
+      _wl_warn=1
+    fi
+  done
+  if [ "$_wl_warn" -eq 1 ]; then
+    echo "emit-context: WARN 코드 FID 면 run-verification 이 위 명령을 건너뛰어 VERIFY: PARTIAL → R-1 커밋 거부가 됩니다. test_command 를 bash scripts/tests/… · bash tests/… · pytest · npm test 등 허용 형태로 두세요(docs-only FID 면 무시해도 됩니다)." >&2
+  fi
+fi
+
 # 2단계 실제 작성
 mkdir -p "$DISPATCH"
 YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" python3 - << 'PYEOF'

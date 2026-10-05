@@ -380,7 +380,9 @@ if [ -n "$violation" ]; then
    bash scripts/session-progress-append.sh <FID> /verify PASS 로 기록하세요."
   else
     _anchor_hint="✘ ② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
-   또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다."
+   또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다.
+   이 세션에서 bash scripts/_internal/run-verification.sh ${fid} 가 \`VERIFY: PASS\` 로 끝난 것을 확인한 뒤 앵커를 남기세요:
+   bash scripts/session-progress-append.sh ${fid} /verify PASS \"<요약>\""
   fi
   # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
   _compound_hint=""
@@ -409,6 +411,8 @@ if [ -n "$violation" ]; then
     # AC-6 의 "변경 전과 동일" 은 **본문 동일 + 상태 접두 추가**를 뜻한다(부분 문자열 단언으로 잠근다).
     _evidence_hint="✘ ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
    bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
+   러너를 이미 실행했는데 \`VERIFY: PARTIAL\` 로 끝났다면 tasks.md 의 test_command 가 whitelist 미통과라 건너뛰어진 것이며 실행 증거로 인정되지 않습니다 —
+   test_command 를 허용 형태(bash scripts/tests/… · bash tests/… · pytest · npm test 등)로 고친 뒤 다시 실행하세요.
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
   fi
   # ① 이 충족이면 백그라운드 안내는 소음이다 — 그때만 끈다.
