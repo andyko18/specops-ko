@@ -198,11 +198,11 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 Phase B/C Evaluator 는 frontmatter 별칭 모델(spec sonnet·code opus)로 고정이다. 지정 모델이 **불가**(한도 소진·overload·접근 불가)해 Evaluator dispatch 가 실패하면 Generator↔Evaluator 분리가 위협받는다. **아래 순서를 강제**한다:
 
-1. **같은 Evaluator 를 독립 서브에이전트로 재dispatch** 하되 **가용 모델을 override**(Agent 도구 `model` 인자로 세션 모델 등 지정, 실패한 모델 아님). fresh 서브에이전트 = **부모와 분리된 컨텍스트**라 Generator↔Evaluator 불변식이 보존된다 — 독립성은 **모델 차이가 아니라 컨텍스트 분리**에서 온다.
+1. **같은 Evaluator 를 독립 서브에이전트로 재dispatch** 하되 **가용 모델을 override**(Agent 도구 `model` 인자로 세션 모델 등 지정, 실패한 모델 아님 — `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` 설정 시 불가). fresh 서브에이전트 = **부모와 분리된 컨텍스트**라 Generator↔Evaluator 불변식이 보존된다 — 독립성은 **모델 차이가 아니라 컨텍스트 분리**에서 온다.
 2. **절대 부모 self-review 로 후퇴 금지** — 부모(생성자)가 자기 산출을 리뷰하면 Evaluator=Generator 편향(자기평가)이다. **test2 실측 근거**: 부모(opus) self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 서브에이전트 리뷰어가 잡았다**. 즉 **독립-약한 모델 ≫ 편향-강한 모델**.
 3. `dispatch-log.md` 에 degradation 명시: `Phase C: code-reviewer-ko (모델 fallback: <지정 모델> 불가 → <모델>) PASS/FAIL` (원칙 1·5 — 투명성·한계 고백).
 4. **메트릭 (Wave C, 필수)**: fallback 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <FID> --task <task-id> --phase evaluator-degradation --fallback true --model <override-model>` 실행. 프롬프트·사유 원문은 넣지 않는다(스키마 식별자만).
-5. 이건 **graceful floor** 지 지정 모델 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 한도 복구 후 **보안·인증·DB·migration 등 고위험 FID 는 지정 모델(opus)로 재리뷰 필요**(dispatch-log 플래그 + 위 메트릭 한 줄이 근거).
+5. 이건 **graceful floor** 지 지정 모델 등가가 아니다 — 리뷰 깊이가 낮아질 수 있으니, 한도 복구 후 **보안·인증·DB·migration 등 고위험 FID 는 지정 모델로 재리뷰 필요**(dispatch-log 플래그 + 위 메트릭 한 줄이 근거).
 
 > **[기계 검사 — 미기록은 VERIFY 를 막는다]** (20260721 test1 dogfood): 위 3·4·5 항(degradation 기록·메트릭)과 아래 감사 추적은 **프로즈가 아니다**. `scripts/_internal/check-review-audit.sh` 가 `reviews/<task-id>-[BC]-{report,feedback}.md` ↔ `dispatch-log.md` **구조화 행/경로**를 대조하고, `run-verification.sh` 가 이를 호출해 **미기록 리뷰가 있으면 `VERIFY: PASS` 를 거부**한다 (실행-근거 게이트 → 커밋도 안 열림). 인정 형태: (1) `reviews/<basename>` 경로 (2) Phase 셀 `B:<task-id>`/`C:<task-id>` (3) `## task-<task-id>` 섹션 내 B/C 행. **tid 문자열만 산문에 있으면 부족**하다. 실측 근거: test1 `20260717-approval-rbac` 이 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행을 누락 · downstream-dogfood 산문위장 false-pass. **한계**: 행은 썼는데 내용이 거짓인 falsification은 자기보고라 파일 대조로 못 잡는다.
 
@@ -294,7 +294,7 @@ footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱
 
 ## 모델 라우팅 (역할별 고정)
 
-서브에이전트 모델·effort 는 **각 `agents/<name>.md` frontmatter 의 `model:`·`effort:` 로 역할별 고정**된다. 별칭 sonnet·opus 만 쓴다(fable 금지 — 플랜별 과금·접근 불가 가능). 세션·주간 한도는 공유되고 서브에이전트는 별도 소모되므로 호출이 가장 많은 구현자는 Sonnet, 계획·코드 리뷰어는 Opus 다(덮어쓰기: README `모델 · effort 운용`). 상향 규칙 외에는 부모가 dispatch 마다 티어를 판단하지 않는다.
+서브에이전트 모델·effort 는 **각 `agents/<name>.md` frontmatter 의 `model:`·`effort:` 로 역할별 고정**된다. 별칭 sonnet·opus 만 쓴다(fable 금지 — 과금·접근 불가 가능). 세션·주간 한도는 공유되고 서브에이전트는 별도 소모되므로 호출이 가장 많은 구현자는 Sonnet, 계획·코드 리뷰어는 Opus 다(덮어쓰기: README `모델 · effort 운용`). 상향 규칙 외에는 부모가 dispatch 마다 티어를 판단하지 않는다.
 
 | 역할 | 에이전트 | model · effort |
 |---|---|---|
@@ -303,7 +303,7 @@ footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱
 | Evaluator (계획·Phase C) | `plan-reviewer-ko`·`code-reviewer-ko` | opus · high |
 | self-config 감사 | `red-team-ko`·`blue-team-ko`·`auditor-ko` | inherit |
 
-**재dispatch 시 (상향 규칙)**: BLOCKED·Phase B/C FAIL 로 `implementer-ko` 를 재dispatch 할 때는 컨텍스트 보강과 함께 부모가 Agent 도구 `model` 인자로 `opus` 를 지정해 **1회 상향**한다(재dispatch 횟수·cap 은 그대로). 상향 후에도 실패하면 cap(HARD GATE)이며 dispatch-log 에 `(모델 상향: sonnet → opus)` 를 기록한다. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` 설정 시 상향은 적용되지 않는다.
+**재dispatch 시 (상향 규칙)**: BLOCKED·Phase B/C FAIL 로 `implementer-ko` 를 재dispatch 할 때는 컨텍스트 보강과 함께 부모가 Agent 도구 `model` 인자로 `opus` 를 지정해 **1회 상향**한다(재dispatch 마다, 횟수·cap 불변). 상향 후에도 실패하면 B/C 는 cap(HARD GATE), BLOCKED 는 에스컬레이션이다. 상향한 때만 dispatch-log 에 `(모델 상향: sonnet → opus)` 를 기록한다(FORCE 설정 시 상향 불가).
 
 ## 구현자 상태 처리
 
