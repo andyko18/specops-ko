@@ -327,4 +327,17 @@ else
 fi
 chmod 644 "$MK" 2>/dev/null
 
+# 읽을 수 없는 untracked 파일 — git add -A 가 통째로 실패해 지문이 HEAD 로 퇴행한다(vs 공유 SoT 의 기존 한계).
+# 이때 비문서 변경이 있어도 마커와 일치해 FRESH 가 되는 생략 방향 오판을 헬퍼가 따로 막는다.
+printf '%s\n' "$_fp" > "$MK"
+printf 'x\n' > "$TF/locked.dat"; chmod 000 "$TF/locked.dat" 2>/dev/null
+printf 'changed\n' >> "$TF/app.sh"
+if [ "$(id -u)" = "0" ]; then
+  skip "S17.k 읽을 수 없는 untracked 파일 → STALE (root 는 읽힌다)"
+else
+  _fr_case S17.k "읽을 수 없는 untracked 파일 → STALE (지문 퇴행 방어)" 1 "^full-suite STALE"
+fi
+chmod 644 "$TF/locked.dat" 2>/dev/null; rm -f "$TF/locked.dat"
+git -C "$TF" restore app.sh
+
 finish

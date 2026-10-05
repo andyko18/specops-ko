@@ -28,6 +28,12 @@ MARKER="$ROOT/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
 rec=$(head -1 "$MARKER" 2>/dev/null || printf '')
 [ -n "$rec" ] || _stale "마커가 비었거나 읽을 수 없음"
 
+# 지문 계산(git add -A)은 읽을 수 없는 untracked 파일이 있으면 통째로 실패하고 HEAD 지문으로 퇴행한다
+# (verification-state.sh 의 기존 한계) — 생략 방향 오판이라 헬퍼가 따로 STALE 로 막는다.
+unreadable=$( cd "$ROOT" && git ls-files -o --exclude-standard -z 2>/dev/null \
+  | while IFS= read -r -d '' _f; do [ -r "$_f" ] || { printf x; break; }; done )
+[ -z "$unreadable" ] || _stale "읽을 수 없는 untracked 파일 — 지문 신뢰 불가"
+
 # shellcheck source=/dev/null
 now=$( { cd "$ROOT" && . "$VS_LIB" && vs::nondoc_fingerprint; } 2>/dev/null ) || now=""
 [ -n "$now" ] && [ "$now" != "NO_GIT" ] || _stale "현재 지문 산출 불가"
