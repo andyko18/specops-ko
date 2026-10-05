@@ -122,4 +122,10 @@ else
   nope "T13" "카탈로그 ${_cn}개 불일치:$_mis"
 fi
 
+# T14: S-A11Y-LABEL 설명이 이름 없는 input(aria·label for↔id 짝·감쌈) 기준 (FID 20261005-screen-label-guidance AC-4)
+_ra=$(grep -F 'S-A11Y-LABEL' "$AG" | sed -n 1p)
+_ra_ok() { printf '%s' "$1" | grep -q '이름 없는 input' && printf '%s' "$1" | grep -q 'for' && printf '%s' "$1" | grep -q '감쌈' && printf '%s' "$1" | grep -qF '`a11y-label`'; }
+if _ra_ok "$_ra"; then ok "T14.a S-A11Y-LABEL 설명 = 이름 없는 input(aria·for↔id 짝·감쌈) + 실측 표기 유지"; else nope "T14.a" "설명 불충족: ${_ra:0:80}"; fi
+if ! _ra_ok "$(printf '%s' "$_ra" | sed 's/이름 없는 input/label 누락 input/')"; then ok "T14.b 음성 — 구 문구(label 누락 input)로 되돌리면 단언이 FAIL"; else nope "T14.b" "구 문구가 통과"; fi
+
 finish
