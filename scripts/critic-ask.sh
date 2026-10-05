@@ -23,8 +23,8 @@ MAX_BYTES=204800
 
 # provider 감지: CRITIC_BIN > claude > codex > gemini > ollama (A-1)
 # claude: advisor 백엔드 최우선 — claude code 사용자는 항상 보유. 모델은 opus 우선·sonnet fallback
-#   (CRITIC_CLAUDE_MODEL / CRITIC_CLAUDE_FALLBACK 로 override). opus 한도 소진·overload 시 claude 내장
-#   --fallback-model 이 sonnet 으로 자동 전환. 기본에 fable 을 쓰지 않는다(플랜에 따라 usage credits 과금·접근 불가 가능).
+#   (CRITIC_CLAUDE_MODEL / CRITIC_CLAUDE_FALLBACK 로 override). opus overload 시 claude 내장
+#   --fallback-model 이 sonnet 으로 전환한다(공식 문서상 한도·과금 오류는 전환 대상이 아니다). 기본에 fable 을 쓰지 않는다(플랜에 따라 usage credits 과금·접근 불가 가능).
 provider=""; bin=""
 CLAUDE_MODEL="${CRITIC_CLAUDE_MODEL:-opus}"
 CLAUDE_FALLBACK="${CRITIC_CLAUDE_FALLBACK:-sonnet}"
