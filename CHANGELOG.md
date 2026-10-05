@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-05
+
 ### Sonnet·Opus 사용자를 위한 역할별 모델·effort 프로파일 — fable 제거 (#105)
 
 **행동 변경**: 서브에이전트가 fable 대신 별칭 sonnet·opus 와 명시 effort 로 돈다. fable 은 플랜에 따라 usage credits 로 과금되거나 접근 불가일 수 있어(공식 문서) 어느 agent 에서도 쓰지 않는다. 호출 방식·산출물 경로는 그대로다.
@@ -2693,7 +2695,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/andyko18/specops-ko/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/andyko18/specops-ko/compare/v1.106.0...v2.0.0
 [1.106.0]: https://github.com/andyko18/specops-ko/compare/v1.105.0...v1.106.0
 [1.105.0]: https://github.com/andyko18/specops-ko/compare/v1.104.0...v1.105.0
