@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### 게이트 마찰 사전 차단과 릴리즈 스탬프 정정 (#106 · #107)
+
+**배경**: 무인 실행 실측에서 implementing 단계 낭비의 실체는 장부 작업이 아니라 게이트 마찰이었다. 구현자가 whitelist 밖 `test_command` 를 정하면 `VERIFY: PARTIAL` 이 되고, R-1 이 커밋을 거부하는 동안 모델이 훅·검증 소스를 읽는 턴을 썼다(약 8턴·메인 약 10%). 호출 방식·산출물 경로·차단/허용 판정은 그대로다.
+
+- **분해 시점 사전 경고 (#106)** — `emit-context.sh` 가 `run-verification.sh` 의 `_WHITELIST_PAT` 를 읽어(정규식 복제 없음) whitelist 밖 `test_command` 를 stderr 경고로 알린다. 경고뿐이며 emit 의 종료 코드·stdout 은 불변(fail-open) — docs-only FID 의 비코드 명령을 막지 않는다
+- **R-1 deny 복구 안내 (#106)** — ① 누락은 `VERIFY: PARTIAL` 이 실행 증거로 인정되지 않는 이유와 고치는 방법, ② 앵커 누락은 `run-verification` 선행과 `session-progress-append.sh … /verify PASS` 명령을 안내한다. 판정 로직 불변, `mutation-equivalent.conf` 줄번호 +4 정렬
+- **`specops_version` 스탬프 정정 (#107)** — v2.0.0·v2.1.0 릴리즈 pre-flight 경고가 가리킨 6파일을 인접 태그 diff 로 실측한 값으로 정정(start-all·implementing·planning=2.1.0, decomposing·specifying·verifying-evidence=2.0.0, start-all 푸터 동기). 본문 불변
+- **하한 단언 (#107)** — `test-skill-conventions.sh` T12: 6파일 스탬프가 하한 이상이고 start-all 푸터가 frontmatter 와 같음을 잠근다(하한이라 정상 상향은 통과, 비교 헬퍼는 숫자 비교 프로브 포함). 스위트 수 183 불변
+
+**검증**: 변이 22종 killed(등가 명시), run-all 183/183, Phase B/C 전건 PASS.
+
+⚠️ **한계 (정직 고백)**
+- 릴리즈 경고는 직전 태그 이후 변경만 본다. 이력상 낡은 스탬프가 약 34파일 더 있으나 벌크 스윕을 변경으로 세는 휴리스틱이라 값 신뢰가 낮아 이번에 정정하지 않았다
+- 꼬리 게이트(verify~performance) 장부 합침은 분석 후 기각했다 — 모델이 이미 게이트당 한 번의 호출로 합쳐 쓰고, 이론 상한 4.99%·실현 가능 1.63%이며 해당 skill 의 크기 기준 여유가 0B 라서다
+
 ## [2.1.0] — 2026-10-05
 
 ### Sonnet·Opus 사용자를 위한 역할별 모델·effort 프로파일 — fable 제거 (#105)
