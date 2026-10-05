@@ -448,6 +448,8 @@ if [ -z "$_p" ] || [ ! -d "$_p" ]; then
   _t20_dead "T20.i1 run-all 실패 → exit 1"
   _t20_dead "T20.i run-all 실패 → 마커 삭제"
   _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
+  _t20_dead "T20.k 지문 UNHASHABLE → 마커 미기록"
+  _t20_dead "T20.k2 읽을 수 있게 되면 마커 재기록 (양성 대조)"
 else
 trap 'rm -rf "$_p"' EXIT
 find "$_p/scripts/tests" -name 'test-*.sh' -delete 2>/dev/null
@@ -463,6 +465,8 @@ if [ "$_p_ntests" != "1" ]; then
   _t20_dead "T20.i1 run-all 실패 → exit 1"
   _t20_dead "T20.i run-all 실패 → 마커 삭제"
   _t20_dead "T20.j 마지막 줄이 VERIFY: PASS"
+  _t20_dead "T20.k 지문 UNHASHABLE → 마커 미기록"
+  _t20_dead "T20.k2 읽을 수 있게 되면 마커 재기록 (양성 대조)"
 else
 
 _p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' ); }
@@ -487,6 +491,23 @@ _p_fp > "$_p/.specops/.full-suite-pass"
 # stdout 토큰 불변 (R4 — 거버넌스 파싱 대상)
 _p_out=$( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh 2>&1 | tail -1 )
 [ "$_p_out" = "VERIFY: PASS" ] && ok "T20.j 마지막 줄이 VERIFY: PASS" || nope "T20.j 마지막 줄이 VERIFY: PASS ($_p_out)"
+
+# 지문이 UNHASHABLE(읽을 수 없는 tracked 파일)이면 마커를 쓰지 않는다 (20261005-fingerprint-add-failclosed)
+#   NO_GIT 과 같은 취급이다 — 대조 불가한 값으로 skip 이 열리면 안 된다. root 는 chmod 000 이 읽히므로 skip.
+_chmod_inert() { local f; f=$(mktemp) || return 0; chmod 000 "$f"; if [ -r "$f" ]; then rm -f "$f"; return 0; fi; rm -f "$f"; return 1; }   # root·ACL·비-POSIX FS 에서는 chmod 000 이 파일을 막지 못한다
+if _chmod_inert; then
+  skip "T20.k 읽을 수 없는 파일 → 마커 미기록 (chmod 000 이 파일을 막지 못한다 — root·ACL 등)"
+else
+  rm -f "$_p/.specops/.full-suite-pass"
+  chmod 000 "$_p/README.md"
+  ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+  [ ! -f "$_p/.specops/.full-suite-pass" ] && ok "T20.k 지문 UNHASHABLE → 마커 미기록" || nope "T20.k 지문 UNHASHABLE → 마커 미기록"
+  chmod 644 "$_p/README.md"
+  # 양성 대조 — 읽을 수 있게 되면 다시 기록된다 (T20.k 가 "항상 미기록" 으로 공허 통과하지 않게)
+  ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+  [ "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null)" = "$(_p_fp)" ] \
+    && ok "T20.k2 읽을 수 있게 되면 마커 재기록 (양성 대조)" || nope "T20.k2 읽을 수 있게 되면 마커 재기록"
+fi
 
 fi
 rm -rf "$_p"; trap - EXIT
@@ -552,6 +573,7 @@ if [ -z "$_fc" ] || [ ! -d "$_fc" ]; then
   _t22_dead "T22.g NO_GIT → 전체 실행"
   _t22_dead "T22.h FORCE_FULL → 전체 실행"
   _t22_dead "T23.c 헬퍼 부재 → 전체 실행 (fail-closed)"
+  _t22_dead "T23.d 지문 UNHASHABLE + 마커 UNHASHABLE → 전체 실행"
 else
 trap 'rm -rf "$_fc"' EXIT
 
@@ -634,6 +656,18 @@ _fc_case T22.g "NO_GIT → 전체 실행" RAN TMPDIR=/nonexistent/zz
 # ⑧ SPECOPS_FORCE_FULL=1 → 지문 일치해도 전체 실행
 _fc_fp > "$_fc/.specops/.full-suite-pass"
 _fc_case T22.h "FORCE_FULL → 전체 실행" RAN SPECOPS_FORCE_FULL=1
+
+# ⑩ 지문 UNHASHABLE(읽을 수 없는 tracked 파일) → 마커가 같은 문자열이어도 전체 실행 (20261005-fingerprint-add-failclosed)
+#   헬퍼의 UNHASHABLE 가드가 없으면 현재 지문 == 마커 == UNHASHABLE 이라 일치로 읽혀 skip 된다. root 는 읽혀서 skip.
+_chmod_inert() { local f; f=$(mktemp) || return 0; chmod 000 "$f"; if [ -r "$f" ]; then rm -f "$f"; return 0; fi; rm -f "$f"; return 1; }   # root·ACL·비-POSIX FS 에서는 chmod 000 이 파일을 막지 못한다
+if _chmod_inert; then
+  skip "T23.d 읽을 수 없는 파일 — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+else
+  chmod 000 "$_fc/README.md"
+  printf 'UNHASHABLE\n' > "$_fc/.specops/.full-suite-pass"
+  _fc_case T23.d "지문 UNHASHABLE + 마커 UNHASHABLE → 전체 실행" RAN
+  chmod 644 "$_fc/README.md"
+fi
 
 # ⑨ 헬퍼 부재 → 전체 실행 (판정이 헬퍼로 옮겨졌으므로 부재 경로가 새로 생겼다 — 마커가 일치해도 생략하면 안 된다)
 rm -f "$_fc/scripts/_internal/full-suite-fresh.sh"
