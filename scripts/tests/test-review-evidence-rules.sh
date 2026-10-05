@@ -26,13 +26,13 @@ risk_check() {
   a=$(lineno "$1" '## 리스크 플랜'); b=$(lineno "$1" '## 종합 판정')
   printf '%s%s%s%s%s%s%s' "$([ -n "$r" ] && echo y || echo n)" "$(yn "$r" '(none)')" "$(yn "$r" 'high')" "$(yn "$r" 'medium')" "$(yn "$r" 'low')" "$(yn "$r" '검증 명령')" "$([ "$a" -gt 0 ] && [ "$a" -lt "$b" ] && echo y || echo n)"
 }
-# 불변식: role · tools(Write/Edit 없음) · model · SubagentStop 저장 계약 → 6글자
+# 불변식: role · model · effort · tools(Write/Edit 없음) · SubagentStop 저장 계약 → 7글자
 invariants_check() {
   local f="$1" fm tools sc
   fm=$(awk 'NR == 1 && $0 == "---" { on = 1; next } on && $0 == "---" { exit } on' "$f")
   tools=$(printf '%s\n' "$fm" | grep '^tools:')
   sc=$(section "$f" '## 최종 메시지 형식')
-  printf '%s%s%s%s%s%s' "$(yn "$fm" 'role: evaluator')" "$(yn "$fm" 'model: fable')" "$([ "$tools" = 'tools: Read, Grep, Glob, Bash' ] && echo y || echo n)" "$(yn "$sc" '<<<REVIEW fid=')" "$(yn "$sc" 'phase=C')" "$(yn "$sc" '<<<END>>>')"
+  printf '%s%s%s%s%s%s%s' "$(yn "$fm" 'role: evaluator')" "$(yn "$fm" 'model: opus')" "$(yn "$fm" 'effort: high')" "$([ "$tools" = 'tools: Read, Grep, Glob, Bash' ] && echo y || echo n)" "$(yn "$sc" '<<<REVIEW fid=')" "$(yn "$sc" 'phase=C')" "$(yn "$sc" '<<<END>>>')"
 }
 
 # ══ AC-1: 증거 규칙 절 ══
@@ -54,11 +54,22 @@ ck "T2.b 음성 대조: 리스크 플랜 절을 지운 사본 · (none) 을 바�
 ck "T2.c 절대 금지 목록에 증거 없는 Critical/Important 금지가 있다" "$(yn "$(section "$AG" '## 절대 금지')" '증거 없는')" "y"
 
 # ══ AC-3: 불변식(평가자 계약·저장 계약) ══
-ck "T3.a role: evaluator · model: fable · tools 는 Read, Grep, Glob, Bash 만(Write·Edit 없음) · SubagentStop 저장 계약 블록(<<<REVIEW fid= · phase=C · <<<END>>>)이 그대로" "$(invariants_check "$AG")" "yyyyyy"
+ck "T3.a role: evaluator · model: opus · effort: high · tools 는 Read, Grep, Glob, Bash 만(Write·Edit 없음) · SubagentStop 저장 계약 블록(<<<REVIEW fid= · phase=C · <<<END>>>)이 그대로" "$(invariants_check "$AG")" "yyyyyyy"
 sed 's/^tools: Read, Grep, Glob, Bash$/tools: Read, Write, Grep, Glob, Bash/' "$AG" > "$SB/write-tool.md"
 sed 's/<<<END>>>/<<<FIN>>>/' "$AG" > "$SB/no-end.md"
-ck "T3.b 음성 대조: Write 도구를 준 사본 · 저장 계약 종료 마커를 바꾼 사본은 걸린다" "$(invariants_check "$SB/write-tool.md")|$(invariants_check "$SB/no-end.md")" "yynyyy|yyyyyn"
+ck "T3.b 음성 대조: Write 도구를 준 사본 · 저장 계약 종료 마커를 바꾼 사본은 걸린다" "$(invariants_check "$SB/write-tool.md")|$(invariants_check "$SB/no-end.md")" "yyynyyy|yyyyyyn"
 ck "T3.c 같은 규칙의 선례가 plan-reviewer-ko·design-reviewer-ko 에 그대로 남아 있다(참조 대상 불변)" "$(yn "$(cat "$PLUGIN/agents/plan-reviewer-ko.md")" '[검증 불가]')$(yn "$(cat "$PLUGIN/agents/design-reviewer-ko.md")" '[검증 불가]')" "yy"
+
+# ══ AC-1: 에이전트 모델·effort 프로파일 (별칭만 · fable·전체 모델 ID 금지) ══
+# $2=model $3=effort → model 일치 · effort 일치 · fable/전체 ID 부재 → 3글자
+profile_check() {
+  local fm; fm=$(awk 'NR == 1 && $0 == "---" { on = 1; next } on && $0 == "---" { exit } on' "$1")
+  printf '%s%s%s' "$(printf '%s\n' "$fm" | grep -qx "model: $2" && echo y || echo n)" "$(printf '%s\n' "$fm" | grep -qx "effort: $3" && echo y || echo n)" "$(printf '%s\n' "$fm" | grep -qE 'fable|claude-' && echo n || echo y)"
+}
+ck "T4.a spec-reviewer-ko 는 sonnet·high, code-reviewer-ko 는 opus·high 이고 fable·전체 모델 ID 가 없다" "$(profile_check "$PLUGIN/agents/spec-reviewer-ko.md" sonnet high)|$(profile_check "$AG" opus high)" "yyy|yyy"
+sed 's/^model: opus$/model: fable/' "$AG" > "$SB/model-fable.md"
+sed 's/^effort: high$/effort: max/' "$AG" > "$SB/effort-max.md"
+ck "T4.b 음성 대조: model 을 fable 로 바꾼 사본 · effort 를 바꾼 사본은 걸린다" "$(profile_check "$SB/model-fable.md" opus high)|$(profile_check "$SB/effort-max.md" opus high)" "nyn|yny"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
