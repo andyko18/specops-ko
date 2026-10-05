@@ -110,11 +110,11 @@ else
 fi
 
 # ── P1 Evaluator 모델 불가 fallback (20260718 test2 회고) ──
-# fable Evaluator 크레딧 소진 시 부모 self-review 붕괴 금지 + 독립 리뷰어 fallback 존재.
+# 지정 모델 한도 소진·접근 불가 시 부모 self-review 붕괴 금지 + 독립 리뷰어 fallback 존재.
 if has skills/implementing-ko/SKILL.md 'Evaluator 모델 불가' '부모 self-review 로 후퇴 금지|부모 self-review.*금지' '독립 서브에이전트'; then
   ok "implementing-ko Evaluator fallback 존재 (독립 리뷰어 + 부모 self-review 금지)"
 else
-  nope "implementing-ko Evaluator fallback 소실" "fable 불가 시 Generator↔Evaluator 붕괴 무방어"
+  nope "implementing-ko Evaluator fallback 소실" "지정 모델 불가 시 Generator↔Evaluator 붕괴 무방어"
 fi
 if grep -q '부모 self-review 로 후퇴 금지' skills/planning-ko/SKILL.md && grep -q 'plan-reviewer-ko .*독립 서브에이전트\|독립 서브에이전트로 가용 모델' skills/planning-ko/SKILL.md; then
   ok "planning-ko plan-reviewer fallback 참조 존재"
@@ -225,5 +225,16 @@ else
   nope "verifying-evidence-ko review-skip-pass fast path 소실" "end-loaded FID 의 기계적 리뷰 단계 생략 문구 부재"
 fi
 
+
+
+# ── 20261005 서브에이전트 모델·effort 프로파일 — 구현자 sonnet·medium + 재dispatch 상향 규칙 ──
+# 구현자는 기본 Sonnet 이고 BLOCKED·Phase B/C FAIL 재dispatch 때만 부모가 opus 로 1회 상향한다. 문구가 사라지면 상향 근거가 없어진다.
+# shellcheck disable=SC2016  # 패턴 안의 백틱은 리터럴이다
+if grep -qx 'model: sonnet' agents/implementer-ko.md && grep -qx 'effort: medium' agents/implementer-ko.md \
+   && has skills/implementing-ko/SKILL.md '재dispatch 시 \(상향 규칙\)' '인자로 `opus` 를 지정해 \*\*1회 상향\*\*'; then
+  ok "implementer-ko sonnet·medium + implementing-ko 재dispatch opus 1회 상향 규칙 존재"
+else
+  nope "implementer 프로파일·상향 규칙 소실" "implementer-ko frontmatter 또는 implementing-ko 상향 규칙 문구 부재"
+fi
 
 finish

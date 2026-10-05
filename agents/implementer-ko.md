@@ -1,7 +1,8 @@
 ---
 name: implementer-ko
 description: tasks.md의 각 태스크를 TDD 5스텝으로 구현하고 session-progress·dispatch-log를 갱신하는 specops-ko Generator 에이전트. specops-ko:implementing-ko가 dispatch.
-model: opus
+model: sonnet
+effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
