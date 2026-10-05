@@ -248,5 +248,85 @@ if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'heading-end'; then
   ok "R22 CRLF heading-end 탐지"
 else no "R22" "rc=$rc out=[$out]"; fi
 
+# ── review-skip-pass.sh (20261005-skill-progressive-disclosure) ──────────────────
+# end-loaded 로 B/C 를 끝낸 FID 의 requesting·receiving-code-review 기계적 통과를 스크립트가 대신한다.
+# 조건 충족 → 종전 skill 과 같은 산출물(review-skip.md·session-progress 두 줄), 불충족 → rc 1 + 쓰기 0.
+RSP="$PLUGIN/scripts/_internal/review-skip-pass.sh"
+mk_rs() {  # $1=fid — 2 태스크 · B/C 리포트 완비 · end-loaded · 단일 모드 (모든 조건 충족 픽스처)
+  local fid="$1" root="$TMP/.specops"
+  mkdir -p "$root/$fid/reviews"
+  printf '**§유형**: 유지보수\n' > "$root/$fid/spec.md"
+  printf 'review_mode: end-loaded\ntasks:\n  - id: T1\n  - id: T2\n' > "$root/$fid/tasks.md"
+  local t
+  for t in T1 T2; do
+    printf 'B\n' > "$root/$fid/reviews/$t-B-report.md"
+    printf 'C\n' > "$root/$fid/reviews/$t-C-report.md"
+  done
+  printf '## %s · rs\n\n- 2026-01-07T00:00:00Z /verify PASS (evidence.md)\n' "$fid" >> "$root/session-progress.md"
+}
+rs_run() { ( cd "$TMP" && SPECOPS_ROOT="$TMP/.specops" bash "$RSP" "$@" ); }
+rs_sum() { cat "$TMP/.specops/session-progress.md" 2>/dev/null | cksum; }
+
+# R23 — 조건 충족: rc 0 · review-skip.md 첫 줄 · session-progress 두 줄(최신 줄이 위)
+mk_rs "20260107-rs-pass"
+out=$(rs_run "20260107-rs-pass" 2>&1); rc=$?
+sk="$TMP/.specops/20260107-rs-pass/review-skip.md"
+ln_rcv=$(grep -n '/receive-review 완료' "$TMP/.specops/session-progress.md" | head -1 | cut -d: -f1)
+ln_req=$(grep -n '/request-review 완료' "$TMP/.specops/session-progress.md" | head -1 | cut -d: -f1)
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'review-skip-pass: OK' \
+   && [ "$(head -1 "$sk" 2>/dev/null)" = 'end-loaded: Phase B/C already covered full FID diff' ] \
+   && [ -n "$ln_rcv" ] && [ -n "$ln_req" ] && [ "$ln_rcv" -lt "$ln_req" ]; then
+  ok "R23 조건 충족 → review-skip.md + session-progress 두 줄"
+else no "R23" "rc=$rc out=[$out] first=[$(head -1 "$sk" 2>/dev/null)] rcv=$ln_rcv req=$ln_req"; fi
+
+# R23b — 표준 템플릿 줄(`review_mode: end-loaded   # 기본 ...` 인라인 주석)도 통과해야 한다 — 화이트리스트가 정상 형태를 막지 않는 양성 대조
+mk_rs "20260107-rs-cmt-ok"; printf 'review_mode: end-loaded   # 기본 — 레거시: per-task\ntasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-cmt-ok/tasks.md"
+out=$(rs_run "20260107-rs-cmt-ok" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'review-skip-pass: OK'; then ok "R23b end-loaded + 인라인 주석 → 통과"; else no "R23b" "rc=$rc out=[$out]"; fi
+
+# R24 — 소비자 호환(reconcile-check 가 읽는 마커·review-skip.md 와 batch-state 가 grep 하는 end-loaded 사유. 스크립트는 §batch FID 를 거부하고
+#   batch-state 는 batch 큐의 FID 만 읽으므로 batch-state 를 직접 돌리는 대신 사유 문구 계약(test-batch-state T2.a7 이 잠금)만 대조한다): reconcile-check --hook 이 이 산출물을 정합으로 본다(DESYNC 무출력) + batch-state 의 end-loaded 사유 문구
+hook_out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20260107-rs-pass" --hook 2>&1)
+if [ -z "$hook_out" ] && head -1 "$sk" | grep -qiE 'end-loaded'; then
+  ok "R24 reconcile 정합 + batch-state 가 읽는 end-loaded 사유"
+else no "R24" "hook=[$hook_out]"; fi
+
+# R25~R31 — 불충족·판정 불가: rc 1 · stderr 사유 · 쓰기 0 (review-skip.md 부재/불변 + session-progress cksum 불변)
+rs_neg() {  # $1=id $2=desc $3=fid  — 호출 전에 픽스처를 깨뜨려 둔다. review-skip.md 는 사전 존재 여부와 무관하게 내용 불변이어야 한다
+  local id="$1" desc="$2" fid="$3" before after rc err pre_skip post_skip
+  before=$(rs_sum); pre_skip=$(cat "$TMP/.specops/$fid/review-skip.md" 2>/dev/null || echo ABSENT)
+  err=$(rs_run "$fid" 2>&1 >/dev/null); rc=$?
+  after=$(rs_sum); post_skip=$(cat "$TMP/.specops/$fid/review-skip.md" 2>/dev/null || echo ABSENT)
+  if [ "$rc" -eq 1 ] && [ -n "$err" ] && [ "$before" = "$after" ] && [ "$pre_skip" = "$post_skip" ]; then
+    ok "$id $desc → rc 1 · 쓰기 0"
+  else no "$id $desc" "rc=$rc err=[$err] progress-same=$([ "$before" = "$after" ] && echo y || echo n) skip-same=$([ "$pre_skip" = "$post_skip" ] && echo y || echo n)"; fi
+}
+mk_rs "20260107-rs-pertask"; printf 'review_mode: per-task\ntasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-pertask/tasks.md"
+rs_neg R25 "per-task 모드" "20260107-rs-pertask"
+mk_rs "20260107-rs-pt-cmt"; printf 'review_mode: per-task   # 레거시\ntasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-pt-cmt/tasks.md"
+rs_neg R25b "per-task + 인라인 주석(templates/tasks.md 표준 형태)" "20260107-rs-pt-cmt"
+mk_rs "20260107-rs-pt-quote"; printf 'review_mode: "per-task"\ntasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-pt-quote/tasks.md"
+rs_neg R25c "per-task 따옴표" "20260107-rs-pt-quote"
+mk_rs "20260107-rs-mode2"; printf 'review_mode: end-loaded\nreview_mode: per-task\ntasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-mode2/tasks.md"
+rs_neg R25d "review_mode 줄 중복" "20260107-rs-mode2"
+mk_rs "20260107-rs-mode0"; printf 'tasks:\n  - id: T1\n  - id: T2\n' > "$TMP/.specops/20260107-rs-mode0/tasks.md"
+rs_neg R25e "review_mode 줄 부재(skill 은 end-loaded 로 취급하나 스크립트는 더 엄격하게 rc 1)" "20260107-rs-mode0"
+mk_rs "20260107-rs-missing"; rm -f "$TMP/.specops/20260107-rs-missing/reviews/T2-C-report.md"
+rs_neg R26 "C 리포트 누락" "20260107-rs-missing"
+mk_rs "20260107-rs-batch"; printf '**§유형**: 신규\n**§batch**: B-1\n' > "$TMP/.specops/20260107-rs-batch/spec.md"
+rs_neg R27 "§batch FID" "20260107-rs-batch"
+mk_rs "20260107-rs-notasks"; rm -f "$TMP/.specops/20260107-rs-notasks/tasks.md"
+rs_neg R28 "tasks.md 부재" "20260107-rs-notasks"
+mk_rs "20260107-rs-request"; printf 'x\n' > "$TMP/.specops/20260107-rs-request/review-request.md"
+rs_neg R29 "review-request.md 이미 존재" "20260107-rs-request"
+mk_rs "20260107-rs-already"; printf 'manual\n' > "$TMP/.specops/20260107-rs-already/review-skip.md"
+rs_neg R30 "review-skip.md 이미 존재(내용 불변)" "20260107-rs-already"
+mk_rs "20260107-rs-notid"; printf 'review_mode: end-loaded\ntasks: []\n' > "$TMP/.specops/20260107-rs-notid/tasks.md"
+rs_neg R31 "task id 0건" "20260107-rs-notid"
+mk_rs "20260107-rs-nospec"; rm -f "$TMP/.specops/20260107-rs-nospec/spec.md"
+rs_neg R33 "spec.md 부재(§batch 판정 불가 — 스킵 방향 금지)" "20260107-rs-nospec"
+err=$(rs_run "bad-fid" 2>&1 >/dev/null); rc=$?
+if [ "$rc" -eq 1 ] && [ -n "$err" ]; then ok "R32 잘못된 FID 인자 → rc 1"; else no "R32" "rc=$rc err=[$err]"; fi
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]
