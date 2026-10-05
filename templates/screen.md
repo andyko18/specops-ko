@@ -100,6 +100,7 @@ updated: "{{updated}}"
 
 - 키보드: [Tab 순서 / Esc 로 모달 닫기]
 - 스크린리더: [aria-label 이 필요한 요소]
+- 입력 이름: 입력마다 label 의 for 속성과 입력 id 로 연결한다(label 이 입력을 감싸거나 aria-label 도 허용, for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label, 그룹 이름은 fieldset 과 legend 로 둔다
 - 대비: [DESIGN.md 팔레트 기준 WCAG AA 충족 여부]
 
 ## 진입/이탈 경로

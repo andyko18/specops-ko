@@ -74,7 +74,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 플레이스홀더 | 설계 본문에 미치환 `<PLACEHOLDER>`·빈 템플릿 블록 | TBD/TODO가 must 경로에 잔존 | 주석성 TODO |
 | 잔여 미확정 | — | 담당 FR 범위에서 확정 가능한데 `<미확정 — 근거 필요>` 가 남아 있으면 Important | FR 범위 밖이라 확정 불가 |
 | 상태 설계 | — | `S-STATES-EMPTY`·`S-STATES-ERROR` — `empty`·`error` 미정의 (실측: `check-screen-quality.sh` `states`) | `S-STATES-LOADING` — `loading` 만 누락 |
-| 접근성 | — | `S-A11Y-LABEL` — label 누락 input 존재 (실측: 동 `a11y-label`) | `S-LANDMARK` — 랜드마크 0개 (동 `semantic`) |
+| 접근성 | — | `S-A11Y-LABEL` — 이름 없는 input 존재(aria·label for↔id 짝·감쌈 기준 — for 없는 형제 label 은 연결 아님) (실측: 동 `a11y-label`) | `S-LANDMARK` — 랜드마크 0개 (동 `semantic`) |
 | 디자인 시스템 준수 | — | `S-TOKEN-HEX` — 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | `S-TOKEN-HEX` — 1~2건 |
 | 콘텐츠 품질 | — | `S-COPY-VAGUE` — 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | `S-COPY-VAGUE` — 일부 |
 | 장르 규칙 | — | 원형 계측 규칙 미충족 `G-LIST-PAGING`·`G-LIST-SORT`·`G-LIST-EMPTY-KIND`·`G-FORM-SUBMIT`·`G-FORM-CANCEL`·`G-WIZARD-STEP`·`G-DASH-PERIOD` (실측: 동 `genre` 상세줄 `미충족` — DESIGN.md §6.1) | 원형 미선언 `genre=unknown` `G-ARCHETYPE-UNDECLARED` · 사유 없는 override `G-OVERRIDE-UNREASONED` · 판독 불가·원형 밖 override `G-OVERRIDE-INVALID` |
