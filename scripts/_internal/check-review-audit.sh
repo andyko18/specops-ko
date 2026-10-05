@@ -9,7 +9,7 @@
 #   - reviews/dispatch-log/대상 리포트 부재 → "REVIEW-AUDIT: SKIP" exit 0 (fail-open)
 #
 # 배경 (dogfood test1 20260717-approval-rbac, 2026-07-21): implementing-ko 는 Evaluator
-#   degradation(fable 불가 → 모델 override 재dispatch)을 dispatch-log 에 기록하도록
+#   degradation(지정 모델 불가 → 모델 override 재dispatch)을 dispatch-log 에 기록하도록
 #   명문화했는데, T10 은 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행이 없었다.
 #   규칙은 본문에만 있고 산출물을 보는 층이 없어 위반이 조용히 통과했다.
 #

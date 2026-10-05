@@ -1,7 +1,8 @@
 ---
 name: plan-reviewer-ko
 description: planning-ko가 dispatch하는 plan.md 종합 리뷰 — 스펙 커버리지·스펙 정합(spec 대조) + TDD 커버리지·플레이스홀더·파일 경계·타입 일관성 6관점 + 실측 의무 검증. 추측 판정 금지.
-model: fable
+model: opus
+effort: high
 role: evaluator
 tools: Read, Grep, Glob, Bash
 ---
