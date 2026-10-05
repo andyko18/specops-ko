@@ -41,11 +41,17 @@ vs::workspace_fingerprint() {
     printf 'NO_GIT'
     return 0
   fi
-  local idx tree
+  local idx tree add_rc
   idx=$(mktemp "${TMPDIR:-/tmp}/vs-idx.XXXXXX") || { printf 'NO_GIT'; return 0; }
   # 저장소 인덱스 비오염: GIT_INDEX_FILE 격리. unborn HEAD 도 add→write-tree 로 식별.
   GIT_INDEX_FILE="$idx" git read-tree HEAD >/dev/null 2>&1 || true
-  GIT_INDEX_FILE="$idx" git add -A -- . ':(exclude).specops' >/dev/null 2>&1 || true
+  add_rc=0
+  GIT_INDEX_FILE="$idx" git add -A -- . ':(exclude).specops' >/dev/null 2>&1 || add_rc=$?
+  # rc 1 = ".gitignore 가 무시하는 경로" 안내다 — 인덱스는 정상 갱신되고, .specops 가 ignore 인 repo(이 repo)에선 항상 1 이다.
+  # rc 2 이상은 fatal(읽을 수 없는 파일 등) — 인덱스가 HEAD 로 퇴행해 비문서 변경이 지문에 안 보인다.
+  #   NO_GIT 과 구분되는 전용 값을 낸다: NO_GIT 은 "비교 근거 없음 → STALE 안 만듦" 이라 실패를 그 값으로 내면
+  #   실패 상태에서 기록된 PASS·receipt 가 영영 STALE 이 되지 않는다. 소비자는 UNHASHABLE 을 일치로 보지 않는다.
+  [ "$add_rc" -le 1 ] || { rm -f "$idx"; printf 'UNHASHABLE'; return 0; }
   tree=$(GIT_INDEX_FILE="$idx" git write-tree 2>/dev/null) || tree=""
   rm -f "$idx"
   if [ -n "$tree" ]; then
@@ -66,7 +72,7 @@ vs::nondoc_fingerprint() {
     printf 'NO_GIT'
     return 0
   fi
-  local idx plugin_rc=1 line f out="" top
+  local idx plugin_rc=1 line f out="" top add_rc
   idx=$(mktemp "${TMPDIR:-/tmp}/vs-nidx.XXXXXX") || { printf 'NO_GIT'; return 0; }
   # ★ 저장소 루트에 앵커한다 — pathspec `.` 과 `:(exclude).specops` 는 **cwd 상대**라
   #   서브디렉터리에서 부르면 그 아래만 열거된다. workspace_fingerprint 는 같은 트리면 cwd 와
@@ -86,7 +92,10 @@ vs::nondoc_fingerprint() {
   #     둘 중 하나만 믿지 말 것. 분류 패턴이 바뀌면 이 pathspec 이 유일한 방어가 된다.
   top=$(git rev-parse --show-toplevel 2>/dev/null) || { rm -f "$idx"; printf 'NO_GIT'; return 0; }
   GIT_INDEX_FILE="$idx" git -C "$top" read-tree HEAD >/dev/null 2>&1 || true
-  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || true
+  add_rc=0
+  GIT_INDEX_FILE="$idx" git -C "$top" add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || add_rc=$?
+  # add rc 해석(0·1 정상 / 2 이상 UNHASHABLE)은 vs::workspace_fingerprint 의 주석 참조
+  [ "$add_rc" -le 1 ] || { rm -f "$idx"; printf 'UNHASHABLE'; return 0; }
   fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
   # ※ `--full-name` 은 `-C "$top"` 아래에서는 **중복**이다(실측: 서브디렉터리에서 유무 출력 동일).
   #   `-C` 가 없던 시절엔 필수였고 지금은 방어적 잉여다 — 남겨 두되 "필수" 라고 쓰지 않는다.
@@ -155,6 +164,11 @@ vs::current() {
       recorded_hash=$(jq -r '.tree_hash // ""' "$state" 2>/dev/null)
       current_hash=$(vs::workspace_fingerprint)
     fi
+    # 읽을 수 없는 파일로 지문을 믿을 수 없는 상태 — 두 값이 같아도(UNHASHABLE == UNHASHABLE) 일치가 아니다.
+    if [ "$recorded_hash" = "UNHASHABLE" ] || [ "$current_hash" = "UNHASHABLE" ]; then
+      printf 'STALE'
+      return 0
+    fi
     if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ] && [ "$recorded_hash" != "$current_hash" ]; then
       printf 'STALE'
       return 0
@@ -212,6 +226,9 @@ vs::record() {
   #   schema_version 은 올리지 않는다: 필드 부재가 곧 구버전이고 소비측이 종전 경로로 떨어진다.
   local nondoc
   nondoc=$(vs::nondoc_fingerprint)
+  if [ "$tree" = "UNHASHABLE" ] || [ "$nondoc" = "UNHASHABLE" ]; then
+    echo "verification-state: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등으로 git add 가 실패해 이 기록은 조회 시 STALE 로 읽힌다. git add -A -n 으로 원인(permission 오류 등)을 찾아 고치세요" >&2
+  fi
   jq -n \
     --argjson schema_version 1 --arg fid "$fid" --arg verdict "$verdict" \
     --arg recorded_at "$ts" --arg head_sha "$head_sha" --arg tree_hash "$tree" \
