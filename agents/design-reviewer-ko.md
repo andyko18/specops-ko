@@ -1,7 +1,8 @@
 ---
 name: design-reviewer-ko
 description: /start-all Phase 2.5가 dispatch하는 batch 화면·인터페이스 설계 리뷰 — Interactions↔api-spec·data-model 정합·껍데기·cross-FR 충돌·foundation-baseline·foundation-shell 재작성·플레이스홀더. 추측 판정 금지.
-model: fable
+model: sonnet
+effort: high
 role: evaluator
 tools: Read, Grep, Glob, Bash
 ---

@@ -70,6 +70,7 @@ ck "T4.a spec-reviewer-ko 는 sonnet·high, code-reviewer-ko 는 opus·high 이�
 sed 's/^model: opus$/model: fable/' "$AG" > "$SB/model-fable.md"
 sed 's/^effort: high$/effort: max/' "$AG" > "$SB/effort-max.md"
 ck "T4.b 음성 대조: model 을 fable 로 바꾼 사본 · effort 를 바꾼 사본은 걸린다" "$(profile_check "$SB/model-fable.md" opus high)|$(profile_check "$SB/effort-max.md" opus high)" "nyn|yny"
+ck "T4.c plan-reviewer-ko 는 opus·high, design-reviewer-ko 는 sonnet·high 이고 fable·전체 모델 ID 가 없다" "$(profile_check "$PLUGIN/agents/plan-reviewer-ko.md" opus high)|$(profile_check "$PLUGIN/agents/design-reviewer-ko.md" sonnet high)" "yyy|yyy"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
