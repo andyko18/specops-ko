@@ -256,4 +256,81 @@ else
 fi
 rm -rf "$_RD"
 
+# ── TR-U 지문 계산 불가(UNHASHABLE) — 읽을 수 없는 파일 (20261005-fingerprint-add-failclosed) ──
+# 이 repo 처럼 .specops 가 gitignore 인 조건(정상 add 가 rc 1)에서 정상 기록·검사가 되는 양성 대조군 +
+# 읽을 수 없는 tracked 파일이 생기면 기록 거부·검사 거부(음성). root 는 chmod 000 이 읽히므로 skip.
+_chmod_inert() { local f; f=$(mktemp) || return 0; chmod 000 "$f"; if [ -r "$f" ]; then rm -f "$f"; return 0; fi; rm -f "$f"; return 1; }   # root·ACL·비-POSIX FS 에서는 chmod 000 이 파일을 막지 못한다
+if _chmod_inert; then
+  skip "TR-U 읽을 수 없는 파일 — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+else
+_RU=$(mktemp -d) || exit 1
+_ru_fid=20261005-unhash
+_setup_fid "$_RU" "$_ru_fid"
+printf '.specops/\n' > "$_RU/.gitignore"
+printf 'locked\n' > "$_RU/locked.dat"
+(cd "$_RU" && git add .gitignore locked.dat && git -c user.name=t -c user.email=t@e.com commit -qm lock) >/dev/null 2>&1
+printf 'updated\n' > "$_RU/src/foo.sh"
+
+# TR-U0 양성 대조 — .specops ignore(add rc 1) 에서도 기록·검사가 정상이다
+(cd "$_RU" && bash "$REC" "$_ru_fid" T1) >/dev/null 2>&1
+(cd "$_RU" && git add src scripts) >/dev/null 2>&1
+if [ -f "$_RU/.specops/$_ru_fid/receipts/T1.json" ] && (cd "$_RU" && bash "$CHK" "$_ru_fid" T1) >/dev/null 2>&1; then
+  ok "TR-U0 .specops ignore 에서 receipt 기록·검사 정상 (양성 대조)"
+else
+  nope "TR-U0 .specops ignore 에서 receipt 기록·검사 정상" "기록 또는 검사 실패"
+fi
+
+# TR-U1 읽을 수 없는 tracked 파일 → 유효하던 receipt 도 검사 거부 (사유에 UNHASHABLE)
+chmod 000 "$_RU/locked.dat"
+_ru_err=$(cd "$_RU" && bash "$CHK" "$_ru_fid" T1 2>&1 >/dev/null); _ru_rc=$?
+if [ "$_ru_rc" != "0" ] && printf '%s' "$_ru_err" | grep -q 'UNHASHABLE'; then
+  ok "TR-U1 읽을 수 없는 파일 → receipt 검사 거부 (사유 UNHASHABLE)"
+else
+  nope "TR-U1 읽을 수 없는 파일 → receipt 검사 거부" "rc=$_ru_rc err=$_ru_err"
+fi
+
+# TR-U2 읽을 수 없는 상태에서는 기록 자체를 거부한다 (receipt 파일을 만들지 않는다)
+rm -f "$_RU/.specops/$_ru_fid/receipts/T1.json"
+_ru_err=$(cd "$_RU" && bash "$REC" "$_ru_fid" T1 2>&1 >/dev/null); _ru_rc=$?
+if [ "$_ru_rc" = "1" ] && [ ! -f "$_RU/.specops/$_ru_fid/receipts/T1.json" ] \
+   && printf '%s' "$_ru_err" | grep -q 'UNHASHABLE'; then
+  ok "TR-U2 읽을 수 없는 파일 → receipt 기록 거부 (exit 1 · 파일 없음 · 안내)"
+else
+  nope "TR-U2 읽을 수 없는 파일 → receipt 기록 거부" "rc=$_ru_rc err=$_ru_err"
+fi
+chmod 644 "$_RU/locked.dat"
+
+# TR-U3 receipt 에 UNHASHABLE 이 기록돼 있으면(손으로 만든 경우 포함) 트리가 정상이어도 거부
+(cd "$_RU" && bash "$REC" "$_ru_fid" T1) >/dev/null 2>&1
+jq '.nondoc_hash="UNHASHABLE"' "$_RU/.specops/$_ru_fid/receipts/T1.json" > "$_RU/rc.tmp" \
+  && mv "$_RU/rc.tmp" "$_RU/.specops/$_ru_fid/receipts/T1.json"
+(cd "$_RU" && git add src scripts) >/dev/null 2>&1
+if (cd "$_RU" && bash "$CHK" "$_ru_fid" T1) >/dev/null 2>&1; then
+  nope "TR-U3 기록값 UNHASHABLE receipt 거부" "통과해버림"
+else
+  ok "TR-U3 기록값 UNHASHABLE receipt 거부"
+fi
+
+# TR-U4 기록값도 현재값도 UNHASHABLE(같은 값)이어도 일치로 보지 않는다 — 가드가 없으면 UNHASHABLE == UNHASHABLE 로 통과한다
+chmod 000 "$_RU/locked.dat"
+if (cd "$_RU" && bash "$CHK" "$_ru_fid" T1) >/dev/null 2>&1; then
+  nope "TR-U4 기록·현재 모두 UNHASHABLE 이어도 거부" "UNHASHABLE == UNHASHABLE 로 통과해버림"
+else
+  ok "TR-U4 기록·현재 모두 UNHASHABLE 이어도 거부"
+fi
+chmod 644 "$_RU/locked.dat"
+
+# TR-U5 구버전 receipt(nondoc_hash 부재 → tree_hash 비교 경로)도 UNHASHABLE 끼리 일치로 보지 않는다
+jq 'del(.nondoc_hash) | .tree_hash="UNHASHABLE"' "$_RU/.specops/$_ru_fid/receipts/T1.json" > "$_RU/rc.tmp" \
+  && mv "$_RU/rc.tmp" "$_RU/.specops/$_ru_fid/receipts/T1.json"
+chmod 000 "$_RU/locked.dat"
+if (cd "$_RU" && bash "$CHK" "$_ru_fid" T1) >/dev/null 2>&1; then
+  nope "TR-U5 구버전 receipt 의 UNHASHABLE tree_hash 거부" "UNHASHABLE == UNHASHABLE 로 통과해버림"
+else
+  ok "TR-U5 구버전 receipt 의 UNHASHABLE tree_hash 거부"
+fi
+chmod 644 "$_RU/locked.dat"
+rm -rf "$_RU"
+fi
+
 finish
