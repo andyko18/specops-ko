@@ -4,6 +4,26 @@
 
 ## [Unreleased]
 
+### Sonnet·Opus 사용자를 위한 역할별 모델·effort 프로파일 — fable 제거 (#105)
+
+**행동 변경**: 서브에이전트가 fable 대신 별칭 sonnet·opus 와 명시 effort 로 돈다. fable 은 플랜에 따라 usage credits 로 과금되거나 접근 불가일 수 있어(공식 문서) 어느 agent 에서도 쓰지 않는다. 호출 방식·산출물 경로는 그대로다.
+
+| 서브에이전트 | 모델 · effort |
+|---|---|
+| implementer-ko | sonnet · medium (종전 opus) |
+| spec-reviewer-ko · design-reviewer-ko | sonnet · high (종전 fable) |
+| plan-reviewer-ko · code-reviewer-ko | opus · high (종전 fable) |
+| red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 (변경 없음) |
+
+- **재dispatch 상향 규칙** — `implementing-ko`: BLOCKED·Phase B/C FAIL 로 구현자를 재dispatch 할 때 부모가 Agent 도구 `model` 인자로 opus 를 한 번 지정한다(재dispatch 횟수·cap 불변, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` 설정 시 불가). 모델 라우팅 표와 Evaluator 모델 불가 fallback 절은 지정 모델 일반론으로 일반화했다(잠금 문구 보존)
+- **외부 critic 기본 모델** — `critic-ask.sh` 기본 opus·fallback sonnet (`CRITIC_CLAUDE_MODEL`·`CRITIC_CLAUDE_FALLBACK` override 유지)
+- **README `모델 · effort 운용`** — 프로파일 표, 세션 설정 권장, effort 우선순위(환경변수 `CLAUDE_CODE_EFFORT_LEVEL` 이 frontmatter 보다 우선), 덮어쓰기(`CLAUDE_CODE_SUBAGENT_MODEL`·`_FORCE`), 한도와 계정 확인 절차
+- **잠금** — test-review-evidence-rules(프로파일 4종·음성 대조), test-gate-presence(구현자 프로파일·상향 규칙·README 문구), test-critic-ask(기본 모델). 변이 12종 killed, 스위트 수 183 불변
+
+⚠️ **한계 (정직 고백)**
+- Pro 플랜의 모델 매트릭스, Opus 가 Sonnet 보다 한도를 얼마나 더 쓰는지, 접근 불가 별칭을 서브에이전트 frontmatter 에 적었을 때의 동작, skill effort 의 활성 구간은 공식 문서에 없어 단정하지 않았다(README 에 "문서 미확인"으로 표기). 효과는 설치 후 첫 FID 들의 Phase B/C 보고서와 사용량으로 관찰해야 한다
+- 구현자와 Phase B 리뷰어가 같은 sonnet 티어라 놓치는 결함이 겹칠 위험을 수용했다(후속 후보: llm-eval 결함 주입 비교). skill·command 단위 effort 는 활성 구간 실측 전이라 이번에 넣지 않았다
+
 ## [2.0.0] — 2026-10-05
 
 ### 2.0.0 — 토큰·속도 고도화 라운드 (#76 ~ #104)
