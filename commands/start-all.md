@@ -206,6 +206,7 @@ reference_upstream: specops-ko 독자 추가
    - **이미 있고** exit 0(껍데기) → **재사용 금지**. DESIGN.md 토큰으로 덮어쓰고 **껍데기 마커 줄을 삭제**한다.
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip). `/start`·`/maintain` 의 Step 5.5 `[공통]` 과 동일 요건 — batch 라고 축이 줄지 않는다.
+   - **입력 접근성**: 입력(input·select·textarea)마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(label 이 입력을 감싸거나 aria-label 도 허용 — for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label 을 두고 그룹 이름은 fieldset 과 legend 로 둔다. 템플릿 html 의 주석 속 입력 예시를 복사해 쓴다.
    - **템플릿 기반**: 각 `.html` 은 `templates/screen.html` 을 기반으로 생성한다 — `--text-*`·`--space-*` 토큰 자리가 DESIGN.md §2·§3 과 1:1 대응한다.
    - **★ 마스터 갱신 + 잔여 고지 (20260906)**: 생성 완료 후 **기계로** 마스터를 갱신한다(모델이 손으로 행을 쓰지 않는다 — 빼먹으면 마스터가 다시 낡는다).
      ```bash

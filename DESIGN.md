@@ -64,6 +64,7 @@ Focus:      border=#7C3AED, ring=2px #7C3AED/20
 Error:      border=#EF4444
 Radius:     8px
 Text:       #F9FAFB, placeholder=#6B7280
+Label:      입력마다 label 의 for 속성과 입력 id 를 짝지어 연결(감쌈·aria-label 허용), 선택지는 각자 label + fieldset·legend
 ```
 
 ### Card
@@ -113,5 +114,6 @@ Error:     bg=#EF4444/20, text=#F87171
 
 **컴포넌트 생성 시**:
 - §4 Components 스펙 먼저 확인. 커스텀 스타일 추가 전 기존 variant 재사용.
+- 입력마다 label 의 for 속성과 입력 id 를 짝지어 연결한다(감쌈·aria-label 도 허용, for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label, 그룹 이름은 fieldset 과 legend.
 - Tailwind CSS 사용 시: `violet-700`(Primary), `violet-400`(Secondary), `gray-900`(Background), `gray-800`(Surface), `red-500`(Error), `emerald-500`(Success).
 - React 컴포넌트는 다크 모드 className 포함 (`dark:` prefix).
