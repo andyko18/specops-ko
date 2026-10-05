@@ -109,6 +109,20 @@
 </head>
 <body>
   <!-- 화면 콘텐츠를 여기에 작성 (screen: {{name}}) -->
+  <!-- 입력 예시 — 복사해 쓴다: 입력마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(for 없이 형제로만 둔 label 은 연결이 아니다). id 는 화면 안에서 유일한 값으로 바꿔 쓴다
+  <div class="input-group">
+    <label class="input-label" for="field-name">이름</label>
+    <input class="input" id="field-name" type="text" autocomplete="name">
+  </div>
+  <div class="input-group">
+    <label class="input-label" for="field-email">이메일</label>
+    <input class="input" id="field-email" type="email" autocomplete="email">
+  </div>
+  <div class="input-group">
+    <label class="input-label" for="field-role">역할</label>
+    <select class="input" id="field-role"><option>선택</option></select>
+  </div>
+  -->
   <main class="container center" style="flex: 1; padding-top: 64px; padding-bottom: 64px;">
     <div class="card" style="width: 100%; max-width: 400px;">
       <h1 style="font-size: 1.5rem; margin-bottom: 24px;">{{화면 제목}}</h1>

@@ -118,4 +118,29 @@ for pair in '목록:0/3' '폼:0/2' '다단 폼:0/3' '대시보드:0/1' '상세:n
 done
 [ -z "$_fm" ] && ok "T7.e 원형만 채운 빈 복사본 — 계측 규칙 전부 미충족" || nope "T7.e" "$_fm"
 
+# T8: 입력 label 연결 지침 (FID 20261005-screen-label-guidance AC-1·AC-2)
+#   템플릿 html 주석 속 입력 예시는 복사하면 계측기에서 정상(N/N), 원본은 입력 0개, 지침 문구는 문서에 존재한다.
+#   음성 대조: 예시에서 for 속성을 지우면 0/N + 상세줄, 지침 줄을 지운 사본은 존재 단언이 FAIL — 단언이 공허하지 않다.
+H8="$PLUGIN/templates/screen.html"
+TMP8=$(mktemp -d) || { nope "T8 mktemp" "임시 디렉터리 생성 실패"; finish; exit 1; }
+printf '# X\n\n**원형**: 기타\n\n## States\n- Empty\n- Loading\n- Error\n' > "$TMP8/m.md"
+_m8() { printf '<main>%s</main>\n' "$1" > "$TMP8/e.html"; bash "$Q" "$TMP8/m.md" "$TMP8/e.html" 2>/dev/null; }
+_ex8=$(awk '/<!-- 입력 예시/{f=1;next} f&&/^[ \t]*-->/{f=0} f' "$H8")
+_o8=$(_m8 "$_ex8")
+if [ -n "$_ex8" ] && [ "$(printf '%s\n' "$_o8" | sed -n 1p | grep -o 'a11y-label=[^ ]*')" = "a11y-label=3/3" ] && ! printf '%s\n' "$_o8" | grep -qF '[a11y-label]'; then
+  ok "T8.a 템플릿 html 주석 속 입력 예시(텍스트 2·select 1)를 복사하면 a11y-label=3/3·상세줄 없음"
+else nope "T8.a" "예시 비었거나 계측 불일치: $(printf '%s\n' "$_o8" | sed -n 1p | grep -o 'a11y-label=[^ ]*')"; fi
+_neg8=$(printf '%s\n' "$_ex8" | sed 's/ for="[^"]*"//')
+_on8=$(_m8 "$_neg8")
+if [ "$(printf '%s\n' "$_on8" | sed -n 1p | grep -o 'a11y-label=[^ ]*')" = "a11y-label=0/3" ] && printf '%s\n' "$_on8" | grep -qF '[a11y-label]'; then
+  ok "T8.b 음성 — 예시에서 for 속성을 지우면 0/3 + [a11y-label] 상세줄(단언이 for 짝을 실제로 본다)"
+else nope "T8.b" "$(printf '%s\n' "$_on8" | sed -n 1p | grep -o 'a11y-label=[^ ]*')"; fi
+_orig8=$(bash "$Q" "$TMP8/m.md" "$H8" 2>/dev/null | sed -n 1p | grep -o 'a11y-label=[^ ]*')
+[ "$_orig8" = "a11y-label=0/0" ] && ok "T8.c 템플릿 원본 html 은 a11y-label=0/0(예시는 주석이라 계측기가 걷는다)" || nope "T8.c" "원본 a11y=$_orig8"
+_g8_screen() { grep -qE '^- 입력 이름:.*for 속성.*id.*fieldset.*legend' "$1"; }
+_g8_screen "$T" && ok "T8.d screen.md 접근성에 입력 이름 지침(for 속성·id·fieldset·legend)" || nope "T8.d" "templates/screen.md 접근성에 '- 입력 이름:' 지침 없음"
+grep -v '^- 입력 이름:' "$T" > "$TMP8/s.md"
+if ! _g8_screen "$TMP8/s.md"; then ok "T8.e 음성 — 지침 줄을 지운 screen.md 사본은 존재 단언이 FAIL(공허하지 않다)"; else nope "T8.e" "지침 줄을 지워도 단언이 통과"; fi
+rm -rf "$TMP8"
+
 finish
