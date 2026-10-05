@@ -169,6 +169,14 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - **여전히 SKIP 되는 알려진 형태** (의도된 미지원): `go test ./...` (`..` path-traversal 가드에 먼저 걸림 — 개별 패키지 경로 `go test ./pkg/foo` 를 쓸 것) · `npm run test:unit` (`:` 가 인자 char-class 밖). 위 러너 밖의 명령(린터·빌드 등)도 SKIP → PARTIAL 이면 아래 수동 fallback 필수.
   - `VERIFY: FAIL review-audit` (stderr) + exit 1: Phase B/C 리뷰 리포트(`reviews/<task-id>-[BC]-*.md`)가 `dispatch-log.md` 에 **기록되지 않음**. 테스트가 전부 PASS 여도 감사 추적이 비면 통과시키지 않는다 (Generator↔Evaluator 분리는 기록으로만 검증 가능 — 20260721 test1 dogfood). 해당 task-id 행을 dispatch-log 에 추가하고 재실행할 것. 누락 전용 검사라 리뷰 산출물이 없으면 SKIP(fail-open).
   - ⚠️ **실행-근거 gate 와 직결**: R-1/R-2 커밋 게이트는 이제 이 러너의 `VERIFY: PASS` **실행 출력**(transcript `tool_result`)을 면제 조건으로 요구한다. PARTIAL/FAIL 은 실행 증거로 **불인정** — evidence.md 에 스탬프만 남기고 커밋하려 하면 deny 된다.
+- [ ] **전체 스위트 신선도 확인** (`scripts/tests/run-all.sh` 가 있는 repo 한정 — 20261005): 전체 스위트를 포그라운드로 돌리기 **전에** 조회한다(repo 로컬 헬퍼를 우선하고 없으면 플러그인 사본).
+  ```bash
+  H=scripts/_internal/full-suite-fresh.sh; [ -f "$H" ] || H="${CLAUDE_PLUGIN_ROOT}/scripts/_internal/full-suite-fresh.sh"; bash "$H"
+  ```
+  - rc 0 (`full-suite FRESH (fp=...)`) → 직전 통과 이후 비문서 트리가 같다. 전체 스위트 **재실행을 생략**하고 그 1줄을 evidence.md 에 남긴다.
+  - implementing-ko 가 띄운 백그라운드 `run-all.log` 가 아직 도는 중이면(`==== run-all:` 완료줄 없음) 종료 알림을 기다린 뒤 다시 조회한다.
+  - rc 1(STALE)·헬퍼 부재(rc 127)·백그라운드 FAIL·판정 불가 → 종전대로 포그라운드 `run-all.sh` 를 재실행한다. 생략 판정이 애매하면 **재실행**한다.
+  - 생략 대상은 이 수동 전체 스위트뿐이다. 게이트 증거는 여전히 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다.
 - [ ] **수동 fallback** (`run-verification.sh` 미적용 시):
   - `npm test` / `pytest` / 해당 프로젝트의 테스트 명령 — exit 0
   - 린터 / 포매터 — exit 0
