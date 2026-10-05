@@ -22,6 +22,10 @@ FID="${1:-}"
 _no() { printf 'review-skip-pass: %s — 종전 skill 경로(requesting-code-review-ko)로 진행\n' "$1" >&2; exit 1; }
 
 printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || _no "FID 인자 오류"
+# session-progress-append.sh 는 cwd 의 .specops 에만 쓴다 — SPECOPS_ROOT 가 그 디렉터리가 아니면 review-skip.md 와 session-progress 가
+#   갈라진 채 rc 0 이 될 수 있다. 같은 디렉터리일 때만 진행한다(운영은 SPECOPS_ROOT 미설정이라 항상 같다).
+[ -d "$SPECOPS" ] && [ -d ".specops" ] && [ "$(cd "$SPECOPS" && pwd -P)" = "$(cd .specops && pwd -P)" ] \
+  || _no "SPECOPS_ROOT 가 cwd 의 .specops 와 다르다"
 D="$SPECOPS/$FID"
 [ -d "$D" ] || _no "FID 디렉터리 부재"
 TASKS="$D/tasks.md"

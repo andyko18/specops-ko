@@ -328,5 +328,50 @@ rs_neg R33 "spec.md 부재(§batch 판정 불가 — 스킵 방향 금지)" "202
 err=$(rs_run "bad-fid" 2>&1 >/dev/null); rc=$?
 if [ "$rc" -eq 1 ] && [ -n "$err" ]; then ok "R32 잘못된 FID 인자 → rc 1"; else no "R32" "rc=$rc err=[$err]"; fi
 
+# R34~R36 — 쓰기 단계 실패 경로와 SPECOPS_ROOT 일관성. 실패는 session-progress-append.sh 스텁(N 번째 호출에서 실패)으로 유도해 실 트리를 건드리지 않는다
+mk_stub() {  # $1=실패시킬 호출 번호 — 스크립트 사본 + 스텁 append 를 $TMP/stub$1 아래 두고 경로를 출력한다
+  local n="$1" d="$TMP/stub$1"
+  mkdir -p "$d/_internal"
+  cp "$RSP" "$d/_internal/review-skip-pass.sh"
+  # shellcheck disable=SC2016  # 스텁 본문은 의도적으로 단일 따옴표(생성되는 스크립트 안에서 전개된다)
+  printf '#!/usr/bin/env bash\nc=$(cat "%s/count" 2>/dev/null || echo 0); c=$((c+1)); echo "$c" > "%s/count"\n[ "$c" -eq %s ] && exit 1\nexit 0\n' "$d" "$d" "$n" > "$d/session-progress-append.sh"
+  printf '%s' "$d"
+}
+stub_run() { ( cd "$TMP" && SPECOPS_ROOT="$TMP/.specops" bash "$1/_internal/review-skip-pass.sh" "$2" 2>&1 ); }
+
+# R34 — 첫 append 실패: review-skip.md 를 되돌리고 rc 1
+mk_rs "20260108-rs-fail1"; sd=$(mk_stub 1)
+out=$(stub_run "$sd" "20260108-rs-fail1"); rc=$?
+if [ "$rc" -eq 1 ] && [ ! -e "$TMP/.specops/20260108-rs-fail1/review-skip.md" ] && printf '%s' "$out" | grep -qF 'session-progress 기록 실패' \
+   && [ "$(cat "$sd/count" 2>/dev/null)" = 1 ]; then
+  ok "R34 첫 append 실패 → review-skip.md 제거 · rc 1"
+else no "R34" "rc=$rc skip-exists=$([ -e "$TMP/.specops/20260108-rs-fail1/review-skip.md" ] && echo y || echo n) out=[$out]"; fi
+
+# R35 — 두 번째 append 실패: review-skip.md 는 남고 rc 1 (종전 skill 이 이어받는다 — NFR-2)
+mk_rs "20260108-rs-fail2"; sd=$(mk_stub 2)
+out=$(stub_run "$sd" "20260108-rs-fail2"); rc=$?
+if [ "$rc" -eq 1 ] && [ "$(head -1 "$TMP/.specops/20260108-rs-fail2/review-skip.md" 2>/dev/null)" = 'end-loaded: Phase B/C already covered full FID diff' ] \
+   && printf '%s' "$out" | grep -qF '두 번째 기록 실패' && [ "$(cat "$sd/count" 2>/dev/null)" = 2 ]; then
+  ok "R35 두 번째 append 실패 → review-skip.md 잔존 · rc 1"
+else no "R35" "rc=$rc first=[$(head -1 "$TMP/.specops/20260108-rs-fail2/review-skip.md" 2>/dev/null)] out=[$out]"; fi
+
+# R36 — SPECOPS_ROOT 가 cwd 의 .specops 와 다르면 rc 1 · 쓰기 0 (양성 대조는 R23 — 같은 디렉터리 절대경로)
+mk_rs "20260108-rs-root"; mkdir -p "$TMP/alt"; cp -R "$TMP/.specops/20260108-rs-root" "$TMP/alt/"
+before=$(rs_sum)
+out=$( ( cd "$TMP" && SPECOPS_ROOT="$TMP/alt" bash "$RSP" "20260108-rs-root" 2>&1 ) ); rc=$?
+if [ "$rc" -eq 1 ] && [ ! -e "$TMP/alt/20260108-rs-root/review-skip.md" ] && [ "$(rs_sum)" = "$before" ] \
+   && printf '%s' "$out" | grep -qF 'SPECOPS_ROOT'; then
+  ok "R36 SPECOPS_ROOT 불일치 → rc 1 · 쓰기 0"
+else no "R36" "rc=$rc out=[$out]"; fi
+
+# R37 — 정상 운영 형태의 SPECOPS_ROOT(미설정·상대·./ 접두·끝 슬래시)는 가드가 막지 않는다 (R23 의 절대경로 양성 대조를 보완)
+i=0
+for form in UNSET ".specops" "./.specops" "$TMP/.specops/"; do
+  i=$((i+1)); fid="20260108-rs-form$i"; mk_rs "$fid"
+  if [ "$form" = UNSET ]; then out=$( ( cd "$TMP" && env -u SPECOPS_ROOT bash "$RSP" "$fid" 2>&1 ) ); rc=$?
+  else out=$( ( cd "$TMP" && SPECOPS_ROOT="$form" bash "$RSP" "$fid" 2>&1 ) ); rc=$?; fi
+  if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'review-skip-pass: OK'; then ok "R37.$i SPECOPS_ROOT=[$form] → 통과"; else no "R37.$i" "form=[$form] rc=$rc out=[$out]"; fi
+done
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]
