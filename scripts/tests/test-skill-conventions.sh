@@ -288,5 +288,44 @@ else
   FAIL=$((FAIL+1)); echo "FAIL: T11 skills/engine/ 잔존: $eng"
 fi
 
+# T12: specops_version 하한 단언 (FID 20261005-version-stamp-cleanup · outer 전용)
+# 하한 근거: release.sh pre-flight 경고가 v2.0.0·v2.1.0 에서 가리킨 6파일의 값을, 인접 태그 쌍 git diff 에서
+#   푸터·스탬프 줄 외 변경이 있는 마지막 릴리즈로 실측한 것이다. 하한이라 이후 정상 상향은 통과한다.
+if [ -z "${SPECOPS_T9_INNER:-}" ]; then
+  _ver_ge() { # $1 >= $2 — X.Y.Z 숫자 비교(bash 3.2: 연관 배열·sort -V 비의존)
+    local IFS=.
+    set -- $1 $2
+    [ "${1:-0}" -gt "${4:-0}" ] && return 0
+    [ "${1:-0}" -lt "${4:-0}" ] && return 1
+    [ "${2:-0}" -gt "${5:-0}" ] && return 0
+    [ "${2:-0}" -lt "${5:-0}" ] && return 1
+    [ "${3:-0}" -ge "${6:-0}" ]
+  }
+  # T12.c: 비교 헬퍼 자체 — 숫자 비교(사전식 아님)·경계 동치·하위 판정
+  if _ver_ge 10.0.0 2.1.0 && _ver_ge 2.10.0 2.9.0 && _ver_ge 2.1.0 2.1.0 && ! _ver_ge 2.0.9 2.1.0 && ! _ver_ge 1.99.9 2.0.0; then
+    PASS=$((PASS+1)); echo "PASS: T12.c _ver_ge 숫자 비교·경계 동치·하위 판정"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T12.c _ver_ge 비교 오판"
+  fi
+  _fm_ver() { awk 'BEGIN{n=0} /^---/{n++; if(n==2)exit} /^specops_version:/{print $2; exit}' "$1" 2>/dev/null; }
+  for pair in commands/start-all.md:2.1.0 skills/implementing-ko/SKILL.md:2.1.0 skills/planning-ko/SKILL.md:2.1.0 \
+              skills/decomposing-ko/SKILL.md:2.0.0 skills/specifying-ko/SKILL.md:2.0.0 skills/verifying-evidence-ko/SKILL.md:2.0.0; do
+    f=${pair%%:*}; floor=${pair##*:}
+    cur=$(_fm_ver "$PLUGIN/$f")
+    if printf '%s' "$cur" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && _ver_ge "$cur" "$floor"; then
+      PASS=$((PASS+1)); echo "PASS: T12.a $f 스탬프 $cur ≥ 하한 $floor"
+    else
+      FAIL=$((FAIL+1)); echo "FAIL: T12.a $f 스탬프 '$cur' < 하한 $floor (또는 형식 오류)"
+    fi
+  done
+  sv=$(_fm_ver "$PLUGIN/commands/start-all.md")
+  fv=$(grep -m1 '^\*specops-ko v' "$PLUGIN/commands/start-all.md" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d v)
+  if [ -n "$fv" ] && [ "$fv" = "$sv" ]; then
+    PASS=$((PASS+1)); echo "PASS: T12.b start-all 푸터 v$fv = frontmatter $sv"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL: T12.b start-all 푸터 'v$fv' ≠ frontmatter '$sv'"
+  fi
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
