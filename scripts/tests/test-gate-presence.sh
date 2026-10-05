@@ -237,4 +237,13 @@ else
   nope "implementer 프로파일·상향 규칙 소실" "implementer-ko frontmatter 또는 implementing-ko 상향 규칙 문구 부재"
 fi
 
+
+# ── 20261005 README 모델·effort 운용 가이드 — 프로파일 표·effort 우선순위·덮어쓰기·문서 미확인 고지 ──
+# 사용자가 환경변수 우선순위와 덮어쓰기를 알아야 프로파일이 의도대로 적용된다. 절이 사라지면 안내가 끊긴다.
+if has README.md '^## 모델 · effort 운용' 'CLAUDE_CODE_EFFORT_LEVEL' 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' '문서 미확인'; then
+  ok "README 모델·effort 운용 가이드 존재 (우선순위·덮어쓰기·문서 미확인 고지)"
+else
+  nope "README 모델·effort 운용 가이드 소실" "프로파일 표·환경변수 우선순위·덮어쓰기·한계 고지 중 일부 부재"
+fi
+
 finish

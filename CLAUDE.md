@@ -98,6 +98,8 @@ Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한�
 
 Evaluator 에이전트는 frontmatter `role: evaluator` 로 Write/Edit 를 하드 박탈한다 (validate-structure `agent_tools` 스캔 강제).
 
+서브에이전트의 **모델·effort 는 각 `agents/*.md` frontmatter 가 단일 소스**다(별칭 sonnet·opus 만, fable 금지 — 프로파일 표와 사용자 덮어쓰기는 README `## 모델 · effort 운용`). 값은 `test-review-evidence-rules`(Evaluator 4종)·`test-gate-presence`(구현자·상향 규칙·README 문구)가 잠근다.
+
 ### 아티팩트 규약
 
 모든 작업 산출물은 `.specops/<FID>/`에 보관된다. FID 포맷: `YYYYMMDD-kebab-slug`.
