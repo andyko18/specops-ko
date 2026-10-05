@@ -523,6 +523,14 @@ else
   nope "T21.i 마커 대조가 면제 4종 뒤" "marker=${_ln_marker:-없음} ci=${_ln_ci:-없음} recur=${_ln_recur:-없음}"
 fi
 
+# ── 20261005 판정 단일화 — pre-push 는 신선도 헬퍼를 부른다 (verify 단계와 공유) ──
+_g 'full-suite-fresh\.sh' "$PREPUSH" && ok "T23.a pre-push 가 신선도 헬퍼를 호출" || nope "T23.a pre-push 가 신선도 헬퍼를 호출"
+if grep -q 'vs::nondoc_fingerprint' "$PREPUSH"; then
+  nope "T23.b pre-push 인라인 지문 판정 잔존 (헬퍼와 이중화)"
+else
+  ok "T23.b pre-push 인라인 지문 판정 제거"
+fi
+
 # ── fail-closed 경로 (AC-4·AC-9) ─────────────────────────────────────
 # ★ fixture 미성립 시 **케이스 수·라벨을 고정**한다. if/else 구조가 이미 선형 실행을 막으므로
 #   가드 없이도 "T22.b 만 공허 통과" 는 생기지 않는다(1 FAIL + 나머지 10건 **부재**).
@@ -543,6 +551,7 @@ if [ -z "$_fc" ] || [ ! -d "$_fc" ]; then
   _t22_dead "T22.f 권한 없음 → 전체 실행"
   _t22_dead "T22.g NO_GIT → 전체 실행"
   _t22_dead "T22.h FORCE_FULL → 전체 실행"
+  _t22_dead "T23.c 헬퍼 부재 → 전체 실행 (fail-closed)"
 else
 trap 'rm -rf "$_fc"' EXIT
 
@@ -625,6 +634,11 @@ _fc_case T22.g "NO_GIT → 전체 실행" RAN TMPDIR=/nonexistent/zz
 # ⑧ SPECOPS_FORCE_FULL=1 → 지문 일치해도 전체 실행
 _fc_fp > "$_fc/.specops/.full-suite-pass"
 _fc_case T22.h "FORCE_FULL → 전체 실행" RAN SPECOPS_FORCE_FULL=1
+
+# ⑨ 헬퍼 부재 → 전체 실행 (판정이 헬퍼로 옮겨졌으므로 부재 경로가 새로 생겼다 — 마커가 일치해도 생략하면 안 된다)
+rm -f "$_fc/scripts/_internal/full-suite-fresh.sh"
+_fc_fp > "$_fc/.specops/.full-suite-pass"
+_fc_case T23.c "헬퍼 부재 → 전체 실행 (fail-closed)" RAN
 
 rm -rf "$_fc"; trap - EXIT
 fi

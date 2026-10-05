@@ -39,28 +39,17 @@ CI_CHECK="scripts/_internal/check-ci-status.sh"
 [ -f "$CI_CHECK" ] && bash "$CI_CHECK" || true
 
 # full-suite 마커 skip (20260908) — 면제 4종 뒤에 둔다(:33 계약과 동형).
-#   run-all 이 통과시킨 트리와 지금 트리가 같으면 그 10분+ 를 다시 물지 않는다.
-#   fail-closed: 부재·읽기실패·NO_GIT·불일치·FORCE_FULL 은 전부 전체 실행이다.
-FSP_MARKER="${SPECOPS_ROOT:-.specops}/.full-suite-pass"
-# SPECOPS_FORCE_FULL 은 **값 무관** — 비어있지 않으면 전부 강제 실행이다(=0 포함).
-# spec 은 =1 만 정의했으나 상위집합이고 fail-closed 방향이라 그대로 둔다.
-if [ -z "${SPECOPS_FORCE_FULL:-}" ] && [ -f "$FSP_MARKER" ]; then
-  VS_LIB="scripts/_internal/verification-state.sh"
-  if [ -f "$VS_LIB" ]; then
-    # shellcheck source=/dev/null
-    . "$VS_LIB"
-    # 비문서 지문 — 문서 전용 변경은 전체 스위트 재실행을 강요하지 않는다
-    #   (20260912-verify-stale-docs-scope). fail-closed 3조건은 아래에서 그대로 유지된다.
-    fsp_now=$(vs::nondoc_fingerprint)
-    fsp_rec=$(head -1 "$FSP_MARKER" 2>/dev/null || printf '')
-    if [ -n "$fsp_rec" ] && [ "$fsp_now" != "NO_GIT" ] && [ "$fsp_rec" = "$fsp_now" ]; then
-      cat >&2 <<'EOF'
+#   run-all 이 통과시킨 트리(`.specops/.full-suite-pass`)와 지금 트리가 같으면 그 10분+ 를 다시 물지 않는다.
+#   판정은 full-suite-fresh.sh 한 곳에 있다 — verify 단계와 공유한다(20261005). 훅 본문 인라인 금지:
+#   두 소비자의 판정이 갈라지면 한쪽만 생략 방향으로 틀린다. 헬퍼 부재도 STALE 과 같이 전체 실행이다.
+#   fail-closed: 부재·읽기실패·NO_GIT·불일치·SPECOPS_FORCE_FULL(값 무관) 은 전부 전체 실행이다.
+FSP_FRESH="scripts/_internal/full-suite-fresh.sh"
+if [ -f "$FSP_FRESH" ] && bash "$FSP_FRESH" >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
 ▶ pre-push: 동일 트리가 이미 전체 스위트를 통과해 건너뜁니다.
   강제 실행: SPECOPS_FORCE_FULL=1 git push
 EOF
-      exit 0
-    fi
-  fi
+  exit 0
 fi
 
 echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (183 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2  # doc-lock: suite-count
