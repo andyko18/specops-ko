@@ -2,7 +2,7 @@
 # 외부 모델 critic 위탁 래퍼 — advisory only (판정 권한 없음, provider 오류·timeout 도 exit 0)
 # 사용: bash scripts/critic-ask.sh <prompt-file> [--files <f1> [f2 ...]]
 # 환경: CRITIC_BIN (강제 provider — stdin 합성 프롬프트 / stdout 의견 계약) · CRITIC_TIMEOUT (기본 120s)
-#       CRITIC_CLAUDE_MODEL (기본 fable) · CRITIC_CLAUDE_FALLBACK (기본 opus) — claude provider 모델 선택
+#       CRITIC_CLAUDE_MODEL (기본 opus) · CRITIC_CLAUDE_FALLBACK (기본 sonnet) — claude provider 모델 선택
 # 출력: "CRITIC[<provider>]:" + 의견 / "CRITIC: SKIP (외부 CLI 부재)" / "CRITIC: FAIL (<사유>)"
 # 종료: 항상 0 — prompt-file 부재만 1 (사용 오류)
 set -uo pipefail
@@ -22,12 +22,12 @@ TIMEOUT_S="${CRITIC_TIMEOUT:-120}"
 MAX_BYTES=204800
 
 # provider 감지: CRITIC_BIN > claude > codex > gemini > ollama (A-1)
-# claude: advisor 백엔드 최우선 — claude code 사용자는 항상 보유. 모델은 fable 우선·opus fallback
-#   (CRITIC_CLAUDE_MODEL / CRITIC_CLAUDE_FALLBACK 로 override). fable 접근 불가·overload 시 claude 내장
-#   --fallback-model 이 opus 로 자동 전환 = "fable 존재하면 fable, 없으면 opus" 요구의 런타임 구현.
+# claude: advisor 백엔드 최우선 — claude code 사용자는 항상 보유. 모델은 opus 우선·sonnet fallback
+#   (CRITIC_CLAUDE_MODEL / CRITIC_CLAUDE_FALLBACK 로 override). opus 한도 소진·overload 시 claude 내장
+#   --fallback-model 이 sonnet 으로 자동 전환. 기본에 fable 을 쓰지 않는다(플랜에 따라 usage credits 과금·접근 불가 가능).
 provider=""; bin=""
-CLAUDE_MODEL="${CRITIC_CLAUDE_MODEL:-fable}"
-CLAUDE_FALLBACK="${CRITIC_CLAUDE_FALLBACK:-opus}"
+CLAUDE_MODEL="${CRITIC_CLAUDE_MODEL:-opus}"
+CLAUDE_FALLBACK="${CRITIC_CLAUDE_FALLBACK:-sonnet}"
 # preflight — command -v 는 PATH 의 stale shim(파일은 있으나 실행 불가·rc=127)을 못 걸러낸다
 #   (dogfood 20260717 test2: claude 감지 후 실행 rc=127 → 외부 critic 실효 0 이 FAIL 로 위장).
 #   --version 1회로 실행 가능성을 확인하고, 실패 시 그 provider 를 부재로 강등해 다음 후보로 cascade.

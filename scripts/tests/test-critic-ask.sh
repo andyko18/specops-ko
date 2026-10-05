@@ -180,7 +180,7 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-ollama-2 (rc=$rc out=$out)"
 fi
 
-# ── T-claude provider 정적 검증 (advisor 백엔드 최우선 — fable 우선·opus fallback) ──
+# ── T-claude provider 정적 검증 (advisor 백엔드 최우선 — opus 우선·sonnet fallback) ──
 
 # T-claude provider 로직 존재 (감지 + --model/--fallback-model + CRITIC_CLAUDE_MODEL override)
 if grep -q 'provider="claude"' "$SRC_FILE" \
@@ -199,9 +199,9 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-claude-2 (rc=$rc out=$out)"
 fi
 
-# T-claude-3 기본 모델 = fable, fallback = opus (요구 계약)
-if grep -q 'CRITIC_CLAUDE_MODEL:-fable' "$SRC_FILE" && grep -q 'CRITIC_CLAUDE_FALLBACK:-opus' "$SRC_FILE"; then
-  PASS=$((PASS+1)); echo "PASS T-claude-3 기본 fable·fallback opus"
+# T-claude-3 기본 모델 = opus, fallback = sonnet (요구 계약)
+if grep -q 'CRITIC_CLAUDE_MODEL:-opus' "$SRC_FILE" && grep -q 'CRITIC_CLAUDE_FALLBACK:-sonnet' "$SRC_FILE"; then
+  PASS=$((PASS+1)); echo "PASS T-claude-3 기본 opus·fallback sonnet"
 else
   FAIL=$((FAIL+1)); echo "FAIL T-claude-3 기본 모델 계약 누락"
 fi
@@ -225,7 +225,7 @@ argv() { tr '\n' ',' < "$1"; }
 runc() { env -i PATH="$1:/usr/bin:/bin" HOME="$HOME" bash "$SCRIPT" "$TD/prompt.md" --files "$TD/target.md" 2>&1; }
 mkprov "$TD/p-claude" claude '  --tools <tools...>  Specify the list of available tools   --strict-mcp-config  Only use MCP servers from --mcp-config'
 out=$(runc "$TD/p-claude")
-t4 "T4.a claude 는 -p --tools \"\"(빈 인자 보존) --strict-mcp-config(전역 MCP 도구 차단) --model --fallback-model 로 호출되고 합성 프롬프트가 stdin 으로 간다" "$(printf '%s' "$out" | grep -c '^CRITIC\[claude\]:')|$(argv "$TD/p-claude/argv.claude")|$(grep -c '검토 지시문' "$TD/p-claude/stdin.claude")" "1|[-p],[--tools],[],[--strict-mcp-config],[--model],[fable],[--fallback-model],[opus],|1"
+t4 "T4.a claude 는 -p --tools \"\"(빈 인자 보존) --strict-mcp-config(전역 MCP 도구 차단) --model --fallback-model 로 호출되고 합성 프롬프트가 stdin 으로 간다" "$(printf '%s' "$out" | grep -c '^CRITIC\[claude\]:')|$(argv "$TD/p-claude/argv.claude")|$(grep -c '검토 지시문' "$TD/p-claude/stdin.claude")" "1|[-p],[--tools],[],[--strict-mcp-config],[--model],[opus],[--fallback-model],[sonnet],|1"
 mkprov "$TD/p-codex" codex '      --sandbox <SANDBOX_MODE>  [possible values: read-only, workspace-write, danger-full-access]'
 out=$(runc "$TD/p-codex")
 t4 "T4.b codex 는 exec --sandbox read-only --ephemeral - 로 호출된다" "$(printf '%s' "$out" | grep -c '^CRITIC\[codex\]:')|$(argv "$TD/p-codex/argv.codex")" "1|[exec],[--sandbox],[read-only],[--ephemeral],[-],"
