@@ -255,4 +255,89 @@ else
 fi
 printf 'k\n' > "$TD/한글코드.sh"
 
+# ── S17 full-suite-fresh.sh (20261005-dedupe-test-runs) ─────────────────
+# pre-push 와 verify 단계가 공유하는 신선도 판정. 생략(FRESH)은 오직 지문 일치 한 경로뿐이고
+# 그 밖 전부가 STALE(재실행)이어야 한다 — 양성 1 + 음성 다수 쌍으로 잠근다.
+FRESH="$PLUGIN/scripts/_internal/full-suite-fresh.sh"
+TF=$(mktemp -d) || exit 1
+_NL=$(mktemp -d) || exit 1
+trap 'rm -rf "$TD" "$TF" "$_NL"' EXIT
+git -C "$TF" init -q
+printf 'base\n' > "$TF/app.sh"
+git -C "$TF" add app.sh
+git -C "$TF" -c user.name=test -c user.email=test@example.com commit -qm init
+mkdir -p "$TF/.specops"
+MK="$TF/.specops/.full-suite-pass"
+# env -u 로 호출 환경의 SPECOPS_FORCE_FULL 을 지운다 — 값이 새면 FRESH 케이스가 공허하게 STALE 이 된다.
+_fr() { ( cd "$TF" && env -u SPECOPS_FORCE_FULL "$@" bash "$FRESH" ); }
+_fr_case() { # $1=id $2=설명 $3=기대 rc $4=stdout 정규식 $5...=추가 env
+  local _id="$1" _d="$2" _rc="$3" _re="$4" _out _got; shift 4
+  _out=$(_fr "$@"); _got=$?
+  if [ "$_got" = "$_rc" ] && printf '%s' "$_out" | grep -qE "$_re"; then
+    ok "$_id $_d"
+  else
+    nope "$_id $_d" "rc=$_got out=$_out"
+  fi
+}
+
+_fp=$(_nd "$TF")
+printf '%s\n' "$_fp" > "$MK"
+_fr_case S17.a "마커 == 지문 → FRESH (rc 0 · fp 앞 12자)" 0 "^full-suite FRESH \(fp=${_fp:0:12}\)$"
+
+rm -f "$MK"
+_fr_case S17.b "마커 부재 → STALE" 1 "^full-suite STALE"
+: > "$MK"
+_fr_case S17.c "빈 마커 → STALE" 1 "^full-suite STALE"
+printf 'not-a-tree-hash\n' > "$MK"
+_fr_case S17.d "지문 불일치 → STALE" 1 "^full-suite STALE"
+
+printf '%s\n' "$_fp" > "$MK"
+printf 'changed\n' >> "$TF/app.sh"
+_fr_case S17.e "비문서 변경 → STALE" 1 "^full-suite STALE"
+git -C "$TF" restore app.sh
+printf 'doc\n' > "$TF/NOTES.md"
+_fr_case S17.f "문서 전용 변경 → 여전히 FRESH (양성 대조)" 0 "^full-suite FRESH"
+rm -f "$TF/NOTES.md"
+
+# 지문 산출 불가(NO_GIT) 는 마커가 같은 문자열이어도 생략 근거가 될 수 없다
+printf 'NO_GIT\n' > "$MK"
+_fr_case S17.g "지문 NO_GIT + 마커 NO_GIT → STALE" 1 "^full-suite STALE" TMPDIR=/nonexistent/zz
+printf '%s\n' "$_fp" > "$MK"
+_fr_case S17.g2 "지문 NO_GIT(마커는 정상 지문) → STALE" 1 "^full-suite STALE" TMPDIR=/nonexistent/zz
+
+# SPECOPS_FORCE_FULL 은 값 무관 — 비어있지 않으면 강제 재실행 (=0 포함)
+_fr_case S17.h "FORCE_FULL=1 → STALE" 1 "^full-suite STALE" SPECOPS_FORCE_FULL=1
+_fr_case S17.h2 "FORCE_FULL=0 도 STALE (값 무관)" 1 "^full-suite STALE" SPECOPS_FORCE_FULL=0
+
+# verification-state.sh 부재 — 헬퍼만 복사한 디렉터리에서 실행
+cp "$FRESH" "$_NL/full-suite-fresh.sh"
+_nl_out=$( cd "$TF" && env -u SPECOPS_FORCE_FULL bash "$_NL/full-suite-fresh.sh" ); _nl_rc=$?
+if [ "$_nl_rc" = "1" ] && printf '%s' "$_nl_out" | grep -q '^full-suite STALE'; then
+  ok "S17.i verification-state.sh 부재 → STALE"
+else
+  nope "S17.i verification-state.sh 부재 → STALE" "rc=$_nl_rc out=$_nl_out"
+fi
+
+# 읽기 권한 없음 (root 는 읽히므로 skip)
+chmod 000 "$MK" 2>/dev/null
+if [ "$(id -u)" = "0" ]; then
+  skip "S17.j 마커 읽기 불가 → STALE (root 는 읽힌다)"
+else
+  _fr_case S17.j "마커 읽기 불가 → STALE" 1 "^full-suite STALE"
+fi
+chmod 644 "$MK" 2>/dev/null
+
+# 읽을 수 없는 untracked 파일 — git add -A 가 통째로 실패해 지문이 HEAD 로 퇴행한다(vs 공유 SoT 의 기존 한계).
+# 이때 비문서 변경이 있어도 마커와 일치해 FRESH 가 되는 생략 방향 오판을 헬퍼가 따로 막는다.
+printf '%s\n' "$_fp" > "$MK"
+printf 'x\n' > "$TF/locked.dat"; chmod 000 "$TF/locked.dat" 2>/dev/null
+printf 'changed\n' >> "$TF/app.sh"
+if [ "$(id -u)" = "0" ]; then
+  skip "S17.k 읽을 수 없는 untracked 파일 → STALE (root 는 읽힌다)"
+else
+  _fr_case S17.k "읽을 수 없는 untracked 파일 → STALE (지문 퇴행 방어)" 1 "^full-suite STALE"
+fi
+chmod 644 "$TF/locked.dat" 2>/dev/null; rm -f "$TF/locked.dat"
+git -C "$TF" restore app.sh
+
 finish

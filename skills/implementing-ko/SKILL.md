@@ -256,6 +256,24 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 - **PASS 경로 (Phase B→C)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
 - **FAIL 경로**: Phase B/C FAIL 직후 훅이 저장한 위 feedback 경로를 확인한 뒤(fallback 조건이면 부모가 저장) implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
 
+## 전체 스위트 병행 (20261005-dedupe-test-runs)
+
+`scripts/tests/run-all.sh` 가 있는 repo 에서, 마지막 태스크의 Phase A·receipt·커밋이 끝나면 B/C 에 들어가기 **전에** 전체 스위트를 백그라운드(Bash `run_in_background`)로 띄운다. Phase B/C 와 **겹쳐** 돈다 — 리뷰 대기 동안 스위트가 끝나 있게 하는 것이 목적이다.
+
+```bash
+bash "$(git rev-parse --show-toplevel)"/scripts/tests/run-all.sh --quiet > ".specops/$FID/run-all.log" 2>&1
+```
+
+- **증거가 아니다**: R-1/R-2 게이트 증거는 verify 단계 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다. 이 실행은 verify 가 전체 스위트를 생략할 근거(통과 마커)를 만들 뿐이다.
+- **수정 라운드**: Phase B/C FAIL 로 코드가 바뀌면 마커 지문이 달라져 STALE 이 되고 verify 가 포그라운드로 다시 돈다. 라운드마다 다시 띄우지 않는다.
+- **FAIL 이면**: 종료 후 `run-all.log` 의 `FAILED` 줄을 사용자에게 알리되 B/C 는 막지 않는다. 최종 판정은 verify 의 포그라운드 재실행이다(flaky 를 숨기지 않는다).
+- **실 트리 변조 금지**: 병행 스위트가 실 트리를 읽는 동안 리뷰어가 되돌려-관찰·변이를 실 트리에서 하면 스위트가 오염된다. 그 관찰은 **임시 복사본**에서만 한다(dispatch 프롬프트에 명시).
+- `§batch` FID 에는 적용하지 않는다 — FR 마다 스위트를 띄우면 곱으로 번진다.
+
+### 리뷰어 실행 예산
+
+부모 dispatch 프롬프트는 에이전트 계약(`agents/spec-reviewer-ko.md`·`agents/code-reviewer-ko.md`) 밖의 실행을 **추가하지 않는다**. `risk-profile.json` 의 effective 가 `lite`·`standard` 면 Phase B 는 diff·AC 대조 + 핵심 실행 2회 이내, Phase C 는 되돌려-관찰 3회 이내이고 전체 소비자 스위트 재실행은 하지 않는다(병행 스위트·verify 의 몫). `strict` 는 종전 그대로 제한 없음. 근거: 20261005 실측 — 리뷰 구간이 FID 당 30~40분을 차지하고 그 상당수가 리뷰어의 재실행이다.
+
 ## 리뷰어 dispatch 입력 계약 (20260809)
 
 Phase B/C dispatch 시 `agents/spec-reviewer-ko.md`·`agents/code-reviewer-ko.md` 의 **받는 컨텍스트** 목록 밖 경로를 임의로 첨부하지 않는다. 두 계약은 이미 최소다 — `tasks.md`·`plan.md`·`clarifications.md` 는 **거기 없다**.

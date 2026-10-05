@@ -197,4 +197,25 @@ fi
 if has templates/tasks.md '숫자 전용' 'T1a'; then ok "task-ids: templates/tasks.md 숫자 전용 규약"; else nope "task-ids: templates/tasks.md 규약 문구 부재"; fi
 if has skills/decomposing-ko/SKILL.md '숫자 전용' 'check-task-ids'; then ok "task-ids: decomposing-ko 숫자 전용 규약·판정기 언급"; else nope "task-ids: decomposing-ko 규약 문구 부재"; fi
 
+# ── 20261005 전체 스위트 병행 · 리뷰어 실행 예산 (implementing-ko) ──
+# Phase A 직후 run-all 백그라운드 병행(리뷰 대기와 겹침) + 리뷰어 실행량 상한. 문구가 사라지면 병행·예산이 조용히 꺼진다.
+if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '라운드마다 다시 띄우지 않는다' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then
+  ok "implementing-ko 전체 스위트 병행 계약 존재 (백그라운드·log·비증거·수정 라운드·FAIL 알림·실 트리 변조 금지)"
+else
+  nope "implementing-ko 전체 스위트 병행 계약 소실" "병행 실행 절차 또는 안전 규칙 부재"
+fi
+if has skills/implementing-ko/SKILL.md '리뷰어 실행 예산' '핵심 실행 2회' '되돌려-관찰 3회' '전체 소비자 스위트 재실행은 하지 않는다' 'strict. 는 종전 그대로'; then
+  ok "implementing-ko 리뷰어 실행 예산 존재 (B 2회·C 3회·전체 재실행 금지·strict 불변)"
+else
+  nope "implementing-ko 리뷰어 실행 예산 소실" "리뷰어 재실행이 다시 무제한이 된다"
+fi
+
+# ── 20261005 전체 스위트 신선도 확인 (verifying-evidence-ko) ──
+# FRESH 면 수동 전체 스위트 생략, 그 밖(STALE·부재·FAIL·판정 불가)은 포그라운드 재실행. 게이트 증거는 별개.
+if has skills/verifying-evidence-ko/SKILL.md '전체 스위트 신선도 확인' 'full-suite-fresh\.sh' '재실행을 생략' '완료줄' '생략 판정이 애매하면 \*\*재실행\*\*' '게이트 증거는 여전히' 'PARTIAL·NOT_RUN 이면' '지문 한계'; then
+  ok "verifying-evidence-ko 신선도 확인 절차 존재 (FRESH 생략·백그라운드 대기·애매하면 재실행·게이트 증거 별개)"
+else
+  nope "verifying-evidence-ko 신선도 확인 절차 소실" "생략 조건이 불명확해지거나 재실행 폴백이 사라진다"
+fi
+
 finish

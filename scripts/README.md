@@ -300,6 +300,8 @@ bash scripts/_internal/install-git-hooks.sh --uninstall
 
 `check-ci-status.sh` 는 `git push` 직전 origin main 의 **최근 완료 CI 결론**을 조회해 red 면 경고합니다 — ~7분 스위트를 돌기 전에 알리는 것이 목적이라 면제 4종 뒤·`run-all` 앞에 옵니다. **차단하지 않습니다**(항상 `exit 0`). `gh`·`jq` 는 **선택 의존**이라 미설치·미인증·오프라인·타임아웃에서는 조용히 넘어갑니다. 타임아웃 상한은 `SPECOPS_CI_CHECK_TIMEOUT`(기본 5초, 실측 왕복 ~1.0초)로 조정합니다. 계기: 2026-08-07 `main` 이 3커밋 연속 Linux CI red 였는데 로컬 게이트가 전부 macOS 라 아무도 몰랐습니다.
 
+`full-suite-fresh.sh` 는 직전 전체 스위트 통과 마커(`.specops/.full-suite-pass`)가 현재 비문서 트리와 같은지 판정하는 헬퍼입니다(rc 0 = FRESH · 1 = STALE, stdout 1줄). `pre-push` 가 이 판정으로 스위트 실행을 건너뛰고 `verifying-evidence-ko` 가 같은 판정으로 수동 전체 스위트 재실행을 생략합니다 — 판정은 이 한 곳에만 둡니다. 마커 부재·불일치·`SPECOPS_FORCE_FULL` 등 판정이 애매하면 전부 STALE(재실행)입니다.
+
 ## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
 
 ```bash
