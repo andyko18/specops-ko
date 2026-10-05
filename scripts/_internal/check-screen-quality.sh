@@ -269,7 +269,7 @@ _has() { grep -qiE "$2" <<<"$1"; }
 #   되돌려-관찰 변이가 sed 한 줄로 가능해야 한다.
 _genre_check() {  # $1=ID $2=본문(override 주석 제거) $3=States 섹션
   case "$1" in
-    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN]+ ?건|total' ;;
+    G-LIST-PAGING)     _has "$2" '페이지네이션|페이징|무한 스크롤|pagination' && _has "$2" '총 건수|전체 건수|(총|전체) ?[0-9nN][0-9nN,]* ?건|total' ;;
     G-LIST-SORT)       _has "$2" '정렬 기준|기본 정렬|sort by|default sort|최신순|오래된순|오름차순|내림차순|으로 정렬' ;;
     G-LIST-EMPTY-KIND) _has "$3" '데이터 없음|no data' && _has "$3" '결과 없음|no results' ;;
     G-FORM-SUBMIT)     _has "$2" '제출 중|저장 중|submitting|(처리|요청|전송|로그인|등록|가입) ?중($|[][:space:].,;:!?"()]|입|이|일|인|으로|에)' && _has "$2" '비활성|disabled|중복 제출' ;;
@@ -418,15 +418,11 @@ _analyze() {  # $1=md $2=html
   fi
 
   if _readable "$html"; then
-    # ── a11y-label: label 수 / 입력 요소 수 ──
-    local inp lab aria nrm tags
-    # 주석·<script> 를 걷고 줄바꿈·탭을 공백으로 정규화(CR 은 [[:space:]] 가 흡수) — 여러 줄 태그를 한 줄로 만들어 태그 단위로 센다(커스텀 엘리먼트 <input-group> 제외). 한계: ① aria 와 <label for> 가 한 입력에 겹치면 label 수가 입력 수를 넘어 종전 보고되던 누락이 가려진다 ② 닫히지 않은 <script·/*(CSS 블록 주석)·<!-- 이후 입력은 집계되지 않는다(본문·속성값 안의 ' /*' 도 걸린다) ③ 속성값 안의 '>' 에서 태그가 끊긴다(그 뒤 aria 는 못 본다 — 오탐 방향) ④ 공백 없이 붙은 속성(<input/type=hidden>)의 hidden 제외는 종전보다 좁다 ⑤ for/id 짝·fieldset 은 미지원
+    # ── a11y-label: 이름 있는 입력 수 / 입력 요소 수 ──
+    local nrm
+    # 주석·<script> 를 걷고 줄바꿈·탭을 공백으로 정규화 — 여러 줄 태그를 한 줄로 만든 뒤 label 열림·닫힘과 입력 태그(input·select·textarea, 커스텀 엘리먼트 <input-group> 제외, hidden·버튼형 제외)를 문서 순서대로 토큰화해 _a11y_named 가 입력별로 이름 유무를 판정한다(분자: aria-label·aria-labelledby 보유 · id 가 label for 값과 일치 · for 없는 label 이 감싼 첫 입력). 한계: ① 닫히지 않은 <script·/*(CSS 블록 주석)·<!-- 이후 입력은 집계되지 않는다(본문·속성값 안의 ' /*' 도 걸린다) ② 속성값 안의 '>' 에서 태그가 끊긴다 ③ 공백 없이 붙은 속성(<input/type=hidden>)의 hidden 제외는 좁다 ④ aria 는 속성 존재만 본다(빈 값·참조 id 실재 미검사) ⑤ 중복 id 는 모두 이름 있음으로 센다 ⑥ for 없이 형제로 놓인 <label> 은 이름이 아니다(의도된 엄격화) ⑦ fieldset·legend·title 은 이름으로 보지 않는다
     nrm=$(_strip_comments "$html" | _blocks script out | tr '\n\t' '  ')
-    tags=$(printf '%s' "$nrm" | grep -oiE '<(input|select|textarea)([[:space:]/][^>]*)?>' | grep -viE "[[:space:]]type[[:space:]]*=[[:space:]]*[\"']?(hidden|submit|button|reset|image)")
-    inp=$(_count "$(printf '%s\n' "$tags" | grep -c . || true)")
-    lab=$(_count "$(printf '%s' "$nrm" | grep -oiE '<label([[:space:]>]|$)' | wc -l)")
-    aria=$(_count "$(printf '%s\n' "$tags" | grep -ciE '[[:space:]]aria-label(ledby)?[[:space:]]*=' || true)")
-    a11y="$((lab + aria))/$inp"
+    a11y=$(printf '%s' "$nrm" | grep -oiE '</?label([[:space:]][^>]*)?>|<(input|select|textarea)([[:space:]/][^>]*)?>' | grep -viE "^<(input|select|textarea)[^>]*[[:space:]]type[[:space:]]*=[[:space:]]*[\"']?(hidden|submit|button|reset|image)" | _a11y_named)
     # ── semantic: 랜드마크 요소 수 ──
     semantic=$(_count "$(grep -oE '<(main|nav|header|section|aside|footer)\b' "$html" | wc -l)")
     # ── token: 색 리터럴 중 `--이름:` 정의부를 뺀 하드코딩 ──
@@ -467,6 +463,45 @@ _analyze() {  # $1=md $2=html
   [ -n "$genre_det" ] && printf '%s\n' "$genre_det"
   [ -n "$anti_det" ] && printf '%s\n' "$anti_det"
   return 0
+}
+
+# 입력별 이름 판정 — stdin: label 열림·닫힘·입력 태그 토큰(1줄 1개, 문서 순서) · stdout: 이름있는입력수/입력수.
+# 속성명은 대소문자 무관·값(for·id)은 대소문자 구분, 따옴표·무따옴표 모두 읽는다. gensub·구간 {n} 미사용(BSD awk·mawk 공통).
+_a11y_named() {
+  awk '
+    function attr(tag, name,   lt, v, q, e) {
+      A_FOUND = 0; A_VAL = ""
+      lt = tolower(tag)
+      if (!match(lt, "[ /]" name "[ ]*=[ ]*")) return
+      A_FOUND = 1
+      v = substr(tag, RSTART + RLENGTH)
+      q = substr(v, 1, 1)
+      if (q == "\"" || q == "\047") {
+        v = substr(v, 2); e = index(v, q)
+        A_VAL = (e > 0 ? substr(v, 1, e - 1) : v)
+      } else {
+        e = match(v, /[ >]/)
+        A_VAL = (e > 0 ? substr(v, 1, e - 1) : v)
+        sub(/\/$/, "", A_VAL)
+      }
+    }
+    BEGIN { total = 0 }
+    { t = $0; gsub(/\r/, " ", t); lt = tolower(t) }
+    lt ~ /^<\/label/ { wrap = 0; next }
+    lt ~ /^<label/ { wrap = 1; used = 0; attr(t, "for"); lfor = A_FOUND; forset[A_VAL] = 1; next }
+    {
+      total++
+      first = 0
+      if (wrap) { first = !used; used = 1 }
+      if (lt ~ /[ \/]aria-label(ledby)?[ ]*=/) nm[total] = 1
+      else if (first) { if (!lfor) nm[total] = 1 }
+      attr(t, "id"); ids[total] = A_VAL
+    }
+    END {
+      n = 0
+      for (i = 1; i <= total; i++) { if (nm[i]) n++; else if (ids[i] != "") { if (ids[i] in forset) n++ } }
+      print n "/" total
+    }'
 }
 
 # ★ 무출력 exit 0 금지 — 리뷰어가 "위반 없음" 으로 읽는다(T1.h 가 막으려던 무음 낙관과 같은 클래스).

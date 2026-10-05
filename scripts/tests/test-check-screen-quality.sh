@@ -877,4 +877,77 @@ if [ "$(_val "$o" a11y-label)" = "0/3" ] && printf '%s' "$o" | grep -q '\[a11y-l
 [ "$(_pa '<LABEL for=a>A</LABEL><input id=a>')" = "1/1" ] && ok "P8 대문자 <LABEL> 도 label 로 센다(-i 잠금) → 1/1" || nope "P8" "$(_pa '<LABEL for=a>A</LABEL><input id=a>')"
 [ "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")" = "1/1" ] && ok "P6 CRLF 여러 줄 label+input 정상 화면 → 1/1(상세줄 없음 — 오탐 없음)" || nope "P6" "$(_pa "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')")"
 
+# ── N1.d·L: FID 20261004-screen-lint-gaps-3 — 총 건수 천 단위 쉼표 · 영문 어휘 경계 로케일 매트릭스 ──
+_loc_utf8=$(_lx=$(locale -a 2>/dev/null || true); printf '%s\n' "$_lx" | grep -iE -m1 '^(en_US|C)\.utf-?8$' || true)
+# N1.d: 총 건수 천 단위 쉼표
+o1=$(_nrun 목록 '페이징. 목록 상단에 총 1,234건 표시. 정렬 기준 최신순.' "$_nlist"); o2=$(_nrun 목록 '페이징. 전체 12,345건 표시. 정렬 기준 최신순.' "$_nlist")
+if _nmiss "$o1" G-LIST-PAGING || _nmiss "$o2" G-LIST-PAGING; then nope "N1.d" "쉼표 건수가 미충족으로 읽힘"; else ok "N1.d 총 건수 천 단위 쉼표('총 1,234건'·'전체 12,345건') 충족"; fi
+o1=$(_nrun 목록 '페이징. 총 ,,, 건 표시. 정렬 기준 최신순.' "$_nlist"); o2=$(_nrun 목록 '페이징. 총 , 건 표시. 정렬 기준 최신순.' "$_nlist")
+if _nmiss "$o1" G-LIST-PAGING; then if _nmiss "$o2" G-LIST-PAGING; then ok "N1.e 음성 — 숫자·N 없이 쉼표만('총 ,,, 건'·'총 , 건')은 총 건수가 아니다"; else nope "N1.e" "'총 , 건' 이 충족으로 읽힘"; fi; else nope "N1.e" "'총 ,,, 건' 이 충족으로 읽힘"; fi
+
+# L: 로케일 매트릭스 — 영문 어휘 단어 경계(ASCII 경계 클래스)는 LC_ALL=C 와 UTF-8 에서 같은 결과여야 한다
+_lbad=""; _llocs="C"; [ -n "$_loc_utf8" ] && _llocs="C $_loc_utf8"
+for _l in $_llocs; do
+  o=$(LC_ALL=$_l _nrun '다단 폼' 'stepper로 위치 안내. 이전 단계 버튼. 중간 저장. 닫기.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _lbad="$_lbad [$_l:stepper로]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' '단계 표시. prev버튼. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP && _lbad="$_lbad [$_l:prev버튼]"
+  o=$(LC_ALL=$_l _nrun '폼' '제출 중 비활성. close버튼.' ''); _nmiss "$o" G-FORM-CANCEL && _lbad="$_lbad [$_l:close버튼]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' '단계 표시. prevent 중복. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _lbad="$_lbad [$_l:prevent]"
+  o=$(LC_ALL=$_l _nrun '다단 폼' 'stepperx 로 위치 안내. 이전 단계. 중간 저장. 취소.' ': 제출 중 비활성'); _nmiss "$o" G-WIZARD-STEP || _lbad="$_lbad [$_l:stepperx]"
+  o=$(LC_ALL=$_l _nrun '폼' '제출 중 비활성. disclose 안내.' ''); _nmiss "$o" G-FORM-CANCEL || _lbad="$_lbad [$_l:disclose]"
+done
+if [ -z "$_lbad" ]; then
+  if [ -n "$_loc_utf8" ]; then ok "L1 영문 어휘 경계 6종(양성 stepper로·prev버튼·close버튼 / 음성 prevent·stepperx·disclose)이 LC_ALL=C·$_loc_utf8 양쪽에서 같은 결과"
+  else ok "L1 (UTF-8 로케일 없음 — C 만 실행, UTF-8 단언 건너뜀) 영문 어휘 경계 6종 LC_ALL=C 결과 일치"; fi
+else nope "L1" "$_lbad"; fi
+
+# ── Q: FID 20261004-screen-lint-gaps-3 — S-A11Y-LABEL 이름 있는 입력 수(aria · label for↔id 짝 · label 감쌈) ──
+_qchk() {  # $1=html $2=기대 값 → 일치하면 0 (실패 시 _qbad 에 사유 누적)
+  [ "$(_pa "$1")" = "$2" ] || _qbad="$_qbad [$2≠$(_pa "$1")]"
+}
+_qbad=""
+_qchk '<main><label for=a>A</label><input id=a></main>' "1/1"
+_qchk '<main><label>A <input></label></main>' "1/1"
+_qchk '<main><input id=a><label for=a>A</label></main>' "1/1"
+_qchk '<main><label for=s>S</label><select id=s></select><label for=t>T</label><textarea id=t></textarea></main>' "2/2"
+_qchk '<main><label for=a>A</label><input id=a aria-label=x><input id=b></main>' "1/2"
+_qchk '<main><label>A <input><input></label></main>' "1/2"
+_qchk '<main><label>A <input aria-label=q><input></label></main>' "1/2"
+_qchk '<main><label for=a><input id=a></label></main>' "1/1"
+_qchk '<main><label>S <select></select></label><label>T <textarea></textarea></label></main>' "2/2"
+_qchk '<main><label for=a>A</label><input id=a><label>B <input></label></main>' "2/2"
+[ -z "$_qbad" ] && ok "Q1 이름 인정 — for/id 짝(앞·뒤 순서)·label 감쌈(select·textarea 포함)·select/textarea 짝·aria 겹침(이름 없는 입력 1개는 누락 유지)·감싼 label 의 둘째 입력은 이름 아님·label 사이 for 상태 비누수" || nope "Q1" "$_qbad"
+_qbad=""
+_qchk '<main><label for=a>A</label><input id=b></main>' "0/1"
+_qchk '<main><label for=a>A</label><input></main>' "0/1"
+_qchk '<main><label for=a>A</label><input id=a><input id=b><label for=zz>Z</label></main>' "1/2"
+_qchk '<main><label for=a>A</label><label for=a>B</label><input id=a><input id=b></main>' "1/2"
+_qchk '<main><label>이름</label><input></main>' "0/1"
+_qchk '<main><label for=x><input id=y></label></main>' "0/1"
+_qchk '<main><label for=h>H</label><input type=hidden id=h><input></main>' "0/1"
+_qchk '<main><fieldset><legend>성별</legend><input type=radio name=g id=r1><input type=radio name=g id=r2></fieldset></main>' "0/2"
+_qchk '<main><label for=a>A</label></main>' "0/0"
+_qchk '<main><label for=a type=button>A</label><input id=a></main>' "1/1"
+_qchk '<main><label for=a>A</label><input data-id=a></main>' "0/1"
+[ -z "$_qbad" ] && ok "Q2 음성 — for/id 불일치·for 대상 없음·짝 없는 label 상쇄·중복 for·sibling label·for 우선(감싼 id 다름)·숨김 입력 짝·legend 만·입력 없는 label(0/0)은 이름 없음, label 태그의 type 속성은 입력 제외 필터에 걸리지 않는다(1/1)·data-id 접두 속성은 id 가 아니다" || nope "Q2" "$_qbad"
+o=$(_ph '<main><label for=a>A</label><input id=a><input id=b><label for=zz>Z</label></main>')
+printf '%s' "$o" | grep -q '\[a11y-label\] 입력 2개 중 label 1개 — 1개 누락  rule=S-A11Y-LABEL' && ok "Q2.b orphan label 이 상쇄하던 누락이 종전 문구·형식 그대로 보고된다" || nope "Q2.b" "$(printf '%s' "$o" | grep a11y | head -n 1)"
+
+# Q3: 속성 파싱 변형 — 로케일 두 개로 같은 값이어야 한다(_loc_utf8 은 위 L 블록 앞에서 정의)
+_qloc() {  # $1=html $2=기대 → LC_ALL=C·UTF-8 양쪽에서 같은 기대 값
+  _qlocs="C"; [ -n "$_loc_utf8" ] && _qlocs="C $_loc_utf8"
+  for _l in $_qlocs; do [ "$(LC_ALL=$_l _pa "$1")" = "$2" ] || _qbad="$_qbad [$_l:$2≠$(LC_ALL=$_l _pa "$1")]"; done
+}
+_qbad=""
+_qloc '<main><LABEL FOR=A>A</LABEL><INPUT ID=A></main>' "1/1"
+_qloc "$(printf '<main><label for=a>A</label>\r\n<input\r\n id=a></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label\tfor=a>A</label><input\ttype=text\tid=a></main>')" "1/1"
+_qloc "$(printf '<main><label for=a\r\n>A</label><input\r\n id=a\r\n></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label for=a\r\n>A</label><input id=a></main>\r\n')" "1/1"
+_qloc "$(printf '<main><label\nfor="a">A</label>\n<input\nid=\x27a\x27></main>\n')" "1/1"
+_qloc '<main><label for = "a">A</label><input id = a/></main>' "1/1"
+_qloc '<main><label for=이름>이름</label><input id=이름></main>' "1/1"
+_qloc '<main><label for=A>A</label><input id=a></main>' "0/1"
+_qloc '<main><label for="">A</label><input id=""></main>' "0/1"
+[ -z "$_qbad" ] && ok "Q3 속성명 대소문자·따옴표 3종·공백·CRLF(값 뒤 줄바꿈 포함)·탭·여러 줄·자기 닫힘·한글 id 는 같은 짝(1/1), 값 대소문자 불일치·빈 값은 짝 아님(0/1) — LC_ALL=C·UTF-8 양쪽 동일" || nope "Q3" "$_qbad"
+
 finish
