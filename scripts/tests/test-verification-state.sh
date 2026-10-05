@@ -340,4 +340,123 @@ fi
 chmod 644 "$TF/locked.dat" 2>/dev/null; rm -f "$TF/locked.dat"
 git -C "$TF" restore app.sh
 
+# ── S18 지문 계산 실패 fail-closed — UNHASHABLE (20261005-fingerprint-add-failclosed) ──
+# 읽을 수 없는 파일이 있으면 임시 인덱스 git add -A 가 fatal(rc 128)로 실패해 지문이 HEAD 로 퇴행했다.
+# ★ 이 repo 처럼 .specops 가 gitignore 인 repo 는 정상 상태에서도 같은 명령이 rc 1 을 낸다 — rc 1 은 정상이다.
+_chmod_inert() { local f; f=$(mktemp) || return 0; chmod 000 "$f"; if [ -r "$f" ]; then rm -f "$f"; return 0; fi; rm -f "$f"; return 1; }   # root·ACL·비-POSIX FS 에서는 chmod 000 이 파일을 막지 못한다
+TG=$(mktemp -d) || exit 1
+trap 'rm -rf "$TD" "$TF" "$_NL" "$TG"' EXIT
+git -C "$TG" init -q
+printf '.specops/\n' > "$TG/.gitignore"
+printf 'a\n' > "$TG/app.sh"
+printf 'k\n' > "$TG/locked.dat"
+git -C "$TG" add -A
+git -C "$TG" -c user.name=test -c user.email=test@example.com commit -qm init
+mkdir -p "$TG/.specops/20261005-probe"
+_g_ws() { (cd "$TG" && bash -c ". \"$STATE\"; vs::workspace_fingerprint"); }
+_g_nd() { (cd "$TG" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint"); }
+_g_vs() { (cd "$TG" && SPECOPS_ROOT=.specops bash "$STATE" "$@"); }
+_g_hex() { printf '%s' "$1" | grep -qE '^[0-9a-f]{40,64}$'; }
+
+# S18.a 정상 상태 — .specops ignore 로 add 가 rc 1 을 내도 정상 지문이다 (rc 1 허용 분기의 양성 대조)
+_g_rc1=$( cd "$TG" && idx=$(mktemp) && GIT_INDEX_FILE="$idx" git read-tree HEAD \
+  && GIT_INDEX_FILE="$idx" git add -A -- . ':(exclude).specops' >/dev/null 2>&1; echo $?; rm -f "$idx" )
+if [ "$_g_rc1" = "1" ]; then
+  if _g_hex "$(_g_ws)" && _g_hex "$(_g_nd)"; then
+    ok "S18.a .specops ignore(add rc 1) 에서도 정상 지문 (두 함수)"
+  else
+    nope "S18.a .specops ignore(add rc 1) 에서도 정상 지문" "ws=$(_g_ws) nd=$(_g_nd)"
+  fi
+else
+  skip "S18.a 전제 불성립 — 이 git 은 .specops ignore 에서 add rc=$_g_rc1 (기대 1)"
+fi
+
+# S18.b·c 읽을 수 없는 tracked / untracked 파일 → 두 함수 모두 정확히 UNHASHABLE (root 는 읽히므로 skip)
+if _chmod_inert; then
+  skip "S18.b~g 읽을 수 없는 파일 — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+else
+  chmod 000 "$TG/locked.dat"; printf 'chg\n' >> "$TG/app.sh"
+  [ "$(_g_ws)" = "UNHASHABLE" ] && [ "$(_g_nd)" = "UNHASHABLE" ] \
+    && ok "S18.b 읽을 수 없는 tracked 파일 → UNHASHABLE (두 함수)" \
+    || nope "S18.b 읽을 수 없는 tracked 파일 → UNHASHABLE" "ws=$(_g_ws) nd=$(_g_nd)"
+  chmod 644 "$TG/locked.dat"; git -C "$TG" checkout -q -- app.sh
+  printf 'z\n' > "$TG/un.txt"; chmod 000 "$TG/un.txt"
+  [ "$(_g_ws)" = "UNHASHABLE" ] && [ "$(_g_nd)" = "UNHASHABLE" ] \
+    && ok "S18.c 읽을 수 없는 untracked 파일 → UNHASHABLE (두 함수)" \
+    || nope "S18.c 읽을 수 없는 untracked 파일 → UNHASHABLE" "ws=$(_g_ws) nd=$(_g_nd)"
+  chmod 644 "$TG/un.txt"; rm -f "$TG/un.txt"
+
+  # S18.d vs::current — 정상 PASS 기록 뒤 읽을 수 없는 파일 + 변경 → STALE (종전: PASS 가 샜다)
+  _g_vs record 20261005-probe PASS --executed 1 >/dev/null 2>&1
+  [ "$(_g_vs current 20261005-probe)" = "PASS" ] || nope "S18.d-pre" "픽스처가 PASS 가 아니다"
+  chmod 000 "$TG/locked.dat"; printf 'chg\n' >> "$TG/app.sh"
+  [ "$(_g_vs current 20261005-probe)" = "STALE" ] \
+    && ok "S18.d PASS 뒤 읽을 수 없는 파일 + 변경 → STALE" \
+    || nope "S18.d PASS 뒤 읽을 수 없는 파일 + 변경 → STALE" "current=$(_g_vs current 20261005-probe)"
+
+  # S18.e 읽을 수 없는 상태에서 기록 → UNHASHABLE 기록 + stderr 경고, 두 값이 같아도 STALE, 파일이 읽혀도 STALE
+  _g_err=$( _g_vs record 20261005-probe PASS --executed 1 2>&1 >/dev/null )
+  [ "$(jq -r .nondoc_hash "$TG/.specops/20261005-probe/verification-state.json")" = "UNHASHABLE" ] \
+    && ok "S18.e1 읽을 수 없는 상태의 기록 → nondoc_hash UNHASHABLE" \
+    || nope "S18.e1 읽을 수 없는 상태의 기록 → nondoc_hash UNHASHABLE"
+  printf '%s' "$_g_err" | grep -q 'UNHASHABLE' \
+    && ok "S18.e2 기록 시 stderr 경고" || nope "S18.e2 기록 시 stderr 경고" "stderr=$_g_err"
+  [ "$(_g_vs current 20261005-probe)" = "STALE" ] \
+    && ok "S18.e3 기록·현재가 모두 UNHASHABLE 이어도 STALE" \
+    || nope "S18.e3 기록·현재가 모두 UNHASHABLE 이어도 STALE" "current=$(_g_vs current 20261005-probe)"
+  chmod 644 "$TG/locked.dat"
+  [ "$(_g_vs current 20261005-probe)" = "STALE" ] \
+    && ok "S18.e4 파일이 다시 읽혀도 UNHASHABLE 기록은 STALE (재검증 필요)" \
+    || nope "S18.e4 파일이 다시 읽혀도 UNHASHABLE 기록은 STALE" "current=$(_g_vs current 20261005-probe)"
+  git -C "$TG" checkout -q -- app.sh
+fi
+
+# S18.f NO_GIT 의미 불변 — git 저장소가 아니면 여전히 NO_GIT 이고 PASS 가 STALE 로 뒤집히지 않는다 (S11 과 대칭)
+_g_nogit=$(mktemp -d)
+[ "$(cd "$_g_nogit" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint")" = "NO_GIT" ] \
+  && ok "S18.f git 아님 → 여전히 NO_GIT (UNHASHABLE 과 구분)" \
+  || nope "S18.f git 아님 → 여전히 NO_GIT"
+rm -rf "$_g_nogit"
+
+# S18.g 신선도 헬퍼 — 읽을 수 없는 tracked 파일이면 HEAD 지문 마커와 일치해도 STALE
+#   (종전: tracked 경로는 헬퍼의 untracked 방어를 지나쳐 HEAD 지문 마커와 일치해 FRESH 로 샜다)
+if ! _chmod_inert; then
+  mkdir -p "$TG/.specops"
+  _g_head_fp=$(_g_nd)   # 읽을 수 있는 상태의 지문 = 정상 마커
+  chmod 000 "$TG/locked.dat"; printf 'chg\n' >> "$TG/app.sh"
+  printf '%s\n' "$_g_head_fp" > "$TG/.specops/.full-suite-pass"
+  _g_o=$( cd "$TG" && env -u SPECOPS_FORCE_FULL bash "$FRESH" ); _g_r=$?
+  [ "$_g_r" = "1" ] && printf '%s' "$_g_o" | grep -q '^full-suite STALE' \
+    && ok "S18.g 읽을 수 없는 tracked 파일 + 정상 마커 → STALE" \
+    || nope "S18.g 읽을 수 없는 tracked 파일 + 정상 마커 → STALE" "rc=$_g_r out=$_g_o"
+  chmod 644 "$TG/locked.dat"; git -C "$TG" checkout -q -- app.sh
+fi
+
+# S18.h unborn HEAD(첫 커밋 전) — mktemp 가 만든 0바이트 인덱스를 git 이 손상으로 보아 add 가 fatal(rc 128)이 된다.
+#   읽을 수 없는 파일 때문이 아니므로 UNHASHABLE 로 분류하면 안 된다(AC-R-1 — 새 repo 의 첫 커밋을 R-1 이 STALE 로 막는다).
+#   종전 값(workspace NO_GIT·nondoc EMPTY — 퇴행 지문)을 유지한다: 이 케이스의 값은 고정하지 않고 UNHASHABLE 만 금지한다.
+_g_ub=$(mktemp -d)
+git -C "$_g_ub" init -q
+printf 'a\n' > "$_g_ub/app.sh"
+_g_ub_ws=$(cd "$_g_ub" && bash -c ". \"$STATE\"; vs::workspace_fingerprint")
+_g_ub_nd=$(cd "$_g_ub" && bash -c ". \"$STATE\"; vs::nondoc_fingerprint")
+[ -n "$_g_ub_ws" ] && [ "$_g_ub_ws" != "UNHASHABLE" ] && [ -n "$_g_ub_nd" ] && [ "$_g_ub_nd" != "UNHASHABLE" ] \
+  && ok "S18.h unborn HEAD 는 UNHASHABLE 이 아니다 (ws=$_g_ub_ws nd=${_g_ub_nd:0:12})" \
+  || nope "S18.h unborn HEAD 는 UNHASHABLE 이 아니다" "ws=$_g_ub_ws nd=$_g_ub_nd"
+rm -rf "$_g_ub"
+
+# S18.i add.ignoreErrors=true 설정이 있어도 읽을 수 없는 tracked 파일은 UNHASHABLE 이다
+#   (설정이 켜지면 git add 가 실패 대신 rc 1 로 끝나 파일을 조용히 건너뛴다 — 그 파일의 변경이 지문에 안 보인다)
+if ! _chmod_inert; then
+  git -C "$TG" config add.ignoreErrors true
+  chmod 000 "$TG/locked.dat"; printf 'chg\n' >> "$TG/app.sh"
+  [ "$(_g_ws)" = "UNHASHABLE" ] && [ "$(_g_nd)" = "UNHASHABLE" ] \
+    && ok "S18.i add.ignoreErrors=true 에서도 읽을 수 없는 tracked 파일 → UNHASHABLE" \
+    || nope "S18.i add.ignoreErrors=true 에서도 UNHASHABLE" "ws=$(_g_ws) nd=$(_g_nd)"
+  chmod 644 "$TG/locked.dat"; git -C "$TG" checkout -q -- app.sh; git -C "$TG" config --unset add.ignoreErrors
+else
+  skip "S18.i add.ignoreErrors — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+fi
+
+
 finish

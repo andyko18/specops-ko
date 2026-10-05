@@ -229,8 +229,9 @@ if [ $FAIL -gt 0 ]; then
   echo "VERIFY: FAIL"
   exit 1
 fi
-# 지문이 NO_GIT 이면 기록하지 않는다 — 대조 불가한 값으로 skip 이 열리면 안 된다
-if [ "$_FSP_TREE" != "NO_GIT" ]; then
+# 지문이 NO_GIT 이거나 UNHASHABLE(읽을 수 없는 파일 — 20261005-fingerprint-add-failclosed)이면 기록하지 않는다 —
+# 대조 불가한 값으로 skip 이 열리면 안 된다
+if [ "$_FSP_TREE" != "NO_GIT" ] && [ "$_FSP_TREE" != "UNHASHABLE" ]; then
   mkdir -p "$(dirname "$_FSP_MARKER")" 2>/dev/null || true
   printf '%s\n' "$_FSP_TREE" > "$_FSP_MARKER" 2>/dev/null || true
 fi

@@ -59,6 +59,12 @@ tree=$(vs::workspace_fingerprint)
 # 비문서 지문을 함께 남긴다 — 문서 전용 변경이 receipt 를 무효화하지 않게 한다
 #   (20260912-verify-stale-docs-scope). 소비측은 이 필드가 없으면 종전 tree_hash 비교로 떨어진다.
 nondoc=$(vs::nondoc_fingerprint)
+# 읽을 수 없는 파일 등으로 지문을 믿을 수 없으면 receipt 를 만들지 않는다 — 만들면 이후 어떤 변경도 STALE 로 못 잡는다
+#   (20261005-fingerprint-add-failclosed). 확인: git add -A -n 으로 permission 오류를 찾아 권한을 고친다.
+if [ "$tree" = "UNHASHABLE" ] || [ "$nondoc" = "UNHASHABLE" ]; then
+  echo "record-task-receipt: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등으로 git add 가 실패했다. git add -A -n 으로 원인(permission 오류 등)을 찾아 고치세요" >&2
+  exit 1
+fi
 ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 mkdir -p "$SPECOPS/$FID/receipts" || exit 1

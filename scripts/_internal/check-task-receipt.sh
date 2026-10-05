@@ -54,11 +54,15 @@ done <<< "$staged"
 rec_nd=$(jq -r '.nondoc_hash // empty' "$receipt")
 if [ -n "$rec_nd" ] && [ "$rec_nd" != "NO_GIT" ]; then
   cur_nd=$(vs::nondoc_fingerprint)
+  [ "$rec_nd" != "UNHASHABLE" ] && [ "$cur_nd" != "UNHASHABLE" ] \
+    || { echo "check-task-receipt: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등" >&2; exit 1; }
   [ "$rec_nd" = "$cur_nd" ] \
     || { echo "check-task-receipt: tree stale" >&2; exit 1; }
 else
   rec_tree=$(jq -r '.tree_hash // empty' "$receipt")
   cur_tree=$(vs::workspace_fingerprint)
+  [ "$rec_tree" != "UNHASHABLE" ] && [ "$cur_tree" != "UNHASHABLE" ] \
+    || { echo "check-task-receipt: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등" >&2; exit 1; }
   [ -n "$rec_tree" ] && [ "$rec_tree" = "$cur_tree" ] \
     || { echo "check-task-receipt: tree stale" >&2; exit 1; }
 fi
