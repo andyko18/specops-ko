@@ -133,6 +133,31 @@ else
   fi
 fi
 
+# U24.l — 생성 4경로 `**입력 접근성**` 한 줄 (FID 20261005-screen-label-guidance AC-3)
+#   기존 `**DESIGN.md 준수**` 배선줄(U24.i·U24.k)은 건드리지 않고 별도 줄을 4경로에 같이 둔다 — 한 줄이 사라지거나 한 파일만 문구가 달라지면 FAIL.
+#   줄은 파일마다 정확히 1건이고 앞 공백을 뗀 전문이 specifying-ko 의 canonical 과 같으며, 핵심 토큰 6개를 모두 가진다.
+_ia_toks='for 속성| id |감싸|aria-label|fieldset|legend'
+_ia_ok() {  # <줄 전문> → 핵심 토큰 6개가 모두 있으면 0
+  local l="$1" t; local IFS='|'
+  for t in $_ia_toks; do case "$l" in *"$t"*) ;; *) return 1 ;; esac; done
+  return 0
+}
+_ia_line() { grep -F '**입력 접근성**' "$PLUGIN/$1" 2>/dev/null | sed 's/^[[:space:]]*//'; }
+_ia_n() { grep -cF '**입력 접근성**' "$PLUGIN/$1" 2>/dev/null || true; }
+_ia_canon=$(_ia_line skills/specifying-ko/SKILL.md)
+_ia_bad=""
+for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design-screens.md commands/start-all.md; do
+  if [ "$(_ia_n "$f")" != "1" ]; then _ia_bad="$_ia_bad $(basename "$f")(건수 $(_ia_n "$f"))"; continue; fi
+  _l=$(_ia_line "$f")
+  _ia_ok "$_l" || _ia_bad="$_ia_bad $(basename "$f")(토큰 누락)"
+  [ "$_l" = "$_ia_canon" ] || _ia_bad="$_ia_bad $(basename "$f")(canonical 불일치)"
+done
+if [ -z "$_ia_canon" ]; then nope "U24.l" "specifying-ko 에 **입력 접근성** 줄이 없다(canonical 부재)"
+elif [ -n "$_ia_bad" ]; then nope "U24.l" "canonical='${_ia_canon:0:30}…' 위반:$_ia_bad"
+else ok "U24.l 생성 4경로 **입력 접근성** 1줄 — 핵심 토큰 6개·전문 대칭 (AC-3)"; fi
+# U24.l.neg — 판정기가 공허하지 않다: 토큰 하나를 지우거나 문구가 달라진 줄은 거부한다
+if ! _ia_ok "$(printf '%s' "$_ia_canon" | sed 's/legend/lg/')" && ! _ia_ok "$(printf '%s' "$_ia_canon" | sed 's/aria-label/aria/')" && ! _ia_ok ""; then ok "U24.l.neg 토큰 하나라도 빠진 줄·빈 줄은 판정기가 거부한다"; else nope "U24.l.neg" "판정기가 결손 줄을 통과시킨다"; fi
+
 # start-all **Phase 2.5-A 구간 안**이 화면 템플릿을 참조하는가 (AC-2)
 #   전체 파일 grep 은 위치를 안 잠근다 — 참조를 파일 끝으로 옮겨도 통과했다(프로브 P3 실증 20260829).
 #   AC-2 는 "화면 산출물 생성 문맥 안"을 요구하므로 A~B 구간으로 잘라 본다.
