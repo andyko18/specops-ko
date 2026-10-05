@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-10-05
+
 ### 2.0.0 — 토큰·속도 고도화 라운드 (#76 ~ #104)
 
 > **버전 표기 안내**: 이 릴리즈에는 SemVer 상 비호환 변경이 없다(커맨드·skill·agent·hook 의 삭제·이름 변경 0건 — 전부 추가·내부 개선). 2.0.0 은 오픈소스 8종 갭 분석과 작업 이력에서 확정한 15과제 로드맵 완료를 표시하는 마일스톤 번호다. 이전 1.106.0 에서 업그레이드해도 호출 방식·산출물 경로는 그대로다.
@@ -2671,7 +2673,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v1.106.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/andyko18/specops-ko/compare/v1.106.0...v2.0.0
 [1.106.0]: https://github.com/andyko18/specops-ko/compare/v1.105.0...v1.106.0
 [1.105.0]: https://github.com/andyko18/specops-ko/compare/v1.104.0...v1.105.0
 [1.104.0]: https://github.com/andyko18/specops-ko/compare/v1.103.0...v1.104.0
