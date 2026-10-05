@@ -333,12 +333,16 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify BL
 
 ## 다음 skill
 
-모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후 즉시 호출:
+모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후:
+
+**[fast path — end-loaded 리뷰 완료 FID]** 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-skip-pass.sh <FID>` 를 실행한다. rc 0 (`review-skip-pass: OK`)이면 requesting·receiving-code-review-ko 를 **호출하지 않고** 곧바로 `Skill: specops-ko:security-review-ko` 를 호출한다 — 두 단계가 남기던 산출물(review-skip.md·session-progress 두 줄)을 스크립트가 이미 남겼다. rc 1 이면(per-task·§batch·리포트 누락·review-skip.md/review-request.md 기존재 등) 아래 기본 경로다. 판정이 애매하면 기본 경로다.
+
+기본 경로 — 즉시 호출:
 
 ```
 Skill: specops-ko:requesting-code-review-ko
 ```
 
-requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 아래 fix_loop 상한 초과 복구).
+requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 위 fast path 의 security-review-ko 직행, 아래 fix_loop 상한 초과 복구).
 
 fix_loop 상한(3회) 초과 시: `specops-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

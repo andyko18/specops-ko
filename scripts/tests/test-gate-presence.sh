@@ -217,5 +217,13 @@ if has skills/verifying-evidence-ko/SKILL.md '전체 스위트 신선도 확인'
 else
   nope "verifying-evidence-ko 신선도 확인 절차 소실" "생략 조건이 불명확해지거나 재실행 폴백이 사라진다"
 fi
+# ── 20261005 end-loaded 리뷰 완료 FID 의 기계적 단계 생략 (verifying-evidence-ko → review-skip-pass.sh) ──
+# 조건 충족 시 requesting·receiving-code-review-ko 를 호출하지 않고 security-review-ko 로 간다. 문구가 사라지면 두 skill 이 다시 매번 주입된다.
+if has skills/verifying-evidence-ko/SKILL.md 'review-skip-pass\.sh' 'rc 0 .*호출하지 않고.*Skill: specops-ko:security-review-ko' 'rc 1 이면.*아래 기본 경로다' '판정이 애매하면 기본 경로다'; then
+  ok "verifying-evidence-ko review-skip-pass fast path 존재 (rc 0 → security-review · rc 1 → 종전 · 애매하면 기본)"
+else
+  nope "verifying-evidence-ko review-skip-pass fast path 소실" "end-loaded FID 의 기계적 리뷰 단계 생략 문구 부재"
+fi
+
 
 finish
