@@ -143,4 +143,25 @@ grep -v '^- 입력 이름:' "$T" > "$TMP8/s.md"
 if ! _g8_screen "$TMP8/s.md"; then ok "T8.e 음성 — 지침 줄을 지운 screen.md 사본은 존재 단언이 FAIL(공허하지 않다)"; else nope "T8.e" "지침 줄을 지워도 단언이 통과"; fi
 rm -rf "$TMP8"
 
+# T8.f~h: DESIGN.md 2종의 입력 label 연결 지침 (FID 20261005-screen-label-guidance AC-2)
+D8="$PLUGIN/templates/DESIGN.md"; R8="$PLUGIN/DESIGN.md"
+TMP9=$(mktemp -d) || { nope "T8 mktemp2" "임시 디렉터리 생성 실패"; finish; exit 1; }
+_g8_input() { sed -n '/^### Input/,/^### Card/p' "$1" | grep -qE '^Label:.*for 속성.*id.*fieldset'; }
+_g8_form() { grep -E '^\| 폼 \|' "$1" | grep -q 'for 속성과 입력 id'; }
+_g8_guide() { sed -n '/^## 9\./,$p' "$1" | grep -qE '^- 입력마다 label 의 for 속성.*fieldset.*legend'; }
+_g8_root6() { sed -n '/^## 6\./,$p' "$1" | grep -qE '^- 입력마다 label 의 for 속성.*fieldset.*legend'; }
+_b8=""; _g8_input "$D8" || _b8="$_b8 [§4 Input]"; _g8_form "$D8" || _b8="$_b8 [§6.1 폼 행]"; _g8_guide "$D8" || _b8="$_b8 [§9]"
+[ -z "$_b8" ] && ok "T8.f templates/DESIGN.md — §4 Input · §6.1 폼 행 · §9 컴포넌트 생성 지침에 label 연결 규칙" || nope "T8.f" "누락:$_b8"
+_b8=""; _g8_input "$R8" || _b8="$_b8 [§4 Input]"; _g8_root6 "$R8" || _b8="$_b8 [§6]"
+[ -z "$_b8" ] && ok "T8.g 루트 DESIGN.md — §4 Input · §6 컴포넌트 생성 지침에 label 연결 규칙" || nope "T8.g" "누락:$_b8"
+grep -v '^Label:' "$D8" > "$TMP9/d.md"; grep -v '^- 입력마다 label 의 for 속성' "$R8" > "$TMP9/r.md"; sed 's/for 속성과 입력 id/for/' "$D8" > "$TMP9/f.md"
+if ! _g8_input "$TMP9/d.md" && ! _g8_root6 "$TMP9/r.md" && ! _g8_form "$TMP9/f.md"; then ok "T8.h 음성 — Input 줄·§6 줄·§6.1 폼 행 문구를 지운 사본은 각 단언이 FAIL(공허하지 않다)"; else nope "T8.h" "지침을 지워도 단언이 통과"; fi
+# T8.i — 지침의 선택지 규칙(선택지마다 자기 label, 그룹 이름은 fieldset 과 legend)이 계측기와 어긋나지 않는다(지침 주장 ↔ 계측 정합)
+printf '# X\n\n**원형**: 기타\n\n## States\n- Empty\n- Loading\n- Error\n' > "$TMP9/m.md"
+_m9() { printf '<main>%s</main>\n' "$1" > "$TMP9/e.html"; bash "$Q" "$TMP9/m.md" "$TMP9/e.html" 2>/dev/null | sed -n 1p | grep -o 'a11y-label=[^ ]*'; }
+_ok9=$(_m9 '<fieldset><legend>역할</legend><label for="r-a">관리자</label><input type="radio" name="r" id="r-a"><label for="r-b">작성자</label><input type="radio" name="r" id="r-b"></fieldset>')
+_lg9=$(_m9 '<fieldset><legend>역할</legend><input type="radio" name="r" id="r-a"><input type="radio" name="r" id="r-b"></fieldset>')
+if [ "$_ok9" = "a11y-label=2/2" ] && [ "$_lg9" = "a11y-label=0/2" ]; then ok "T8.i 선택지마다 label(for/id) 이면 2/2, legend 만 두면 0/2 — 지침의 선택지 규칙이 계측기와 일치"; else nope "T8.i" "선택지 label=$_ok9 · legend 만=$_lg9"; fi
+rm -rf "$TMP9"
+
 finish
