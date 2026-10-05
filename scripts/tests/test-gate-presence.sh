@@ -212,7 +212,7 @@ fi
 
 # ── 20261005 전체 스위트 신선도 확인 (verifying-evidence-ko) ──
 # FRESH 면 수동 전체 스위트 생략, 그 밖(STALE·부재·FAIL·판정 불가)은 포그라운드 재실행. 게이트 증거는 별개.
-if has skills/verifying-evidence-ko/SKILL.md '전체 스위트 신선도 확인' 'full-suite-fresh\.sh' '재실행을 생략' '완료줄' '생략 판정이 애매하면 \*\*재실행\*\*' '게이트 증거는 여전히'; then
+if has skills/verifying-evidence-ko/SKILL.md '전체 스위트 신선도 확인' 'full-suite-fresh\.sh' '재실행을 생략' '완료줄' '생략 판정이 애매하면 \*\*재실행\*\*' '게이트 증거는 여전히' 'PARTIAL·NOT_RUN 이면' '지문 한계'; then
   ok "verifying-evidence-ko 신선도 확인 절차 존재 (FRESH 생략·백그라운드 대기·애매하면 재실행·게이트 증거 별개)"
 else
   nope "verifying-evidence-ko 신선도 확인 절차 소실" "생략 조건이 불명확해지거나 재실행 폴백이 사라진다"

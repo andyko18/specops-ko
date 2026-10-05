@@ -176,7 +176,8 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - rc 0 (`full-suite FRESH (fp=...)`) → 직전 통과 이후 비문서 트리가 같다. 전체 스위트 **재실행을 생략**하고 그 1줄을 evidence.md 에 남긴다.
   - implementing-ko 가 띄운 백그라운드 `run-all.log` 가 아직 도는 중이면(`==== run-all:` 완료줄 없음) 종료 알림을 기다린 뒤 다시 조회한다.
   - rc 1(STALE)·헬퍼 부재(rc 127)·백그라운드 FAIL·판정 불가 → 종전대로 포그라운드 `run-all.sh` 를 재실행한다. 생략 판정이 애매하면 **재실행**한다.
-  - 생략 대상은 이 수동 전체 스위트뿐이다. 게이트 증거는 여전히 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다.
+  - 생략 대상은 이 수동 전체 스위트뿐이다. 게이트 증거는 여전히 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다 — 그것이 PARTIAL·NOT_RUN 이면 run-all 의 `VERIFY: PASS` 가 증거이므로 **생략하지 않는다**(포그라운드 재실행).
+  - 지문 한계: 읽을 수 없는 untracked 파일이 있으면 헬퍼가 STALE 로 처리한다. 그 밖에 지문을 의심할 사정이 있으면 재실행한다.
 - [ ] **수동 fallback** (`run-verification.sh` 미적용 시):
   - `npm test` / `pytest` / 해당 프로젝트의 테스트 명령 — exit 0
   - 린터 / 포매터 — exit 0
