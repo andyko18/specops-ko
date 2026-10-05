@@ -597,6 +597,10 @@ rm -rf "$bs_bad" "$bs_ok" "$bs_stale" "$bs_other"
 #   test1 은 안내대로 러너를 재실행하고도 같은 메시지로 또 막혀 BYPASS 로 갔다.
 out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T-msg ★ deny 메시지가 진행 기록 앵커 요건도 안내" 'session-progress' "$out"
+# ① 누락 deny 는 VERIFY: PARTIAL 의 뜻을 알려야 한다 — 구현 뒤 whitelist 미통과로 PARTIAL 이 되고도 원인을 몰라 훅·verification 소스를 읽는 턴 낭비가 실측됐다(FID 20261005-implement-bookkeeping)
+check "T-msg.b ★ ① 누락 deny 가 VERIFY: PARTIAL 은 실행 증거로 인정되지 않는다고 안내" 'VERIFY: PARTIAL' "$out"
+check "T-msg.c ★ ① 누락 deny 가 PARTIAL 의 원인(whitelist 미통과)을 안내" 'whitelist 미통과' "$out"
+check "T-msg.d ★ ① 누락 deny 가 고치는 방법(test_command 를 허용 형태로)을 안내" 'test_command 를 허용 형태' "$out"
 
 # ── T-bypass-log: 세션-env BYPASS friction-log 기록 (감사 상한 3호) ──
 bslog=$(mktemp -d); mkdir -p "$bslog/.specops"
@@ -1035,6 +1039,9 @@ _nocheck "T-cause.a ①충족 시 거짓 안내 미출력" '이 세션에 러너
 # ★ 금지문구 부재만으로는 부족하다 — stale 분기도 그 문구가 없다. 충족 표기를 **양성으로** 단언한다.
 check "T-cause.b ① 충족 표기 양성" '✔ ① 실행 증거' "$msg"
 check "T-cause.c ② 미충족 표기 양성" '✘ ② 진행 기록 앵커' "$msg"
+# ② 앵커 누락 deny 는 복구 명령 2개(러너 선행 · session-progress-append /verify PASS)를 항상 줘야 한다 — 두 번째 이후 거부에서 명령이 없어 모델이 훅 소스를 읽었다
+check "T-cause.c2 ② 앵커 누락 deny 가 복구 명령 session-progress-append /verify PASS 를 안내" 'scripts/session-progress-append.sh 20260910-y /verify PASS' "$msg"
+check "T-cause.c3 ② 앵커 누락 deny 가 앵커 기록 전 러너 PASS 확인을 안내" 'run-verification.sh 20260910-y' "$msg"
 
 # === AC-5: 창이 열렸으면 receipt 안내를 하고, 닫혔으면 하지 않는다 ===
 check "T-cause.d 창 열림(NOT_RUN) → receipt 안내" 'record-task-receipt.sh' "$msg"
