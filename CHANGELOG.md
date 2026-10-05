@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-10-06
+
 ### 게이트 마찰 사전 차단과 릴리즈 스탬프 정정 (#106 · #107)
 
 **배경**: 무인 실행 실측에서 implementing 단계 낭비의 실체는 장부 작업이 아니라 게이트 마찰이었다. 구현자가 whitelist 밖 `test_command` 를 정하면 `VERIFY: PARTIAL` 이 되고, R-1 이 커밋을 거부하는 동안 모델이 훅·검증 소스를 읽는 턴을 썼다(약 8턴·메인 약 10%). 호출 방식·산출물 경로·차단/허용 판정은 그대로다.
@@ -2710,7 +2712,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/andyko18/specops-ko/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/andyko18/specops-ko/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/andyko18/specops-ko/compare/v1.106.0...v2.0.0
 [1.106.0]: https://github.com/andyko18/specops-ko/compare/v1.105.0...v1.106.0
