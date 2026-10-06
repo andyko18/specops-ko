@@ -259,7 +259,7 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 
 ### 최초 B/C 쌍 병렬 (20261006-review-bc-parallel)
 
-B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약 8~9분이 더해졌다. end-loaded **최초** B·C 는 **한 메시지에서 동시 dispatch** 한다(재라운드·per-task 는 직렬 B→C). 두 프롬프트에 실 트리 변조 금지·임시 복사본 규칙을 반복하고, C 에는 B-report 경로 대신 `병렬 dispatch: yes (B 판정 대기)` 를 준다. 한쪽 dispatch 가 실패하면 실패한 쪽만 위 Evaluator 모델 불가 fallback 을 적용하고 다른 쪽을 기다린다. 병렬은 리뷰 축소가 아니므로 strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다.
+B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약 8~9분이 더해졌다. end-loaded **최초** B·C 는 **한 메시지에서 동시 dispatch** 한다(재라운드·per-task 는 직렬 B→C). 두 프롬프트에 실 트리 변조 금지·임시 복사본 규칙을 반복하고, C 에는 B-report 경로 대신 `병렬 dispatch: yes (B 판정 대기)` 를 준다. 한쪽 dispatch 가 실패하면 실패한 쪽만 위 Evaluator 모델 불가 fallback 을 적용하고 다른 쪽을 기다리며 사후 대조 규칙은 동일하다. 병렬은 리뷰 축소가 아니므로 strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다.
 
 **사후 대조(필수)** — 둘 다 끝나면 `reviews/<tid>-B-report.md` 판정을 읽어 tid 마다 dispatch-log 에 Phase 셀 `BC-PAR-CHECK:<tid>` 행(결과·B/C 리포트 경로)을 남긴다. 이 행이 없으면 `check-review-audit.sh` 가 `PENDING(병렬` C 리포트를 FAIL 한다.
 - B PASS → 결과 `B PASS`. C 판정을 채택한다.

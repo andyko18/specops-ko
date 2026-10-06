@@ -153,9 +153,9 @@ _has 'BC-PAR-CHECK:<tid>' && _has 'check-review-audit.sh' \
 _has 'B PASS' && _has 'C 폐기(B FAIL)' && _has 'B feedback·C 보고서 경로를 함께' \
   && { PASS=$((PASS+1)); echo "PASS T4.d B PASS 채택 / B FAIL 폐기·재dispatch 첨부"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.d 사후 대조 분기 문구 부재"; }
-_has '실패한 쪽만' && _has 'Evaluator 모델 불가 fallback' \
-  && { PASS=$((PASS+1)); echo "PASS T4.e 한쪽 dispatch 실패 → 그쪽만 fallback"; } \
-  || { FAIL=$((FAIL+1)); echo "FAIL T4.e 한쪽 실패 fallback 문구 부재"; }
+_has '실패한 쪽만' && _has 'Evaluator 모델 불가 fallback' && _has '사후 대조 규칙은 동일' \
+  && { PASS=$((PASS+1)); echo "PASS T4.e 한쪽 dispatch 실패 → 그쪽만 fallback·사후 대조 규칙 동일"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.e 한쪽 실패 fallback·사후 대조 규칙 동일 문구 부재"; }
 _has 'strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다' \
   && { PASS=$((PASS+1)); echo "PASS T4.h 병렬은 축소가 아니다 (strict B/C 축소 금지와 비충돌 명시)"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.h strict 비충돌 명시 부재"; }
