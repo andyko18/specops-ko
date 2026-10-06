@@ -1,1 +1,2 @@
 echo x
+stale
