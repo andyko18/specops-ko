@@ -90,4 +90,7 @@ else nope "T6.c SKIP 분기 부재"; fi
 if grep -qF 'AC 충족은 재평가하지 않는다' "$CR"; then ok "T6.d 병렬 모드에서도 AC 재평가 금지 유지"
 else nope "T6.d AC 재평가 금지 문구 부재"; fi
 
+if grep -qF '병렬 dispatch: yes (B 판정 대기)' "$IMP"; then ok "T6.e implementing-ko 병렬 표시 리터럴 — reviewer 와 동일"
+else nope "T6.e implementing-ko 병렬 표시 리터럴 부재"; fi
+
 finish

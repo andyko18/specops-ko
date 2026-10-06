@@ -165,5 +165,10 @@ if [ -z "$_sec" ] || printf '%s' "$_sec_neg" | grep -qF -- '한 메시지에서 
   FAIL=$((FAIL+1)); echo "FAIL T4.f 음성 대조 — 변이 후에도 통과"
 else PASS=$((PASS+1)); echo "PASS T4.f 음성 대조 — 변이하면 T4.a 문구가 사라진다"; fi
 
+_DOC="$PLUGIN/docs/lifecycle-start-end-loaded.md"
+grep -qF 'BC-PAR-CHECK:<tid>' "$_DOC" && grep -qF '재라운드는 직렬' "$_DOC" \
+  && { PASS=$((PASS+1)); echo "PASS T4.g lifecycle 문서 정합 (병렬 쌍·사후 대조·재라운드 직렬)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.g lifecycle 문서에 병렬 쌍 문구 부재"; }
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
