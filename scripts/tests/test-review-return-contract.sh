@@ -79,4 +79,21 @@ else nope "T5.b implementing-ko verdict 어휘 부재"; fi
 if grep -qF '속성을 생략하면 훅이 저장하지 않는다' "$IMP"; then ok "T5.c implementing-ko 축약 금지 경고"
 else nope "T5.c implementing-ko 축약 금지 경고 부재"; fi
 
+# ── T6 최초 B/C 병렬 dispatch 계약 (20261006-review-bc-parallel) ──
+CR="$PLUGIN/agents/code-reviewer-ko.md"
+if grep -qF '병렬 dispatch: yes (B 판정 대기)' "$CR"; then ok "T6.a code-reviewer 병렬 표시 리터럴"
+else nope "T6.a 병렬 표시 리터럴 부재"; fi
+if grep -qF 'PENDING(병렬 — 부모 사후 대조)' "$CR"; then ok "T6.b code-reviewer 병렬 헤더 리터럴"
+else nope "T6.b PENDING(병렬 헤더 부재"; fi
+if grep -qF '경로도 병렬 표시도 없으면 SKIP 반환' "$CR"; then ok "T6.c 자격 게이트 SKIP 유지 (경로·표시 둘 다 없으면)"
+else nope "T6.c SKIP 분기 부재"; fi
+if grep -qF 'AC 충족은 재평가하지 않는다' "$CR"; then ok "T6.d 병렬 모드에서도 AC 재평가 금지 유지"
+else nope "T6.d AC 재평가 금지 문구 부재"; fi
+
+if grep -qF '병렬 dispatch: yes (B 판정 대기)' "$IMP"; then ok "T6.e implementing-ko 병렬 표시 리터럴 — reviewer 와 동일"
+else nope "T6.e implementing-ko 병렬 표시 리터럴 부재"; fi
+
+if grep -qF '경로와 병렬 표시가 함께 오면 경로(B-report)를 우선' "$CR"; then ok "T6.f 경로·병렬 표시 동시 입력 시 경로 우선"
+else nope "T6.f 경로 우선 문장 부재"; fi
+
 finish

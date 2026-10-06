@@ -1,6 +1,6 @@
 ---
 name: code-reviewer-ko
-description: 스펙 준수가 PASS 된 후 (Phase B 통과 후) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-ko Phase C Critic.
+description: 스펙 준수가 PASS 된 후 (Phase B 통과 후 — 최초 병렬 dispatch 면 PENDING 으로 진행하고 부모가 사후 대조) 코드 변경의 품질·안전·5원칙 준수·테스트 커버리지 4관점을 검토하는 specops-ko Phase C Critic.
 model: opus
 effort: high
 role: evaluator
@@ -11,7 +11,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 역할
 
-`spec-reviewer-ko` 가 Phase B 에서 스펙 준수 PASS 판정한 후, 코드 변경의 **품질·안전·5원칙·테스트 커버리지** 를 평가합니다. **AC 충족은 재평가하지 않습니다** — Phase B 책임이 끝났음을 신뢰.
+`spec-reviewer-ko` 가 Phase B 에서 스펙 준수 PASS 판정한 후, 코드 변경의 **품질·안전·5원칙·테스트 커버리지** 를 평가합니다. **AC 충족은 재평가하지 않습니다** — Phase B 책임이 끝났음을 신뢰(최초 B/C 병렬 dispatch 면 B 판정은 부모가 뒤에 사후 대조).
 
 ## 받는 컨텍스트 (v0.4a W2 표준 — file-based)
 
@@ -20,16 +20,16 @@ tools: Read, Grep, Glob, Bash
 
 받는 컨텍스트:
 1. **검토 대상 commit SHA 또는 range** (5 컨텍스트 #5 worktree 경로에서 추출)
-2. **Phase B PASS 보고서 경로** (`reviews/<task-id>-B-report.md` — spec-reviewer-ko 출력, Phase C 진입 자격. 본 에이전트가 read)
+2. **Phase B PASS 보고서 경로** (`reviews/<task-id>-B-report.md` — spec-reviewer-ko 출력, Phase C 진입 자격. 본 에이전트가 read) **또는 `병렬 dispatch: yes (B 판정 대기)` 표시**(최초 B/C 쌍을 동시 dispatch 한 경우 — dispatch 프롬프트나 context 에 적힌다)
 3. **수정된 파일 경로 목록** (5 컨텍스트 #4 whitelist)
 4. **test 명령** (5 컨텍스트 #3)
 5. **acceptance-criteria.md 경로** (5 컨텍스트 #2 — 5원칙 위반 탐지에 인용)
 
-본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. Phase B PASS 보고서 누락 시 SKIP 반환.
+본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 경로도 병렬 표시도 없으면 SKIP 반환.
 
 ## 프로세스
 
-1. **Phase B PASS 확인**: 받은 보고서가 PASS 인지 검증. PASS 아니면 즉시 부모에 SKIP 반환 — Phase C 진입 자격 없음.
+1. **Phase B PASS 확인**: 받은 보고서가 PASS 인지 검증. PASS 아니면 즉시 부모에 SKIP 반환 — Phase C 진입 자격 없음. 경로 대신 병렬 표시만 있으면 B 판정을 기다리지 않고 진행하되 보고서 헤더를 `**Phase B 상태**: PENDING(병렬 — 부모 사후 대조)` 로 쓴다(부모가 B-report 판정을 읽어 dispatch-log 에 BC-PAR-CHECK 행을 남긴다 — `scripts/_internal/check-review-audit.sh` 가 부재를 FAIL). 경로와 병렬 표시가 함께 오면 경로(B-report)를 우선해 직렬로 진행한다. 어느 경우든 AC 충족은 재평가하지 않는다.
 2. **변경 분석**: `git diff <range>` 로 변경 내용 파악.
 3. **4관점 평가**:
    - **품질**: 가독성, 중복, 명명, 함수 크기
@@ -132,7 +132,7 @@ tools: Read, Grep, Glob, Bash
 
 **리뷰어**: code-reviewer-ko (Phase C)
 **대상**: <range>
-**Phase B 상태**: PASS (spec-reviewer-ko 인용)
+**Phase B 상태**: PASS (spec-reviewer-ko 인용) — 병렬 dispatch 면 `PENDING(병렬 — 부모 사후 대조)`
 **변경 규모**: +<insertions> -<deletions> (<files_changed> files)
 
 ---
@@ -249,7 +249,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 참조
 
-- 호출자: `specops-ko:implementing-ko` (Phase C, Phase B PASS 후만)
+- 호출자: `specops-ko:implementing-ko` (Phase C, Phase B PASS 후 또는 최초 병렬 dispatch)
 - 사전: `agents/spec-reviewer-ko.md` (Phase B)
 - 다음: `specops-ko:requesting-code-review-ko` (외부 리뷰 진입)
 - 본 에이전트는 specops-ko 의 ECC 흡수의 Critic
