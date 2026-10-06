@@ -383,4 +383,13 @@ out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
   || nope "T5.h" "ec=$ec out='$out'"
 rm -rf "$TMPDIR"
 
+# 본문 인용 오탐 방지: 직렬 C 리포트가 본문에서 PENDING(병렬 을 인용만 해도 병렬로 오인하지 않는다
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PASS (spec-reviewer-ko 인용)'
+echo '인용: PENDING(병렬 — 부모 사후 대조) 문구 설명' >> "$TMPDIR/.specops/F1/reviews/T1-C-report.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 0 ] && echo "$out" | grep -q "REVIEW-AUDIT: PASS" && ok "T5.i 직렬 C 리포트가 본문에서 PENDING(병렬 을 인용만 해도 병렬로 오인하지 않는다" \
+  || nope "T5.i" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
 finish

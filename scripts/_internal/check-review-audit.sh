@@ -118,11 +118,12 @@ fi
 #   (20260716 관찰 B)이 재발한다. 훅은 판정과 무관하게 -C-report.md 를 항상 저장하므로 report 만 본다.
 #   행의 결론은 B 판정 산출물과 맞아야 한다 — 훅은 통과가 아닐 때만 -B-feedback.md 를 저장하므로 B-feedback 이 있는데 `폐기` 표기가
 #   없거나, 없는데 `B PASS` 표기가 없으면 자기보고가 B 판정과 모순이다(B FAIL 을 B PASS 로 적는 위장 차단).
+#   병렬 판정은 보고서 헤더 줄(`**Phase B 상태**: PENDING(병렬`) 앵커 — 본문 인용은 무시한다.
 #   한계: 병렬 여부를 C 리포트의 PENDING 헤더로 판정하므로 헤더를 생략하면 이 검사는 건너뛴다(자기보고 — 5원칙 5).
 unchecked=""; contradict=""
 for f in "$REVIEWS"/*-C-report.md; do
   [ -f "$f" ] || continue
-  grep -Fq 'PENDING(병렬' "$f" || continue
+  grep -Eq '^\*\*Phase B 상태\*\*:[[:space:]]*PENDING\(병렬' "$f" || continue
   base=$(basename "$f"); tid="${base%-C-report.md}"
   [ -n "$tid" ] || continue
   row=$(grep -E "^[[:space:]]*\|[^|]*\|[^|]*\|[[:space:]]*BC-PAR-CHECK:${tid}[[:space:]]*\|" "$LOG" | tail -1)
