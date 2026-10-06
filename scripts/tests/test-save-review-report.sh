@@ -424,4 +424,27 @@ if _silent && [ "$(grep -c '\.tmp\.' "$LOG")" -eq 1 ] && [ "$(grep -c '\.bak\.' 
   ok "T3.o AC-3 백업 실패 → rc=0 · 공백 · .tmp. 성공 후 .bak. 실패 · 기존 파일 보존 · 잔존 0"
 else nope "T3.o AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] $(ls -A "$R" | tr '\n' ' ')"; fi
 
+# ── T6 두 SubagentStop 동시 종료 (20261006-review-bc-parallel) — 최초 B/C 병렬 dispatch ──
+#   B·C 가 같은 FID 에서 동시에 끝나도 두 report 가 모두 저장되고 서로의 파일·백업을 건드리지 않는다.
+_reset
+_msgB="$(_block T1 B PASS '# B 통과')"
+_msgC="$(_block T1 C READY_TO_MERGE '# C 통과')"
+_jb=$(jq -n --arg cwd "$TD" --arg m "$_msgB" '{hook_event_name:"SubagentStop",agent_type:"specops-ko:spec-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+_jc=$(jq -n --arg cwd "$TD" --arg m "$_msgC" '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+_rb=$(mktemp); _rc=$(mktemp)
+for _i in 1 2 3 4 5; do
+  _reset
+  (printf '%s' "$_jb" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" >/dev/null 2>"$_rb"; echo $? > "$_rb.rc") &
+  (printf '%s' "$_jc" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" >/dev/null 2>"$_rc"; echo $? > "$_rc.rc") &
+  wait
+  if ! { [ -f "$R/T1-B-report.md" ] && [ -f "$R/T1-C-report.md" ] && [ -z "$(_leftover)" ] \
+         && grep -qF '# B 통과' "$R/T1-B-report.md" && grep -qF '# C 통과' "$R/T1-C-report.md" \
+         && [ "$(cat "$_rb.rc")" -eq 2 ] && [ "$(cat "$_rc.rc")" -eq 2 ]; }; then
+    _bad="round=$_i rb=$(cat "$_rb.rc") rc=$(cat "$_rc.rc") files=$(ls -A "$R" | tr '\n' ' ')"; break
+  fi
+done
+rm -f "$_rb" "$_rc" "$_rb.rc" "$_rc.rc"
+if [ -z "${_bad:-}" ]; then ok "T6.a B·C 동시 종료 5회 — 두 report 모두 저장·교차 오염 0·백업 잔존 0 (rc 2/2)"
+else nope "T6.a 동시 종료" "$_bad"; fi
+
 finish
