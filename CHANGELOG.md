@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### FID 스코프 기계 강제 — `check-fid-size.sh` (emit-context 게이트)
+
+**행동 변경**: `decomposing-ko` 의 FID 크기 규약(7개 이상 분할 계획행 의무 · 10개 이상 차단)이 산문뿐이라 모델이 어겨도 통과하던 것을 `emit-context.sh` 의 구현 전 게이트로 승격했다(`check-task-ids.sh` 와 같은 자리·같은 fail-fast, 디스크 작성 0).
+
+- `scripts/_internal/check-fid-size.sh` 신설 — 태스크 수 n: ≤6 PASS · ≥7 은 tasks.md 줄 선두 `**분할 계획**: <내용>` 행이 없으면 FAIL · 7~9 + 계획행은 `FID-SIZE` 경고 후 통과 · ≥10 은 대화형에서 계획행이 있어도 FAIL(FID 분할 후 재진입) · ≥10 이라도 spec.md 줄 선두 `§auto: true`·`§batch`·`§유형: foundation`(분할할 채널 없음) + 계획행이면 경고 후 통과
+- 도입 cutoff `20261007`(이전 FID·비날짜 fixture·YAML 부재/파싱 불가는 SKIP — 소급 차단 금지), env 면제 경로 없음(`.specops` 경로 고정), 예외 라벨은 줄 선두 표기만 인정(줄 중간 언급 오탐 방지)
+- `templates/tasks.md`·`decomposing-ko` 에 계획행 표기와 판정기 안내를 적고, `implementing-ko` 최소 구현 rung 의 절감 제외 목록에 "AC 매핑 테스트"를 더했다
+- 잠금: `test-emit-context.sh` T6.a~j(판정기 단독 10종)·T7.a~c(emit 통합) · `test-gate-presence.sh`(배선·문서) · `propagation-matrix.jsonl` `fid-size-gate`(문서↔배선↔판정기). 스위트 수 불변(184)
+
+⚠️ **한계 (정직 고백)**
+- 게이트는 **tasks.md 의 태스크 수**만 본다 — 모델이 일부러 태스크를 합쳐 수를 줄이는 것(자기보고)은 못 잡는다. 계획행 내용의 질도 검사하지 않는다(비어 있지 않고 placeholder·코드펜스가 아닌 줄만 본다).
+- **예외 라벨은 자기발급 가능하다** — `§auto`·`§batch`·`foundation` 은 모델이 쓰는 spec.md 의 줄 선두 표기라, 대화형 FID 가 그 줄을 넣으면 10+ 태스크도 경고만으로 통과한다(분할 계획행은 여전히 필요). 외부 앵커(batch-state 등)와의 교차 확인은 이번 범위 밖이며, 종전(게이트 없음)보다 나빠지지는 않는다.
+- FID 이름이 앞 8자리 숫자로 시작하지 않으면(비날짜 fixture 취급) SKIP 된다. 같은 구조적 한계가 `check-task-ids.sh` 에도 있다.
+- 리뷰에서 `check-task-ids.sh`·`parse-dag.sh` 의 `python3 -E -` 가 cwd 의 `yaml.py` 를 가려내지 못한다는 점도 확인됐다(이 게이트는 import 전에 `sys.path` 에서 cwd 를 빼 막았다). 두 기존 스크립트의 정리는 **별건**으로 남긴다.
+- 이 경로는 `emit-context.sh` 를 거치는 정상 chain 에서만 작동한다. 직접 implementing 진입은 기존 R-1·dispatch 게이트가 막는 범위에 의존한다.
+- `specops_version` 스탬프(decomposing·implementing·templates)는 **릴리즈 시점에 일괄 상향**한다(#111 교훈 — 태그 이후 본문이 바뀐 스킬은 다음 릴리즈에서 정정).
+
 ## [2.3.0] — 2026-10-06
 
 ### 개발 속도: end-loaded Phase B/C 투기 병렬 dispatch (#108) · run-all 직렬 구간 해소 (#109)

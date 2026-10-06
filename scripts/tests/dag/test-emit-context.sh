@@ -462,5 +462,124 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T5.f 안내 줄 누락/중복: $gerr"
 fi
 
+# ── 20261007-fid-size-gate — check-fid-size.sh (FID 스코프 게이트) ──
+FSZ="$PLUGIN/scripts/_internal/check-fid-size.sh"
+# mk_fs_fixture TMPDIR FID N PLAN(y|n) [SPEC본문] — N 태스크 tasks.md(+선택 분할 계획행)·spec.md 만 있는 최소 FID
+mk_fs_fixture() {
+  local d="$1" fid="$2" n="$3" plan="$4" spec="${5:-# spec}" i
+  mkdir -p "$d/.specops/$fid"
+  { echo '```yaml'; echo 'tasks:'
+    for i in $(seq 1 "$n"); do echo "  - id: T$i"; echo '    depends_on: []'; echo '    ac: [AC-1]'; done
+    echo '```'
+    [ "$plan" = y ] && printf '\n**분할 계획**: T1~T6 이번 FID, 나머지는 후속 FID 후보\n'; } > "$d/.specops/$fid/tasks.md"
+  printf '%s\n' "$spec" > "$d/.specops/$fid/spec.md"
+}
+# fs_run TMPDIR FID — 판정기 단독 실행. out·rc 를 전역에 남긴다
+fs_run() { out=$(cd "$1" && bash "$FSZ" "$2" 2>&1); rc=$?; }
+
+tmp=$(mktemp -d)
+# T6.a 6 태스크 → PASS (경계: 권장 상한)
+mk_fs_fixture "$tmp" 20261007-fs6 6 n; fs_run "$tmp" 20261007-fs6
+_pf "T6.a 6 태스크 → PASS rc=0" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: PASS (6 tasks)' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.b 7 태스크·계획행 없음 → FAIL (경계: 7 부터 의무) + 계획행 형식 안내
+mk_fs_fixture "$tmp" 20261007-fs7n 7 n; fs_run "$tmp" 20261007-fs7n
+_pf "T6.b 7 태스크 계획행 없음 → FAIL rc=1·형식 안내" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL' && printf '%s' "$out" | grep -q '\*\*분할 계획\*\*' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.c 7 태스크·계획행 있음 → WARN 통과 + 정확한 경고 줄
+mk_fs_fixture "$tmp" 20261007-fs7y 7 y; fs_run "$tmp" 20261007-fs7y
+_pf "T6.c 7 태스크 계획행 있음 → WARN rc=0·경고 줄" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && printf '%s\n' "$out" | grep -qxF '⚠️ FID-SIZE: 7 태스크 (권장 ≤6) — 다중 세션에 걸칠 수 있음. 중간 이탈 시 재개는 /status (reconcile) 로.' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.d 9 태스크·계획행 있음 → 통과(경계: 10 미만), 10 태스크·대화형 → 계획행이 있어도 FAIL
+mk_fs_fixture "$tmp" 20261007-fs9y 9 y; fs_run "$tmp" 20261007-fs9y; r9=$rc
+mk_fs_fixture "$tmp" 20261007-fs10y 10 y; fs_run "$tmp" 20261007-fs10y
+_pf "T6.d 9 태스크 통과 · 10 태스크 대화형은 계획행이 있어도 FAIL" "$([ "$r9" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '≥10' && echo ok || echo no)" "r9=$r9 rc=$rc out=$out"
+# T6.e 10 태스크 + 줄 선두 §auto·§batch·foundation + 계획행 → WARN 통과 (분할할 채널이 없다)
+oke=ok
+for lab in '**§auto**: true' '**§batch**: batch-20261007' '**§유형**: foundation'; do
+  mk_fs_fixture "$tmp" 20261007-fs10x 10 y "# spec
+$lab"; fs_run "$tmp" 20261007-fs10x
+  { [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && printf '%s' "$out" | grep -q '⚠️ FID-SIZE: 10 태스크'; } || { oke=no; echo "  (예외 미작동: $lab rc=$rc out=$out)"; }
+done
+_pf "T6.e 10 태스크 + 예외 라벨 3종 + 계획행 → WARN 통과" "$oke"
+# T6.f 예외 라벨이어도 10 태스크에 계획행이 없으면 FAIL (예외는 계획행 의무를 면하지 않는다)
+mk_fs_fixture "$tmp" 20261007-fs10xn 10 n '**§auto**: true'; fs_run "$tmp" 20261007-fs10xn
+_pf "T6.f 10 태스크 §auto 계획행 없음 → FAIL" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.g 줄 중간 §auto 언급·§auto: false 는 예외가 아니다 (오탐 방지)
+okg=ok
+for sp in '참고: **§auto**: true 모드는 자동통과한다' '**§auto**: false'; do
+  mk_fs_fixture "$tmp" 20261007-fs10m 10 y "$sp"; fs_run "$tmp" 20261007-fs10m
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL'; } || { okg=no; echo "  (오탐: $sp rc=$rc out=$out)"; }
+done
+_pf "T6.g 줄 중간 §auto·§auto: false → 예외 아님(FAIL)" "$okg"
+# T6.h 계획행 내용이 비면 없는 것으로 본다 · 줄 중간 `**분할 계획**:` 도 인정하지 않는다
+mk_fs_fixture "$tmp" 20261007-fs7e 7 n; printf '\n**분할 계획**:\n' >> "$tmp/.specops/20261007-fs7e/tasks.md"; fs_run "$tmp" 20261007-fs7e; re=$rc
+mk_fs_fixture "$tmp" 20261007-fs7m 7 n; printf '\n설명: **분할 계획**: T1 만\n' >> "$tmp/.specops/20261007-fs7m/tasks.md"; fs_run "$tmp" 20261007-fs7m
+_pf "T6.h 빈 계획행·줄 중간 계획행 → FAIL" "$([ "$re" -eq 1 ] && [ "$rc" -eq 1 ] && echo ok || echo no)" "re=$re rc=$rc"
+# T6.i 레거시(cutoff 미만)·비날짜 FID·YAML 부재/파싱 불가 → SKIP rc=0, 막지 않는다
+mk_fs_fixture "$tmp" 20260902-fsold 12 n; fs_run "$tmp" 20260902-fsold; o1=$out; r1=$rc
+mk_fs_fixture "$tmp" fs-fixture 12 n; fs_run "$tmp" fs-fixture; o2=$out; r2=$rc
+mkdir -p "$tmp/.specops/20261007-fsbroken"; printf '```yaml\ntasks:\n  - id: "T1\n    depends_on: []\n```\n' > "$tmp/.specops/20261007-fsbroken/tasks.md"; fs_run "$tmp" 20261007-fsbroken; o3=$out; r3=$rc
+_pf "T6.i 레거시·비날짜·깨진 YAML → SKIP rc=0" "$([ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && [ "$r3" -eq 0 ] && printf '%s\n%s\n%s\n' "$o1" "$o2" "$o3" | grep -c 'FID-SIZE: SKIP' | grep -q '^3$' && echo ok || echo no)" "o1=$o1 o2=$o2 o3=$o3"
+# T6.j 어떤 env 로도 신규 FID 의 거부가 풀리지 않는다 (check-task-ids T1.t5 와 같은 계약)
+okj=ok
+for e in "SPECOPS_FID_SIZE_CUTOFF=20300101" "SPECOPS_ROOT=/nonexistent" "SPECOPS_ROOT=" "SPECOPS_GOVERNANCE_BYPASS=1"; do
+  out=$(cd "$tmp" && env "$e" bash "$FSZ" 20261007-fs7n 2>&1); rc=$?
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL'; } || { okj=no; echo "  (풀림: $e rc=$rc out=$out)"; }
+done
+_pf "T6.j env 우회 4종 프로브 → FAIL 유지" "$okj"
+rm -rf "$tmp"
+
+# ── 리뷰 지적 반영 프로브 (T6.k~q) ──
+tmp=$(mktemp -d)
+# T6.k 스칼라 리스트 tasks(- T1 …)도 항목 수로 센다 — dict 필터로 0 태스크 PASS 가 되지 않는다
+mkdir -p "$tmp/.specops/20261007-fsscalar"
+{ echo '```yaml'; echo 'tasks:'; for i in $(seq 1 11); do echo "  - T$i"; done; echo '```'; } > "$tmp/.specops/20261007-fsscalar/tasks.md"; printf '# spec\n' > "$tmp/.specops/20261007-fsscalar/spec.md"
+fs_run "$tmp" 20261007-fsscalar
+_pf "T6.k 스칼라 리스트 11 항목 → FAIL(0 tasks PASS 아님)" "$([ "$rc" -eq 1 ] && ! printf '%s' "$out" | grep -q '0 tasks' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.l cwd 의 yaml.py 가짜 모듈로 판정기를 속이지 못한다 (python3 -I — -E 는 sys.path[0]='' 라 cwd 를 못 막는다)
+mk_fs_fixture "$tmp" 20261007-fsshadow 12 n
+printf 'def safe_load(s):\n    return {"tasks": []}\n' > "$tmp/yaml.py"
+fs_run "$tmp" 20261007-fsshadow; rm -f "$tmp/yaml.py"
+_pf "T6.l cwd yaml.py 가짜 주입에도 FAIL 유지" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL' && echo ok || echo no)" "rc=$rc out=$out"
+# T6.m placeholder 원문·코드펜스 안 계획행은 계획행이 아니다
+mk_fs_fixture "$tmp" 20261007-fsph 7 n; printf '\n**분할 계획**: <이번 FID 범위·후속 FID 후보>\n' >> "$tmp/.specops/20261007-fsph/tasks.md"; fs_run "$tmp" 20261007-fsph; rp=$rc
+mk_fs_fixture "$tmp" 20261007-fsfence 7 n; printf '\n```\n**분할 계획**: T1~T6 이번 FID\n```\n' >> "$tmp/.specops/20261007-fsfence/tasks.md"; fs_run "$tmp" 20261007-fsfence
+_pf "T6.m placeholder·펜스 안 계획행 → FAIL" "$([ "$rp" -eq 1 ] && [ "$rc" -eq 1 ] && echo ok || echo no)" "rp=$rp rc=$rc"
+# T6.n 하이픈 없는 FID 도 날짜 FID 로 본다 / cutoff 직전(20261006)은 SKIP·20261007 은 적용
+mk_fs_fixture "$tmp" 20261007_big 7 n; fs_run "$tmp" 20261007_big; rh=$rc; oh=$out
+mk_fs_fixture "$tmp" 20261007x 7 n; fs_run "$tmp" 20261007x; rx=$rc
+mk_fs_fixture "$tmp" 20261006-fsedge 12 n; fs_run "$tmp" 20261006-fsedge; re6=$rc; o6=$out
+mk_fs_fixture "$tmp" 20261007 7 n; fs_run "$tmp" 20261007; r7=$rc
+_pf "T6.n 하이픈 없는 FID 적용·20261006 SKIP·20261007 적용" "$([ "$rh" -eq 1 ] && [ "$rx" -eq 1 ] && [ "$r7" -eq 1 ] && [ "$re6" -eq 0 ] && printf '%s' "$o6" | grep -q 'SKIP' && echo ok || echo no)" "rh=$rh rx=$rx r7=$r7 re6=$re6 o6=$o6"
+# T6.o 예외 라벨은 각각 단독으로도 계획행 의무를 면하지 않는다 · trueish·빈 §batch 값은 예외가 아니다
+oko=ok
+for lab in '**§batch**: batch-20261007' '**§유형**: foundation' '**§auto**: true'; do
+  mk_fs_fixture "$tmp" 20261007-fs10lab 10 n "$lab"; fs_run "$tmp" 20261007-fs10lab
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL'; } || { oko=no; echo "  (계획행 없이 통과: $lab rc=$rc)"; }
+done
+for lab in '**§auto**: trueish' '**§batch**:'; do
+  mk_fs_fixture "$tmp" 20261007-fs10lax 10 y "$lab"; fs_run "$tmp" 20261007-fs10lax
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL'; } || { oko=no; echo "  (느슨한 라벨이 예외로 통과: $lab rc=$rc)"; }
+done
+_pf "T6.o 예외 라벨 단독 계획행 의무 · trueish·빈 §batch 는 예외 아님" "$oko"
+# T6.p CRLF tasks.md 도 계획행·태스크 수를 정상 판정한다 (회귀 잠금)
+mk_fs_fixture "$tmp" 20261007-fscrlf 7 y; sed -i.bak $'s/$/\r/' "$tmp/.specops/20261007-fscrlf/tasks.md"; rm -f "$tmp/.specops/20261007-fscrlf/tasks.md.bak"
+fs_run "$tmp" 20261007-fscrlf
+_pf "T6.p CRLF tasks.md 7 태스크+계획행 → WARN" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# ── emit-context 통합 (20261007-fid-size-gate) — 라벨 T7.* ──
+# T7.a 7 태스크·계획행 없음 → emit exit 1·FID-SIZE: FAIL·intent 낙하 없음·dispatch 0 (게이트가 자기가 exit 한다는 증거)
+tmp=$(mktemp -d); mk_fs_fixture "$tmp" 20261007-fs7n 7 n; _ok_spec_ac "$tmp" 20261007-fs7n
+err=$(cd "$tmp" && bash "$EMIT" 20261007-fs7n 2>&1 >/dev/null); rc=$?
+_pf "T7.a 7 태스크 계획행 없음 → emit exit 1·FID-SIZE: FAIL·intent 낙하 없음·dispatch 0" "$([ "$rc" -eq 1 ] && printf '%s' "$err" | grep -q '^FID-SIZE: FAIL' && printf '%s' "$err" | grep -q 'FID 스코프 초과' && ! printf '%s' "$err" | grep -q 'intent\.md' && [ ! -d "$tmp/.specops/20261007-fs7n/dispatch" ] && echo ok || echo no)" "rc=$rc err=$(printf '%s' "$err" | head -3)"
+# T7.b 7 태스크·계획행 있음 → 경고가 stderr 로 중계된다(이후 다른 게이트가 막아도 경고는 이미 나갔다)
+mk_fs_fixture "$tmp" 20261007-fs7y 7 y; _ok_spec_ac "$tmp" 20261007-fs7y
+err=$(cd "$tmp" && bash "$EMIT" 20261007-fs7y 2>&1 >/dev/null)
+_pf "T7.b 7 태스크 계획행 있음 → emit 이 FID-SIZE 경고를 stderr 로 중계" "$(printf '%s\n' "$err" | grep -qxF '⚠️ FID-SIZE: 7 태스크 (권장 ≤6) — 다중 세션에 걸칠 수 있음. 중간 이탈 시 재개는 /status (reconcile) 로.' && ! printf '%s' "$err" | grep -q '^FID-SIZE: FAIL' && echo ok || echo no)" "err=$(printf '%s' "$err" | head -3)"
+# T7.c 레거시 FID 는 영향 없음 — ok-fid(2 태스크)는 새 게이트로 회귀하지 않는다
+tmp2=$(mktemp -d); mkdir -p "$tmp2/.specops/20260902-fsleg"; cp "$FIXTURES/ok-fid"/*.md "$tmp2/.specops/20260902-fsleg/"
+out=$(cd "$tmp2" && bash "$EMIT" 20260902-fsleg 2>&1); rc=$?
+_pf "T7.c 레거시 2 태스크 FID → EMIT 정상(게이트 회귀 없음)" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp" "$tmp2"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
