@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# run-all: serial — GH-ci.5·5b 가 워치독 1s 타임아웃을 < 3s(초 단위)로 잰다(CPU 경합 시 초과)
 # 2단 git hook 게이트 — pre-commit(빠른 정합 ~5s) / pre-push(run-all 전체 — 병렬 ~7분, 머신 부하가 값을 흔든다. 동일 트리면 마커 skip)
 # 계기: 44cd095 revert 가 run-all 없이 나가 main 이 하루 red.
 #       Claude Code PreToolUse 훅은 Cursor 등 다른 도구의 커밋에 발화하지 않는다 —
@@ -154,7 +153,7 @@ grep -q 'install-git-hooks' "$PLUGIN/CLAUDE.md" && grep -q 'install-git-hooks' "
 #    실행되는 pre-push 경로는 면제 4종뿐이고, 배선 검사는 소스 grep 이다.
 # ─────────────────────────────────────────────────────────────
 CI_SH="$PLUGIN/scripts/_internal/check-ci-status.sh"
-CI_RCS=""   # GH-ci.6 이 집계할 전 경로 종료코드
+CI_RCS=""   # GH-ci.6 이 집계할 전 경로 종료코드(.5·.5b 는 test-timing-serial.sh 가 자체 확인)
 
 # gh stub 디렉터리 생성 — $1=stub 본문 → stdout=디렉터리 경로
 _ci_stub() {
@@ -213,43 +212,8 @@ else
   nope "GH-ci.4b" "check-ci-status.sh 부재"
 fi
 
-# GH-ci.5: 응답 없는 gh + SPECOPS_CI_CHECK_TIMEOUT=1 → 즉시 exit 0 (AC-5)
-#   stub 은 exec 없는 평범한 sleep 이다 — 고아 자식이 명령치환 파이프를 무는
-#   실제 실패 형태를 재현하기 위함(실측: pkill -P 미적용 시 30.02s).
-#   상한은 < 3s — AC-5 는 "약 1초 안에"이고 실측 워치독은 1.05s 다. < 5s 는 계약보다 느슨하다.
-if [ -f "$CI_SH" ]; then
-  D=$(_ci_stub '#!/usr/bin/env bash
-sleep 30')
-  _s=$(date +%s)
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" SPECOPS_CI_CHECK_TIMEOUT=1 bash "$CI_SH" 2>&1); rc=$?
-  _e=$(date +%s); _d=$((_e - _s))
-  CI_RCS="$CI_RCS $rc"
-  [ "$rc" -eq 0 ] && [ -z "$out" ] && [ "$_d" -lt 3 ] \
-    && ok "GH-ci.5 타임아웃 상한 (${_d}s < 3s, 무출력 exit 0)" \
-    || nope "GH-ci.5" "rc=$rc 소요=${_d}s out=[$out]"
-  rm -rf "$D"
-else
-  nope "GH-ci.5" "check-ci-status.sh 부재"
-fi
+# GH-ci.5·GH-ci.5b(워치독 1s 타임아웃 < 3s)는 시간 임계 단언이라 test-timing-serial.sh 로 이동했다(직렬 — 큰 스위트째 직렬로 묶지 않으려고).
 
-# GH-ci.5b: **depth-2 손자**가 파이프를 물어도 타임아웃이 걸린다 (AC-5 — Phase C 적발)
-#   `pkill -P "$pid"` 는 직계 자식만 죽인다. gh 가 손자를 띄우면 타임아웃이 통째로
-#   무력화되고, hang 지점이 pre-push 의 "run-all 실행 중" 안내 **앞**이라 push 가
-#   무출력 동결된다. 프로세스 그룹 kill(`set -m` + `kill -- -$pid`)이 이걸 막는다.
-if [ -f "$CI_SH" ]; then
-  D=$(_ci_stub '#!/usr/bin/env bash
-bash -c "sleep 30; :"')
-  _s=$(date +%s)
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" SPECOPS_CI_CHECK_TIMEOUT=1 bash "$CI_SH" 2>&1); rc=$?
-  _e=$(date +%s); _d=$((_e - _s))
-  CI_RCS="$CI_RCS $rc"
-  [ "$rc" -eq 0 ] && [ -z "$out" ] && [ "$_d" -lt 3 ] \
-    && ok "GH-ci.5b depth-2 손자 타임아웃 (${_d}s < 3s)" \
-    || nope "GH-ci.5b" "rc=$rc 소요=${_d}s out=[$out]"
-  rm -rf "$D"
-else
-  nope "GH-ci.5b" "check-ci-status.sh 부재"
-fi
 
 # GH-ci.1: CI 실패 → 결론·SHA·URL 을 담은 경고 (AC-1)
 if [ -f "$CI_SH" ]; then
@@ -310,7 +274,7 @@ else
 fi
 
 # GH-ci.6: 전 경로 종료코드가 예외 없이 0 (AC-6)
-#   위 8개 시나리오(.3 .4 .4b .5 .5b .1 .2 .1b)가 CI_RCS 에 rc 를 적재해 뒀다. 0 아닌 값이 하나라도 있으면 FAIL.
+#   위 6개 시나리오(.3 .4 .4b .1 .2 .1b)가 CI_RCS 에 rc 를 적재해 뒀다(.5·.5b 는 test-timing-serial.sh 로 이동). 0 아닌 값이 하나라도 있으면 FAIL.
 if [ -n "$CI_RCS" ]; then
   _bad=0
   for _rc in $CI_RCS; do [ "$_rc" -eq 0 ] || _bad=1; done

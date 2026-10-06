@@ -154,6 +154,21 @@ for suite in "${SUITES[@]}"; do
   fi
   i=$((i + 1))
 done
+# longest-first — scripts/tests/suite-order.txt(긴 순 목록)가 있으면 병렬 풀의 **시작 순서**만 앞당긴다(20261006-runall-serial-split).
+#   JOBS=1 은 되돌림 스위치라 목록을 보지 않는다. 주석·빈 줄·목록에 없는 경로·직렬 스위트·중복은 무시한다.
+#   집계는 원래 순서(인덱스)로 하므로 출력·종료코드는 불변이다. 어떤 이유로든 결과 줄 수가 par 와 다르면 종전 순서를 쓴다
+#   (스위트가 통째로 빠진 green 방지).
+if [ "$JOBS" -gt 1 ] && [ -s "$RA_WORK/par" ] && [ -s "$PLUGIN/scripts/tests/suite-order.txt" ]; then
+  awk 'FNR == 1 { f++ }
+    f == 1 { nm[$0] = FNR - 1; next }
+    f == 2 { inpar[$1] = 1; seq[++n] = $1; next }
+    { sub(/^[ \t]+/, ""); sub(/[ \t\r]+$/, ""); if ($0 == "" || substr($0, 1, 1) == "#") next
+      if (($0 in nm) && (nm[$0] in inpar) && !(nm[$0] in done)) { print nm[$0]; done[nm[$0]] = 1 } }
+    END { for (k = 1; k <= n; k++) if (!(seq[k] in done)) print seq[k] }' \
+    "$RA_WORK/list" "$RA_WORK/par" "$PLUGIN/scripts/tests/suite-order.txt" > "$RA_WORK/par.ordered" 2>/dev/null \
+    && [ "$(wc -l < "$RA_WORK/par.ordered" | tr -d ' ')" = "$(wc -l < "$RA_WORK/par" | tr -d ' ')" ] \
+    && mv "$RA_WORK/par.ordered" "$RA_WORK/par"
+fi
 _n_ser=$(wc -l < "$RA_WORK/ser" | tr -d ' ')
 printf '▶ run-all: 병렬 %s · 직렬 %s 스위트\n' "$JOBS" "$_n_ser" >&2
 

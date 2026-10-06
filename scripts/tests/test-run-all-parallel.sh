@@ -200,18 +200,26 @@ _vblk=$(grep '^FAIL ' "$ROOT/t6.v.out" | tr '\n' '|'); _qblk=$(grep '^FAIL ' "$R
   && ok "T6.b 비quiet FAIL 줄은 진행 줄 뒤·원래 순서로 모이고 quiet 와 같다" \
   || nope "T6.b" "last_prog=$_last_prog first_fail=$_first_fail v=[$_vblk] q=[$_qblk]"
 
-# ── T7: 부하 취약 스위트 3종의 직렬 표시 · 임계 무변경 (AC-6) ──
+# ── T7: 부하 취약 스위트의 직렬 표시 · 임계 무변경 (AC-6 — 20261006-runall-serial-split 로 위치 이전) ──
 #   표시 형식은 spec FR-3 계약 문자열이다(run-all 의 판정 규칙은 T3 이 행위로 잠근다).
+#   타이밍 단언(T-hg.d·GH-ci.5·GH-ci.5b)은 test-timing-serial.sh 로 옮겼다 — 큰 스위트째 직렬로 두지 않고 단언만 직렬로 둔다.
 _t7_bad=""
-for f in test-validate-structure.sh test-git-hooks.sh test-gbrain-recall.sh; do
-  awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/$f" || _t7_bad="$_t7_bad $f"
+for f in test-timing-serial.sh test-gbrain-recall.sh; do
+  awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/$f" 2>/dev/null || _t7_bad="$_t7_bad $f"
 done
-[ -z "$_t7_bad" ] && ok "T7.a 부하 취약 3종이 선두 20줄 안에 사유 있는 직렬 표시" || nope "T7.a 직렬 표시 누락" "$_t7_bad"
-{ [ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-git-hooks.sh")" -eq 2 ] \
+[ -z "$_t7_bad" ] && ok "T7.a 부하 취약 스위트가 선두 20줄 안에 사유 있는 직렬 표시" || nope "T7.a 직렬 표시 누락" "$_t7_bad"
+{ [ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-timing-serial.sh" 2>/dev/null)" -eq 2 ] \
   && grep -q '"\$elapsed" -lt 2000 \]' "$PLUGIN/scripts/tests/test-gbrain-recall.sh" \
-  && grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-validate-structure.sh"; } \
-  && ok "T7.b 세 스위트의 시간 임계(< 3s ×2 · < 2000ms · 2s 유예) 무변경" \
+  && grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-timing-serial.sh" 2>/dev/null; } \
+  && ok "T7.b 시간 임계(< 3s ×2 · < 2000ms · 2s 유예) 무변경 — 타이밍 단언은 test-timing-serial.sh" \
   || nope "T7.b 임계 변경 감지" "직렬 표시로 대응하기로 했다 — 임계를 넓히면 그 테스트가 잡던 결함을 못 잡는다"
+# 음성 잠금: 이동한 단언이 원 스위트에 이중으로 남거나 직렬 표시가 되살아나지 않는다
+_t7_dup=""
+awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/test-validate-structure.sh" 2>/dev/null && _t7_dup="$_t7_dup vs:표시"
+grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-validate-structure.sh" && _t7_dup="$_t7_dup vs:유예"
+awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/test-git-hooks.sh" 2>/dev/null && _t7_dup="$_t7_dup gh:표시"
+[ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-git-hooks.sh")" -eq 0 ] || _t7_dup="$_t7_dup gh:워치독"
+[ -z "$_t7_dup" ] && ok "T7.c 두 큰 스위트(validate-structure·git-hooks)에 직렬 표시·타이밍 단언이 없다 (풀에서 돈다)" || nope "T7.c 이동 후 잔존" "$_t7_dup"
 
 # ── T8: 작업자 비정상 종료 → FAIL WORKER 계상 · 미실행 스위트는 원인과 구분 (AC-2 · Phase C 지적) ──
 #   JOBS=1 로 결정적 재현 — 스위트가 자기 작업자를 KILL 하면 xargs 가 abort 해 뒤 스위트는 시작조차 못 한다.
@@ -235,6 +243,70 @@ grep -q '^⚠  run-all: 작업자 풀 비정상 종료' "$ROOT/t8.err" \
   && ok "T8.c 풀 비정상 종료를 stderr 로 알린다" || nope "T8.c" "err=[$(cat "$ROOT/t8.err")]"
 [ "$_el" -lt 10 ] \
   && ok "T8.d 죽은 작업자의 워치독이 캡처를 붙잡지 않는다 (${_el}s < 10s · 상한 20s)" || nope "T8.d 고아 워치독" "el=${_el}s (상한 20s 까지 멈춤)"
+
+# ── T9: 병렬 풀 longest-first — suite-order.txt (20261006-runall-serial-split) ──
+#   JOBS>1 이고 목록이 있을 때만 풀 **시작 순서**를 앞당긴다. 집계·출력 순서·rc 는 불변, JOBS=1·목록 부재·무시 대상은 종전 순서.
+_t9_mk() {   # $1=sandbox — p1~p4 (각 1초), 시작·종료 시각 로그
+  for n in 1 2 3 4; do
+    _suite "$1" "p$n" 's=$(ms); sleep 1; echo "p '"$n"' $s $(ms)" >> "$LOG"; echo "PASS=1 FAIL=0"'
+  done
+}
+_t9_start() { awk -v n="$2" '$1=="p" && $2==n { print $3 }' "$1"; }
+# 통제군 — 목록 없음, JOBS=2: p3 은 두 번째 파도(p1·p2 뒤)에 시작한다
+S=$(_sb); LOG="$ROOT/t9a.log"; : > "$LOG"; _t9_mk "$S"
+LOG="$LOG" SPECOPS_RUN_ALL_JOBS=2 bash "$S/scripts/tests/run-all.sh" --quiet >"$ROOT/t9a.out" 2>&1; _rc9a=$?
+_p1=$(_t9_start "$LOG" 1); _p3=$(_t9_start "$LOG" 3)
+{ [ "$_rc9a" -eq 0 ] && [ $((_p3 - _p1)) -ge 700 ]; } \
+  && ok "T9.a 통제군(목록 없음) — 글롭 순서: p3 은 p1 보다 늦게 시작 (+$((_p3 - _p1))ms)" || nope "T9.a" "rc=$_rc9a p1=$_p1 p3=$_p3"
+# 목록 있음 — p4·p3 를 앞세운다: 첫 파도가 p4·p3, p1 은 뒤
+S=$(_sb); LOG="$ROOT/t9b.log"; : > "$LOG"; _t9_mk "$S"
+printf '# 긴 순서\n\nscripts/tests/test-p4.sh\nscripts/tests/test-p3.sh\n' > "$S/scripts/tests/suite-order.txt"
+LOG="$LOG" SPECOPS_RUN_ALL_JOBS=2 bash "$S/scripts/tests/run-all.sh" --quiet >"$ROOT/t9b.out" 2>&1; _rc9b=$?
+_p1=$(_t9_start "$LOG" 1); _p3=$(_t9_start "$LOG" 3); _p4=$(_t9_start "$LOG" 4)
+{ [ "$_rc9b" -eq 0 ] && [ $((_p1 - _p4)) -ge 700 ] && [ $((_p1 - _p3)) -ge 700 ]; } \
+  && ok "T9.b 목록 선두(p4·p3)가 p1 보다 먼저 시작 (p1 이 +$((_p1 - _p4))ms 늦음)" || nope "T9.b" "rc=$_rc9b p1=$_p1 p3=$_p3 p4=$_p4"
+# JOBS=1 — 목록이 있어도 글롭 순서(되돌림 스위치)
+S=$(_sb); LOG="$ROOT/t9c.log"; : > "$LOG"; _t9_mk "$S"
+printf 'scripts/tests/test-p4.sh\nscripts/tests/test-p3.sh\n' > "$S/scripts/tests/suite-order.txt"
+LOG="$LOG" SPECOPS_RUN_ALL_JOBS=1 bash "$S/scripts/tests/run-all.sh" --quiet >"$ROOT/t9c.out" 2>&1; _rc9c=$?
+_seq9=$(sort -k3,3n "$LOG" | awk '{ printf "%s", $2 }')
+{ [ "$_rc9c" -eq 0 ] && [ "$_seq9" = "1234" ]; } \
+  && ok "T9.c JOBS=1 은 목록을 보지 않는다 — 시작 순서 $_seq9" || nope "T9.c" "rc=$_rc9c seq=$_seq9"
+# 무시 대상 — 주석·빈 줄·존재하지 않는 경로·중복·직렬 표시 스위트·공백 접미: 전부 한 번씩 실행, rc 0
+S=$(_sb); LOG="$ROOT/t9d.log"; : > "$LOG"; _t9_mk "$S"
+_suite "$S" ser 's=$(ms); sleep 0.2; echo "p 9 $s $(ms)" >> "$LOG"; echo "PASS=1 FAIL=0"' '# run-all: serial — 테스트용 직렬'
+printf '# c\n\n   \nscripts/tests/test-nope.sh\nscripts/tests/test-p2.sh   \nscripts/tests/test-p2.sh\nscripts/tests/test-ser.sh\n' > "$S/scripts/tests/suite-order.txt"
+LOG="$LOG" SPECOPS_RUN_ALL_JOBS=2 bash "$S/scripts/tests/run-all.sh" --quiet >"$ROOT/t9d.out" 2>&1; _rc9d=$?
+_cnt9=$(awk '$1=="p"{ c[$2]++ } END { n=0; for (k in c) if (c[k]!=1) n++; print n+0 }' "$LOG"); _tot9=$(awk '$1=="p"' "$LOG" | wc -l | tr -d ' ')
+{ [ "$_rc9d" -eq 0 ] && [ "$_cnt9" -eq 0 ] && [ "$_tot9" -eq 5 ] && tail -1 "$ROOT/t9d.out" | grep -qx 'VERIFY: PASS'; } \
+  && ok "T9.d 무시 대상(주석·빈 줄·없는 경로·중복·직렬·공백) — 스위트 5개 모두 정확히 1회·VERIFY: PASS" || nope "T9.d" "rc=$_rc9d 중복=$_cnt9 총=$_tot9"
+# 출력 불변 — FAIL 스위트 2개(p2·p4)일 때 목록 유무와 무관하게 FAIL 블록·FAILED 목록 순서·마지막 줄이 같다(시작·목록 순서가 집계 순서로 새는 결함을 잡는다)
+_t9_out() {   # $1=목록 내용(빈 문자열이면 파일 없음)
+  local S2; S2=$(_sb); LOG="$ROOT/t9e.log"; : > "$LOG"; _t9_mk "$S2"
+  _suite "$S2" p2 'echo "FAIL p2 — 의도된 실패"; echo "PASS=0 FAIL=1"; exit 1'
+  _suite "$S2" p4 'sleep 0.3; echo "FAIL p4 — 의도된 실패"; echo "PASS=0 FAIL=1"; exit 1'
+  [ -n "$1" ] && printf "$1\n" > "$S2/scripts/tests/suite-order.txt"
+  LOG="$LOG" SPECOPS_RUN_ALL_JOBS=2 bash "$S2/scripts/tests/run-all.sh" --quiet 2>/dev/null | sed "s#$S2#SB#g"
+}
+_o_no=$(_t9_out ""); _o_yes=$(_t9_out "scripts/tests/test-p4.sh\nscripts/tests/test-p2.sh")
+{ [ -n "$_o_no" ] && [ "$_o_no" = "$_o_yes" ] && printf '%s\n' "$_o_yes" | tail -1 | grep -qx 'VERIFY: FAIL' \
+  && [ "$(printf '%s\n' "$_o_yes" | grep -c '^FAILED:')" -eq 2 ]; } \
+  && ok "T9.e FAIL 스위트 2개 — 시작·목록 순서가 집계로 새지 않아 목록 유무와 무관하게 quiet 출력(FAIL 블록·FAILED 2건·마지막 줄)이 같다" || nope "T9.e" "no=[$_o_no] yes=[$_o_yes]"
+# 실 목록 무결성 — 존재하지 않는 경로 0·중복 0·직렬 표시 스위트 0·15~25개(목록은 손봐도 된다)
+_ord="$PLUGIN/scripts/tests/suite-order.txt"
+_t9_bad=""; _t9_n=0
+if [ -f "$_ord" ]; then
+  while IFS= read -r _l; do
+    _l=${_l%$'\r'}; case "$_l" in ''|'#'*) continue ;; esac
+    _t9_n=$((_t9_n + 1))
+    [ -f "$PLUGIN/$_l" ] || _t9_bad="$_t9_bad 없음:$_l"
+    awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/$_l" 2>/dev/null && _t9_bad="$_t9_bad 직렬:$_l"
+  done < "$_ord"
+  _dup=$(grep -v '^#' "$_ord" | grep -v '^[[:space:]]*$' | sort | uniq -d | head -1)
+  [ -z "$_dup" ] || _t9_bad="$_t9_bad 중복:$_dup"
+fi
+{ [ -f "$_ord" ] && [ -z "$_t9_bad" ] && [ "$_t9_n" -ge 15 ] && [ "$_t9_n" -le 25 ]; } \
+  && ok "T9.f suite-order.txt 무결성 — ${_t9_n}개(15~25)·없는 경로 0·중복 0·직렬 표시 스위트 0" || nope "T9.f" "n=$_t9_n bad=[$_t9_bad]"
 
 echo ""
 finish
