@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### 개발 속도: end-loaded Phase B/C 투기 병렬 dispatch (#108) · run-all 직렬 구간 해소 (#109)
+
+**배경**: 속도 감사(2026-10-06, 41 FID·4,759분 실측)에서 플랜 단계(34.5%)와 구현 단계(27.7%)가 시간을 지배했다. 플랜 리뷰 축소·delta 리뷰는 R2 에서도 실결함(Critical 9/20)이 나와 기각했고, 직렬로 낭비되던 두 구간만 손봤다.
+
+- **B∥C 투기 병렬 (#108, 행동 변경)** — end-loaded 최초 B(spec-reviewer)·C(code-reviewer) 쌍을 한 메시지에서 동시 dispatch 한다(재라운드·per-task 는 직렬 B→C). C 는 `병렬 dispatch: yes (B 판정 대기)` 로 진행하고 보고서 헤더를 `PENDING(병렬 — 부모 사후 대조)` 로 쓴다. 부모가 B 판정을 읽어 dispatch-log 에 `BC-PAR-CHECK:<tid>` 행(`B PASS` 또는 `C 폐기(B FAIL)`)을 남기고, `check-review-audit.sh` 가 병렬 C 리포트(헤더 줄 앵커)에 대조 행이 없거나 B 판정(`-B-feedback.md` 유무)과 결론이 모순(양방향)이면 VERIFY 를 거부한다 — 20260716 관찰 B(C 가 B PASS 를 부모 선언으로 수용)의 감사 teeth 보존. 경로와 병렬 표시가 함께 오면 경로 우선, 둘 다 없으면 SKIP. 한쪽 dispatch 실패는 그쪽만 모델 불가 fallback. implementing-ko 36,020B→37,980B(+1,960B, 절 1개 — `--update-baseline` 명시 갱신).
+- **run-all 직렬 구간 해소 (#109)** — 직렬 단계(측정 168s, 전체 37%)의 92% 가 큰 스위트 2종이 타이밍 단언 1개씩 때문에 스위트째 직렬이던 낭비였다. 타이밍 단언 3종(T-hg.d·GH-ci.5·GH-ci.5b)만 새 직렬 스위트 `test-timing-serial.sh` 로 **원문 이동**(임계 `-lt 3`·`sleep 2 # 유예` 불변)하고 test-validate-structure·test-git-hooks 본체를 병렬 풀로 옮겼다. 병렬 풀은 `scripts/tests/suite-order.txt`(상위 20개)로 longest-first — JOBS>1 이고 목록이 있을 때만, 집계·출력·종료코드·JOBS=1 불변, 줄 수 가드로 fail-open. `test-run-all-parallel` T7 잠금 이전·음성 잠금, T9 순서 효과·무결성. 스위트 183→184.
+- **검증**: #108 변이·동시 종료 5회(훅 안전)·Phase B/C(Important 반영) · #109 단언 이름 집합 전후 대조(이동 3개 외 동일)·직렬 3종·run-all 판정 diff 0·변이 5/5 격추, CI 4종 통과.
+
+⚠️ **한계 (정직 고백)**
+- **효과는 관측 단계다**: #109 벽시계는 **교차 1쌍**(BASE 570s → AFTER 240s, 비율 약 0.42, 부하 조건 상이)이고 직렬 단계 합은 약 157s → 18s. CI 는 Ubuntu 6m24s → 3m40s·macOS 14m → 8m17s 로 줄었다. #108 의 이득(spec∥code 겹침 증가·FID 당 리뷰 구간 감소)은 이 릴리즈 이후 FID 에서만 관찰된다 — **revert 검토 기준**: 첫 5 FID 에서 spec∥code 겹침이 3쌍 미만(기준선 1/287)이거나 `C 폐기` 가 2건 이상.
+- **신규 취약성(#109)**: 풀로 옮긴 test-validate-structure 가 풀 경합 + 외부 부하(load 12~18)에서 300s 상한 TIMEOUT 1회(깨끗한 재실행 통과). 재발하면 `suite-order.txt` 에서 첫 파도 밖으로 이동하거나 직렬 유지·상한 상향을 검토한다.
+- B FAIL 시에는 병렬이 직렬보다 최대 C−B 늦다(실측 B 1회차 FAIL 6%, 9/30 이후 0/33). 빠른 경로로 #109 는 critic 생략·JOBS=1 전체 실행 생략.
+
 ## [2.2.0] — 2026-10-06
 
 ### 게이트 마찰 사전 차단과 릴리즈 스탬프 정정 (#106 · #107)
