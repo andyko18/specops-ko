@@ -232,7 +232,7 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 ```
 
 **검증 현황** — lifecycle dogfood 5회 완주 · 전체 suite PASS · 거버넌스 p95 69ms (AC-8 < 200ms).
-테스트 24,114줄 / 운영 스크립트 9,330줄 = **2.6 : 1** · mutation score 60% (기준 55%) · 구조 검사기 22종.
+테스트 37,307줄 / 운영 스크립트 13,862줄 = **2.7 : 1** · mutation score 60% (기준 55%) · 구조 검사기 27종.
 
 ---
 

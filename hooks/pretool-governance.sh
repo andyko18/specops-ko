@@ -11,7 +11,9 @@ bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" pretool-governance >/de
   || { echo '{"continue":true}'; exit 0; }
 
 allow() { echo '{"continue":true}'; exit 0; }
-safe_exit() { echo "[governance] pretool: $1" >&2; echo '{"continue":true}'; exit 0; }
+# degraded 기록은 lib 로드 후에만 동작한다 — 로드 전 호출(declare -F 실패·.specops 부재) 시 무음 스킵.
+# stdout JSON·stderr 문안은 불변(기존 테스트·판정기 계약 유지), allow 흐름도 불변(fail-open 계약).
+safe_exit() { echo "[governance] pretool: $1" >&2; _log_degraded "GOVERNANCE-DEGRADED" "pretool fail-open: $1" 2>/dev/null || true; echo '{"continue":true}'; exit 0; }
 
 # shellcheck disable=SC1091
 source "$script_dir/governance-lib.sh" 2>/dev/null || safe_exit "lib source 실패"
@@ -61,7 +63,7 @@ printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
 if [ "${SPECOPS_GOVERNANCE_BYPASS:-}" = "1" ]; then
   if [ -d ".specops" ]; then
     _bypass_fid=$(detect_fid 2>/dev/null || echo "")
-    log_friction "$_bypass_fid" "BYPASS-ENV" 1 "session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 \
+    log_friction "$_bypass_fid" "BYPASS-ENV" 1 "cat=unclassified | session-env SPECOPS_GOVERNANCE_BYPASS: ${tool_cmd:0:120}" 0 \
       "$(_commit_scope_class)" 2>/dev/null || true
     _record_bypass_metric "$_bypass_fid"
   fi
@@ -119,6 +121,8 @@ _batch_pr_gate() {
   local gout grc
   gout=$(bash "$plugin_root/scripts/batch-state.sh" --gate "$(dirname "$queue")" 2>&1); grc=$?
   # 0=뭉개짐 없음 · 2=판정 불가(queue/requirements 파싱 실패) → fail-open. 1 만 차단.
+  # 판정 불가도 기록은 남긴다(allow 불변) — 무음 fail-open 이 "보호 중" 착각을 만들지 않게 한다.
+  [ "$grc" -eq 2 ] && _log_degraded "GOVERNANCE-DEGRADED" "batch-state 판정 불가 fail-open (queue: $(dirname "$queue"))" 2>/dev/null || true
   [ "$grc" -eq 1 ] || return 0
   local reason
   reason="batch PR 차단 — per-FR 산출물·진행기록이 뭉개졌습니다 (BATCH-GATE).
@@ -184,8 +188,9 @@ if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
       #   붙으면 예산이 거기서 소진돼 **사유가 통째로 잘린다**. 사유는 위치 무관 **추출**하고,
       #   명령 원문은 그 뒤에 붙여 잘려도 사유는 항상 보존되게 한다.
       _bypass_reason=$(_extract_bypass_reason "$tool_cmd")
+      _bypass_cat=$(_bypass_category "$_bypass_reason")
       log_friction "$_bypass_fid" "BYPASS-ENV" 1 \
-        "inline BYPASS reason=${_bypass_reason:-(추출실패)} | cmd: ${tool_cmd:0:200}" 0 \
+        "cat=${_bypass_cat} | inline BYPASS reason=${_bypass_reason:-(추출실패)} | cmd: ${tool_cmd:0:200}" 0 \
         "$(_commit_scope_class)" 2>/dev/null || true
       _record_bypass_metric "$_bypass_fid"
     fi
@@ -272,10 +277,19 @@ fi
 #   blocks>=임계 로 거르므로(scripts/gbrain-friction.sh), 분리하면 R-1 통계가 불변이다.
 #   기록은 **부수효과**다 — FID 미검출이든 로깅 실패든 allow 를 지연·차단하지 않는다.
 if is_docs_only_change "$tool_cmd_scan"; then
-  if [ -d ".specops" ] && _commit_scope_is_staged "$tool_cmd_scan"; then
+  # 면제여도 기록은 남긴다 — staged 축소든 working-tree 범위든 R-1-SCOPE info 행으로 적재한다.
+  # 기록 실패·FID 미검출은 allow 를 막지 않는다(부수효과).
+  if [ -d ".specops" ]; then
     _scope_fid=$(detect_fid 2>/dev/null || echo "")
-    [ -n "$_scope_fid" ] && log_friction_sev "$_scope_fid" "R-1-SCOPE" 1 \
-      "staged-scope 축소로 docs-only 면제: ${tool_cmd:0:120}" 0 "info" 2>/dev/null || true
+    if [ -n "$_scope_fid" ]; then
+      if _commit_scope_is_staged "$tool_cmd_scan"; then
+        _scope_note="staged-scope 축소로 docs-only 면제"
+      else
+        _scope_note="docs-only 면제(working-tree 범위)"
+      fi
+      log_friction_sev "$_scope_fid" "R-1-SCOPE" 1 \
+        "${_scope_note}: ${tool_cmd:0:120}" 0 "info" 2>/dev/null || true
+    fi
   fi
   allow
 fi
@@ -303,6 +317,9 @@ fid=$(detect_fid)
 rules_path="$plugin_root/hooks/rules.jsonl"
 [ -f "$rules_path" ] || allow
 violation=""; _cause_ok=0   # _cause_ok 선초기화 — parse 블록 이동 시 fail-open 대신 fallback deny
+# rules 로드 실패는 R-1/R-2 판정 불가 → allow 로 흐른다. 기록은 남긴다(흐름 불변).
+_rules_input=$(load_rules "$rules_path" "posttool" 2>/dev/null || true)
+[ -n "$_rules_input" ] || _log_degraded "GOVERNANCE-DEGRADED" "rules 로드 실패 — R-1/R-2 판정 불가 fail-open" 2>/dev/null || true
 while IFS= read -r rule; do
   [ -z "$rule" ] && continue
   rid=$(echo "$rule" | jq -r '.id')
@@ -321,7 +338,7 @@ while IFS= read -r rule; do
       fi
       ;;
   esac
-done < <(load_rules "$rules_path" "posttool" 2>/dev/null || true)
+done <<< "$_rules_input"
 
 if [ -n "$violation" ]; then
   case "$violation" in

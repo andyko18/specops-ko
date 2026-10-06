@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 2.0.0
+specops_version: 2.2.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -29,6 +29,8 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 - `**미재사용 근거**: <이유>` — 재사용하지 않는 경우 (예: 해당 task 가 foundation 범위 외)
 
 > **판정 SoT = `scripts/_internal/check-foundation-reuse.sh`** (20260806 기계화). Step 10b 의 `emit-context.sh` 가 **구현 전에** 자동 호출하므로 누락 시 dispatch 자체가 열리지 않는다(디스크 작성 0 — 다른 검증과 동일 원자성). 종전엔 산문뿐이라 모델이 선언을 빠뜨리면 그대로 통과했다 — 공통부를 만들어 놓고 아무도 안 쓰는 상태가 조용히 지나간다. 빈 값·`<모듈명>` 류 placeholder 는 **미기재로 판정**한다(형식만 갖춘 통과 차단).
+
+**최소 태스크 게이트**: 각 task 에 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? 과잉 task 제거 후 매핑 유지. 검증·에러·보안 절차 task 는 제거 대상 아님.
 </HARD-GATE>
 
 ## trivial / §lite 단축 분기 (plan.md 부재)
@@ -150,7 +152,9 @@ per-태스크 크기(2~5분)와 **별개로**, **FID 전체 태스크 수**가 �
 - **선호 (예방)** — 다음 기능부터 `specifying-ko` 단계에서 **수직 슬라이스**(각자 독립 shippable 단위)로 FID 를 작게 스코프한다. 큰 기능 1 FID 보다 작은 기능 여러 FID 가 완주율이 높다.
 - **현 FID (완화)** — `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
 
-**하드 게이트 아님** — 큰 FID 도 진행 가능하다. 이 신호는 "완성율 리스크 인지 + 재개 대비"를 위한 것이지 차단이 아니다.
+**7개 이상 분할 계획행 의무** — 7~9 태스크면 tasks.md 끝에 분할 계획 1행을 기재한다(어느 태스크까지 이번 FID, 나머지는 후속 FID 후보). 미기재 시 `specops-ko:implementing-ko` 호출 금지.
+
+**10개 이상 차단** — 10 태스크 이상이면 FID 분할 없이 `specops-ko:implementing-ko` 호출 금지. 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입.
 
 ## 테스트 컨벤션 (bash)
 

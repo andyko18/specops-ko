@@ -699,6 +699,26 @@ _fid_case 20260101-e2e "T-fx.d 명시 active-fid 마커는 fixture 라도 존중
 _fid_case 20260101-real "T-fx.e .specops/<FID> 디렉토리 부재는 fixture 아님 (오탐 차단)" \
   '_sp 20260101-real 20260102-other'
 
+# ── T-bcat: _bypass_category 사유 분류 (면제 남용 축소 1 — 판정 불변, 기록 축만) ──
+_bcat_case() {  # <want> <label> <reason...>
+  local want="$1" label="$2"; shift 2
+  local got
+  got=$(_bypass_category "$*")
+  if [ "$got" = "$want" ]; then
+    PASS=$((PASS+1)); echo "PASS $label"
+  else
+    FAIL=$((FAIL+1)); echo "FAIL $label (want=$want got=$got)"
+  fi
+}
+_bcat_case "implement-commit" "T-bcat.a 태스크 중간 커밋" "태스크 중간 커밋"
+_bcat_case "implement-commit" "T-bcat.b 대괄호 태그" "[implement-commit] T1 receipt 후 커밋"
+_bcat_case "session-boundary" "T-bcat.c 세션 경계" "이전 세션에서 verify PASS"
+_bcat_case "stale-reverify" "T-bcat.d stale" "stale 후 재실행 생략"
+_bcat_case "tool-limit" "T-bcat.e 도구 한계" "jq 판정 불가로 우회"
+_bcat_case "urgent" "T-bcat.f 긴급" "긴급 hotfix 먼저 머지"
+_bcat_case "unclassified" "T-bcat.g 미분류는 unclassified(차단 아님)" "그냥 넘어감"
+_bcat_case "unclassified" "T-bcat.h 빈 사유도 unclassified" ""
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

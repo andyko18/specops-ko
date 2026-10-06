@@ -66,7 +66,7 @@ _chk_memory() {
   local files
   files=$(ls "$dir"/*.md 2>/dev/null || true)
   if [ -z "$files" ]; then
-    _add memory unknown "memory 문서 0건" "/init-project"; return
+    _add memory unknown "memory 문서 0건 — .specops 로컬전용 정책이면 정상 (무시 가능)" "/init-project"; return
   fi
   if [ ! -f "$scan" ]; then
     _add memory unknown "판정기 부재 — $scan" ""; return
@@ -198,7 +198,7 @@ _chk_bootstrap() {
   fi
   n_staged=$(git diff --cached --name-only 2>/dev/null | grep -c . || true)
   [ -n "$n_staged" ] || n_staged=0
-  _add bootstrap warn "부트스트랩 미종결 (staged ${n_staged}파일 · init 커밋 0)" \
+  _add bootstrap warn "부트스트랩 미종결 (staged ${n_staged}파일 · init 커밋 0 — 플러그인 저장소 자체면 정상, 무시 가능)" \
     "bash scripts/_internal/init-finalize.sh"
 }
 
