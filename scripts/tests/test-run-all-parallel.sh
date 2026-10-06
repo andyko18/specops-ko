@@ -204,7 +204,7 @@ _vblk=$(grep '^FAIL ' "$ROOT/t6.v.out" | tr '\n' '|'); _qblk=$(grep '^FAIL ' "$R
 #   표시 형식은 spec FR-3 계약 문자열이다(run-all 의 판정 규칙은 T3 이 행위로 잠근다).
 #   타이밍 단언(T-hg.d·GH-ci.5·GH-ci.5b)은 test-timing-serial.sh 로 옮겼다 — 큰 스위트째 직렬로 두지 않고 단언만 직렬로 둔다.
 _t7_bad=""
-for f in test-timing-serial.sh test-git-hooks.sh test-gbrain-recall.sh; do
+for f in test-timing-serial.sh test-gbrain-recall.sh; do
   awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/$f" 2>/dev/null || _t7_bad="$_t7_bad $f"
 done
 [ -z "$_t7_bad" ] && ok "T7.a 부하 취약 스위트가 선두 20줄 안에 사유 있는 직렬 표시" || nope "T7.a 직렬 표시 누락" "$_t7_bad"
@@ -217,7 +217,9 @@ done
 _t7_dup=""
 awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/test-validate-structure.sh" 2>/dev/null && _t7_dup="$_t7_dup vs:표시"
 grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-validate-structure.sh" && _t7_dup="$_t7_dup vs:유예"
-[ -z "$_t7_dup" ] && ok "T7.c test-validate-structure 에 직렬 표시·유예 단언이 없다 (풀에서 돈다)" || nope "T7.c 이동 후 잔존" "$_t7_dup"
+awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/test-git-hooks.sh" 2>/dev/null && _t7_dup="$_t7_dup gh:표시"
+[ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-git-hooks.sh")" -eq 0 ] || _t7_dup="$_t7_dup gh:워치독"
+[ -z "$_t7_dup" ] && ok "T7.c 두 큰 스위트(validate-structure·git-hooks)에 직렬 표시·타이밍 단언이 없다 (풀에서 돈다)" || nope "T7.c 이동 후 잔존" "$_t7_dup"
 
 # ── T8: 작업자 비정상 종료 → FAIL WORKER 계상 · 미실행 스위트는 원인과 구분 (AC-2 · Phase C 지적) ──
 #   JOBS=1 로 결정적 재현 — 스위트가 자기 작업자를 KILL 하면 xargs 가 abort 해 뒤 스위트는 시작조차 못 한다.
