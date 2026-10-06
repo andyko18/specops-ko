@@ -109,13 +109,14 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     ─────────────────────────────────────────────────────────
     ↓ ready 비어 있음 (전부 A 완료)
 [END-LOADED REVIEW] (review_mode≠per-task 일 때 필수)
+  최초 B·C 쌍: **한 메시지에서 동시 dispatch** → 「최초 B/C 쌍 병렬」(재라운드는 직렬 B→C)
   Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
     → SubagentStop 훅(hooks/save-review-report.sh)이 **task마다** reviews/<tid>-B-report.md 저장
       (판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 — 반환 전문에서 tid 별로)
       (반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 — `저장:` 경로 목록이 아니면 옛 report 를 반환 전문으로 교체)
     → dispatch-log 행은 부모가 기록: 각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
     → FAIL 시 feedback → 관련 implementer 재dispatch(cap=2 FID 단위) → B 재실행
-  Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들
+  Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들(최초 병렬은 `병렬 dispatch: yes (B 판정 대기)`)
     → reviews/<tid>-C-report.md (또는 -C-feedback) 동일 규약
   최종 통합 code-reviewer: **SKIP** (end-loaded C가 전체 구현을 이미 봄 — E2와 동형)
     ↓
@@ -206,7 +207,7 @@ Phase B/C Evaluator 는 frontmatter 별칭 모델(spec sonnet·code opus)로 고
 
 > **[기계 검사 — 미기록은 VERIFY 를 막는다]** (20260721 test1 dogfood): 위 3·4·5 항(degradation 기록·메트릭)과 아래 감사 추적은 **프로즈가 아니다**. `scripts/_internal/check-review-audit.sh` 가 `reviews/<task-id>-[BC]-{report,feedback}.md` ↔ `dispatch-log.md` **구조화 행/경로**를 대조하고, `run-verification.sh` 가 이를 호출해 **미기록 리뷰가 있으면 `VERIFY: PASS` 를 거부**한다 (실행-근거 게이트 → 커밋도 안 열림). 인정 형태: (1) `reviews/<basename>` 경로 (2) Phase 셀 `B:<task-id>`/`C:<task-id>` (3) `## task-<task-id>` 섹션 내 B/C 행. **tid 문자열만 산문에 있으면 부족**하다. 실측 근거: test1 `20260717-approval-rbac` 이 `reviews/T10-B-report.md` 만 남기고 dispatch-log 행을 누락 · downstream-dogfood 산문위장 false-pass. **한계**: 행은 썼는데 내용이 거짓인 falsification은 자기보고라 파일 대조로 못 잡는다.
 
-> **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다.
+> **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다(최초 병렬 쌍은 사후 대조 행으로 대체 — 「최초 B/C 쌍 병렬」).
 
 **[§auto 모드] cap 초과 처리** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 
@@ -253,8 +254,16 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
 
 전달 규약 (본문 페이로드 금지 — 항상 **경로만**):
-- **PASS 경로 (Phase B→C)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
+- **PASS 경로 (Phase B→C, 직렬 재라운드)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
 - **FAIL 경로**: Phase B/C FAIL 직후 훅이 저장한 위 feedback 경로를 확인한 뒤(fallback 조건이면 부모가 저장) implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
+
+### 최초 B/C 쌍 병렬 (20261006-review-bc-parallel)
+
+B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약 8~9분이 더해졌다. end-loaded **최초** B·C 는 **한 메시지에서 동시 dispatch** 한다(재라운드·per-task 는 직렬 B→C). 두 프롬프트에 실 트리 변조 금지·임시 복사본 규칙을 반복하고, C 에는 B-report 경로 대신 `병렬 dispatch: yes (B 판정 대기)` 를 준다. 한쪽 dispatch 가 실패하면 실패한 쪽만 위 Evaluator 모델 불가 fallback 을 적용하고 다른 쪽을 기다린다. 병렬은 리뷰 축소가 아니므로 strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다.
+
+**사후 대조(필수)** — 둘 다 끝나면 `reviews/<tid>-B-report.md` 판정을 읽어 tid 마다 dispatch-log 에 Phase 셀 `BC-PAR-CHECK:<tid>` 행(결과·B/C 리포트 경로)을 남긴다. 이 행이 없으면 `check-review-audit.sh` 가 `PENDING(병렬` C 리포트를 FAIL 한다.
+- B PASS → 결과 `B PASS`. C 판정을 채택한다.
+- B FAIL → 결과 `C 폐기(B FAIL)`. C 결과는 채택하지 않고 implementer 재dispatch 컨텍스트에 B feedback·C 보고서 경로를 함께 준다. 재라운드 C 가 같은 파일명으로 덮어쓴다.
 
 ## 전체 스위트 병행 (20261005-dedupe-test-runs)
 

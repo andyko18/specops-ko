@@ -138,5 +138,32 @@ grep -qE "end-loaded" "$REQ" && grep -qE "review-skip" "$REQ" \
   && { PASS=$((PASS+1)); echo "PASS T3.h decomposing §batch end-loaded"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T3.h decomposing §batch end-loaded 부재"; }
 
+# ── T4 최초 B/C 쌍 병렬 (20261006-review-bc-parallel) ──
+_sec=$(awk '/^### 최초 B\/C 쌍 병렬/ { f=1; next } f && /^## |^### / { exit } f { print }' "$F")
+_has() { printf '%s' "$_sec" | grep -qF -- "$1"; }
+_has '한 메시지에서 동시 dispatch' && _has '재라운드·per-task 는 직렬 B→C' \
+  && { PASS=$((PASS+1)); echo "PASS T4.a 최초 쌍 동시 dispatch + 재라운드·per-task 직렬"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.a 동시 dispatch/직렬 유지 문구 부재"; }
+_has '실 트리 변조 금지' && _has '임시 복사본' \
+  && { PASS=$((PASS+1)); echo "PASS T4.b 두 프롬프트 변조 금지 재명시"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.b 변조 금지 재명시 부재"; }
+_has 'BC-PAR-CHECK:<tid>' && _has 'check-review-audit.sh' \
+  && { PASS=$((PASS+1)); echo "PASS T4.c 사후 대조 행 형식 + 기계 검사 연결"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.c 사후 대조 행/검사 연결 부재"; }
+_has 'B PASS' && _has 'C 폐기(B FAIL)' && _has 'B feedback·C 보고서 경로를 함께' \
+  && { PASS=$((PASS+1)); echo "PASS T4.d B PASS 채택 / B FAIL 폐기·재dispatch 첨부"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.d 사후 대조 분기 문구 부재"; }
+_has '실패한 쪽만' && _has 'Evaluator 모델 불가 fallback' \
+  && { PASS=$((PASS+1)); echo "PASS T4.e 한쪽 dispatch 실패 → 그쪽만 fallback"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.e 한쪽 실패 fallback 문구 부재"; }
+_has 'strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다' \
+  && { PASS=$((PASS+1)); echo "PASS T4.h 병렬은 축소가 아니다 (strict B/C 축소 금지와 비충돌 명시)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.h strict 비충돌 명시 부재"; }
+# 음성 대조: 절에서 '한 메시지에서 동시 dispatch' 를 지우면 T4.a 판정식이 FAIL 이어야 한다(잠금이 공허하지 않다)
+_sec_neg=$(printf '%s' "$_sec" | sed 's/한 메시지에서 동시 dispatch/한 번씩 순서대로 dispatch/')
+if [ -z "$_sec" ] || printf '%s' "$_sec_neg" | grep -qF -- '한 메시지에서 동시 dispatch'; then
+  FAIL=$((FAIL+1)); echo "FAIL T4.f 음성 대조 — 변이 후에도 통과"
+else PASS=$((PASS+1)); echo "PASS T4.f 음성 대조 — 변이하면 T4.a 문구가 사라진다"; fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
