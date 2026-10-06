@@ -150,11 +150,11 @@ per-태스크 크기(2~5분)와 **별개로**, **FID 전체 태스크 수**가 �
 그리고 아래 중 하나를 택한다:
 
 - **선호 (예방)** — 다음 기능부터 `specifying-ko` 단계에서 **수직 슬라이스**(각자 독립 shippable 단위)로 FID 를 작게 스코프한다. 큰 기능 1 FID 보다 작은 기능 여러 FID 가 완주율이 높다.
-- **현 FID (완화)** — `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
+- **현 FID (완화)** — (6개 초과 9개 이하, 또는 아래 무인·batch·foundation 예외) `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
 
 **7개 이상 분할 계획행 의무** — 7~9 태스크면 tasks.md 끝에 분할 계획 1행을 기재한다(어느 태스크까지 이번 FID, 나머지는 후속 FID 후보). 미기재 시 `specops-ko:implementing-ko` 호출 금지.
 
-**10개 이상 차단** — 10 태스크 이상이면 FID 분할 없이 `specops-ko:implementing-ko` 호출 금지. 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입.
+**10개 이상 차단 (대화형)** — 10 태스크 이상이면 FID 분할 없이 `specops-ko:implementing-ko` 호출 금지. 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입. **예외** — 사용자 채널이 없는 `§auto`·`/start-all` batch(FR 단위 FID)·`foundation` 은 분할할 수 없으므로 차단하지 않는다: 분할 계획행과 `FID-SIZE` 경고를 남기고 진행한다.
 
 ## 테스트 컨벤션 (bash)
 

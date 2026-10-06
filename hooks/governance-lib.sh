@@ -1702,6 +1702,14 @@ _receipt_hint_extra() {
 _bypass_category() {  # <reason> → 분류 토큰
   local r="${1:-}" low
   low=$(printf '%s' "$r" | tr '[:upper:]' '[:lower:]')
+  # 명시 태그([분류])는 키워드 추정보다 우선한다 — 추정 키워드(session·implement 등)가 태그를 가로채지 않게 선검사.
+  case "$low" in
+    *"[implement-commit]"*) echo "implement-commit"; return 0 ;;
+    *"[session-boundary]"*) echo "session-boundary"; return 0 ;;
+    *"[stale-reverify]"*) echo "stale-reverify"; return 0 ;;
+    *"[tool-limit]"*) echo "tool-limit"; return 0 ;;
+    *"[urgent]"*) echo "urgent"; return 0 ;;
+  esac
   case "$low" in
     *"[implement-commit]"*|*"중간 커밋"*|*"태스크"*"커밋"*|*"implement"*|*"receipt"*) echo "implement-commit" ;;
     *"[session-boundary]"*|*"세션"*|*"session"*) echo "session-boundary" ;;

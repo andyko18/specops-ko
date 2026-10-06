@@ -718,6 +718,9 @@ _bcat_case "tool-limit" "T-bcat.e 도구 한계" "jq 판정 불가로 우회"
 _bcat_case "urgent" "T-bcat.f 긴급" "긴급 hotfix 먼저 머지"
 _bcat_case "unclassified" "T-bcat.g 미분류는 unclassified(차단 아님)" "그냥 넘어감"
 _bcat_case "unclassified" "T-bcat.h 빈 사유도 unclassified" ""
+_bcat_case "urgent" "T-bcat.i 명시 태그가 키워드(receipt)보다 우선" "[urgent] receipt 대기 중 장애"
+_bcat_case "tool-limit" "T-bcat.j 명시 태그가 키워드(session)보다 우선" "[tool-limit] jq 없음 (session 중)"
+_bcat_case "stale-reverify" "T-bcat.k 명시 태그가 키워드(session)보다 우선 2" "[stale-reverify] session 재개 후 stale"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
