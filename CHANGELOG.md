@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-10-06
+
 ### 개발 속도: end-loaded Phase B/C 투기 병렬 dispatch (#108) · run-all 직렬 구간 해소 (#109)
 
 **배경**: 속도 감사(2026-10-06, 41 FID·4,759분 실측)에서 플랜 단계(34.5%)와 구현 단계(27.7%)가 시간을 지배했다. 플랜 리뷰 축소·delta 리뷰는 R2 에서도 실결함(Critical 9/20)이 나와 기각했고, 직렬로 낭비되던 두 구간만 손봤다.
@@ -2749,7 +2751,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/andyko18/specops-ko/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/andyko18/specops-ko/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/andyko18/specops-ko/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/andyko18/specops-ko/compare/v1.106.0...v2.0.0
