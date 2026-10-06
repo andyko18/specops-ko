@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# run-all: serial — T-hg.d 가 TERM→2s 유예→KILL 안에 trap 복원을 요구한다(CPU 경합 시 유예 초과)
 # specops-ko v0.0 PoC · scripts/_internal/validate-structure.sh 검증
 # baseline: P1 flat — commands=1, skills/<name>/SKILL.md=16, templates=6 (sandbox 격리)
 # U4 후: sandbox 가 .structure-baseline 자체 생성. agents/ 빈 디렉토리 OK.
@@ -605,52 +604,7 @@ fi
 #   그때 T-hg.b 가 변이 창 안이라 skills/specifying-ko/SKILL.md 손상이 워킹트리에 남았다.
 #   다음 run-all 이 3 스위트 FAIL 을 내며 원인 불명으로 보였다.
 
-# T-hg.d: 패턴 실증 — trap EXIT 은 SIGTERM 에서 복원하고, trap 없으면 손상이 남는다
-#   ★ 격리 픽스처로만 검증한다. 실 파일을 쓰면 이 테스트가 바로 그 결함을 재생산한다.
-#   ★ trap 은 EXIT **단독**이어야 한다. INT/TERM 을 함께 잡으면 셸 기본 종료가 사라져
-#     핸들러가 포그라운드 명령(sleep) 종료까지 **지연**되고, 그 사이 뒤따르는 SIGKILL 을
-#     맞으면 복원이 영영 실행되지 않는다. 아래 프로브가 `TERM → 유예 → KILL` 로 재현한다
-#     (타임아웃 구현의 전형). SIGTERM 만 오고 프로세스가 완주하면 둘 다 복원되므로,
-#     그 시나리오로는 두 패턴이 구별되지 않는다 — 구현 중 변이 M3 가 이를 실증했다.
-_sb=$(mktemp -d)
-cat > "$_sb/mut-trap.sh" <<'MUTEOF'
-#!/usr/bin/env bash
-target="$1"; echo ORIGINAL > "$target"
-_bak="$target.bak"; cp "$target" "$_bak"
-trap 'cp "$_bak" "$target"; rm -f "$_bak"' EXIT
-echo MUTATED > "$target"
-sleep 20
-MUTEOF
-cat > "$_sb/mut-notrap.sh" <<'MUTEOF'
-#!/usr/bin/env bash
-target="$1"; echo ORIGINAL > "$target"
-_bak="$target.bak"; cp "$target" "$_bak"
-echo MUTATED > "$target"
-sleep 5
-cp "$_bak" "$target"; rm -f "$_bak"
-MUTEOF
-_term_probe() {   # $1=픽스처명 → stdout: 중단 후 파일 내용
-  local t="$_sb/probe-$1.txt"
-  #   ★ 자식의 stdout/stderr 를 끊는다. 안 끊으면 TERM 이 bash 만 죽이고 **고아 sleep 이
-  #     명령 치환의 파이프를 붙든 채** 남아, $(_term_probe …) 이 그 EOF 를 기다린다
-  #     (실측: 25s → 6s. pre-push 가 매 push 마다 도는 예산이다).
-  #     고아 sleep 은 블록 종료 후 최대 ~19초 잔존하나 파일을 건드리지 않고 자연 소멸한다.
-  bash "$_sb/$1" "$t" >/dev/null 2>&1 & local p=$!
-  sleep 1
-  kill -TERM "$p" 2>/dev/null    # 정중한 종료 요청
-  sleep 2                        # 유예 — EXIT 단독이면 이 사이에 복원된다
-  kill -KILL "$p" 2>/dev/null    # 강제 종료 — 지연된 핸들러는 여기서 영영 사라진다
-  wait "$p" 2>/dev/null
-  cat "$t" 2>/dev/null
-}
-_with=$(_term_probe mut-trap.sh)
-_without=$(_term_probe mut-notrap.sh)
-rm -rf "$_sb"
-if [ "$_with" = "ORIGINAL" ] && [ "$_without" = "MUTATED" ]; then
-  PASS=$((PASS+1)); echo "PASS T-hg.d trap EXIT 이 SIGTERM 중단에서 복원 (대조: 무trap 은 손상 잔존)"
-else
-  FAIL=$((FAIL+1)); echo "FAIL T-hg.d 중단 복원 — trap판='$_with'(기대 ORIGINAL) · 무trap판='$_without'(기대 MUTATED)"
-fi
+# T-hg.d: 패턴 실증(trap EXIT 이 SIGTERM 에서 복원) — 시간 임계 단언이라 test-timing-serial.sh 로 이동했다(직렬). T-hg.e 는 정적 잠금이라 여기에 남는다.
 
 # T-hg.e: T-hg.b **자신**이 그 패턴을 쓰는가 (사본 정리 trap 잠금)
 #   T-hg.d 는 패턴 지식만 잠근다. 실제 블록이 안 고쳐지면 결함은 그대로다.

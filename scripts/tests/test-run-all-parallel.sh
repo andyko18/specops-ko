@@ -200,18 +200,24 @@ _vblk=$(grep '^FAIL ' "$ROOT/t6.v.out" | tr '\n' '|'); _qblk=$(grep '^FAIL ' "$R
   && ok "T6.b 비quiet FAIL 줄은 진행 줄 뒤·원래 순서로 모이고 quiet 와 같다" \
   || nope "T6.b" "last_prog=$_last_prog first_fail=$_first_fail v=[$_vblk] q=[$_qblk]"
 
-# ── T7: 부하 취약 스위트 3종의 직렬 표시 · 임계 무변경 (AC-6) ──
+# ── T7: 부하 취약 스위트의 직렬 표시 · 임계 무변경 (AC-6 — 20261006-runall-serial-split 로 위치 이전) ──
 #   표시 형식은 spec FR-3 계약 문자열이다(run-all 의 판정 규칙은 T3 이 행위로 잠근다).
+#   타이밍 단언(T-hg.d·GH-ci.5·GH-ci.5b)은 test-timing-serial.sh 로 옮겼다 — 큰 스위트째 직렬로 두지 않고 단언만 직렬로 둔다.
 _t7_bad=""
-for f in test-validate-structure.sh test-git-hooks.sh test-gbrain-recall.sh; do
-  awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/$f" || _t7_bad="$_t7_bad $f"
+for f in test-timing-serial.sh test-git-hooks.sh test-gbrain-recall.sh; do
+  awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/$f" 2>/dev/null || _t7_bad="$_t7_bad $f"
 done
-[ -z "$_t7_bad" ] && ok "T7.a 부하 취약 3종이 선두 20줄 안에 사유 있는 직렬 표시" || nope "T7.a 직렬 표시 누락" "$_t7_bad"
-{ [ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-git-hooks.sh")" -eq 2 ] \
+[ -z "$_t7_bad" ] && ok "T7.a 부하 취약 스위트가 선두 20줄 안에 사유 있는 직렬 표시" || nope "T7.a 직렬 표시 누락" "$_t7_bad"
+{ [ "$(grep -c '"\$_d" -lt 3 \]' "$PLUGIN/scripts/tests/test-timing-serial.sh" 2>/dev/null)" -eq 2 ] \
   && grep -q '"\$elapsed" -lt 2000 \]' "$PLUGIN/scripts/tests/test-gbrain-recall.sh" \
-  && grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-validate-structure.sh"; } \
-  && ok "T7.b 세 스위트의 시간 임계(< 3s ×2 · < 2000ms · 2s 유예) 무변경" \
+  && grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-timing-serial.sh" 2>/dev/null; } \
+  && ok "T7.b 시간 임계(< 3s ×2 · < 2000ms · 2s 유예) 무변경 — 타이밍 단언은 test-timing-serial.sh" \
   || nope "T7.b 임계 변경 감지" "직렬 표시로 대응하기로 했다 — 임계를 넓히면 그 테스트가 잡던 결함을 못 잡는다"
+# 음성 잠금: 이동한 단언이 원 스위트에 이중으로 남거나 직렬 표시가 되살아나지 않는다
+_t7_dup=""
+awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/scripts/tests/test-validate-structure.sh" 2>/dev/null && _t7_dup="$_t7_dup vs:표시"
+grep -q '^  sleep 2  *# 유예' "$PLUGIN/scripts/tests/test-validate-structure.sh" && _t7_dup="$_t7_dup vs:유예"
+[ -z "$_t7_dup" ] && ok "T7.c test-validate-structure 에 직렬 표시·유예 단언이 없다 (풀에서 돈다)" || nope "T7.c 이동 후 잔존" "$_t7_dup"
 
 # ── T8: 작업자 비정상 종료 → FAIL WORKER 계상 · 미실행 스위트는 원인과 구분 (AC-2 · Phase C 지적) ──
 #   JOBS=1 로 결정적 재현 — 스위트가 자기 작업자를 KILL 하면 xargs 가 abort 해 뒤 스위트는 시작조차 못 한다.
