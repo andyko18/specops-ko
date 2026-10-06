@@ -264,6 +264,7 @@ B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약
 **사후 대조(필수)** — 둘 다 끝나면 `reviews/<tid>-B-report.md` 판정을 읽어 tid 마다 dispatch-log 에 Phase 셀 `BC-PAR-CHECK:<tid>` 행(결과·B/C 리포트 경로)을 남긴다. 이 행이 없으면 `check-review-audit.sh` 가 `PENDING(병렬` C 리포트를 FAIL 한다.
 - B PASS → 결과 `B PASS`. C 판정을 채택한다.
 - B FAIL → 결과 `C 폐기(B FAIL)`. C 결과는 채택하지 않고 implementer 재dispatch 컨텍스트에 B feedback·C 보고서 경로를 함께 준다. 재라운드 C 가 같은 파일명으로 덮어쓴다.
+사후 대조는 tid 단위다 — C 는 FID 전체 1회지만 B PASS tid 의 C 판정만 채택하고 B FAIL tid 의 C 만 폐기한다. 폐기는 C cap 을 소모하지 않으며 재라운드는 영향 tid 만 직렬 B→C 로 다시 돈다. 훅이 지우지 않는 옛 `-B-feedback.md` 가 남아도 행은 그 tid 의 실제 B 판정(`B PASS`·`C 폐기`)대로 쓴다.
 
 ## 전체 스위트 병행 (20261005-dedupe-test-runs)
 

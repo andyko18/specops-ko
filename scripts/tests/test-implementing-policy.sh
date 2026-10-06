@@ -170,5 +170,9 @@ grep -qF 'BC-PAR-CHECK:<tid>' "$_DOC" && grep -qF '재라운드는 직렬' "$_DO
   && { PASS=$((PASS+1)); echo "PASS T4.g lifecycle 문서 정합 (병렬 쌍·사후 대조·재라운드 직렬)"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.g lifecycle 문서에 병렬 쌍 문구 부재"; }
 
+_has 'tid 단위다' && _has 'C cap 을 소모하지 않으며' && _has '옛 `-B-feedback.md`' \
+  && { PASS=$((PASS+1)); echo "PASS T4.i B FAIL tid 단위 채택·cap 비소모·stale feedback 안내"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T4.i B FAIL tid 단위 채택·cap 비소모·stale feedback 안내 부재"; }
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
