@@ -29,7 +29,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 프로세스
 
-1. **Phase B PASS 확인**: 받은 보고서가 PASS 인지 검증. PASS 아니면 즉시 부모에 SKIP 반환 — Phase C 진입 자격 없음. 경로 대신 병렬 표시만 있으면 B 판정을 기다리지 않고 진행하되 보고서 헤더를 `**Phase B 상태**: PENDING(병렬 — 부모 사후 대조)` 로 쓴다(부모가 B-report 판정을 읽어 dispatch-log 에 BC-PAR-CHECK 행을 남긴다 — `scripts/_internal/check-review-audit.sh` 가 부재를 FAIL). 어느 경우든 AC 충족은 재평가하지 않는다.
+1. **Phase B PASS 확인**: 받은 보고서가 PASS 인지 검증. PASS 아니면 즉시 부모에 SKIP 반환 — Phase C 진입 자격 없음. 경로 대신 병렬 표시만 있으면 B 판정을 기다리지 않고 진행하되 보고서 헤더를 `**Phase B 상태**: PENDING(병렬 — 부모 사후 대조)` 로 쓴다(부모가 B-report 판정을 읽어 dispatch-log 에 BC-PAR-CHECK 행을 남긴다 — `scripts/_internal/check-review-audit.sh` 가 부재를 FAIL). 경로와 병렬 표시가 함께 오면 경로(B-report)를 우선해 직렬로 진행한다. 어느 경우든 AC 충족은 재평가하지 않는다.
 2. **변경 분석**: `git diff <range>` 로 변경 내용 파악.
 3. **4관점 평가**:
    - **품질**: 가독성, 중복, 명명, 함수 크기

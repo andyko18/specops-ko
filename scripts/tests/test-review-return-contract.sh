@@ -93,4 +93,7 @@ else nope "T6.d AC 재평가 금지 문구 부재"; fi
 if grep -qF '병렬 dispatch: yes (B 판정 대기)' "$IMP"; then ok "T6.e implementing-ko 병렬 표시 리터럴 — reviewer 와 동일"
 else nope "T6.e implementing-ko 병렬 표시 리터럴 부재"; fi
 
+if grep -qF '경로와 병렬 표시가 함께 오면 경로(B-report)를 우선' "$CR"; then ok "T6.f 경로·병렬 표시 동시 입력 시 경로 우선"
+else nope "T6.f 경로 우선 문장 부재"; fi
+
 finish
