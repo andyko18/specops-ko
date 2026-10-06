@@ -34,6 +34,19 @@
   mutation-equivalent.conf 재번호(핀 12건) · conf-fresh 8/8 ·
   hooks/rules·gbrain-friction·gbrain·validate-structure 회귀 없음
 
+### 최소 범위(YAGNI) rung 흡수와 FID 스코프 단계 강화 (#110)
+
+**행동 변경**: 4개 skill 이 요구·태스크·구현마다 **rung 순서 질문**을 던진다 — 존재 필요(YAGNI)? · 기존 헬퍼·코드베이스 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · (구현 단계) 한 줄 가능? 모두 아니면 최소 구현. 검증·에러 처리·보안·접근성은 절감 대상이 아니다.
+
+- `specifying-ko` 자체검토 6항(최소 범위) · `planning-ko` 8항(최소 태스크) · `decomposing-ko` 최소 태스크 게이트 · `implementing-ko` §6 뒤 최소 구현 rung
+- **FID 스코프 단계 강화(`decomposing-ko`)** — 종전 7개 이상 소프트 신호만이던 것을 단계화: 7~9 태스크는 tasks.md 끝에 **분할 계획 1행 의무**, 10개 이상은 **대화형에서 FID 분할 없이 `implementing-ko` 호출 금지**. 사용자 채널이 없는 `§auto`·`/start-all` batch·`foundation` 은 차단 대신 분할 계획행과 `FID-SIZE` 경고를 남기고 진행한다
+- `docs/architecture.md` v2.2.0 재실측(릴리즈 129·템플릿 37·훅 11건·검사기 27·스위트 184), README·CLAUDE.md 동기화, `doctor` memory·bootstrap 정상 경고 문구
+- skill 크기 래칫 baseline 을 명시 갱신했고, `specops_version` 스탬프 4종을 2.3.0 으로 정정했다(#111)
+
+⚠️ **한계 (정직 고백)**
+- 위 FID 스코프 규칙과 rung 질문은 **본문(산문) 규칙**이다 — 이 릴리즈 시점에는 분할 계획행·`FID-SIZE` 경고를 만들거나 검사하는 hook·script 가 없고 rung 문구를 잠그는 테스트도 없다. 기계 강제는 후속 변경에서 `emit-context.sh` 게이트로 다룬다.
+- 검증은 원 커밋 기준 run-all 178/183(실패 5종은 동시 실행 경합으로 판단해 단독 재실행 PASS)이었다. 통합 후 CI 4종은 main 에서 통과했다.
+
 ### 7회차 자기 평가 — 7.2/10 (−0.1)
 
 - `docs/audit/2026-10-06-plugin-evaluation-7th.md` — 루브릭 고정 델타 평가.
