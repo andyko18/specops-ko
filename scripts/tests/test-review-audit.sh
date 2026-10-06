@@ -298,4 +298,89 @@ out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
   || nope "T4.d 직접 작업 false-block" "ec=$ec out='$out'"
 rm -rf "$TMPDIR"
 
+# ── T5 병렬 C 리포트 사후 대조 (20261006-review-bc-parallel) ──
+#   PENDING(병렬 C 리포트는 dispatch-log 에 Phase 셀 BC-PAR-CHECK:<tid> 행이 있어야 한다. 없으면 B PASS 근거가 부모 선언뿐이다.
+# $1=베이스 $2=tid $3=C 리포트 헤더(PENDING 여부) — B/C 리포트 경로 행은 기존 규칙(경로 리터럴)대로 남긴다
+_par_fid() {
+  _mkfid "$1" F1
+  echo "# $2 Phase B — PASS" > "$1/.specops/F1/reviews/$2-B-report.md"
+  printf '# %s Phase C\n**Phase B 상태**: %s\n' "$2" "$3" > "$1/.specops/F1/reviews/$2-C-report.md"
+  {
+    echo "| # | 시각 | Phase | agent | 결과 | 경로 |"
+    echo "|---|---|---|---|---|---|"
+    echo "| 1 | 2026-10-06T01:00:00Z | End-loaded-B | spec-reviewer-ko | PASS | reviews/$2-B-report.md |"
+    echo "| 2 | 2026-10-06T01:00:00Z | End-loaded-C | code-reviewer-ko | PASS | reviews/$2-C-report.md |"
+  } > "$1/.specops/F1/dispatch-log.md"
+}
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+if [ "$ec" -eq 1 ] && echo "$out" | grep -q "BC-PAR-CHECK" && echo "$out" | grep -q "T1"; then
+  ok "T5.a PENDING(병렬 C 리포트 + 사후 대조 행 없음 → FAIL (원인·tid 출력)"
+else nope "T5.a" "ec=$ec out='$out'"; fi
+echo "| 3 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:T1 | parent | B PASS | reviews/T1-B-report.md reviews/T1-C-report.md |" >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 0 ] && echo "$out" | grep -q "REVIEW-AUDIT: PASS" && ok "T5.b 사후 대조 행 있음 → PASS" \
+  || nope "T5.b" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PASS (spec-reviewer-ko 인용)'
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 0 ] && ok "T5.c PENDING 부재(직렬·기존 FID) → 종전과 동일 PASS (행 불요)" \
+  || nope "T5.c 무영향 위반" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+# T10 은 리포트·경로 행·사후 대조 행이 모두 있다 — T1 만 대조가 빠진 상태에서 T10 행이 T1 을 가리지 못해야 한다(dangling 참조로 FAIL 하는 위양성 방지)
+printf '# T10 Phase B — PASS\n' > "$TMPDIR/.specops/F1/reviews/T10-B-report.md"
+printf '# T10 Phase C\n**Phase B 상태**: PENDING(병렬 — 부모 사후 대조)\n' > "$TMPDIR/.specops/F1/reviews/T10-C-report.md"
+{
+  echo "| 3 | 2026-10-06T01:01:00Z | End-loaded-B | spec-reviewer-ko | PASS | reviews/T10-B-report.md |"
+  echo "| 4 | 2026-10-06T01:01:00Z | End-loaded-C | code-reviewer-ko | PASS | reviews/T10-C-report.md |"
+  echo "| 5 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:T10 | parent | B PASS | reviews/T10-B-report.md reviews/T10-C-report.md |"
+} >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 1 ] && echo "$out" | grep -qE ': T1$' && ok "T5.d T10 행이 T1 의 사후 대조를 대신하지 못한다 (부분문자열 경계 — 누락은 T1 만)" \
+  || nope "T5.d" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+echo '| 3 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:<tid> | parent | B PASS | reviews/<tid>-B-report.md |' >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 1 ] && ok "T5.e 꺾쇠 placeholder 행은 사후 대조로 인정하지 않는다" \
+  || nope "T5.e" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+# B FAIL 케이스: 훅이 저장하는 -B-feedback.md 가 실재하고 행이 '폐기'를 표기하면 인정한다
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+echo "# T1 B feedback" > "$TMPDIR/.specops/F1/reviews/T1-B-feedback.md"
+echo "| 3 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:T1 | parent | C 폐기(B FAIL) | reviews/T1-B-report.md reviews/T1-B-feedback.md reviews/T1-C-report.md |" >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 0 ] && ok "T5.f B FAIL(B-feedback 실재) + 폐기 행 → 인정" \
+  || nope "T5.f" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+# 위장 차단: B-feedback(=B 비통과)이 있는데 행이 'B PASS' 라고 적으면 모순으로 FAIL
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+echo "# T1 B feedback" > "$TMPDIR/.specops/F1/reviews/T1-B-feedback.md"
+echo "| 3 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:T1 | parent | B PASS | reviews/T1-B-report.md reviews/T1-B-feedback.md reviews/T1-C-report.md |" >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 1 ] && echo "$out" | grep -q "모순" && ok "T5.g B FAIL 을 B PASS 로 적은 대조 행 → 모순 FAIL" \
+  || nope "T5.g" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
+# 역방향: B-feedback 이 없는(B 통과) FID 에서 행이 폐기라고 적어도 모순
+TMPDIR=$(mktemp -d) || exit 1
+_par_fid "$TMPDIR" T1 'PENDING(병렬 — 부모 사후 대조)'
+echo "| 3 | 2026-10-06T01:05:00Z | BC-PAR-CHECK:T1 | parent | C 폐기(B FAIL) | reviews/T1-B-report.md reviews/T1-C-report.md |" >> "$TMPDIR/.specops/F1/dispatch-log.md"
+out=$(cd "$TMPDIR" && bash "$AUDIT" F1 2>&1); ec=$?
+[ "$ec" -eq 1 ] && echo "$out" | grep -q "모순" && ok "T5.h B 통과인데 폐기라고 적은 행 → 모순 FAIL" \
+  || nope "T5.h" "ec=$ec out='$out'"
+rm -rf "$TMPDIR"
+
 finish

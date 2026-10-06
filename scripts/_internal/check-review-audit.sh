@@ -112,10 +112,44 @@ if [ "$checked" -eq 0 ]; then
   exit 0
 fi
 
+# ── 병렬 C 리포트 사후 대조 (20261006-review-bc-parallel) ──
+#   code-reviewer-ko 가 최초 B/C 병렬 dispatch 로 돌면 보고서 헤더가 `PENDING(병렬` — B 판정을 못 본 채 쓴 리포트다.
+#   부모가 B-report 를 읽어 남기는 사후 대조 행(Phase 셀 `BC-PAR-CHECK:<tid>`)이 없으면 "B PASS 근거가 부모 선언뿐"
+#   (20260716 관찰 B)이 재발한다. 훅은 판정과 무관하게 -C-report.md 를 항상 저장하므로 report 만 본다.
+#   행의 결론은 B 판정 산출물과 맞아야 한다 — 훅은 통과가 아닐 때만 -B-feedback.md 를 저장하므로 B-feedback 이 있는데 `폐기` 표기가
+#   없거나, 없는데 `B PASS` 표기가 없으면 자기보고가 B 판정과 모순이다(B FAIL 을 B PASS 로 적는 위장 차단).
+#   한계: 병렬 여부를 C 리포트의 PENDING 헤더로 판정하므로 헤더를 생략하면 이 검사는 건너뛴다(자기보고 — 5원칙 5).
+unchecked=""; contradict=""
+for f in "$REVIEWS"/*-C-report.md; do
+  [ -f "$f" ] || continue
+  grep -Fq 'PENDING(병렬' "$f" || continue
+  base=$(basename "$f"); tid="${base%-C-report.md}"
+  [ -n "$tid" ] || continue
+  row=$(grep -E "^[[:space:]]*\|[^|]*\|[^|]*\|[[:space:]]*BC-PAR-CHECK:${tid}[[:space:]]*\|" "$LOG" | tail -1)
+  if [ -z "$row" ]; then unchecked="${unchecked}${unchecked:+ }${tid}"; continue; fi
+  if [ -f "$REVIEWS/${tid}-B-feedback.md" ]; then
+    case "$row" in *폐기*) ;; *) contradict="${contradict}${contradict:+ }${tid}" ;; esac
+  else
+    case "$row" in *"B PASS"*) ;; *) contradict="${contradict}${contradict:+ }${tid}" ;; esac
+  fi
+done
+
 if [ -n "$missing" ]; then
   echo "REVIEW-AUDIT: FAIL — dispatch-log.md 미기록 리뷰: $missing"
   echo "  리뷰 판정은 dispatch-log.md 에 행으로 남겨야 감사 추적이 성립합니다 (implementing-ko §dispatch-log)."
   echo "  Evaluator 를 모델 override 로 재dispatch 했거나 degradation 이 있었다면 그 사실도 같은 행에 기록하세요."
+  exit 1
+fi
+
+if [ -n "$unchecked" ]; then
+  echo "REVIEW-AUDIT: FAIL — 병렬 C 리포트에 BC-PAR-CHECK 사후 대조 행이 없습니다: $unchecked"
+  echo "  최초 B/C 병렬 dispatch 뒤 부모가 reviews/<tid>-B-report.md 판정을 읽고 Phase 셀 BC-PAR-CHECK:<tid> 행을 남겨야 합니다 (implementing-ko §최초 B/C 쌍 병렬)."
+  exit 1
+fi
+
+if [ -n "$contradict" ]; then
+  echo "REVIEW-AUDIT: FAIL — BC-PAR-CHECK 행의 결론이 B 판정과 모순됩니다(B-feedback 이 있으면 'C 폐기', 없으면 'B PASS' 표기 필요): $contradict"
+  echo "  reviews/<tid>-B-report.md·-B-feedback.md 를 다시 읽고 행을 실제 판정에 맞게 고치세요 (implementing-ko §최초 B/C 쌍 병렬)."
   exit 1
 fi
 
