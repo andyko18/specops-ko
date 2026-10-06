@@ -3,7 +3,7 @@ name: implementing-ko
 description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task"
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
-specops_version: 2.1.0
+specops_version: 2.2.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
 ---
 
@@ -39,6 +39,8 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 - `.specops/memory/api-spec.md`·`api-spec-consumer.md`·`data-model.md` — **인터페이스(제공·소비)/스키마 계약** (Step 5.6 design-first · Phase 8g 산출)
 
 `emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`api-spec-consumer.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
+
+**최소 구현**: leaf 구현 전 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 모두 아니면 최소 코드. 검증·에러 처리·보안·접근성은 절감 대상 아님. scope 이관 시 재사용 우선.
 
 ## 사용 시점
 

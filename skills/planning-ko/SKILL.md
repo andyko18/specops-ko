@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.1.0
+specops_version: 2.2.0
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -145,6 +145,8 @@ git commit -m "feat: 특정 기능 추가"
 **6. 복구 절차 안전성**: 변이 실험의 복구가 **미커밋 구현을 파괴**하지 않는가? `git checkout` 은 커밋 전 작업을 지운다 — `cp` 백업을 쓰고 실험은 커밋 뒤에 한다.
 
 **7. RED 예상 실측**: Step 2 의 예상 출력을 **추론으로 쓰지 않았는가?** 예상이 실제와 다르면 구현자가 절차에서 막힌다.
+
+**8. 최소 태스크**: 각 태스크에 rung 순서로 질문: 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? 과잉 태스크 제거. 검증·에러·보안 절차는 제거 대상 아님.
 
 > **4~7은 판정 질문이다 — plan 본문에 답을 길게 쓰지 말 것.** 해당 없으면 "해당 없음" 한 줄이면 된다. 이 검토의 목적은 **리뷰 재dispatch 비용 절감**인데 답이 길어지면 리뷰 대상이 늘어 **역효과**다.
 >
