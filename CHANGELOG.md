@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+### 면제 남용 축소 — 기록 3종 (판정 불변, fail-open 유지)
+
+- **BYPASS 사유 분류 기록** — `_bypass_category()` 신설. snippet 선두 `cat=<분류>` 부착
+  (implement-commit·session-boundary·stale-reverify·tool-limit·urgent·unclassified).
+  미분류도 통과한다(형식 함정 false-deny 금지). `gbrain-friction` 집계 축으로 소비 예정
+- **docs-only 면제 기록 확대** — staged 축소뿐 아니라 working-tree 범위 면제도
+  `R-1-SCOPE` info 행으로 적재. FID 미검출·기록 실패는 allow 불변(부수효과)
+- **fail-open degraded 기록** — `_log_degraded()` 신설. jq·stdin 파싱·rules·trigger 로드
+  실패, batch-state 판정 불가를 repo 레벨 friction-log 에 `GOVERNANCE-DEGRADED` 로 남긴다.
+  `.specops` 부재면 기록 자체가 월권이므로 스킵. stdout JSON·stderr 문안 불변
+- **검증**: test-pretool 235/235 · test-lib 152/152(신규 T-bcat 8종) ·
+  신규 T-bypass-cat 6종·T-docs-unstaged-log 2종·T-degraded-log 4종 ·
+  mutation-equivalent.conf 재번호(핀 12건) · conf-fresh 8/8 ·
+  hooks/rules·gbrain-friction·gbrain·validate-structure 회귀 없음
+
+### 7회차 자기 평가 — 7.2/10 (−0.1)
+
+- `docs/audit/2026-10-06-plugin-evaluation-7th.md` — 루브릭 고정 델타 평가.
+  외부 10 repo gate-coverage 합계 verified 121 · held 28 · **23%**
+  (6회차 5 repo 31% → 동일 분모 재계산 26%). bare=0 전 repo.
+  경제성 5→5.5(토큰 라운드 착지) · 강제력 7→6.5(50% 트리거 발화) ·
+  온보딩 7→6.5(architecture v1.80 동결).
+  8회차 트리거: 보유율 50% 회복·architecture 재실측·B/C 병합+스코프 상한.
+
 ## [2.2.0] — 2026-10-06
 
 ### 게이트 마찰 사전 차단과 릴리즈 스탬프 정정 (#106 · #107)

@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.0.0
+specops_version: 2.2.0
 used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 
@@ -427,6 +427,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 3. **범위 점검** — 단일 구현 플랜으로 집중됐는가? 분해 필요?
 4. **모호성 점검** — 두 가지로 해석될 요구? 하나 고르고 명시
 5. **intent 추적** — spec 이 intent 의 문제를 푸는가 · 기대 결과가 관찰 가능한 성공 판정·AC 로 내려왔는가 · IQ 전건이 답변 또는 이월로 처리됐는가
+6. **최소 범위** — 각 요구에 rung 순서로 질문: 존재 필요(YAGNI)? · 코드베이스 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 모두 아니면 최소 구현. 검증·에러·보안·접근성은 절감 대상 아님
 
 인라인 수정. 재검토 불필요.
 

@@ -1241,5 +1241,60 @@ _msg_env=$(printf '%s' "$_in_iab" | _VS_VERDICT_CACHE=PASS _VS_VERDICT_CACHE_FID
 check "T-cause.j-4e 캐시 env 선주입으로 열리지 않는다" 'verify 면제 조건' "$_msg_env"
 rm -rf "$_IAB"
 
+# ── T-bypass-cat: BYPASS 사유 분류 기록 (면제 남용 축소 1 — 판정 불변) ──
+_catsb=$(mktemp -d); mkdir -p "$_catsb/.specops"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='태스크 중간 커밋' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_catsb" bash "$HOOK" 2>/dev/null)
+check "T-bypass-cat.a 분류 키워드 → allow 유지" '"continue":true' "$out"
+if grep -q "cat=implement-commit" "$_catsb/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-bypass-cat.b cat=implement-commit 기록"; pass=$((pass+1))
+else echo "FAIL T-bypass-cat.b — cat 미기록"; fail=$((fail+1)); fi
+rm -rf "$_catsb"
+_catsb2=$(mktemp -d); mkdir -p "$_catsb2/.specops"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='그냥 넘어감' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_catsb2" bash "$HOOK" 2>/dev/null)
+check "T-bypass-cat.c 미분류 사유 → allow 유지" '"continue":true' "$out"
+if grep -q "cat=unclassified" "$_catsb2/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-bypass-cat.d cat=unclassified 기록"; pass=$((pass+1))
+else echo "FAIL T-bypass-cat.d — cat 미기록"; fail=$((fail+1)); fi
+rm -rf "$_catsb2"
+_catsb3=$(mktemp -d); mkdir -p "$_catsb3/.specops"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$_catsb3" bash "$HOOK" 2>/dev/null)
+check "T-bypass-cat.e 세션-env → allow 유지" '"continue":true' "$out"
+if grep -q "cat=unclassified | session-env" "$_catsb3/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-bypass-cat.f 세션-env cat 기록"; pass=$((pass+1))
+else echo "FAIL T-bypass-cat.f — cat 미기록"; fail=$((fail+1)); fi
+rm -rf "$_catsb3"
+
+# ── T-docs-unstaged-log: working-tree 범위 docs-only 면제도 기록 (면제 남용 축소 2) ──
+_docu=$(mktemp -d) || exit 1
+( cd "$_docu" && git init -q && mkdir -p .specops/20260101-docu \
+  && printf '## 20260101-docu\n' > .specops/session-progress.md \
+  && echo doc > README.md && echo "echo x" > tracked.sh \
+  && git add -A && git -c user.email=e@t -c user.name=t commit -q -m init \
+  && echo more >> README.md ) >/dev/null 2>&1
+_out=$(mkstdin "git commit -am x" "$FIX/pretool-no-verify.jsonl" \
+  | CLAUDE_PROJECT_DIR="$_docu" bash "$HOOK" 2>&1)
+check "T-docs-unstaged-log.a working-tree docs-only → allow 유지" '"continue":true' "$_out"
+if grep -q "R-1-SCOPE" "$_docu/.specops/20260101-docu/friction-log.jsonl" 2>/dev/null \
+   && grep -q "working-tree 범위" "$_docu/.specops/20260101-docu/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-docs-unstaged-log.b working-tree 범위 R-1-SCOPE 기록"; pass=$((pass+1))
+else echo "FAIL T-docs-unstaged-log.b — 기록 없음"; fail=$((fail+1)); fi
+rm -rf "$_docu"
+
+# ── T-degraded-log: fail-open 판정 불가도 기록 (면제 남용 축소 3 — allow 불변) ──
+_dgd=$(mktemp -d); mkdir -p "$_dgd/.specops"
+out=$(printf 'not-json' | CLAUDE_PROJECT_DIR="$_dgd" bash "$HOOK" 2>/dev/null)
+check "T-degraded-log.a 파싱 실패 → allow 유지" '"continue":true' "$out"
+if grep -q "GOVERNANCE-DEGRADED" "$_dgd/.specops/friction-log.jsonl" 2>/dev/null; then
+  echo "PASS T-degraded-log.b degraded 기록 생성"; pass=$((pass+1))
+else echo "FAIL T-degraded-log.b — 기록 없음"; fail=$((fail+1)); fi
+rm -rf "$_dgd"
+_dgd2=$(mktemp -d)
+out=$(printf 'not-json' | CLAUDE_PROJECT_DIR="$_dgd2" bash "$HOOK" 2>/dev/null)
+check "T-degraded-log.c 비-specops 파싱 실패 → allow 유지" '"continue":true' "$out"
+if [ ! -f "$_dgd2/.specops/friction-log.jsonl" ]; then
+  echo "PASS T-degraded-log.d 비-specops 는 기록 없음(관할 한정)"; pass=$((pass+1))
+else echo "FAIL T-degraded-log.d — 관할 밖 기록"; fail=$((fail+1)); fi
+rm -rf "$_dgd2"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

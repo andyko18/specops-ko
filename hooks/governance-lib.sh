@@ -1690,3 +1690,37 @@ _receipt_hint_extra() {
    tasks.md 의 숫자 id 를 확인하고 커밋 메시지에 그 id 를 Task: T숫자 형식으로 명시하세요(예: Task: T1)."
   fi
 }
+
+# ── BYPASS 사유 분류 (면제 남용 축소 1 — 기록만, 판정 불변) ──────────────────
+# 왜: 자유서술 사유만 쌓이면 "우회 횟수"만 남는 무정보 감사가 된다(20260716 지적).
+#   분류는 판정을 바꾸지 않는다 — deny/allow 조건은 그대로, friction-log snippet 선두에
+#   cat=<분류> 를 붙여 gbrain-friction 집계 축을 만든다. 미분류는 unclassified 로 둔다
+#   (형식 함정 false-deny 금지 — 분류 실패가 우회를 막지 않는다).
+# 카테고리: [implement-commit] 태스크 중간 커밋 · [session-boundary] 세션 경계 재검증 ·
+#   [stale-reverify] stale 후 재실행 회피 · [tool-limit] 도구·훅 한계 · [urgent] 긴급 hotfix ·
+#   그 외 unclassified. 대괄호 없이 써도 키워드로 추정한다(추정 실패=unclassified).
+_bypass_category() {  # <reason> → 분류 토큰
+  local r="${1:-}" low
+  low=$(printf '%s' "$r" | tr '[:upper:]' '[:lower:]')
+  case "$low" in
+    *"[implement-commit]"*|*"중간 커밋"*|*"태스크"*"커밋"*|*"implement"*|*"receipt"*) echo "implement-commit" ;;
+    *"[session-boundary]"*|*"세션"*|*"session"*) echo "session-boundary" ;;
+    *"[stale-reverify]"*|*"stale"*|*"스태일"*) echo "stale-reverify" ;;
+    *"[tool-limit]"*|*"도구 한계"*|*"훅 한계"*|*"jq"*|*"판정 불가"*) echo "tool-limit" ;;
+    *"[urgent]"*|*"긴급"*|*"hotfix"*|*"핫픽스"*) echo "urgent" ;;
+    *) echo "unclassified" ;;
+  esac
+}
+
+# ── fail-open degraded 기록 (면제 남용 축소 3 — 기록만, allow 불변) ───────────
+# 왜: 판정 불가(jq·rules·trigger 로드 실패 등)가 무음으로 allow 되면 "보호 중" 착각을
+#   만든다. allow 는 유지하고(차단은 verify 누락 판정 시에만 — fail-open 계약) repo 레벨
+#   friction-log(.specops/friction-log.jsonl, fid 없음)에 degraded 1줄을 남긴다.
+#   .specops 부재면 기록 자체가 월권이므로 스킵한다. 모든 실패는 || true 로 삼킨다.
+_log_degraded() {  # <rule_id> <snippet> → 0 항상(기록 실패해도 호출자 흐름 불변)
+  local rid="${1:-GOVERNANCE-DEGRADED}" snip="${2:-}"
+  [ -d ".specops" ] || return 0
+  declare -F log_friction >/dev/null 2>&1 || return 0
+  log_friction "" "$rid" 1 "$snip" 0 2>/dev/null || true
+  return 0
+}
