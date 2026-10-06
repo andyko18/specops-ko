@@ -5,7 +5,7 @@
 
 <!-- active-fid: 20261006-init-project -->
 
-# Session Progress — f1
+# Session Progress — f2
 
 > 이 파일은 세션 재시작 후 맥락 복원의 **유일한 경로**입니다. 모든 Lifecycle 커맨드가 종료 시 한 줄 append 합니다. 대화가 끊겨도 이 파일만 읽으면 "어디까지 했는지"가 복원됩니다.
 
