@@ -342,6 +342,25 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.h (out=$out)"
 fi
 
+# --- T-shadow: cwd 의 yaml.py 가 진짜 yaml 을 가리지 못한다 (20261007-yaml-cwd-shadow) ---
+# python3 stdin/-c 는 sys.path[0]='' 라 cwd 의 가짜 yaml 을 import 한다 — 가짜는 항상 단일 leaf 'FAKE' 를 돌려준다.
+_sh=$(mktemp -d); printf 'def safe_load(s):\n    return {"tasks": [{"id": "FAKE", "depends_on": []}]}\n' > "$_sh/yaml.py"
+_yaml_real=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md")
+_leaves=$(cd "$_sh" && dag::list_leaves "$_yaml_real" 2>/dev/null)
+_yaml_tc=$(printf 'tasks:\n  - id: T1\n    depends_on: []\n    test_command: "bash real-test.sh"\n')
+_tc=$(cd "$_sh" && dag::get_task_test_command "$_yaml_tc" T1 2>/dev/null)
+if ! printf '%s' "$_leaves" | grep -q 'FAKE' && printf '%s' "$_leaves" | grep -q 'T1'; then
+  PASS=$((PASS+1)); echo "PASS T-shadow.a list_leaves 가 cwd 가짜 yaml 에 속지 않음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-shadow.a — leaves=$_leaves"
+fi
+if [ "$_tc" = "bash real-test.sh" ]; then
+  PASS=$((PASS+1)); echo "PASS T-shadow.b get_task_test_command 가 실 YAML 로 동작"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-shadow.b — test_command 빈 값(가짜 yaml 에 속음)"
+fi
+rm -rf "$_sh"
+
 # cleanup
 rm -f /tmp/b1_stdout /tmp/b1_stderr
 

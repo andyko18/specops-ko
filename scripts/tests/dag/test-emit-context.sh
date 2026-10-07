@@ -581,5 +581,18 @@ out=$(cd "$tmp2" && bash "$EMIT" 20260902-fsleg 2>&1); rc=$?
 _pf "T7.c 레거시 2 태스크 FID → EMIT 정상(게이트 회귀 없음)" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp" "$tmp2"
 
+# ── 20261007-yaml-cwd-shadow — cwd 의 yaml.py 가 진짜 yaml 을 가리지 못한다 (python3 stdin/-c 는 sys.path[0]='' 라 cwd 를 import) ──
+_shadow() { printf 'def safe_load(s):\n    return {"tasks": [{"id": "T1", "depends_on": [], "ac": ["AC-1"], "inputs": [], "outputs": [], "test_command": "bash x"}]}\n' > "$1/yaml.py"; }
+# T8.a check-task-ids: 접미사 id(T1a) tasks.md + cwd 가짜 yaml(T1 만 돌려줌) → 여전히 FAIL
+tmp=$(mktemp -d); mk_tid_fixture "$tmp" 20261007-shadow-tid T1a; _shadow "$tmp"
+out=$(cd "$tmp" && bash "$CHK" 20261007-shadow-tid 2>&1); rc=$?
+_pf "T8.a cwd yaml.py 가짜 주입에도 task id 거부 유지" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'TASK-IDS: FAIL' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+# T8.b emit-context(+parse-dag): 정상 FID + cwd 가짜 yaml(안 맞는 단일 task) → 실 YAML 로 EMIT: 2 files
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-shadow-emit"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-shadow-emit/"; _shadow "$tmp"
+out=$(cd "$tmp" && bash "$EMIT" 20260902-shadow-emit 2>&1); rc=$?
+_pf "T8.b cwd yaml.py 가짜 주입에도 emit 이 실 YAML 로 산출" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
