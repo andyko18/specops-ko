@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### 공식 문서 대조 반영 (1/3) — 사용자 전용 command 의 모델 자동 호출 차단 · 구현자 skill 프리로드 · 리뷰어 필수 지적 한정
+
+Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·plugin-evals·best-practices·costs)를 읽고 specops 에 대조했다. 직전 조사는 변경 이력과 CLI 도움말에 근거했고, 이번에 문서로 확정·정정했다.
+
+- **`disable-model-invocation: true` 22종** — 모델이 스스로 부를 이유가 없는 command(`brainstorming`·`design-*`·`doctor`·`e2e-test`·`gbrain`·`improve-arch`·`log`·`maintain*`·`promote`·`release`·`security-scan`·`start*`·`statusline-install`)에 붙였다. 공식 문서: 이 플래그는 description 을 컨텍스트에서 빼고 호출 때만 본문을 싣는다. **주된 이유는 안전**(모델이 `release`·`promote` 같은 부작용 명령을 자동 실행하지 못하게 — 문서가 부작용 workflow 에 권하는 용도)이고, 토큰은 부수 효과다. **실측**(`claude -p /context`, 전/후 비교): specops skill 행 54→32, **약 870 tok 절감**. `claude plugin details` 의 투영값은 이 플래그를 반영하지 못해(같은 설명이 그대로 계상) 처음 추정(~1.8k)이 **과대**였다 — 투영값 대신 `/context` 로 쟀다. 모델이 호출해야 하는 `init-project`(메타 skill 이 y 응답 시)·`status`(재개 조회)는 제외, 사용자 입력 `/start` 등은 영향 없다
+- **`implementer-ko` 에 `skills: [karpathy-ko]`** — 공식 sub-agents 문서: `skills` 는 시작 시 **전체 내용을 서브에이전트 컨텍스트에 주입**한다(프리로드). 구현자가 `karpathy-ko`(Surgical·Simplicity)를 "참조"만 하고 로드하지 않던 공백을 메웠다. 실측으로 맨 이름 `karpathy-ko` 가 해석돼 첫 제목이 컨텍스트에 있음을 확인했다. **비용**: 구현자 dispatch 마다 약 1.7k tok 추가
+- **리뷰어 필수 지적 한정** — 공식 best-practices: 갭을 찾으라는 리뷰어는 건전한 작업에서도 지적을 만들고, 전부 쫓으면 과잉 설계가 된다. `code-reviewer-ko` 의 Critical·Important 를 정확성·명시 요구 영향 갭으로 한정하고 취향·스타일·과잉 설계는 Suggestion 으로만 둔다(#116 의 과잉 설계 관점과 일치)
+- 잠금: `test-gate-presence`(command 플래그 22종·제외 2종·비활성 command 의 skill 호출 참조 0건·프리로드·karpathy 프리로드 가능성) · `test-review-evidence-rules` T9.e. 변이 4종 격추
+
+⚠️ **한계 (정직 고백)**: 프리로드의 품질 이득은 미측정(토큰 비용은 확정). 공식 문서 `skills`·sub-agents·hooks 페이지는 앞 10만 자만 읽혔다. 후속(2·3/3): SessionStart 주입 문구 재작성(라우팅 eval 선행·비용 승인 필요) · `CLAUDE.md` 정리 · 큰 skill 보조 파일 분리.
+
 ### 영상 분석 반영 — 무인 계약 리프 전달 · 범위 위생 · 인용 규율 (Anthropic Fable 5.1 가이드 해설 영상의 10팁 중 4개)
 
 영상(코드팩토리 "Fable 5.1 제대로 쓰는 법 10가지")의 팁은 대부분 모델 무관한 프롬프트 위생이라, specops 프롬프트에 대입해 실측한 뒤 빈 곳 4곳을 채웠다. Fable 모델 자체는 쓰지 않는다(서브에이전트는 sonnet·opus 별칭만).

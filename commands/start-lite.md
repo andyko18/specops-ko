@@ -1,5 +1,6 @@
 ---
 name: start-lite
+disable-model-invocation: true
 description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 — 화면/IF·Phase B/C·verify 유지. specops-ko:specifying-ko 호출"
 triggers:
   - "/start-lite"

@@ -1,5 +1,6 @@
 ---
 name: start-foundation
+disable-model-invocation: true
 description: "[공통부·대화형] specops-ko 한국어 자율 Lifecycle — 공통부 우선 개발 진입. specifying-ko 를 foundation 분기로 호출"
 triggers:
   - "/start-foundation"

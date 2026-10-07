@@ -1,5 +1,6 @@
 ---
 name: gbrain
+disable-model-invocation: true
 description: 개발 세션 인사이트 조회·요약 슬래시 — gbrain-ko 호출. learnings.jsonl 최신 10건 + 전체 개수 출력.
 triggers:
   - "/gbrain"

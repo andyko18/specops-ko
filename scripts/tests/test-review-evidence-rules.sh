@@ -81,5 +81,9 @@ _st=""
 for a in spec plan design; do f="$PLUGIN/agents/$a-reviewer-ko.md"; _st="$_st$(yn "$(section "$f" '## 보고 문체')" '원문과 요약을 구분한다')$(yn "$(section "$f" '## 보고 문체')" '비유·수사 없이')"; done
 ck "T9.d spec·plan·design 리뷰어에 ## 보고 문체 절(원문/요약 구분·비유 금지)이 있다" "$_st" "yyyyyy"
 
+# ══ 20261007-doc-conformance: 필수 지적 한정 (공식 best-practices — 적대적 리뷰어 과잉 지적 경고) ══
+_ev2=$(section "$AG" '## 증거 규칙')
+ck "T9.e code-reviewer: 필수(Critical·Important) 지적은 정확성·명시 요구 영향 갭으로 한정, 나머지는 Suggestion" "$(yn "$_ev2" '필수 지적은 정확성·명시 요구에 영향을 주는 갭만')$(yn "$_ev2" '취향·스타일·과잉 설계 지적은 Suggestion')" "yy"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

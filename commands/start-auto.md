@@ -1,5 +1,6 @@
 ---
 name: start-auto
+disable-model-invocation: true
 description: "[단일·무인] specops-ko 완전자동 Lifecycle 단일 기능 진입 — 가역 게이트 자동 통과, PR 직전 단일 확인점만. specops-ko:specifying-ko 호출"
 triggers:
   - "/start-auto"

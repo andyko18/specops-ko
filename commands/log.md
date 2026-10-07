@@ -1,5 +1,6 @@
 ---
 name: log
+disable-model-invocation: true
 description: 자유작업 인사이트 즉석 수동 기록 — gbrain-append 재사용
 triggers:
   - "/log"

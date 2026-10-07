@@ -1,5 +1,6 @@
 ---
 name: statusline-install
+disable-model-invocation: true
 description: specops-ko HUD statusLine을 프로젝트 .claude/settings.json에 등록 (Lifecycle 진행 상태 상시 표시)
 triggers:
   - "/statusline-install"

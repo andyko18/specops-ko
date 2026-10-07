@@ -1,5 +1,6 @@
 ---
 name: design-screens
+disable-model-invocation: true
 description: "[lifecycle 밖] 복수 화면 일괄 설계 — 목록 자동판단·승인 게이트·순차 루프. lifecycle 안은 Step 5.5·Phase 2.5-A 가 자동 처리"
 triggers:
   - "/design-screens"
