@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### `test-validate-structure` 300s TIMEOUT 근본 원인 — frontmatter 체크의 파일별 python 스폰
+
+릴리즈·PR 마다 부하 시 `test-validate-structure` 가 300s 상한을 넘겼다(v2.4.0 작업 중 4회). 프로파일(체크별 시각)로 `validate-structure.sh` 한 번 12s 중 `frontmatter` 4.1s·`skill_conventions` 3.7s 가 지배함을 확인했고, 전자는 **파일마다 `python3`+`import yaml` 을 띄우는 구조**(≈110회)였다. 한 번의 python3 가 `commands`·`skills`·`templates` 의 `*.md` 를 훑도록 바꿨다(의미 동일: 첫 줄이 `---` 가 아니면 건너뛰고 다음 `---` 전까지를 YAML 로 읽어 실패 파일을 모은다 · cwd `yaml.py` 가림 방지 포함). 실측: `validate-structure` 12s → 4s, `test-validate-structure` 스위트 151s → 69s(같은 부하). 깨진 frontmatter 는 여전히 FAIL(수동 변이 + 기존 T6).
+
+⚠️ 한계: 상한(300s)은 그대로다 — 부하가 이번 개선(2배)보다 더 심하면 이론상 재발할 수 있다. `skill_conventions`(3.7s)는 별도 스위트(`test-skill-conventions`)와 중복 실행되나 이번엔 손대지 않았다.
+
+
 ## [2.4.0] — 2026-10-07
 
 ### FID 스코프 기계 강제 — `check-fid-size.sh` (emit-context 게이트)
