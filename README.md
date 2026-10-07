@@ -263,6 +263,7 @@ frontmatter 가 어디서 무엇을 가져왔는지 개별로 밝힌다(실측 5
 | [obra/omc](https://github.com/obra/omc) | — | 릴리즈 패턴 일부 |
 | [revfactory/harness](https://github.com/revfactory/harness) | — | harness 패턴 4건 |
 | [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) | — | `karpathy-ko` 원형 |
+| [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) | MIT | 최소 범위(YAGNI) rung 사다리 개념 — specifying·planning·decomposing·implementing 4 skill (v2.3.0) |
 | [github/spec-kit](https://github.com/github/spec-kit) · garrytan/gstack · mattpocock · alirezarezvani/claude-skills | — | 패턴 번안·한국어 재창작 |
 
 > **원본 코드를 복사(vendoring)하지 않았다.** 전부 패턴 참조 · 번안 · 한국어 재창작이고,

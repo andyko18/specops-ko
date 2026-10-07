@@ -41,6 +41,19 @@ if [ -f "$_TID_SH" ]; then
   fi
 fi
 
+# FID 스코프 게이트 — 7개 이상은 tasks.md 의 `**분할 계획**:` 행 의무, 10개 이상은 대화형 차단
+#   (§auto·§batch·foundation 은 분할할 채널이 없어 경고 후 진행). decomposing-ko `## FID 크기 규약` 의 기계 강제.
+#   WARN 은 통과하되 경고를 stderr 로 남긴다 — 큰 FID 가 조용히 지나가지 않게.
+_FS_SH="$SCRIPT_DIR/../_internal/check-fid-size.sh"
+if [ -f "$_FS_SH" ]; then
+  if ! fs_out=$(bash "$_FS_SH" "$FID" 2>&1); then
+    printf '%s\n' "$fs_out" >&2
+    echo "emit-context: FID 스코프 초과 — 분할 계획행 기재 또는 FID 분할 후 재실행" >&2
+    exit 1
+  fi
+  case "$fs_out" in *"FID-SIZE: WARN"*) printf '%s\n' "$fs_out" >&2 ;; esac
+fi
+
 # foundation 재사용 게이트 (소비측) — 구현 **전** fail-fast.
 #   decomposing-ko 계약: §유형≠foundation 이고 manifest 가 있으면 각 task 가
 #   `**재사용 foundation**` 또는 `**미재사용 근거**` 를 기재해야 한다. 종전엔 산문뿐이라

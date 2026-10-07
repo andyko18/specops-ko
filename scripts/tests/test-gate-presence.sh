@@ -197,6 +197,15 @@ fi
 if has templates/tasks.md '숫자 전용' 'T1a'; then ok "task-ids: templates/tasks.md 숫자 전용 규약"; else nope "task-ids: templates/tasks.md 규약 문구 부재"; fi
 if has skills/decomposing-ko/SKILL.md '숫자 전용' 'check-task-ids'; then ok "task-ids: decomposing-ko 숫자 전용 규약·판정기 언급"; else nope "task-ids: decomposing-ko 규약 문구 부재"; fi
 
+# ── FID 스코프 게이트 배선 (20261007-fid-size-gate) ──
+if has scripts/dag/emit-context.sh 'bash "\$_FS_SH"' 'FID 스코프 초과'; then
+  ok "fid-size: emit-context 가 check-fid-size 를 구현 전에 호출"
+else
+  nope "fid-size: emit-context 배선 부재"
+fi
+if has templates/tasks.md '분할 계획' 'check-fid-size'; then ok "fid-size: templates/tasks.md 분할 계획행 규약·판정기 언급"; else nope "fid-size: templates/tasks.md 규약 문구 부재"; fi
+if has skills/decomposing-ko/SKILL.md '분할 계획' 'check-fid-size'; then ok "fid-size: decomposing-ko 분할 계획행·판정기 언급"; else nope "fid-size: decomposing-ko 규약 문구 부재"; fi
+
 # ── 20261005 전체 스위트 병행 · 리뷰어 실행 예산 (implementing-ko) ──
 # Phase A 직후 run-all 백그라운드 병행(리뷰 대기와 겹침) + 리뷰어 실행량 상한. 문구가 사라지면 병행·예산이 조용히 꺼진다.
 if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '라운드마다 다시 띄우지 않는다' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then

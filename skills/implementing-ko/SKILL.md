@@ -40,7 +40,7 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 
 `emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`api-spec-consumer.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
 
-**최소 구현**: leaf 구현 전 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 모두 아니면 최소 코드. 검증·에러 처리·보안·접근성은 절감 대상 아님. scope 이관 시 재사용 우선.
+**최소 구현**: leaf 구현 전 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 아니면 최소 코드. 검증·에러 처리·보안·접근성·AC 테스트는 절감 제외. scope 이관 시 재사용 우선.
 
 ## 사용 시점
 
