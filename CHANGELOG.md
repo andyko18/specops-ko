@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### 공식 문서 대조 반영 (3/3) — `claude plugin eval` 라우팅 스위트 · 주입 문구 가설 검증
+
+공식 문서(plugin-evals)의 `claude plugin eval` 로 **메타 skill 라우팅**을 재현 가능한 케이스로 만들었다 — 앞서 "러너 확장이 필요하다"며 미룬 대조군 벤치마크의 자리를 채운다(케이스마다 플러그인 없는 baseline arm 을 자동으로 같이 돌려 `Δ` 를 보고한다).
+
+- `evals/` 신설(4 케이스): `route-feature-new`·`route-bugfix`(초기화된 프로젝트를 흉내낸 scaffold — `.specops/`·`CLAUDE.md`·`src/auth.ts` — 에서 lifecycle skill 호출 기대) · `no-route-presentation`·`no-route-qa`(코딩 아님 → lifecycle skill 미호출, `min: 0, max: 0`). 결과 폴더는 `.gitignore`. 데이터 계약은 `test-skill-evals` T9 가 잠근다
+- **가설 검증 결과 — 주입 문구 재작성은 보류**: 공식 hooks 문서는 훅 주입 텍스트를 "명령형 시스템 지시가 아니라 사실 서술로" 쓰라고 권한다(프롬프트 인젝션 방어가 오작동해 텍스트를 사용자에게 되돌릴 수 있다). specops 메타 skill 은 `<EXTREMELY_IMPORTANT>`·"반드시"·"협상 사항이 아니다" 같은 명령형이라 충돌 소지가 있어 라우팅을 측정했다. **4 케이스 × 1회(n=1) 전부 통과** — 신규·유지보수 요청은 lifecycle skill 을 호출했고, 발표 자료·단순 질의는 호출하지 않았다. 따라서 "명령형 문구가 라우팅을 해친다"는 증거는 **없다**. 이 근거로 문구를 바꾸지 않는다
+- 비용: 첫 확인 실행 합계 약 $1.7(케이스당 $0.15~0.79). 케이스 수는 적고 반복도 1회라 **통계적 결론이 아니다** — 변경(문구 재작성·모델 교체) 전후 비교에는 `claude plugin eval . --runs 3 --max-cost-usd <상한> --scaffold` 로 baseline Δ 까지 재측정한다
+- **`test-shellcheck-lint` TIMEOUT 후속** — 최대 병렬(JOBS=8) `run-all` 에서 이번엔 `test-validate-structure` 가 아니라 이 스위트가 300s 상한을 넘겼다(단독 87s·319개 파일을 한 프로세스로 직렬 검사). `xargs -n 40 -P 4` 로 나눠 **17s**(11s 검사)로 줄였다 — `-S error` 는 파일 간 `source` 추적을 쓰지 않아 분할해도 판정이 같고, `xargs` 는 어느 묶음이든 비0 이면 123 을 돌려 rc 판정이 유효하다(오류를 심은 변이로 FAIL 확인)
+
+⚠️ **한계 (정직 고백)**: 이 스위트는 라우팅 4 케이스뿐이다 — 구현자 실행 모드 계약·과잉 설계 리뷰·rung 준수는 아직 케이스가 없다. 공식 문서는 `plugin eval` 이 서버 측에서 꺼질 수 있다고 적어(`currently unavailable`) CI 게이트로 쓰려면 SKIP 처리가 필요하다 — 이번엔 CI 에 넣지 않았다. 초기화 안 된 빈 디렉터리에서는 모델이 Skill 호출 대신 "프로젝트가 초기화되지 않았습니다" 텍스트 안내를 하므로(첫 시도에서 관측) 양성 케이스는 scaffold 가 필요하다.
+
 ### 공식 문서 대조 반영 (1/3) — 사용자 전용 command 의 모델 자동 호출 차단 · 구현자 skill 프리로드 · 리뷰어 필수 지적 한정
 
 Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·plugin-evals·best-practices·costs)를 읽고 specops 에 대조했다. 직전 조사는 변경 이력과 CLI 도움말에 근거했고, 이번에 문서로 확정·정정했다.

@@ -566,6 +566,24 @@ _kmiss=$(jq -rn --slurpfile c "$LE/judge-calibration/cases.jsonl" --slurpfile e 
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
 if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
   ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
+# T9 `claude plugin eval` 스위트 구조 (20261007-doc-conformance) — 실행은 수동(토큰 비용)이고 여기서는 데이터 계약만 잠근다
+#   공식 plugin-evals: 케이스 = prompt.md(+선택 case.yaml) + graders/*.md ≥1(type 필수). 케이스당 grader 가 없으면 로드 실패.
+_ev_bad=""; _ev_n=0
+for d in "$PLUGIN"/evals/*/; do
+  [ -d "$d" ] || continue
+  _ev_n=$((_ev_n+1)); n=$(basename "$d")
+  [ -f "$d/prompt.md" ] || _ev_bad="$_ev_bad $n(prompt.md 없음)"
+  g=$(ls "$d"/graders/*.md 2>/dev/null | wc -l | tr -d ' ')
+  [ "$g" -ge 1 ] || _ev_bad="$_ev_bad $n(grader 0)"
+  for gf in "$d"/graders/*.md; do [ -f "$gf" ] && { sed -n '2,6p' "$gf" | grep -q '^type: ' || _ev_bad="$_ev_bad $n/$(basename "$gf")(type 없음)"; }; done
+  if [ -f "$d/case.yaml" ]; then
+    sc=$(sed -n 's/^  scaffold_script: *//p' "$d/case.yaml")
+    { [ -n "$sc" ] && [ -x "$d/$sc" ]; } || _ev_bad="$_ev_bad $n(scaffold_script 없음·비실행)"
+  fi
+done
+if [ "$_ev_n" -ge 4 ] && [ -z "$_ev_bad" ]; then ok "T9 evals/ 케이스 ${_ev_n}종 구조 계약(prompt·grader·scaffold)"; else nope "T9" "n=$_ev_n bad=$_ev_bad"; fi
+# 라우팅 양성(lifecycle 진입)·음성(코딩 아님 → Skill 미호출) 케이스가 모두 있어야 회귀·재작성 비교가 성립한다
+if [ -f "$PLUGIN/evals/route-feature-new/graders/lifecycle-entered.md" ] && grep -q 'max: 0' "$PLUGIN/evals/no-route-presentation/graders/no-lifecycle-skill.md" && grep -q 'max: 0' "$PLUGIN/evals/no-route-qa/graders/no-skill.md"; then ok "T9.b 라우팅 양성·음성 케이스 쌍"; else nope "T9.b" "양성/음성 라우팅 케이스 누락"; fi
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
