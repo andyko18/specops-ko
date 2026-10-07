@@ -138,7 +138,7 @@ _run() {  # <plan 행들(\n)> <env 할당...> -- <러너 인자...> → 러너 s
   rm -f "$TMP/state" "$TMP/args.log"
   local envs=()
   while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
-  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL -u LLM_EVAL_JUDGE_MODEL \
+  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL -u LLM_EVAL_JUDGE_MODEL -u SKILL_EVAL_CASES \
     CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" \
     SKILL_EVAL_DIR="$DATA" "${envs[@]+"${envs[@]}"}" bash "$LE/run-skill-evals.sh" "$@" 2>&1); RUN_RC=$?
 }
@@ -296,7 +296,7 @@ head -1 "$TMP/args.log" | grep -qF -- "$(printf -- '-p a\\b\tc ')" && ok "T5.p �
 CWD5Q="$TMP/cwd5q"; mkdir -p "$CWD5Q" "$TMP/failbin"; printf '{"skills":["karpathy-ko"]}\n' > "$TMP/plan.jsonl"; rm -f "$TMP/state"
 printf '#!/usr/bin/env bash\ncase " $* " in *" -d "*) exit 1 ;; esac\nexec %s "$@"\n' "$(command -v mktemp)" > "$TMP/failbin/mktemp"
 chmod +x "$TMP/failbin/mktemp"
-RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL PATH="$TMP/failbin:$PATH" \
+RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL -u SKILL_EVAL_CASES PATH="$TMP/failbin:$PATH" \
   CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" SKILL_EVAL_DIR="$DATA" \
   bash "$LE/run-skill-evals.sh" --trigger 2>&1 ); RUN_RC=$?
 if _line pos-1 | grep -q 'SKIP(error' && [ ! -e "$CWD5Q/.git" ] && [ ! -e "$CWD5Q/CLAUDE.md" ] && [ "$RUN_RC" -eq 0 ]; then
@@ -740,6 +740,74 @@ if [ "$_g1_calls" -eq 0 ] && [ "$_g1_rc" -eq 0 ] && [ "$(printf '%s\n' "$_g1_out
    && [ "$_g3_calls" -eq 3 ] && ! printf '%s\n' "$_g3_out" | grep -q '^ERROR:'; then
   ok "T11.g effort env+노브 거절(호출 0·rc 0·사유 1줄) · 노브 off·model 단독은 env 무관 호출 3 (AC-5)"
 else nope "T11.g" "g1 calls=$_g1_calls rc=$_g1_rc [$_g1_out] g2 calls=$_g2_calls g3 calls=$_g3_calls"; fi
+
+# ── T12 (20261008-eval-case-filter) SKILL_EVAL_CASES 필터 — stub 전용, 토큰 0 ──
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=b-1 "$AG" -- --evals
+C1_OUT="$RUN_OUT"
+if [ "$(_ncalls)" -eq 1 ] && printf '%s\n' "$C1_OUT" | grep -qF '  b-1  ' && ! printf '%s\n' "$C1_OUT" | grep -qF '  a-1  ' \
+   && printf '%s\n' "$C1_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+cases=1 evals pass=1 fail=0 skip=0 cost=\$[0-9.]+$'; then
+  ok "T12.a 단일 id — b-1 만 질의(호출 1·채점기 없음)·a-1 줄/SKIP 집계 없음·라벨 +cases=1 (AC-1)"
+else nope "T12.a" "calls=$(_ncalls) $C1_OUT"; fi
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=a-1,b-1 "$AG" -- --evals
+if [ "$(_ncalls)" -eq 3 ] && printf '%s\n' "$RUN_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+cases=2 evals '; then
+  ok "T12.b 두 id — 호출 3건(candidate 2 + 채점기 1)·라벨 +cases=2 (AC-1)"
+else nope "T12.b" "calls=$(_ncalls) $RUN_OUT"; fi
+
+_bad_ok=1; _bad_why=""
+for _kv in 'SKILL_EVAL_CASES=a,' 'SKILL_EVAL_CASES=,a' 'SKILL_EVAL_CASES=a,,b' 'SKILL_EVAL_CASES=a b' 'SKILL_EVAL_CASES=é' 'SKILL_EVAL_CASES=ａb' 'SKILL_EVAL_CASES=-x' 'SKILL_EVAL_CASES=a,-x' 'SKILL_EVAL_CASES=a;b' $'SKILL_EVAL_CASES=a\n'; do
+  _calls_reset
+  _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" LC_ALL=en_US.UTF-8 "$_kv" "$AG" -- --evals
+  if [ "$(_ncalls)" -ne 0 ] || [ "$RUN_RC" -ne 0 ] || ! printf '%s\n' "$RUN_OUT" | grep -qE '^ERROR: SKILL_EVAL_CASES 형식 오류'; then
+    _bad_ok=0; _bad_why="$_bad_why [$_kv calls=$(_ncalls) rc=$RUN_RC]"
+  fi
+done
+[ "$_bad_ok" = 1 ] && ok "T12.c 형식 오류 10종(UTF-8 로케일) — claude 호출 0 · exit 0 · 사유 1줄 (AC-2)" || nope "T12.c" "$_bad_why"
+
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=zz-9 "$AG" -- --evals
+Z_OUT="$RUN_OUT"
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=b-1,zz-9 "$AG" -- --evals
+if [ "$(_ncalls)" -eq 1 ] && printf '%s\n' "$RUN_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*zz-9' && ! printf '%s\n' "$RUN_OUT" | grep -qE '^NOTE: .*zz-9.*b-1' \
+   && printf '%s\n' "$Z_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*매칭 0건' && printf '%s\n' "$Z_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+cases=0 evals pass=0 fail=0 skip=0'; then
+  ok "T12.d 오타 id NOTE(혼합: b-1 만 실행·zz-9 나열) · 매칭 0건 NOTE + 호출 0 (AC-3)"
+else nope "T12.d" "calls=$(_ncalls) mixed=[$RUN_OUT] zero=[$Z_OUT]"; fi
+
+_calls_reset
+_run '{"skills":["karpathy-ko"]}\n{"skills":["advisor-ko"]}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_CASES=e-1 -- --trigger
+T_OUT="$RUN_OUT"; T_CALLS=$(_ncalls)
+_calls_reset
+_run '{"skills":["karpathy-ko"]}\n{"skills":["advisor-ko"]}' CLAUDE_BIN="$TMP/rec10" -- --trigger
+if [ "$T_CALLS" = "$(_ncalls)" ] && printf '%s\n' "$T_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*--trigger' && ! printf '%s\n' "$T_OUT" | grep -q '+cases'; then
+  ok "T12.e --trigger — 필터 무시(호출 수 off 와 동일)·NOTE·라벨 +cases 없음 (AC-4)"
+else nope "T12.e" "$T_OUT"; fi
+
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_INJECT=1 SKILL_EVAL_CASES=b-1 "$AG" -- --evals
+O1="$RUN_OUT"
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_INJECT=1 SKILL_EVAL_CASES=a-1 "$AG" -- --evals
+if printf '%s\n' "$O1" | grep -qxF 'INJECT: 0/0' && printf '%s\n' "$RUN_OUT" | grep -qxF 'INJECT: 1/1' \
+   && printf '%s\n' "$RUN_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+inject\+cases=1 evals '; then
+  ok "T12.f INJECT 집계 — 필터 통과 케이스만(b-1 필터 0/0 · a-1 필터 1/1)·라벨 +inject+cases=1 (AC-4)"
+else nope "T12.f" "o1=[$O1] o2=[$RUN_OUT]"; fi
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" "$AG" -- --evals
+OFFC_OUT="$RUN_OUT"; for _i in 1 2 3; do cp "$TMP/calls/$_i.args" "$TMP/offc-$_i.args"; done
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES= "$AG" -- --evals
+if [ "$(_ncalls)" -eq 3 ] && cmp -s "$TMP/offc-1.args" "$TMP/calls/1.args" && cmp -s "$TMP/offc-3.args" "$TMP/calls/3.args" \
+   && ! _arg_has_part "$TMP/calls/2.args" 'cases' && [ "$OFFC_OUT" = "$RUN_OUT" ] && ! printf '%s\n' "$RUN_OUT" | grep -q 'cases'; then
+  ok "T12.g 빈 값 = off — candidate 호출 인자·출력 바이트 동일·표기 없음 (AC-R-1)"
+else nope "T12.g" "$RUN_OUT"; fi
+
+if grep -q 'SKILL_EVAL_CASES' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_CASES' "$PLUGIN/CLAUDE.md" && grep -q '≈ \$16' "$PLUGIN/scripts/README.md"; then
+  ok "T12.h 문서에 SKILL_EVAL_CASES 사용법·정정 비용(≈ \$16) 병기 (AC-5)"
+else nope "T12.h" "README/CLAUDE.md 에 SKILL_EVAL_CASES 또는 ≈ \$16 누락"; fi
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
