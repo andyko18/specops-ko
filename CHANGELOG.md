@@ -13,6 +13,16 @@
 - `templates/tasks.md`·`decomposing-ko` 에 계획행 표기와 판정기 안내를 적고, `implementing-ko` 최소 구현 rung 의 절감 제외 목록에 "AC 매핑 테스트"를 더했다
 - 잠금: `test-emit-context.sh` T6.a~j(판정기 단독 10종)·T7.a~c(emit 통합) · `test-gate-presence.sh`(배선·문서) · `propagation-matrix.jsonl` `fid-size-gate`(문서↔배선↔판정기). 스위트 수 불변(184)
 
+### ponytail 분석 반영 — 과잉 설계 리뷰 관점 + `shortcut:` 부채 장부
+
+[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)(MIT)을 분석해, v2.3.0 이 사다리(rung)만 가져오고 비워 둔 두 장점을 채웠다 — 사다리를 쓰라고만 하고 **결과를 보는 눈**과 **미룬 것을 추적하는 장부**가 없었다.
+
+- **`code-reviewer-ko` 과잉 설계 탐지 신설** (ponytail-review 번안) — `delete:`·`stdlib:`·`native:`·`reuse:`·`yagni:`·`shrink:` 6 태그로 한 줄씩 자를 것을 지목하고 `net: -N lines possible` 로 끝낸다. 기본 등급 Suggestion, `reuse:` 가 경로 grep 증거로 중복을 입증하면 Important, **Critical 로는 올리지 않는다**. 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상이 아니다. 출력 포맷에 `## 과잉 설계` 표 추가
+- **`shortcut:` 부채 장부** (ponytail-debt 번안) — 의도적 단순화에 `# shortcut: <상한> → <업그레이드 조건>` 주석을 남기는 규약(`implementer-ko` 에 안내)과, 이를 한 장으로 모으는 읽기 전용 `scripts/_internal/scan-shortcuts.sh`(git 추적 파일, `*.md`·`.specops` 제외, `→` 없는 주석은 `no-trigger`). 리뷰어가 `no-trigger` 를 Suggestion 으로 잡는다
+- 잠금: 신규 스위트 `test-shortcut-scan.sh`(스캐너 4종·리뷰어 절·implementer 규약, 스위트 184→185) · `propagation-matrix` `overengineering-review`
+
+⚠️ **한계 (정직 고백)**: 이 관점은 리뷰어 프롬프트라 모델이 실제로 따르는지는 잠글 수 없다(수동 llm-eval 몫). ponytail 의 `/ponytail-audit`(repo 전체 과잉 설계 감사)·`/ponytail-gain`(벤치마크 점수판)·`lite|full|ultra` 강도, 그리고 baseline 대조군이 있는 행동 벤치마크는 **이번에 가져오지 않았다**(후속 후보).
+
 ### cwd `yaml.py` 가짜 모듈 우회 차단 — task id 게이트·DAG 파서·emit-context
 
 `python3 -E -` 는 `PYTHON*` env 만 막고, stdin·`-c` 실행의 `sys.path[0]=''` 때문에 cwd 의 `yaml.py` 가 진짜 pyyaml 을 가렸다(#113 리뷰 실측: 가짜가 `{"tasks": []}` 를 돌려주면 판정기 PASS). `check-task-ids.sh`(1곳)·`parse-dag.sh`(6곳)·`emit-context.sh`(2곳)의 python 진입부가 `import yaml` 전에 `sys.path` 에서 cwd 를 뺀다. `-I` 는 user site-packages 의 pyyaml 을 못 찾아 SKIP(fail-open)으로 열리므로 쓰지 않았다. 잠금: `test-emit-context` T8.a·b · `test-parse-dag` T-shadow.a·b(변이: 수정 전 parse-dag 에서 2종 모두 격추) · `propagation-matrix` `yaml-cwd-shadow`.
