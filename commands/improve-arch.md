@@ -4,7 +4,7 @@ description: 코드베이스 아키텍처 분석 슬래시 — improve-codebase-
 triggers:
   - "/improve-arch"
 mode: ask
-specops_version: 1.0.0
+specops_version: 2.5.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)
 ---
