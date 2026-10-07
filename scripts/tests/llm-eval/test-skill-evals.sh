@@ -651,6 +651,20 @@ _run '{"text":"응답"}\n{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_D
 if printf '%s\n' "$RUN_OUT" | grep -qxF 'INJECT: 0/0' && printf '%s\n' "$RUN_OUT" | grep -q '^NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건'; then
   ok "T10.f 주입 on 인데 agent 필드 케이스 0 → INJECT: 0/0 + NOTE (with 로 오인 방지)"; else nope "T10.f" "$RUN_OUT"; fi
 
+EJ="$LE/skills/implementing-ko/evals.json"
+_ag_bad=$(jq -r '
+  def want: if (.id|test("^e-(5|6|7|8|9)$")) then "implementer-ko" elif (.id|test("^e-(10|11|12)$")) then "code-reviewer-ko" else null end;
+  .cases[] | select(want != null) | select(.agent != want) | .id' "$EJ" | tr '\n' ' ')
+for a in implementer-ko code-reviewer-ko; do [ -f "$PLUGIN/agents/$a.md" ] || _ag_bad="$_ag_bad agents/$a.md"; done
+for _f in "$LE"/skills/*/evals.json; do   # 전 skill 의 agent 값이 실존 파일을 가리키는가(off 실행에서는 러너가 못 잡는 오타 방지)
+  for a in $(jq -r '.cases[].agent // empty' "$_f"); do [ -f "$PLUGIN/agents/$a.md" ] || _ag_bad="$_ag_bad $(basename "$(dirname "$_f")"):$a"; done
+done
+[ -z "$_ag_bad" ] && ok "T10.i implementing-ko e-5~e-12 agent 필드 정합 + 전 skill agent 값의 agent 파일 실존" || nope "T10.i" "불일치:$_ag_bad"
+_ctx_bad=$(jq -r '.cases[] | select(.id|test("^e-(5|7|8|9)$")) | select(.prompt|contains("필수 컨텍스트 5개")|not) | .id' "$EJ" | tr '\n' ' ')
+_ctx_bad="$_ctx_bad$(jq -r '.cases[] | select(.id|test("^e-(10|11|12)$")) | select(.prompt|contains("검토 컨텍스트 5종")|not) | .id' "$EJ" | tr '\n' ' ')"
+[ -z "$_ctx_bad" ] && ok "T10.j e-5·e-7~e-12 prompt 에 컨텍스트 충족 문구(e-6 은 의도적 누락 시나리오)" || nope "T10.j" "문구 누락:$_ctx_bad"
+[ "$(jq '[.cases[0:4][] | has("agent")] | any' "$EJ")" = false ] && ok "T10.k e-1~e-4 는 agent 필드 없음(불변)" || nope "T10.k" "e-1~e-4 에 agent 필드"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
