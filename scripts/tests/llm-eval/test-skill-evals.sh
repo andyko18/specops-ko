@@ -54,6 +54,16 @@ D="$TMP/m7/ghost-x"; _mk "$D" "$(_valid_trigger ghost-x)" "$(_valid_evals ghost-
 _expect_fail "T1.h ⑦ 실존하지 않는 skill" trigger "$D/trigger-queries.json" "실존하지 않는 skill: ghost-x"
 D="$TMP/m8/fake-a"; mkdir -p "$D"; printf '{"skill": "fake-a",\n' > "$D/evals.json"
 _expect_fail "T1.i ⑧ JSON 파싱 불가" evals "$D/evals.json" "JSON 파싱 불가"
+D="$TMP/m9/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="../x"')"
+_expect_fail "T10.s1 agent 경로 순회 거절" evals "$D/evals.json" "agent 형식 오류: ../x"
+D="$TMP/m10/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent=""')"
+_expect_fail "T10.s2 agent 빈 문자열 거절" evals "$D/evals.json" "agent 형식 오류: "
+D="$TMP/m11/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="Bad_Name"')"
+_expect_fail "T10.s3 agent 대문자·밑줄 거절" evals "$D/evals.json" "agent 형식 오류: Bad_Name"
+D="$TMP/m12/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="fake-agent-2"')"
+if skill_evals::check evals "$D/evals.json" "$ROOT" >/dev/null; then ok "T10.s4 유효 agent 통과"; else nope "T10.s4" "유효 agent 가 거부됨"; fi
+D="$TMP/m13/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="ok\n"')"
+_expect_fail "T10.s5 agent 끝 개행 거절(jq 의 ^…$ 는 끝 개행을 허용하므로 \A…\z)" evals "$D/evals.json" "agent 형식 오류: ok"
 # T3 (AC-3) 스트림 전체 Skill 호출 파서
 s0='{"type":"assistant","message":{"content":[{"type":"text","text":"안녕"}]}}'
 s1='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"specifying-ko"}}]}}'
