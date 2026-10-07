@@ -664,6 +664,9 @@ _ctx_bad=$(jq -r '.cases[] | select(.id|test("^e-(5|7|8|9)$")) | select(.prompt|
 _ctx_bad="$_ctx_bad$(jq -r '.cases[] | select(.id|test("^e-(10|11|12)$")) | select(.prompt|contains("검토 컨텍스트 5종")|not) | .id' "$EJ" | tr '\n' ' ')"
 [ -z "$_ctx_bad" ] && ok "T10.j e-5·e-7~e-12 prompt 에 컨텍스트 충족 문구(e-6 은 의도적 누락 시나리오)" || nope "T10.j" "문구 누락:$_ctx_bad"
 [ "$(jq '[.cases[0:4][] | has("agent")] | any' "$EJ")" = false ] && ok "T10.k e-1~e-4 는 agent 필드 없음(불변)" || nope "T10.k" "e-1~e-4 에 agent 필드"
+if grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/CLAUDE.md" \
+   && grep -q 'N≥3' "$PLUGIN/scripts/README.md" && grep -q '별도 승인' "$PLUGIN/scripts/README.md"; then
+  ok "T10.l 문서에 INJECT 사용법·측정 프로토콜(N≥3·비용 별도 승인)"; else nope "T10.l" "README/CLAUDE.md 에 SKILL_EVAL_INJECT·N≥3·별도 승인 누락"; fi
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
