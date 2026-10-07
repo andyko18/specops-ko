@@ -5,7 +5,7 @@ description: 자유작업 인사이트 즉석 수동 기록 — gbrain-append �
 triggers:
   - "/log"
 mode: auto
-specops_version: 1.31.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---

@@ -5,7 +5,7 @@ description: 자유작업 mini-FID(freework.md)를 lifecycle full 트리로 in-p
 triggers:
   - "/promote"
 mode: ask
-specops_version: 1.23.0
+specops_version: 2.6.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
 ---

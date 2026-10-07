@@ -5,7 +5,7 @@ description: "[lifecycle 밖] 화면 1개 설계 — screens/ 에 .md+.html 쌍 
 triggers:
   - "/design-screen"
 mode: ask
-specops_version: 1.80.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---

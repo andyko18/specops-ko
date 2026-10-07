@@ -5,7 +5,7 @@ description: "[lifecycle 밖] 인터페이스 1개 설계 — api-spec.md·data-
 triggers:
   - "/design-interface"
 mode: ask
-specops_version: 1.37.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
