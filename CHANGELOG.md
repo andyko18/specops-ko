@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-10-07
+
 ### ponytail 잔여 반영 — `/improve-arch --lean` 감사 · rung 준수 eval 데이터 · 버전 표기 · 8회차 준비 현황
 
 - **`/improve-arch --lean`** (ponytail-audit 번안) — deep module 분석 대신 repo 전체에서 **지울 수 있는 것**을 `delete/stdlib/native/reuse/yagni/shrink` 6 태그로 큰 순서대로 번호를 매겨 보고하고 `net: -N lines, -M deps possible.` 로 끝낸다(`delete:` 전 트리 전체 grep, `shortcut:` 장부 첨부, 읽기 전용, 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상 아님). 새 command 파일 없이 기존 `/improve-arch` 의 옵션으로 넣어 command 수·skill 크기 baseline 은 불변
@@ -2826,7 +2828,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/andyko18/specops-ko/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/andyko18/specops-ko/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/andyko18/specops-ko/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/andyko18/specops-ko/compare/v2.1.0...v2.2.0
