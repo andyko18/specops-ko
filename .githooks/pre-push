@@ -11,6 +11,13 @@
 # 탈출구(주권, 5원칙 4): git push --no-verify
 set -uo pipefail
 
+# ★ git 이 훅에 export 하는 저장소 변수를 가장 먼저 지운다 (20261007-prepush-gitdir).
+#   링크 worktree 에서는 GIT_DIR 가 **절대경로**라, 아래 run-all 안의 테스트 픽스처(`cd $tmp && git init/commit/config`)가
+#   임시 디렉터리가 아니라 **공유 실저장소**에 실행된다(2026-10-06 사고: core.worktree·user.name 주입, 로컬 main 이동,
+#   잡 브랜치 19개). 비링크 repo 는 상대경로(.git)라 우연히 안전했다. 훅 cwd 는 worktree 루트이므로 지운 뒤에도
+#   아래 rev-parse 가 같은 저장소를 찾는다.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ROOT" 2>/dev/null || exit 0
 

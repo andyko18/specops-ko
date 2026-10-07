@@ -146,6 +146,52 @@ grep -q 'install-git-hooks' "$PLUGIN/CLAUDE.md" && grep -q 'install-git-hooks' "
   || nope "GH-10" "설치 안내 문서 부재"
 
 # ─────────────────────────────────────────────────────────────
+# GH-env.*: 훅 환경이 export 한 GIT_DIR 등이 run-all 로 새지 않는다 (20261007-prepush-gitdir)
+#   링크 worktree 의 pre-push 는 GIT_DIR 를 **절대경로**로 내보내, run-all 안 픽스처의 `cd $tmp && git init/commit` 이
+#   임시 repo 가 아니라 공유 실저장소에 실행됐다(2026-10-06 사고 — core.worktree·user.name 주입·로컬 main 이동·잡 브랜치 19개).
+#   sandbox: decoy repo 를 GIT_DIR 로 export 한 채 훅을 돌리고, 스텁 run-all 이 보는 git-dir 이 sandbox 자신이어야 한다.
+_ge=$(mktemp -d); mkdir -p "$_ge/sb/.githooks" "$_ge/sb/scripts/tests" "$_ge/decoy"
+( cd "$_ge/decoy" && git init -q ) 2>/dev/null
+( cd "$_ge/sb" && git init -q ) 2>/dev/null
+cp "$PRE_PUSH" "$_ge/sb/.githooks/pre-push"
+cat > "$_ge/sb/scripts/tests/run-all.sh" <<'STUB'
+#!/usr/bin/env bash
+{ echo "GITDIR=$(git rev-parse --git-dir 2>/dev/null)"; echo "ENV_GIT_DIR=${GIT_DIR-UNSET}"; echo "ENV_WT=${GIT_WORK_TREE-UNSET}"; echo "ENV_IDX=${GIT_INDEX_FILE-UNSET}"; } > "$STUBOUT"
+echo "==== run-all: suites PASS=1 FAIL=0 (total=1) ===="
+STUB
+chmod +x "$_ge/sb/scripts/tests/run-all.sh"
+_sha=$(cd "$_ge/sb" && git hash-object -w --stdin </dev/null 2>/dev/null)
+(cd "$_ge/sb" && env -u SPECOPS_RUN_ALL STUBOUT="$_ge/out" GIT_DIR="$_ge/decoy/.git" GIT_WORK_TREE="$_ge/decoy" GIT_INDEX_FILE="$_ge/decoy/.git/index" \
+   bash .githooks/pre-push <<< "refs/heads/x $_sha refs/heads/x 0000000000000000000000000000000000000000" >/dev/null 2>&1)
+if [ -f "$_ge/out" ] && [ "$(grep '^GITDIR=' "$_ge/out")" = "GITDIR=.git" ] && grep -qx 'ENV_GIT_DIR=UNSET' "$_ge/out" \
+   && grep -qx 'ENV_WT=UNSET' "$_ge/out" && grep -qx 'ENV_IDX=UNSET' "$_ge/out"; then
+  ok "GH-env.1 훅의 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE 이 run-all 로 새지 않는다"
+else
+  nope "GH-env.1 훅 환경 git 변수 누수" "$(cat "$_ge/out" 2>/dev/null | tr '\n' ' ')"
+fi
+# GH-env.2 run-all.sh 자신도 직접 방어한다(release.sh pre-flight·수동 실행 등 훅 밖 경로)
+grep -qE '^unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE' "$PLUGIN/scripts/tests/run-all.sh" \
+  && ok "GH-env.2 run-all.sh 선두 unset" || nope "GH-env.2" "run-all.sh 에 unset 부재"
+rm -rf "$_ge"
+
+# GH-env.3 실 `git push` 종단: 링크 worktree 에서 push 하면 훅이 절대경로 GIT_DIR 를 받는다 — 스텁 run-all 의
+#   픽스처(`cd $tmp && git init && git config user.name`)가 공유 저장소 config 를 오염시키지 않아야 한다(전부 sandbox).
+_gp=$(mktemp -d)
+( cd "$_gp" && git init -q --bare remote.git && git init -q main && cd main && git config user.email t@t && git config user.name orig \
+  && mkdir -p .githooks scripts/tests && cp "$PRE_PUSH" .githooks/pre-push \
+  && printf '#!/usr/bin/env bash\ntmp=$(mktemp -d); cd "$tmp" && git init -q && git config user.name POLLUTED && git config user.email p@p\necho "==== run-all: suites PASS=1 FAIL=0 (total=1) ===="\n' > scripts/tests/run-all.sh \
+  && chmod +x scripts/tests/run-all.sh .githooks/pre-push && git config core.hooksPath .githooks && git add -A && git commit -q -m init \
+  && git branch -M main && git remote add origin "$_gp/remote.git" && git worktree add -q "$_gp/wt" -b feat ) >/dev/null 2>&1
+# run-all 안에서 이 스위트가 돌 때 SPECOPS_RUN_ALL=1 이 상속돼 훅의 재귀 가드가 스텁에 도달하기 전에 끝낸다 — 가드를 빼야 검증이 공허하지 않다
+( cd "$_gp/wt" && env -u SPECOPS_RUN_ALL git push -q origin feat ) >/dev/null 2>&1
+_un=$(git -C "$_gp/main" config --get user.name 2>/dev/null); _wt=$(git -C "$_gp/main" config --get core.worktree 2>/dev/null)
+if [ -d "$_gp/wt" ] && [ "$_un" = "orig" ] && [ -z "$_wt" ]; then
+  ok "GH-env.3 링크 worktree 실 push — 스텁 픽스처가 공유 저장소 config 를 오염시키지 않는다"
+else
+  nope "GH-env.3 링크 worktree push 오염" "user.name=$_un core.worktree=$_wt wt=$([ -d "$_gp/wt" ] && echo 있음 || echo 없음)"
+fi
+rm -rf "$_gp"
+
 # GH-ci.*: pre-push CI 상태 경고 (FID 20260807-doctor-ci-check)
 #
 # ⚠️ 하드 규칙: 아래 어서션은 어떤 경로로도 run-all.sh 에 도달하면 안 된다.
