@@ -138,7 +138,7 @@ _run() {  # <plan 행들(\n)> <env 할당...> -- <러너 인자...> → 러너 s
   rm -f "$TMP/state" "$TMP/args.log"
   local envs=()
   while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
-  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL \
+  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL -u LLM_EVAL_JUDGE_MODEL \
     CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" \
     SKILL_EVAL_DIR="$DATA" "${envs[@]+"${envs[@]}"}" bash "$LE/run-skill-evals.sh" "$@" 2>&1); RUN_RC=$?
 }
@@ -701,14 +701,14 @@ if _arg_pair "$TMP/calls/1.args" --effort high && _arg_pair "$TMP/calls/1.args" 
 else nope "T11.c" "$B_OUT"; fi
 
 _bad_ok=1; _bad_why=""
-for _kv in 'SKILL_EVAL_EFFORT=ultra' 'SKILL_EVAL_EFFORT=LOW' 'SKILL_EVAL_EFFORT=low ' 'SKILL_EVAL_MODEL=a b' 'SKILL_EVAL_MODEL=../x' 'SKILL_EVAL_MODEL=-x' $'SKILL_EVAL_MODEL=ok\n'; do
-  _calls_reset
-  _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" "$_kv" "$AG" -- --evals
+for _kv in 'SKILL_EVAL_EFFORT=ultra' 'SKILL_EVAL_EFFORT=LOW' 'SKILL_EVAL_EFFORT=low ' 'SKILL_EVAL_MODEL=a b' 'SKILL_EVAL_MODEL=../x' 'SKILL_EVAL_MODEL=-x' $'SKILL_EVAL_MODEL=ok\n' 'SKILL_EVAL_MODEL=é' 'SKILL_EVAL_MODEL=ａb'; do
+  _calls_reset   # LC_ALL=UTF-8 고정 — bash 3.2 대괄호 범위식은 로케일 정렬을 따라 비ASCII 를 통과시켰다(I-1)
+  _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" LC_ALL=en_US.UTF-8 "$_kv" "$AG" -- --evals
   if [ "$(_ncalls)" -ne 0 ] || [ "$RUN_RC" -ne 0 ] || ! printf '%s\n' "$RUN_OUT" | grep -qE '^ERROR: SKILL_EVAL_(EFFORT|MODEL) 형식 오류'; then
     _bad_ok=0; _bad_why="$_bad_why [$_kv calls=$(_ncalls) rc=$RUN_RC]"
   fi
 done
-[ "$_bad_ok" = 1 ] && ok "T11.d 형식 오류 7종 — claude 호출 0 · exit 0 · 사유 1줄 (AC-3)" || nope "T11.d" "$_bad_why"
+[ "$_bad_ok" = 1 ] && ok "T11.d 형식 오류 9종 — claude 호출 0 · exit 0 · 사유 1줄 (AC-3)" || nope "T11.d" "$_bad_why"
 
 _calls_reset
 _run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" "$AG" -- --evals

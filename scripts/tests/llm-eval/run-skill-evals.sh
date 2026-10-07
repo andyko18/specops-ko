@@ -70,9 +70,10 @@ case "$ARM_EFFORT" in
   ''|low|medium|high|xhigh|max) ;;
   *) echo "ERROR: SKILL_EVAL_EFFORT 형식 오류: $(_arm_safe "$ARM_EFFORT") (허용: low|medium|high|xhigh|max) — 실행하지 않음"; exit 0 ;;
 esac
+# 허용 문자를 직접 나열 — A-Z 범위식은 bash 3.2 UTF-8 로케일에서 é·전각 문자까지 포함한다
 case "$ARM_MODEL" in
   '') ;;
-  [!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) echo "ERROR: SKILL_EVAL_MODEL 형식 오류: $(_arm_safe "$ARM_MODEL") (허용: 영숫자로 시작하는 [A-Za-z0-9._-]) — 실행하지 않음"; exit 0 ;;
+  [!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]*|*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-]*) echo "ERROR: SKILL_EVAL_MODEL 형식 오류: $(_arm_safe "$ARM_MODEL") (허용: 영숫자로 시작하는 [A-Za-z0-9._-]) — 실행하지 않음"; exit 0 ;;
 esac
 if [ -n "$ARM_EFFORT" ] && [ -n "${CLAUDE_CODE_EFFORT_LEVEL:-}" ]; then   # env 가 --effort 를 무력화 → arm 무구분(AC-5)
   echo "ERROR: SKILL_EVAL_EFFORT 와 CLAUDE_CODE_EFFORT_LEVEL 이 함께 설정됨 — env 가 --effort 를 무력화해 effort arm 이 구분되지 않는다(/doctor effort_env 참조). CLAUDE_CODE_EFFORT_LEVEL 을 해제하고 다시 실행 — 실행하지 않음"; exit 0
