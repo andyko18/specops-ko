@@ -144,12 +144,41 @@ if [ ${#miss_m[@]} -eq 0 ]; then emit meta_injection OK; else emit meta_injectio
 
 # 3) frontmatter YAML 유효 (skills/*/SKILL.md + commands + templates)
 if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  # 파일마다 python3 를 띄우면(≈110회 × import yaml) 이 체크만 4s 라 test-validate-structure 가 300s 상한을 넘겼다
+  #   (20261007-validate-structure-timeout) — 한 번의 python3 가 전 파일을 훑는다. 의미는 종전과 같다:
+  #   첫 줄이 `---` 가 아니면 건너뛰고, 다음 `---` 줄 전까지를 YAML 로 읽어 실패한 파일을 모은다.
   bad=()
-  while IFS= read -r -d '' f; do
-    head -1 "$f" | grep -q '^---$' || continue
-    awk 'NR==1 && /^---$/ {inside=1; next} inside && /^---$/ {exit} inside' "$f" \
-      | python3 -c "import sys,yaml; yaml.safe_load(sys.stdin)" 2>/dev/null || bad+=("$f")
-  done < <(find commands skills templates -name '*.md' -type f -print0)
+  while IFS= read -r f; do
+    [ -n "$f" ] && bad+=("$f")
+  done < <(python3 - <<'PYEOF' 2>/dev/null
+import os, sys
+# cwd 의 yaml.py 가 진짜 yaml 을 가리지 못하게 한다(yaml-cwd-shadow 와 같은 이유)
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
+for top in ("commands", "skills", "templates"):
+    for root, dirs, files in os.walk(top):
+        dirs.sort()
+        for name in sorted(files):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(root, name)
+            try:
+                lines = open(path, encoding="utf-8", errors="replace").read().split("\n")
+            except OSError:
+                print(path); continue
+            if not lines or lines[0] != "---":
+                continue
+            fm = []
+            for ln in lines[1:]:
+                if ln == "---":
+                    break
+                fm.append(ln)
+            try:
+                yaml.safe_load("\n".join(fm))
+            except Exception:
+                print(path)
+PYEOF
+)
   if [ ${#bad[@]} -eq 0 ]; then emit frontmatter OK; else emit frontmatter FAIL "${bad[*]}"; fi
 else
   emit frontmatter SKIP "python3+pyyaml 미설치 — 한계 고백"
