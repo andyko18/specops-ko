@@ -201,8 +201,8 @@ git init -q; git config user.email t@t; git config user.name t
 j=$(bash "$DOC" --json 2>&1)
 st=$(printf '%s' "$j" | jq -r '.checks[]|select(.id=="bootstrap")|.status' 2>/dev/null)
 cnt=$(printf '%s' "$j" | jq -r '.checks|length' 2>/dev/null)
-[ "$st" = "unknown" ] && [ "$cnt" = "8" ] \
-  && ok "F9 memory 부재 → unknown · checks 8행 고정" || nope "F9" "st=$st cnt=$cnt"
+[ "$st" = "unknown" ] && [ "$cnt" = "9" ] \
+  && ok "F9 memory 부재 → unknown · checks 9행 고정" || nope "F9" "st=$st cnt=$cnt"
 
 # F7 — session-progress 제목이 그 프로젝트 이름 (하드코딩 인자 제거)
 ENS="$PLUGIN/hooks/ensure-session-progress.sh"
