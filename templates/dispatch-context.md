@@ -59,6 +59,14 @@ bash scripts/tests/test-<feature>.sh
 - `.specops/memory/data-model.md` (스키마 계약 — 있을 때)
 - `screens/` (화면 계약 — 있을 때)
 
+## 7. 실행 모드 (emit-context.sh 자동 산출)
+
+> `emit-context.sh` 가 spec.md 의 줄 선두 라벨로 판정해 쓴다: `**§batch**:` → batch · `**§auto**: true` → auto · 그 외 single.
+
+- 모드: <single|auto|batch>
+
+> leaf 는 사용자와 직접 대화할 수 없다(부모 중개). auto·batch 는 부모도 되묻지 못한다 — 질문은 **시작 시 NEEDS_CONTEXT 한 번에**, 일부가 막혀도 **의존 없는 나머지는 끝까지**, 비가역 삭제·범위 변경은 먼저 NEEDS_APPROVAL. 정본: `agents/implementer-ko.md` 「실행 모드 계약」.
+
 ---
 
 ## leaf 의무 (5원칙 주입)

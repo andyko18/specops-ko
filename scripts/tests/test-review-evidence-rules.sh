@@ -72,5 +72,14 @@ sed 's/^effort: high$/effort: max/' "$AG" > "$SB/effort-max.md"
 ck "T4.b 음성 대조: model 을 fable 로 바꾼 사본 · effort 를 바꾼 사본은 걸린다" "$(profile_check "$SB/model-fable.md" opus high)|$(profile_check "$SB/effort-max.md" opus high)" "nyn|yny"
 ck "T4.c plan-reviewer-ko 는 opus·high, design-reviewer-ko 는 sonnet·high 이고 fable·전체 모델 ID 가 없다" "$(profile_check "$PLUGIN/agents/plan-reviewer-ko.md" opus high)|$(profile_check "$PLUGIN/agents/design-reviewer-ko.md" sonnet high)" "yyy|yyy"
 
+# ══ 20261007-fable-tips: 인용 규율 · 정답 예시 · 문체 ══
+_ev=$(section "$AG" '## 증거 규칙')
+ck "T9.a code-reviewer 증거 규칙에 인용 규율(원문=따옴표·코드블록 / 해석=요약:)이 있다" "$(yn "$_ev" '인용 규율')$(yn "$_ev" '따옴표 또는 코드블록')$(yn "$_ev" '`요약:`')" "yyy"
+ck "T9.b 정답 형태 예시 1건(요청·증거·요약·왜 올바른가)이 증거 규칙 절 안에 있다" "$(yn "$_ev" '### 정답 형태 예시')$(yn "$_ev" '증거: `printf')$(yn "$_ev" '왜 올바른가')" "yyy"
+ck "T9.c code-reviewer 증거 규칙에 비유·수사 금지 문체 규칙이 있다" "$(yn "$_ev" '비유·수사 없이')" "y"
+_st=""
+for a in spec plan design; do f="$PLUGIN/agents/$a-reviewer-ko.md"; _st="$_st$(yn "$(section "$f" '## 보고 문체')" '원문과 요약을 구분한다')$(yn "$(section "$f" '## 보고 문체')" '비유·수사 없이')"; done
+ck "T9.d spec·plan·design 리뷰어에 ## 보고 문체 절(원문/요약 구분·비유 금지)이 있다" "$_st" "yyyyyy"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

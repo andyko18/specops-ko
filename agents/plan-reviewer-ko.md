@@ -80,6 +80,11 @@ Minor: <N>건
 - Critical≥1 또는 Important≥1 → `PLAN-REVIEW-RESULT: FAIL`
 - Minor만 → `PLAN-REVIEW-RESULT: PASS` (진행 허용)
 
+## 보고 문체
+
+- **원문과 요약을 구분한다**: 파일·출력에서 그대로 가져온 표현은 따옴표 또는 코드블록으로 감싸고, 판단·요약은 따로 쓴다(정답 예시: `agents/code-reviewer-ko.md` `## 증거 규칙`).
+- **비유·수사 없이 뜻을 직접 쓴다** — 꾸밈은 증거 판독만 어렵게 한다.
+
 ## 5원칙 주입 (specops-ko 고유)
 
 | 원칙 | 본 에이전트 적용 |
