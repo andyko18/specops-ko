@@ -145,7 +145,9 @@ fi
 
 # 1단계 dry-run 검증 (Python)
 YAML_IN="$yaml" AC_PATH="$AC" python3 - << 'PYEOF' || exit 1
-import os, sys, re, yaml
+import os, sys, re
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 ac_path = os.environ["AC_PATH"]
 data = yaml.safe_load(os.environ["YAML_IN"]) or {}
 tasks = data.get("tasks", []) or []
@@ -224,7 +226,9 @@ fi
 # 2단계 실제 작성
 mkdir -p "$DISPATCH"
 YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" python3 - << 'PYEOF'
-import os, re, sys, yaml
+import os, re, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 ac_path = os.environ["AC_PATH"]
 fid = os.environ["FID"]
 disp = os.environ["DISPATCH_DIR"]

@@ -95,7 +95,9 @@ dag::list_leaves() {
   local yaml="$1"
   __dag_check_python || return 1
   SPECOPS_DAG_YAML="$yaml" python3 -c '
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 data = os.environ["SPECOPS_DAG_YAML"]
 try:
     doc = yaml.safe_load(data) or {}
@@ -121,7 +123,9 @@ dag::outputs_disjoint() {
   local yaml="$1" id1="$2" id3="$3"
   __dag_check_python || return 1
   SPECOPS_DAG_YAML="$yaml" python3 -c '
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 id1, id2 = sys.argv[1], sys.argv[2]
 data = os.environ["SPECOPS_DAG_YAML"]
 try:
@@ -146,7 +150,9 @@ dag::find_independent_batch() {
   local yaml="$1"
   __dag_check_python || return 1
   SPECOPS_DAG_YAML="$yaml" python3 -c '
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 data = os.environ["SPECOPS_DAG_YAML"]
 try:
     doc = yaml.safe_load(data) or {}
@@ -186,7 +192,9 @@ dag::find_ready() {
   local done_raw="${*:-}"   # 나머지 인자 공백 구분 문자열 (없으면 빈)
   __dag_check_python || return 1
   SPECOPS_DAG_YAML="$yaml" SPECOPS_DAG_DONE="$done_raw" python3 -c '
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 data = os.environ["SPECOPS_DAG_YAML"]
 done_raw = os.environ.get("SPECOPS_DAG_DONE", "").strip()
 done = set(done_raw.split()) if done_raw else set()
@@ -216,7 +224,9 @@ dag::get_task_test_command() {
   local task_id="$2"
   __dag_check_python || return 1
   YAML_IN="$yaml" python3 - "$task_id" << 'PYEOF'
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 task_id = sys.argv[1]
 try:
     data = yaml.safe_load(os.environ.get("YAML_IN", ""))
@@ -245,7 +255,9 @@ dag::get_task_outputs() {
   local task_id="$2"
   __dag_check_python || return 1
   YAML_IN="$yaml" python3 - "$task_id" << 'PYEOF'
-import os, sys, yaml
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 task_id = sys.argv[1]
 try:
     data = yaml.safe_load(os.environ.get("YAML_IN", ""))

@@ -13,6 +13,12 @@
 - `templates/tasks.md`·`decomposing-ko` 에 계획행 표기와 판정기 안내를 적고, `implementing-ko` 최소 구현 rung 의 절감 제외 목록에 "AC 매핑 테스트"를 더했다
 - 잠금: `test-emit-context.sh` T6.a~j(판정기 단독 10종)·T7.a~c(emit 통합) · `test-gate-presence.sh`(배선·문서) · `propagation-matrix.jsonl` `fid-size-gate`(문서↔배선↔판정기). 스위트 수 불변(184)
 
+### cwd `yaml.py` 가짜 모듈 우회 차단 — task id 게이트·DAG 파서·emit-context
+
+`python3 -E -` 는 `PYTHON*` env 만 막고, stdin·`-c` 실행의 `sys.path[0]=''` 때문에 cwd 의 `yaml.py` 가 진짜 pyyaml 을 가렸다(#113 리뷰 실측: 가짜가 `{"tasks": []}` 를 돌려주면 판정기 PASS). `check-task-ids.sh`(1곳)·`parse-dag.sh`(6곳)·`emit-context.sh`(2곳)의 python 진입부가 `import yaml` 전에 `sys.path` 에서 cwd 를 뺀다. `-I` 는 user site-packages 의 pyyaml 을 못 찾아 SKIP(fail-open)으로 열리므로 쓰지 않았다. 잠금: `test-emit-context` T8.a·b · `test-parse-dag` T-shadow.a·b(변이: 수정 전 parse-dag 에서 2종 모두 격추) · `propagation-matrix` `yaml-cwd-shadow`.
+
+⚠️ 한계: 같은 패턴의 다른 pyyaml 사용처(`is-hook-enabled.sh`·`risk-profile.sh`·`validate-structure.sh`·`doctor.sh`·`cvt.py`)는 판정 게이트가 아니라 이번에 손대지 않았다. PATH 상의 `python3` 교체는 여전히 신뢰 경계다.
+
 ### 출처 표기 보완 (v2.3.0 YAGNI rung)
 
 - **출처**: rung 사다리(존재 필요? → stdlib → 네이티브 → 설치된 의존성 → 한 줄)는 오픈소스 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)(MIT)의 의사결정 사다리 개념을 한국어로 번안한 것이다 — 코드 복사 없음, README 출처 표에 등재(발견 시점 npm 4.9.0 — 흡수 당시 정확한 버전은 확인되지 않아 `reference_upstream` 필드는 건드리지 않았다)
