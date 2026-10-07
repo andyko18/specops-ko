@@ -258,4 +258,16 @@ else
   nope "F-doc2" "bootstrap=$d_boot stale_label=$d_old ids=$d_ids/9"
 fi
 
+# F-doc3 (20261007-effort-env-doctor AC-5): README 가 skill frontmatter effort 의 실측 사실을 담고 '확인 전' 문구가 사라졌다
+RM="$PLUGIN/README.md"
+_miss=""
+for _kw in '활성화된 이후' '복원되지 않' '같은 턴' '다음 사용자 턴' 'CLAUDE_CODE_EFFORT_LEVEL' 'effort_env' '전부-또는-전무' '2.1.292'; do
+  grep -qF -- "$_kw" "$RM" || _miss="$_miss $_kw"
+done
+if [ -z "$_miss" ] && ! grep -q '확인하기 전이라' "$RM"; then
+  ok "F-doc3 README skill effort 실측 기술 (키워드 8종 존재 · '확인하기 전이라' 잔존 0)"
+else
+  nope "F-doc3" "누락:${_miss:- 없음} · '확인하기 전이라' 잔존=$(grep -c '확인하기 전이라' "$RM")"
+fi
+
 finish
