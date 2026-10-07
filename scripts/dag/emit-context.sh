@@ -270,6 +270,27 @@ if extract_failed:
     print("emit-context: AC 요약 추출 실패 — fail-closed (빈 AC dispatch 차단)", file=sys.stderr)
     sys.exit(1)
 
+# §7 실행 모드 — spec.md 의 줄 선두 라벨만 인정한다(줄 중간 언급은 라벨이 아니다). 리프 서브에이전트는 사용자와 직접
+#   대화할 수 없고(부모 중개), auto·batch 는 부모조차 되묻지 못한다 — 그 계약을 컨텍스트에 실어 보낸다(20261007-fable-tips).
+try:
+    spec_text = open(os.environ["SPEC_PATH"], encoding="utf-8").read()
+except OSError:
+    spec_text = ""
+if re.search(r"^\*\*§batch\*\*:[ \t]*\S", spec_text, re.MULTILINE):
+    run_mode = "batch"
+elif re.search(r"^\*\*§auto\*\*:[ \t]*true[ \t]*$", spec_text, re.MULTILINE):
+    run_mode = "auto"
+else:
+    run_mode = "single"
+mode_section = (
+    "\n## 7. 실행 모드\n\n"
+    f"- 모드: {run_mode}  (single | auto | batch)\n\n"
+    "> 너는 사용자와 직접 대화할 수 없다(부모가 중개). auto·batch 는 부모도 사용자에게 되묻지 못한다 — "
+    "질문이 있으면 작업 **시작 시 NEEDS_CONTEXT 로 한 번에 모아** 반환하고, 이미 요청된 일은 재확인 없이 진행한다.\n"
+    "> 일부가 막혀도 **의존 없는 나머지는 끝까지** 하고, 막힌 부분은 사유와 함께 보고한다(1부만 하고 멈추지 않는다). "
+    "비가역 삭제·요청 범위 변경은 모드와 무관하게 먼저 NEEDS_APPROVAL 로 묻는다.\n"
+)
+
 count = 0
 for t in tasks:
     tid = t["id"]
@@ -327,7 +348,7 @@ for t in tasks:
 - `<repo-root>/.worktrees/{fid}-{tid}/`
 
 > implementing-ko 가 worktree 생성 후 본 라인 sed 갱신.
-{contract_section}"""
+{contract_section}{mode_section}"""
     with open(os.path.join(disp, f"{tid}-context.md"), "w", encoding="utf-8") as fh:
         fh.write(body)
     count += 1

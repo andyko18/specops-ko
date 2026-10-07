@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### 영상 분석 반영 — 무인 계약 리프 전달 · 범위 위생 · 인용 규율 (Anthropic Fable 5.1 가이드 해설 영상의 10팁 중 4개)
+
+영상(코드팩토리 "Fable 5.1 제대로 쓰는 법 10가지")의 팁은 대부분 모델 무관한 프롬프트 위생이라, specops 프롬프트에 대입해 실측한 뒤 빈 곳 4곳을 채웠다. Fable 모델 자체는 쓰지 않는다(서브에이전트는 sonnet·opus 별칭만).
+
+- **무인 계약의 리프 전달 (#7)** — `emit-context.sh` 가 dispatch-context 마다 `## 7. 실행 모드`(`모드: single|auto|batch`, spec.md **줄 선두** 라벨로 판정)를 쓰고, `agents/implementer-ko.md` 에 「실행 모드 계약」을 추가했다: 사용자와 직접 대화할 수 없다 · 재확인 금지 · 질문은 **시작 시 NEEDS_CONTEXT 한 번에** · 막혀도 **의존 없는 나머지는 끝까지** 하고 `부분 완료:`·`막힌 부분:` 보고 · 비가역 삭제·범위 변경은 모드와 무관하게 먼저 `NEEDS_APPROVAL`(AUTO-HARD-GATE 와 같은 방향) · 의견만 요청받으면 수정 금지. `start-auto`·`start-all-auto` 에 전달 사실을 적었고 `templates/dispatch-context.md` 에 §7 을 문서화했다. 종전엔 리프가 모드(§auto)와 "사용자 채널 없음"을 몰랐다
+- **범위 위생·진행 보고 (#6)** — 구현자 반환에 `무관 발견:`(고치지 않고 `파일:줄 — 한 줄` 보고)·`검증한 것` 추가, 일부만 바뀌면 `Edit` 로 부분 수정(전체 재작성 금지), 임시 확인 코드는 남기지 않되 **AC 가 요구하는 RED 테스트는 대상 자체**임을 명시(TDD 와 충돌 방지), 작업 전 한 줄 계획·끝 요약. 반환 상태 어휘를 `implementing-ko` 와 맞춰 `DONE_WITH_CONCERNS` 를 추가(종전 구현자 목록에 빠져 있던 drift)
+- **인용 규율 + 정답 예시 (#9)** — `code-reviewer-ko` 증거 규칙에 "원문은 따옴표·코드블록, 해석은 `요약:`" 과 **정답 형태 예시 1건**(요청·증거·요약·왜 올바른가) 추가. spec·plan·design 리뷰어에는 `## 보고 문체` 절(같은 규율)
+- **비유·수사 금지 (#4)** — 위 리뷰어 4종에 "비유·수사 없이 뜻을 직접 쓴다"
+- 잠금: `test-emit-context` T10.a~c(모드 판정·§7 본문·validate-context 통과) · `test-review-evidence-rules` T9.a~d · `test-gate-presence`(§7 배선·계약·범위 위생·템플릿) · `propagation-matrix` `leaf-run-mode-contract`. 변이 4종 모두 격추(emit §7 제거·예시 제거·범위 위생 제거·보고 문체 제거). skill 본문·크기 baseline 불변(변경은 agents·commands·templates·scripts)
+
+⚠️ **한계 (정직 고백)**: 전부 프롬프트 문구라 모델 준수는 잠글 수 없고 존재·배선만 잠근다. 영상은 자동 자막이라 공식 가이드 원문은 확인하지 못했다. 영상의 나머지 팁 — effort 주의사항 문서화(#2)·"서브에이전트 대기 중 메인 계속 작업"(#5, dispatch 순서가 `check-review-audit` 계약과 맞물려 파일럿 필요)·압축 요약 4항목(#10, `session-start` 예산 계약)·거절 회피(#1, 거절 사례 미관측) — 는 이번에 하지 않았다.
+
 ### ponytail 참조 버전 확정
 
 흡수한 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) 의 참조 버전은 **v4.13.0** 으로 확인됐다(저자 확인). v2.5.0 의 "흡수일 직전 최신 릴리즈 v4.13.0 추정" 표기에서 추정을 뗐다 — README 출처 표의 각주를 지우고 버전만 남겼다. 4 skill 의 `reference_upstream`(superpowers 계보)은 그대로 둔다.

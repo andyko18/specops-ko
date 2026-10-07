@@ -75,6 +75,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | "FR마다 개별 PR 생성" | batch PR 1회 원칙 위반 — 전 FR 일괄 PR |
 | "security Critical/High 도 §auto니 자동통과" | 비가역 불변식 위반 — 무인이어도 차단 보존 |
 | "빈 인자니 기능 설명 되물음" | `/start-all` 미러 — requirements.md FR 표 전체 순회 (AC-9) |
+| "리프 구현자가 중간에 사용자에게 되물어도 된다" | 각 태스크 dispatch-context `## 7. 실행 모드`(`batch`)가 "사용자와 직접 대화 불가·질문은 시작 시 한 번에·의존 없는 나머지는 끝까지·비가역은 먼저 NEEDS_APPROVAL"을 싣는다(`emit-context.sh`) |
 
 ## 참조
 

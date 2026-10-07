@@ -612,5 +612,31 @@ fs_run "$tmp" 20261007-fsx-sym
 _pf "T9.c friction 기록 거부(symlink)여도 판정 불변 WARN rc=0" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp"
 
+# ── 20261007-fable-tips — dispatch-context §7 실행 모드 (리프 서브에이전트에 무인 계약 전달) ──
+# T10.a 모드 판정: spec.md 줄 선두 라벨 → single|auto|batch (줄 중간 언급은 라벨이 아니다)
+okm=ok
+for case in 'single|# spec' 'auto|**§auto**: true' 'batch|**§batch**: batch-20261007' 'single|참고: **§auto**: true 모드는 자동통과한다'; do
+  want=${case%%|*}; lab=${case#*|}
+  tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-mode"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-mode/"
+  printf '\n%s\n' "$lab" >> "$tmp/.specops/20260902-mode/spec.md"
+  (cd "$tmp" && bash "$EMIT" 20260902-mode >/dev/null 2>&1); f="$tmp/.specops/20260902-mode/dispatch/T1-context.md"
+  got=$(sed -n 's/^- 모드: \([a-z]*\).*/\1/p' "$f" 2>/dev/null | head -1)
+  [ "$got" = "$want" ] || { okm=no; echo "  (모드 오판: want=$want got=$got label=$lab)"; }
+  rm -rf "$tmp"
+done
+_pf "T10.a 실행 모드 라벨 판정(single·auto·batch·줄 중간 무시)" "$okm"
+# T10.b §7 본문 계약: 사용자 채널 없음 · 질문은 시작 시 한 번에 · 나머지 끝까지 · 비가역은 먼저 NEEDS_APPROVAL
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-mode"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-mode/"
+(cd "$tmp" && bash "$EMIT" 20260902-mode >/dev/null 2>&1); f="$tmp/.specops/20260902-mode/dispatch/T1-context.md"
+sec=$(awk '/^## 7\. 실행 모드/{on=1;print;next} /^## /{on=0} on' "$f" 2>/dev/null)
+miss=""; for t in '사용자와 직접 대화할 수 없다' '한 번에' '의존 없는 나머지' 'NEEDS_APPROVAL'; do printf '%s' "$sec" | grep -qF -- "$t" || miss="$miss [$t]"; done
+_pf "T10.b §7 본문 계약 4항목" "$([ -n "$sec" ] && [ -z "$miss" ] && echo ok || echo no)" "누락=$miss"
+# T10.c §7 이 있어도 validate-context(5 컨텍스트 검증)는 통과한다
+# 부모(implementing-ko)가 dispatch 직전 §5 의 <repo-root> 를 sed 갱신한 뒤의 상태를 흉내낸다
+sed -i.bak "s#<repo-root>#$tmp#" "$f"; rm -f "$f.bak"
+(cd "$tmp" && bash "$PLUGIN/scripts/dag/validate-context.sh" ".specops/20260902-mode/dispatch/T1-context.md" >/dev/null 2>&1); rcv=$?
+_pf "T10.c §7 포함 context 가 validate-context 통과" "$([ "$rcv" -eq 0 ] && echo ok || echo no)" "rc=$rcv"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

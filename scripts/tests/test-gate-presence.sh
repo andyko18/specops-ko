@@ -206,6 +206,24 @@ fi
 if has templates/tasks.md '분할 계획' 'check-fid-size'; then ok "fid-size: templates/tasks.md 분할 계획행 규약·판정기 언급"; else nope "fid-size: templates/tasks.md 규약 문구 부재"; fi
 if has skills/decomposing-ko/SKILL.md '분할 계획' 'check-fid-size'; then ok "fid-size: decomposing-ko 분할 계획행·판정기 언급"; else nope "fid-size: decomposing-ko 규약 문구 부재"; fi
 
+# ── 무인 계약의 리프 전달 · 범위 위생 (20261007-fable-tips) ──
+if has scripts/dag/emit-context.sh '## 7\. 실행 모드' 'run_mode' '사용자와 직접 대화할 수 없다'; then
+  ok "fable-tips: emit-context 가 dispatch-context §7 실행 모드를 쓴다"
+else
+  nope "fable-tips: emit-context §7 배선 부재"
+fi
+if has agents/implementer-ko.md '## 실행 모드 계약' '시작 시 한 번에' '의존 없는 나머지는 끝까지' 'NEEDS_APPROVAL' '의견·설명만 요청'; then
+  ok "fable-tips: implementer-ko 실행 모드 계약 5항목"
+else
+  nope "fable-tips: implementer-ko 실행 모드 계약 문구 부재"
+fi
+if has agents/implementer-ko.md '## 범위 위생' '무관 발견:' '`Edit` 로 필요한 부분만' '임시 확인 코드를 남기지 않는다' 'RED 테스트는 이 규칙의 예외가 아니라'; then
+  ok "fable-tips: implementer-ko 범위 위생(무관 발견·부분 수정·임시 코드·TDD 예외 아님)"
+else
+  nope "fable-tips: implementer-ko 범위 위생 문구 부재"
+fi
+if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips: dispatch-context 템플릿 §7"; else nope "fable-tips: 템플릿 §7 부재"; fi
+
 # ── 20261005 전체 스위트 병행 · 리뷰어 실행 예산 (implementing-ko) ──
 # Phase A 직후 run-all 백그라운드 병행(리뷰 대기와 겹침) + 리뷰어 실행량 상한. 문구가 사라지면 병행·예산이 조용히 꺼진다.
 if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '라운드마다 다시 띄우지 않는다' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then
