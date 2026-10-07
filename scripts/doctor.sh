@@ -449,6 +449,19 @@ _chk_deps() {
   fi
 }
 
+# CLAUDE_CODE_EFFORT_LEVEL — env 가 설정되면 skill·agent frontmatter effort 가 전부 무력화된다
+#   (env > frontmatter — 공식 문서. skill 은 20261007 실측으로도 전 구간 env 값 고정 확인, agent 는 문서 기준). 서브에이전트 effort 프로파일(PR #105)도 포함.
+#   doctor 는 자기 프로세스 env 만 관측한다 — 미설정 보고가 무력화 없음의 증명은 아니다(상속 경로 한계).
+#   빈 값은 미설정으로 본다. 표준 레벨 목록은 복제하지 않는다(모델별로 달라 drift) — env 존재 자체가 경고 사유.
+_chk_effort_env() {
+  local v="${CLAUDE_CODE_EFFORT_LEVEL:-}"
+  if [ -z "$v" ]; then
+    _add effort_env ok "CLAUDE_CODE_EFFORT_LEVEL 미설정 — skill·agent frontmatter effort 정상 적용 (doctor 는 자기 프로세스 env 만 관측)" ""
+  else
+    _add effort_env warn "CLAUDE_CODE_EFFORT_LEVEL=${v:0:24} 설정됨 — skill·agent frontmatter effort(서브에이전트 프로파일 포함)가 전부 무력화됨 · 의도한 설정이면 무시 가능" "셸/프로필의 CLAUDE_CODE_EFFORT_LEVEL 을 unset 하거나 settings 의 env 에서 제거"
+  fi
+}
+
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -470,6 +483,7 @@ _chk_bootstrap
 _chk_stale
 _chk_governance
 _chk_deps
+_chk_effort_env
 
 if [ "$JSON" -eq 1 ]; then
   printf '%s' "$ROWS" | jq -Rs '

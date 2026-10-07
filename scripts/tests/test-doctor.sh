@@ -5,6 +5,7 @@ PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SH="$PLUGIN/scripts/doctor.sh"
+unset CLAUDE_CODE_EFFORT_LEVEL   # 호스트 셸의 env 가 새 effort_env 행을 ⚠️ 로 만들어 기존 "전부 ✅" 단언을 환경 의존으로 깨지 않게 한다
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
@@ -130,7 +131,7 @@ printf '%s' "$_OUT" | grep -E '^\| progress ' | grep -q '⚠️' \
   && printf '%s' "$_OUT" | grep -q '20260201-gap' \
   && ok "T5 progress 불일치 검출" || nope "T5" "out=$_OUT"
 
-# T6 (AC-6): 점검 8항목 중 6항목이 ⚠️ 인 악상태에서도 exit 0
+# T6 (AC-6): 점검 9항목 중 6항목이 ⚠️ 인 악상태에서도 exit 0
 #   "전부" 가 아니다 — governance·deps 는 픽스처가 아니라 **호스트 환경**(훅 활성·jq/python3 설치)에
 #   달려 있어 이 repo 픽스처로는 ✅ 로만 나온다. 그 둘의 ⚠️ 경로는 T-gov.* · T-deps.* 가 전담한다.
 # 픽스처가 Given 을 실제로 재현해야 한다 — 고아 FID 가 없으면 orphan_fid 가 ✅ 라 6항목 ⚠️ 가 아니다.
@@ -148,7 +149,7 @@ _run "$R"
 # 픽스처 재현과 본 단언을 **한 어서션**으로 묶는다 — 분리하면 미재현 시 총 개수가 12→13 으로 흔들린다.
 warns=$(printf '%s' "$_OUT" | grep -c '⚠️')
 [ "$_RC" -eq 0 ] && [ "${warns:-0}" -eq 6 ] \
-  && ok "T6 8항목 중 6항목 ⚠️ 인 악상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
+  && ok "T6 9항목 중 6항목 ⚠️ 인 악상태에서도 exit 0" || nope "T6" "rc=$_RC warns=$warns"
 
 # T7 (AC-7): .specops 부재 → 안내 + exit 0
 R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
@@ -156,10 +157,10 @@ _run "$R"
 [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
 
-# T8 (AC-8): --json 8항목 status  ← governance·deps 2항목 추가(FID 20260830 T3)
+# T8 (AC-8): --json 9항목 status  ← governance·deps 2항목 추가(FID 20260830 T3)
 R="$TMP/r8"; _mkrepo "$R"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==8 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==9 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
   ok "T8 --json 스키마"
 else
   nope "T8" "rc=$_RC out=$_OUT"
@@ -191,7 +192,7 @@ else
   nope "T10" "commands/doctor.md 누락·필드 미비"
 fi
 
-# T11 (AC-11): 정상 상태에서도 8행 전부 출력
+# T11 (AC-11): 정상 상태에서도 9행 전부 출력
 R="$TMP/r11"; _mkrepo "$R"; _hooks_ok "$R"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n' > "$R/.specops/session-progress.md"
@@ -205,11 +206,11 @@ printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
 git -C "$R" add -A >/dev/null 2>&1
 git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩 (픽스처)" >/dev/null 2>&1
 _run "$R"
-rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale|governance|deps) ')
+rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale|governance|deps|effort_env) ')
 oks=$(printf '%s' "$_OUT" | grep -c '✅')
-# AC-11 Then 은 2절이다 — "8행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 8행도 통과한다.
-[ "${rows:-0}" -eq 8 ] && [ "${oks:-0}" -eq 8 ] \
-  && ok "T11 정상 상태 8행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
+# AC-11 Then 은 2절이다 — "9행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 9행도 통과한다.
+[ "${rows:-0}" -eq 9 ] && [ "${oks:-0}" -eq 9 ] \
+  && ok "T11 정상 상태 9행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
 
 # ── Phase C 수습 (리뷰 T3-C / T4-C) ─────────────────────────────────────────
 
@@ -235,7 +236,7 @@ R="$TMP/r14"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260401-a|b|c"; printf '# spec\n' > "$R/.specops/20260401-a|b|c/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==8
+   | jq -e '(.checks|length)==9
             and ((.checks[]|select(.id=="orphan_fid")|.fix)=="진행하거나 정리하세요")' >/dev/null 2>&1; then
   ok "T14 파이프 인젝션에도 JSON 필드 정합 유지 (fix 문구 무손실)"
 else
@@ -247,12 +248,12 @@ NLDIR=$(printf '20260402-x\ny')
 R="$TMP/r14b"; _mkrepo "$R"
 mkdir -p "$R/.specops/$NLDIR"; printf '# spec\n' > "$R/.specops/$NLDIR/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 8행이라 헛통과한다 — 고아 검출까지 함께 고정.
+# 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 9행이라 헛통과한다 — 고아 검출까지 함께 고정.
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==8
+   | jq -e '(.checks|length)==9
             and ((.checks[]|select(.id=="orphan_fid")|.status)=="warn")
             and ((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260402-x"))' >/dev/null 2>&1; then
-  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 8행 고정)"
+  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 9행 고정)"
 else
   nope "T14b" "rc=$_RC out=$_OUT"
 fi
@@ -380,7 +381,7 @@ fi
   && ok "T25 승계 명시 + 원 FID 계약서 무수정" \
   || nope "T25" "doc=$t25_doc old_untouched=$t25_old"
 
-# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 8건 · schema_version 1 · warn_count 정합)
+# T23 (AC-6): 아카이브 상태에서도 --json 스키마 불변 (checks 9건 · schema_version 1 · warn_count 정합)
 R="$TMP/r23"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260202-real"; printf '# spec\n' > "$R/.specops/20260202-real/spec.md"
 printf '# Session Progress\n\n## 20260101-archived\n\n- 2026-01-01 10:00 /verify PASS\n\n## 20260202-real\n\n- 2026-02-02 10:00 /verify PASS\n' \
@@ -390,8 +391,8 @@ _n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
 _sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
 _wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
 _actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
-[ "$_n" = "8" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
-  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=8 · warn_count=$_wc)" \
+[ "$_n" = "9" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=9 · warn_count=$_wc)" \
   || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
 
 # T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
@@ -833,6 +834,52 @@ else
 fi
 rm -rf "$pydir"
 rm -rf "$maskdir"
+
+# ── T-effort (AC-1~3): effort_env — CLAUDE_CODE_EFFORT_LEVEL 설정 시 frontmatter effort 무력화 경고 ──
+R="$TMP/reff"; _mkrepo "$R"
+_effout() { _EO=$(cd "$R" && SPECOPS_ROOT=".specops" CLAUDE_CODE_EFFORT_LEVEL="$1" bash "$SH" "${@:2}" 2>&1); _ER=$?; }
+_run "$R"
+eline=$(printf '%s\n' "$_OUT" | grep '^| effort_env |')
+last=$(printf '%s\n' "$_OUT" | grep -E '^\| [a-z_]+ \|' | tail -1)
+if [ "$_RC" -eq 0 ] && printf '%s' "$eline" | grep -q '✅' && printf '%s' "$eline" | grep -q '미설정' \
+   && printf '%s' "$last" | grep -q '^| effort_env '; then
+  ok "T-effort.a env 미설정 → effort_env ✅ · 표 맨 끝(9번째) 행 (AC-1)"
+else nope "T-effort.a" "rc=$_RC 행='$eline' 마지막='$last'"; fi
+_effout high
+eline=$(printf '%s\n' "$_EO" | grep '^| effort_env |')
+if [ "$_ER" -eq 0 ] && printf '%s' "$eline" | grep -q '⚠️' && printf '%s' "$eline" | grep -q 'high' \
+   && printf '%s' "$eline" | grep -q '무력화' && printf '%s' "$eline" | grep -q 'unset'; then
+  ok "T-effort.b env=high → ⚠️ · 값 표시 · 무력화 · 조치(unset) · exit 0 (AC-2)"
+else nope "T-effort.b" "rc=$_ER 행='$eline'"; fi
+LONG=$(printf '%040d' 0)
+_effout "$LONG"
+eline=$(printf '%s\n' "$_EO" | grep '^| effort_env |')
+if printf '%s' "$eline" | grep -q "=${LONG:0:24} " && ! printf '%s' "$eline" | grep -q "${LONG:0:25}"; then
+  ok "T-effort.c 값은 앞 24자까지만 표시 (Q1)"
+else nope "T-effort.c" "행='$eline'"; fi
+_effout ""
+eline=$(printf '%s\n' "$_EO" | grep '^| effort_env |')
+if printf '%s' "$eline" | grep -q '✅'; then
+  ok "T-effort.e 빈 값은 미설정과 동일(✅) (Q2)"
+else nope "T-effort.e" "행='$eline'"; fi
+for _lv in "" high; do
+  _effout "$_lv" --json
+  _wc=$(printf '%s' "$_EO" | jq -r '.warn_count' 2>/dev/null)
+  _act=$(printf '%s' "$_EO" | jq -r '[.checks[]|select(.status!="ok")]|length' 2>/dev/null)
+  if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and .schema_version==1 and (.checks[-1].id=="effort_env")' >/dev/null 2>&1 \
+     && [ "$_wc" = "$_act" ]; then
+    ok "T-effort.d --json 9건·schema 1·마지막 effort_env·warn_count 정합 (env='${_lv:-빈}') (AC-3)"
+  else nope "T-effort.d" "env='$_lv' wc=$_wc act=$_act"; fi
+done
+# 값에 구분자·개행이 있어도 표·JSON 행이 위조·분열되지 않는다 — bash 3.2 의 기존 `_add` sanitize 는 `|` 를 `\/` 로 바꿔 백슬래시가 남으므로(`x\/y`) 두 형태를 모두 허용한다(bash 4+ 는 `x/y`)(_add sanitize 가 값 표시 경로에도 적용됨) — 외부 critic 지적 반영
+_effout $'x|y\nz'
+if [ "$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')" = "1" ] && printf '%s\n' "$_EO" | grep '^| effort_env |' | grep -qE '=x\\?/y z '; then
+  ok "T-effort.f 값의 | · 개행이 표 행을 위조·분열시키지 않음 (표)"
+else nope "T-effort.f" "표='$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')'행"; fi
+_effout $'x|y\nz' --json
+if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and (.checks[-1].detail|test("=x\\\\?/y z "))' >/dev/null 2>&1; then
+  ok "T-effort.g 값의 | · 개행이 --json 필드를 오염시키지 않음 (checks 9건 유지)"
+else nope "T-effort.g" "out=$_EO"; fi
 
 # T-ds.d (AC-5): 문서 SoT 가 관할 축을 기술한다
 DOC="$PLUGIN/commands/doctor.md"
