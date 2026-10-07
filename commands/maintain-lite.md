@@ -1,5 +1,6 @@
 ---
 name: maintain-lite
+disable-model-invocation: true
 description: "[유지보수·경량] analyzing-mini + clarify·plan 생략 — 화면/IF·Phase B/C·verify·AC-R-1 유지"
 triggers:
   - "/maintain-lite"

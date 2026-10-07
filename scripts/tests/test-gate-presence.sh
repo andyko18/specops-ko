@@ -224,6 +224,39 @@ else
 fi
 if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips: dispatch-context 템플릿 §7"; else nope "fable-tips: 템플릿 §7 부재"; fi
 
+# ── 사용자 전용 command 는 모델 자동 호출을 막는다 (20261007-doc-conformance) ──
+#   공식 문서(skills): `disable-model-invocation: true` = "Description not in context, full skill loads when invoked".
+#   release·promote·e2e-test 처럼 부작용이 있는 명령을 모델이 스스로 부르지 못하게 하고, 상시 목록에서 빠진다
+#   (실측 `/context`: specops skill 행 54→32, ~870 tok 절감 — `claude plugin details` 투영값은 이 플래그를 반영하지 않는다).
+#   모델이 부를 수 있어야 하는 init-project(메타 skill 이 y 응답 시 호출)·status(재개 조회)는 켜 두지 않는다.
+_dmi_ok=ok; _dmi_n=0
+for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain-lite maintain promote release security-scan start-all-auto start-all start-auto start-foundation start-lite start statusline-install; do
+  _dmi_n=$((_dmi_n+1))
+  awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -qx 'disable-model-invocation: true' || { _dmi_ok=no; echo "  (플래그 누락: commands/$c.md)"; }
+done
+for c in init-project status; do
+  awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -q 'disable-model-invocation' && { _dmi_ok=no; echo "  (모델 호출 필요 command 에 플래그: $c)"; }
+done
+[ "$_dmi_ok" = ok ] && ok "dmi: 사용자 전용 command ${_dmi_n}종 disable-model-invocation · init-project·status 는 제외" || nope "dmi: command 플래그 계약 위반"
+# 비활성 command 를 skill 호출 문법(specops-ko:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
+_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'specops-ko:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-auto|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
+[ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
+
+# ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
+#   실측: --plugin-dir 로 구현자를 띄워 첫 제목 `# Karpathy 행동 원칙` 이 컨텍스트에 있음을 확인(맨 이름 `karpathy-ko` 로 해석됨).
+#   프리로드 대상은 disable-model-invocation 이 아닌 skill 이어야 한다(문서: 그런 skill 은 프리로드 불가).
+if awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' agents/implementer-ko.md 2>/dev/null | grep -q '^  - karpathy-ko$' \
+   || awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/agents/implementer-ko.md" | grep -q '^  - karpathy-ko$'; then
+  ok "preload: implementer-ko frontmatter skills 에 karpathy-ko"
+else
+  nope "preload: implementer-ko skills 프리로드 부재"
+fi
+if ! awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/skills/karpathy-ko/SKILL.md" | grep -q 'disable-model-invocation'; then
+  ok "preload: karpathy-ko 는 프리로드 가능(disable-model-invocation 아님)"
+else
+  nope "preload: karpathy-ko 가 disable-model-invocation — 프리로드 불가"
+fi
+
 # ── 20261005 전체 스위트 병행 · 리뷰어 실행 예산 (implementing-ko) ──
 # Phase A 직후 run-all 백그라운드 병행(리뷰 대기와 겹침) + 리뷰어 실행량 상한. 문구가 사라지면 병행·예산이 조용히 꺼진다.
 if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '라운드마다 다시 띄우지 않는다' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then

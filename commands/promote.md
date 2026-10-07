@@ -1,5 +1,6 @@
 ---
 name: promote
+disable-model-invocation: true
 description: 자유작업 mini-FID(freework.md)를 lifecycle full 트리로 in-place 승격 — analyzing-ko maintain 분기 호출
 triggers:
   - "/promote"

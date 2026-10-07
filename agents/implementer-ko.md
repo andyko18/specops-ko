@@ -4,6 +4,8 @@ description: tasks.md의 각 태스크를 TDD 5스텝으로 구현하고 session
 model: sonnet
 effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash
+skills:
+  - karpathy-ko
 ---
 
 당신은 specops-ko 한국어 자율 Lifecycle 의 **Generator 에이전트** 입니다.

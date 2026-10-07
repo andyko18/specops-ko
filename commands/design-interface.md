@@ -1,5 +1,6 @@
 ---
 name: design-interface
+disable-model-invocation: true
 description: "[lifecycle 밖] 인터페이스 1개 설계 — api-spec.md·data-model.md 마스터 반영. lifecycle 안은 Step 5.6(단일)·Phase 2.5-B(batch) 가 자동 처리"
 triggers:
   - "/design-interface"

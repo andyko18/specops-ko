@@ -1,5 +1,6 @@
 ---
 name: design-screen
+disable-model-invocation: true
 description: "[lifecycle 밖] 화면 1개 설계 — screens/ 에 .md+.html 쌍 생성/수정. lifecycle 안은 Step 5.5(단일)·Phase 2.5-A(batch) 가 자동 처리"
 triggers:
   - "/design-screen"
