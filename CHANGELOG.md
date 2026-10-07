@@ -10,6 +10,12 @@
 
 ⚠️ 한계: 상한(300s)은 그대로다 — 부하가 이번 개선(2배)보다 더 심하면 이론상 재발할 수 있다. `skill_conventions`(3.7s)는 별도 스위트(`test-skill-conventions`)와 중복 실행되나 이번엔 손대지 않았다.
 
+### 링크 worktree pre-push 의 `GIT_DIR` 누수 차단 (2026-10-06 저장소 훼손 사고의 근본 수정)
+
+링크 worktree 에서 `git push` 하면 git 이 훅에 **절대경로** `GIT_DIR` 를 export 하고, pre-push 가 돌리는 `run-all` 안 테스트 픽스처(`cd $tmp && git init/commit/config`)가 임시 repo 가 아니라 공유 실저장소에 실행돼 `core.worktree`·`user.name` 주입·로컬 main 이동·잡 브랜치 19개를 남겼다. `.githooks/pre-push` 가 최상단에서 `GIT_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_COMMON_DIR`·`GIT_PREFIX`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES` 를 지우고(훅 cwd 는 worktree 루트라 이후 `rev-parse` 가 같은 저장소를 찾는다), `run-all.sh` 선두에도 같은 방어를 둬 release.sh pre-flight·수동 실행 같은 훅 밖 경로를 막는다. 잠금: `test-git-hooks` GH-env.1(훅 환경 변수 비누수)·GH-env.2(run-all 선두 unset)·**GH-env.3(sandbox 의 링크 worktree 에서 실 `git push` — 수정 전 훅은 `user.name=POLLUTED` 재현·수정 후 무오염)**.
+
+⚠️ 한계: 훅과 run-all 선두만 막았다 — 개별 스위트가 `git` 을 `-C` 없이 부르는 관용은 그대로(사고 재발 방어는 환경 차단에 의존). 이제 링크 worktree 에서도 pre-push 를 쓸 수 있지만, 이 작업은 독립 clone 에서 push 해 왔고 실 worktree push 로는 검증하지 않았다(sandbox 종단으로 갈음).
+
 
 ## [2.4.0] — 2026-10-07
 
