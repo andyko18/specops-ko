@@ -263,10 +263,8 @@ frontmatter 가 어디서 무엇을 가져왔는지 개별로 밝힌다(실측 5
 | [obra/omc](https://github.com/obra/omc) | — | 릴리즈 패턴 일부 |
 | [revfactory/harness](https://github.com/revfactory/harness) | — | harness 패턴 4건 |
 | [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) | — | `karpathy-ko` 원형 |
-| [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) v4.13.0¹ | MIT | 최소 범위(YAGNI) rung 사다리(4 skill, v2.3.0) · 과잉 설계 리뷰 태그·`shortcut:` 부채 장부(`code-reviewer-ko`·`scan-shortcuts.sh`) · `/improve-arch --lean` 감사 |
+| [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) v4.13.0 | MIT | 최소 범위(YAGNI) rung 사다리(4 skill, v2.3.0) · 과잉 설계 리뷰 태그·`shortcut:` 부채 장부(`code-reviewer-ko`·`scan-shortcuts.sh`) · `/improve-arch --lean` 감사 |
 | [github/spec-kit](https://github.com/github/spec-kit) · garrytan/gstack · mattpocock · alirezarezvani/claude-skills | — | 패턴 번안·한국어 재창작 |
-
-> ¹ ponytail 은 흡수 당시 참조 버전을 기록하지 않았다. 흡수일(2026-10-06) 직전의 **최신 릴리즈**(v4.13.0, 2026-10-05)로 표기하며, 이는 추정이다.
 
 > **원본 코드를 복사(vendoring)하지 않았다.** 전부 패턴 참조 · 번안 · 한국어 재창작이고,
 > `reference_upstream` 에 `specops-ko 독자 추가` 로 표시된 것(실측 30여 건)은 상류에 대응물이 없는

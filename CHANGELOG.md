@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### ponytail 참조 버전 확정
+
+흡수한 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) 의 참조 버전은 **v4.13.0** 으로 확인됐다(저자 확인). v2.5.0 의 "흡수일 직전 최신 릴리즈 v4.13.0 추정" 표기에서 추정을 뗐다 — README 출처 표의 각주를 지우고 버전만 남겼다. 4 skill 의 `reference_upstream`(superpowers 계보)은 그대로 둔다.
+
 ## [2.5.0] — 2026-10-07
 
 ### ponytail 잔여 반영 — `/improve-arch --lean` 감사 · rung 준수 eval 데이터 · 버전 표기 · 8회차 준비 현황
