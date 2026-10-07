@@ -5,7 +5,7 @@ description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 �
 triggers:
   - "/start-lite"
 mode: ask
-specops_version: 1.60.0
+specops_version: 2.6.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
 ---

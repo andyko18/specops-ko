@@ -5,7 +5,7 @@ description: "[유지보수·경량] analyzing-mini + clarify·plan 생략 — �
 triggers:
   - "/maintain-lite"
 mode: ask
-specops_version: 1.60.0
+specops_version: 2.6.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/maintain.md § lite variant)
 ---

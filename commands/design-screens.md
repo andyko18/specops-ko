@@ -5,7 +5,7 @@ description: "[lifecycle 밖] 복수 화면 일괄 설계 — 목록 자동판�
 triggers:
   - "/design-screens"
 mode: ask
-specops_version: 1.92.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---

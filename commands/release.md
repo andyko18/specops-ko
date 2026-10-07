@@ -5,7 +5,7 @@ description: specops-ko 플러그인 릴리즈 자동화 — bash scripts/releas
 triggers:
   - "/release"
 mode: ask
-specops_version: 1.10.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---

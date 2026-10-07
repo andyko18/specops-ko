@@ -5,7 +5,7 @@ description: "[단일·무인] specops-ko 완전자동 Lifecycle 단일 기능 �
 triggers:
   - "/start-auto"
 mode: ask
-specops_version: 1.10.0
+specops_version: 2.6.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md § auto variant)
 ---

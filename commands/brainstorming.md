@@ -5,7 +5,7 @@ description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops
 triggers:
   - "/brainstorming"
 mode: ask
-specops_version: 1.36.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-PreBootstrap
 reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 ---

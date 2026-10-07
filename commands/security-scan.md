@@ -5,7 +5,7 @@ description: 온디맨드 보안 점검 슬래시 — SAST(소스코드) + DAST(
 triggers:
   - "/security-scan"
 mode: ask
-specops_version: 1.61.0
+specops_version: 2.6.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
