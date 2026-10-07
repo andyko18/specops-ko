@@ -138,7 +138,7 @@ _run() {  # <plan 행들(\n)> <env 할당...> -- <러너 인자...> → 러너 s
   rm -f "$TMP/state" "$TMP/args.log"
   local envs=()
   while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
-  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR \
+  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL -u LLM_EVAL_JUDGE_MODEL \
     CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" \
     SKILL_EVAL_DIR="$DATA" "${envs[@]+"${envs[@]}"}" bash "$LE/run-skill-evals.sh" "$@" 2>&1); RUN_RC=$?
 }
@@ -296,7 +296,7 @@ head -1 "$TMP/args.log" | grep -qF -- "$(printf -- '-p a\\b\tc ')" && ok "T5.p �
 CWD5Q="$TMP/cwd5q"; mkdir -p "$CWD5Q" "$TMP/failbin"; printf '{"skills":["karpathy-ko"]}\n' > "$TMP/plan.jsonl"; rm -f "$TMP/state"
 printf '#!/usr/bin/env bash\ncase " $* " in *" -d "*) exit 1 ;; esac\nexec %s "$@"\n' "$(command -v mktemp)" > "$TMP/failbin/mktemp"
 chmod +x "$TMP/failbin/mktemp"
-RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS PATH="$TMP/failbin:$PATH" \
+RUN_OUT=$( cd "$CWD5Q" && env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_EFFORT -u SKILL_EVAL_MODEL -u CLAUDE_CODE_EFFORT_LEVEL PATH="$TMP/failbin:$PATH" \
   CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" SKILL_EVAL_DIR="$DATA" \
   bash "$LE/run-skill-evals.sh" --trigger 2>&1 ); RUN_RC=$?
 if _line pos-1 | grep -q 'SKIP(error' && [ ! -e "$CWD5Q/.git" ] && [ ! -e "$CWD5Q/CLAUDE.md" ] && [ "$RUN_RC" -eq 0 ]; then
@@ -668,6 +668,78 @@ if grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVA
    && grep -q 'N≥3' "$PLUGIN/scripts/README.md" && grep -q '별도 승인' "$PLUGIN/scripts/README.md"; then
   ok "T10.l 문서에 INJECT 사용법·측정 프로토콜(N≥3·비용 별도 승인)"; else nope "T10.l" "README/CLAUDE.md 에 SKILL_EVAL_INJECT·N≥3·별도 승인 누락"; fi
 
+# ── T11 (20261007-eval-effort-knob) effort·model 노브 — stub 전용, 토큰 0 ──
+_arg_pair() { tr '\0' '\n' < "$1" | grep -xF -A1 -- "$2" | grep -qxF -- "$3"; }   # <file> <flag> <value> — 플래그 바로 뒤 값
+_arg_cnt() { tr '\0' '\n' < "$1" | grep -cxF -- "$2"; }                           # 같은 플래그 개수
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_EFFORT=low "$AG" -- --evals
+E_OUT="$RUN_OUT"
+if [ "$(_ncalls)" -eq 3 ] && _arg_pair "$TMP/calls/1.args" --effort low && _arg_pair "$TMP/calls/3.args" --effort low \
+   && [ "$(_arg_cnt "$TMP/calls/1.args" --effort)" = 1 ] && [ "$(_arg_cnt "$TMP/calls/2.args" --effort)" = 0 ] \
+   && ! _arg_has_part "$TMP/calls/1.args" '--model' \
+   && printf '%s\n' "$E_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+effort=low evals pass=[0-9]+ fail=[0-9]+ skip=[0-9]+ cost=\$[0-9.]+$'; then
+  ok "T11.a effort 노브 — candidate(1·3번)에만 --effort low 1회 · 채점기(2번) 없음 · 라벨 +effort=low (AC-1)"
+else nope "T11.a" "calls=$(_ncalls) $E_OUT"; fi
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_MODEL=sonnet "$AG" -- --evals
+M_OUT="$RUN_OUT"
+if [ "$(_ncalls)" -eq 3 ] && _arg_pair "$TMP/calls/1.args" --model sonnet && _arg_pair "$TMP/calls/3.args" --model sonnet \
+   && [ "$(_arg_cnt "$TMP/calls/2.args" --model)" = 0 ] && ! _arg_has_part "$TMP/calls/1.args" '--effort' \
+   && printf '%s\n' "$M_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+model=sonnet evals '; then
+  ok "T11.b model 노브 — candidate 에만 --model sonnet · 채점기 없음 · 라벨 +model=sonnet (AC-2)"
+else nope "T11.b" "calls=$(_ncalls) $M_OUT"; fi
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_INJECT=1 SKILL_EVAL_EFFORT=high SKILL_EVAL_MODEL=opus "$AG" -- --evals
+B_OUT="$RUN_OUT"
+if _arg_pair "$TMP/calls/1.args" --effort high && _arg_pair "$TMP/calls/1.args" --model opus && _arg_has "$TMP/calls/1.args" '--append-system-prompt' \
+   && ! _arg_has_part "$TMP/calls/2.args" '--effort' && ! _arg_has_part "$TMP/calls/2.args" '--model' \
+   && printf '%s\n' "$B_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+inject\+effort=high\+model=opus evals '; then
+  ok "T11.c 동시 사용 — inject·effort·model 공존 · 라벨 순서 +inject+effort+model · 채점기 무영향 (AC-2)"
+else nope "T11.c" "$B_OUT"; fi
+
+_bad_ok=1; _bad_why=""
+for _kv in 'SKILL_EVAL_EFFORT=ultra' 'SKILL_EVAL_EFFORT=LOW' 'SKILL_EVAL_EFFORT=low ' 'SKILL_EVAL_MODEL=a b' 'SKILL_EVAL_MODEL=../x' 'SKILL_EVAL_MODEL=-x' $'SKILL_EVAL_MODEL=ok\n' 'SKILL_EVAL_MODEL=é' 'SKILL_EVAL_MODEL=ａb'; do
+  _calls_reset   # LC_ALL=UTF-8 고정 — bash 3.2 대괄호 범위식은 로케일 정렬을 따라 비ASCII 를 통과시켰다(I-1)
+  _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" LC_ALL=en_US.UTF-8 "$_kv" "$AG" -- --evals
+  if [ "$(_ncalls)" -ne 0 ] || [ "$RUN_RC" -ne 0 ] || ! printf '%s\n' "$RUN_OUT" | grep -qE '^ERROR: SKILL_EVAL_(EFFORT|MODEL) 형식 오류'; then
+    _bad_ok=0; _bad_why="$_bad_why [$_kv calls=$(_ncalls) rc=$RUN_RC]"
+  fi
+done
+[ "$_bad_ok" = 1 ] && ok "T11.d 형식 오류 9종 — claude 호출 0 · exit 0 · 사유 1줄 (AC-3)" || nope "T11.d" "$_bad_why"
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" "$AG" -- --evals
+OFFB_OUT="$RUN_OUT"; for _i in 1 2 3; do cp "$TMP/calls/$_i.args" "$TMP/offb-$_i.args"; done
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_EFFORT= SKILL_EVAL_MODEL= "$AG" -- --evals
+if [ "$(_ncalls)" -eq 3 ] && cmp -s "$TMP/offb-1.args" "$TMP/calls/1.args" \
+   && cmp -s "$TMP/offb-3.args" "$TMP/calls/3.args" && ! _arg_has_part "$TMP/calls/2.args" '--effort' && ! _arg_has_part "$TMP/calls/2.args" '--model' && [ "$OFFB_OUT" = "$RUN_OUT" ] && ! printf '%s\n' "$RUN_OUT" | grep -qE 'effort|model='; then
+  ok "T11.e 빈 값 = off — candidate 호출(1·3번) 인자·출력 바이트 동일 · 채점기(2번)는 nonce 로 비교 제외 · 표기 없음 (AC-R-1)"
+else nope "T11.e" "$RUN_OUT"; fi
+
+if grep -q 'SKILL_EVAL_EFFORT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_MODEL' "$PLUGIN/scripts/README.md" \
+   && grep -q 'SKILL_EVAL_EFFORT' "$PLUGIN/CLAUDE.md" && grep -q 'SKILL_EVAL_MODEL' "$PLUGIN/CLAUDE.md" \
+   && grep -q '파일럿' "$PLUGIN/scripts/README.md" && grep -q '별도 승인' "$PLUGIN/scripts/README.md"; then
+  ok "T11.f 문서에 노브·파일럿 프로토콜(별도 승인) 병기 (AC-4)"
+else nope "T11.f" "README/CLAUDE.md 에 SKILL_EVAL_EFFORT·SKILL_EVAL_MODEL·파일럿·별도 승인 누락"; fi
+# T11.g (AC-5) effort env + 노브 동시 설정 거절 · 노브 off/model 단독은 env 와 무관
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_EFFORT=low CLAUDE_CODE_EFFORT_LEVEL=high "$AG" -- --evals
+_g1_calls=$(_ncalls); _g1_rc=$RUN_RC; _g1_out="$RUN_OUT"
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" CLAUDE_CODE_EFFORT_LEVEL=high "$AG" -- --evals
+_g2_calls=$(_ncalls); _g2_out="$RUN_OUT"
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_MODEL=sonnet CLAUDE_CODE_EFFORT_LEVEL=high "$AG" -- --evals
+_g3_calls=$(_ncalls); _g3_out="$RUN_OUT"
+if [ "$_g1_calls" -eq 0 ] && [ "$_g1_rc" -eq 0 ] && [ "$(printf '%s\n' "$_g1_out" | grep -cE '^ERROR: .*CLAUDE_CODE_EFFORT_LEVEL')" = 1 ] \
+   && [ "$_g2_calls" -eq 3 ] && ! printf '%s\n' "$_g2_out" | grep -q '^ERROR:' \
+   && [ "$_g3_calls" -eq 3 ] && ! printf '%s\n' "$_g3_out" | grep -q '^ERROR:'; then
+  ok "T11.g effort env+노브 거절(호출 0·rc 0·사유 1줄) · 노브 off·model 단독은 env 무관 호출 3 (AC-5)"
+else nope "T11.g" "g1 calls=$_g1_calls rc=$_g1_rc [$_g1_out] g2 calls=$_g2_calls g3 calls=$_g3_calls"; fi
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
