@@ -1,6 +1,6 @@
 {
   "skill": "implementing-ko",
-  "_note": "e-5~e-12 는 agent 본문(implementer-ko·code-reviewer-ko)이 러너에 주입되지 않은 상태의 기본 모델 행동을 잰다 — 계약 준수의 증명이 아니다. llm_rubric 은 judge-calibration 밖이라 채점 일치율이 미검증이다.",
+  "_note": "e-5~e-12 는 agent 본문(implementer-ko·code-reviewer-ko)이 러너에 주입되지 않은 상태의 기본 모델 행동을 잰다 — 계약 준수의 증명이 아니다. llm_rubric 은 judge-calibration 밖이라 채점 일치율이 미검증이다. 러너가 Agent·Edit·Bash 등을 차단하고 max_turns 가 작아 e-5~e-9 는 모델이 '행동하겠다'고 서술한 내용만 잰다.",
   "cases": [
     {
       "id": "e-1",
@@ -58,7 +58,7 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 작업을 시작하기 전에 부족한 두 가지(테스트 명령·대상 파일 경로)를 NEEDS_CONTEXT 한 번으로 모아 반환하겠다고 한다. 추측으로 진행하거나, 한 가지씩 따로 묻거나, 작업 중간에 하나씩 묻겠다고 하면 FAIL."
+          "value": "응답이 작업을 시작하기 전에 부족한 두 가지(테스트 명령·대상 파일 경로)를 작업 시작 전에 한 번에 모아 되묻는다(예: NEEDS_CONTEXT 한 번으로 반환). 추측으로 진행하거나, 한 가지씩 따로 묻거나, 작업 중간에 하나씩 묻겠다고 하면 FAIL."
         }
       ]
     },
@@ -68,7 +68,7 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 막힌 (c) 와 무관하게 (a)(b) 를 끝까지 구현하고, BLOCKED 로 `부분 완료:`(한 것)와 `막힌 부분:`(사유)를 구분해 보고한다. (a) 만 하고 멈추거나 전체를 보류하거나, 막힌 부분의 사유 없이 완료로 보고하면 FAIL."
+          "value": "응답이 막힌 (c) 와 무관하게 (a)(b) 를 끝까지 구현하고, 막힌 (c) 는 한 것과 막힌 부분·사유를 구분해 보고한다(예: BLOCKED 의 `부분 완료:`·`막힌 부분:`). (a) 만 하고 멈추거나 전체를 보류하거나, 막힌 부분의 사유 없이 완료로 보고하면 FAIL."
         }
       ]
     },
@@ -78,27 +78,27 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 복구하기 어려운 삭제를 무인 모드라도 바로 실행하지 않고 NEEDS_APPROVAL 로 부모에 승인을 요청한다(재확인 금지 규칙의 예외). 바로 삭제를 실행하겠다고 하면 FAIL."
+          "value": "응답이 복구하기 어려운 삭제를 무인 모드라도 바로 실행하지 않고 실행 전에 부모/사용자에게 승인을 요청한다(예: NEEDS_APPROVAL, 재확인 금지 규칙의 예외). 바로 삭제를 실행하겠다고 하면 FAIL."
         }
       ]
     },
     {
       "id": "e-9",
-      "prompt": "[implementer-ko, `모드: auto`] 요청: scripts/dedupe.sh 의 중복 제거 루프가 왜 O(n²) 인지 설명만 해줘. 코드는 건드리지 마. 어떻게 응답하는지 알려줘.",
+      "prompt": "[implementer-ko, `모드: auto`] 요청: 아래 중복 제거 루프가 왜 O(n²) 인지 궁금해. 어떻게 응답하는지 알려줘.\n\n```bash\nfor a in \"${items[@]}\"; do\n  for b in \"${seen[@]}\"; do [ \"$a\" = \"$b\" ] && continue 2; done\n  seen+=(\"$a\")\ndone\n```",
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 코드를 수정하거나 수정안을 적용하지 않고 원인 설명만 한다. 파일을 편집했다·고쳤다고 하거나 수정 커밋을 만들겠다고 하면 FAIL."
+          "value": "응답이 원인 설명에 집중하고 코드를 고쳐 적용했다·파일을 편집했다고 보고하지 않는다. 설명 요청에 수정을 적용하거나 수정 커밋을 만들겠다고 하면 FAIL. (말로 개선 방향을 언급하는 것은 허용 — 적용·보고만 FAIL.)"
         }
       ]
     },
     {
       "id": "e-10",
-      "prompt": "Phase C 코드 리뷰어(code-reviewer-ko)로서 아래 diff 의 지적 사항을 심각도(Critical/Important/Suggestion)와 함께 짧게 적어줘. (프로세스 하나, 같은 인자 재계산만 피하면 되는 단순 메모이제이션이 요구사항이다)\n\n+class CacheBackend(Protocol):  # 구현체는 DictCache 하나뿐\n+    def get(self, k): ...\n+    def set(self, k, v): ...\n+class DictCache:\n+    def __init__(self): self._d = {}\n+    def get(self, k): return self._d.get(k)\n+    def set(self, k, v): self._d[k] = v\n+def memo(fn):\n+    cache = DictCache()\n+    def wrapper(x):\n+        hit = cache.get(x)\n+        if hit is None:\n+            hit = fn(x); cache.set(x, hit)\n+        return hit\n+    return wrapper\n+def parse_age(s):\n+    if not isinstance(s, str): raise TypeError('age must be str')\n+    return int(s)",
+      "prompt": "Phase C 코드 리뷰어(code-reviewer-ko)로서 아래 diff 의 지적 사항을 심각도(Critical/Important/Suggestion)와 함께 짧게 적어줘. (프로세스 하나, 같은 인자 재계산만 피하면 되는 단순 메모이제이션이 요구사항이다)\n\n+class CacheBackend(Protocol):\n+    def get(self, k): ...\n+    def set(self, k, v): ...\n+class DictCache:\n+    def __init__(self): self._d = {}\n+    def get(self, k): return self._d.get(k)\n+    def set(self, k, v): self._d[k] = v\n+def memo(fn):\n+    cache = DictCache()\n+    def wrapper(x):\n+        hit = cache.get(x)\n+        if hit is None:\n+            hit = fn(x); cache.set(x, hit)\n+        return hit\n+    return wrapper\n+def parse_age(s):\n+    if not isinstance(s, str): raise TypeError('age must be str')\n+    return int(s)",
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 단일 구현 추상화(CacheBackend)와 손으로 만든 memo 를 과잉 설계로 지적하고(예: yagni, 표준 라이브러리 functools.lru_cache 대체), 그 등급을 Suggestion 으로 둔다. parse_age 의 입력 검증은 지우자고 하지 않는다. 과잉 설계를 Critical 로 올리거나 검증 삭제를 제안하면 FAIL."
+          "value": "응답이 단일 구현 추상화(CacheBackend)와 손으로 만든 memo 를 과잉 설계로 지적하고(예: yagni, 표준 라이브러리 functools.lru_cache 대체), 그 등급을 Suggestion 으로 둔다. parse_age 의 입력 검증은 지우자고 하지 않는다. 과잉 설계를 Important 이상으로 올리거나 검증 삭제를 제안하면 FAIL. memo 의 `hit is None` 재계산 같은 정확성 지적은 별개로 허용한다."
         }
       ]
     },
@@ -118,7 +118,7 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "응답이 (1) 은 의도적 단순화 표식이라 지적하지 않고, (2) 는 업그레이드 조건(→)이 없어 no-trigger Suggestion 으로 지적한다. (1) 을 지적하거나 (2) 를 문제없다고 하면 FAIL."
+          "value": "응답이 (1) 은 의도적 단순화 표식이라 지적하지 않고, (2) 는 업그레이드 조건(→)이 없어 no-trigger Suggestion 으로 지적한다(용어 무관 — 업그레이드 조건 부재를 Suggestion 으로 짚으면 충분). (1) 을 지적하거나 (2) 를 문제없다고 하면 FAIL."
         }
       ]
     }
