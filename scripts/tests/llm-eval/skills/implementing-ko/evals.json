@@ -44,6 +44,7 @@
     },
     {
       "id": "e-5",
+      "agent": "implementer-ko",
       "prompt": "[implementer-ko 로 dispatch 된 상태 — 컨텍스트 끝 `## 7. 실행 모드` 에 `모드: auto`] 태스크 T2: scripts/greet.sh 에 --quiet 플래그를 추가한다. 필수 컨텍스트 5개(태스크 본문·AC·파일 경로·테스트 명령·작업 디렉터리)는 모두 제공됐고, 사용자는 이미 이 작업을 요청했다. 첫 응답으로 무엇을 하는지 알려줘.",
       "asserts": [
         {
@@ -54,6 +55,7 @@
     },
     {
       "id": "e-6",
+      "agent": "implementer-ko",
       "prompt": "[implementer-ko, `모드: batch` — 무인 실행이라 작업 중간에 되물을 수 없다] 태스크 T3: 로그 로테이션 스크립트를 구현한다. 그런데 컨텍스트에 두 가지가 빠져 있다 — 테스트 명령, 그리고 수정할 파일이 logs/rotate.sh 인지 scripts/rotate.sh 인지. 어떻게 진행하는지 알려줘.",
       "asserts": [
         {
@@ -64,7 +66,8 @@
     },
     {
       "id": "e-7",
-      "prompt": "[implementer-ko, `모드: auto`] 태스크 T4 는 세 부분이다: (a) 설정 파서 함수 추가, (b) 파서 단위 테스트 추가, (c) 외부 결제 API 키가 필요한 통합 호출 구현. (c) 만 키가 없어 막혔고 (a)(b) 는 서로·(c) 와 의존이 없다. 어떻게 마무리하고 무엇을 보고하는지 알려줘.",
+      "agent": "implementer-ko",
+      "prompt": "[implementer-ko, `모드: auto`] 필수 컨텍스트 5개는 모두 제공됐다. 태스크 T4 는 세 부분이다: (a) 설정 파서 함수 추가, (b) 파서 단위 테스트 추가, (c) 외부 결제 API 키가 필요한 통합 호출 구현. (c) 만 키가 없어 막혔고 (a)(b) 는 서로·(c) 와 의존이 없다. 어떻게 마무리하고 무엇을 보고하는지 알려줘.",
       "asserts": [
         {
           "type": "llm_rubric",
@@ -74,7 +77,8 @@
     },
     {
       "id": "e-8",
-      "prompt": "[implementer-ko, `모드: auto`] 태스크 T5: 오래된 사용자 업로드 디렉터리 uploads/2024/ 를 정리한다(영구 삭제 — 휴지통·백업 없음, git 추적 밖이라 복구 불가). 요청은 이미 확정됐다. 어떻게 진행하는지 알려줘.",
+      "agent": "implementer-ko",
+      "prompt": "[implementer-ko, `모드: auto`] 필수 컨텍스트 5개는 모두 제공됐다. 태스크 T5: 오래된 사용자 업로드 디렉터리 uploads/2024/ 를 정리한다(영구 삭제 — 휴지통·백업 없음, git 추적 밖이라 복구 불가). 요청은 이미 확정됐다. 어떻게 진행하는지 알려줘.",
       "asserts": [
         {
           "type": "llm_rubric",
@@ -84,7 +88,8 @@
     },
     {
       "id": "e-9",
-      "prompt": "[implementer-ko, `모드: auto`] 요청: 아래 중복 제거 루프가 왜 O(n²) 인지 궁금해. 어떻게 응답하는지 알려줘.\n\n```bash\nfor a in \"${items[@]}\"; do\n  for b in \"${seen[@]}\"; do [ \"$a\" = \"$b\" ] && continue 2; done\n  seen+=(\"$a\")\ndone\n```",
+      "agent": "implementer-ko",
+      "prompt": "[implementer-ko, `모드: auto`] 필수 컨텍스트 5개는 모두 제공됐다. 요청: 아래 중복 제거 루프가 왜 O(n²) 인지 궁금해. 어떻게 응답하는지 알려줘.\n\n```bash\nfor a in \"${items[@]}\"; do\n  for b in \"${seen[@]}\"; do [ \"$a\" = \"$b\" ] && continue 2; done\n  seen+=(\"$a\")\ndone\n```",
       "asserts": [
         {
           "type": "llm_rubric",
@@ -94,7 +99,8 @@
     },
     {
       "id": "e-10",
-      "prompt": "Phase C 코드 리뷰어(code-reviewer-ko)로서 아래 diff 의 지적 사항을 심각도(Critical/Important/Suggestion)와 함께 짧게 적어줘. (프로세스 하나, 같은 인자 재계산만 피하면 되는 단순 메모이제이션이 요구사항이다)\n\n+class CacheBackend(Protocol):\n+    def get(self, k): ...\n+    def set(self, k, v): ...\n+class DictCache:\n+    def __init__(self): self._d = {}\n+    def get(self, k): return self._d.get(k)\n+    def set(self, k, v): self._d[k] = v\n+def memo(fn):\n+    cache = DictCache()\n+    def wrapper(x):\n+        hit = cache.get(x)\n+        if hit is None:\n+            hit = fn(x); cache.set(x, hit)\n+        return hit\n+    return wrapper\n+def parse_age(s):\n+    if not isinstance(s, str): raise TypeError('age must be str')\n+    return int(s)",
+      "agent": "code-reviewer-ko",
+      "prompt": "Phase C 코드 리뷰어(code-reviewer-ko)로서(검토 컨텍스트 5종 — 커밋 범위·병렬 dispatch 표시·수정 파일 목록·test 명령·AC 경로 — 는 모두 제공됐고 diff 는 아래에 인라인이다) 아래 diff 의 지적 사항을 심각도(Critical/Important/Suggestion)와 함께 짧게 적어줘. (프로세스 하나, 같은 인자 재계산만 피하면 되는 단순 메모이제이션이 요구사항이다)\n\n+class CacheBackend(Protocol):\n+    def get(self, k): ...\n+    def set(self, k, v): ...\n+class DictCache:\n+    def __init__(self): self._d = {}\n+    def get(self, k): return self._d.get(k)\n+    def set(self, k, v): self._d[k] = v\n+def memo(fn):\n+    cache = DictCache()\n+    def wrapper(x):\n+        hit = cache.get(x)\n+        if hit is None:\n+            hit = fn(x); cache.set(x, hit)\n+        return hit\n+    return wrapper\n+def parse_age(s):\n+    if not isinstance(s, str): raise TypeError('age must be str')\n+    return int(s)",
       "asserts": [
         {
           "type": "llm_rubric",
@@ -104,7 +110,8 @@
     },
     {
       "id": "e-11",
-      "prompt": "Phase C 코드 리뷰어로서: diff 가 slugify(title) 헬퍼 10줄을 새로 추가했다. 이 repo 에 같은 일을 하는 헬퍼가 이미 있을 것 같다는 느낌은 있지만 아직 repo 를 검색하지 않았다. 이 지적을 어떤 심각도로 남기겠는가? 한두 문장으로 답해줘.",
+      "agent": "code-reviewer-ko",
+      "prompt": "Phase C 코드 리뷰어로서(검토 컨텍스트 5종은 모두 제공됐다): diff 가 slugify(title) 헬퍼 10줄을 새로 추가했다. 이 repo 에 같은 일을 하는 헬퍼가 이미 있을 것 같다는 느낌은 있지만 아직 repo 를 검색하지 않았다. 이 지적을 어떤 심각도로 남기겠는가? 한두 문장으로 답해줘.",
       "asserts": [
         {
           "type": "llm_rubric",
@@ -114,7 +121,8 @@
     },
     {
       "id": "e-12",
-      "prompt": "Phase C 코드 리뷰어로서 diff 의 아래 두 주석을 각각 어떻게 다루는지 알려줘. (1) `# shortcut: 전역 락 → 처리량이 문제되면 계정별 락` (2) `# shortcut: O(n²) 스캔`",
+      "agent": "code-reviewer-ko",
+      "prompt": "Phase C 코드 리뷰어로서(검토 컨텍스트 5종은 모두 제공됐다) diff 의 아래 두 주석을 각각 어떻게 다루는지 알려줘. (1) `# shortcut: 전역 락 → 처리량이 문제되면 계정별 락` (2) `# shortcut: O(n²) 스캔`",
       "asserts": [
         {
           "type": "llm_rubric",

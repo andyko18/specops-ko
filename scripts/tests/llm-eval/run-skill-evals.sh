@@ -3,6 +3,8 @@
 # 사용: bash scripts/tests/llm-eval/run-skill-evals.sh --trigger|--evals [skill...]
 # 환경: CLAUDE_BIN(기본 claude) · SKILL_EVAL_DIR(기본 이 디렉터리의 skills/) · SKILL_EVAL_MODE(routed 강제)
 #       ANTHROPIC_API_KEY(있으면 isolated) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 300초)
+#       SKILL_EVAL_INJECT=1(케이스 `agent` 필드의 agent 본문을 그 케이스 질의에만 --append-system-prompt 로 주입 — with/without 비교용)
+#       SKILL_EVAL_AGENTS_DIR(agent 파일 디렉터리, 기본 플러그인 agents/ — 테스트용)
 # ⚠️ 실 claude 실행은 토큰 비용 발생(~$0.9/질의) — run-all/CI 비포함, 수동 전용. 질의당 1회, 재시도·N-run 없음.
 # 측정 모드:
 #   isolated — `--bare --plugin-dir <플러그인>`: 훅(SessionStart 메타 주입 포함)을 끄고 description 만으로
@@ -55,6 +57,10 @@ elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
 else
   echo "NOTE: isolated 불가(ANTHROPIC_API_KEY 부재) — routed: 메타 라우팅 혼합 측정 (전역 설치 플러그인·사용자 훅 의존)"
 fi
+INJECT="${SKILL_EVAL_INJECT:-0}"
+AGENTS_DIR="${SKILL_EVAL_AGENTS_DIR:-$PLUGIN/agents}"
+INJ_N=0; INJ_CAND=0   # 주입한 케이스 수 / 주입 대상(agent 필드 보유 · 주입 on 일 때만 집계)
+[ "$INJECT" = 1 ] && LABEL="${LABEL}+inject"
 DENY=(Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch)
 EXTRA=(--max-turns "$MAX_TURNS" --allowedTools Skill --disallowedTools "${DENY[@]}" --strict-mcp-config)
 [ "$MODE" = isolated ] && EXTRA+=(--bare --plugin-dir "$PLUGIN")
@@ -75,8 +81,15 @@ emit() {  # <skill> <id> <verdict> [사유]
   case "$3" in PASS) PASS=$((PASS+1)) ;; FAIL) FAIL=$((FAIL+1)) ;; *) SKIP=$((SKIP+1)) ;; esac
 }
 
-ask() {  # <prompt> → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
+agent_body() {  # <이름> → frontmatter(첫 줄 --- ~ 다음 ---) 를 뺀 agent 본문. 파일 부재 rc 1
+  local f="$AGENTS_DIR/$1.md"
+  [ -f "$f" ] || return 1
+  awk 'NR==1 && $0=="---"{fm=1; next} fm && $0=="---"{fm=0; next} !fm' "$f"
+}
+
+ask() {  # <prompt> [agent 본문] → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
   local sb rc ef fx_note=""
+  local -a xa=("${EXTRA[@]}")   # 이 호출 전용 사본 — 주입 플래그가 전역 EXTRA·후속 케이스·채점기로 새지 않게 한다 (EXTRA 는 항상 --max-turns 등 비어 있지 않아 bash 3.2 의 빈 배열 확장 문제 없음)
   ERR=""
   sb=$(mktemp -d) || { OUT=""; return 3; }
   # stderr 는 sandbox 밖에 받는다 — sandbox 안이면 claude 가 보는 git status 에 untracked 로 드러나 측정을 오염시킨다
@@ -95,7 +108,8 @@ ask() {  # <prompt> → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자)
     # 근본 원인 우선(복사 실패 > 커밋 실패 > 빈 픽스처 — 앞 두 개는 if/elif 로 배타) · run 당 첫 발생 원인 1회만 알린다
     [ -z "$fx_note" ] || [ "$FIXTURE_NOTED" = 1 ] || { echo "NOTE: $fx_note — 픽스처가 온전히 반영되지 않은 sandbox 로 측정 ($FIXTURE_DIR)"; FIXTURE_NOTED=1; }
   fi
-  OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${EXTRA[@]}" 2>"$ef"); rc=$?
+  [ -n "${2:-}" ] && xa+=(--append-system-prompt "$2")
+  OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${xa[@]}" 2>"$ef"); rc=$?
   # 첫 줄만 · ANSI 색 시퀀스 → 나머지 제어문자 제거(≥0x80 바이트 보존) · 120자 절단(UTF-8 로케일 전제 — C 로케일이면 바이트 절단)
   ERR=$(head -1 "$ef" 2>/dev/null | sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g' | LC_ALL=C tr -d '\000-\037\177'); ERR=${ERR:0:120}
   [ "$ef" = /dev/null ] || rm -f "$ef"
@@ -124,10 +138,16 @@ run_trigger() {  # <skill> <file> — 질의는 jq -c 한 줄 객체로 읽는�
 }
 
 run_evals() {  # <skill> <file>
-  local s="$1" f="$2" o id p asserts a t v verdict text rawtext cost first jerr rc
+  local s="$1" f="$2" o id p asserts a t v verdict text rawtext cost first jerr rc ag body
   while IFS= read -r o; do
     id=$(printf '%s' "$o" | jq -r .id); p=$(printf '%s' "$o" | jq -r .prompt)
-    ask "$p"; rc=$?
+    ag=$(printf '%s' "$o" | jq -r '.agent // empty'); body=""
+    if [ "$INJECT" = 1 ] && [ -n "$ag" ]; then
+      INJ_CAND=$((INJ_CAND+1))
+      if ! body=$(agent_body "$ag") || [ -z "$body" ]; then emit "$s" "$id" "SKIP(agent 부재·빈 본문: $ag)"; continue; fi
+      INJ_N=$((INJ_N+1))
+    fi
+    ask "$p" "$body"; rc=$?
     [ "$rc" -eq 0 ] || { emit "$s" "$id" "$(skip_reason "$rc" "$ERR")"; continue; }
     text=$(printf '%s\n' "$OUT" | eval::extract_text)
     rawtext=$(printf '%s\n' "$OUT" | eval::extract_text_raw)   # 채점용 — 개행 보존(코드 블록·목록이 한 줄로 뭉개지지 않게)
@@ -163,5 +183,9 @@ for s in "${SKILLS[@]+"${SKILLS[@]}"}"; do
   if ! why=$(skill_evals::check "$KIND" "$f" "$PLUGIN/skills"); then emit "$s" - "SKIP(스키마 위반: $why)"; continue; fi
   if [ "$KIND" = trigger ]; then run_trigger "$s" "$f"; else run_evals "$s" "$f"; fi
 done
+if [ "$INJECT" = 1 ]; then
+  echo "INJECT: $INJ_N/$INJ_CAND"
+  [ "$INJ_N" -gt 0 ] || echo "NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건 — agent 필드가 있는 케이스가 없거나 전부 SKIP (--trigger 에는 적용되지 않는다)"
+fi
 summary
 exit 0
