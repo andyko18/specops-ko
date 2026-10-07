@@ -80,7 +80,7 @@ o=$(_stub '{"text":"안녕"}')
 [ "$(printf '%s\n' "$o" | eval::extract_text)" = "안녕" ] && [ "$(printf '%s\n' "$o" | grep -c .)" -eq 2 ] \
   && ok "T4.c 기존 text 형식 무변경" || nope "T4.c" "$o"
 # T2 (AC-2) pilot 6개 커버리지 — 실 트리 읽기 전용 (20260930-skill-eval-expand: 3 → 6)
-for s in specifying-ko karpathy-ko advisor-ko systematic-debugging-ko tdd-ko analyzing-ko; do
+for s in specifying-ko karpathy-ko advisor-ko systematic-debugging-ko tdd-ko analyzing-ko implementing-ko; do
   d="$LE/skills/$s"
   if skill_evals::check trigger "$d/trigger-queries.json" "$PLUGIN/skills" >/dev/null \
      && skill_evals::check evals "$d/evals.json" "$PLUGIN/skills" >/dev/null \

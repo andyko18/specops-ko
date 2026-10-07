@@ -1,0 +1,13 @@
+{
+  "skill": "implementing-ko",
+  "should_trigger": [
+    {"id": "pos-1", "query": "tasks.md 의 T1~T3 태스크를 TDD 로 구현해줘 (스펙·플랜·태스크 분해는 끝났어)"},
+    {"id": "pos-2", "query": "승인된 구현 플랜을 태스크별로 실행해줘: 태스크마다 새 서브에이전트로 구현하고 마지막에 스펙·코드 리뷰를 돌려"},
+    {"id": "pos-3", "query": "decompose 가 끝난 FID 의 구현 단계를 시작해줘 — 의존성 없는 태스크는 병렬로"}
+  ],
+  "should_not_trigger": [
+    {"id": "neg-1", "query": "오늘 회의록을 세 줄로 요약해줘: 일정 확정, 예산 보류, 다음 주 재논의"},
+    {"id": "neg-2", "query": "분기 실적 발표 순서를 추천해줘"},
+    {"id": "neg-3", "query": "HTTP 404 와 410 은 어떻게 달라?"}
+  ]
+}
