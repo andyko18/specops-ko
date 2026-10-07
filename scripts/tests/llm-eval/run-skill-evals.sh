@@ -5,6 +5,7 @@
 #       ANTHROPIC_API_KEY(있으면 isolated) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 300초)
 #       SKILL_EVAL_INJECT=1(케이스 `agent` 필드의 agent 본문을 그 케이스 질의에만 --append-system-prompt 로 주입 — with/without 비교용)
 #       SKILL_EVAL_AGENTS_DIR(agent 파일 디렉터리, 기본 플러그인 agents/ — 테스트용)
+#       SKILL_EVAL_EFFORT=<low|medium|high|xhigh|max> · SKILL_EVAL_MODEL=<모델 별칭/ID>(candidate 질의에만 --effort/--model — 채점기 제외, effort·model arm 비교용 · CLAUDE_CODE_EFFORT_LEVEL 설정 시 EFFORT 노브는 거절)
 # ⚠️ 실 claude 실행은 토큰 비용 발생(~$0.9/질의) — run-all/CI 비포함, 수동 전용. 질의당 1회, 재시도·N-run 없음.
 # 측정 모드:
 #   isolated — `--bare --plugin-dir <플러그인>`: 훅(SessionStart 메타 주입 포함)을 끄고 description 만으로
@@ -61,6 +62,23 @@ INJECT="${SKILL_EVAL_INJECT:-0}"
 AGENTS_DIR="${SKILL_EVAL_AGENTS_DIR:-$PLUGIN/agents}"
 INJ_N=0; INJ_CAND=0   # 주입한 케이스 수 / 주입 대상(agent 필드 보유 · 주입 on 일 때만 집계)
 [ "$INJECT" = 1 ] && LABEL="${LABEL}+inject"
+# arm 노브(20261007-eval-effort-knob) — candidate 질의(ask())에만 --effort/--model 을 건다. 채점기는 eval::judge_rubric 이 별도 호출하므로
+#   구조적으로 격리된다(arm 마다 채점 모델이 바뀌면 비교가 오염). 형식 오류는 비용이 나가기 전에 사유 1줄 + exit 0 으로 거절(FR-8)
+ARM_EFFORT="${SKILL_EVAL_EFFORT:-}"; ARM_MODEL="${SKILL_EVAL_MODEL:-}"
+_arm_safe() { printf '%s' "${1:0:40}" | LC_ALL=C tr -d '\000-\037\177'; }
+case "$ARM_EFFORT" in
+  ''|low|medium|high|xhigh|max) ;;
+  *) echo "ERROR: SKILL_EVAL_EFFORT 형식 오류: $(_arm_safe "$ARM_EFFORT") (허용: low|medium|high|xhigh|max) — 실행하지 않음"; exit 0 ;;
+esac
+case "$ARM_MODEL" in
+  '') ;;
+  [!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) echo "ERROR: SKILL_EVAL_MODEL 형식 오류: $(_arm_safe "$ARM_MODEL") (허용: 영숫자로 시작하는 [A-Za-z0-9._-]) — 실행하지 않음"; exit 0 ;;
+esac
+if [ -n "$ARM_EFFORT" ] && [ -n "${CLAUDE_CODE_EFFORT_LEVEL:-}" ]; then   # env 가 --effort 를 무력화 → arm 무구분(AC-5)
+  echo "ERROR: SKILL_EVAL_EFFORT 와 CLAUDE_CODE_EFFORT_LEVEL 이 함께 설정됨 — env 가 --effort 를 무력화해 effort arm 이 구분되지 않는다(/doctor effort_env 참조). CLAUDE_CODE_EFFORT_LEVEL 을 해제하고 다시 실행 — 실행하지 않음"; exit 0
+fi
+[ -n "$ARM_EFFORT" ] && LABEL="${LABEL}+effort=$ARM_EFFORT"
+[ -n "$ARM_MODEL" ] && LABEL="${LABEL}+model=$ARM_MODEL"
 DENY=(Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch)
 EXTRA=(--max-turns "$MAX_TURNS" --allowedTools Skill --disallowedTools "${DENY[@]}" --strict-mcp-config)
 [ "$MODE" = isolated ] && EXTRA+=(--bare --plugin-dir "$PLUGIN")
@@ -108,6 +126,8 @@ ask() {  # <prompt> [agent 본문] → 전역 OUT(stream-json) · ERR(stderr 첫
     # 근본 원인 우선(복사 실패 > 커밋 실패 > 빈 픽스처 — 앞 두 개는 if/elif 로 배타) · run 당 첫 발생 원인 1회만 알린다
     [ -z "$fx_note" ] || [ "$FIXTURE_NOTED" = 1 ] || { echo "NOTE: $fx_note — 픽스처가 온전히 반영되지 않은 sandbox 로 측정 ($FIXTURE_DIR)"; FIXTURE_NOTED=1; }
   fi
+  [ -n "$ARM_EFFORT" ] && xa+=(--effort "$ARM_EFFORT")
+  [ -n "$ARM_MODEL" ] && xa+=(--model "$ARM_MODEL")
   [ -n "${2:-}" ] && xa+=(--append-system-prompt "$2")
   OUT=$(eval::run_claude "$CLAUDE_BIN" "$sb" "$TIMEOUT_S" "$1" "${xa[@]}" 2>"$ef"); rc=$?
   # 첫 줄만 · ANSI 색 시퀀스 → 나머지 제어문자 제거(≥0x80 바이트 보존) · 120자 절단(UTF-8 로케일 전제 — C 로케일이면 바이트 절단)
