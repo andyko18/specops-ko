@@ -238,23 +238,24 @@ fi
 #   T3 이 5번째 항목(bootstrap)을 scripts/doctor.sh 에 넣었는데 문서는 4항목인 채로 남았다.
 #   문서/구현 drift 는 T5 가 존재하는 이유 그 자체라 같은 클래스를 여기서 잠근다.
 #   20260830-silent-failure-surfacing T3 이 governance·deps 를 더해 8항목이 됐다 — id 순회·개수를 함께 올린다.
-#   stale 라벨 판정은 리터럴 고정('4항목') 을 버리고 "현재 개수(8) 가 아닌 N항목 잔존 0" 으로 일반화한다:
+#   20261007-effort-env-doctor 가 effort_env 를 더해 9항목이 됐다 — 개수·id 순회를 함께 올린다.
+#   stale 라벨 판정은 리터럴 고정('4항목') 을 버리고 "현재 개수(9) 가 아닌 N항목 잔존 0" 으로 일반화한다:
 #   고정 리터럴은 항목이 늘어나는 순간 절대 매치하지 않는 죽은 검사가 되어, 이 검사 자신이
-#   무음 실패가 된다(= 이 FID 가 없애려는 클래스). 개수 증설 시엔 아래 -eq 8 이 강제로 실패해 갱신을 부른다.
+#   무음 실패가 된다(= 이 FID 가 없애려는 클래스). 개수 증설 시엔 아래 -eq 9 가 강제로 실패해 갱신을 부른다.
 DOCMD="$PLUGIN/commands/doctor.md"
 d_boot=$(grep -c 'bootstrap' "$DOCMD" || true)
-d_old=$(grep -oE '[0-9]+항목' "$DOCMD" | grep -vxc '8항목' || true)
+d_old=$(grep -oE '[0-9]+항목' "$DOCMD" | grep -vxc '9항목' || true)
 d_ids=0
 # id 존재 판정은 **점검 항목 표의 행**(`^| \`id\` |`) 을 요구한다 — 파일 어디든 백틱 언급이면 통과시키던
 # 이전 판정은 이빨이 없었다(실측 20260830: `governance` 행을 통째로 지워도 `deps` 행 산문의
 # "위 `governance` 항목이 …" 언급이 카운트를 8로 유지해 PASS 했다). 행 삭제가 안 잡히면 이 검사 자체가 무음이다.
-for _id in git_hooks memory orphan_fid progress bootstrap stale governance deps; do
+for _id in git_hooks memory orphan_fid progress bootstrap stale governance deps effort_env; do
   grep -qE "^\|[[:space:]]*\`$_id\`[[:space:]]*\|" "$DOCMD" && d_ids=$((d_ids + 1))
 done
-if [ "${d_boot:-0}" -ge 1 ] && [ "${d_old:-0}" -eq 0 ] && [ "$d_ids" -eq 8 ]; then
-  ok "F-doc2 /doctor 문서 8항목 동기 (bootstrap 기재 · stale 'N항목' 라벨 잔존 0 · id ${d_ids}/8)"
+if [ "${d_boot:-0}" -ge 1 ] && [ "${d_old:-0}" -eq 0 ] && [ "$d_ids" -eq 9 ]; then
+  ok "F-doc2 /doctor 문서 9항목 동기 (bootstrap 기재 · stale 'N항목' 라벨 잔존 0 · id ${d_ids}/9)"
 else
-  nope "F-doc2" "bootstrap=$d_boot stale_label=$d_old ids=$d_ids/8"
+  nope "F-doc2" "bootstrap=$d_boot stale_label=$d_old ids=$d_ids/9"
 fi
 
 finish
