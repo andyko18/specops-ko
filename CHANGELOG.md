@@ -13,6 +13,10 @@
 - `templates/tasks.md`·`decomposing-ko` 에 계획행 표기와 판정기 안내를 적고, `implementing-ko` 최소 구현 rung 의 절감 제외 목록에 "AC 매핑 테스트"를 더했다
 - 잠금: `test-emit-context.sh` T6.a~j(판정기 단독 10종)·T7.a~c(emit 통합) · `test-gate-presence.sh`(배선·문서) · `propagation-matrix.jsonl` `fid-size-gate`(문서↔배선↔판정기). 스위트 수 불변(184)
 
+### 출처 표기 보완 (v2.3.0 YAGNI rung)
+
+- **출처**: rung 사다리(존재 필요? → stdlib → 네이티브 → 설치된 의존성 → 한 줄)는 오픈소스 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)(MIT)의 의사결정 사다리 개념을 한국어로 번안한 것이다 — 코드 복사 없음, README 출처 표에 등재(발견 시점 npm 4.9.0 — 흡수 당시 정확한 버전은 확인되지 않아 `reference_upstream` 필드는 건드리지 않았다)
+
 ⚠️ **한계 (정직 고백)**
 - 게이트는 **tasks.md 의 태스크 수**만 본다 — 모델이 일부러 태스크를 합쳐 수를 줄이는 것(자기보고)은 못 잡는다. 계획행 내용의 질도 검사하지 않는다(비어 있지 않고 placeholder·코드펜스가 아닌 줄만 본다).
 - **예외 라벨은 자기발급 가능하다** — `§auto`·`§batch`·`foundation` 은 모델이 쓰는 spec.md 의 줄 선두 표기라, 대화형 FID 가 그 줄을 넣으면 10+ 태스크도 경고만으로 통과한다(분할 계획행은 여전히 필요). 외부 앵커(batch-state 등)와의 교차 확인은 이번 범위 밖이며, 종전(게이트 없음)보다 나빠지지는 않는다.
