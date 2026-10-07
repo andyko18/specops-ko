@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-10-07
+
 ### FID 스코프 기계 강제 — `check-fid-size.sh` (emit-context 게이트)
 
 **행동 변경**: `decomposing-ko` 의 FID 크기 규약(7개 이상 분할 계획행 의무 · 10개 이상 차단)이 산문뿐이라 모델이 어겨도 통과하던 것을 `emit-context.sh` 의 구현 전 게이트로 승격했다(`check-task-ids.sh` 와 같은 자리·같은 fail-fast, 디스크 작성 0).
@@ -2801,7 +2803,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/andyko18/specops-ko/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/andyko18/specops-ko/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/andyko18/specops-ko/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/andyko18/specops-ko/compare/v2.0.0...v2.1.0
