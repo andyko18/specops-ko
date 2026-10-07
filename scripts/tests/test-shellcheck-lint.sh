@@ -13,7 +13,10 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 # T1.a CI parity: hooks/ + scripts/ 전체 *.sh 에 error 급 0건
-out=$(cd "$PLUGIN" && find hooks scripts -name '*.sh' -print0 | xargs -0 shellcheck -S error 2>&1)
+# 병렬 실행(-n 40 -P 4): 319개를 한 프로세스로 직렬 검사하면 단독 86s — run-all 최대 병렬(부하) 에서 300s 상한을 넘겨
+#   TIMEOUT 이 났다(20261007). 같은 파일 집합을 40개씩 4병렬로 나눠 11s. -S error 는 파일 간 source 추적(-x)을 쓰지 않아
+#   분할해도 판정이 같고, xargs 는 어느 묶음이든 비0 이면 123 을 돌려줘 아래 rc 판정이 그대로 유효하다.
+out=$(cd "$PLUGIN" && find hooks scripts -name '*.sh' -print0 | xargs -0 -n 40 -P 4 shellcheck -S error 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T1.a shellcheck -S error 0건 (CI parity)"
