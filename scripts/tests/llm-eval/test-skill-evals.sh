@@ -138,7 +138,7 @@ _run() {  # <plan 행들(\n)> <env 할당...> -- <러너 인자...> → 러너 s
   rm -f "$TMP/state" "$TMP/args.log"
   local envs=()
   while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
-  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS \
+  RUN_OUT=$(env -u ANTHROPIC_API_KEY -u SKILL_EVAL_MODE -u LLM_EVAL_RUNS -u SKILL_EVAL_INJECT -u SKILL_EVAL_AGENTS_DIR \
     CLAUDE_BIN="$TMP/rec-claude" STUB_PLAN="$TMP/plan.jsonl" STUB_STATE="$TMP/state" \
     SKILL_EVAL_DIR="$DATA" "${envs[@]+"${envs[@]}"}" bash "$LE/run-skill-evals.sh" "$@" 2>&1); RUN_RC=$?
 }
@@ -594,6 +594,63 @@ done
 if [ "$_ev_n" -ge 4 ] && [ -z "$_ev_bad" ]; then ok "T9 evals/ 케이스 ${_ev_n}종 구조 계약(prompt·grader·scaffold)"; else nope "T9" "n=$_ev_n bad=$_ev_bad"; fi
 # 라우팅 양성(lifecycle 진입)·음성(코딩 아님 → Skill 미호출) 케이스가 모두 있어야 회귀·재작성 비교가 성립한다
 if [ -f "$PLUGIN/evals/route-feature-new/graders/lifecycle-entered.md" ] && grep -q 'max: 0' "$PLUGIN/evals/no-route-presentation/graders/no-lifecycle-skill.md" && grep -q 'max: 0' "$PLUGIN/evals/no-route-qa/graders/no-skill.md"; then ok "T9.b 라우팅 양성·음성 케이스 쌍"; else nope "T9.b" "양성/음성 라우팅 케이스 누락"; fi
+# ── T10 (20261007-eval-agent-inject) agent 본문 주입 계약 — stub 전용, 토큰 0 ──
+# 호출마다 인자를 NUL 구분 파일로 남기는 recorder — 채점 프롬프트는 개행·nonce 를 포함해 args.log 줄 판독이 안 된다
+mkdir -p "$TMP/agents" "$TMP/data10/karpathy-ko" "$TMP/data10b/karpathy-ko" "$TMP/data10c/karpathy-ko"
+cat > "$TMP/rec10" <<EOF
+#!/usr/bin/env bash
+n=\$(ls "$TMP/calls" 2>/dev/null | wc -l | tr -d ' '); n=\$((n+1))
+printf '%s\0' "\$@" > "$TMP/calls/\$n.args"
+exec bash "$LE/stub-claude.sh" "\$@"
+EOF
+chmod +x "$TMP/rec10"
+_calls_reset() { rm -rf "$TMP/calls"; mkdir -p "$TMP/calls"; }
+_arg_has() { tr '\0' '\n' < "$1" | grep -qxF -- "$2"; }      # 정확히 같은 인자가 있는가
+_arg_has_part() { tr '\0' '\n' < "$1" | grep -qF -- "$2"; }  # 부분 문자열
+_ncalls() { ls "$TMP/calls" 2>/dev/null | wc -l | tr -d ' '; }
+printf -- '---\nname: fake-agent\nmodel: FMSENTINEL\n---\nBODYSENTINEL 본문\n' > "$TMP/agents/fake-agent.md"
+jq -n '{skill:"karpathy-ko",cases:[
+  {id:"a-1",agent:"fake-agent",prompt:"질문A",asserts:[{type:"llm_rubric",value:"기준"}]},
+  {id:"b-1",prompt:"질문B",asserts:[{type:"contains",value:"응답"}]}]}' > "$TMP/data10/karpathy-ko/evals.json"
+jq 'del(.cases[].agent)' "$TMP/data10/karpathy-ko/evals.json" > "$TMP/data10c/karpathy-ko/evals.json"
+jq -n '{skill:"karpathy-ko",cases:[{id:"g-1",agent:"ghost-agent",prompt:"질문G",asserts:[{type:"contains",value:"응답"}]}]}' > "$TMP/data10b/karpathy-ko/evals.json"
+PLAN10='{"text":"응답"}\n{"text":"VERDICT: PASS\\n근거"}\n{"text":"응답"}'
+AG="SKILL_EVAL_AGENTS_DIR=$TMP/agents"
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_INJECT=1 "$AG" -- --evals
+ON_OUT="$RUN_OUT"
+if _arg_has "$TMP/calls/1.args" '--append-system-prompt' && _arg_has "$TMP/calls/1.args" 'BODYSENTINEL 본문' \
+   && ! _arg_has_part "$TMP/calls/1.args" 'FMSENTINEL' && ! _arg_has_part "$TMP/calls/1.args" 'name: fake-agent'; then
+  ok "T10.a 주입 on — 본문만 --append-system-prompt 로 전달(frontmatter 제외)"; else nope "T10.a" "$(tr '\0' ' ' < "$TMP/calls/1.args" 2>/dev/null)"; fi
+if [ "$(_ncalls)" -eq 3 ] && _arg_has "$TMP/calls/1.args" '--append-system-prompt' \
+   && ! _arg_has_part "$TMP/calls/2.args" '--append-system-prompt' \
+   && ! _arg_has_part "$TMP/calls/3.args" '--append-system-prompt' && ! _arg_has_part "$TMP/calls/3.args" 'BODYSENTINEL'; then
+  ok "T10.b 누수 없음 — 채점기(2번)·후속 무agent 케이스(3번) 인자에 플래그 없음"; else nope "T10.b" "calls=$(_ncalls)"; fi
+if printf '%s\n' "$ON_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+inject evals pass=[0-9]+ fail=[0-9]+ skip=[0-9]+ cost=\$[0-9.]+$' \
+   && printf '%s\n' "$ON_OUT" | grep -qxF 'INJECT: 1/1' && { RUN_OUT="$ON_OUT"; _line a-1 | grep -q 'PASS'; }; then
+  ok "T10.e 표기 — mode=…+inject · INJECT: 1/1 · 케이스 줄 형식 불변"; else nope "T10.e" "$ON_OUT"; fi
+
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10b" SKILL_EVAL_INJECT=1 "$AG" -- --evals
+if [ "$(_ncalls)" -eq 0 ] && _line g-1 | grep -qF 'SKIP(agent 부재' && printf '%s\n' "$RUN_OUT" | grep -qxF 'INJECT: 0/1' \
+   && printf '%s\n' "$RUN_OUT" | grep -q '^NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건'; then
+  ok "T10.c agent 파일 부재 → SKIP(무주입 실행 금지) + 0건 NOTE"; else nope "T10.c" "calls=$(_ncalls) $RUN_OUT"; fi
+
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" "$AG" -- --evals
+cp "$TMP/calls/1.args" "$TMP/off-agent-1.args"; cp "$TMP/calls/3.args" "$TMP/off-agent-3.args"; OFF_OUT="$RUN_OUT"
+_calls_reset
+_run "$PLAN10" CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" "$AG" -- --evals
+if cmp -s "$TMP/off-agent-1.args" "$TMP/calls/1.args" && cmp -s "$TMP/off-agent-3.args" "$TMP/calls/3.args" \
+   && ! _arg_has_part "$TMP/off-agent-1.args" '--append-system-prompt' \
+   && ! printf '%s\n' "$OFF_OUT" | grep -q 'inject' && ! printf '%s\n' "$OFF_OUT" | grep -q '^INJECT:'; then
+  ok "T10.d 주입 off — agent 필드 유무와 무관하게 응답 호출 인자 바이트 동일 · 표기 없음(AC-R-1)"; else nope "T10.d" "$OFF_OUT"; fi
+
+_run '{"text":"응답"}\n{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" SKILL_EVAL_INJECT=1 "$AG" -- --evals
+if printf '%s\n' "$RUN_OUT" | grep -qxF 'INJECT: 0/0' && printf '%s\n' "$RUN_OUT" | grep -q '^NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건'; then
+  ok "T10.f 주입 on 인데 agent 필드 케이스 0 → INJECT: 0/0 + NOTE (with 로 오인 방지)"; else nope "T10.f" "$RUN_OUT"; fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
