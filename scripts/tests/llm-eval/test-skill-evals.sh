@@ -768,13 +768,13 @@ done
 
 _calls_reset
 _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=zz-9 "$AG" -- --evals
-Z_OUT="$RUN_OUT"
+Z_OUT="$RUN_OUT"; Z_CALLS="$(_ncalls)"
 _calls_reset
 _run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10" SKILL_EVAL_CASES=b-1,zz-9 "$AG" -- --evals
-if [ "$(_ncalls)" -eq 1 ] && printf '%s\n' "$RUN_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*zz-9' && ! printf '%s\n' "$RUN_OUT" | grep -qE '^NOTE: .*zz-9.*b-1' \
-   && printf '%s\n' "$Z_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*매칭 0건' && printf '%s\n' "$Z_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+cases=0 evals pass=0 fail=0 skip=0'; then
+if [ "$(_ncalls)" -eq 1 ] && printf '%s\n' "$RUN_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*없음: zz-9$' \
+   && [ "$Z_CALLS" = 0 ] && printf '%s\n' "$Z_OUT" | grep -qE '^NOTE: SKILL_EVAL_CASES .*매칭 0건' && printf '%s\n' "$Z_OUT" | grep -qE '^SKILL-EVAL: mode=routed\+cases=0 evals pass=0 fail=0 skip=0'; then
   ok "T12.d 오타 id NOTE(혼합: b-1 만 실행·zz-9 나열) · 매칭 0건 NOTE + 호출 0 (AC-3)"
-else nope "T12.d" "calls=$(_ncalls) mixed=[$RUN_OUT] zero=[$Z_OUT]"; fi
+else nope "T12.d" "calls=$(_ncalls) zcalls=$Z_CALLS mixed=[$RUN_OUT] zero=[$Z_OUT]"; fi
 
 _calls_reset
 _run '{"skills":["karpathy-ko"]}\n{"skills":["advisor-ko"]}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_CASES=e-1 -- --trigger
