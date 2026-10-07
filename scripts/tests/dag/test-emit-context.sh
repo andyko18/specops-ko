@@ -594,5 +594,23 @@ out=$(cd "$tmp" && bash "$EMIT" 20260902-shadow-emit 2>&1); rc=$?
 _pf "T8.b cwd yaml.py 가짜 주입에도 emit 이 실 YAML 로 산출" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'EMIT: 2 files' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp"
 
+# ── 20261007-fid-size-exempt-log — 예외 라벨 사용을 friction-log 에 남긴다 (자기발급 면제의 측정 가능성) ──
+# T9.a 10+ 태스크 + 예외 라벨 → WARN 통과하면서 FID 의 friction-log 에 FID-SIZE-EXEMPT 1건(라벨·태스크 수 포함)
+tmp=$(mktemp -d); mk_fs_fixture "$tmp" 20261007-fsx-log 10 y '**§auto**: true'; fs_run "$tmp" 20261007-fsx-log
+fl="$tmp/.specops/20261007-fsx-log/friction-log.jsonl"
+_pf "T9.a 예외 라벨 사용 → friction-log FID-SIZE-EXEMPT 기록" "$([ "$rc" -eq 0 ] && [ -f "$fl" ] && [ "$(jq -sr '[.[]|select(.rule_id=="FID-SIZE-EXEMPT")]|length' "$fl")" -eq 1 ] && jq -sr '.[0].evidence_snippet' "$fl" | grep -q '§auto' && jq -sr '.[0].evidence_snippet' "$fl" | grep -q '10' && echo ok || echo no)" "rc=$rc fl=$(cat "$fl" 2>/dev/null | head -2)"
+# T9.b 같은 FID 재실행해도 중복 기록 없음(dedup) · 비예외 경로(PASS·WARN 7~9·FAIL)는 기록 없음
+fs_run "$tmp" 20261007-fsx-log
+n1=$(jq -sr '[.[]|select(.rule_id=="FID-SIZE-EXEMPT")]|length' "$fl" 2>/dev/null)
+mk_fs_fixture "$tmp" 20261007-fs-nolog 7 y; fs_run "$tmp" 20261007-fs-nolog; r7=$rc
+mk_fs_fixture "$tmp" 20261007-fs-nolog2 10 y; fs_run "$tmp" 20261007-fs-nolog2; r10=$rc
+_pf "T9.b 재실행 dedup · 7~9 WARN·대화형 FAIL 은 기록 없음" "$([ "$n1" = "1" ] && [ "$r7" -eq 0 ] && [ "$r10" -eq 1 ] && [ ! -f "$tmp/.specops/20261007-fs-nolog/friction-log.jsonl" ] && [ ! -f "$tmp/.specops/20261007-fs-nolog2/friction-log.jsonl" ] && echo ok || echo no)" "n1=$n1 r7=$r7 r10=$r10"
+# T9.c 기록 실패(.specops/FID 가 symlink)여도 판정은 불변 — WARN rc=0 유지(기록은 부수효과)
+rm -rf "$tmp"; tmp=$(mktemp -d); mk_fs_fixture "$tmp" 20261007-fsx-sym 10 y '**§batch**: batch-20261007'
+mv "$tmp/.specops/20261007-fsx-sym" "$tmp/real-fid"; ln -s "$tmp/real-fid" "$tmp/.specops/20261007-fsx-sym"
+fs_run "$tmp" 20261007-fsx-sym
+_pf "T9.c friction 기록 거부(symlink)여도 판정 불변 WARN rc=0" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

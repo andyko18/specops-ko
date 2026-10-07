@@ -14,6 +14,7 @@
 #   n ≥ 10, 대화형                         → FAIL (계획행이 있어도 — FID 를 나눈 뒤 재진입)
 #   n ≥ 10, §auto·§batch·foundation + 계획행 → WARN (분할할 사용자 채널이 없다 — 경고하고 진행)
 #
+# 예외 통과(≥10)는 FID 의 friction-log 에 `FID-SIZE-EXEMPT` 로 남긴다(자기발급 가능한 면제의 사용량 측정).
 # 분할 계획행 = tasks.md 의 줄 선두 `**분할 계획**: <내용>` — 내용이 비었거나 템플릿 placeholder(`<…>` 통째)이거나
 #   코드펜스(```) 안에 있으면 없는 것으로 본다. 내용의 질은 검사하지 않는다(비어 있지 않은 한 줄만 본다).
 # 예외 라벨은 spec.md 의 **줄 선두** 표기만 인정한다 — 줄 중간 설명(`참고: **§auto** 모드…`)은 예외가 아니다
@@ -97,6 +98,12 @@ if [ "$n" -ge 10 ]; then
     echo "  수직 슬라이스(각자 독립 shippable)로 FID 를 나눈 뒤 decomposing 재진입. 분할 계획행만으로는 열리지 않는다."
     exit 1
   fi
+  # 예외 라벨은 모델이 쓰는 spec.md 표기라 자기발급이 가능하다 — 막지 못하는 대신 **사용을 기록**해 남용을 측정 가능하게 한다
+  #   (v2.3.0 면제 남용 기록 3종과 같은 접근). 기록 실패·lib 부재는 판정에 영향이 없다(부수효과). dedup 은 log_friction 이 한다.
+  ( [ -f "$PLUGIN/hooks/governance-lib.sh" ] \
+    && . "$PLUGIN/hooks/governance-lib.sh" 2>/dev/null \
+    && declare -F log_friction >/dev/null 2>&1 \
+    && log_friction "$FID" "FID-SIZE-EXEMPT" 2 "$exempt 예외로 $n 태스크 통과 (분할 계획행 기재)" 0 ) >/dev/null 2>&1 || true
   echo "FID-SIZE: WARN ($n tasks, $exempt 예외 — 분할 불가라 차단 대신 경고)"
   echo "$_warn_line"
   exit 0
