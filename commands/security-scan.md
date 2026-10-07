@@ -89,4 +89,4 @@ reference_upstream: specops-ko 독자 추가
 
 ---
 
-*specops-ko v1.61.0 · 2026-06-20 · FID 20260620-security-scan-command*
+*specops-ko v2.6.0 · 2026-06-20 · FID 20260620-security-scan-command*

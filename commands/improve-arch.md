@@ -60,4 +60,4 @@ reference_upstream: specops-ko 독자 추가 (mattpocock improve-codebase-archit
 
 ---
 
-*specops-ko v2.5.0 · 2026-05-19 · mattpocock improve-codebase-architecture 한국어 재창작*
+*specops-ko v2.6.0 · 2026-05-19 · mattpocock improve-codebase-architecture 한국어 재창작*

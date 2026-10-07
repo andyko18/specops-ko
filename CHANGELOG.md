@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-07
+
 ### 공식 문서 대조 반영 (3/3) — `claude plugin eval` 라우팅 스위트 · 주입 문구 가설 검증
 
 공식 문서(plugin-evals)의 `claude plugin eval` 로 **메타 skill 라우팅**을 재현 가능한 케이스로 만들었다 — 앞서 "러너 확장이 필요하다"며 미룬 대조군 벤치마크의 자리를 채운다(케이스마다 플러그인 없는 baseline arm 을 자동으로 같이 돌려 `Δ` 를 보고한다).
@@ -2866,7 +2868,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/andyko18/specops-ko/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/andyko18/specops-ko/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/andyko18/specops-ko/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/andyko18/specops-ko/compare/v2.2.0...v2.3.0

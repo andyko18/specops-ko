@@ -41,4 +41,4 @@ reference_upstream: specops-ko 독자 추가
 
 ---
 
-*specops-ko v1.85.0 · 2026-06-15 · /statusline-install command*
+*specops-ko v2.6.0 · 2026-06-15 · /statusline-install command*

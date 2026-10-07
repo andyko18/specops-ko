@@ -22,4 +22,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "$ARGUMENTS" --tags freelo
 
 ---
 
-*specops-ko v1.31.0 · 2026-06-25 · /log command*
+*specops-ko v2.6.0 · 2026-06-25 · /log command*

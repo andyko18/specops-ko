@@ -71,4 +71,4 @@ git commit -m "design(if): <name> 인터페이스 설계 반영"
 
 ---
 
-*specops-ko v1.37.0 · 2026-07-10 · 화면 대칭 인터페이스 설계 (무스크립트·마스터 append)*
+*specops-ko v2.6.0 · 2026-07-10 · 화면 대칭 인터페이스 설계 (무스크립트·마스터 append)*

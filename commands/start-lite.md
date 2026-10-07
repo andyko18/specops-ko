@@ -69,4 +69,4 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
 
 ---
 
-*specops-ko v1.60.0 · 2026-08-04 · 경량 신규 Lifecycle 진입 (clarify·plan skip, 화면/IF·B/C 유지)*
+*specops-ko v2.6.0 · 2026-08-04 · 경량 신규 Lifecycle 진입 (clarify·plan skip, 화면/IF·B/C 유지)*

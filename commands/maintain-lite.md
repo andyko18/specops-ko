@@ -65,4 +65,4 @@ reference_upstream: specops-ko 독자 추가 (commands/maintain.md § lite varia
 
 ---
 
-*specops-ko v1.60.0 · 2026-08-04 · 경량 유지보수 Lifecycle 진입 (analyze-mini, clarify·plan skip)*
+*specops-ko v2.6.0 · 2026-08-04 · 경량 유지보수 Lifecycle 진입 (analyze-mini, clarify·plan skip)*

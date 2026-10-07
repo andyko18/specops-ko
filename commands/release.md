@@ -57,4 +57,4 @@ reference_upstream: specops-ko 독자 추가
 
 ---
 
-*specops-ko v1.10.0 · 2026-06-08 · /release command*
+*specops-ko v2.6.0 · 2026-06-08 · /release command*
