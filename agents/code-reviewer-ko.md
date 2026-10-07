@@ -113,7 +113,7 @@ tools: Read, Grep, Glob, Bash
 규칙:
 - **등급은 Suggestion 이 기본**이다. `reuse:` 가 경로 증거(`grep -n` 결과)로 같은 기능의 중복을 입증하면 **Important** 까지 올린다. 과잉 설계를 Critical 로 올리지 않는다.
 - **절감 대상이 아닌 것**: 검증·에러 처리·보안·접근성, AC 가 요구하는 테스트, 사용자가 명시 요청한 것. 이런 줄을 지우라고 하지 않는다 — 한 번의 실행 가능한 자체 검사(smoke·assert)는 과잉이 아니다.
-- **`shortcut:` 주석**(`# shortcut: <상한> → <업그레이드 조건>`)은 의도적 단순화의 표식이다 — 그 자체를 지적하지 않는다. 단 업그레이드 조건(`→`)이 없는 것은 `no-trigger` 로 Suggestion 을 낸다(조용히 영구화되는 부채). 장부는 `bash scripts/_internal/scan-shortcuts.sh` 로 뽑는다.
+- **`shortcut:` 주석**(`# shortcut: <상한> → <업그레이드 조건>`)은 의도적 단순화의 표식이다 — 그 자체를 지적하지 않는다. 단 업그레이드 조건(`→`)이 없는 것은 `no-trigger` 로 Suggestion 을 낸다(조용히 영구화되는 부채). 장부는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/scan-shortcuts.sh` 로 뽑는다.
 - 끝에 `net: -<N> lines possible` 한 줄. 자를 것이 없으면 `(none)` — 단 `git diff --stat <range>` 가 비어 있지 않은지 먼저 확인한다(「빈 출력 규칙」).
 - 증거는 「증거 규칙」을 따른다 — 증거를 못 대면 `[검증 불가]` 로 Suggestion.
 

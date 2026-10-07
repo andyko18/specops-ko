@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### ponytail 잔여 반영 — `/improve-arch --lean` 감사 · rung 준수 eval 데이터 · 버전 표기 · 8회차 준비 현황
+
+- **`/improve-arch --lean`** (ponytail-audit 번안) — deep module 분석 대신 repo 전체에서 **지울 수 있는 것**을 `delete/stdlib/native/reuse/yagni/shrink` 6 태그로 큰 순서대로 번호를 매겨 보고하고 `net: -N lines, -M deps possible.` 로 끝낸다(`delete:` 전 트리 전체 grep, `shortcut:` 장부 첨부, 읽기 전용, 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상 아님). 새 command 파일 없이 기존 `/improve-arch` 의 옵션으로 넣어 command 수·skill 크기 baseline 은 불변
+- **rung 준수 eval 데이터** — `scripts/tests/llm-eval/skills/implementing-ko/{trigger-queries,evals}.json`(4 case: 네이티브 우선·stdlib 우선·안전 요소 비절감·`shortcut:` 규약). 데이터 계약은 `test-skill-evals` T2(pilot 7종)가 잠근다. **실행은 하지 않았다**(수동 전용·토큰 비용) — 모델 준수는 여전히 미측정
+- **ponytail 버전 표기** — 흡수 당시 참조 버전은 기록돼 있지 않아, 흡수일 직전 최신 릴리즈 v4.13.0(추정)을 README 출처 표에 각주와 함께 적었다. 4 skill 의 `reference_upstream`(superpowers 계보)은 그대로 둔다
+- **`docs/audit/2026-10-07-8th-readiness.md`** — 7회차 사전등록 트리거 3개의 이행 상태(미측정·부분·조건 충족)와 8회차 측정 항목 5종. 점수는 매기지 않는다
+- 잠금: `test-shortcut-scan` T7(`--lean` 절 계약) · `test-skill-evals` T2.implementing-ko
+
+⚠️ **한계**: ponytail 의 `/ponytail-gain` 점수판과 `lite|full|ultra` 강도는 가져오지 않았다(gain 은 벤치마크 평균을 repo 수치처럼 보이게 할 위험이 있고 — ponytail 자신도 repo 별 절감 수치를 지어내지 않는다 — lite 는 이미 `/start-lite`·`/maintain-lite` 가 있다). 스킬 없는 **대조군 arm** 이 있는 벤치마크는 llm-eval 러너 확장이 필요해 후속 후보로 남는다.
+
 ### `test-validate-structure` 300s TIMEOUT 근본 원인 — frontmatter 체크의 파일별 python 스폰
 
 릴리즈·PR 마다 부하 시 `test-validate-structure` 가 300s 상한을 넘겼다(v2.4.0 작업 중 4회). 프로파일(체크별 시각)로 `validate-structure.sh` 한 번 12s 중 `frontmatter` 4.1s·`skill_conventions` 3.7s 가 지배함을 확인했고, 전자는 **파일마다 `python3`+`import yaml` 을 띄우는 구조**(≈110회)였다. 한 번의 python3 가 `commands`·`skills`·`templates` 의 `*.md` 를 훑도록 바꿨다(의미 동일: 첫 줄이 `---` 가 아니면 건너뛰고 다음 `---` 전까지를 YAML 로 읽어 실패 파일을 모은다 · cwd `yaml.py` 가림 방지 포함). 실측: `validate-structure` 12s → 4s, `test-validate-structure` 스위트 151s → 69s(같은 부하). 깨진 frontmatter 는 여전히 FAIL(수동 변이 + 기존 T6).

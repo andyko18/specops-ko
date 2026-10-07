@@ -54,4 +54,12 @@ grep -q '^## 과잉 설계$' "$AG" && ok "T5.c 출력 포맷에 ## 과잉 설계
 # T6 implementer-ko 가 shortcut: 규약을 안내한다
 grep -q 'shortcut: <상한> → <업그레이드 조건>' "$PLUGIN/agents/implementer-ko.md" && ok "T6 implementer-ko shortcut: 규약" || nope "T6" "규약 부재"
 
+# T7 /improve-arch --lean — 과잉 설계 감사(읽기 전용·6 태그·net 줄·delete 전 grep·안전 요소 제외·장부 연결)
+IA="$PLUGIN/commands/improve-arch.md"
+lsec=$(awk '/^## `--lean`/{on=1;print;next} /^## /{on=0} on' "$IA")
+miss=""
+for t in 'delete:' 'stdlib:' 'native:' 'reuse:' 'yagni:' 'shrink:' 'net: -' 'Lean already' 'scan-shortcuts.sh' '아무것도 적용하지 않는다' '절감 대상이 아니다' '트리 전체'; do printf '%s' "$lsec" | grep -qF -- "$t" || miss="$miss $t"; done
+[ -n "$lsec" ] && [ -z "$miss" ] && ok "T7 --lean 감사 절 계약" || nope "T7" "sec=$([ -n "$lsec" ] && echo 있음 || echo 없음) 누락=$miss"
+grep -q '^# /improve-arch \[--lean\]' "$IA" && ok "T7.b 사용법 표제에 --lean" || nope "T7.b" "표제 미갱신"
+
 finish
