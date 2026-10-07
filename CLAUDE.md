@@ -28,7 +28,7 @@ bash scripts/tests/llm-eval/run-evals.sh
 #   ANTHROPIC_API_KEY 있으면 isolated(--bare, 실측 미확인 — unverified 표기) · 없으면 routed(메타 라우팅 혼합)
 bash scripts/tests/llm-eval/run-skill-evals.sh --trigger   # 또는 --evals · 뒤에 skill 이름으로 대상 한정
 #   agent 본문 주입(with/without 비교, 토큰 비용 — 수동·별도 승인): SKILL_EVAL_INJECT=1 bash scripts/tests/llm-eval/run-skill-evals.sh --evals implementing-ko (케이스 `agent` 필드 · 갈래당 N≥3 · 프로토콜은 scripts/README.md)
-#   agent effort·model arm 비교(토큰 비용 — 수동·별도 승인): SKILL_EVAL_EFFORT=<level> SKILL_EVAL_MODEL=<m> (candidate 질의에만 적용 · 프로토콜은 scripts/README.md 의 파일럿 절)
+#   agent effort·model arm 비교(토큰 비용 — 수동·별도 승인): SKILL_EVAL_EFFORT=<level> SKILL_EVAL_MODEL=<m> (candidate 질의에만 적용 · 프로토콜은 scripts/README.md 의 파일럿 절 · 판별 4케이스만: SKILL_EVAL_CASES=e-6,e-8,e-10,e-12)
 #   행동 eval 의 llm_rubric 채점기 보정 (수동 — 채점 호출 ≈ $5~8, 오답 오통과 0 이고 일치 ≥ 90% 일 때만 ADOPT):
 bash scripts/tests/llm-eval/run-judge-calibration.sh
 

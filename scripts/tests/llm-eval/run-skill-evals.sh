@@ -6,6 +6,7 @@
 #       SKILL_EVAL_INJECT=1(케이스 `agent` 필드의 agent 본문을 그 케이스 질의에만 --append-system-prompt 로 주입 — with/without 비교용)
 #       SKILL_EVAL_AGENTS_DIR(agent 파일 디렉터리, 기본 플러그인 agents/ — 테스트용)
 #       SKILL_EVAL_EFFORT=<low|medium|high|xhigh|max> · SKILL_EVAL_MODEL=<모델 별칭/ID>(candidate 질의에만 --effort/--model — 채점기 제외, effort·model arm 비교용 · CLAUDE_CODE_EFFORT_LEVEL 설정 시 EFFORT 노브는 거절)
+#       SKILL_EVAL_CASES=<id,id,…>(--evals 전용 — 지정 id 의 케이스만 질의·채점, 파일럿 비용 절감용. 선택 안 된 케이스는 집계하지 않는다)
 # ⚠️ 실 claude 실행은 토큰 비용 발생(~$0.9/질의) — run-all/CI 비포함, 수동 전용. 질의당 1회, 재시도·N-run 없음.
 # 측정 모드:
 #   isolated — `--bare --plugin-dir <플러그인>`: 훅(SessionStart 메타 주입 포함)을 끄고 description 만으로
@@ -80,6 +81,17 @@ if [ -n "$ARM_EFFORT" ] && [ -n "${CLAUDE_CODE_EFFORT_LEVEL:-}" ]; then   # env 
 fi
 [ -n "$ARM_EFFORT" ] && LABEL="${LABEL}+effort=$ARM_EFFORT"
 [ -n "$ARM_MODEL" ] && LABEL="${LABEL}+model=$ARM_MODEL"
+# 케이스 필터(20261008-eval-case-filter) — --evals 에서 지정한 id 만 질의·채점한다. 선택 안 된 케이스는 열거·SKIP 집계 없음.
+#   형식은 허용 문자 나열(문자 범위는 UTF-8 로케일 bash 3.2 에서 비ASCII 를 통과시킨다 — PR #132 C 리뷰 I-1). 오류는 비용 전 사유 1줄 + exit 0
+CASES_RAW="${SKILL_EVAL_CASES:-}"; CASES_N=0; CASES_MATCHED=","
+case "$CASES_RAW" in
+  '') ;;
+  [!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]*|*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._,-]*|*,|*,[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]*)
+    echo "ERROR: SKILL_EVAL_CASES 형식 오류: $(_arm_safe "$CASES_RAW") (허용: 쉼표 구분 id — 각 id 는 영숫자로 시작, [영숫자 . _ -] 만) — 실행하지 않음"; exit 0 ;;
+esac
+if [ -n "$CASES_RAW" ] && [ "$KIND" = trigger ]; then
+  echo "NOTE: SKILL_EVAL_CASES 는 --evals 전용 — --trigger 에서는 무시한다"; CASES_RAW=""
+fi
 DENY=(Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch)
 EXTRA=(--max-turns "$MAX_TURNS" --allowedTools Skill --disallowedTools "${DENY[@]}" --strict-mcp-config)
 [ "$MODE" = isolated ] && EXTRA+=(--bare --plugin-dir "$PLUGIN")
@@ -162,6 +174,9 @@ run_evals() {  # <skill> <file>
   local s="$1" f="$2" o id p asserts a t v verdict text rawtext cost first jerr rc ag body
   while IFS= read -r o; do
     id=$(printf '%s' "$o" | jq -r .id); p=$(printf '%s' "$o" | jq -r .prompt)
+    if [ -n "$CASES_RAW" ]; then
+      case ",$CASES_RAW," in *",$id,"*) CASES_N=$((CASES_N+1)); CASES_MATCHED="${CASES_MATCHED}${id}," ;; *) continue ;; esac
+    fi
     ag=$(printf '%s' "$o" | jq -r '.agent // empty'); body=""
     if [ "$INJECT" = 1 ] && [ -n "$ag" ]; then
       INJ_CAND=$((INJ_CAND+1))
@@ -204,6 +219,12 @@ for s in "${SKILLS[@]+"${SKILLS[@]}"}"; do
   if ! why=$(skill_evals::check "$KIND" "$f" "$PLUGIN/skills"); then emit "$s" - "SKIP(스키마 위반: $why)"; continue; fi
   if [ "$KIND" = trigger ]; then run_trigger "$s" "$f"; else run_evals "$s" "$f"; fi
 done
+if [ -n "$CASES_RAW" ]; then
+  _miss=""; _IFS="$IFS"; IFS=,; for _c in $CASES_RAW; do case "$CASES_MATCHED" in *",$_c,"*) ;; *) _miss="${_miss:+$_miss,}$_c" ;; esac; done; IFS="$_IFS"
+  [ -z "$_miss" ] || echo "NOTE: SKILL_EVAL_CASES 에 지정한 id 가 실행 대상 skill 의 케이스에 없음: $_miss"
+  [ "$CASES_N" -gt 0 ] || echo "NOTE: SKILL_EVAL_CASES 매칭 0건 — claude 를 호출하지 않았다"
+  LABEL="${LABEL}+cases=$CASES_N"
+fi
 if [ "$INJECT" = 1 ]; then
   echo "INJECT: $INJ_N/$INJ_CAND"
   [ "$INJ_N" -gt 0 ] || echo "NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건 — agent 필드가 있는 케이스가 없거나 전부 SKIP (--trigger 에는 적용되지 않는다)"
