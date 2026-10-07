@@ -243,6 +243,14 @@ else
   nope "T14" "rc=$_RC out=$_OUT"
 fi
 
+# T14c (AC-1): `|` 는 단일 `/` 로 표시된다 — bash 3.2 의 `${a//|/\/}` 는 `\/` 를 남긴다
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
+   | jq -e '((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260401-a/b/c"))' >/dev/null 2>&1; then
+  ok "T14c 파이프가 단일 / 로 표시됨 (백슬래시 잔존 없음)"
+else
+  nope "T14c" "rc=$_RC out=$_OUT"
+fi
+
 # T14b (Important 2 동일 근원): 디렉토리명의 개행이 행 자체를 위조하지 못한다
 NLDIR=$(printf '20260402-x\ny')
 R="$TMP/r14b"; _mkrepo "$R"
@@ -871,13 +879,13 @@ for _lv in "" high; do
     ok "T-effort.d --json 9건·schema 1·마지막 effort_env·warn_count 정합 (env='${_lv:-빈}') (AC-3)"
   else nope "T-effort.d" "env='$_lv' wc=$_wc act=$_act"; fi
 done
-# 값에 구분자·개행이 있어도 표·JSON 행이 위조·분열되지 않는다 — bash 3.2 의 기존 `_add` sanitize 는 `|` 를 `\/` 로 바꿔 백슬래시가 남으므로(`x\/y`) 두 형태를 모두 허용한다(bash 4+ 는 `x/y`)(_add sanitize 가 값 표시 경로에도 적용됨) — 외부 critic 지적 반영
+# 값에 구분자·개행이 있어도 표·JSON 행이 위조·분열되지 않고 `|` 는 단일 `/` 로 표시된다 (bash 3.2 에서도)
 _effout $'x|y\nz'
-if [ "$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')" = "1" ] && printf '%s\n' "$_EO" | grep '^| effort_env |' | grep -qE '=x\\?/y z '; then
+if [ "$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')" = "1" ] && printf '%s\n' "$_EO" | grep '^| effort_env |' | grep -qF '=x/y z '; then
   ok "T-effort.f 값의 | · 개행이 표 행을 위조·분열시키지 않음 (표)"
 else nope "T-effort.f" "표='$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')'행"; fi
 _effout $'x|y\nz' --json
-if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and (.checks[-1].detail|test("=x\\\\?/y z "))' >/dev/null 2>&1; then
+if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and (.checks[-1].detail|test("=x/y z "))' >/dev/null 2>&1; then
   ok "T-effort.g 값의 | · 개행이 --json 필드를 오염시키지 않음 (checks 9건 유지)"
 else nope "T-effort.g" "out=$_EO"; fi
 
