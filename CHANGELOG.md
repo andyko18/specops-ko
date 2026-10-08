@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- **무인 변형 3종 — `/maintain-auto` · `/start-lite-auto` · `/maintain-lite-auto`** — 유지보수와 경량 경로에도 무인 진입을 둔다(종전엔 `/start-auto`·`/start-all-auto` 뿐). 진입 커맨드가 약속어 다음 줄에 `<!-- auto: true -->` 를 붙이고(batch 의 무인 표지와 같은 방식), `analyzing-ko`·`specifying-ko` 가 그 줄을 보고 spec 에 `§auto: true` 를 함께 적는다. 뒤 단계는 종전대로 그 라벨만 본다.
+  - **줄어드는 것은 사람의 확인뿐**: 분석 산출물(current-state·impact-analysis) · 회귀 AC · plan 리뷰(풀 경로) · Phase B/C · verify 는 그대로다. 무인 유지보수도 분석 산출물이나 회귀 AC 없이는 구현 dispatch 가 열리지 않는다(`test-auto-variants` T11b·c).
+  - **유지보수의 분석 검토는 자동 통과**하고 spec 에 `자동 결정 분석` 으로 남아 PR 게이트의 가정 다이제스트에 실린다 — 분석이 틀리면 보존할 대상이 틀리므로, 그 절을 먼저 읽게 한다.
+  - **경량 무인은 고위험에서 멈추지 않고 풀 무인 경로로 자동 승격**한다: 진입 직후 strict 신호가 보이거나 분해 단계의 `LITE-STRICT-GUARD` 가 잡으면 clarify → plan → plan 리뷰를 무인으로 거친다(유지보수는 분석도 풀 체크리스트로 보강). 묻는 대신 검토 단계를 더 거친다. 무인에서 override 로 가드를 끄지 않는다.
+  - **멈추는 것은 종전 무인과 같다**: 비가역 작업·repo 밖 흔적 · 재시도 뒤에도 남은 치명 결함 · 보안 Critical/High · PR 생성.
+  - `-lite-auto` 는 사람의 검토가 가장 적은 경로다(명확화·계획 리뷰·설계 승인이 모두 없다). 커맨드 문서와 README 에 그렇게 적었다 — 작은 변경용이다.
+  - 자연어로 추론하지 않는다 — 슬래시로만 진입한다.
+  - 승격하면 `§lite` 를 적지 않고 `§유형` 을 `신규`·`유지보수` 로 적는다(`trivial` 로 두면 단축 경로가 clarify·plan 을 다시 건너뛴다). analyzing 단계의 승격은 args 의 `<!-- promoted: lite -->` 로 specifying 에 전달돼 spec 의 `자동 승격` 줄로 남는다.
+  - dispatch 컨텍스트의 실행 모드 안내에 repo 밖 흔적(실 DB 쓰기·과금 API·배포)의 `NEEDS_APPROVAL` 을 반영했다(v2.13.0 구현자 규칙과 맞춤).
+  - 잠금: `test-auto-variants`(신규) · `test-readme-entry-tree` AC-2b. 독립 코드 리뷰의 중요 4건(승격 시 `§유형` 미정 · 승격이 다이제스트에서 빠지는 경로 2곳 · lite 무인의 Step 3~4 질문 · 물지 않는 단언)을 반영했다.
+  - 실행 검증은 하지 않았다 — 계약(표지·분기·관문)을 잠갔을 뿐이고, 실제 무인 완주는 다음 사용에서 확인한다.
+
 ## [2.13.0] — 2026-10-08
 
 ### Changed

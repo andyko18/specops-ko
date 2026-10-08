@@ -5,8 +5,8 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.11.0
-used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
+specops_version: 2.14.0
+used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /maintain-auto, /maintain-lite-auto, /promote
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -127,7 +127,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
 
    **[lite 분기]** (`/start-lite` — clarify·plan ceremony 축약, 화면/IF·teeth 유지):
      - FID·브랜치 생성은 [신규 분기] Step 0과 동일
-     - **★ strict 승격 가드** (진입 직후·설계 전): 요청/변경 표면에 auth·oauth·jwt·rbac·credential·migration·ALTER/DROP TABLE·결제/PII·파괴적 스키마·public API 신설 등 **strict 신호**가 보이면 lite 진행 **금지**. 사용자에게 "`/start-lite` 범위 밖(고위험) — `/start`로 진행하세요" 안내 후 **중단**(강제 다운그레이드 금지).
+     - **★ strict 승격 가드** (진입 직후·설계 전): 요청/변경 표면에 auth·oauth·jwt·rbac·credential·migration·ALTER/DROP TABLE·결제/PII·파괴적 스키마·public API 신설 등 **strict 신호**가 보이면 lite 진행 **금지**. 사용자에게 "`/start-lite` 범위 밖(고위험) — `/start`로 진행하세요" 안내 후 **중단**(강제 다운그레이드 금지). 무인 표지가 있으면 중단 대신 승격한다 — 아래 `[무인 표지 (둘째 줄)]`.
        > 본 가드는 조기 차단(설계 전)이지만 **모델 판단**이다. 놓쳐도 `decomposing-ko` Step 10c 의 `risk-profile.sh` 가 `LITE-STRICT-GUARD` rc=3 으로 기계 탐지한다(승격 강제). 이중 안전망 — 여기서 잡는 게 손실이 가장 적다.
      - Step 6에서 `**§lite**: true` + `**§유형**: trivial` **질문 없이 강제**(슬래시 진입=축약 승인). "축약할까요?" 제안 **하지 않음**.
      - Step 3~4(명확화 질문·2~3 접근)는 **경량화**: 블로킹 모호점만 0~2문장으로 확인하거나 명백하면 skip — **clarifying-ko·planning-ko 스킬은 호출하지 않음**.
@@ -137,10 +137,18 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
 
    **[maintain-lite 분기]** (`/maintain-lite` — analyzing-mini 산출물 참조 + clarify·plan 축약):
      - `analyzing-ko` [lite-mini]가 남긴 `current-state.md` + `impact-analysis.md` **참조만**
-     - **★ strict 승격 가드**: strict 신호면 "`/maintain`으로 진행" 안내 후 중단
+     - **★ strict 승격 가드**: strict 신호면 "`/maintain`으로 진행" 안내 후 중단 (무인 표지가 있으면 중단 대신 승격 — 아래 `[무인 표지 (둘째 줄)]`)
      - Step 6: `**§유형**: 유지보수` + `**§lite**: true` 강제. acceptance-criteria **AC-R-1** 필수(DB·스키마면 AC-R-2)
      - Step 5.5·5.6: [유지보수 분기]와 동일(기존 API/스키마 수정 시 5.6 등) — **제외 금지**
      - clarifying-ko·planning-ko **호출 금지** — 승인 후 §lite 단축으로 decomposing-ko 직행
+
+   **[무인 표지 (둘째 줄)]** (`/maintain-auto`·`/maintain-lite-auto`·`/start-lite-auto` — 위 분기 중 하나에 **겹친다**):
+     - **판정**: 첫 줄이 `maintain`·`maintain-lite`·`lite` 약속어이고 **둘째 줄이 `<!-- auto: true -->`** 일 때. 슬래시가 붙인 표지만 인정한다 — 자연어로 추론하지 않는다. FID 슬러그·gbrain 조회는 주석 줄(약속어·무인 표지·승격 표지)을 뺀 나머지로 한다
+     - **무인 판정은 이 표지로 한다** — Step 5.5·5.6·사용자 검토 게이트의 `[§auto 모드]` 는 spec.md 가 아직 없어도(Step 6 이전) 이 표지가 있으면 무인이다
+     - **묻지 않는다**: Step 3~4 의 명확화 질문·접근 제안, intent·설계 승인(Step 5)·스펙 검토 게이트를 전부 사용자 응답 없이 지난다. 모호한 점은 best-guess 로 정하고 intent·spec 에 `(ASSUMED)` 로 적는다 — lite 계열은 뒤에 clarifying-ko 가 없으므로 **여기서 적지 않으면 어디에도 남지 않는다**
+     - **라벨**: 그 분기의 라벨에 `**§auto**: true` 를 **함께** 적고, 유지보수 계열은 `**자동 결정 분석**: current-state.md · impact-analysis.md — <변경 대상·보존할 동작 1줄> (사용자 미검토)` 를 적는다(분석 검토가 자동 통과됐다는 표시)
+     - **★ strict 는 중단하지 않고 승격한다** (lite 계열의 `★ strict 승격 가드` 대신): strict 신호가 보이면 풀 무인 경로로 올린다. 승격하면 **`§lite` 를 적지 않고 `§유형` 은 `신규`(`/start-lite-auto`) 또는 `유지보수`(`/maintain-lite-auto`)** 로 적는다 — `trivial` 로 적으면 trivial 단축 경로가 clarify·plan 을 다시 건너뛰고, `§lite` 가 없어 `LITE-STRICT-GUARD` 도 걸리지 않는다. spec §1 에 `**자동 승격**: lite → 풀 경로 (<신호>)` 를 적고, 다음 skill 은 정상 경로(`clarifying-ko`)다
+     - **analyzing 이 이미 승격한 경우**: args 셋째 줄이 `<!-- promoted: lite -->` 면(analyzing-ko 가 mini 대신 풀 분석을 돌렸다) [유지보수 분기]로 진행하되 spec §1 에 같은 `**자동 승격**` 줄을 적는다 — 이 줄이 없으면 승격이 PR 게이트 다이제스트에서 빠진다
 
 1.5. **Intent 캡처 (spec 이전)** — 요청을 요청자의 말로 옮긴 `.specops/<FID>/intent.md` 를 먼저 남긴다. 5절: 문제(요청 원문 인용) · 기대 결과 · 영향 사용자·시스템 · 제약 · 열린 질문(IQ-n · 없으면 `- 없음`). 템플릿 `templates/intent.md`. **판정 SoT = `scripts/_internal/check-intent.sh`** (구현 직전 emit-context 가 존재·채움 재검 — 도입 전 FID·비날짜 FID 는 SKIP). 승인된 intent 는 **커밋해 공유한다**(PR 에서 보이고 git 이력이 감사 추적이 된다): `git check-ignore -q .specops/<FID>/intent.md` 가 rc 1(추적 대상)일 때만 `git add .specops/<FID>/intent.md` → 별도 호출로 `git commit -m "docs(intent): <FID>"`. 무시되는 프로젝트(구 `.specops/.gitignore`)는 건너뛴다.
 
@@ -150,7 +158,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
    | 유지보수 · maintain-lite | 문제는 요청 + `current-state.md` §4·§5 | Step 5 설계 제시에 intent 동봉 → **설계 승인과 통합**(게이트 1회) |
    | lite | 5절 각 1~2줄 | 설계 승인과 통합 |
    | batch | **FR 행** + PRD §1·§3 에서 도출 · `Status: draft` | per-FR 게이트 없음 → `/start-all` Phase 2.5-E 일괄 확인 |
-   | auto | 추정 항목에 `(ASSUMED)` · spec §1 에 `**자동 결정 intent**` 1줄 | 자동 통과(PR 게이트 다이제스트로 집계) |
+   | auto (무인 표지 포함) | 추정 항목에 `(ASSUMED)` · spec §1 에 `**자동 결정 intent**` 1줄 | 자동 통과(PR 게이트 다이제스트로 집계) |
 
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
 3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해 (**lite·maintain-lite**: 위 분기 경량 규칙 — clarifying-ko 미호출)
@@ -437,7 +445,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 
-자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 clarifying-ko 직행. handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
+자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 다음 단계로 간다(정상 경로는 clarifying-ko · `§lite` 는 `## 다음 skill` 의 §lite 단축 경로로 decomposing-ko). handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
 
 **[trivial 게이트 통합]** (`§유형: trivial` + 신규 trivial 단축 경로 — 20260716 dogfood 관찰 A): 사용자는 직전에 **설계 승인 + trivial 축약 승인** 2회를 이미 응답했다. spec.md 가 승인된 설계와 **내용 동일**하면(자체 검토에서 신규 논점·범위 변화 없음 확인) 본 게이트를 **통합 통과** — 별도 스펙 승인 응답을 요구하지 않고 "스펙 저장 완료(설계 승인 내용과 동일) — decomposing 진행" 1줄 고지 후 진행한다. **단** spec 작성 중 설계 제시에 없던 결정·범위 변화가 생겼으면 게이트를 **유지**한다(동일 내용일 때만 통합 — 주권 불변). trivial 4연속 게이트(포맷Q·설계승인·축약승인·스펙승인)의 마지막 중복 1개를 제거해 단축 경로의 완주율 이득을 보전한다.
 
