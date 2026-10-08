@@ -209,6 +209,8 @@ phase_10_commit() {
 # 디렉토리가 아니라 내용을 무시한다 — 무시된 디렉토리 안의 파일은 `!` 로 되살릴 수 없다.
 [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/*
 ![0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/intent.md
+# 설계 통합 뷰 — .md 에서 생성되는 읽기 전용 파일(/design-overview). 원본이 아니라 커밋하지 않는다.
+design-overview.html
 EOF
   # session-progress.md 골격
   if [ ! -f .specops/session-progress.md ]; then

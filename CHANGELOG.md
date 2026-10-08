@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **설계 통합 뷰 `/design-overview`** — `/init-project` 산출 설계 문서(루트 + `.specops/memory/`)를 **읽기 전용 HTML 한 장**(`.specops/design-overview.html`)으로 묶는다. 한눈에 보기(문서·요구·프로세스·미확정·가정 개수) · **시스템 구성도** · **업무 프로세스 흐름**(프로세스마다 트리거→행위자→화면→API→테이블→결과, 예외) · **ERD** 를 그림으로 그리고, 프로세스 ↔ 요구 ↔ 화면 ↔ API ↔ 테이블 **추적표**(어느 프로세스에도 연결되지 않은 요구를 따로 고지)와 전 문서의 **미확정·가정 목록**을 한 표로 모은다. `/init-project` 종결(`--enrich` 포함) 뒤 자동 생성.
+  - **원본은 계속 마크다운** — HTML 은 생성물이고 lifecycle 은 읽지 않는다. LLM 이 쓰지 않고 스크립트(`scripts/design-overview.sh` → `scripts/_internal/design-overview/{md,diagrams,build}.py`, python3 표준 라이브러리만)가 변환한다.
+  - **외부 리소스 0** — CDN 의 mermaid.js 를 쓰지 않고 문서가 담은 mermaid 부분집합(`graph TD|LR`·`erDiagram`)을 인라인 SVG 로 직접 그린다(폐쇄망 대응). 미지원 문법은 원문 코드로 남긴다. `architecture.md` 에 다이어그램이 없으면 §2 통신 표에서 구성도를 만든다.
+  - **안전** — 문서 속 원문 HTML 은 전부 이스케이프하고 `javascript:` 링크는 버린다. 새 프로젝트의 `.specops/.gitignore` 가 생성물을 무시한다(소급 없음).
+  - `--check` — 원본 지문과 비교해 `FRESH`/`STALE`/`MISSING` 판정(파일을 고치지 않는다).
+  - 잠금: `test-design-overview` D1~D9(그림 렌더·외부 참조 0·이스케이프·집계·낡음 판정·실 템플릿 mermaid 렌더). 한계: 자동 배치라 노드가 많으면 선이 겹칠 수 있고, 낡음은 자동으로 알리지 않는다(`--check`).
+
 ### Changed
 
 - **`process-design.md`(업무 프로세스 설계서)를 `/init-project` 정본 목록에 편입 — 13종 → 14종(종류·선택별 7~14종)** — 종전엔 bash 가 만들지 않고 Phase 11 LLM 보강이 "새로 생성"해, 보강이 빠지면 문서 자체가 없었고 사전검사 표·활성 카운트에도 잡히지 않았다. 이제 Phase 8i 가 KIND 무관으로 골격을 만들고(`ARTIFACTS_MEMORY`) Phase 11 이 본문을 채운다. 구 프로젝트(`--enrich`)는 골격이 없으면 같은 템플릿으로 새로 만든다.

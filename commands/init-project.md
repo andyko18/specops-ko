@@ -58,7 +58,8 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
    - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
-4. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
+4. **설계 통합 뷰 생성** (커밋 뒤 — 생성물이라 커밋 대상이 아니다): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 실행하고 출력된 경로를 사용자에게 알린다("전체 설계를 한 화면에서 보려면 `<경로>` 를 브라우저로 여세요"). 실패(rc≠0 — python3 부재 등)는 1줄 고지만 하고 부트스트랩을 실패로 만들지 않는다. `--enrich` 뒤에도 같다.
+5. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
 
 ## Phase 11 — Light enrich (bash 종료 후)
 
