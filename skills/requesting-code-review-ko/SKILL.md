@@ -27,6 +27,7 @@ grep -E '^review_mode:' ".specops/$FID/tasks.md" || true
 1. `review_mode`가 `per-task`가 **아님** (부재·`end-loaded` 포함)
 2. tasks.md의 **모든** task id에 대해 `.specops/<FID>/reviews/<tid>-B-report.md` **와** `<tid>-C-report.md` 존재
 3. (권장) `dispatch-log.md`에 해당 tid의 B/C PASS 행이 있음
+4. **신선도** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-review-fresh.sh <FID>` 가 rc 0(FRESH). 리뷰 **이후** 코드가 바뀌었으면(security/integration/performance FAIL 을 고친 재진입 등) rc 1(STALE)이고, 판정 불가는 rc 2 — 둘 다 SKIP **불가**다. 리포트가 *존재*한다는 사실만으로는 수정 커밋이 리뷰받았다는 증거가 아니다.
 
 **SKIP 시 동작**:
 1. `.specops/<FID>/review-skip.md` 작성 — 첫 줄에 `end-loaded: Phase B/C already covered full FID diff` (사유 필수·비공백)
@@ -36,7 +37,7 @@ grep -E '^review_mode:' ".specops/$FID/tasks.md" || true
 
 lite+단일태스크 `batch-review-skip` 경로와 **별개**다. end-loaded skip은 risk-profile allowlist와 무관하며, `batch-state.sh`가 B/C report 존재로 검증한다.
 
-조건 미충족 → 아래 정상 리뷰 요청 절차.
+조건 미충족 → 아래 정상 리뷰 요청 절차. (STALE 재진입이면 `review-skip.md` 가 남아 있어도 **새로 리뷰**하고, 낡은 `review-skip.md` 는 `review-skip.md.stale-<날짜>` 로 옮겨 둔다 — 하류 `receiving-code-review-ko` 가 낡은 skip 을 통과시키지 않도록.)
 
 ## 리뷰 요청 시점
 

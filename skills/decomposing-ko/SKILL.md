@@ -80,7 +80,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
     - 형식 표준: `templates/tasks.md` 끝 placeholder + `scripts/tests/dag/fixtures/tasks-md/05-diamond.md` 예시 참조
     - **자체 검증**: 작성 직후 다음 명령으로 YAML 정합 + leaf 식별 확인
       ```bash
-      source scripts/dag/parse-dag.sh
+      source "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh
       yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
       dag::list_leaves "$yaml"            # 빈 출력 시 YAML 결함 → 재작성
       dag::find_independent_batch "$yaml" # 병렬 후보 출력 (참고용)

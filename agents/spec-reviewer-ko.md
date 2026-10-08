@@ -18,7 +18,7 @@ tools: Read, Grep, Glob, Bash
 ## 받는 컨텍스트 (v0.4a W2 표준 — file-based)
 
 부모가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일 작성 + 경로만 전달.
-표준 포맷: `templates/dispatch-context.md`. 부모가 `bash scripts/dag/validate-context.sh <path>` 검증 후 호출.
+표준 포맷: `templates/dispatch-context.md`. 부모가 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path>` 검증 후 호출.
 
 5 컨텍스트:
 1. **검토 대상 commit SHA 또는 git diff range** (5 컨텍스트 #5 worktree 경로에서 추출)

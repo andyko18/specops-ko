@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **리뷰 재진입이 낡은 B/C 리포트에 가려 무리뷰로 통과하던 문제** — `requesting-code-review-ko` Step 0 의 SKIP 조건이 "리포트 *존재*"뿐이라, security/integration/performance FAIL 을 고친 뒤 재진입하면 수정 커밋이 어떤 리뷰도 받지 못했다. 조건 ④ **신선도**(`scripts/_internal/check-review-fresh.sh` — 최신 B/C 리포트 mtime vs `.specops/` 밖 마지막 코드 커밋·미커밋 추적 변경, rc 0=FRESH·1=STALE·2=판정불가 → 1·2 는 SKIP 불가)를 추가했다. `systematic-debugging-ko` 의 FAIL 복귀가 게이트로 곧장 돌아가던 경로(수정이 verify·리뷰를 건너뜀)는 각 게이트 SKILL 의 `verify → 리뷰 → 게이트 재진입` 경로로 정렬했다(`test-review-fresh` F1~F6).
+- **`NEEDS_APPROVAL` 수신자 부재** — 구현자가 비가역 작업에서 `NEEDS_APPROVAL` 로 멈추는데 `implementing-ko` 는 네 상태만 처리해 태스크가 조용히 멈췄다. 수신 분기(사용자 승인 질문·`§auto` 예외 없음·`§batch` FR halt·승인 기록 `dispatch/<tid>-approval.md`)를 추가하고 절차 전문은 `skills/implementing-ko/needs-approval.md` 로 분리했다. 리뷰어 판정 어휘(`NEEDS_FIX`↔`FAIL`, `NEEDS_DISCUSSION`→`HOLD`·사용자 판단 대기) → 부모 처리 표도 `implementing-ko` 에 명시했다(`NEEDS_DISCUSSION` 은 종전에 처리 주체가 없었다).
+- **하류 repo 에서 깨지는 plugin 상대 경로** — deny 메시지·`doctor` 처방(`bash scripts/_internal/...`)이 하류 repo 에서는 파일이 없어 실패했다. 훅이 자기 `plugin_root` 절대경로를 안내하도록 바꿨고, `clarifying-ko`(evaluator 회전·타임스탬프)·`decomposing-ko`(DAG source)·`specifying-ko`·`implementer-ko`·`spec-reviewer-ko`·`templates/tasks.md` 의 실행 지시를 `"${CLAUDE_PLUGIN_ROOT}"/…` 로 고쳤다. `validate-structure` 의 `plugin_root_paths` 는 종전에 `commands/`·`skills/` 의 `bash scripts/` 만 봤으나 이제 `check-plugin-paths.sh` 가 `bash|source` × `scripts|hooks|skills` × skills/agents/commands/templates 를 본다(`test-plugin-paths` P1~P6).
+- **PR 템플릿의 플러그인 내부 스크립트·`main` 하드코딩** — `performance-test-ko`·`start-all` 의 `gh pr create` 가 `--base main` 고정이고 test plan 이 이 플러그인의 `validate-structure.sh` 를 가리켰다. 기본 브랜치를 `origin/HEAD` 에서 읽고 test plan 은 프로젝트 test_command·`evidence.md` 근거로 바꿨다.
+- **순차 분기가 만들지 않는 worktree 를 요구하던 계약** — dispatch context §5 는 `.worktrees/<fid>-<tid>/` 를 요구하나 순차(SEQUENTIAL) 경로는 어디서도 만들지 않았다. 순차는 별도 worktree 없이 repo root 절대경로로 §5 를 갱신하도록 명시(`validate-context` 가 절대경로 허용).
+- **R-1/R-2 docs-only 면제가 PR 범위·untracked 를 놓치던 두 구멍 (pretool `is_docs_only_change`)** — (A) `gh pr create` 는 PR 에 실리는 **커밋된 `base...HEAD`** 로 면제를 판정한다. 종전엔 작업트리(`git diff HEAD`)를 봐서, 추적 중인 `.specops/session-progress.md` 하나만 dirty 여도 커밋된 미검증 코드 PR 이 면제됐다(posttool `is_docs_only_audit_scope` R-2 와 범위 정렬). base 미검출·빈 범위는 종전 fail-safe(비면제) 유지. (B) `git add … && git commit` 류 compound 는 `git ls-files --others --exclude-standard` 의 untracked 신규 파일을 판정 목록에 합친다(`git diff HEAD` 는 untracked 를 못 본다). `commit -am` 처럼 add 가 없는 명령은 불변. 헬퍼 `_cmd_is_pr_create_only`·`_cmd_stages_untracked` 추가, `test-pretool` T-prscope.a~d·T-untracked.a~d 로 잠금(RED 5건 → GREEN), `mutation-equivalent.conf` governance-lib 줄번호 +39 재정렬. 알려진 한계: 인자 없는 batch PR 게이트(`_batch_pr_gate`)와 `commit && gh pr create` 복합 명령은 종전 작업트리 경로.
+
+### Tests/CI — 독립 감사가 변이 주입으로 확인한 테스트 구멍 3건 (제품 코드 불변)
+
+- `test-manifest` T12.j~n 신설: `hooks.json` 의 PreToolUse matcher 정확히 `Bash` · pretool-governance 동기(`async != true`) · PostToolUse matcher 정확히 `Bash|Skill` · 거버넌스 훅 4종 전부 동기 · 모든 hook command 의 스크립트 실재 · 이벤트 키 유효 집합. 종전엔 matcher `Bash→Bsh`·`async→true` 변이가 전 스위트를 통과해 핵심 차단 훅 등록이 꺼져도 CI 가 몰랐다(되돌려-관찰: 두 변이 모두 T12.j 가 격추)
+- `test-task-receipt` TR-N0~N9 신설: `check-task-receipt.sh` 의 거부 분기 전부(verdict·fid/task 불일치·symlink·tasks.md 부재·test_command 부재·staged/outputs 공집합·jq 파싱 실패 3종·형식 오류/인자 부재 rc 2)를 rc + stderr 사유로 잠근다. `exit 1/2 → exit 0` 변이 20곳 전부 격추(양성 대조 TR-N0 · jq shim 대조 TR-N8d 포함)
+- `llm-smoke.yml` 주간 변이 게이트 복구: 전 대상을 job 1개(20분)에 직렬로 돌려 6주 연속 `cancelled` 였고 아무도 몰랐다. 대상별 matrix(`fail-fast: false`, 대상별 timeout = 실측 2배 이상·최소 20분)로 쪼개고 `mutation-notify` job 이 failure/cancelled 시 issue 를 만든다. `mutation-score.sh --target <path>` 신설(기본 동작 불변 · conf 에 없는 대상은 rc 2) + `test-mutation-conf-fresh` T5.a(conf 대상이 matrix 에 빠지면 적발) · `test-mutation-score` T29~T31. 한계: `governance-lib` 대상의 CI 소요는 미실측(로컬 추정 1~3시간, timeout 360분 임시) — 첫 실행 실측 후 조정
+
 ## [2.8.0] — 2026-10-08
 
 ### 작은 수정 소요 단축 — 스위트 상한 600s · 느린 대상 스위트 리뷰·구현 실행 상한 (#137)

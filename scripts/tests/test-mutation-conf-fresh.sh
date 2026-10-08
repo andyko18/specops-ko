@@ -55,5 +55,23 @@ for must in hooks/governance-lib.sh hooks/pretool-governance.sh scripts/_interna
     || nope "T4 커버리지" "$must 가 mutation-targets.conf 에 없음"
 done
 
+# ── T5: 주간 CI matrix 가 targets conf 의 모든 대상을 덮는다 (20261008) ──
+# 왜: llm-smoke.yml 의 mutation job 은 대상별 matrix 라, conf 에 대상을 추가하고 matrix 를 안 고치면
+#   그 대상은 CI 에서 **측정되지 않는다**(6주 `cancelled` 침묵과 같은 "게이트가 조용히 꺼짐" 계열).
+#   역방향(matrix 에만 있는 대상)은 mutation-score.sh --target 이 rc 2 로 막는다.
+WF="$PLUGIN/.github/workflows/llm-smoke.yml"
+if [ -f "$WF" ]; then
+  wmiss=""; wn=0
+  while IFS='|' read -r tgt cmd; do
+    case "$tgt" in ''|\#*) continue ;; esac
+    wn=$((wn+1))
+    grep -qE "^[[:space:]]+target:[[:space:]]*${tgt}[[:space:]]*$" "$WF" || wmiss="$wmiss $tgt"
+  done < "$TCONF"
+  [ "$wn" -ge 1 ] && [ -z "$wmiss" ] && ok "T5.a CI matrix 가 conf 대상 ${wn}종 전부 포함" \
+    || nope "T5.a" "llm-smoke.yml mutation matrix 누락:${wmiss:- (conf 대상 0건)}"
+else
+  nope "T5.a" "llm-smoke.yml 부재"
+fi
+
 echo ""
 finish

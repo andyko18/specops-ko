@@ -198,7 +198,7 @@ if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
   fi
   reason="SPECOPS_GOVERNANCE_BYPASS 인라인 우회에는 사유 병기가 필수입니다 (friction-log 감사 기록에 명령 원문째 남습니다).
 형식: SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>
-우회 전 정직한 해법 우선: bash scripts/_internal/run-verification.sh <FID> 를 이 세션에서 실행하면 우회 없이 열립니다."
+우회 전 정직한 해법 우선: bash '${plugin_root}'/scripts/_internal/run-verification.sh <FID> 를 이 세션에서 실행하면 우회 없이 열립니다."
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
@@ -394,12 +394,12 @@ if [ -n "$violation" ]; then
   elif [ -z "${fid:-}" ]; then
     _anchor_hint="✘ ② 진행 기록 앵커가 없습니다 — .specops/session-progress.md 에 \`## <FID>\` 섹션이 하나도 없습니다.
    FID 는 YYYYMMDD-kebab-slug 형식이어야 합니다(batch-<날짜> 같은 BATCH_ID 는 인식되지 않습니다).
-   bash scripts/session-progress-append.sh <FID> /verify PASS 로 기록하세요."
+   bash '${plugin_root}'/scripts/session-progress-append.sh <FID> /verify PASS 로 기록하세요."
   else
     _anchor_hint="✘ ② 진행 기록 앵커: .specops/session-progress.md 의 \`## ${fid}\` 섹션에 \`- <날짜> <시각> /verify PASS\` 줄,
    또는 .specops/${fid}/evidence.md 의 RUN-VERIFICATION-RESULT 스탬프가 필요합니다.
-   이 세션에서 bash scripts/_internal/run-verification.sh ${fid} 가 \`VERIFY: PASS\` 로 끝난 것을 확인한 뒤 앵커를 남기세요:
-   bash scripts/session-progress-append.sh ${fid} /verify PASS \"<요약>\""
+   이 세션에서 bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid} 가 \`VERIFY: PASS\` 로 끝난 것을 확인한 뒤 앵커를 남기세요:
+   bash '${plugin_root}'/scripts/session-progress-append.sh ${fid} /verify PASS \"<요약>\""
   fi
   # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
   _compound_hint=""
@@ -419,7 +419,7 @@ if [ -n "$violation" ]; then
     _evidence_hint="① 실행 증거가 **stale** 입니다 — 러너는 이 세션에서 PASS 했으나 그 뒤 코드가 수정됐습니다.
    마지막 수정: ${_stale_cause#stale }
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
-   bash scripts/_internal/run-verification.sh ${fid:-<FID>}
+   bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
     _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다(이 세션 transcript 기준 실행 증거 있음, 또는 판정 불가로 fail-open). 차단 사유는 아래 ②·receipt 입니다."
@@ -427,7 +427,7 @@ if [ -n "$violation" ]; then
     # cause 부재(FR-6 fallback)와 exec=missing 이 같은 문안을 쓴다. `✘ ` 접두만 추가되므로
     # AC-6 의 "변경 전과 동일" 은 **본문 동일 + 상태 접두 추가**를 뜻한다(부분 문자열 단언으로 잠근다).
     _evidence_hint="✘ ① 실행 증거: 이 세션에 러너 실행 기록이 없습니다(이전 세션의 verify 는 transcript 가 세션별이라 인정되지 않고, stale 위험도 있습니다).
-   bash scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
+   bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
    러너를 이미 실행했는데 \`VERIFY: PARTIAL\` 로 끝났다면 tasks.md 의 test_command 가 whitelist 미통과라 건너뛰어진 것이며 실행 증거로 인정되지 않습니다 —
    test_command 를 허용 형태(bash scripts/tests/… · bash tests/… · pytest · npm test 등)로 고친 뒤 다시 실행하세요.
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
@@ -440,13 +440,13 @@ if [ -n "$violation" ]; then
       open-missing)
         _receipt_hint="
 ▶ 지금 열려 있는 경로 — receipt (R-1 implement 창):
-   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   bash '${plugin_root}'/scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
    그리고 커밋 메시지에 T#/Task: T# 를 넣으세요 (staged ⊆ task outputs, receipt 이후 코드 변경 없음)." ;;
       open-invalid)
         _receipt_hint="
 ▶ receipt 경로는 열려 있으나 **기록된 receipt 가 유효하지 않습니다**:
    staged 파일이 해당 task 의 outputs 안에 있는지, receipt 기록 이후 코드가 바뀌지 않았는지 확인하세요.
-   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#> 로 다시 기록할 수 있습니다." ;;
+   bash '${plugin_root}'/scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#> 로 다시 기록할 수 있습니다." ;;
       closed-verified)
         # ★ 어느 verdict 인지 **단정하지 않는다**. 창은 PASS·STALE·WAIVED(+판정불가) 전부에서 닫히는데
         #   (governance-lib.sh `_receipt_window_open` case), 초안 문안 "verify 가 이미 유효 PASS 이므로" 는
@@ -457,13 +457,13 @@ if [ -n "$violation" ]; then
 ※ receipt 경로는 이 FID 에서 **닫혀 있습니다** — receipt 는 verify 결과가 NOT_RUN·PARTIAL·FAIL 인
    implement 창에서만 열립니다(PASS·STALE·WAIVED 는 닫힘 — 특히 STALE 은 검증 이후 코드가 바뀐
    상태라 receipt 로 우회하지 않습니다). 지금은 ①·② 로 통과해야 합니다.
-   현재 verdict 확인: bash scripts/_internal/verification-state.sh current ${fid:-<FID>}" ;;
+   현재 verdict 확인: bash '${plugin_root}'/scripts/_internal/verification-state.sh current ${fid:-<FID>}" ;;
       *) _receipt_hint=$(_receipt_hint_extra "$_c_receipt" "$tool_cmd" 2>/dev/null) || _receipt_hint="" ;;   # open-id-mismatch(문안은 governance-lib 끝 — 줄번호 핀 보존) · 그 밖(n/a R-2)은 빈 값
     esac
   else
     _receipt_hint="
 implement 중간 커밋 대안(R-1): 태스크 테스트 PASS 후
-   bash scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
+   bash '${plugin_root}'/scripts/_internal/record-task-receipt.sh ${fid:-<FID>} <T#>
    로 receipt를 남기고, 커밋 메시지에 T#/Task: T# 를 넣으면 FID 전체 verify 없이 열릴 수 있습니다
    (staged ⊆ task outputs, receipt 이후 코드 변경 없음)."   # cause 부재 → 종전 문안
   fi

@@ -103,7 +103,7 @@ git commit -m "feat(<scope>): <무엇을>
 
 > `decomposing-ko` 가 작성. `implementing-ko` 가 본 섹션을 파싱해 leaf 자동 라우팅.
 > Mermaid (사람용) + YAML (기계용 단일 소스 진실) 병기. 충돌 시 YAML 우선.
-> 검증: `bash scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 없으면 PASS.
+> 검증: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh` 의 `dag::find_independent_batch` 가 stderr WARN 없으면 PASS.
 
 ```mermaid
 graph TD

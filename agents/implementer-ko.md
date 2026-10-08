@@ -20,7 +20,7 @@ skills:
 
 표준 포맷: `templates/dispatch-context.md` (5 컨텍스트 + 5원칙 주입 + NEEDS_CONTEXT 트리거).
 
-부모가 dispatch 직전 `bash scripts/dag/validate-context.sh <path>` 실행 — exit 0 확인 후 호출.
+부모가 dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path>` 실행 — exit 0 확인 후 호출.
 
 5 컨텍스트:
 1. **자기 담당 AC ID 목록** (예: AC-1, AC-3)
@@ -87,7 +87,7 @@ skills:
     - **DONE_WITH_CONCERNS**: 작업은 완료했으나 의문·관찰이 있다(정확성·범위 관련이면 부모가 리뷰 전에 처리). `무관 발견:` 은 여기에도 적는다
     - **BLOCKED**: 진행 불가 + 이유 (예: 기존 테스트 실패). 일부를 끝냈으면 `부분 완료:`·`막힌 부분:` 을 함께 적는다
     - **NEEDS_CONTEXT**: 부모로부터 추가 정보 필요
-    - **NEEDS_APPROVAL**: 파괴적 작업, 사용자 승인 필요
+    - **NEEDS_APPROVAL**: 파괴적 작업, 사용자 승인 필요 — 작업 요약·영향 범위·되돌림 방법을 적는다. 부모가 사용자 승인 후 재dispatch 하며 `dispatch/<task-id>-approval.md` 경로를 주면 그 **승인 범위 안에서만** 진행한다(범위 밖은 다시 NEEDS_APPROVAL).
 
 ## 범위 위생
 

@@ -80,6 +80,65 @@ case "$post_matcher" in
     PASS=$((PASS+1)); echo "PASS T12.i PostToolUse matcher 명시 목록('$post_matcher')" ;;
 esac
 
+# ── hooks.json 등록 정합 (20261008-hooks-json-registration) ───────────────────────────────
+#   T12.a/g 는 "command 문자열이 어딘가에 있다" 만 본다. matcher 오타("Bsh")나 async:true 는
+#   등록은 남긴 채 **차단 훅을 통째로 무력화**하는데 이전엔 어떤 스위트도 몰랐다(변이 주입 실측).
+
+# T12.j PreToolUse: matcher 정확히 'Bash' + pretool-governance 는 동기(async != true)
+#   async:true 면 harness 는 훅 결과를 기다리지 않아 deny 가 적용되지 않는다.
+pre_matcher=$(jq -r '[.hooks.PreToolUse[] | select(any(.hooks[]; .command | contains("pretool-governance.sh"))) | (.matcher // "")] | first // "<none>"' "$HOOKS_JSON" 2>/dev/null)
+pre_async_bad=$(jq -r '[.hooks.PreToolUse[] | .hooks[] | select(.command | contains("pretool-governance.sh")) | select(.async == true)] | length' "$HOOKS_JSON" 2>/dev/null)
+pre_cnt=$(jq -r '[.hooks.PreToolUse[] | .hooks[] | select(.command | contains("pretool-governance.sh"))] | length' "$HOOKS_JSON" 2>/dev/null)
+if [ "$pre_matcher" = "Bash" ] && [ "${pre_cnt:-0}" -ge 1 ] && [ "${pre_async_bad:-1}" = "0" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.j PreToolUse matcher=Bash · pretool-governance 동기"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.j PreToolUse matcher='$pre_matcher' 등록수=${pre_cnt:-?} async위반=${pre_async_bad:-?}"
+fi
+
+# T12.k PostToolUse matcher 정확히 'Bash|Skill' (T12.h 는 ⊇ 만 본다 — 정확한 목록을 잠가 무음 변경을 막는다)
+if [ "$post_matcher" = "Bash|Skill" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.k PostToolUse matcher == 'Bash|Skill'"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.k PostToolUse matcher='$post_matcher' (기대 'Bash|Skill')"
+fi
+
+# T12.l 거버넌스 훅(pre·post·stop·session-start) 은 전부 동기(async != true)
+gov_total=$(jq -r '[.hooks[][] | .hooks[] | select(.command | test("(pretool|posttool|stop)-governance\\.sh|session-start\\.sh"))] | length' "$HOOKS_JSON" 2>/dev/null)
+gov_async=$(jq -r '[.hooks[][] | .hooks[] | select(.command | test("(pretool|posttool|stop)-governance\\.sh|session-start\\.sh")) | select(.async == true)] | length' "$HOOKS_JSON" 2>/dev/null)
+if [ "${gov_total:-0}" -ge 4 ] && [ "${gov_async:-1}" = "0" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.l 거버넌스 훅 ${gov_total}개 전부 동기"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.l 거버넌스 훅 total=${gov_total:-?} async=${gov_async:-?}"
+fi
+
+# T12.m 모든 hook command 가 가리키는 스크립트가 실재한다 (${CLAUDE_PLUGIN_ROOT} → 플러그인 루트)
+#   파일명 오타·삭제·rename 누락은 훅이 조용히 실패(command not found)해 강제층이 사라진다.
+cmd_total=0; cmd_missing=""
+while IFS= read -r c; do
+  [ -z "$c" ] && continue
+  cmd_total=$((cmd_total+1))
+  rel=$(printf '%s' "$c" | sed -n 's/.*\${CLAUDE_PLUGIN_ROOT}\/\([^" ]*\).*/\1/p')
+  if [ -z "$rel" ] || [ ! -f "$PLUGIN/$rel" ]; then cmd_missing="$cmd_missing [${rel:-경로추출실패:$c}]"; fi
+done < <(jq -r '.hooks[][] | .hooks[] | .command' "$HOOKS_JSON" 2>/dev/null)
+if [ "$cmd_total" -ge 8 ] && [ -z "$cmd_missing" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.m hook command ${cmd_total}건 스크립트 전부 실재"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.m command=${cmd_total}건 누락=[${cmd_missing# }]"
+fi
+
+# T12.n 이벤트 키는 공식 hook 이벤트 이름 집합에 속한다 (오타 키는 harness 가 무시 — 훅이 안 돈다)
+valid_events='SessionStart SessionEnd UserPromptSubmit PreToolUse PostToolUse PostToolUseFailure PermissionRequest Notification SubagentStart SubagentStop Stop StopFailure PreCompact PostCompact TeammateIdle TaskCompleted ConfigChange Setup'
+bad_events=""; ev_total=0
+for ev in $(jq -r '.hooks | keys[]' "$HOOKS_JSON" 2>/dev/null); do
+  ev_total=$((ev_total+1))
+  case " $valid_events " in *" $ev "*) ;; *) bad_events="$bad_events $ev" ;; esac
+done
+if [ "$ev_total" -ge 6 ] && [ -z "$bad_events" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.n 이벤트 키 ${ev_total}종 전부 유효"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.n 이벤트 ${ev_total}종 무효=[${bad_events# }]"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

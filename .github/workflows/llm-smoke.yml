@@ -56,12 +56,73 @@ jobs:
   # mutation score 회귀 게이트 (20260714-mutation-ci-gate) — secret 불요라 항상 실행.
   #   run-all 은 2분41초 부담으로 mutation 미포함(수동). 주간 cron 으로 강제화해
   #   governance-lib 커버리지가 baseline(55%) 밑으로 떨어지면 감지한다.
+  #
+  # 20261008: 대상별 matrix 로 분할. 종전엔 전 대상을 job 1개(timeout 20분)에 직렬로 돌려 6주 연속
+  #   `cancelled` 였다 — 대상 합계가 20분을 넘고(check-screen-quality 단독 1064~1368s), 취소는 아무도 모른 채
+  #   게이트가 6주간 꺼져 있었다. 이제 대상 1건 = job 1개이고, 각 timeout 은 mutation-targets.conf 주석의
+  #   실측 소요의 2배 이상(최소 20분)이다. 실패·취소는 아래 mutation-notify job 이 issue 로 알린다.
+  #   ※ 새 대상을 mutation-targets.conf 에 추가하면 여기 matrix 에도 추가한다(누락 시 그 대상은 CI 에서 측정되지 않는다).
   mutation:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false   # 한 대상이 미달이어도 나머지 대상 결과를 끝까지 본다
+      matrix:
+        include:
+          - name: parse-dag
+            target: scripts/dag/parse-dag.sh
+            timeout: 20       # 사이트 8건 x 스위트 ~2s — 수 분 미만
+          - name: governance-lib
+            target: hooks/governance-lib.sh
+            timeout: 360      # 소요 미실측: 스위트 6종 1회 ~96s(로컬) x 사이트 ~113건. 첫 실행 실측으로 줄일 것 (hosted 상한 360)
+          - name: pretool-governance
+            target: hooks/pretool-governance.sh
+            timeout: 20       # 실측 205s
+          - name: run-bounded
+            target: scripts/_internal/run-bounded.sh
+            timeout: 20       # 실측 17s
+          - name: verification-state
+            target: scripts/_internal/verification-state.sh
+            timeout: 20       # 실측 364s (2배 = 12분 → 최소값 20)
+          - name: check-screen-quality
+            target: scripts/_internal/check-screen-quality.sh
+            timeout: 50       # 실측 1064~1368s (2배 = 46분)
+    name: mutation (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4
-      - name: governance mutation score gate (baseline 55%)
+      - name: mutation score gate (${{ matrix.name }}, baseline 55%)
         env:
           MUTATION_MIN_SCORE: 55
-        run: bash scripts/tests/mutation-score.sh
+        run: bash scripts/tests/mutation-score.sh --target "${{ matrix.target }}"
+
+  # mutation matrix 실패·취소 통보. 별도 job 인 이유: timeout 으로 취소된 job 안의 후속 step 은 실행이 보장되지 않는다
+  #   (종전 6주 침묵의 원인). `needs` 결과는 matrix 전체의 집계(하나라도 failure/cancelled 면 그 값)다.
+  mutation-notify:
+    needs: mutation
+    if: ${{ always() && (needs.mutation.result == 'failure' || needs.mutation.result == 'cancelled') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - name: 실패·취소 시 issue 통보 (실패 대상 목록 포함)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MUTATION_RESULT: ${{ needs.mutation.result }}
+        run: |
+          TITLE="[llm-smoke] weekly mutation ${MUTATION_RESULT}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SUMMARY=$(gh run view "${{ github.run_id }}" --json jobs \
+            --jq '.jobs[] | select(.name | startswith("mutation (")) | select(.conclusion == "failure" or .conclusion == "cancelled") | "- \(.name): \(.conclusion)"' 2>/dev/null)
+          SUMMARY="${SUMMARY:-실패 job 목록 조회 불가 — run 페이지 확인}"
+          BODY="주간 mutation score 게이트 ${MUTATION_RESULT} — run: ${RUN_URL}
+          대상별 결과:
+          \`\`\`
+          ${SUMMARY}
+          \`\`\`
+          cancelled 는 timeout-minutes 초과일 수 있다 — matrix 의 timeout 을 실측 소요의 2배 이상으로 유지한다."
+          EXISTING=$(gh issue list --state open --search "in:title $TITLE" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then gh issue comment "$EXISTING" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi

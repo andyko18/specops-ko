@@ -37,6 +37,8 @@ EOF
   echo '{"plugins":[{"version":"0.1.0"}]}' > "$sb/.claude-plugin/marketplace.json"
   cp "$SCRIPT" "$sb/scripts/_internal/validate-structure.sh"
   chmod +x "$sb/scripts/_internal/validate-structure.sh"
+  # plugin_root_paths 판정 SoT — validate-structure 가 형제 스크립트로 부른다(20261008)
+  cp "$(dirname "$SCRIPT")/check-plugin-paths.sh" "$sb/scripts/_internal/check-plugin-paths.sh"
   # U4: sandbox 자체 .structure-baseline (agents 카테고리 생략 — sandbox 가 다루지 않음)
   cat > "$sb/scripts/_internal/.structure-baseline" <<'EOF'
 {"category":"commands","glob":"commands/*.md","count":1}

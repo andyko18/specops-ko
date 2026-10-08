@@ -1296,5 +1296,65 @@ if [ ! -f "$_dgd2/.specops/friction-log.jsonl" ]; then
 else echo "FAIL T-degraded-log.d — 관할 밖 기록"; fail=$((fail+1)); fi
 rm -rf "$_dgd2"
 
+# ── T-prscope: `gh pr create` 면제는 **작업트리가 아니라 PR 커밋 범위(base...HEAD)** 로 판정한다 ──
+# 왜: is_docs_only_change 는 작업트리(git diff HEAD)를 먼저 봤다. 추적 중인 .specops/session-progress.md
+#   하나만 dirty 여도 작업트리가 all-docs 로 판정돼, **이미 커밋된 미검증 코드**가 든 PR 이 면제됐다
+#   (PR 에 실리는 건 커밋된 base...HEAD 뿐이다). posttool 감사(is_docs_only_audit_scope)는 이미 범위 기준이다.
+_prs_mk() {  # $1=dir $2=feat 브랜치에 커밋할 파일(코드면 a.sh, 문서면 notes.md)
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$1" && git init -q -b main \
+    && mkdir -p .specops && echo "# SP" > .specops/session-progress.md && echo base > README.md \
+    && git add -A && git -c user.email=e@t -c user.name=t commit -q -m base \
+    && git checkout -q -b feat \
+    && echo "echo x" > "$2" && git add "$2" && git -c user.email=e@t -c user.name=t commit -q -m "feat: $2" \
+    && echo "dirty" >> .specops/session-progress.md ) >/dev/null 2>&1
+}
+_prs_code=$(mktemp -d)
+_prs_mk "$_prs_code" a.sh
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_prs_code" bash "$HOOK" 2>/dev/null)
+check "T-prscope.a 커밋된 코드 + 작업트리 docs dirty → PR deny (범위=base...HEAD)" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "cd $_prs_code && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_prs_code" bash "$HOOK" 2>/dev/null)
+check "T-prscope.b compound(cd &&) PR 도 deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_prs_code"
+# c: 대조군 — PR 범위가 진짜 all-docs 면 작업트리 dirty 와 무관하게 면제 유지(과잉 차단 방지)
+_prs_doc=$(mktemp -d)
+_prs_mk "$_prs_doc" notes.md
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_prs_doc" bash "$HOOK" 2>/dev/null)
+check "T-prscope.c PR 범위 all-docs → 면제 유지(allow)" '"continue":true' "$out"
+rm -rf "$_prs_doc"
+# d: base 브랜치(main/master) 부재 → 판정 불가는 비면제로 떨어져 종전 경로(transcript verify 검사)로 간다 = deny 유지
+_prs_nb=$(mktemp -d)
+( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+  cd "$_prs_nb" && git init -q -b trunk && mkdir -p .specops && echo "# SP" > .specops/session-progress.md \
+  && git add -A && git -c user.email=e@t -c user.name=t commit -q -m base \
+  && echo "dirty" >> .specops/session-progress.md ) >/dev/null 2>&1
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_prs_nb" bash "$HOOK" 2>/dev/null)
+check "T-prscope.d base 미검출 → 비면제(verify 검사로 진행, deny)" '"permissionDecision":"deny"' "$out"
+rm -rf "$_prs_nb"
+
+# ── T-untracked: compound `git add ... && git commit` 은 untracked 신규 코드도 커밋 범위로 본다 ──
+# 왜: `git diff HEAD` 는 untracked 를 못 본다. 추적 중 README dirty + untracked 신규 코드 + `git add -A && git commit`
+#   이면 작업트리 목록이 README 뿐이라 docs-only 로 면제됐다(실제 커밋엔 신규 코드가 실린다).
+_unt_mk() {  # $1=dir $2=untracked 파일명
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$1" && git init -q -b main && mkdir -p .specops && echo base > README.md \
+    && git add -A && git -c user.email=e@t -c user.name=t commit -q -m base \
+    && echo more >> README.md && mkdir -p src && echo "echo n" > "src/$2" ) >/dev/null 2>&1
+}
+_unt=$(mktemp -d); _unt_mk "$_unt" new.sh
+out=$(mkstdin "git add -A && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_unt" bash "$HOOK" 2>/dev/null)
+check "T-untracked.a git add -A && commit + untracked 코드 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git add . && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_unt" bash "$HOOK" 2>/dev/null)
+check "T-untracked.b git add . && commit + untracked 코드 → deny" '"permissionDecision":"deny"' "$out"
+# c: 대조군 — `commit -am` 은 untracked 를 싣지 않는다 → 종전대로 working-tree docs-only 면제(과잉 차단 방지)
+out=$(mkstdin "git commit -am x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_unt" bash "$HOOK" 2>/dev/null)
+check "T-untracked.c commit -am (untracked 미포함) → docs-only 면제 유지" '"continue":true' "$out"
+rm -rf "$_unt"
+# d: 대조군 — untracked 가 문서뿐이면 add -A 여도 면제
+_unt2=$(mktemp -d); _unt_mk "$_unt2" x.md
+out=$(mkstdin "git add -A && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_unt2" bash "$HOOK" 2>/dev/null)
+check "T-untracked.d untracked 가 문서뿐 → 면제 유지" '"continue":true' "$out"
+rm -rf "$_unt2"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

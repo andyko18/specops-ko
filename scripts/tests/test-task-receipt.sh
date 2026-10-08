@@ -333,4 +333,104 @@ chmod 644 "$_RU/locked.dat"
 rm -rf "$_RU"
 fi
 
+# ── TR-N 음성 경로 — check-task-receipt.sh 의 모든 거부 분기를 rc + 사유로 잠근다 (20261008-test-holes) ──
+# 종전엔 TR-4~7 외 분기(verdict·fid/task 불일치·symlink·tasks.md 부재·test_command 부재·staged 공집합·
+#   outputs 공집합·jq 파싱 실패·입력 형식 오류)가 무검증이라 `exit 1 → exit 0` 변이가 전부 생존했다.
+# ★ 각 케이스는 rc 만이 아니라 **stderr 사유**도 단언한다 — 다른 분기가 우연히 같은 rc 를 내서 통과하는 것을 막는다.
+# ★ 먼저 양성 대조(TR-N0: 무변형 receipt → rc 0)를 둔다. 이게 없으면 픽스처가 깨져도 음성이 전부 통과한다.
+_RN=$(mktemp -d) || exit 1
+_RA=$(mktemp -d) || exit 1   # 보조 파일(receipt 원본·shim)은 repo 밖에 둔다 — 안에 두면 untracked 파일이 지문을 바꿔 tree stale 이 된다
+_rn_fid=20261008-neg
+_setup_fid "$_RN" "$_rn_fid"
+printf 'updated\n' > "$_RN/src/foo.sh"
+(cd "$_RN" && bash "$REC" "$_rn_fid" T1) >/dev/null 2>&1
+(cd "$_RN" && git add src scripts) >/dev/null 2>&1
+_rn_rcpt="$_RN/.specops/$_rn_fid/receipts/T1.json"
+_rn_tasks="$_RN/.specops/$_rn_fid/tasks.md"
+cp "$_rn_rcpt" "$_RA/receipt.base"
+cp "$_rn_tasks" "$_RA/tasks.base"
+
+# _rn_expect <id> <기대 rc> <stderr 사유(부분문자열, 빈값=미검사)> -- <check 인자...>
+_rn_expect() {
+  local id="$1" want="$2" reason="$3"; shift 4
+  local err rc
+  err=$(cd "$_RN" && bash "$CHK" "$@" 2>&1 >/dev/null); rc=$?
+  if [ "$rc" = "$want" ] && { [ -z "$reason" ] || printf '%s' "$err" | grep -qF -- "$reason"; }; then
+    ok "$id → rc=$want${reason:+ ($reason)}"
+  else
+    nope "$id" "rc=$rc(기대 $want) err=$err"
+  fi
+}
+_rn_restore() { rm -f "$_rn_rcpt" "$_RA/real.json"; cp "$_RA/receipt.base" "$_rn_rcpt"; cp "$_RA/tasks.base" "$_rn_tasks"; }
+
+_rn_expect "TR-N0 양성 대조(무변형 receipt)" 0 "" -- "$_rn_fid" T1
+
+# verdict != PASS
+jq '.verdict="FAIL"' "$_RA/receipt.base" > "$_rn_rcpt"
+_rn_expect "TR-N1 verdict!=PASS" 1 "verdict!=PASS" -- "$_rn_fid" T1
+_rn_restore
+
+# receipt 의 fid 불일치 / task 불일치 (각각 따로 — `&&` 한쪽만 끊는 변이도 잡는다)
+jq '.fid="20260101-other"' "$_RA/receipt.base" > "$_rn_rcpt"
+_rn_expect "TR-N2a receipt fid 불일치" 1 "fid/task mismatch" -- "$_rn_fid" T1
+jq '.task="T2"' "$_RA/receipt.base" > "$_rn_rcpt"
+_rn_expect "TR-N2b receipt task 불일치" 1 "fid/task mismatch" -- "$_rn_fid" T1
+_rn_restore
+
+# receipt 가 symlink — 유효한 receipt 를 가리켜도 거부 (-f 는 symlink 를 따라가므로 -L 분기가 유일한 방어)
+mv "$_rn_rcpt" "$_RA/real.json"
+ln -s "$_RA/real.json" "$_rn_rcpt"
+_rn_expect "TR-N3 receipt symlink" 1 "symlink" -- "$_rn_fid" T1
+_rn_restore
+
+# tasks.md 부재
+rm -f "$_rn_tasks"
+_rn_expect "TR-N4 tasks.md 부재" 1 "tasks.md 부재" -- "$_rn_fid" T1
+_rn_restore
+
+# tasks.md 에 해당 태스크의 test_command 없음
+grep -v 'test_command' "$_RA/tasks.base" > "$_rn_tasks"
+_rn_expect "TR-N5 test_command 없음" 1 "test_command 없음" -- "$_rn_fid" T1
+_rn_restore
+
+# staged 공집합
+(cd "$_RN" && git reset -q) >/dev/null 2>&1
+_rn_expect "TR-N6 staged 공집합" 1 "staged empty" -- "$_rn_fid" T1
+(cd "$_RN" && git add src scripts) >/dev/null 2>&1
+
+# outputs 공집합 (staged 는 비어있지 않다)
+jq '.outputs=[]' "$_RA/receipt.base" > "$_rn_rcpt"
+_rn_expect "TR-N7 outputs 공집합" 1 "outputs empty" -- "$_rn_fid" T1
+_rn_restore
+
+# receipt jq 파싱 실패 — 깨진 JSON (verdict 줄에서 걸린다)
+printf 'not json{' > "$_rn_rcpt"
+_rn_expect "TR-N8a receipt 파싱 실패(깨진 JSON)" 1 "" -- "$_rn_fid" T1
+_rn_restore
+
+# jq 가 .fid / .task 필터에서만 실패하는 shim — 25·26행의 `|| exit 1` 을 각각 따로 잠근다
+#   (깨진 JSON 은 24행에서 먼저 걸려 25·26행 변이가 생존한다)
+_rn_shim="$_RA/shim"; mkdir -p "$_rn_shim"
+cat > "$_rn_shim/jq" <<SHIM
+#!/usr/bin/env bash
+for a in "\$@"; do [ "\$a" = "\${JQ_FAIL_FILTER:-}" ] && exit 5; done
+exec "$(command -v jq)" "\$@"
+SHIM
+chmod +x "$_rn_shim/jq"
+_rn_err=$(cd "$_RN" && PATH="$_rn_shim:$PATH" JQ_FAIL_FILTER='.fid // empty' bash "$CHK" "$_rn_fid" T1 2>&1 >/dev/null); _rn_rc=$?
+[ "$_rn_rc" = "1" ] && ok "TR-N8b jq(.fid) 실패 → rc=1" || nope "TR-N8b" "rc=$_rn_rc err=$_rn_err"
+_rn_err=$(cd "$_RN" && PATH="$_rn_shim:$PATH" JQ_FAIL_FILTER='.task // empty' bash "$CHK" "$_rn_fid" T1 2>&1 >/dev/null); _rn_rc=$?
+[ "$_rn_rc" = "1" ] && ok "TR-N8c jq(.task) 실패 → rc=1" || nope "TR-N8c" "rc=$_rn_rc err=$_rn_err"
+# shim 대조 — 필터가 안 맞으면 shim 은 무해하고 rc=0 이어야 한다(shim 이 항상 실패시켜 가짜 통과하는 것을 방지)
+_rn_err=$(cd "$_RN" && PATH="$_rn_shim:$PATH" JQ_FAIL_FILTER='.없는필터' bash "$CHK" "$_rn_fid" T1 2>&1 >/dev/null); _rn_rc=$?
+[ "$_rn_rc" = "0" ] && ok "TR-N8d shim 대조(무관 필터) → rc=0" || nope "TR-N8d" "rc=$_rn_rc err=$_rn_err"
+
+# 입력 형식 오류 / 인자 부재 → rc 2 (legacy fallthrough)
+_rn_expect "TR-N9a FID 형식 오류" 2 "" -- "BAD_FID" T1
+_rn_expect "TR-N9b TASK 형식 오류" 2 "" -- "$_rn_fid" "bad task!"
+_rn_expect "TR-N9c 인자 전무" 2 "usage" --
+_rn_expect "TR-N9d TASK 인자 부재" 2 "usage" -- "$_rn_fid"
+_rn_expect "TR-N9e FID 빈 문자열" 2 "usage" -- "" T1
+rm -rf "$_RN" "$_RA"
+
 finish
