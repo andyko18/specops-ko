@@ -8,7 +8,10 @@
 import html
 import re
 
+# 백틱 코드를 담은 자리표시(`<TODO — `a` 참조>`)는 백틱 분할 뒤 `<` 와 `>` 가 다른 조각에 놓여 TBD_RE 가 못 맞춘다.
+# 그것만 전처리로 떼어 두고(먼저 시작하는 쪽이 이긴다: 백틱 코드 구간이 먼저면 구간 통째로 code), 나머지는 종전 경로다.
 TBD_RE = re.compile(r"&lt;(미확정[^&]*?|TODO[^&]*?)&gt;")
+CODE_TBD_RE = re.compile(r"(`[^`]*`)|(<(?:미확정|TODO)(?:[^<>`]|`[^`]*`)*>)")
 ASSUME_RE = re.compile(r"(가정:)")
 HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
 SW = r'<i class="sw" style="background:#\1"></i>#\1'
@@ -31,6 +34,20 @@ def slug(text, used):
 
 def inline(text):
     """인라인 변환. 입력은 원문, 출력은 안전한 HTML."""
+    text = text.replace("\x00", "")
+    held = []
+
+    def _hold(m):
+        if m.group(1) or "`" not in m.group(2):
+            return m.group(0)
+        held.append('<mark class="tbd">%s</mark>' % _inline(m.group(2)))
+        return "\x00%d\x00" % (len(held) - 1)
+
+    out = _inline(CODE_TBD_RE.sub(_hold, text))
+    return re.sub(r"\x00(\d+)\x00", lambda m: held[int(m.group(1))], out)
+
+
+def _inline(text):
     parts = re.split(r"(`[^`]*`)", text)
     out = []
     for part in parts:
