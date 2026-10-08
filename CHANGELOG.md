@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.10.0] — 2026-10-08
+
 ### Added
 
 - **설계 통합 뷰 `/design-overview`** — `/init-project` 산출 설계 문서(루트 + `.specops/memory/`)를 **읽기 전용 HTML 한 장**(`.specops/design-overview.html`)으로 묶는다. 한눈에 보기(문서·요구·프로세스·미확정·가정 개수) · **시스템 구성도** · **업무 프로세스 흐름**(프로세스마다 트리거→행위자→화면→API→테이블→결과, 예외) · **ERD** 를 그림으로 그리고, 프로세스 ↔ 요구 ↔ 화면 ↔ API ↔ 테이블 **추적표**(어느 프로세스에도 연결되지 않은 요구를 따로 고지)와 전 문서의 **미확정·가정 목록**을 한 표로 모은다. `/init-project` 종결(`--enrich` 포함) 뒤 자동 생성.
@@ -2968,7 +2970,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.9.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/andyko18/specops-ko/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/andyko18/specops-ko/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/andyko18/specops-ko/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/andyko18/specops-ko/compare/v2.6.0...v2.7.0
