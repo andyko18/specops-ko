@@ -581,7 +581,9 @@ if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.
 _ev_bad=""; _ev_n=0
 for d in "$PLUGIN"/evals/*/; do
   [ -d "$d" ] || continue
-  _ev_n=$((_ev_n+1)); n=$(basename "$d")
+  n=$(basename "$d")
+  [ "$n" = results ] && continue   # claude plugin eval 의 실행 결과 폴더(.gitignore) — 케이스가 아니다
+  _ev_n=$((_ev_n+1))
   [ -f "$d/prompt.md" ] || _ev_bad="$_ev_bad $n(prompt.md 없음)"
   g=$(ls "$d"/graders/*.md 2>/dev/null | wc -l | tr -d ' ')
   [ "$g" -ge 1 ] || _ev_bad="$_ev_bad $n(grader 0)"
