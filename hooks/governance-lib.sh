@@ -588,11 +588,18 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
 # git diff HEAD = working tree vs HEAD = staged + unstaged tracked 전부 포함 (commit -a 우회 차단).
 # base branch 자동감지 — main 우선, master 차선, 없으면 실패(안전측 차단).
 _detect_base_branch() {
-  local b
-  for b in main master; do
-    git show-ref --verify --quiet "refs/heads/$b" && { printf '%s' "$b"; return 0; }
+  # main·master·origin/main·origin/master 중 HEAD 에 가장 가까운(ref..HEAD 커밋 수 최소) ref — 동률이면 앞선 후보(로컬).
+  #   로컬 main 만 보면, 로컬 main 이 원격보다 뒤처진 repo 에서 base...HEAD 가 원격에 쌓인 변경까지 PR 범위로 읽는다
+  #   (문서뿐인 PR 이 코드 포함으로 판정돼 false-deny). risk-profile.sh rp::base_ref 와 같은 규칙이다.
+  local b n best="" best_n=""
+  for b in main master origin/main origin/master; do
+    git rev-parse --verify --quiet "$b^{commit}" >/dev/null 2>&1 || continue
+    n=$(git rev-list --count "$b..HEAD" 2>/dev/null) || continue
+    case "$n" in ''|*[!0-9]*) continue ;; esac
+    if [ -z "$best" ] || [ "$n" -lt "$best_n" ]; then best=$b; best_n=$n; fi
   done
-  return 1
+  [ -n "$best" ] || return 1
+  printf '%s' "$best"
 }
 
 # 명령이 `gh pr create` 이고 같은 명령에 커밋·add 가 없다 → 0 (PR 범위 판정). 그 밖엔 1 (종전 경로).

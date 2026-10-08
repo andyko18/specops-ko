@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.10.0
+specops_version: 2.11.0
 used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 
@@ -429,6 +429,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 4. **모호성 점검** — 두 가지로 해석될 요구? 하나 고르고 명시
 5. **intent 추적** — spec 이 intent 의 문제를 푸는가 · 기대 결과가 관찰 가능한 성공 판정·AC 로 내려왔는가 · IQ 전건이 답변 또는 이월로 처리됐는가
 6. **최소 범위** — 각 요구에 rung 순서로 질문: 존재 필요(YAGNI)? · 코드베이스 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 모두 아니면 최소 구현. 검증·에러·보안·접근성은 절감 대상 아님
+7. **기존 동작 보존 설계** (기존 코드를 고칠 때) — 설계가 기존 변환·흐름의 **순서나 경로를 바꾸면**, 기존 경로는 그대로 두고 대상 입력만 전·후처리로 분리하는 대안을 먼저 검토한다. 순서를 바꾸는 설계는 테스트에 없는 경계 사례를 연쇄로 깬다(실측 20261008: 그 설계 하나로 수정 라운드 3회 — lite 는 plan 검토가 없어 여기가 마지막 설계 점검이다)
 
 인라인 수정. 재검토 불필요.
 

@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **위험도·PR 범위 판정이 낡은 로컬 `main` 을 기준으로 삼던 문제** — `risk-profile.sh` 와 `governance-lib.sh` `_detect_base_branch` 가 로컬 `main`/`master` 만 봤다. 로컬 `main` 이 원격보다 뒤처진 repo(원격에서 직접 분기해 작업하는 worktree 등)에서는 클린 트리의 `base...HEAD` 가 **그동안 원격에 쌓인 변경 전부**를 이 FID 의 변경으로 읽었다. 실측(20261008 `/maintain-lite` 소요 측정 실행): 100커밋 뒤처진 `main` → 3줄 수정이 151파일·`infra` strict 로 판정돼 `LITE-STRICT-GUARD` 가 lite 를 풀 경로(clarify·plan)로 올리려 했다 — 이 저장소에서 lite 가 풀 경로처럼 느렸던 직접 원인 후보다. 이제 `main`·`master`·`origin/main`·`origin/master` 중 **HEAD 에 가장 가까운**(ref..HEAD 커밋 수 최소) ref 를 기준으로 쓴다(동률이면 로컬, 원격 추적 ref 가 없으면 종전과 동일). 같은 원인으로 문서뿐인 PR 이 코드 포함으로 판정되던 false-deny 도 해소된다. 잠금: `test-risk-profile` T51·T51b · `governance/test-lib` T-base.d·e (수정 전 RED 확인).
+
+### Changed
+
+- **`specifying-ko` 스펙 자체 검토에 "기존 동작 보존 설계" 추가** — 기존 코드를 고칠 때 설계가 기존 변환·흐름의 순서나 경로를 바꾸면, 기존 경로는 그대로 두고 대상 입력만 전·후처리로 분리하는 대안을 먼저 검토한다. 근거: 같은 측정 실행에서 초기 설계(선분할)가 경계 사례 퇴행을 3번 내 25분 중 13.5분이 수정 라운드였다(코드 리뷰어가 3건 모두 적발 · 설계 교체 후 0건). lite 는 plan 검토가 없어 이 자체 검토가 마지막 설계 점검이다. 효과는 미측정(다음 실행에서 수정 라운드 수로 확인).
+
 ## [2.10.0] — 2026-10-08
 
 ### Added
