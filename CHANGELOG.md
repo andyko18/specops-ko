@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-10-08
+
 ### `/doctor` 9번째 점검 `effort_env` · skill effort 실측 (#130·#131)
 
 `/doctor` 가 `CLAUDE_CODE_EFFORT_LEVEL` 환경변수 설정 여부를 항상 보고한다(9항목). 설정돼 있으면 ⚠️ — 이 env 가 있으면 skill·agent frontmatter `effort` 가 **전부 무력화**되고(서브에이전트 effort 프로파일 포함) 지금까지 어떤 층도 알리지 못했다. README 의 "skill frontmatter effort 동작 미확인" 을 20261007 실측 4사실로 교체했다: 활성화 **이후** 적용 · skill 종료 후 **비복원**(같은 턴 끝까지 마지막 값 유지) · 다음 턴 복원(약한 증거) · env 가 모두 무력화 → 연쇄 skill 에서 일부만 지정하면 후속 skill 이 상속하므로 **전부-또는-전무**. 함께 `doctor.sh` `_add` 구분자 치환이 macOS `/bin/bash` 3.2 에서 `|` 를 `\/` 로 남기던 표시 결함을 고쳤다(행·JSON 위조 방지는 불변, 테스트 엄격화).
@@ -2887,7 +2889,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/andyko18/specops-ko/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/andyko18/specops-ko/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/andyko18/specops-ko/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/andyko18/specops-ko/compare/v2.3.0...v2.4.0
