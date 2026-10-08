@@ -15,7 +15,8 @@ DIR=".specops/$FID"
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "REVIEW-FRESH: UNKNOWN (git 작업트리 아님)"; exit 2; }
 
-_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+# GNU 먼저 — GNU stat 의 `-f` 는 파일시스템 상태라 성공하며 쓰레기를 낸다(BSD/macOS 는 `-c` 가 실패해 fallback)
+_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 
 newest=0
 for f in "$DIR"/reviews/*-B-report.md "$DIR"/reviews/*-C-report.md; do
