@@ -40,10 +40,13 @@ if [ -z "$REQ" ]; then
 fi
 [ -f "$REQ" ] || { echo "Error: $REQ 없음" >&2; exit 2; }
 
-FR_RE='^\| *FR-[0-9][0-9A-Za-z]* *\|'
+# ID 칸의 장식(굵게 `**`·백틱)은 벗겨 낸다 — check-fr-table.sh 와 같은 규칙(20261009).
+#   종전 정규식은 `| **FR-10** |` 을 FR 행으로 보지 않아, 그 FR 은 드리프트 대조에서 통째로 빠졌다.
+FR_RE='^\| *[*`]*FR-[0-9][0-9A-Za-z]*[*`]* *\|'
+_FR_ID_SED='s/^\| *[*`]*(FR-[0-9][0-9A-Za-z]*)[*`]* *\|.*/\1/'
 queue_rows=$(grep -E "$FR_RE" "$QUEUE" || true)
-queue_ids=$(printf '%s\n' "$queue_rows" | sed -E 's/^\| *(FR-[0-9][0-9A-Za-z]*) *\|.*/\1/')
-req_ids=$(grep -E "$FR_RE" "$REQ" | sed -E 's/^\| *(FR-[0-9][0-9A-Za-z]*) *\|.*/\1/' || true)
+queue_ids=$(printf '%s\n' "$queue_rows" | sed -E "$_FR_ID_SED")
+req_ids=$(grep -E "$FR_RE" "$REQ" | sed -E "$_FR_ID_SED" || true)
 
 fail=0        # 전체(기본 모드 exit code)
 fail_gate=0   # 뭉개짐 신호만 (--gate exit code) — 운영 신호는 불포함
@@ -178,18 +181,27 @@ done_pairs=""
 if [ -n "$queue_rows" ]; then
   done_pairs=$(printf '%s\n' "$queue_rows" | awk -F'|' "$QUEUE_AWK_QNORM"'
   {
-    n = 0; delete a
-    for (i = 1; i <= NF; i++) { if (qnorm($i) != "") a[++n] = qnorm($i) }
-    if (n >= 2 && a[n] ~ /^IMPL_DONE/) print a[1] "|" a[2]
+    # FID 는 표의 FID 칸(둘째 칸 = $3)에서 읽는다. 종전엔 "비어 있지 않은 둘째 값" 을 써서, FID 칸이 빈 행은
+    #   설명 칸의 글자가 FID 로 읽혔다(메시지에 엉뚱한 값이 찍혔다).
+    st = ""
+    for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+    if (st ~ /^IMPL_DONE/) print qnorm($2) "|" qnorm($3)
   }')
 fi
 missing_artifacts=""
 invalid_skip=""
+nofid=""; checked_n=0
 if [ -n "$done_pairs" ]; then
   while IFS='|' read -r fr_id fid; do
     [ -z "$fr_id" ] && continue
     # FID 미확정 placeholder 는 미완 검사(3)가 이미 잡음 — 여기선 skip
-    case "$fid" in ''|'—'|'-'|'TBD'|'tbd') continue ;; esac
+    # FID 칸이 FID 가 아니면(TBD·—·빈칸) 이 FR 의 산출물을 찾을 수 없다. 종전엔 **말없이 건너뛰고** 검사 건수에는 넣었다 —
+    #   모델이 FID 칸 갱신을 빠뜨리면 그 FR 은 검사를 통째로 피하고 게이트는 OK 를 냈다(실측 20261008). 이제 뭉개짐 신호다.
+    if ! printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'; then
+      nofid="${nofid}  - ${fr_id}: FID 칸 '${fid:-(빈칸)}'"$'\n'
+      continue
+    fi
+    checked_n=$((checked_n + 1))
     for art in review-base.sha evidence.md; do
       [ -f "$SPECOPS_ROOT/$fid/$art" ] || \
         missing_artifacts="${missing_artifacts}  - ${fr_id} (${fid}): ${art} 없음"$'\n'
@@ -256,6 +268,12 @@ TIDS
 $done_pairs
 EOF
 fi
+if [ -n "$nofid" ]; then
+  echo "[FID 미기재] IMPL_DONE 인데 queue 의 FID 칸이 FID 가 아니다 — 그 FR 의 산출물·진행기록을 찾을 수 없다(검사 불가):"
+  printf '%s' "$nofid"
+  echo "  해법: bash scripts/_internal/queue-set-status.sh <queue.md> <FR-ID> IMPL_DONE <FID> 로 FID 칸을 채운다."
+  fail=1; fail_gate=1
+fi
 if [ -n "$missing_artifacts" ]; then
   echo "[산출물 누락] IMPL_DONE FID 의 per-FR 검증·리뷰 산출물 부재 (뭉개짐 방지 teeth):"
   printf '%s' "$missing_artifacts"
@@ -277,7 +295,7 @@ missing_progress=""
 if [ -n "$done_pairs" ]; then
   while IFS='|' read -r fr_id fid; do
     [ -z "$fr_id" ] && continue
-    case "$fid" in ''|'—'|'-'|'TBD'|'tbd') continue ;; esac
+    printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || continue   # FID 미기재는 위에서 이미 보고했다
     has_line=0
     if [ -f "$PROGRESS" ]; then
       awk -v f="## $fid" '$0 ~ "^"f"( |$)" {insec=1; next} insec && /^## / {exit} insec {print}' "$PROGRESS" \
@@ -300,7 +318,7 @@ if [ "$GATE" -eq 1 ]; then
     # ★ 건수를 함께 낸다 (20260828-vacuity-claim). 이 경로가 `gh pr create` 를 여는 훅
     #   판정이라 기본 모드보다 파급이 크다 — 0건 검사로 "뭉개짐 신호 없음" 을 선언하면
     #   batch PR 이 무검증으로 나간다. 0 은 정상일 수 있으나 **보이지 않으면 안 된다**.
-    _gchecked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+    _gchecked=$checked_n   # 실제로 산출물을 검사한 FID 수(FID 미기재 행은 세지 않는다)
     echo "BATCH-GATE: OK (뭉개짐 신호 없음 — ${_gchecked} FID 검사. 드리프트·미완은 운영 판단이라 차단 대상 아님)"
     exit 0
   fi
@@ -315,7 +333,7 @@ if [ "$fail" -eq 0 ]; then
   #   **아무것도 확인하지 않고 완비를 주장하는 것**은 다른 문제다. argus batch-20260729 가
   #   라벨 드리프트로 그 상태였고, 31 FR 이 무검증인 채 "완비" 로 보고됐다.
   #   건수를 노출하면 0 이 눈에 띄어 사람이 물을 수 있다 — 차단이 아니라 가시성이다.
-  _checked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
+  _checked=$checked_n
   echo "BATCH-STATE: OK (batch 대상 FR 전부 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 ${_checked} FID 검사)"
   exit 0
 fi

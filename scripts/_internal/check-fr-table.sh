@@ -2,7 +2,10 @@
 # check-fr-table.sh — requirements.md FR 표의 **실 FR** 판정 + batch 분류 (20260806 / 시드 SKIP 20260812)
 # Usage:
 #   check-fr-table.sh [requirements 경로]           # 인간 요약 (현행)
-#   check-fr-table.sh --classify [requirements 경로] # 기계 레코드 (ELIGIBLE|SKIP|SUMMARY)
+#   check-fr-table.sh --classify [requirements 경로] # 기계 레코드 (ELIGIBLE|SKIP|UNPARSED|SUMMARY)
+#     UNPARSED|<첫 칸 원문> — FR 처럼 보이나 읽지 못한 행(ID 형식이 다르거나 행이 들여쓰였다 — 뒤쪽은 ` (들여쓴 행)` 을 붙인다).
+#       있을 때만 SUMMARY 끝에 `|unparsed=N`.
+#     ID 는 장식(굵게·백틱)을 벗겨 낸 값이다. 접미 ID(FR-11b)도 FR 이다.
 # Exit: 0 = 실 FR ≥1 · 1 = 실 FR 0건 · 2 = 파일 부재
 #
 # 왜 필요한가: `/start-all` Phase 0 는 `grep -E '^\| FR-[0-9]+ \|'` 로 FR 을 기계 파싱하고
@@ -88,14 +91,23 @@ _is_foundation_scope() {
 
 tmp=$(mktemp)
 classify_out=$(mktemp)
-trap 'rm -f "$tmp" "$classify_out"' EXIT
 
-real=0; ph=0; ph_ids=""
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  id=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2}')
-  desc=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$3); print $3}')
-  ms=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$4); print $4}')
+# FR 행 읽기 (20261009) — 첫 칸의 장식(굵게 `**`·백틱·공백)을 벗겨 ID 를 얻는다. 접미 ID(`FR-11b`)도 FR 이다.
+#   종전 정규식은 `| FR-<숫자> |` 만 읽어, `| **FR-10** |`·`| FR-11b |` 행이 건수·경고·분류 어디에도 없이 사라졌다
+#   (사용자가 적은 기능이 batch 에서 조용히 빠진다 — 실측 20261008). FR 처럼 보이는데 못 읽은 행은 UNP 로 따로 모아 알린다.
+#   칸 구분은 US(\037)다 — 탭·공백은 공백류 IFS 라 `read` 가 빈 칸을 접는다. 설명이 빈 행에서 마일스톤이 설명 자리로
+#   밀려 placeholder 가 적격 FR 로 둔갑했다(독립 리뷰가 재현). `|` 는 표 구분자라 칸 안에 올 수 없지만 awk 쪽 printf 와
+#   읽는 쪽 IFS 를 한 글자로 맞추기 쉬운 US 를 쓴다.
+real=0; ph=0; ph_ids=""; unparsed=0; unparsed_ids=""
+unp_tmp=$(mktemp)
+trap 'rm -f "$tmp" "$classify_out" "$unp_tmp"' EXIT
+while IFS=$'\037' read -r rk id desc ms; do
+  [ -z "$rk" ] && continue
+  if [ "$rk" = "UNP" ]; then
+    unparsed=$((unparsed + 1)); unparsed_ids="${unparsed_ids}${unparsed_ids:+ · }${id}"
+    printf '%s\n' "$id" >>"$unp_tmp"
+    continue
+  fi
   if _is_placeholder_desc "$desc"; then
     ph=$((ph + 1)); ph_ids="${ph_ids}${ph_ids:+, }${id}"
     printf 'placeholder|%s|%s|%s\n' "$id" "$desc" "$ms" >>"$tmp"
@@ -104,7 +116,23 @@ while IFS= read -r line; do
     printf 'real|%s|%s|%s\n' "$id" "$desc" "$ms" >>"$tmp"
   fi
 done <<EOF
-$(grep -E '^\|[[:space:]]*FR-[0-9]+[[:space:]]*\|' "$REQ" 2>/dev/null)
+$(awk -F'|' '
+  function trim(v) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); return v }
+  # 줄 시작 `|` 인 표 행만 본다(batch-state.sh 의 FR_RE 와 같은 범위). 첫 칸에서 굵게·백틱 장식과 바깥 공백만 벗긴다.
+  #   읽는 ID: FR-<숫자로 시작하는 영숫자> — batch-state.sh 와 같은 꼴(FR-10 · FR-11b).
+  #   UNP 는 **칸 전체가 ID 하나처럼 생겼는데** 꼴이 다른 것만이다(`FR 6`·`FR6`·`FR_1`·`FR-x7`).
+  #   `FRAME 2`·`FR-1, FR-2`·`FR-3 → T4` 같은 칸은 FR 행이 아니다 — 경고하지 않는다.
+  /^\|/ {
+    c = $2; gsub(/[`*]/, "", c); c = trim(c)
+    if (c ~ /^FR-[0-9][0-9A-Za-z]*$/) { printf "ROW\037%s\037%s\037%s\n", c, trim($3), trim($4) }
+    else if (c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/) { printf "UNP\037%s\n", c }
+  }
+  # 들여쓴 표 행 — 마크다운은 표로 그리지만 이 판정기와 batch-state.sh 는 줄 시작 `|` 만 읽는다(종전부터).
+  #   읽는 범위를 넓히면 queue 를 읽는 쪽들과 어긋나므로 넓히지 않는다. 대신 FR 꼴이면 알린다 — 말없이 빠지지 않게.
+  /^[ \t]+\|/ {
+    c = $2; gsub(/[`*]/, "", c); c = trim(c)
+    if (c ~ /^FR-[0-9][0-9A-Za-z]*$/ || c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/) { printf "UNP\037%s (들여쓴 행)\n", c }
+  }' "$REQ" 2>/dev/null)
 EOF
 
 nonseed_ms_list=""
@@ -122,12 +150,18 @@ $ms"
   fi
 done <"$tmp"
 
+# 못 읽은 행이 있을 때만 SUMMARY 끝에 건수를 붙인다(없으면 종전 형식 그대로 — 소비자는 real=·eligible= 만 읽는다).
+unp_sfx=""; [ "$unparsed" -gt 0 ] && unp_sfx="|unparsed=${unparsed}"
+unp_warn=""
+[ "$unparsed" -gt 0 ] && unp_warn="  경고: 해석하지 못한 FR 행 ${unparsed}건 (${unparsed_ids}) — FR 처럼 보이나 ID 형식이 다르거나 행이 들여쓰여 batch 대상에서 빠진다. 줄 맨 앞에서 시작하는 | FR-<숫자> | 꼴로 고치세요"
+
 if [ "$real" -eq 0 ]; then
   if [ "$CLASSIFY" -eq 1 ]; then
     while IFS='|' read -r kind id desc ms; do
       [ "$kind" = "placeholder" ] && echo "SKIP|${id}|placeholder|"
     done <"$tmp"
-    echo "SUMMARY|real=0|eligible=0|seed_skip=0|placeholder=${ph}|foundation_skip=0"
+    while IFS= read -r u; do [ -n "$u" ] && echo "UNPARSED|${u}"; done <"$unp_tmp"
+    echo "SUMMARY|real=0|eligible=0|seed_skip=0|placeholder=${ph}|foundation_skip=0${unp_sfx}"
   fi
   cat <<EOF
 FR-TABLE: FAIL — 실 FR 0건 (placeholder ${ph}건: ${ph_ids:-none})
@@ -135,6 +169,7 @@ FR-TABLE: FAIL — 실 FR 0건 (placeholder ${ph}건: ${ph_ids:-none})
   존재하지 않는 기능을 구현하려 시도합니다.
   해법: requirements.md FR 표에 실제 기능 설명을 작성한 뒤 재실행하세요.
 EOF
+  [ -n "$unp_warn" ] && echo "$unp_warn"
   exit 1
 fi
 
@@ -166,7 +201,8 @@ done <"$tmp"
 
 if [ "$CLASSIFY" -eq 1 ]; then
   cat "$classify_out"
-  echo "SUMMARY|real=${real}|eligible=${eligible}|seed_skip=${seed_skip}|placeholder=${ph}|foundation_skip=${foundation_skip}"
+  while IFS= read -r u; do [ -n "$u" ] && echo "UNPARSED|${u}"; done <"$unp_tmp"
+  echo "SUMMARY|real=${real}|eligible=${eligible}|seed_skip=${seed_skip}|placeholder=${ph}|foundation_skip=${foundation_skip}${unp_sfx}"
   exit 0
 fi
 
@@ -174,4 +210,5 @@ echo "FR-TABLE: PASS — 실 FR ${real}건"
 [ "$ph" -gt 0 ] && echo "  경고: placeholder ${ph}건 (${ph_ids}) — batch 대상에서 제외하거나 채우세요"
 [ "$seed_skip" -gt 0 ] && echo "  시드 SKIP ${seed_skip}건: ${seed_ids} (같은 마일스톤 세부 FR 존재 — batch PENDING 제외)"
 [ "$foundation_skip" -gt 0 ] && echo "  공통부 SKIP ${foundation_skip}건: ${foundation_ids} (/start-foundation 담당 — batch PENDING 제외)"
+[ -n "$unp_warn" ] && echo "$unp_warn"
 exit 0

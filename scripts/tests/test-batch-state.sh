@@ -821,6 +821,47 @@ out=$(bash "$SCRIPT" "$TMP/skd/.specops/batch-s" "$TMP/skd/req.md" 2>&1); code=$
 [ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-7' \
   && ok "T-skip.i 실 행과 placeholder 행이 겹친 id → 여전히 드리프트" || nope "T-skip.i" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
 
+# ── T-fid: IMPL_DONE 인데 FID 칸이 비었거나 TBD 인 행 (20261009-startall-silent-pass) ──
+#   종전엔 그런 행을 **말없이 건너뛰고** "N FID 검사" 건수에는 포함했다 — 모델이 FID 칸 갱신을 빠뜨리면
+#   그 FR 은 산출물·진행기록 검사를 통째로 피하고 게이트는 OK 를 냈다(실측 20261008: evidence 없는 FR 이 `BATCH-GATE: OK (4 FID 검사)`).
+for cell in 'TBD' '—' ''; do
+  mkdir -p "$TMP/fid/.specops/batch-f" "$TMP/fid/.specops/20260101-f1"
+  cat > "$TMP/fid/.specops/batch-f/queue.md" <<EOF
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | 20260101-f1 | one | IMPL_DONE |
+| FR-2 | $cell | two | IMPL_DONE |
+EOF
+  : > "$TMP/fid/.specops/20260101-f1/review-base.sha"; : > "$TMP/fid/.specops/20260101-f1/evidence.md"; : > "$TMP/fid/.specops/20260101-f1/review-request.md"
+  printf '## 20260101-f1\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/fid/.specops/session-progress.md"
+  printf '| FR-1 | a | M1 | must | s |\n| FR-2 | b | M1 | must | s |\n' > "$TMP/fid/req.md"
+  out=$(bash "$SCRIPT" --gate "$TMP/fid/.specops/batch-f" "$TMP/fid/req.md" 2>&1); code=$?
+  if [ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FID 미기재' && printf '%s' "$out" | grep -q 'FR-2' && printf '%s' "$out" | grep -q 'BATCH-GATE: BLOCK'; then
+    ok "T-fid.a ★ FID 칸 '${cell:-(빈칸)}' 인 IMPL_DONE 행 → --gate BLOCK (건너뛰지 않는다)"
+  else
+    nope "T-fid.a '${cell:-(빈칸)}'" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+  fi
+  out=$(bash "$SCRIPT" "$TMP/fid/.specops/batch-f" "$TMP/fid/req.md" 2>&1); code=$?
+  [ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FID 미기재' || nope "T-fid.a2 '${cell:-(빈칸)}' 기본 모드" "exit=$code"
+  #   메시지는 FID 칸의 값을 그대로 보인다 — 빈칸이면 설명 칸의 글자("two")가 아니라 (빈칸) 이다
+  printf '%s' "$out" | grep -qF "FR-2: FID 칸 '${cell:-(빈칸)}'" || nope "T-fid.a3 '${cell:-(빈칸)}' 메시지" "$(printf '%s' "$out" | grep 'FR-2' | head -1)"
+  rm -rf "$TMP/fid"
+done
+#   건수는 실제로 검사한 FID 만 센다
+mkdir -p "$TMP/fidc/.specops/batch-f" "$TMP/fidc/.specops/20260101-f1"
+printf '| FR-ID | FID | FR 설명(1줄) | Status |\n|---|---|---|---|\n| FR-1 | 20260101-f1 | one | IMPL_DONE |\n| FR-2 | 20260101-f2 | two | MERGED |\n' > "$TMP/fidc/.specops/batch-f/queue.md"
+: > "$TMP/fidc/.specops/20260101-f1/review-base.sha"; : > "$TMP/fidc/.specops/20260101-f1/evidence.md"; : > "$TMP/fidc/.specops/20260101-f1/review-request.md"
+printf '## 20260101-f1\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/fidc/.specops/session-progress.md"
+printf '| FR-1 | a | M1 | must | s |\n| FR-2 | b | M1 | must | s |\n' > "$TMP/fidc/req.md"
+out=$(bash "$SCRIPT" --gate "$TMP/fidc/.specops/batch-f" "$TMP/fidc/req.md" 2>&1); code=$?
+[ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '1 FID 검사' \
+  && ok "T-fid.b 정상 batch 는 불변 — 건수는 실제로 검사한 FID 수" || nope "T-fid.b" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+#   requirements 의 굵은 ID 행도 queue 와 대조한다(종전엔 정규식에 안 걸려 드리프트 검사에서 빠졌다)
+printf '| **FR-3** | c | M1 | must | s |\n' >> "$TMP/fidc/req.md"
+out=$(bash "$SCRIPT" "$TMP/fidc/.specops/batch-f" "$TMP/fidc/req.md" 2>&1); code=$?
+[ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-3' \
+  && ok "T-fid.c requirements 의 굵은 ID FR 도 드리프트 대조에 든다" || nope "T-fid.c" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

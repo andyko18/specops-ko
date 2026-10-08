@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/start-all` 에서 검사가 조용히 통과하던 2건** — v2.15.0 점검에서 확인하고 남겨 둔 것.
+  - **FID 칸이 빈 완료 행**: `batch-state.sh` 는 queue 의 FID 칸으로 그 FR 의 산출물을 찾는데, 칸이 `TBD`·`—` 인 `IMPL_DONE` 행은 **말없이 건너뛰고 검사 건수에는 넣었다** — 모델이 FID 칸 갱신을 빠뜨리면 그 FR 은 산출물·진행기록 검사를 통째로 피하고 게이트는 `OK (N FID 검사)` 를 냈다(실측: evidence 없는 FR 이 통과). `start-all.md` 는 "FID 컬럼은 게이트가 읽는 값이 아니다" 라고까지 적혀 있었다. 이제 그런 행은 `[FID 미기재]` 로 **차단**한다(기본·`--gate` 모두).
+    유입도 끊었다: `queue-set-status.sh <queue> <FR-ID> <STATUS> [FID]` — 넷째 인자로 FID 칸을 함께 채우고, FID 칸이 빈 행은 `IMPL_DONE` 으로 바꾸지 않는다(`PLAN_DONE` 은 갱신하되 경고). `start-all.md` 는 `PLAN_DONE`·`IMPL_DONE` 두 호출 모두 FID 를 함께 준다 — 이전 버전에서 시작해 FID 칸이 `TBD` 인 batch 도 `IMPL_DONE` 호출에서 채워진다.
+  - **FR 행이 경고 없이 빠짐**: FR 표 판정기(`check-fr-table.sh`)가 `| FR-<숫자> |` 만 읽어, ID 를 굵게 쓴 행(`| **FR-10** |`)·접미 ID(`| FR-11b |`)·백틱 ID 가 건수·경고·분류 어디에도 없이 사라졌다 — 사용자가 적은 기능이 batch 에서 빠진다. 이제 장식을 벗겨 FR 로 읽고, 칸 전체가 ID 처럼 생겼는데 꼴이 다른 행(`FR 6`·`FR_1`·`FR-x7`)과 들여쓴 FR 행(종전부터 읽지 않는다 — 읽는 범위는 그대로 두고 알리기만 한다)은 `UNPARSED` 레코드와 경고로 알린다(`init-batch-queue.sh` 가 출력과 queue 머리말에, `collect-assumptions.sh` 가 batch PR 다이제스트에 남긴다 — 무인 batch 에서 사용자가 보는 지점은 다이제스트뿐이다). `batch-state.sh` 의 requirements 대조도 굵은 ID 를 읽는다.
+  - `start-all.md` Phase 0 의 손 `grep`(공백까지 맞춘 패턴이라 같은 행을 놓쳤다)을 판정기 호출로 바꿨다.
+  - 잠금: `test-batch-state` T-fid.a~c · `test-queue-set-status` T15~T18 · `test-fr-placeholder-guard` T9~T12 · `test-init-batch-queue` T10 · `test-assumption-digest` T-unp. 독립 코드 리뷰가 이번 변경의 회귀 1건(설명 칸이 빈 FR 행이 적격으로 둔갑 — 탭 구분자가 빈 칸을 접었다)을 실행으로 찾아 고쳤고, 최종 코드로 다시 잰 실측: 네 프로젝트의 실제 queue 6건에서 `batch-state.sh` 판정(기본·`--gate` 종료 코드 12건)이 종전과 같고 `[FID 미기재]` 는 0건이다. requirements 분류는 세 프로젝트가 종전과 같고, 한 프로젝트는 종전에 빠져 있던 FR 4행(굵은 ID 3 · 접미 ID 1)을 이제 읽는다.
+  - 이번에 고치지 않은 것(같은 부류 — 손으로 고친 queue 행에서만 샌다): `pretool-governance.sh` 의 RELEASE_READY 가 굵은 Status·백틱 FID 행을 건너뛴다 · `batch-plan-digest.sh` 가 굵은 FR-ID 행을 빼먹는다 · 서로 다른 FR 이 같은 FID 를 가져도 검사하지 않는다 · `requirements-append-fr.sh` 가 굵은 ID 행을 못 읽어 삽입 위치가 어긋난다.
+
 ## [2.15.0] — 2026-10-09
 
 ### Fixed

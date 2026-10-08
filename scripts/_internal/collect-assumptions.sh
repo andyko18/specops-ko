@@ -15,6 +15,7 @@
 #   ① clarifications.md 의 `status: ASSUMED` Q-block
 #   ② spec.md §1 의 `**자동 결정 화면**` · `**자동 결정 인터페이스**` · `**자동 결정 intent**` (사용자 미확인 결정)
 #   ③ dev-decisions.md 의 기록 줄 — 개발 구간에서 묻지 않고 정한 것(20261008 · dev-decision.sh 가 쓴 형식만)
+#   ④ queue.md 머리말의 `해석하지 못한 FR 행` 줄 — batch 대상에서 빠진 FR 행(20261009 · init-batch-queue.sh 가 쓴다)
 # 가정 0건도 **명시 보고**한다 — "0건" 과 "집계 안 함" 은 다르다.
 set -u
 
@@ -41,6 +42,18 @@ echo "> 집계기: collect-assumptions.sh (수기 집계 금지 — 과소보고
 echo ""
 
 total=0
+
+# batch 대상에서 빠진 FR 행 (20261009) — init-batch-queue.sh 가 queue 머리말에 남긴 줄을 그대로 옮긴다.
+#   requirements 에 FR 처럼 적혔지만 ID 형식이 다르거나 들여쓰여 읽지 못한 행이다. 무인 batch 에서 사용자가 보는 지점은 이 다이제스트뿐이라,
+#   여기 없으면 "적었는데 구현되지 않은 기능" 이 아무에게도 보이지 않는다.
+unp_line=$(grep -m1 -E '^> \*\*해석하지 못한 FR 행\*\*' "$QUEUE" 2>/dev/null | sed -E 's/^> //' || true)
+if [ -n "$unp_line" ]; then
+  echo "## batch 대상에서 빠진 FR 행"
+  echo "- $unp_line"
+  echo ""
+  total=$((total + 1))
+fi
+
 for fid in $fids; do
   section=""
 
