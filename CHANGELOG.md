@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Docs
+
+- **README `## 알아둘 것` 신설 (온보딩)** — 필요 도구 표(`jq` 부재 시 훅 전면 fail-open·`pyyaml` 부재 시 게이트 SKIP), FID 1건의 실측 소요(중앙값 약 2시간·p90 약 7.6시간)와 소형 변경의 산출물 무게, 적용 범위(훅 차단은 `.specops/` 있는 repo 만 · 기본 `user` 설치는 모든 세션에 메타 스킬 주입 → `--scope project` 안내), 산출물이 기본 로컬이라는 사실(`.specops/.gitignore` 는 `memory/`·`session-progress.md` 만 커밋 → PR 리뷰어는 FID 산출물을 못 봄), 데이터·프라이버시(훅은 네트워크 미사용, 외부 송신 가능 경로는 `critic-ask.sh` 뿐 — provider 순서·200KB 상한, 자유작업 캡처는 마스킹이 완전하지 않고 프로파일로 끌 수 없음), 업그레이드·삭제(`claude plugin update|uninstall`, `statusLine` 절대경로 낡음, `.specops/` 는 남음). 모든 주장은 코드에서 직접 확인했다.
+- **`docs/audit/2026-10-08-plugin-evaluation-8th.md`** — 8회차 6.3/10(−0.9). 방법이 단독 → 독립 에이전트 5개로 바뀌어 하락의 일부는 '처음 드러남'임을 명시. README 의 낡은 '현재 7.3/10' 문구 갱신.
+
 ### Fixed
 
 - **리뷰 재진입이 낡은 B/C 리포트에 가려 무리뷰로 통과하던 문제** — `requesting-code-review-ko` Step 0 의 SKIP 조건이 "리포트 *존재*"뿐이라, security/integration/performance FAIL 을 고친 뒤 재진입하면 수정 커밋이 어떤 리뷰도 받지 못했다. 조건 ④ **신선도**(`scripts/_internal/check-review-fresh.sh` — 최신 B/C 리포트 mtime vs `.specops/` 밖 마지막 코드 커밋·미커밋 추적 변경, rc 0=FRESH·1=STALE·2=판정불가 → 1·2 는 SKIP 불가)를 추가했다. `systematic-debugging-ko` 의 FAIL 복귀가 게이트로 곧장 돌아가던 경로(수정이 verify·리뷰를 건너뜀)는 각 게이트 SKILL 의 `verify → 리뷰 → 게이트 재진입` 경로로 정렬했다(`test-review-fresh` F1~F6).
