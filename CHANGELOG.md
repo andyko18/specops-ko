@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-10-08
+
 ### 작은 수정 소요 단축 — 스위트 상한 600s · 느린 대상 스위트 리뷰·구현 실행 상한 (#137)
 
 사용자 피드백 "2줄짜리 테스트 수정에 분석부터 PR 까지 약 1시간 50분"의 실측 원인 두 가지를 고쳤다. **품질 게이트(B·C 리뷰 각 1회·독립 되돌려-관찰·verify·전체 스위트)는 줄이지 않는다**(비용보다 품질 우선).
@@ -2919,7 +2921,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/andyko18/specops-ko/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/andyko18/specops-ko/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/andyko18/specops-ko/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/andyko18/specops-ko/compare/v2.4.0...v2.5.0
