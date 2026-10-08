@@ -718,6 +718,109 @@ else
   nope "T-vac.c gate 헛된 통과 선언" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ')"
 fi
 
+# ── T-skip: SKIP 행·placeholder FR 은 batch 대상이 아니다 (20261009-startall-tail) ──
+#   init-batch-queue.sh 는 시드·공통부 FR 을 `SKIP` 행으로 쓰고 placeholder 행은 queue 에서 뺀다 — 이 플러그인이 만든 정상 상태다.
+#   그런데 기본 모드가 SKIP 을 [미완]으로, placeholder 를 [드리프트]로 세어, 적격 FR 이 전부 끝나도 **항상 exit 1** 이었다.
+#   → 대화형은 매번 "그래도 진행?" 을 묻고 `/start-all-auto` 는 PR 직전에 항상 멈췄다(실측 20261008 — 설치본을 연습용 프로젝트에서 실행).
+#   batch-resume-check.sh 는 이미 SKIP 을 분모에서 뺀다 — 두 판독기가 같은 queue 를 다르게 읽고 있었다.
+_skipfx() {  # $1=dir $2=FR-6 의 Status
+  mkdir -p "$1/.specops/batch-s" "$1/.specops/20260101-s5" "$1/.specops/20260101-s6"
+  cat > "$1/.specops/batch-s/queue.md" <<EOF
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | — | (마일스톤 시드 — 세부 FR로 분해됨) | SKIP |
+| FR-4 | — | (공통부 — /start-foundation 담당) | SKIP |
+| FR-5 | 20260101-s5 | 목록 | IMPL_DONE |
+| FR-6 | 20260101-s6 | 상세 | $2 |
+EOF
+  local f
+  for f in 20260101-s5 20260101-s6; do
+    : > "$1/.specops/$f/review-base.sha"; : > "$1/.specops/$f/evidence.md"; : > "$1/.specops/$f/review-request.md"
+  done
+  printf '## 20260101-s5\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n## 20260101-s6\n- 2026-01-01 11:00 /verify PASS (evidence.md)\n' > "$1/.specops/session-progress.md"
+  cat > "$1/req.md" <<'EOF'
+<!-- seed-fr: FR-1,FR-2,FR-3 -->
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-1 | 주문 관리 | M1 | must | (TBD) |
+| FR-4 | [공통] 로그인 | M1 | must | (TBD) |
+| FR-5 | 주문 목록 | M1 | must | (TBD) |
+| FR-6 | 주문 상세 | M1 | must | (TBD) |
+| FR-9 | <한 줄> | M2 | nice | (TBD) |
+EOF
+}
+_skipfx "$TMP/sk1" IMPL_DONE
+out=$(bash "$SCRIPT" "$TMP/sk1/.specops/batch-s" "$TMP/sk1/req.md" 2>&1); code=$?
+if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'BATCH-STATE: OK' \
+   && ! printf '%s' "$out" | grep -q '\[미완\]' && ! printf '%s' "$out" | grep -q '\[드리프트\]'; then
+  ok "T-skip.a ★ 적격 FR 전부 완료 + SKIP 2 + placeholder 1 → exit 0 (미완·드리프트 아님)"
+else
+  nope "T-skip.a" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+fi
+#   제외한 것은 숨기지 않는다 — 무엇을 빼고 완료라 했는지 출력에 남는다
+if printf '%s' "$out" | grep -q '\[제외\]' && printf '%s' "$out" | grep -q 'FR-1' && printf '%s' "$out" | grep -q 'FR-4' \
+   && printf '%s' "$out" | grep -q 'FR-9'; then
+  ok "T-skip.b 제외한 SKIP·placeholder 를 [제외] 로 밝힌다"
+else
+  nope "T-skip.b" "out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-240)"
+fi
+_skipfx "$TMP/sk2" PLAN_DONE
+out=$(bash "$SCRIPT" "$TMP/sk2/.specops/batch-s" "$TMP/sk2/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FR-6: PLAN_DONE' \
+   && ! printf '%s' "$out" | sed -n '/\[미완\]/,/^\[/p' | grep -q 'SKIP'; then
+  ok "T-skip.c 진짜 미완(PLAN_DONE)은 그대로 exit 1 — 미완 목록에 SKIP 은 없다"
+else
+  nope "T-skip.c" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+fi
+#   HELD·BLOCKED 는 건너뛴 것이 아니라 멈춘 것이다 — 여전히 미완
+_skipfx "$TMP/sk3" 'HELD (자격증명 대기)'
+out=$(bash "$SCRIPT" "$TMP/sk3/.specops/batch-s" "$TMP/sk3/req.md" 2>&1); code=$?
+[ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FR-6: HELD' \
+  && ok "T-skip.d HELD 는 여전히 미완(exit 1)" || nope "T-skip.d" "exit=$code"
+#   placeholder 가 아닌 실 FR 이 queue 에 없으면 여전히 드리프트
+_skipfx "$TMP/sk4" IMPL_DONE
+printf '| FR-7 | 주문 취소 | M1 | should | (TBD) |\n' >> "$TMP/sk4/req.md"
+out=$(bash "$SCRIPT" "$TMP/sk4/.specops/batch-s" "$TMP/sk4/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-7' \
+   && ! printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-9'; then
+  ok "T-skip.e 실 FR 누락은 여전히 드리프트 · placeholder 는 드리프트 아님"
+else
+  nope "T-skip.e" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+fi
+#   --gate 판정은 그대로다(SKIP 은 원래 차단 사유가 아니었다)
+out=$(bash "$SCRIPT" --gate "$TMP/sk1/.specops/batch-s" "$TMP/sk1/req.md" 2>&1); code=$?
+[ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'BATCH-GATE: OK' \
+  && ok "T-skip.f --gate 는 불변(OK)" || nope "T-skip.f" "exit=$code"
+
+#   ★ SKIP 글자만으로 빼지 않는다 — 분류기가 batch 대상이라는 FR 을 SKIP 으로 바꿔도 "완료" 가 되지 않는다.
+#     (`--gate`·RELEASE_READY 는 IMPL_DONE 행만 보고 무인은 exit code 만 본다 — 여기가 유일한 관문이다. 독립 리뷰가 재현.)
+for lab in 'SKIP' '**SKIP**' 'SKIP (구현 실패)'; do
+  _skipfx "$TMP/skg" "$lab"
+  out=$(bash "$SCRIPT" "$TMP/skg/.specops/batch-s" "$TMP/skg/req.md" 2>&1); code=$?
+  if [ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[미완\]/,/^\[/p' | grep -q 'FR-6' \
+     && ! printf '%s' "$out" | sed -n '/\[제외\]/,$p' | grep -q 'FR-6'; then
+    ok "T-skip.g ★ 적격 FR 을 '$lab' 로 둔 행 → 미완(exit 1) · [제외] 에 없음"
+  else
+    nope "T-skip.g '$lab'" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-220)"
+  fi
+  rm -rf "$TMP/skg"
+done
+#   분류기를 못 돌리면 아무것도 빼지 않는다(판정 불가를 "문제 없음" 으로 읽지 않는다)
+mkdir -p "$TMP/nochk/scripts/_internal"
+cp "$SCRIPT" "$TMP/nochk/scripts/batch-state.sh"; cp "$PLUGIN/scripts/_internal/queue-lib.sh" "$TMP/nochk/scripts/_internal/"
+out=$(bash "$TMP/nochk/scripts/batch-state.sh" "$TMP/sk1/.specops/batch-s" "$TMP/sk1/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FR-1: SKIP' && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-9'; then
+  ok "T-skip.h 분류기 부재 → SKIP·placeholder 를 빼지 않고 종전대로 센다(exit 1)"
+else
+  nope "T-skip.h" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-220)"
+fi
+#   같은 id 가 실 행과 placeholder 행으로 겹치면(복붙 실수) 실 FR 이다 — 드리프트에서 빼지 않는다
+_skipfx "$TMP/skd" IMPL_DONE
+printf '| FR-7 | 주문 취소 | M1 | should | (TBD) |\n| FR-7 | <한 줄> | M1 | should | (TBD) |\n' >> "$TMP/skd/req.md"
+out=$(bash "$SCRIPT" "$TMP/skd/.specops/batch-s" "$TMP/skd/req.md" 2>&1); code=$?
+[ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-7' \
+  && ok "T-skip.i 실 행과 placeholder 행이 겹친 id → 여전히 드리프트" || nope "T-skip.i" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

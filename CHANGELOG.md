@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/start-all` 이 끝단에서 막히던 문제 3건** — 설치본 스크립트를 연습용 프로젝트에서 Phase 순서대로 실행하고, 실제 batch 기록 6건(4개 프로젝트)을 대조해 찾았다. 실기록에서 batch PR 로 닫힌 것은 0건이었다(5건은 로컬 병합, 1건은 구현 뒤 중단).
+  - **끝 상태 판정이 항상 "미완"**: `batch-state.sh` 기본 모드가 `SKIP` 행을 미완으로, requirements 의 placeholder FR 을 드리프트로 셌다. 시드·공통부 FR 을 `SKIP` 으로 쓰고 placeholder 를 빼는 것은 `init-batch-queue.sh` 가 만드는 정상 상태라, 적격 FR 이 전부 끝나도 **항상 exit 1** 이었다 — 대화형은 매번 "그래도 진행?" 을 묻고 `/start-all-auto` 는 PR 직전에 항상 멈췄다. 이제 둘을 세지 않고 `[제외]` 로 밝힌다(`HELD`·`BLOCKED` 는 여전히 미완 · `--gate` 판정은 불변). **queue 의 SKIP 글자만으로 빼지 않는다** — `check-fr-table.sh --classify` 가 batch 대상이 아니라고 한 FR(시드·공통부·placeholder)만 뺀다. 분류기가 적격이라는 FR 을 SKIP 으로 둔 행은 미완이다(못 끝낸 FR 을 SKIP 으로 바꿔 "완료" 를 만드는 경로를 막는다 — `--gate` 와 RELEASE_READY 는 IMPL_DONE 행만 보고 무인은 exit code 만 본다). 분류기를 못 돌리면 아무것도 빼지 않는다.
+  - **건너뛴 게이트의 근거 형식**: `record-batch-gate.sh` 는 아무 근거나 받는데 `release-ready.sh` 는 줄 번호 인용이 없는 SKIP 을 BARE 로 보고 batch PR 을 hard deny 했다. `start-all.md` 의 예시(`[SKIP근거]`)는 형식을 말하지 않아 문서대로 하면 기록은 되고 PR 에서야 막혔고, "기존 기록 보존" 때문에 다시 불러도 고쳐지지 않았다. 이제 인용 없는 근거는 **쓰는 시점에 거부**하고(예시 안내), 이미 기록된 인용 없는 SKIP 은 인용 있는 근거로 다시 부르면 보완된다(종전 근거는 `**종전 근거**:` 로 남는다 · 판정 파서와 같은 우선순위로 그 게이트의 SKIP 섹션만 건드린다 · 근거의 줄바꿈은 거부). 헤더만 있고 판정이 없는 섹션은 기록으로 치지 않아, 전파하면 채워진다.
+  - **게이트 전파 누락을 닫기 전에 본다**: `record-batch-gate.sh <batch-dir> status`(신설 · 읽기 전용)가 전 IMPL_DONE FID 의 보안·통합·성능 판정을 `PASS`·`SKIP`·`SKIP(BARE)`·`MISSING` 으로 보여 주고, 빠진 것이 있으면 rc 1 이다(IMPL_DONE 인데 queue 의 FID 칸이 `TBD` 인 행도 "확인할 수 없음" 으로 rc 1). `start-all.md` Step D 가 닫기 전에 반드시 돌리게 했다 — batch PR 게이트는 `gh pr create` 에서만 발화해, 로컬 병합으로 닫는 batch 는 한 번도 평가되지 않았다.
+  - 잠금: `test-batch-state` T-skip.a~i · `test-batch-gate-record` T10~T17 (BSD awk·mawk·gawk · 가드 16종 되돌려-관찰). 독립 코드 리뷰의 중요 3건(적격 FR 을 SKIP 으로 바꾸면 완료가 되던 것 · PASS 섹션을 SKIP 으로 오판해 근거를 덮어쓰던 것 · 근거 글자가 변형되던 것)과 물지 않던 단언을 반영했다.
+  - 이번에 고치지 않은 것(같은 점검에서 확인 · 다음 작업): queue 의 FID 칸이 `TBD` 인 IMPL_DONE 행은 `batch-state.sh` 의 산출물 검사를 건너뛰는데 건수에는 포함된다(`status` 는 이번에 잡는다) · FR 표의 굵은 ID(`**FR-10**`)·접미 ID 행이 Phase 0 에서 경고 없이 빠진다 · batch 에서 외부 작업 사전 승인을 받는 단계가 없다 · Step D 가 "개발 중 결정" 을 보여 주라고 지시하지 않는다 · `collect-assumptions.sh` 머리말의 백틱이 명령으로 실행된다.
+
 ## [2.14.0] — 2026-10-08
 
 ### Added

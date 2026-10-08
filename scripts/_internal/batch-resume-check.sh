@@ -89,7 +89,7 @@ _detail() {
       done
     fi
     if [ -n "$miss" ]; then
-      echo "   게이트 전파 누락: ${miss} — Phase 3 Step A/B/C 를 **실행한 뒤 그 판정을** 전파한다: bash \${CLAUDE_PLUGIN_ROOT}/scripts/_internal/record-batch-gate.sh $batch_dir {게이트} {PASS 또는 SKIP}"
+      echo "   게이트 전파 누락: ${miss} — Phase 3 Step A/B/C 를 **실행한 뒤 그 판정을** 전파한다: bash \${CLAUDE_PLUGIN_ROOT}/scripts/_internal/record-batch-gate.sh $batch_dir {게이트} {PASS 또는 SKIP \"§섹션 L줄 — 사유\"}"
     fi
   else
     echo "⚠️ 미완 batch — ${batch_id}: ${done_n}/${total} 완료. ACTIVE 마커가 남아 있다."
