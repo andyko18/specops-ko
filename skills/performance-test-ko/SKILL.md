@@ -3,7 +3,7 @@ name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 2.9.0
+specops_version: 2.13.0
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
@@ -233,6 +233,9 @@ cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
 ### 에스컬레이션 이력
 <auto-state.md escalations — 없으면 "(없음)">
 
+### 개발 중 결정
+<`dev-decision.sh show <FID>` 출력 그대로>
+
 ---
 위 가정 위에 구현됐습니다. PR을 생성하시겠습니까? [y/n]
 ```
@@ -250,7 +253,15 @@ if [ -z "$(git log main..HEAD --oneline)" ]; then
 fi
 ```
 
-### 2. 사용자 확인
+### 2. 끝 보고 + 사용자 확인
+
+개발 구간에서는 묻지 않고 진행했으므로(`skills/implementing-ko/dev-autonomy.md`) 여기가 사용자가 **대신 정해진 것**을 보는 지점이다. 먼저 아래 출력을 **줄이지 않고 그대로** 보여 준다(0건이어도 그 줄을 보여 준다):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh show <FID>
+```
+
+이어서 묻는다:
 
 > "모든 테스트 통과 (또는 skip). PR을 생성하시겠습니까? [y/n]"
 
@@ -272,6 +283,9 @@ gh pr create \
 ## Test plan
 - [ ] 프로젝트 테스트(`tasks.md` 의 test_command) 전 항목 PASS — 근거: `.specops/<FID>/evidence.md` `VERIFY: PASS`
 - [ ] security / integration / performance 게이트 결과: `.specops/<FID>/evidence.md`
+
+## 이번에 고치지 않고 넘긴 것
+<`dev-decision.sh show <FID> --backlog` 출력 — 비면 "없음">
 
 🤖 Generated with specops-ko Lifecycle (FID: $FID)
 EOF

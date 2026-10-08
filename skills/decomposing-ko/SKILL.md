@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 2.9.0
+specops_version: 2.13.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -269,6 +269,10 @@ git commit -m "feat: <기능명> 추가"
 4. data-model.md 의 ERD·엔티티표가 forward 와 일치하도록 갱신 (Step 5.6 design-first 산출과 정합)
 
 DAG: down·테스트는 up 에 `depends_on`. 파괴적 forward 는 아래 격리 규칙으로 `irreversible: true`.
+
+## repo 밖 흔적 표지 (`external:`)
+
+되돌릴 수는 있어도 **repo 밖에 흔적을 남기는** 태스크(실 DB 쓰기·적재, 과금·호출 한도가 있는 외부 API 호출, 배포, 원격 리소스 생성)는 DAG YAML 노드에 `external: "<무엇을 어디에 — 되돌리는 방법>"` 을 붙인다. `implementing-ko` 가 구현 시작 전에 이 표지를 모아 **한 번에** 승인받는다(`dev-autonomy.md` §1) — 표지가 없으면 태스크마다 실행 직전에 멈춘다. `irreversible: true` 와 섞지 않는다: 그 필드는 되돌릴 수 없는 작업 전용이고 위험도 판정이 strict 신호로 읽는다.
 
 ## 파괴적 작업 격리
 

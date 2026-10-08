@@ -313,4 +313,80 @@ else
   nope "README 모델·effort 운용 가이드 소실" "프로파일 표·환경변수 우선순위·덮어쓰기·한계 고지 중 일부 부재"
 fi
 
+# ── 개발 구간 무질문 정책 (20261008-dev-no-ask) ─────────────
+#   실측: 하류 3개 프로젝트의 개발 중 질문 40건 중 33건은 플러그인 게이트가 아니라 세션이 스스로 물은 것이었다.
+#   정책 문서·본문 포인터·끝 보고 배선이 하나라도 빠지면 "묻지도 않고 알리지도 않는" 상태가 된다.
+I=skills/implementing-ko/SKILL.md
+A=skills/implementing-ko/dev-autonomy.md
+P=skills/performance-test-ko/SKILL.md
+if has "$I" '^## 개발 구간 무질문' 'dev-autonomy\.md' 'dev-decision\.sh'; then
+  ok "implementing-ko: 개발 구간 무질문 절 + 보조 문서 포인터"
+else
+  nope "implementing-ko 무질문 포인터 소실" "dev-autonomy.md 를 읽으라는 지시가 없으면 정책이 적용되지 않는다"
+fi
+if ! grep -qE '자동 수정 전 확인|자동 진행 금지 — 사용자 입력 대기|자동 진행 금지, 사용자 결정 대기' "$I"; then
+  ok "implementing-ko: 무질문과 충돌하는 옛 문장(자동 수정 전 확인·자동 진행 금지) 없음"
+else
+  nope "implementing-ko 충돌 문장 재등장" "리뷰 이슈마다 묻게 만드는 문장이 돌아왔다"
+fi
+if has "$I" '\*\*cap 초과 처리\*\* \(모드 무관' 'systematic-debugging-ko → 전역 재시도'; then
+  ok "implementing-ko: cap 초과 처리가 모드 무관(전역 재시도 1회 뒤에만 정지)"
+else
+  nope "implementing-ko cap 초과 처리 모드 한정" "단일 모드가 cap 초과마다 묻는 종전 동작으로 돌아갔다"
+fi
+if has "$A" '시작 전 — 알려진 외부 작업은 한 번에 승인' '이전부터 있던 결함' 'AC·spec 문언을 바꿔야' '묻지 않고 만들지 않는다' \
+            '그래도 멈추는 것' 'NEEDS_APPROVAL' 'NEEDS_DISCUSSION' 'Critical 미해결' 'dev-decision\.sh show'; then
+  ok "dev-autonomy.md: 사전 승인 · 계약 안/밖 기준 · 멈추는 예외 · 끝 보고"
+else
+  nope "dev-autonomy.md 핵심 규칙 소실" "$A"
+fi
+if has "$P" 'dev-decision\.sh show <FID>' '줄이지 않고 그대로' 'show <FID> --backlog' '### 개발 중 결정'; then
+  ok "performance-test-ko: PR 게이트 끝 보고(단일·§auto 다이제스트) + PR 본문 backlog"
+else
+  nope "PR 게이트 끝 보고 소실" "묻지 않고 정한 것을 사용자가 볼 지점이 없다"
+fi
+if has scripts/_internal/collect-assumptions.sh 'dev-decisions\.md' '개발 중 결정 · '; then
+  ok "collect-assumptions: batch 다이제스트가 개발 중 결정을 모은다"
+else
+  nope "batch 다이제스트의 개발 중 결정 집계 소실" "/start-all 은 FR 별 PR 게이트가 없어 이 집계가 유일한 보고 지점이다"
+fi
+#   구현자 쪽 짝 — 부모가 묻지 않아도 구현자가 되물으면 같은 병이다
+if has agents/implementer-ko.md '재확인 금지' 'NEEDS_APPROVAL'; then
+  ok "implementer-ko: 재확인 금지 + 비가역 NEEDS_APPROVAL 유지"
+else
+  nope "implementer-ko 재확인 금지·NEEDS_APPROVAL 소실" "agents/implementer-ko.md"
+fi
+#   ★ 안전망 — 사전 승인 훑기에서 빠진 외부 쓰기는 구현자가 실행 직전에 잡아야 한다(리뷰 C1).
+#     "삭제"만 승인 대상이면 실 DB 적재·과금 API 호출이 묻지 않고 실행된다.
+if has agents/implementer-ko.md 'repo 밖에 흔적을 남기는 실행' '실 DB 쓰기' 'approval\.md.*승인 범위 안' \
+   && has "$A" '두 층 중 하나만 믿지 않는다' "grep -nE 'irreversible:" \
+   && has skills/decomposing-ko/SKILL.md '^## repo 밖 흔적 표지' 'external: "'; then
+  ok "외부 작업 승인 2층: 구현자 NEEDS_APPROVAL(repo 밖 흔적) + 사전 승인 표지(external:)"
+else
+  nope "외부 작업 승인 안전망 소실" "implementer-ko 의 repo 밖 흔적 트리거 또는 external: 표지 규칙"
+fi
+#   넘길 수 없는 것 — 출처가 기존 코드여도 backlog 로 흘리지 않는다(리뷰 I3)
+if has "$A" '넘길 수 없는 것' 'Phase B FAIL' '보안 스캔의 Critical/High' 'verify FAIL' 'git diff <base>\.\.\.HEAD'; then
+  ok "dev-autonomy.md: 넘길 수 없는 것(B FAIL·Critical·보안 Critical/High·verify FAIL) + 소유 판정 기준"
+else
+  nope "dev-autonomy.md 넘길 수 없는 것 소실" "보안·스펙 미충족이 backlog 로 흘러 PR 까지 갈 수 있다"
+fi
+#   환경이 없어 못 돌린 게이트는 조용히 SKIP 하지 않는다(리뷰 I2) · 사전 승인된 태스크는 Step 0 을 다시 묻지 않는다(I4)
+if has "$A" '실행 환경이 없어' '조용히 SKIP 하면 검증되지 않은 채' 'Step 0\(승인 요청\)을 다시 묻지 않는다' '재리뷰를 거친다' \
+   && ! grep -qE '환경 미비로 실행 불가' "$A"; then
+  ok "dev-autonomy.md: 환경 미비는 묻는다 · 사전 승인 뒤 재질문 없음 · 수정 라운드는 재리뷰"
+else
+  nope "dev-autonomy.md 환경·재질문·재리뷰 규칙 소실" "$A"
+fi
+if has skills/receiving-code-review-ko/SKILL.md 'dev-autonomy\.md. 가 우선한다' 'dev-decision\.sh add'; then
+  ok "receiving-code-review-ko: chain 안에서는 무질문 정책이 우선"
+else
+  nope "receiving-code-review-ko 포인터 소실" "이 skill 의 '명확화 요청' 이 개발 구간에서 그대로 질문이 된다"
+fi
+if ! grep -qE '사용자 확인 후\*\* 진행|cap 초과 — 사용자 개입 필요|task 내부 Step 0 \(기존 동작\)' "$I"; then
+  ok "implementing-ko: 남은 충돌 문장(설계 계약 이탈 확인·cap 사용자 개입·Step 0 재질문) 없음"
+else
+  nope "implementing-ko 충돌 문장 재등장" "설계 계약 이탈·cap 초과·irreversible Step 0"
+fi
+
 finish

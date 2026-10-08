@@ -189,6 +189,15 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `docs/ARCHITECTURE.md` §7
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
+## dev-decision.sh — 개발 구간에서 묻지 않고 정한 결정의 기록·끝 보고
+
+```bash
+bash scripts/dev-decision.sh add  <FID> <종류> "<결정>" ["<근거>"]   # 종류: fixed·backlog·order·retry·skip·approval
+bash scripts/dev-decision.sh show <FID> [--backlog]                  # PR 게이트 끝 보고 · --backlog 는 PR 본문용
+```
+
+개발 구간(구현 ~ PR 직전)은 사용자에게 묻지 않고 기본값으로 진행한다(`skills/implementing-ko/dev-autonomy.md`). 그 대가로 사용자가 대신 정해진 것을 보는 지점은 PR 게이트의 끝 보고 하나라, 기록을 `.specops/<FID>/dev-decisions.md` 에 1건 1줄로 고정한다(줄바꿈 입력은 한 줄로 접고, 심볼릭 링크·FID 디렉터리 부재는 거부). `show` 는 건수와 전 줄을 줄이지 않고 내며 0건도 명시한다. batch 는 `collect-assumptions.sh` 가 같은 줄을 FR 별로 모은다.
+
 ## skip-tracker.sh — SKIP 비율 관측 (advisory)
 
 - `skip-tracker.sh` — integration/performance/security 게이트 SKIP 비율 관측 (읽기 전용, advisory). `.specops/*/evidence.md` 집계. 임계: `SKIP_TRACKER_THRESHOLD` (기본 70). 인자 없으면 **호출 위치 git 루트의 `.specops`**(git 밖이면 `./.specops`).
