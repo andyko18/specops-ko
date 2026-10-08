@@ -10,6 +10,10 @@ import re
 
 TBD_RE = re.compile(r"&lt;(미확정[^&]*?|TODO[^&]*?)&gt;")
 ASSUME_RE = re.compile(r"(가정:)")
+HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
+SW = r'<i class="sw" style="background:#\1"></i>#\1'
+METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+PRIORITY = {"must": "must", "should": "should", "nice": "nice", "nice-to-have": "nice", "could": "nice"}
 SAFE_URL_RE = re.compile(r"^(https?://|\.{0,2}/|#|[A-Za-z0-9_.\-/]+(#[\w\-가-힣.]*)?$)")
 
 
@@ -29,7 +33,7 @@ def inline(text):
     out = []
     for part in parts:
         if len(part) >= 2 and part.startswith("`") and part.endswith("`"):
-            out.append("<code>%s</code>" % html.escape(part[1:-1]))
+            out.append("<code>%s</code>" % HEX_RE.sub(SW, html.escape(part[1:-1])))
             continue
         esc = html.escape(part, quote=False)
         esc = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", esc)
@@ -41,10 +45,21 @@ def inline(text):
             return '<a href="%s">%s</a>' % (html.escape(url, quote=True), label)
 
         esc = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, esc)
+        esc = HEX_RE.sub(SW, esc)
         esc = TBD_RE.sub(r'<mark class="tbd">&lt;\1&gt;</mark>', esc)
         esc = ASSUME_RE.sub(r'<mark class="assume">\1</mark>', esc)
         out.append(esc)
     return "".join(out)
+
+
+def cell(text):
+    """표 칸 — HTTP 메서드·우선순위는 통상 표기대로 배지로 보여 준다."""
+    raw = text.strip().strip("`*").strip()
+    if raw.upper() in METHODS and raw == raw.upper():
+        return '<span class="mth m-%s">%s</span>' % (raw.lower(), raw)
+    if raw.lower() in PRIORITY:
+        return '<span class="pri p-%s">%s</span>' % (PRIORITY[raw.lower()], html.escape(raw))
+    return inline(text)
 
 
 def _split_row(line):
@@ -122,7 +137,7 @@ def render(text, diagram_hook=None, heading_hook=None):
                 i += 1
             t = ['<div class="tw"><table><thead><tr>%s</tr></thead><tbody>' % "".join("<th>%s</th>" % inline(c) for c in head)]
             for r in rows:
-                t.append("<tr>%s</tr>" % "".join("<td>%s</td>" % inline(c) for c in r))
+                t.append("<tr>%s</tr>" % "".join("<td>%s</td>" % cell(c) for c in r))
             t.append("</tbody></table></div>")
             out.append("".join(t))
             continue

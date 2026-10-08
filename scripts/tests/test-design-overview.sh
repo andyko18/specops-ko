@@ -30,10 +30,10 @@ MD
   cat > "$d/.specops/memory/requirements.md" <<'MD'
 # 요구사항
 
-| ID | 설명 | 마일스톤 |
-|---|---|---|
-| FR-1 | 입고 등록 | M1 |
-| FR-2 | 출고 등록 | M1 |
+| ID | 설명 | 마일스톤 | 우선순위 |
+|---|---|---|---|
+| FR-1 | 입고 등록 | M1 | must |
+| FR-2 | 출고 등록 | M2 | should |
 MD
   cat > "$d/.specops/memory/process-design.md" <<'MD'
 # 프로세스 설계서 — 재고관리
@@ -59,6 +59,19 @@ MD
   cat > "$d/.specops/memory/architecture.md" <<'MD'
 # 전체 아키텍처
 
+## 1. 시스템 컴포넌트
+
+| 컴포넌트 | 역할 | 기술 | 비고 |
+|---|---|---|---|
+| Web | UI | Next.js 14 | |
+| API | 로직 | <NestJS / Spring> | |
+
+## 2. 컴포넌트 간 통신
+
+| From → To | 프로토콜 | 인증 | 비고 |
+|---|---|---|---|
+| API → DB | SQL | 계정 | |
+
 ## 5. 시스템 다이어그램
 
 ```mermaid
@@ -66,7 +79,37 @@ graph TD
   User[사용자] --> Web[Web App]
   Web -->|REST| API[API Server]
   API --> DB[(Database)]
+  API --> SMS[SMS 게이트웨이]
 ```
+MD
+  cat > "$d/.specops/memory/api-spec.md" <<'MD'
+# IF 설계서
+
+<!-- specops:example:start -->
+| Method | Path | Auth | Request | Response | 비고 |
+|---|---|---|---|---|---|
+| GET | `/v1/users/:id` | Bearer | — | `User` | 예시 행 |
+<!-- specops:example:end -->
+
+| Method | Path | Auth | Request | Response | 비고 |
+|---|---|---|---|---|---|
+| POST | `/v1/inbounds` | Bearer | `Dto` | `Inbound` | 입고 등록 |
+MD
+  cat > "$d/.specops/memory/screens-overview.md" <<'MD'
+# 화면 목록
+
+```mermaid
+stateDiagram-v2
+  [*] --> 로그인 : 접속
+  로그인 --> 대시보드 : 인증
+```
+MD
+  cat > "$d/DESIGN.md" <<'MD'
+# 디자인
+
+| 토큰 | 값 |
+|---|---|
+| primary | `#2F5FD0` |
 MD
   cat > "$d/.specops/memory/data-model.md" <<'MD'
 # 테이블 설계서
@@ -100,10 +143,19 @@ H=$(cat "$OUT" 2>/dev/null)
 
 # ① 그림 — 구성도(개요+본문 2회)·ERD·프로세스 흐름
 n_svg=$(printf '%s' "$H" | grep -o '<svg ' | wc -l | tr -d ' ')
-[ "$n_svg" -ge 4 ] && ok "D2 그림 ${n_svg}개 (구성도·ERD·프로세스 흐름)" || nope "D2" "svg=$n_svg"
+[ "$n_svg" -ge 5 ] && ok "D2 그림 ${n_svg}개 (구성도·ERD·업무 흐름·화면 흐름)" || nope "D2" "svg=$n_svg"
 printf '%s' "$H" | grep -q 'API Server' && printf '%s' "$H" | grep -q 'aria-label="시스템 구성도"' && ok "D2b 구성도 노드·레이블" || nope "D2b" "구성도 부재"
-printf '%s' "$H" | grep -q 'aria-label="ERD"' && printf '%s' "$H" | grep -q '0..N' && ok "D2c ERD + 관계 차수 표기" || nope "D2c" "ERD 부재"
+printf '%s' "$H" | grep -q 'aria-label="ERD"' && printf '%s' "$H" | grep -q 'class="cf"' && printf '%s' "$H" | grep -q 'class="cfo"' \
+  && printf '%s' "$H" | grep -q 'k-pk">PK' && ok "D2c ERD — 까마귀발(막대·원) + PK 표기" || nope "D2c" "ERD 통상 표기 부재"
 printf '%s' "$H" | grep -q 'aria-label="프로세스 흐름 P-001"' && ok "D2d 프로세스 흐름" || nope "D2d" "흐름 부재"
+# 통상 표기 — 계층형 구성도(계층 띠·외부 연계 칸·기술·프로토콜) · 스윔레인(레인·시작/끝·예외 분기) · 화면 흐름도
+printf '%s' "$H" | grep -q 'band b-client' && printf '%s' "$H" | grep -q 'band b-app' && printf '%s' "$H" | grep -q 'band b-data' \
+  && printf '%s' "$H" | grep -q 'band b-ext' && ok "D2f 구성도 — 계층 띠(사용자·애플리케이션·데이터) + 외부 연계 칸" || nope "D2f" "계층 띠 부재"
+printf '%s' "$H" | grep -q '>Next.js 14<' && ! printf '%s' "$H" | grep -q 'class="at ty">&lt;NestJS' && ok "D2g 구성 요소 기술 표기(미채움 값은 제외)" || nope "D2g" "기술 표기"
+printf '%s' "$H" | grep -q 'class="el" text-anchor="middle">SQL<' && printf '%s' "$H" | grep -q '>REST<' && ok "D2h 연결선 프로토콜(다이어그램 레이블 + §2 통신 표)" || nope "D2h" "프로토콜 레이블 부재"
+printf '%s' "$H" | grep -q 'class="lanel"' && printf '%s' "$H" | grep -q '>서버 (API)<' && printf '%s' "$H" | grep -q 'class="en"' \
+  && printf '%s' "$H" | grep -q 'fk ex">예외' && ok "D2i 업무 흐름도 — 레인·끝 표식·예외 분기" || nope "D2i" "스윔레인 부재"
+printf '%s' "$H" | grep -q 'aria-label="화면 흐름도"' && printf '%s' "$H" | grep -q '>대시보드<' && ok "D2j 화면 흐름도(stateDiagram)" || nope "D2j" "화면 흐름도 부재"
 # 미지원 문법은 그리지 않고 원문 코드로 남긴다
 printf '%s' "$H" | grep -q '<pre><code>sequenceDiagram' && ok "D2e 미지원 mermaid → 원문 코드 유지" || nope "D2e" "원문 미보존"
 
@@ -121,7 +173,13 @@ printf '%s' "$H" | grep -q '미확정 2 · 가정 1' && ok "D5 미확정·가정
 printf '%s' "$H" | grep -q 'POST /v1/inbounds' && printf '%s' "$H" | grep -q '추적표' && ok "D5b 추적표" || nope "D5b" "추적표 부재"
 printf '%s' "$H" | grep -q '연결되지 않은 요구 1건' && printf '%s' "$H" | grep -A0 '연결되지 않은 요구' | grep -q 'FR-2' \
   && ok "D5c 프로세스 미연결 요구(FR-2) 고지" || nope "D5c" "미연결 요구 미고지"
-printf '%s' "$H" | grep -q 'screens/inbound.html' && ok "D5d 화면 미리보기 링크" || nope "D5d" "화면 링크 부재"
+printf '%s' "$H" | grep -q 'screens/inbound.html' && printf '%s' "$H" | grep -q 'sandbox=""' && ok "D5d 화면 미리보기(썸네일은 스크립트 차단 sandbox)" || nope "D5d" "화면 미리보기 부재"
+printf '%s' "$H" | grep -q 'mth m-post">POST' && printf '%s' "$H" | grep -q 'pri p-must">must' && ok "D5f 통상 표기 배지 — HTTP 메서드·우선순위" || nope "D5f" "배지 부재"
+api_sec=$(python3 -c 'import re,sys; m=re.search(r"id=\"ov-api\".*?id=\"ov-open\"", sys.stdin.read(), re.S); print(m.group(0) if m else "")' < "$OUT")
+printf '%s' "$api_sec" | grep -q '/v1/inbounds' && ! printf '%s' "$api_sec" | grep -q '/v1/users' \
+  && ok "D5g API 목록 — 남은 예시 블록 행은 제외" || nope "D5g" "API 목록"
+printf '%s' "$H" | grep -q 'id="ov-req"' && printf '%s' "$H" | grep -q 'class="mx"' && ok "D5h 요구사항 현황(마일스톤 × 우선순위)" || nope "D5h" "현황표 부재"
+printf '%s' "$H" | grep -q 'class="sw" style="background:#2F5FD0"' && ok "D5i 색상 견본" || nope "D5i" "견본 부재"
 printf '%s' "$H" | grep -q '생성물 — 직접 수정하지 않는다' && ok "D5e 생성물 고지" || nope "D5e" "고지 부재"
 
 # ⑤ --check: 최신 → 원본 변경 → 낡음
@@ -147,7 +205,7 @@ out=$(bash "$SH" "$t" 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ! grep -q 'aria-label="프로세스 흐름' "$t/.specops/design-overview.html" \
   && ok "D8 템플릿 골격만 → rc0 · 빈 골격 행은 프로세스로 세지 않음" || nope "D8" "rc=$rc out=$out"
 # 실제 템플릿의 mermaid(graph·erDiagram)가 그려진다 — 템플릿이 바뀌어 파서 밖으로 나가면 여기서 잡힌다
-[ "$(grep -o '<svg ' "$t/.specops/design-overview.html" | wc -l | tr -d ' ')" -ge 3 ] \
+[ "$(grep -o '<svg ' "$t/.specops/design-overview.html" | wc -l | tr -d ' ')" -ge 3 ] && grep -q 'band b-app' "$t/.specops/design-overview.html" \
   && ok "D8b 실 템플릿의 구성도·ERD 렌더" || nope "D8b" "템플릿 mermaid 미렌더"
 rm -rf "$t"
 
