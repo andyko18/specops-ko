@@ -153,4 +153,23 @@ grep -q "_escape_cell" "$INIT" \
   || nope "T9" "rc=$rc out=$out"
 rm -rf "$TD"
 
+# T10: 굵은 ID·접미 ID 행도 queue 에 들어가고, 못 읽은 행은 초기화 출력과 queue 머리말에 남는다 (20261009)
+TD=$(mktemp -d)
+_req "$TD/.specops/memory/requirements.md" <<'EOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-5 | 주문 목록 | M1 | must | (TBD) |
+| **FR-10** | 정산 내보내기 | M2 | nice | (TBD) |
+| FR-11b | 주문 엑셀 | M1 | nice | (TBD) |
+| FR 12 | 하이픈 없는 ID | M1 | nice | (TBD) |
+EOF
+out=$(cd "$TD" && bash "$INIT" ".specops/batch-t10" 2>&1); rc=$?
+q="$TD/.specops/batch-t10/queue.md"
+[ "$rc" -eq 0 ] && grep -q '^| FR-10 | TBD | 정산 내보내기 | PENDING |$' "$q" && grep -q '^| FR-11b | TBD | 주문 엑셀 | PENDING |$' "$q" \
+  && ok "T10 굵은 ID·접미 ID → queue PENDING 행(ID 는 장식 없이)" || nope "T10" "rc=$rc out=$out q=$(cat "$q" 2>/dev/null | tr '\n' ' ')"
+printf '%s' "$out" | grep -q '해석하지 못한 FR 행 1건' && grep -q '해석하지 못한 FR 행' "$q" && grep -q 'FR 12' "$q" \
+  && ! grep -qE '^\|.*FR 12' "$q" \
+  && ok "T10b 못 읽은 행 → 초기화 출력 + queue 머리말에 기록(표 행은 아니다)" || nope "T10b" "out=$out q=$(sed -n 1,12p "$q" 2>/dev/null | tr '\n' ' ')"
+rm -rf "$TD"
+
 finish

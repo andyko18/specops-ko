@@ -125,4 +125,22 @@ out=$(bash "$PLUGIN/scripts/_internal/collect-assumptions.sh" "$TD/.specops/batc
   || { FAIL=$((FAIL+1)); echo "FAIL T-devdec.b ($out)"; }
 rm -rf "$TD"
 
+# T-unp: batch 대상에서 빠진 FR 행(해석하지 못한 행)은 다이제스트에 실린다 (20261009-startall-silent-pass)
+#   무인 batch 에서 사용자가 보는 지점은 이 다이제스트뿐이다 — queue 머리말에만 있으면 아무도 보지 못한다.
+TD=$(mktemp -d); mkdir -p "$TD/.specops/memory"
+cat > "$TD/.specops/memory/requirements.md" <<'EOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-5 | 주문 목록 | M1 | must | (TBD) |
+| FR 6 | 하이픈 없는 ID | M1 | must | (TBD) |
+EOF
+( cd "$TD" && bash "$PLUGIN/scripts/_internal/init-batch-queue.sh" .specops/batch-u ) >/dev/null 2>&1
+mkdir -p "$TD/.specops/20261009-u5"; printf '**§유형**: 신규\n' > "$TD/.specops/20261009-u5/spec.md"
+( cd "$TD" && bash "$PLUGIN/scripts/_internal/queue-set-status.sh" .specops/batch-u/queue.md FR-5 IMPL_DONE 20261009-u5 ) >/dev/null 2>&1
+out=$(cd "$TD" && bash "$PLUGIN/scripts/_internal/collect-assumptions.sh" .specops/batch-u 2>&1)
+printf '%s' "$out" | grep -q '^## batch 대상에서 빠진 FR 행' && printf '%s' "$out" | grep -q 'FR 6' && printf '%s' "$out" | grep -q '\*\*1건\*\*' \
+  && { PASS=$((PASS+1)); echo "PASS T-unp 해석하지 못한 FR 행 → 다이제스트 절 + 건수"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-unp ($out)"; }
+rm -rf "$TD"
+
 finish

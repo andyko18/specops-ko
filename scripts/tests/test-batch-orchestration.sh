@@ -55,17 +55,29 @@ out=$(bash "$PLUGIN/scripts/batch-state.sh" "$TMP/.specops/batch-t" "$TMP/req.md
   && ok "T4.a 게이트 — 부분 완료 exit 1 + 미완 목록" || nope "T4.a 게이트" "exit=$code"
 
 # ── T5: 전체 IMPL_DONE → 게이트 clean (start-all.md:88 전이 후) ──
-sed -i.bak -E 's/\| (PENDING|PLAN_DONE) \|$/| IMPL_DONE |/' "$Q" && rm -f "$Q.bak"
-# batch-state teeth: 실 FID(≠TBD) 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md) 필수 — 시뮬 생성
-mkdir -p "$TMP/.specops/20260711-a"
-: > "$TMP/.specops/20260711-a/review-base.sha"
-: > "$TMP/.specops/20260711-a/evidence.md"; : > "$TMP/.specops/20260711-a/review-request.md"
-# 진행기록 teeth (batch-state check 5): 실 FID 의 session-progress /verify PASS 줄 — verifying-evidence-ko 실호출 흔적
-printf '## 20260711-a\n- 2026-07-11 10:00 /verify PASS (evidence.md, AC 2/2)\n' > "$TMP/.specops/session-progress.md"
+# 전이는 실제 흐름대로 스크립트로 한다 — FID 칸을 채우지 않은 행은 IMPL_DONE 이 될 수 없다(20261009).
+#   종전 fixture 는 sed 로 Status 만 일괄 바꿔 FR-2·FR-3 의 FID 칸을 `TBD` 로 둔 채 "clean" 을 기대했다 —
+#   batch-state 가 FID 칸이 빈 완료 행을 말없이 건너뛰던 구멍에 기대던 것이다.
+_QS="$PLUGIN/scripts/_internal/queue-set-status.sh"
+bash "$_QS" "$Q" FR-1 IMPL_DONE >/dev/null 2>&1
+bash "$_QS" "$Q" FR-2 IMPL_DONE 20260711-b >/dev/null 2>&1
+bash "$_QS" "$Q" FR-3 IMPL_DONE 20260711-c >/dev/null 2>&1
+# batch-state teeth: IMPL_DONE FID 마다 per-FR 산출물 3종(review-base.sha·evidence.md·review-request.md) + 진행기록 — 시뮬 생성
+: > "$TMP/.specops/session-progress.md"
+for _f in 20260711-a 20260711-b 20260711-c; do
+  mkdir -p "$TMP/.specops/$_f"
+  : > "$TMP/.specops/$_f/review-base.sha"; : > "$TMP/.specops/$_f/evidence.md"; : > "$TMP/.specops/$_f/review-request.md"
+  printf '## %s\n- 2026-07-11 10:00 /verify PASS (evidence.md, AC 2/2)\n' "$_f" >> "$TMP/.specops/session-progress.md"
+done
 # NFR 드리프트 잔여 방지 — req 는 FR 3행뿐이므로 drift 0 기대... (req 에 NFR-1 은 FR_RE 미매칭)
 bash "$PLUGIN/scripts/batch-state.sh" "$TMP/.specops/batch-t" "$TMP/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] \
   && ok "T5.a 전체 IMPL_DONE → 게이트 exit 0 (start-all.md:88·95)" || nope "T5.a clean" "exit=$code"
+#   FID 칸이 빈 행은 스크립트가 IMPL_DONE 으로 바꾸지 않는다 — 위 fixture 가 기대던 경로가 닫혔는지
+printf '| FR-ID | FID | FR 설명(1줄) | Status |\n|---|---|---|---|\n| FR-9 | TBD | x | PLAN_DONE |\n' > "$TMP/q-tbd.md"
+bash "$_QS" "$TMP/q-tbd.md" FR-9 IMPL_DONE >/dev/null 2>&1; code=$?
+[ "$code" -ne 0 ] && grep -q 'PLAN_DONE' "$TMP/q-tbd.md" \
+  && ok "T5.b FID 칸이 TBD 인 행 → IMPL_DONE 전이 거부" || nope "T5.b" "exit=$code"
 
 # ── T6: e2e [S8] 문서 계약 (AC-4) ──
 E2E="$PLUGIN/skills/e2e-test-ko/SKILL.md"

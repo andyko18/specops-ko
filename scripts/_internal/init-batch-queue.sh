@@ -84,6 +84,10 @@ _escape_cell() {
 }
 
 # collect rows + skip header bullets
+# FR 처럼 보이나 읽지 못한 행 — 조용히 버리지 않고 출력과 queue 머리말에 남긴다 (20261009).
+unp_list=$(printf '%s\n' "$classify_raw" | sed -n 's/^UNPARSED|//p' | tr '|' '/' | awk '{ printf "%s%s", (NR > 1 ? " · " : ""), $0 }')
+unp_n=$(printf '%s\n' "$classify_raw" | grep -c '^UNPARSED|' || true)
+
 rows_tmp=$(mktemp)
 skip_notes=$(mktemp)
 trap 'rm -f "$rows_tmp" "$skip_notes"' EXIT
@@ -140,6 +144,10 @@ EOF
 > 초기화: `init-batch-queue.sh` (check-fr-table --classify).
 
 HDR
+  if [ -n "$unp_list" ]; then
+    # 표 행으로 쓰지 않는다(`|` 로 시작하면 batch-state 가 FR 행으로 읽는다) — 머리말 산문 한 줄.
+    printf '> **해석하지 못한 FR 행** %s건: %s — requirements 의 ID 를 `FR-<숫자>` 꼴로 고친 뒤 이 큐에 추가하세요(지금은 batch 대상이 아니다).\n\n' "$unp_n" "$unp_list"
+  fi
   if [ -s "$skip_notes" ]; then
     echo '**초기 SKIP 사유** (기계):'
     echo
@@ -154,4 +162,5 @@ TBL
 } >"$QUEUE"
 
 echo "QUEUE-INIT: CREATED ($QUEUE) eligible=$eligible"
+[ -n "$unp_list" ] && echo "QUEUE-INIT: WARN — 해석하지 못한 FR 행 ${unp_n}건: ${unp_list} (FR 처럼 보이나 ID 형식이 달라 큐에 넣지 않았다 — queue 머리말에 기록)"
 exit 0

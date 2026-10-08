@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # queue-set-status.sh — queue.md 의 FR 행 Status 를 기계적으로 갱신 (FID 20260828-queue-label-drift)
 #
-# 사용: queue-set-status.sh <queue.md> <FR-ID> <STATUS>
+# 사용: queue-set-status.sh <queue.md> <FR-ID> <STATUS> [FID]
+#   FID 를 주면 그 행의 FID 칸도 함께 채운다. IMPL_DONE 은 FID 칸이 채워져 있어야 한다(20261009).
 #   exit 0 = 갱신 완료 (또는 이미 같은 값 — 멱등)
 #   exit 1 = 갱신 실패 (FR-ID 미발견 · 중복 · 알 수 없는 라벨 · 표 형식 아님)
 #   exit 2 = 사용 오류
@@ -29,12 +30,17 @@ set -u
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$SELF_DIR/queue-lib.sh"
 
-QUEUE="${1:-}"; FR_ID="${2:-}"; NEW="${3:-}"
+QUEUE="${1:-}"; FR_ID="${2:-}"; NEW="${3:-}"; NEW_FID="${4:-}"
 
-if [ -z "$QUEUE" ] || [ -z "$FR_ID" ] || [ -z "$NEW" ]; then
-  echo "usage: $(basename "$0") <queue.md> <FR-ID> <STATUS>" >&2
+if [ -z "$QUEUE" ] || [ -z "$FR_ID" ] || [ -z "$NEW" ] || [ "$#" -gt 4 ]; then
+  echo "usage: $(basename "$0") <queue.md> <FR-ID> <STATUS> [FID]" >&2
   echo "  STATUS: $QUEUE_KNOWN_LABELS" >&2
+  echo "  FID: 그 행의 FID 칸도 함께 채운다(YYYYMMDD-slug). IMPL_DONE 은 FID 칸이 채워져 있어야 한다." >&2
   exit 2
+fi
+FID_RE='^[0-9]{8}-[a-z0-9-]+$'
+if [ -n "$NEW_FID" ] && ! printf '%s' "$NEW_FID" | grep -qE "$FID_RE"; then
+  echo "QUEUE-SET: FID 형식이 아니다 '$NEW_FID' (YYYYMMDD-slug)" >&2; exit 1
 fi
 [ -f "$QUEUE" ] || { echo "QUEUE-SET: 파일 없음 ($QUEUE)" >&2; exit 2; }
 
@@ -70,9 +76,30 @@ fi
 
 lineno=$(printf '%s\n' "$matches" | grep -m1 '[0-9]')
 
+# FID 칸 (20261009) — batch PR 게이트·RELEASE_READY·게이트 전파는 이 칸으로 그 FR 의 산출물을 찾는다.
+#   종전엔 모델이 표를 손으로 고쳐 채웠고, 비어 있으면 검사가 그 행을 건너뛰었다. 이제 스크립트가 채우고,
+#   FID 칸이 비어 있는 행은 IMPL_DONE 이 될 수 없다(산출물을 찾을 수 없는 완료 행을 만들지 않는다).
+#   표 꼴: `| FR-ID | FID | 설명 | Status |` — Status 는 5번째 필드다. 칸이 모자란 표에는 FID 칸이 없다.
+rowinfo=$(awk -v ln="$lineno" -F'|' "$QUEUE_AWK_QNORM"'
+  NR == ln { last = 0; for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { last = i; break } } print last "\t" qnorm($3); exit }
+' "$QUEUE")
+row_last=${rowinfo%%$'\t'*}; cur_fid=${rowinfo#*$'\t'}
+has_fid_col=0; [ "${row_last:-0}" -ge 5 ] && has_fid_col=1
+if [ -n "$NEW_FID" ] && [ "$has_fid_col" -ne 1 ]; then
+  echo "QUEUE-SET: 이 행에는 FID 칸이 없다(칸 수 부족) — FID 를 쓸 수 없다. 표 꼴: | FR-ID | FID | 설명 | Status |" >&2; exit 1
+fi
+eff_fid="${NEW_FID:-$cur_fid}"
+fid_ok=0; printf '%s' "$eff_fid" | grep -qE "$FID_RE" && fid_ok=1
+if [ "$has_fid_col" -eq 1 ] && [ "$NEW" = "IMPL_DONE" ] && [ "$fid_ok" -ne 1 ]; then
+  echo "QUEUE-SET: $FR_ID 의 FID 칸이 FID 가 아니다('${cur_fid:-(빈칸)}') — IMPL_DONE 으로 바꾸지 않았다." >&2
+  echo "  FID 를 함께 준다: $(basename "$0") $QUEUE $FR_ID IMPL_DONE <FID>" >&2
+  echo "  (게이트는 FID 칸으로 그 FR 의 evidence·리뷰 산출물을 찾는다 — 비어 있으면 검사할 수 없다.)" >&2
+  exit 1
+fi
+
 # 마지막 비어있지 않은 컬럼만 교체. 나머지 컬럼은 원문 그대로 둔다.
 tmp=$(mktemp) || exit 1
-awk -v ln="$lineno" -v new="$NEW" -F'|' "$QUEUE_AWK_QNORM"'
+QS_FID="$NEW_FID" awk -v ln="$lineno" -v new="$NEW" -F'|' "$QUEUE_AWK_QNORM"'
   NR != ln { print; next }
   {
     # 마지막 비어있지 않은 필드 index 를 찾는다 (trailing "|" 로 생기는 빈 필드 건너뜀)
@@ -82,6 +109,7 @@ awk -v ln="$lineno" -v new="$NEW" -F'|' "$QUEUE_AWK_QNORM"'
     out = ""
     for (i = 1; i <= NF; i++) {
       v = (i == last) ? " " new " " : $i
+      if (i == 3 && last >= 5 && ENVIRON["QS_FID"] != "") v = " " ENVIRON["QS_FID"] " "
       out = (i == 1) ? v : out "|" v
     }
     print out
@@ -96,4 +124,7 @@ if [ "$before" != "$after" ]; then
 fi
 
 cat "$tmp" > "$QUEUE" && rm -f "$tmp"
-echo "QUEUE-SET: $FR_ID → $NEW (L$lineno)"
+echo "QUEUE-SET: $FR_ID → $NEW${NEW_FID:+ · FID $NEW_FID} (L$lineno)"
+if [ "$has_fid_col" -eq 1 ] && [ "$fid_ok" -ne 1 ] && [ "$NEW" = "PLAN_DONE" ]; then
+  echo "QUEUE-SET: 경고 — $FR_ID 의 FID 칸이 아직 FID 가 아니다('${cur_fid:-(빈칸)}'). FID 를 함께 준다: … $FR_ID PLAN_DONE <FID> (IMPL_DONE 은 FID 없이는 거부된다)"
+fi

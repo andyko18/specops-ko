@@ -161,4 +161,51 @@ done
 [ "$_t14" -eq 0 ] && ok "T14 소비자 3곳 queue-lib 단일 출처 사용" \
   || nope "T14 정규화 규칙 분산 — 드리프트 재발 위험"
 
+# ── T15~T18: FID 칸을 스크립트로 채운다 (20261009-startall-silent-pass) ──
+#   batch PR 게이트·RELEASE_READY·게이트 전파는 queue 의 FID 칸으로 그 FR 의 산출물을 찾는다. 그런데 FID 칸은 모델이 표를
+#   손으로 고치게 돼 있었고(start-all.md 는 "게이트가 읽는 값이 아니다" 라고까지 적었다), 비어 있으면 검사가 그 행을 건너뛰었다.
+mk_tbd() {
+  cat > "$1" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-5 | TBD | 주문 목록 | PENDING |
+| FR-6 | TBD | 주문 상세 | PENDING |
+| FR-7 | 20260101-c | 주문 취소 | PLAN_DONE |
+EOF
+}
+_fid_of() { awk -F'|' -v want="$2" '/^[[:space:]]*\|/ { v=$2; gsub(/^[ \t]+|[ \t]+$/, "", v); if (v == want) { f=$3; gsub(/^[ \t]+|[ \t]+$/, "", f); print f; exit } }' "$1"; }
+
+Q="$TMP/t15.md"; mk_tbd "$Q"
+out=$(bash "$SCRIPT" "$Q" FR-5 PLAN_DONE 20261009-order-list 2>&1); code=$?
+[ "$code" -eq 0 ] && [ "$(_fid_of "$Q" FR-5)" = "20261009-order-list" ] && [ "$(_status_of "$Q" FR-5)" = "PLAN_DONE" ] \
+  && grep -q '^| FR-5 | 20261009-order-list | 주문 목록 | PLAN_DONE |$' "$Q" && [ "$(_fid_of "$Q" FR-6)" = "TBD" ] \
+  && ok "T15 ★ 넷째 인자 FID → 그 행의 FID 칸과 Status 를 함께 갱신(다른 칸·다른 행 불변)" || nope "T15" "code=$code out=$out $(cat "$Q" | tr '\n' ' ')"
+
+Q="$TMP/t16.md"; mk_tbd "$Q"; h1=$(cksum < "$Q")
+out=$(bash "$SCRIPT" "$Q" FR-5 PLAN_DONE 'not a fid' 2>&1); c1=$?
+out2=$(bash "$SCRIPT" "$Q" FR-5 PLAN_DONE '20261009-x|y' 2>&1); c2=$?
+[ "$c1" -ne 0 ] && [ "$c2" -ne 0 ] && [ "$h1" = "$(cksum < "$Q")" ] \
+  && ok "T16 FID 형식이 아니면 거부(파일 무변경 — 표 구분자 주입 불가)" || nope "T16" "c1=$c1 c2=$c2"
+
+# IMPL_DONE 은 FID 칸이 채워져 있어야 한다 — 산출물을 찾을 수 없는 완료 행을 만들지 않는다
+Q="$TMP/t17.md"; mk_tbd "$Q"; h1=$(cksum < "$Q")
+out=$(bash "$SCRIPT" "$Q" FR-6 IMPL_DONE 2>&1); code=$?
+[ "$code" -ne 0 ] && [ "$h1" = "$(cksum < "$Q")" ] && printf '%s' "$out" | grep -q 'FID' \
+  && ok "T17 ★ FID 칸이 TBD 인 행을 IMPL_DONE 으로 → 거부(FID 를 함께 주라고 안내)" || nope "T17" "code=$code out=$out"
+out=$(bash "$SCRIPT" "$Q" FR-6 IMPL_DONE 20261009-order-detail 2>&1); c1=$?
+out=$(bash "$SCRIPT" "$Q" FR-7 IMPL_DONE 2>&1); c2=$?
+[ "$c1" -eq 0 ] && [ "$c2" -eq 0 ] && [ "$(_status_of "$Q" FR-6)" = "IMPL_DONE" ] && [ "$(_status_of "$Q" FR-7)" = "IMPL_DONE" ] \
+  && ok "T17b FID 를 함께 주거나 이미 채워진 행은 IMPL_DONE 통과" || nope "T17b" "c1=$c1 c2=$c2"
+
+# PLAN_DONE 인데 FID 가 아직 TBD — 막지는 않되 알린다(재개 중인 옛 queue 를 깨지 않는다)
+Q="$TMP/t18.md"; mk_tbd "$Q"
+out=$(bash "$SCRIPT" "$Q" FR-5 PLAN_DONE 2>&1); code=$?
+[ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'FID 칸' \
+  && ok "T18 FID 없이 PLAN_DONE → 갱신하되 FID 칸이 비었다고 경고" || nope "T18" "code=$code out=$out"
+#   넷째 인자는 FID 칸이 있는 표(4칸)에서만 — 칸 수가 모자라면 엉뚱한 칸을 덮어쓰지 않는다
+printf '| FR-9 | 설명 | PENDING |\n' > "$TMP/t18b.md"; h1=$(cksum < "$TMP/t18b.md")
+out=$(bash "$SCRIPT" "$TMP/t18b.md" FR-9 PLAN_DONE 20261009-z 2>&1); code=$?
+[ "$code" -ne 0 ] && [ "$h1" = "$(cksum < "$TMP/t18b.md")" ] \
+  && ok "T18b FID 칸이 없는 표(3칸)에 FID 인자 → 거부(파일 무변경)" || nope "T18b" "code=$code out=$out"
+
 finish

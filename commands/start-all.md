@@ -5,7 +5,7 @@ description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requ
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.15.0
+specops_version: 2.16.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -48,17 +48,15 @@ reference_upstream: specops-ko 독자 추가
 2. **requirements.md 탐색** (`.specops/memory/requirements.md` 우선, 없으면 루트):
    - 탐색 순서: `.specops/memory/requirements.md` → `requirements.md`
    - 두 곳 모두 없으면: "`requirements.md`가 없습니다. `/init-project`를 먼저 실행하세요." 출력 후 **중단**
-3. **FR 목록 파싱**:
-   ```bash
-   grep -E '^\| FR-[0-9]+ \|' <requirements.md 경로>
-   ```
-   FR 행 0건이면: "FR 표가 비어 있습니다. `requirements.md`에 FR 표를 작성 후 재실행하세요." 출력 후 **중단**
+3. **FR 목록 파싱** — 손으로 `grep` 하지 않는다. 아래 판정기가 FR 행을 읽는다(ID 를 굵게 쓴 `| **FR-10** |`·접미 ID `| FR-11b |` 도 FR 이다 — 공백까지 맞춘 `grep` 은 그런 행을 조용히 놓친다).
+   FR 행이 하나도 없으면 판정기가 `rc=1` 로 알린다: "FR 표가 비어 있습니다. `requirements.md`에 FR 표를 작성 후 재실행하세요." 출력 후 **중단**
 
-   **★ placeholder FR 가드 (필수 — 20260806)**: 위 grep 은 **행 존재**만 본다. 골격 `| FR-1 | <한 줄> | M1 | must |` 도 3건으로 세어져, 사용자가 FR 을 하나도 안 썼는데 batch 가 진입한다(Phase 1 이 넘기는 "FR 원문" 이 `<한 줄>`). 실 FR 판정은 스크립트로:
+   **★ placeholder FR 가드 (필수 — 20260806)**: 행이 있다는 것만으로는 부족하다. 골격 `| FR-1 | <한 줄> | M1 | must |` 도 FR 행이라, 사용자가 FR 을 하나도 안 썼는데 batch 가 진입한다(Phase 1 이 넘기는 "FR 원문" 이 `<한 줄>`). 실 FR 판정은 스크립트로:
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-fr-table.sh
    ```
    - `rc=0` → 실 FR 개수 확인 후 진행. placeholder 경고가 나오면 **그 FR 은 batch 대상에서 제외**한다.
+   - **`해석하지 못한 FR 행 N건` 경고가 나오면 사용자에게 그대로 알린다** — FR 처럼 보이는데 ID 형식이 달라(`FR 6`·`FR-x7`) 읽지 못한 행이다. batch 대상에서 빠지므로, 진행 전에 requirements 의 ID 를 고칠지 묻는다(`/start-all-auto` 는 고치지 않고 진행하되 queue 머리말과 PR 다이제스트에 남긴다).
    - `rc=1` → 실 FR 0건. 중단하고 requirements.md 작성 안내.
    - `rc=2` → 파일 부재. 위 `/init-project` 안내와 동일 처리.
 
@@ -120,7 +118,7 @@ reference_upstream: specops-ko 독자 추가
 
    재사용은 **스텝 1이 ACTIVE 로 재개를 판정한 batch 에서만** 일어난다 — 신규 batch 는 id 에 시각이 붙어
    디렉토리가 겹치지 않으므로 남의 queue 를 물려받지 않는다(구 날짜-키 규약의 뭉갬 경로 제거).
-   FID 컬럼은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 실제 FID로 갱신됨. Phase 1 은 **PENDING 만** 처리하므로 SKIP 은 자연 제외.
+   FID 칸은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 `queue-set-status.sh` 가 채운다(스텝 3). Phase 1 은 **PENDING 만** 처리하므로 SKIP 은 자연 제외.
 
 ### Phase 1 — 전 FR spec→decompose (대화형)
 
@@ -136,11 +134,12 @@ reference_upstream: specops-ko 독자 추가
    - **HARD**: batch 분기에서 specifying **Step 5.5·5.6 SKIP** — 화면·인터페이스 상세는 Phase 2.5 전담(통상 순서: 화면 → 인터페이스). Phase 1은 예정 화면/엔드포인트·테이블 **이름만** §참조에 남긴다.
    - clarifying은 `.specops/memory/decisions.md` 확정 주제를 재묻지 않음 (init 원장 우선).
    - **planning**: `**§batch**`이면 plan-reviewer·per-FR critic **DEFER** (Phase 2에서 1회). 스펙→플랜→쪼개기만 수행.
-3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → queue.md 해당 FR의 FID 컬럼을 `TBD`에서 실제 `<FID>`로 갱신 + Status 갱신:
+3. decomposing-ko 출력에서 `BATCH-PHASE1-DONE: <FID>` 감지 → 그 FR 의 **FID 칸과 Status 를 한 번에** 갱신한다(넷째 인자가 FID):
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> PLAN_DONE
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> PLAN_DONE <FID>
    ```
-   > **★ Status 는 스크립트로만 갱신한다 — 손으로 표를 고치지 마라** (20260828). 모델이 강조 표기를 붙여 `**PLAN_DONE**` 로 쓰면 소비자 3곳(`batch-state.sh`·`collect-assumptions.sh`·`record-batch-gate.sh`)이 전건 불일치하고, **검사가 대상 0건으로 조용히 통과**한다. argus batch-20260729 실측: FR 31건이 그 상태로 무검증 방치됐다. 읽는 쪽 정규화가 사후 방어로 들어갔지만 유입을 끊는 것은 이 호출이다. (FID 컬럼은 표 편집으로 갱신해도 된다 — 게이트가 읽는 값이 아니다.)
+   > **★ FID 칸도 스크립트로 채운다** (20261009). batch PR 게이트(`batch-state.sh --gate`)·RELEASE_READY·게이트 전파(`record-batch-gate.sh`)는 **이 칸으로** 그 FR 의 evidence·리뷰 산출물을 찾는다. 칸이 `TBD` 로 남으면 그 FR 은 검사할 수 없다 — `batch-state.sh` 가 `[FID 미기재]` 로 차단하고, `queue-set-status.sh` 는 FID 칸이 빈 행을 `IMPL_DONE` 으로 바꾸지 않는다.
+   > **★ Status 는 스크립트로만 갱신한다 — 손으로 표를 고치지 마라** (20260828). 모델이 강조 표기를 붙여 `**PLAN_DONE**` 로 쓰면 소비자 3곳(`batch-state.sh`·`collect-assumptions.sh`·`record-batch-gate.sh`)이 전건 불일치하고, **검사가 대상 0건으로 조용히 통과**한다. argus batch-20260729 실측: FR 31건이 그 상태로 무검증 방치됐다. 읽는 쪽 정규화가 사후 방어로 들어갔지만 유입을 끊는 것은 이 호출이다.
 4. 다음 PENDING FR 반복
 
 > **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다. (원장에 이미 확정된 주제는 BLOCKING에서 제외)
@@ -444,4 +443,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.15.0 · 2026-10-09 · 끝단 판정 정비(SKIP 제외 · SKIP 근거 형식 · 닫기 전 게이트 현황)*
+*specops-ko v2.16.0 · 2026-10-09 · 조용히 통과하던 검사 정비(FID 칸 · 굵은·접미 ID FR 행)*
