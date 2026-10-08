@@ -357,8 +357,8 @@ r=$(_rp_case 20260914-rp-paren-neg '- JWT 인증 미들웨어 추가 (기존 세
   && ok "T38 부정 괄호구 제거 → 본문 auth 유지" || nope "T38" "$r"
 
 # 괄호 제거가 호출 표기 신호를 죽이지 않는다 (split 에 () 금지 — exec\( 무음 사망 방지)
-#   입력을 신호 1개씩 분리한다 — risk-profile.sh 의 signals_json awk 는 공백 구분 1줄을 레코드 1개로 읽고 $1 만 내므로
-#   다중 신호 입력은 JSON signals.strict 에 첫 신호만 남는다(computed·effective 는 정확). 이 FID 범위 밖 결함 — 부모에 보고
+#   입력을 신호 1개씩 분리한다 — 이 단언들을 쓸 때는 signals.strict 에 첫 신호만 남았다(20261008 수정 · T54 가 잠금).
+#   아래 주석의 "첫 신호만 기록" 은 그 시절 사정이다. 단독 입력은 그대로 둔다 — 단언이 신호 하나씩을 겨눈다.
 r=$(_rp_case 20260914-rp-callexec 'exec(cmd) 로 실행')
 [ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
   && ok "T39a exec( 신호 보존" || nope "T39a" "$r"
@@ -490,5 +490,238 @@ out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 [ "$out" = "strict" ] && jq -e '.signals.strict|index("infra")' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
   && ok "T51b origin ref 부재 → 로컬 main 기준 유지(infra 신호 그대로)" || nope "T51b" "out=$out"
 rm -rf "$TD"
+
+# T52~T58: ★ 설계 문서 "인용" 과 "변경" 의 구분 (20261008 lite 점검에서 발견)
+#   specifying-ko 는 spec §참조에 `.specops/memory/api-spec.md`·`data-model.md` 경로를 자동 인용한다. 그 경로 문자열이
+#   public_api·db_migration 신호로 읽혀, 설계 문서가 있는 프로젝트의 모든 FID 가 strict 였다 — "(변경 없음)" 이라 적어도
+#   그랬다(실기록: 인용한 FID 67건 전부 strict). lite 는 매번 LITE-STRICT-GUARD 에 걸렸다.
+#   이제 git 이 추적하는 문서는 §참조 인용 글머리표의 경로 토큰만 가리고, 바꿨는지는 변경 파일·tasks 로 판정한다.
+_rp_doc_case() {  # $1=fid $2=spec 본문 $3=tasks 본문('' 가능) $4=문서 상태 → stdout "<rc> <effective> <signals.strict json>" · stderr 는 $RP_DOC_ERR
+  local td rc=0; td=$(mktemp -d)
+  _setup "$td" "$1"
+  ( cd "$td" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && mkdir -p .specops/memory \
+    && printf '# api\n' > .specops/memory/api-spec.md && printf '# dm\n' > .specops/memory/data-model.md
+    case "$4" in
+      untracked) ;;
+      *) git add .specops/memory && git -c user.name=t -c user.email=t@e.com commit -qm docs ;;
+    esac
+    case "$4" in
+      dirty)  printf 'x\n' >> .specops/memory/data-model.md ;;
+      staged) printf 'x\n' >> .specops/memory/data-model.md && git add .specops/memory/data-model.md ;;
+      committed-dirty-other)
+        git branch -M main && git checkout -q -b feat && printf 'x\n' >> .specops/memory/data-model.md \
+          && git add .specops/memory/data-model.md && git -c user.name=t -c user.email=t@e.com commit -qm schema \
+          && printf 'y\n' >> README.md ;;
+    esac ) >/dev/null 2>&1
+  printf '%s\n' "$2" > "$td/.specops/$1/spec.md"
+  [ -n "$3" ] && printf '%s\n' "$3" > "$td/.specops/$1/tasks.md"
+  RP_DOC_ERR=$(cd "$td" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$RP" compute "$1" 2>&1 >/dev/null) || rc=$?
+  printf '%s %s %s\n' "$rc" "$(jq -r .effective "$td/.specops/$1/risk-profile.json" 2>/dev/null)" \
+    "$(jq -c .signals.strict "$td/.specops/$1/risk-profile.json" 2>/dev/null)"
+  RP_DOC_JSON=$(cat "$td/.specops/$1/risk-profile.json" 2>/dev/null)
+  rm -rf "$td"
+}
+_doc_run() { _rp_doc_case "$@" > "$_DOC_OUT"; r=$(cat "$_DOC_OUT"); }   # 서브셸 없이 호출해 RP_DOC_ERR·RP_DOC_JSON 을 남긴다
+_DOC_OUT=$(mktemp)
+_LITE_HEAD='# 스펙
+**§유형**: trivial
+**§lite**: true
+## 1. 개요
+저장 버튼 문구를 바꾼다.'
+_CITE='## 10. 참조
+- 헌법 준수 — `.specops/memory/constitution.md`
+- IF 설계서 — `.specops/memory/api-spec.md`
+- 테이블 설계서 — `.specops/memory/data-model.md`'
+
+# 오탐 — 인용만 있으면 strict 가 아니다
+_doc_run 20261008-rp-cite-bare "$_LITE_HEAD
+$_CITE" '' tracked
+[ "${r%% *}" = 0 ] && case "$r" in *strict*|*public_api*|*db_migration*) false ;; *) true ;; esac \
+  && ok "T52a ★ §참조 인용뿐인 lite → strict 아님 · LITE-STRICT-GUARD 미발동" || nope "T52a" "$r"
+! printf '%s' "$RP_DOC_ERR" | grep -q '문맥 필터' \
+  && ok "T52b 인용 가림은 '--floor strict' 를 권하는 필터 경고를 내지 않는다" || nope "T52b" "stderr=$RP_DOC_ERR"
+_doc_run 20261008-rp-cite-note "$_LITE_HEAD
+## 참조
+- IF 설계서 — \`.specops/memory/api-spec.md\` (**무변경** — 신규 엔드포인트 없음)
+- 테이블 설계서 — \`.specops/memory/data-model.md\` (FR-19 가 이 테이블을 읽는다)" '' tracked
+[ "${r%% *}" = 0 ] && case "$r" in *strict*) false ;; *) true ;; esac \
+  && ok "T52c 주석이 붙은 인용(무변경·읽기) → strict 아님" || nope "T52c" "$r"
+
+# 보존 — 실제 변경 신호는 살아남는다
+_doc_run 20261008-rp-cite-api "$_LITE_HEAD
+## 참조
+- IF 설계서 — \`.specops/memory/api-spec.md\` §1 (\`/api/credentials\` 신설)" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" public_api \
+  && ok "T53a 인용 줄의 나머지 글(/api/ 경로)은 그대로 판정 → public_api" || nope "T53a" "$r"
+_doc_run 20261008-rp-cite-tasks "$_LITE_HEAD
+$_CITE" '- Modify: `.specops/memory/data-model.md:166-167`' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53b tasks 의 Modify: data-model.md → db_migration 유지" || nope "T53b" "$r"
+_doc_run 20261008-rp-cite-dirty "$_LITE_HEAD
+$_CITE" '' dirty
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53c 추적 문서를 실제로 고침(미스테이지) → db_migration 유지" || nope "T53c" "$r"
+_doc_run 20261008-rp-cite-staged "$_LITE_HEAD
+$_CITE" '' staged
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53d 추적 문서를 실제로 고침(스테이지) → db_migration 유지" || nope "T53d" "$r"
+_doc_run 20261008-rp-cite-marker "$_LITE_HEAD
+**인터페이스 반영**: \`.specops/memory/data-model.md\` §10.2 locator (Phase 2.5-B)
+$_CITE" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53e §참조 밖의 '인터페이스 반영' 줄 → db_migration 유지" || nope "T53e" "$r"
+_doc_run 20261008-rp-cite-scope "$_LITE_HEAD
+## 2. 범위
+- \`.specops/memory/data-model.md\` 의 orders 표에 컬럼을 더한다
+$_CITE" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53i §참조 밖 글머리표(범위 절)의 문서 경로 → db_migration 유지" || nope "T53i" "$r"
+_doc_run 20261008-rp-cite-para "$_LITE_HEAD
+## 참조
+\`.specops/memory/data-model.md\` 의 orders 표를 이번에 손본다" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53j §참조 안이라도 글머리표가 아닌 문장은 가리지 않는다 → db_migration 유지" || nope "T53j" "$r"
+_doc_run 20261008-rp-cite-sect "$_LITE_HEAD
+## §7. 참조
+- 테이블 설계서 — \`.specops/memory/data-model.md\`" '' tracked
+[ "${r%% *}" = 0 ] && case "$r" in *strict*) false ;; *) true ;; esac \
+  && ok "T52d '§7. 참조' 제목도 §참조다 → strict 아님" || nope "T52d" "$r"
+_doc_run 20261008-rp-cite-fkhead "$_LITE_HEAD
+### 3. 참조 무결성 변경
+- \`.specops/memory/data-model.md\` 의 orders.user_id 를 users.id 에 FK 로 건다" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53k 제목에 '참조' 가 들었을 뿐인 절(참조 무결성)은 §참조가 아니다 → db_migration 유지" || nope "T53k" "$r"
+_doc_run 20261008-rp-cite-new "$_LITE_HEAD
+## 참조
+- 테이블 설계서 — \`.specops/memory/data-model.md\` (orders 표 신설)" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53l '신설' 을 말하는 인용 줄은 가리지 않는다 → db_migration 유지" || nope "T53l" "$r"
+_doc_run 20261008-rp-cite-kept "$_LITE_HEAD
+## 참조
+- IF 설계서 — \`.specops/memory/api-spec.md\` (**Step 5.6 에서 \`SmartMoney\` 갱신**)" '' tracked
+[ "${r%% *}" = 3 ] && _has "$r" public_api \
+  && ok "T53f 갱신을 말하는 인용 줄은 가리지 않는다 → public_api 유지" || nope "T53f" "$r"
+_doc_run 20261008-rp-cite-untracked "$_LITE_HEAD
+$_CITE" '' untracked
+[ "${r%% *}" = 3 ] && case "$r" in *strict*) true ;; *) false ;; esac \
+  && ok "T53g git 이 추적하지 않는 문서 → 종전대로 인용도 신호(변경 여부를 알 수 없다)" || nope "T53g" "$r"
+_doc_run 20261008-rp-cite-union "$_LITE_HEAD
+$_CITE" '' committed-dirty-other
+[ "${r%% *}" = 3 ] && _has "$r" db_migration \
+  && ok "T53h 문서 변경은 커밋됐고 다른 파일이 더럽다 → 브랜치 변경도 함께 본다(db_migration 유지)" || nope "T53h" "$r"
+
+# T54: signals.strict 는 신호를 전부 기록한다 (종전: 공백 구분 한 줄의 첫 신호만)
+_doc_run 20261008-rp-multi '**§유형**: 신규
+JWT 검증을 추가하고 DROP TABLE legacy 를 수행한다' '' untracked
+_has "$r" auth && _has "$r" db_migration \
+  && ok "T54 다중 신호 → signals.strict 에 전부 기록" || nope "T54" "$r"
+
+# T55: LITE-STRICT-GUARD override 사유는 risk-profile.json 에 남는다 (종전: '사유 기록됨' 이라 출력만 하고 미저장)
+TD=$(mktemp -d); FID=20261008-rp-ovr
+_setup "$TD" "$FID"
+printf '**§유형**: trivial\n**§lite**: true\nJWT 검증 문구 수정\n' > "$TD/.specops/$FID/spec.md"
+e=$(cd "$TD" && SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='오탐 — 주석의 JWT 언급' bash "$RP" compute "$FID" 2>&1 >/dev/null); rc=$?
+[ "$rc" = 0 ] && [ "$(jq -r '.lite_strict_override.reason // empty' "$TD/.specops/$FID/risk-profile.json")" = '오탐 — 주석의 JWT 언급' ] \
+  && printf '%s' "$e" | grep -q '사유 기록됨' \
+  && ok "T55 override 사유 → risk-profile.json lite_strict_override.reason" \
+  || nope "T55" "rc=$rc $(jq -c '.lite_strict_override' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null) err=$e"
+rm -rf "$TD"
+
+# T56: 부정 수량 `0개` 도 `0건` 과 같이 부정 조각이다
+r=$(_rp_case 20261008-rp-zero-gae '해당 없음 — read-only 도구다. `irreversible: true` 노드 0개. 롤백은 git revert 1회.')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T56 'irreversible: true 노드 0개' → strict 아님" || nope "T56" "$r"
+r=$(_rp_case 20261008-rp-zero-gaeseon 'JWT 모듈 v2.0개선 작업')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
+  && ok "T56c '2.0개선' 은 부정 수량이 아니다 → strict(auth) 유지" || nope "T56c" "$r"
+r=$(_rp_case 20261008-rp-ten-gae '- irreversible: true 노드 10개')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T56b '10개' 는 부정이 아니다 → strict 유지" || nope "T56b" "$r"
+
+# T57: 유지보수 lite 의 가드 메시지는 mini 분석이 남는다는 점과 /maintain 재진입을 알린다
+_doc_run 20261008-rp-maint-msg '**§유형**: 유지보수
+**§lite**: true
+JWT 만료 처리 수정' '' untracked
+[ "${r%% *}" = 3 ] && printf '%s' "$RP_DOC_ERR" | grep -q '/maintain' \
+  && ok "T57 유지보수 lite 가드 메시지 → /maintain 재진입 안내" || nope "T57" "rc=${r%% *} err=$RP_DOC_ERR"
+rm -f "$_DOC_OUT"
+
+# T58: ★ 테스트 샌드박스 정리 — 같은 코드 구간에서 mktemp 로 만든 변수만 지우는 rm -rf 는 신호가 아니다
+#   종전 면제는 변수 이름이 $TD·$TMP·$TMPDIR 일 때뿐이라, tasks.md 의 TDD 스텝에 실린 테스트 코드
+#   `T=$(mktemp -d)` … `rm -rf "$T"` 가 destructive_fs 로 잡혔다(실기록: §lite 가드 발동 9건 중 6건이 이 형태 · 8건이 override).
+#   이름이 아니라 **출처**로 판정한다 — 같은 구간(코드펜스·제목 사이)에서 mktemp 로 대입된 변수여야 한다.
+_fence() { printf '%s\n' '```bash' "$@" '```'; }
+r=$(_rp_case 20261008-rp-sb-basic "$(_fence 'T=$(mktemp -d)' 'printf x > "$T/a"' 'rm -rf "$T"')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T58a ★ mktemp 로 만든 \$T 의 rm -rf → strict 아님" || nope "T58a" "$r"
+r=$(_rp_case 20261008-rp-sb-multi "$(_fence '_d=$(mktemp -d); _d2="$(mktemp -d)"' 'rm -rf "$_d" "${_d2}/sub"')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T58b 대상 여러 개·따옴표·\${}·하위 경로 → strict 아님" || nope "T58b" "$r"
+r=$(_rp_case 20261008-rp-sb-semi "$(_fence 'W=$(mktemp -d)' 'rm -rf "$W/scripts"; cp -R scripts "$W/scripts"')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T58c 같은 줄 뒤 명령(;)이 있어도 대상만 본다 → strict 아님" || nope "T58c" "$r"
+e=$(_rp_err 20261008-rp-sb-quiet "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T"')")
+! printf '%s' "$e" | grep -q '문맥 필터' \
+  && ok "T58d 출처가 확인된 정리는 필터 경고(--floor strict 권유)를 내지 않는다" || nope "T58d" "stderr=$e"
+# 보존 — 출처를 모르면 그대로 신호다
+r=$(_rp_case 20261008-rp-sb-noprov "$(_fence 'rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58e mktemp 대입이 없는 변수 → destructive_fs 유지" || nope "T58e" "$r"
+r=$(_rp_case 20261008-rp-sb-otherblock "$(_fence 'T=$(mktemp -d)'; printf '\n본문\n\n'; _fence 'rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58f 대입이 다른 코드 구간에 있다 → destructive_fs 유지" || nope "T58f" "$r"
+r=$(_rp_case 20261008-rp-sb-mixed "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T" "$HOME/cache"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58g 대상 중 하나라도 샌드박스 밖 → destructive_fs 유지" || nope "T58g" "$r"
+r=$(_rp_case 20261008-rp-sb-dotdot "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T/../other"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58h 하위 경로에 .. → destructive_fs 유지" || nope "T58h" "$r"
+r=$(_rp_case 20261008-rp-sb-reassign "$(_fence 'T=$(mktemp -d)' 'T=/var/lib/app' 'rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58i mktemp 뒤 다른 값으로 재대입 → destructive_fs 유지" || nope "T58i" "$r"
+r=$(_rp_case 20261008-rp-sb-literal "$(_fence 'T=$(mktemp -d)' 'rm -rf /opt/app')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58j 리터럴 경로 → destructive_fs 유지" || nope "T58j" "$r"
+r=$(_rp_case 20261008-rp-sb-other "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T" && psql -c "DROP TABLE legacy"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration && ! _has "$r" destructive_fs \
+  && ok "T58k 같은 줄의 다른 신호(DROP TABLE)는 그대로 → db_migration 유지" || nope "T58k" "$r"
+r=$(_rp_case 20261008-rp-sb-two "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T"; rm -rf "$DEPLOY_ROOT"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58l 같은 줄의 두 번째 rm -rf 가 샌드박스 밖 → destructive_fs 유지" || nope "T58l" "$r"
+r=$(_rp_case 20261008-rp-sb-lit2 "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T" /opt/app')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58m 샌드박스 변수 + 리터럴 경로가 섞임 → destructive_fs 유지" || nope "T58m" "$r"
+#   코드 안의 `# 주석` 줄은 마크다운 제목이 아니다 — 구간을 끊지 않는다(실기록 3건이 대입과 정리 사이에 주석 줄이 있었다)
+r=$(_rp_case 20261008-rp-sb-comment "$(_fence '_d=$(mktemp -d)' '# M6 — 원자 교체 확인' 'run_case "$_d"' 'rm -rf "$_d"')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T58n 코드펜스 안 주석 줄은 구간 경계가 아니다 → strict 아님" || nope "T58n" "$r"
+#   출처 판정의 구멍 (리뷰 M-2 — 전부 실행으로 확인된 입력)
+r=$(_rp_case 20261008-rp-sb-cmt-assign "$(_fence '# 테스트에서는 DATA_DIR=$(mktemp -d) 로 바꿔 쓴다' 'rm -rf "$DATA_DIR"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58p 주석 줄의 대입은 출처가 아니다 → destructive_fs 유지" || nope "T58p" "$r"
+r=$(_rp_case 20261008-rp-sb-prefix "$(_fence 'D=$(mktemp_backup_dir /var/lib/app)' 'rm -rf "$D"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58q mktemp_* 접두 일치는 출처가 아니다 → destructive_fs 유지" || nope "T58q" "$r"
+r=$(_rp_case 20261008-rp-sb-for "$(_fence 'T=$(mktemp -d)' 'for T in /var/lib/app /opt/data; do rm -rf "$T"; done')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58r for 루프가 변수를 다시 묶는다 → destructive_fs 유지" || nope "T58r" "$r"
+r=$(_rp_case 20261008-rp-sb-read "$(_fence 'T=$(mktemp -d)' 'read -r T < target.txt' 'rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58s read 가 변수를 다시 묶는다 → destructive_fs 유지" || nope "T58s" "$r"
+r=$(_rp_case 20261008-rp-sb-append "$(_fence 'T=$(mktemp -d)' 'T+=/../..' 'rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58t += 로 값이 바뀐다 → destructive_fs 유지" || nope "T58t" "$r"
+r=$(_rp_case 20261008-rp-sb-subvar "$(_fence 'T=$(mktemp -d)' 'rm -rf "$T/$SUB"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58u 하위 경로에 다른 변수 → destructive_fs 유지" || nope "T58u" "$r"
+r=$(_rp_case 20261008-rp-sb-tilde "$(printf '%s\n' '~~~bash' 'T=$(mktemp -d)' '~~~' '' '~~~bash' 'rm -rf "$T"' '~~~')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58v ~~~ 펜스도 구간 경계다 → destructive_fs 유지" || nope "T58v" "$r"
+r=$(_rp_case 20261008-rp-sb-forother "$(_fence 'T=$(mktemp -d)' 'for f in a b; do touch "$T/$f"; done' 'rm -rf "$T"')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T58w 다른 변수를 도는 for 는 출처를 끊지 않는다 → strict 아님" || nope "T58w" "$r"
+r=$(_rp_case 20261008-rp-sb-heading "$(printf '%s\n' '    T=$(mktemp -d)' '## 다음 절' '    rm -rf "$T"')")
+[ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
+  && ok "T58o 펜스 밖에서는 제목이 구간 경계다 → destructive_fs 유지" || nope "T58o" "$r"
 
 finish
