@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-10-08
+
 ### Added
 
 - **무인 변형 3종 — `/maintain-auto` · `/start-lite-auto` · `/maintain-lite-auto`** — 유지보수와 경량 경로에도 무인 진입을 둔다(종전엔 `/start-auto`·`/start-all-auto` 뿐). 진입 커맨드가 약속어 다음 줄에 `<!-- auto: true -->` 를 붙이고(batch 의 무인 표지와 같은 방식), `analyzing-ko`·`specifying-ko` 가 그 줄을 보고 spec 에 `§auto: true` 를 함께 적는다. 뒤 단계는 종전대로 그 라벨만 본다.
@@ -3024,7 +3026,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.13.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.14.0...HEAD
+[2.14.0]: https://github.com/andyko18/specops-ko/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/andyko18/specops-ko/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/andyko18/specops-ko/compare/v2.11.0...v2.12.0
 [2.11.0]: https://github.com/andyko18/specops-ko/compare/v2.10.0...v2.11.0
