@@ -154,5 +154,19 @@ if printf '%s' "$out" | grep -q "미지원"; then PASS=$((PASS+1)); else FAIL=$(
 unset SPECOPS_GOVERNANCE_PROFILE
 bash "$SCRIPT" pretool-governance >/dev/null 2>&1 && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-R-1 미설정 default"; }
 
+# T6 cwd 의 yaml.py 가짜 모듈이 킬스위치 판정을 속이지 못한다 (20261008-yaml-shadow-rest)
+#   python3 stdin 실행은 sys.path[0]='' 라 cwd 의 yaml.py 가 진짜 pyyaml 을 가린다 — 가짜가 항상 {} 를 돌려주면
+#   `enabled:false` 로 꺼 둔 훅이 켜진 것으로 판정된다.
+tmp=$(mktemp -d)
+printf 'hooks:\n  foo:\n    enabled: false\n' > "$tmp/c.yaml"
+printf 'def safe_load(s):\n    return {}\n' > "$tmp/yaml.py"
+( cd "$tmp" && SPECOPS_CONFIG="$tmp/c.yaml" bash "$SCRIPT" foo >/dev/null 2>&1 ); rc=$?
+if [ "$rc" -eq 1 ]; then
+  PASS=$((PASS+1)); echo "PASS T6 cwd yaml.py 가짜 주입에도 비활성 판정 유지 (rc=1)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T6 cwd yaml.py 에 속아 활성 판정 (rc=$rc, expect 1)"
+fi
+rm -rf "$tmp"
+
 echo "passed=$PASS failed=$FAIL"
 exit $FAIL

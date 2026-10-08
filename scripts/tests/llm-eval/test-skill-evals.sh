@@ -364,7 +364,8 @@ printf '#!/usr/bin/env bash\nprintf "boom: rate limited\\nsecond\\n" >&2\nexit 1
   && ok "T8.f2 호출 실패 사유에 claude stderr 첫 줄 부착" || nope "T8.f2" "$JUDGE_REASON"
 _x=$(printf 'x%.0s' $(seq 1 100)); _judge '{"text":"VERDICT: FAIL\n\u001b[31m'"$_x"'"}'
 [ "${#JUDGE_REASON}" -eq 80 ] && ! printf '%s' "$JUDGE_REASON" | grep -q "$(printf '\033')" && ok "T8.g 근거 80자 절단 · 제어문자 제거" || nope "T8.g" "len=${#JUDGE_REASON}"
-_judge '{"text":"VERDICT: PASS\nok"}'
+# 호스트에 LLM_EVAL_JUDGE_MODEL 이 있어도 이 호출은 "기본은 --model 없음"을 검증한다(빈 값 = 미설정). T8.i 는 아래에서 명시 주입한다
+LLM_EVAL_JUDGE_MODEL= _judge '{"text":"VERDICT: PASS\nok"}'
 if grep -qF -- '--max-turns 1' "$TMP/args.log" && grep -qF -- '--strict-mcp-config' "$TMP/args.log" \
    && grep -qF -- '--disallowedTools Bash Read Glob Grep Agent Edit Write NotebookEdit WebFetch WebSearch ToolSearch Skill' "$TMP/args.log" \
    && ! grep -qF -- '--model' "$TMP/args.log"; then ok "T8.h 격리 인자 (max-turns 1 · strict-mcp · 도구+Skill 차단 · 기본은 --model 없음)"; else nope "T8.h" "$(head -c 300 "$TMP/args.log")"; fi
@@ -581,7 +582,9 @@ if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.
 _ev_bad=""; _ev_n=0
 for d in "$PLUGIN"/evals/*/; do
   [ -d "$d" ] || continue
-  _ev_n=$((_ev_n+1)); n=$(basename "$d")
+  n=$(basename "$d")
+  [ "$n" = results ] && continue   # claude plugin eval 의 실행 결과 폴더(.gitignore) — 케이스가 아니다
+  _ev_n=$((_ev_n+1))
   [ -f "$d/prompt.md" ] || _ev_bad="$_ev_bad $n(prompt.md 없음)"
   g=$(ls "$d"/graders/*.md 2>/dev/null | wc -l | tr -d ' ')
   [ "$g" -ge 1 ] || _ev_bad="$_ev_bad $n(grader 0)"

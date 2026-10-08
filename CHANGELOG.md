@@ -4,6 +4,57 @@
 
 ## [Unreleased]
 
+### 작은 수정 소요 단축 — 스위트 상한 600s · 느린 대상 스위트 리뷰·구현 실행 상한 (#137)
+
+사용자 피드백 "2줄짜리 테스트 수정에 분석부터 PR 까지 약 1시간 50분"의 실측 원인 두 가지를 고쳤다. **품질 게이트(B·C 리뷰 각 1회·독립 되돌려-관찰·verify·전체 스위트)는 줄이지 않는다**(비용보다 품질 우선).
+- `run-all.sh` 의 `SPECOPS_SUITE_TIMEOUT` 기본 **300 → 600초** — 다른 세션이 겹친 부하(load 17)에서 `test-validate-structure` 가 상한을 넘겨 변경과 무관한 TIMEOUT 거짓 FAIL 이 2회 재현됐다(명시값 우선·정지는 여전히 끊는다). 이후 스위트 분할(#138)·frontmatter 단일 패스(#118)로 해당 스위트 자체도 가벼워졌다. 한계: 600s 가 극단 부하에서도 충분한지는 미실측이며, 600s 는 Bash 포그라운드 최대와 같아 스위트 하나가 멈추면 run-all 전체는 백그라운드 실행 후 회수 경로를 써야 한다
+- `implementing-ko` `### 리뷰어 실행 예산` 에 **느린 대상 스위트 규칙**(`lite`·`standard` 한정, `strict` 불변): dispatch 프롬프트에 실행 상한을 숫자로 적고, 동시 실행으로 생긴 실패는 단독 재실행으로 구분하며, 부모는 계약 밖 점검을 프롬프트에 추가하지 않고, 구현자는 `RED 1회·GREEN 1회·되돌려-관찰 1회` 상한. 실측(이 변경 자체가 첫 적용): 구현자 616s→85s · Phase B 1231s→44s · Phase C 1735s→약 7분
+- 잠금: `test-gate-presence`(규칙 문구·상한 기본값 정합) · 크기 래칫 기준선 명시 갱신(`implementing-ko` 38311→39365B). 규칙은 서술이라 기계는 문구 존재만 잠근다
+
+### ponytail 사다리 효과 대조 실측 — `claude plugin eval` with/without ablation (결과: Δ = 0, 천장 효과)
+
+사다리(rung)가 코드 재사용·양을 줄였는지 처음으로 **플러그인 있는 갈래와 없는 갈래를 같은 prompt 로** 쟀다. `evals/` 에 rung 케이스 5개를 추가했다: `rung-native-date`(플랫폼 기본 기능) · `rung-stdlib-cache`(표준 라이브러리) · `rung-keep-validation`(안전 요소 비절감) · **`rung-reuse-helper`**(이미 있는 `slugify` 유틸 재사용 — 사다리 2단) · **`rung-reuse-dependency`**(이미 설치된 `dayjs` 사용 — 5단). 뒤 둘은 scaffold 로 작은 프로젝트를 깔아 두고 "코드는 쓰지 말고 변경 계획만" 을 묻는다. 케이스당 3회 × 2 갈래(`claude plugin eval --runs 3`, Claude Code 2.1.293, 총 약 $3.2).
+
+**결과: 5개 케이스 전부 with 3/3 · without 3/3 — Δ 0.** 기본 모델(Sonnet 5.5)이 힌트 없이도 네이티브·stdlib·기존 유틸·설치된 의존성을 먼저 고르고 안전 요소를 지킨다. 그래서 **이 케이스들로는 사다리의 효과가 있다고도 없다고도 말할 수 없다** — 천장이라 변별하지 못한다. 앞서 `e-1~e-4` 4/4 통과도 같은 이유로 사다리 덕이라고 볼 근거가 아니었다.
+
+해석 시 주의: ① 케이스는 "계획을 말로 답하는" 짧은 단일 응답이라 실제 구현 중 과잉 설계(여러 파일·반복)와 다르다 ② 사다리는 구현 단계의 `implementer-ko` 에는 문구가 없고 상위 4 skill 에만 있어, 단일 응답 케이스에서는 plugin 갈래도 skill 이 호출되지 않을 수 있다(미확인) ③ n=3·케이스 5개의 소표본. **사다리가 코드량을 줄이는지 알려면 실제 lifecycle 로 같은 기능을 with/without 구현해 diff 줄 수를 비교해야 하며(본격안·FID 당 승인 게이트·수 $/회) 아직 하지 않았다.**
+
+### cwd `yaml.py` 우회 차단 확대 — 킬스위치·위험 프로파일·chain 검사
+
+직전(#114)에 판정 게이트 3곳을 막고 남겨 둔 `python3` 진입부 3곳에 같은 `sys.path` 정리를 넣었다: `is-hook-enabled.sh`(**거버넌스 킬스위치** — cwd 의 가짜 `yaml.py` 가 `{}` 를 돌려주면 `enabled:false` 로 꺼 둔 훅이 켜진 것으로 판정됐다, 수정 전 RED→후 GREEN 확인) · `risk-profile.sh` · `validate-structure.sh` 의 chain_consistency 검사. 잠금: `test-is-hook-enabled` T6 · `propagation-matrix` `yaml-cwd-shadow` 에 edge 3개 추가. `doctor.sh`(존재 확인만)·`cvt.py`(파일 실행이라 `sys.path[0]` 이 스크립트 디렉터리) 는 해당 없음.
+
+### 게이트 보유율 재측정(2026-10-08)·ponytail 사다리 행동 eval 본 실행
+
+- `gate-coverage.sh` 를 로컬 specops 사용 repo 11곳에 실행: verified 113 · held 20 · **17%**. 7회차(23%, verified 121·held 28)와 비교하면 그때 gobiseo(8/8)가 빠졌을 뿐 나머지 **113/20 이 동일** — 즉 **점수가 오른 것도 내린 것도 아니다**: 외부 repo 에 새 FID 가 거의 없다(측정 모집단 중 2026-10 FID 는 2건뿐). v2.3~v2.7 의 게이트들은 하류 repo 가 새 버전으로 FID 를 돌리기 전에는 이 지표에 나타날 수 없다(설치본이 이번에야 2.2.0→2.7.0). 지표는 **후행**이다
+- `implementing-ko` e-1~e-4(rung 준수: 네이티브·stdlib 우선·안전 요소 비절감·`shortcut:` 규약) 본 실행: **4/4 PASS**($0.96, routed·n=1). 단 대조군(플러그인 없는 갈래)이 없어 통과가 사다리 덕인지 모델 기본 행동인지 구분하지 못한다
+
+### `test-validate-structure` 분할 — 부하 시 300s TIMEOUT 의 구조적 완화 (스위트 185 → 186)
+
+이 스위트는 외부 부하가 코어 수의 2.5배를 넘으면(로컬 17~29) 300s 상한을 반복해서 넘겼다(`validate-structure.sh` 를 sandbox·실 트리에서 약 45회 돌리는 구조). frontmatter 단일 패스(#118)로 151s → 69s 로 줄였지만 부하 앞에서는 한계가 있어, **같은 단언을 그대로 둘로 나눴다**: `test-validate-structure.sh`(T1~T13 · 33s) · 신규 `test-validate-structure-chain.sh`(T14~T-cc4 · 51s — chain_consistency·agent_tools·hardgate·커맨드 chain 과 사본 복제 케이스). 공용 `SKILL_NAMES`·`make_sandbox`·`add_docs` 는 `scripts/tests/lib/vs-sandbox.sh` 로 빼 두 스위트가 source 한다. 병렬 풀에서 두 스위트가 동시에 돌아 벽시계는 줄고, 각각 상한 대비 여유가 커진다. 단언은 하나도 바꾸지 않았다(분할 전 44 + ISO 1 = 합 45 로 일치 확인). `.githooks/pre-push`·`CLAUDE.md` 의 스위트 수 doc-lock 을 186 으로, `suite-order.txt`·`scripts/README.md` 에 신규 스위트를 등재했다.
+
+⚠️ 한계: 분할로 한 스위트의 최악 소요가 줄 뿐 상한이 사라진 것은 아니다 — 외부 부하가 극단적이면 이론상 재발할 수 있다.
+
+## [2.7.0] — 2026-10-08
+
+### `/doctor` 9번째 점검 `effort_env` · skill effort 실측 (#130·#131)
+
+`/doctor` 가 `CLAUDE_CODE_EFFORT_LEVEL` 환경변수 설정 여부를 항상 보고한다(9항목). 설정돼 있으면 ⚠️ — 이 env 가 있으면 skill·agent frontmatter `effort` 가 **전부 무력화**되고(서브에이전트 effort 프로파일 포함) 지금까지 어떤 층도 알리지 못했다. README 의 "skill frontmatter effort 동작 미확인" 을 20261007 실측 4사실로 교체했다: 활성화 **이후** 적용 · skill 종료 후 **비복원**(같은 턴 끝까지 마지막 값 유지) · 다음 턴 복원(약한 증거) · env 가 모두 무력화 → 연쇄 skill 에서 일부만 지정하면 후속 skill 이 상속하므로 **전부-또는-전무**. 함께 `doctor.sh` `_add` 구분자 치환이 macOS `/bin/bash` 3.2 에서 `|` 를 `\/` 로 남기던 표시 결함을 고쳤다(행·JSON 위조 방지는 불변, 테스트 엄격화).
+
+### skill eval 러너 확장 — 행동 eval 8건 · agent 본문 주입 · effort/model arm · 케이스 필터 (#128·#129·#132·#133)
+
+- `implementing-ko` 행동 eval **e-5~e-12 8건**(구현자 실행 모드 계약 5 · 과잉 설계 리뷰 3) — 각 `llm_rubric` 에 FAIL 조건 명시, 최상위 `_note` 에 한계(미보정 채점기·도구 차단으로 서술만 측정) 고백
+- `SKILL_EVAL_INJECT=1` — 케이스의 선택 필드 `agent` 본문을 그 질의에만 `--append-system-prompt` 로 주입해 **계약 본문 유무(with/without)** 를 같은 prompt 로 비교(주입 off 에서는 호출 인자 바이트 동일, agent 파일 부재는 케이스 SKIP)
+- `SKILL_EVAL_EFFORT`·`SKILL_EVAL_MODEL` — candidate 질의에만 `--effort`/`--model`(채점기 격리). `CLAUDE_CODE_EFFORT_LEVEL` 이 설정돼 있으면 비용 전에 거절(arm 이 전부 같아지는 오염 방지)
+- `SKILL_EVAL_CASES=<id,…>` — 지정 케이스만 질의·채점(선택 밖은 열거도 SKIP 집계도 없음). 파일럿 비용 ≈ $49 → ≈ $16
+- 본 실행 결과: 계약 본문 주입 with/without 통과 14/24 → 23/24(약 $10.9, 방향 신호)
+
+### agent effort 프로파일 파일럿 — 프로파일 유지 (#134)
+
+implementing-ko 판별 케이스를 effort low·medium·high × N=3 으로 실행(약 $16.4): 구현자 세 effort 모두 6/6, 리뷰어 low 6/6 · medium 5/6(채점 노이즈로 보이는 1회 FAIL) · high 6/6 — 하락 미관측이라 낮춰도 무방하다는 **방향 신호**일 뿐 통계적 결론이 아니다(2케이스 소표본·천장 효과·짧은 단일 응답). **현행 프로파일은 바꾸지 않는다**(품질 근거가 강할 때만 절감).
+
+⚠️ **한계 (정직 고백)**: 위 eval 은 모두 수동 실행(토큰 비용)이며 CI 비포함이다. `llm_rubric` 채점기는 `judge-calibration` 범위 밖이라 판별력이 보정되지 않았다. `commands/doctor.md` 의 `specops_version` 을 이번 릴리즈 값으로 올렸다.
+
+
 ## [2.6.0] — 2026-10-07
 
 ### 공식 문서 대조 반영 (3/3) — `claude plugin eval` 라우팅 스위트 · 주입 문구 가설 검증
@@ -2868,7 +2919,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/andyko18/specops-ko/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/andyko18/specops-ko/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/andyko18/specops-ko/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/andyko18/specops-ko/compare/v2.3.0...v2.4.0

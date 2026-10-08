@@ -6,6 +6,7 @@
 scripts/tests/test-reconcile-check.sh
 scripts/tests/test-check-screen-quality.sh
 scripts/tests/test-validate-structure.sh
+scripts/tests/test-validate-structure-chain.sh
 scripts/tests/test-shellcheck-lint.sh
 scripts/tests/test-empty-output-rule.sh
 scripts/tests/llm-eval/test-skill-evals.sh

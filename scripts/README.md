@@ -131,7 +131,8 @@ SPECOPS_CONFIG=/path/to/alt.yaml bash scripts/_internal/is-hook-enabled.sh sessi
 ```bash
 bash scripts/tests/test-count-artifacts.sh              # 7건 (v0.1)
 bash scripts/tests/test-validate-task-dependencies.sh   # 7건 (v0.2 세션 4)
-bash scripts/tests/test-validate-structure.sh           # 7건 (v0.2 세션 5)
+bash scripts/tests/test-validate-structure.sh           # 7건 (v0.2 세션 5) — T1~T13
+bash scripts/tests/test-validate-structure-chain.sh     # T14~T-cc4 (chain·agent_tools·hardgate) — 20261008 분할
 bash scripts/tests/test-diff-upstream.sh                # 8건 (v0.2 세션 5.5)
 bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 ```

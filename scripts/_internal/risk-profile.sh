@@ -38,6 +38,7 @@ rp::collect_files() {
     local extra
     extra=$(SPECOPS_DAG_YAML="$_RP_YAML" python3 -c '
 import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 try:
   import yaml
 except Exception:
