@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-10-09
+
 ### Fixed
 
 - **`/start-all` 이 끝단에서 막히던 문제 3건** — 설치본 스크립트를 연습용 프로젝트에서 Phase 순서대로 실행하고, 실제 batch 기록 6건(4개 프로젝트)을 대조해 찾았다. 실기록에서 batch PR 로 닫힌 것은 0건이었다(5건은 로컬 병합, 1건은 구현 뒤 중단).
@@ -3035,7 +3037,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.14.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.15.0...HEAD
+[2.15.0]: https://github.com/andyko18/specops-ko/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/andyko18/specops-ko/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/andyko18/specops-ko/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/andyko18/specops-ko/compare/v2.11.0...v2.12.0
