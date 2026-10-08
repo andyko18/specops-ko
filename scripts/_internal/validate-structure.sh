@@ -355,7 +355,9 @@ elif [ ! -f hooks/chain.yaml ]; then
   emit chain_consistency FAIL "hooks/chain.yaml 부재"
 else
   cc_out=$(python3 - <<'PYEOF' 2>&1
-import glob, re, sys, yaml
+import glob, re, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 
 try:
     with open('hooks/chain.yaml') as f:
