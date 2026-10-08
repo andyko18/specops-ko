@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### `test-validate-structure` 분할 — 부하 시 300s TIMEOUT 의 구조적 완화 (스위트 185 → 186)
+
+이 스위트는 외부 부하가 코어 수의 2.5배를 넘으면(로컬 17~29) 300s 상한을 반복해서 넘겼다(`validate-structure.sh` 를 sandbox·실 트리에서 약 45회 돌리는 구조). frontmatter 단일 패스(#118)로 151s → 69s 로 줄였지만 부하 앞에서는 한계가 있어, **같은 단언을 그대로 둘로 나눴다**: `test-validate-structure.sh`(T1~T13 · 33s) · 신규 `test-validate-structure-chain.sh`(T14~T-cc4 · 51s — chain_consistency·agent_tools·hardgate·커맨드 chain 과 사본 복제 케이스). 공용 `SKILL_NAMES`·`make_sandbox`·`add_docs` 는 `scripts/tests/lib/vs-sandbox.sh` 로 빼 두 스위트가 source 한다. 병렬 풀에서 두 스위트가 동시에 돌아 벽시계는 줄고, 각각 상한 대비 여유가 커진다. 단언은 하나도 바꾸지 않았다(분할 전 44 + ISO 1 = 합 45 로 일치 확인). `.githooks/pre-push`·`CLAUDE.md` 의 스위트 수 doc-lock 을 186 으로, `suite-order.txt`·`scripts/README.md` 에 신규 스위트를 등재했다.
+
+⚠️ 한계: 분할로 한 스위트의 최악 소요가 줄 뿐 상한이 사라진 것은 아니다 — 외부 부하가 극단적이면 이론상 재발할 수 있다.
+
 ## [2.7.0] — 2026-10-08
 
 ### `/doctor` 9번째 점검 `effort_env` · skill effort 실측 (#130·#131)
