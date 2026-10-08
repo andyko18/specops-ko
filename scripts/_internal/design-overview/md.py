@@ -14,6 +14,8 @@ HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
 SW = r'<i class="sw" style="background:#\1"></i>#\1'
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 PRIORITY = {"must": "must", "should": "should", "nice": "nice", "nice-to-have": "nice", "could": "nice"}
+# 문서 안 상대 링크는 그 문서 위치 기준이다. 생성물은 다른 디렉터리에 놓이므로 호출자가 재기준 함수를 꽂는다.
+LINK_REBASE = None
 SAFE_URL_RE = re.compile(r"^(https?://|\.{0,2}/|#|[A-Za-z0-9_.\-/]+(#[\w\-가-힣.]*)?$)")
 
 
@@ -42,6 +44,8 @@ def inline(text):
             label, url = m.group(1), html.unescape(m.group(2)).strip()
             if not SAFE_URL_RE.match(url) or url.lower().startswith("javascript:"):
                 return label
+            if LINK_REBASE and not re.match(r"^(https?://|#)", url):
+                url = LINK_REBASE(url)
             return '<a href="%s">%s</a>' % (html.escape(url, quote=True), label)
 
         esc = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, esc)
@@ -68,7 +72,7 @@ def _split_row(line):
         cells = cells[1:]
     if cells.endswith("|"):
         cells = cells[:-1]
-    return [c.strip() for c in re.split(r"(?<!\\)\|", cells)]
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", cells)]
 
 
 def _is_sep(line):
@@ -79,9 +83,10 @@ def strip_comments(text):
     return re.sub(r"<!--.*?-->", "", text, flags=re.S)
 
 
-def render(text, diagram_hook=None, heading_hook=None):
+def render(text, diagram_hook=None, heading_hook=None, shift=0, after_heading=None):
     """text → HTML. diagram_hook(lang, code) 가 문자열을 주면 코드펜스 대신 그것을 넣는다.
-    heading_hook(level, title, anchor) 는 목차 수집용."""
+    heading_hook(level, title, anchor) 는 목차 수집용. shift 는 제목 단계를 그만큼 내린다(문서를 장 아래에 넣을 때).
+    after_heading(level, title) 이 문자열을 주면 그 제목 바로 뒤에 넣는다(프로세스 제목 뒤 흐름도)."""
     lines = strip_comments(text).split("\n")
     out, used = [], set()
     i, n = 0, len(lines)
@@ -119,7 +124,11 @@ def render(text, diagram_hook=None, heading_hook=None):
             anchor = slug(title, used)
             if heading_hook:
                 anchor = heading_hook(level, title, anchor) or anchor
-            out.append('<h%d id="%s">%s</h%d>' % (level, html.escape(anchor, quote=True), inline(title), level))
+            lv = min(6, level + shift)
+            out.append('<h%d id="%s">%s</h%d>' % (lv, html.escape(anchor, quote=True), inline(title), lv))
+            extra = after_heading(level, title) if after_heading else None
+            if extra:
+                out.append(extra)
             i += 1
             continue
         if re.match(r"^(-{3,}|\*{3,}|_{3,})$", stripped):

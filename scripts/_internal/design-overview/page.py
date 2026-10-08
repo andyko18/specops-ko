@@ -63,6 +63,11 @@ i.sw{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px so
 .shot .fr{display:block;width:282px;height:177px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#fff}
 .shot iframe{width:1120px;height:700px;border:0;transform:scale(.25);transform-origin:0 0;pointer-events:none}
 .shot b{display:block;margin-top:5px;font-size:13.5px}table.mx td,table.mx th{text-align:center}table.mx td:first-child,table.mx th:first-child{text-align:left}
+section.chapter{border-top:3px solid var(--fg);margin-top:56px;padding-top:6px}section.chapter>h1{font-size:23px;margin:14px 0 4px}
+.chn{display:inline-block;min-width:34px;height:34px;line-height:34px;margin-right:10px;border-radius:8px;background:var(--fg);color:var(--bg);text-align:center;font-size:18px}
+section.chapter section.docsec{border-top:1px dashed var(--line);margin-top:30px}section.docsec h2{font-size:18px}section.docsec h3{font-size:16px}
+.lede{font-size:16.5px;color:var(--mut);margin:2px 0 12px}a.card{text-decoration:none;color:inherit}a.card:hover{border-color:var(--acc)}
+.banner{background:var(--tbd);border-radius:8px;padding:8px 14px;font-size:14px;margin:12px 0 0}
 </style></head><body>
 <nav><input id="q" type="search" placeholder="목차 걸러 보기" aria-label="목차 걸러 보기"><ul id="toc">{{NAV}}</ul></nav>
 <main><header class="bar"><b>생성물 — 직접 수정하지 않는다.</b> 원본은 각 절 머리에 적힌 마크다운 파일이고, 고친 뒤 다시 생성한다.

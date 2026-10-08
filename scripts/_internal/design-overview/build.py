@@ -2,7 +2,10 @@
 
 원본은 계속 마크다운이다. 이 파일이 만드는 HTML 은 **생성물**이라 사람이 고치지 않는다(고쳐도 lifecycle 이 읽지 않는다).
 외부 리소스(스크립트·스타일·폰트·이미지)를 하나도 참조하지 않는다 — 폐쇄망에서 파일만 열어도 그대로 보인다.
-그림은 통상 표기를 따른다: 계층형 시스템 구성도 · 스윔레인 업무 흐름도 · 까마귀발 ERD · 화면 흐름도.
+
+구성은 설계서의 통상 순서를 따른다 — **전체 그림 먼저, 상세는 뒤**:
+  머리(한 줄 설명·규모·미결) → 1 시스템 구성 → 2 요구사항 → 3 업무 프로세스 → 4 화면 → 5 인터페이스 → 6 데이터
+  → 7 품질·원칙 → 8 추적·미결. 각 장도 같은 원칙이다: 장 머리에 그림·요약, 그 아래 문서 본문.
 
 Usage: build.py <project-root> <out.html> [--check]
 Exit : 0 = 생성(또는 --check 시 최신) · 1 = --check 시 낡음/부재 · 2 = 설계 문서 없음
@@ -16,16 +19,27 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diagrams  # noqa: E402
+import er  # noqa: E402
 import flows  # noqa: E402
 import md  # noqa: E402
 import sources as src  # noqa: E402
 from page import TEMPLATE  # noqa: E402
 
 META = "specops-design-sources"
-ARCH = ".specops/memory/architecture.md"
-REQ = ".specops/memory/requirements.md"
-PROC = ".specops/memory/process-design.md"
-API = ".specops/memory/api-spec.md"
+M = ".specops/memory/"
+ARCH, REQ, PROC, API, DATA, SCR = M + "architecture.md", M + "requirements.md", M + "process-design.md", M + "api-spec.md", M + "data-model.md", M + "screens-overview.md"
+# (id, 장 이름, 문서들) — 전체 구조에서 상세로
+CHAPTERS = (
+    ("sys", "시스템 구성", (ARCH, M + "frontend-architecture.md", M + "backend-architecture.md")),
+    ("req", "요구사항", (REQ, "PRD.md")),
+    ("proc", "업무 프로세스", (PROC,)),
+    ("ui", "화면", (SCR, "DESIGN.md")),
+    ("if", "인터페이스", (API, M + "api-spec-consumer.md")),
+    ("data", "데이터", (DATA,)),
+    ("qa", "품질 · 원칙", (M + "test-strategy.md", M + "constitution.md")),
+    ("trace", "추적 · 미결", (M + "decisions.md", M + "project-context.md")),
+)
+HOISTED = '<p class="note">이 그림은 장 머리에 있다 — <a href="#%s">%s 보기</a></p><details class="src"><summary>원문(mermaid)</summary><pre><code>%s</code></pre></details>'
 
 
 def e(t):
@@ -57,24 +71,35 @@ def tiers_svg(graph, tech, pairs):
     return flows.render_tiers(nodes, labeled, order, node_tech)
 
 
-def arch_overview(text):
-    """architecture.md 의 첫 graph 블록, 없으면 §1 구성 요소 + §2 통신 표로 구성도를 만든다. (svg, 본문용 렌더 함수)"""
+def mermaid_blocks(text):
+    return re.findall(r"```mermaid\n(.*?)```", text or "", flags=re.S)
+
+
+def arch_lead(text):
+    """architecture.md 의 첫 graph 블록, 없으면 §1 구성 요소 + §2 통신 표로 구성도를 만든다."""
     tech, pairs = src.arch_model(text)
-    renderer = lambda g: tiers_svg(g, tech, pairs)  # noqa: E731
-    for code in re.findall(r"```mermaid\n(.*?)```", text or "", flags=re.S):
+    for code in mermaid_blocks(text):
         g = diagrams.parse_graph(code)
         if g:
-            return renderer(g), renderer
+            return tiers_svg(g, tech, pairs)
     g = diagrams.graph_from_pairs(pairs)
-    return (renderer(g) if g else ""), renderer
+    return tiers_svg(g, tech, pairs) if g else ""
+
+
+def erd_lead(text):
+    for code in mermaid_blocks(text):
+        parsed = er.parse_er(code)
+        if parsed:
+            return er.render_er(parsed)
+    return ""
 
 
 def req_matrix(frs):
     """요구사항 현황 — 마일스톤 × 우선순위 건수."""
-    ms = sorted({f["ms"] or "미지정" for f in frs})
-    pri = [p for p in ("must", "should", "nice", "nice-to-have", "could", "") if any(f["pri"] == p for f in frs)]
     if not any(f["ms"] or f["pri"] for f in frs):
         return ""
+    ms = sorted({f["ms"] or "미지정" for f in frs})
+    pri = [p for p in ("must", "should", "nice", "nice-to-have", "could", "") if any(f["pri"] == p for f in frs)]
     head = "".join("<th>%s</th>" % md.cell(p or "미지정") for p in pri)
     rows = []
     for m in ms:
@@ -84,17 +109,55 @@ def req_matrix(frs):
             % (head, "".join(rows)))
 
 
+def proc_tables(text):
+    """프로세스 블록의 `- **항목**: 내용` 줄을 정의 표로 바꾼다 — 그림 바로 아래에 프로세스 정의서 형태로 붙는다.
+    보여 주는 형식만 바꾼다(원본 문서와 미확정·가정 집계는 그대로)."""
+    out, buf, inside = [], [], False
+
+    def flush():
+        if buf:
+            out.extend(["| 항목 | 내용 |", "|---|---|"] + ["| %s | %s |" % (k, v.replace("|", "\\|")) for k, v in buf] + [""])
+            del buf[:]
+
+    for line in text.split("\n"):
+        m = re.match(r"^[-*]\s+\*\*(.+?)\*\*\s*:\s*(.*)$", line)
+        if inside and m:
+            buf.append((m.group(1).strip(), m.group(2).strip()))
+            continue
+        flush()
+        if re.match(r"^#{2,4}\s+P-\d+", line):
+            inside = True
+        elif re.match(r"^#{1,2}\s", line):
+            inside = False
+        out.append(line)
+    flush()
+    return "\n".join(out)
+
+
+def table(heads, rows, cls=""):
+    return '<div class="tw"><table%s><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (
+        ' class="%s"' % cls if cls else "", "".join("<th>%s</th>" % e(h) for h in heads), "".join(rows))
+
+
 def build(root, out_path):
     docs = src.load(root)
     if not docs:
         return None
     by_rel = {d["rel"]: d for d in docs}
+    out_dir = os.path.dirname(os.path.abspath(out_path))
     sdir = os.path.join(root, "screens")
-    screens = sorted(f for f in os.listdir(sdir) if f.endswith(".html")) if os.path.isdir(sdir) else []
-    digest = src.sources_hash(docs, screens)
-    arch, arch_renderer = arch_overview(by_rel[ARCH]["text"]) if ARCH in by_rel else ("", None)
+    shot_files = sorted(f for f in os.listdir(sdir) if f.endswith(".html")) if os.path.isdir(sdir) else []
+    digest = src.sources_hash(docs, shot_files)
+    text = lambda rel: by_rel[rel]["text"] if rel in by_rel else ""  # noqa: E731
 
-    opens, toc, sections = [], [], []
+    procs = src.parse_processes(text(PROC))
+    frs = src.parse_frs(text(REQ))
+    eps = src.parse_endpoints(text(API))
+    screens = src.parse_screens(text(SCR))
+    arch, erd = arch_lead(text(ARCH)), erd_lead(text(DATA))
+
+    opens = []
+    rendered = {}
     for d in docs:
         heads, o = src.scan(d)
         opens.extend(o)
@@ -107,85 +170,118 @@ def build(root, out_path):
             lst = _q.get(title)
             return lst.pop(0) if lst else anchor
 
-        gr = arch_renderer if d["rel"] == ARCH else None
-        body = md.render(d["text"], diagram_hook=lambda lang, code, _g=gr: diagrams.render_fence(lang, code, _g), heading_hook=hook)
-        sub = "".join('<li><a href="#%s">%s</a></li>' % (e(a), e(t)) for lv, t, a in heads if lv == 2)
-        toc.append('<li><a class="doc" href="#%s">%s</a>%s</li>' % (d["key"], e(d["name"]), "<ul>%s</ul>" % sub if sub else ""))
-        sections.append('<section class="docsec" id="%s"><div class="src-tag">원본 <code>%s</code></div>%s</section>'
-                        % (d["key"], e(d["rel"]), body))
+        state = {"hoisted": False}
 
-    procs = src.parse_processes(by_rel[PROC]["text"]) if PROC in by_rel else []
-    frs = src.parse_frs(by_rel[REQ]["text"]) if REQ in by_rel else []
-    eps = src.parse_endpoints(by_rel[API]["text"]) if API in by_rel else []
+        def fence(lang, code, _rel=d["rel"], _st=state):
+            # 장 머리로 올린 그림(구성도·ERD)은 본문에서 다시 그리지 않는다 — 같은 그림이 두 번 나오면 읽는 흐름이 끊긴다
+            if lang == "mermaid" and not _st["hoisted"]:
+                if _rel == ARCH and arch and diagrams.parse_graph(code):
+                    _st["hoisted"] = True
+                    return HOISTED % ("lead-sys", "시스템 구성도", html.escape(code))
+                if _rel == DATA and erd and er.parse_er(code):
+                    _st["hoisted"] = True
+                    return HOISTED % ("lead-data", "ERD", html.escape(code))
+            return diagrams.render_fence(lang, code)
 
-    title = os.path.basename(os.path.abspath(root))
-    m = re.search(r"^#\s+(.+)$", md.strip_comments(by_rel["PRD.md"]["text"]) if "PRD.md" in by_rel else "", flags=re.M)
-    if m:
-        title = re.sub(r"\s*(PRD|—.*)$", "", m.group(1)).strip() or title
+        def after(level, title, _rel=d["rel"]):
+            # 프로세스 제목 바로 뒤에 흐름도 — 그림과 설명(그 아래 항목)을 한자리에서 본다
+            m = re.match(r"^(P-\d+)\b", title) if _rel == PROC else None
+            p = next((x for x in procs if m and x["id"] == m.group(1)), None)
+            return flows.render_swimlane(p) if p else None
+
+        doc_dir = os.path.dirname(os.path.join(os.path.abspath(root), d["rel"]))
+
+        def rebase(url, _dd=doc_dir):
+            path, _, frag = url.partition("#")
+            new = os.path.relpath(os.path.normpath(os.path.join(_dd, path)), out_dir).replace(os.sep, "/") if path else ""
+            return new + ("#" + frag if frag else "")
+
+        md.LINK_REBASE = rebase
+        doc_text = proc_tables(d["text"]) if d["rel"] == PROC else d["text"]
+        body = md.render(doc_text, diagram_hook=fence, heading_hook=hook, shift=1, after_heading=after)
+        md.LINK_REBASE = None
+        rendered[d["rel"]] = '<section class="docsec" id="%s"><div class="src-tag">원본 <code>%s</code></div>%s</section>' % (d["key"], e(d["rel"]), body)
 
     n_tbd = sum(1 for o in opens if o[0] == "미확정")
     n_asm = len(opens) - n_tbd
-    cards = "".join('<div class="card"><b>%s</b><span>%s</span></div>' % (e(v), e(k)) for k, v in (
-        ("문서", len(docs)), ("요구(FR)", len(frs)), ("프로세스", len(procs)), ("API", len(eps)), ("화면 미리보기", len(screens)),
-        ("미확정", n_tbd), ("가정", n_asm)))
+    rel_shots = os.path.relpath(sdir, out_dir).replace(os.sep, "/")
 
-    ov = ['<section id="overview"><h1>%s — 설계 한눈에 보기</h1><div class="cards">%s</div>' % (e(title), cards)]
-    nav = []
+    # ── 장 머리(그림·요약) ──
+    leads = {k: [] for k, _, _ in CHAPTERS}
 
-    def sec(anchor, name, heading=None):
-        nav.append((anchor, name))
-        ov.append('<h2 id="%s">%s</h2>' % (anchor, heading or e(name)))
+    def lead(ch, anchor, name, content):
+        leads[ch].append((anchor, name, '<h2 id="%s">%s</h2>%s' % (anchor, e(name), content)))
 
     if arch:
-        sec("ov-arch", "시스템 구성도")
-        ov.append('%s<p class="note">계층: 사용자 → 채널·프레젠테이션 → 애플리케이션 → 데이터·미들웨어 · 오른쪽 점선 칸은 외부 연계. '
-                  '출처: <a href="#%s">전체 아키텍처</a> 문서의 다이어그램·§1 구성 요소(기술)·§2 통신(프로토콜)</p>' % (arch, by_rel[ARCH]["key"]))
+        lead("sys", "lead-sys", "시스템 구성도", arch + '<p class="note">계층: 사용자 → 채널·프레젠테이션 → 애플리케이션 → 데이터·미들웨어 · '
+             "오른쪽 점선 칸은 외부 연계. 상자의 작은 글씨는 기술, 화살표의 글씨는 통신 방식이다.</p>")
     mx = req_matrix(frs)
     if mx:
-        sec("ov-req", "요구사항 현황")
-        ov.append('%s<p class="note">출처: <a href="#%s">요구사항</a> 문서의 FR 표</p>' % (mx, by_rel[REQ]["key"]))
-    if procs:
-        sec("ov-flow", "업무 흐름도")
-        for p in procs:
-            ov.append('<h3>%s %s</h3>%s' % (e(p["id"]), e(p.get("name", "")), flows.render_swimlane(p)
-                                           or '<p class="note">흐름을 그릴 항목이 아직 없다(트리거·화면·API·테이블·결과 미기재).</p>'))
-        rows = "".join("<tr>%s</tr>" % "".join("<td>%s</td>" % md.inline(p.get(k, "")) for k in ("id", "name", "FR", "화면", "API", "테이블"))
-                       for p in procs)
-        sec("ov-trace", "추적표", "추적표 — 프로세스 ↔ 요구 ↔ 화면 ↔ API ↔ 테이블")
-        ov.append('<div class="tw"><table><thead><tr><th>ID</th><th>프로세스</th><th>관련 FR</th><th>화면</th><th>API</th><th>테이블</th>'
-                  "</tr></thead><tbody>%s</tbody></table></div>" % rows)
-        linked = " ".join(p.get("FR", "") for p in procs) + by_rel[PROC]["text"]
-        orphan = [f for f in frs if not re.search(r"\b%s\b" % re.escape(f["id"]), linked)]
-        if orphan:
-            ov.append('<p class="warn">프로세스에 연결되지 않은 요구 %d건: %s</p>'
-                      % (len(orphan), ", ".join("<code>%s</code> %s" % (e(f["id"]), e(f["text"][:40])) for f in orphan)))
+        lead("req", "lead-req", "요구사항 현황", mx)
+    if screens or shot_files:
+        names = [s[0] for s in screens] + [f[:-5] for f in shot_files if f[:-5] not in [s[0] for s in screens]]
+        info = {s[0]: s for s in screens}
+        rows = []
+        for n in names:
+            has = (n + ".html") in shot_files
+            status = '<a href="%s/%s.html">미리보기</a>' % (e(rel_shots), e(n)) if has else '<span class="pill">설계 전</span>'
+            rows.append("<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                        % (e(n), md.inline(info.get(n, ("", "", ""))[1]), md.inline(info.get(n, ("", "", ""))[2]), status))
+        done = sum(1 for n in names if (n + ".html") in shot_files)
+        lead("ui", "lead-ui", "화면 현황", table(("화면", "제목", "목적", "상태"), rows)
+             + '<p class="note">화면 %d개 중 미리보기 %d개. 상세 설계는 <code>/start-all</code> Phase 2.5 · <code>/design-screen</code> 이 채운다.</p>' % (len(names), done))
     if eps:
-        sec("ov-api", "API 목록")
-        ov.append('<div class="tw"><table><thead><tr><th>메서드</th><th>경로</th><th>인증</th><th>설명</th></tr></thead><tbody>%s</tbody></table></div>'
-                  % "".join("<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>" % (md.cell(mt), e(pa), md.inline(au), md.inline(no))
-                            for mt, pa, au, no in eps))
-    sec("ov-open", "결정 필요 항목", "결정이 필요한 항목 — 미확정 %d · 가정 %d" % (n_tbd, n_asm))
+        lead("if", "lead-if", "API 목록", table(("메서드", "경로", "인증", "설명"), [
+            "<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>" % (md.cell(mt), e(pa), md.inline(au), md.inline(no))
+            for mt, pa, au, no in eps]))
+    if erd:
+        lead("data", "lead-data", "ERD", erd + '<p class="note">관계선 끝 표기: 막대 = 1 · 원 = 0 · 까마귀발 = 여럿.</p>')
+    if procs:
+        rows = ["<tr>%s</tr>" % "".join("<td>%s</td>" % md.inline(p.get(k, "")) for k in ("id", "name", "FR", "화면", "API", "테이블")) for p in procs]
+        linked = " ".join(p.get("FR", "") for p in procs) + text(PROC)
+        orphan = [f for f in frs if not re.search(r"\b%s\b" % re.escape(f["id"]), linked)]
+        warn = ('<p class="warn">프로세스에 연결되지 않은 요구 %d건: %s</p>' % (
+            len(orphan), ", ".join("<code>%s</code> %s" % (e(f["id"]), e(f["text"][:40])) for f in orphan))) if orphan else ""
+        lead("trace", "lead-trace", "추적표", table(("ID", "프로세스", "관련 FR", "화면", "API", "테이블"), rows) + warn)
+    open_rows = ['<tr><td><span class="pill %s">%s</span></td><td><a href="#%s">%s</a></td><td>%s</td></tr>'
+                 % ("tbd" if k == "미확정" else "assume", k, e(a), e(n), md.inline(t)) for k, n, a, t in opens]
+    lead("trace", "lead-open", "결정이 필요한 항목", ('<p>미확정 %d · 가정 %d</p>' % (n_tbd, n_asm))
+         + (table(("구분", "문서", "내용"), open_rows) if opens else '<p class="note">미확정·가정 표시가 없다.</p>'))
+
+    # ── 머리 ──
+    title = os.path.basename(os.path.abspath(root))
+    m = re.search(r"^#\s+(.+)$", md.strip_comments(text("PRD.md")), flags=re.M)
+    if m:
+        title = re.sub(r"\s*(PRD|—.*)$", "", m.group(1)).strip() or title
+    one = src.one_liner(text("PRD.md"))
+    cards = "".join('<a class="card" href="#%s"><b>%s</b><span>%s</span></a>' % (h, e(v), e(k)) for k, v, h in (
+        ("요구(FR)", len(frs), "ch-req"), ("프로세스", len(procs), "ch-proc"), ("화면", len(screens) or len(shot_files), "ch-ui"),
+        ("API", len(eps), "ch-if"), ("문서", len(docs), "top"), ("미확정", n_tbd, "lead-open"), ("가정", n_asm, "lead-open")))
+    body = ['<section id="top"><h1>%s — 설계서</h1>%s<div class="cards">%s</div>' % (
+        e(title), '<p class="lede">%s</p>' % md.inline(one) if one else "", cards)]
     if opens:
-        ov.append('<div class="tw"><table><thead><tr><th>구분</th><th>문서</th><th>내용</th></tr></thead><tbody>%s</tbody></table></div>' % "".join(
-            '<tr><td><span class="pill %s">%s</span></td><td><a href="#%s">%s</a></td><td>%s</td></tr>'
-            % ("tbd" if k == "미확정" else "assume", k, e(a), e(n), md.inline(t)) for k, n, a, t in opens))
-    else:
-        ov.append('<p class="note">미확정·가정 표시가 없다.</p>')
-    if screens:
-        rel = os.path.relpath(sdir, os.path.dirname(os.path.abspath(out_path))).replace(os.sep, "/")
-        sec("ov-screens", "화면 미리보기")
-        # sandbox="" — 미리보기 안의 스크립트를 실행하지 않는다. 축소 썸네일은 클릭하면 원본이 열린다.
-        ov.append('<div class="shots">%s</div>' % "".join(
-            '<a class="shot" href="%s/%s"><span class="fr"><iframe src="%s/%s" loading="lazy" sandbox="" tabindex="-1" title="%s"></iframe></span>'
-            "<b>%s</b></a>" % (e(rel), e(s), e(rel), e(s), e(s[:-5]), e(s[:-5])) for s in screens))
-    ov.append("</section>")
+        body.append('<p class="banner">결정이 필요한 항목이 있다 — 미확정 %d · 가정 %d. <a href="#lead-open">목록 보기</a></p>' % (n_tbd, n_asm))
+    body.append("</section>")
+
+    # ── 장 ──
+    nav, num = [], 0
+    for cid, cname, rels in CHAPTERS:
+        present = [r for r in rels if r in rendered]
+        if not present and not leads[cid]:
+            continue
+        num += 1
+        body.append('<section class="chapter" id="ch-%s"><h1><span class="chn">%d</span>%s</h1>' % (cid, num, e(cname)))
+        body.extend(c for _, _, c in leads[cid])
+        body.extend(rendered[r] for r in present)
+        body.append("</section>")
+        items = [(a, n) for a, n, _ in leads[cid]] + [(by_rel[r]["key"], by_rel[r]["name"]) for r in present]
+        nav.append('<li><a class="doc" href="#ch-%s">%d. %s</a><ul>%s</ul></li>' % (
+            cid, num, e(cname), "".join('<li><a href="#%s">%s</a></li>' % (e(a), e(n)) for a, n in items)))
 
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    navhtml = '<li><a class="doc" href="#overview">한눈에 보기</a><ul>%s</ul></li>' % "".join(
-        '<li><a href="#%s">%s</a></li>' % (a, e(t)) for a, t in nav)
     page = TEMPLATE.replace("{{TITLE}}", e(title)).replace("{{META}}", META).replace("{{HASH}}", digest) \
-        .replace("{{STAMP}}", e(stamp)).replace("{{REV}}", e(git_rev(root) or "—")).replace("{{NAV}}", navhtml + "".join(toc)) \
-        .replace("{{BODY}}", "".join(ov) + "".join(sections))
+        .replace("{{STAMP}}", e(stamp)).replace("{{REV}}", e(git_rev(root) or "—")).replace("{{NAV}}", "".join(nav)) \
+        .replace("{{BODY}}", "".join(body))
     return page, digest
 
 

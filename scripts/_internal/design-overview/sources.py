@@ -173,6 +173,25 @@ def parse_endpoints(text):
     return eps
 
 
+def parse_screens(text):
+    """[(name, 제목, 목적)] — screens-overview.md 의 화면 목록 표(머리칸 첫 칸이 name)."""
+    rows = []
+    for head, body in tables(text):
+        if head and head[0].strip().lower() in ("name", "화면", "화면 id", "id"):
+            for r in body:
+                name = re.sub(r"[`*]", "", r[0]).strip() if r else ""
+                if name and not re.fullmatch(r"<[^>]*>", name):
+                    rows.append((name, r[1].strip() if len(r) > 1 else "", r[2].strip() if len(r) > 2 else ""))
+    return rows
+
+
+def one_liner(prd_text):
+    """PRD 의 한 줄 설명 — 채우지 않은 값이면 빈 문자열."""
+    m = re.search(r"\*\*한 줄 설명\*\*\s*[:：]\s*(.+)", md.strip_comments(prd_text or ""))
+    v = m.group(1).strip() if m else ""
+    return "" if (not v or "<" in v) else v
+
+
 def _norm(name):
     t = re.sub(r"[`*]", "", name).strip().lower()
     for a, b in (("database", "db"), ("message queue", "mq"), ("object storage", "storage")):

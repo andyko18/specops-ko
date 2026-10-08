@@ -98,6 +98,11 @@ MD
   cat > "$d/.specops/memory/screens-overview.md" <<'MD'
 # 화면 목록
 
+| name | 제목 | 목적 | 상세 스펙 | 미리보기 |
+|---|---|---|---|---|
+| inbound | 입고 등록 | 납품 수량 입력 | [screens/inbound.md](../../screens/inbound.md) | 예정 |
+| stock | 재고 조회 | 품목 검색 | [screens/stock.md](../../screens/stock.md) | 예정 |
+
 ```mermaid
 stateDiagram-v2
   [*] --> 로그인 : 접속
@@ -143,7 +148,7 @@ H=$(cat "$OUT" 2>/dev/null)
 
 # ① 그림 — 구성도(개요+본문 2회)·ERD·프로세스 흐름
 n_svg=$(printf '%s' "$H" | grep -o '<svg ' | wc -l | tr -d ' ')
-[ "$n_svg" -ge 5 ] && ok "D2 그림 ${n_svg}개 (구성도·ERD·업무 흐름·화면 흐름)" || nope "D2" "svg=$n_svg"
+[ "$n_svg" -eq 4 ] && ok "D2 그림 4개 (구성도·업무 흐름·화면 흐름·ERD — 장 머리로 올린 그림은 본문에서 다시 그리지 않는다)" || nope "D2" "svg=$n_svg"
 printf '%s' "$H" | grep -q 'API Server' && printf '%s' "$H" | grep -q 'aria-label="시스템 구성도"' && ok "D2b 구성도 노드·레이블" || nope "D2b" "구성도 부재"
 printf '%s' "$H" | grep -q 'aria-label="ERD"' && printf '%s' "$H" | grep -q 'class="cf"' && printf '%s' "$H" | grep -q 'class="cfo"' \
   && printf '%s' "$H" | grep -q 'k-pk">PK' && ok "D2c ERD — 까마귀발(막대·원) + PK 표기" || nope "D2c" "ERD 통상 표기 부재"
@@ -173,14 +178,33 @@ printf '%s' "$H" | grep -q '미확정 2 · 가정 1' && ok "D5 미확정·가정
 printf '%s' "$H" | grep -q 'POST /v1/inbounds' && printf '%s' "$H" | grep -q '추적표' && ok "D5b 추적표" || nope "D5b" "추적표 부재"
 printf '%s' "$H" | grep -q '연결되지 않은 요구 1건' && printf '%s' "$H" | grep -A0 '연결되지 않은 요구' | grep -q 'FR-2' \
   && ok "D5c 프로세스 미연결 요구(FR-2) 고지" || nope "D5c" "미연결 요구 미고지"
-printf '%s' "$H" | grep -q 'screens/inbound.html' && printf '%s' "$H" | grep -q 'sandbox=""' && ok "D5d 화면 미리보기(썸네일은 스크립트 차단 sandbox)" || nope "D5d" "화면 미리보기 부재"
+printf '%s' "$H" | grep -q 'id="lead-ui"' && printf '%s' "$H" | grep -q 'href="../screens/inbound.html">미리보기' \
+  && printf '%s' "$H" | grep -q '<code>stock</code>.*설계 전' && ok "D5d 화면 현황 — 목록 + 상태(미리보기 / 설계 전)" || nope "D5d" "화면 현황 부재"
 printf '%s' "$H" | grep -q 'mth m-post">POST' && printf '%s' "$H" | grep -q 'pri p-must">must' && ok "D5f 통상 표기 배지 — HTTP 메서드·우선순위" || nope "D5f" "배지 부재"
-api_sec=$(python3 -c 'import re,sys; m=re.search(r"id=\"ov-api\".*?id=\"ov-open\"", sys.stdin.read(), re.S); print(m.group(0) if m else "")' < "$OUT")
+api_sec=$(python3 -c 'import re,sys; m=re.search(r"id=\"lead-if\".*?</table>", sys.stdin.read(), re.S); print(m.group(0) if m else "")' < "$OUT")
 printf '%s' "$api_sec" | grep -q '/v1/inbounds' && ! printf '%s' "$api_sec" | grep -q '/v1/users' \
   && ok "D5g API 목록 — 남은 예시 블록 행은 제외" || nope "D5g" "API 목록"
-printf '%s' "$H" | grep -q 'id="ov-req"' && printf '%s' "$H" | grep -q 'class="mx"' && ok "D5h 요구사항 현황(마일스톤 × 우선순위)" || nope "D5h" "현황표 부재"
+printf '%s' "$H" | grep -q 'id="lead-req"' && printf '%s' "$H" | grep -q 'class="mx"' && ok "D5h 요구사항 현황(마일스톤 × 우선순위)" || nope "D5h" "현황표 부재"
 printf '%s' "$H" | grep -q 'class="sw" style="background:#2F5FD0"' && ok "D5i 색상 견본" || nope "D5i" "견본 부재"
 printf '%s' "$H" | grep -q '생성물 — 직접 수정하지 않는다' && ok "D5e 생성물 고지" || nope "D5e" "고지 부재"
+
+# ⑨ 설계서 순서 — 전체 그림(시스템 구성) 먼저, 상세는 뒤 · 장 번호 · 프로세스는 그림과 설명이 한자리
+order=$(python3 -c 'import re,sys
+t=sys.stdin.read()
+ids=["lead-sys","ch-req","ch-proc","ch-ui","ch-if","ch-data","ch-trace","lead-open"]
+pos=[t.find("id=\"%s\"" % i) for i in ids]
+print("OK" if all(p>=0 for p in pos) and pos==sorted(pos) else "BAD %s" % pos)' < "$OUT")
+[ "$order" = "OK" ] && ok "D10 순서: 시스템 구성도 → 요구사항 → 프로세스 → 화면 → 인터페이스 → 데이터 → 추적·미결" || nope "D10" "$order"
+printf '%s' "$H" | grep -q '<span class="chn">1</span>시스템 구성' && ok "D10b 장 번호" || nope "D10b" "장 번호 부재"
+[ "$(printf '%s' "$H" | grep -o 'aria-label="시스템 구성도"' | wc -l | tr -d ' ')" -eq 1 ] && printf '%s' "$H" | grep -q '이 그림은 장 머리에 있다' \
+  && ok "D10c 구성도는 한 번만(본문에는 장 머리 안내 + 원문)" || nope "D10c" "구성도 중복"
+proc=$(python3 -c 'import re,sys
+t=sys.stdin.read()
+m=re.search(r"<h4 id=\"[^\"]*\">P-001[^<]*</h4>\s*<figure class=\"dg\">.*?</figure>\s*<div class=\"tw\"><table><thead><tr><th>항목</th><th>내용</th>", t, re.S)
+print("OK" if m else "BAD")' < "$OUT")
+[ "$proc" = "OK" ] && ok "D10d 프로세스 — 제목 바로 아래 흐름도, 그 아래 정의 표(항목·내용)" || nope "D10d" "그림+설명 배치"
+printf '%s' "$H" | grep -q 'href="../screens/inbound.md"' && ok "D10e 문서 상대 링크를 생성물 위치 기준으로 재기준" || nope "D10e" "링크 재기준 실패"
+printf '%s' "$H" | grep -q 'class="banner"' && printf '%s' "$H" | grep -q 'class="lede">창고 재고를 추적한다' && ok "D10f 머리 — 한 줄 설명 + 미결 배너" || nope "D10f" "머리 부재"
 
 # ⑤ --check: 최신 → 원본 변경 → 낡음
 bash "$SH" --check "$d" >/dev/null 2>&1; [ $? -eq 0 ] && ok "D6 --check FRESH rc0" || nope "D6" "FRESH 아님"
@@ -205,7 +229,8 @@ out=$(bash "$SH" "$t" 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ! grep -q 'aria-label="프로세스 흐름' "$t/.specops/design-overview.html" \
   && ok "D8 템플릿 골격만 → rc0 · 빈 골격 행은 프로세스로 세지 않음" || nope "D8" "rc=$rc out=$out"
 # 실제 템플릿의 mermaid(graph·erDiagram)가 그려진다 — 템플릿이 바뀌어 파서 밖으로 나가면 여기서 잡힌다
-[ "$(grep -o '<svg ' "$t/.specops/design-overview.html" | wc -l | tr -d ' ')" -ge 3 ] && grep -q 'band b-app' "$t/.specops/design-overview.html" \
+grep -q 'aria-label="시스템 구성도"' "$t/.specops/design-overview.html" && grep -q 'aria-label="ERD"' "$t/.specops/design-overview.html" \
+  && grep -q 'band b-app' "$t/.specops/design-overview.html" \
   && ok "D8b 실 템플릿의 구성도·ERD 렌더" || nope "D8b" "템플릿 mermaid 미렌더"
 rm -rf "$t"
 
