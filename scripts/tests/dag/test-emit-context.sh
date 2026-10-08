@@ -629,8 +629,8 @@ _pf "T10.a 실행 모드 라벨 판정(single·auto·batch·줄 중간 무시)" 
 tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-mode"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-mode/"
 (cd "$tmp" && bash "$EMIT" 20260902-mode >/dev/null 2>&1); f="$tmp/.specops/20260902-mode/dispatch/T1-context.md"
 sec=$(awk '/^## 7\. 실행 모드/{on=1;print;next} /^## /{on=0} on' "$f" 2>/dev/null)
-miss=""; for t in '사용자와 직접 대화할 수 없다' '한 번에' '의존 없는 나머지' 'NEEDS_APPROVAL'; do printf '%s' "$sec" | grep -qF -- "$t" || miss="$miss [$t]"; done
-_pf "T10.b §7 본문 계약 4항목" "$([ -n "$sec" ] && [ -z "$miss" ] && echo ok || echo no)" "누락=$miss"
+miss=""; for t in '사용자와 직접 대화할 수 없다' '한 번에' '의존 없는 나머지' 'NEEDS_APPROVAL' 'repo 밖에 흔적을 남기는 실행'; do printf '%s' "$sec" | grep -qF -- "$t" || miss="$miss [$t]"; done
+_pf "T10.b §7 본문 계약 5항목(repo 밖 흔적 포함)" "$([ -n "$sec" ] && [ -z "$miss" ] && echo ok || echo no)" "누락=$miss"
 # T10.c §7 이 있어도 validate-context(5 컨텍스트 검증)는 통과한다
 # 부모(implementing-ko)가 dispatch 직전 §5 의 <repo-root> 를 sed 갱신한 뒤의 상태를 흉내낸다
 sed -i.bak "s#<repo-root>#$tmp#" "$f"; rm -f "$f.bak"

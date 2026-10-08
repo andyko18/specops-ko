@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 2.13.0
+specops_version: 2.14.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -46,7 +46,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 4. **DAG** — leaf 1개 YAML (`depends_on: []`). Step 10 자체 검증·Step 10b `emit-context.sh` 정상 수행.
 5. 이후 `## 다음 skill` (implementing-ko) 로 정상 진행.
 
-> **오판 안전망**: trivial/§lite 는 사용자가 명시(슬래시·승인)한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — "규모가 lite/trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
+> **오판 안전망**: trivial/§lite 는 사용자가 명시(슬래시·승인)한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — "규모가 lite/trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선. `§auto` 면 묻지 않고 정상 경로로 올린다(clarify → plan 을 무인으로 수행) — 이때도 아래 Step 10c 의 무인 승격과 **같은 절차**다: spec §1 에 `**자동 승격**: lite → 풀 경로 (규모 초과)` 를 남기고, 유지보수면 분석을 먼저 보강한다.
 > (기준 보정 근거 — 20260716 trivial dogfood 발견 #1: 구 기준 "AC ≥ 3 또는 파일 ≥ 2" 는 TDD 최소 구성에 **항상 걸리는 false-trigger** 였다. 실질 복잡도 신호는 비테스트 구현 파일 2개↑ 또는 AC 4건↑.)
 
 ## 체크리스트
@@ -103,7 +103,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
     - `effective=lite` → `reductions_allowed: ["batch-review-skip"]` (그 외는 `[]`)
     - **allowlist 외 축소 금지** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지. `batch-review-skip`만 batch 오케스트레이터가 requesting/receiving에 적용 가능. **`review_mode: end-loaded`는 Phase B/C 생략이 아님**(시점만 FID 말미로 통합) — allowlist와 무관하게 기본 동작
     - 사용자 상향만 허용: `--floor standard|strict` 또는 `SPECOPS_RISK_PROFILE_FLOOR`
-    - **★ rc=3 = `LITE-STRICT-GUARD` (HARD GATE — 20260806)**: `§lite` FID 인데 프로파일이 `strict` 면 compute 가 rc=3 을 낸다. lite 는 clarify·plan 을 **이미 건너뛴** 상태라 그대로 진행하면 고위험 변경이 설계 검토 없이 구현된다. **implementing-ko 로 진행 금지** — `specops-ko:clarifying-ko` → `specops-ko:planning-ko` 를 수행해 승격한 뒤 본 스킬 재진입(정상 체크리스트 경로). `plan.md` 가 생기면 가드는 자동 해제된다. 사용자 주권 우회는 env + 사유 병기(`SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<사유>'`)뿐 — 모델이 파일을 써서 열 수 없다.
+    - **★ rc=3 = `LITE-STRICT-GUARD` (HARD GATE — 20260806)**: `§lite` FID 인데 프로파일이 `strict` 면 compute 가 rc=3 을 낸다. lite 는 clarify·plan 을 **이미 건너뛴** 상태라 그대로 진행하면 고위험 변경이 설계 검토 없이 구현된다. **implementing-ko 로 진행 금지** — `specops-ko:clarifying-ko` → `specops-ko:planning-ko` 를 수행해 승격한 뒤 본 스킬 재진입(정상 체크리스트 경로). `plan.md` 가 생기면 가드는 자동 해제된다. **`§auto`(`/start-lite-auto`·`/maintain-lite-auto`)면 묻지 않고 이 승격을 수행한다** — clarify·plan 도 무인 규칙으로 돌고, 유지보수면 그 전에 `current-state.md`·`impact-analysis.md` 를 analyzing 풀 체크리스트(Step 1~6) 기준으로 **이 자리에서** 보강한다 — `analyzing-ko` 를 다시 호출하지 않는다(새 FID 를 만들고 specifying 을 재호출해 승인된 spec 을 덮어쓴다). spec §1 에 `**자동 승격**: lite → 풀 경로 (<신호>)` 를 남긴다. 무인에서 override env 로 가드를 끄지 않는다. 사용자 주권 우회는 env + 사유 병기(`SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<사유>'`)뿐 — 모델이 파일을 써서 열 수 없다.
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `specops-ko:implementing-ko` 다음 단계 안내
 12. **전환** — `specops-ko:implementing-ko` 호출
 

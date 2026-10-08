@@ -15,6 +15,12 @@ for s in '/start ' '/start-lite' '/start-auto' '/start-foundation' '/start-all' 
   grep -q -- "$s" "$R" || miss="$miss $s"
 done
 [ -z "$miss" ] && ok "AC-2 10종 진입로 등장" || nope "AC-2" "누락:$miss"
+# AC-2b: 무인 변형 3종 (20261008-auto-variants) — 진입로 표와 결정 트리 양쪽
+miss=""
+for s in '/maintain-auto' '/start-lite-auto' '/maintain-lite-auto'; do
+  [ "$(grep -c -- "$s" "$R")" -ge 2 ] || miss="$miss $s"
+done
+[ -z "$miss" ] && ok "AC-2b 무인 변형 3종 — 표·결정 트리" || nope "AC-2b" "누락(2곳 미만):$miss"
 # AC-3: start↔maintain 판단 기준 (신규/기존 키워드)
 grep -qiE '신규.*기존|기존.*수정|신규 산출물' "$R" && ok "AC-3 판단 기준" || nope "AC-3" "판단 기준 없음"
 # AC-4: project→foundation→batch 순서 표현 (한 줄 요약 라인 매칭 — grep 줄단위)

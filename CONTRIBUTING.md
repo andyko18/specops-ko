@@ -29,6 +29,9 @@ clone 후 1회: `bash scripts/_internal/install-git-hooks.sh` (pre-commit≈5s �
 /start-all-auto                      # 무인 batch
 /maintain "<수정 대상>"              # 유지보수 (analyzing 선행)
 /maintain-lite "<대상>"              # 경량 유지보수
+/maintain-auto "<수정 대상>"         # 무인 유지보수 (분석 검토·승인 자동 통과)
+/start-lite-auto "<기능>"            # 경량 신규 무인
+/maintain-lite-auto "<대상>"         # 경량 유지보수 무인
 ```
 
 자율 chain: specify → clarify → plan → decompose → implement → verify → request-review → receive-review → security → integration-test → performance-test → PR.

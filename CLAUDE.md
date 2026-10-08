@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite` 와 각각의 무인 변형 `-auto`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
-> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**190 스위트** <!-- doc-lock: suite-count --> · 작업자 풀 병렬 — 2026-09-11 실측 median 병렬 382s(5회) / 직렬 813s(3회). `SPECOPS_RUN_ALL_JOBS` 로 병렬 수 지정(기본 코어 수·상한 8, `1`=직렬). 스위트별 600s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: run-all 없이 나간 커밋이 main 을 하루 red 로 만들었다). 탈출구는 `--no-verify`.
+> **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**191 스위트** <!-- doc-lock: suite-count --> · 작업자 풀 병렬 — 2026-09-11 실측 median 병렬 382s(5회) / 직렬 813s(3회). `SPECOPS_RUN_ALL_JOBS` 로 병렬 수 지정(기본 코어 수·상한 8, `1`=직렬). 스위트별 600s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 도구 무관 게이트는 이 층뿐이다 (계기: run-all 없이 나간 커밋이 main 을 하루 red 로 만들었다). 탈출구는 `--no-verify`.
 
 ```bash
 # 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
@@ -163,6 +163,7 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 - `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지), Step 5.6 적용, §유형=`foundation` 자동 라벨.
 - `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
 - `<!-- entry: auto -->` — 무인 단독(`§auto: true`). git-branch 유지, clarify/plan 수행.
+- **무인 표지 (둘째 줄)** `<!-- auto: true -->` — `maintain`·`maintain-lite`·`lite` 약속어 **다음 줄**에 붙으면 그 분기에 무인을 겹친다(`/maintain-auto`·`/maintain-lite-auto`·`/start-lite-auto`). `analyzing-ko` 는 검토 게이트를 자동 통과하고(분석 산출물은 그대로), `specifying-ko` 는 `§auto: true` 를 함께 적는다 — 뒤 단계는 그 라벨만 본다. lite 계열의 strict 신호는 중단 대신 풀 무인 경로로 자동 승격한다. batch 의 셋째 줄 `<!-- auto: true -->` 와 같은 표지다.
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 

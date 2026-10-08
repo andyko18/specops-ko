@@ -3,7 +3,7 @@ name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 2.13.0
+specops_version: 2.14.0
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
@@ -204,7 +204,7 @@ grep -A5 "ASSUMED" .specops/<FID>/clarifications.md | grep -E "질문|가정 근
 grep -A10 "## Decided" .specops/<FID>/handoffs/*.md
 
 # 3. spec.md 자동 결정 intent + 화면 + 인터페이스 (Step 1.5·5.5·5.6 auto-generated)
-grep -E "자동 결정 화면|자동 결정 인터페이스|자동 결정 intent" .specops/<FID>/spec.md
+grep -E "자동 결정 화면|자동 결정 인터페이스|자동 결정 intent|자동 결정 분석|자동 승격" .specops/<FID>/spec.md
 
 # 4. auto-state.md escalations (있으면)
 cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
@@ -220,6 +220,9 @@ cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
 
 ### 단계별 주요 결정
 <handoffs/*.md Decided 항목>
+
+### 자동 통과한 분석 · 자동 승격 (유지보수·경량 무인)
+<spec.md "자동 결정 분석"·"자동 승격" 줄 + `current-state.md` 의 변경 대상·보존할 동작 요약 2~3줄 — 없으면 "(없음)">
 
 ### 자동 결정 intent (Step 1.5)
 <spec.md "자동 결정 intent" 목록 — 없으면 "(없음)">
