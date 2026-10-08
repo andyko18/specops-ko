@@ -137,6 +137,18 @@ _phase_8h_test_strategy() {
   echo "→ ${target} (8h 모든 종류)"
 }
 
+# 8i 프로세스 설계서 — KIND 무관(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다).
+#   종전엔 bash 가 만들지 않고 Phase 11 LLM 보강이 "새로 생성"했다 — 보강이 빠지면 문서 자체가 없었고
+#   정본 목록(ARTIFACTS_MEMORY) 밖이라 사전검사 표·활성 카운트에도 잡히지 않았다. 골격은 bash 가 보장하고
+#   본문(프로세스 목록·상세)은 Phase 11 이 채운다(placeholder 는 scan-enrich-placeholders 가 미채움으로 판정).
+_phase_8i_process_design() {
+  local target=".specops/memory/process-design.md"
+  _should_skip "$target" && { echo "→ process-design.md 보존 (skip 정책)"; return; }
+  cp "$PLUGIN/templates/process-design.md" "$target"
+  _replace_token "$target" "<프로젝트명>" "$PROJECT_NAME"
+  echo "→ ${target} (8i 모든 종류)"
+}
+
 phase_8_artifacts() {
   echo ""
   echo "[Phase 8] 종류별 산출물 매트릭스 (KIND=${PROJECT_KIND}):"
@@ -149,6 +161,7 @@ phase_8_artifacts() {
   _phase_8f_api_spec
   _phase_8g_api_consumer
   _phase_8h_test_strategy
+  _phase_8i_process_design
 }
 phase_9_readme() {
   local target="README.md"
@@ -173,7 +186,7 @@ _kind_label() {
   esac
 }
 
-# 13종 중 실제 생성된 파일 카운트
+# 14종 중 실제 생성된 파일 카운트
 _count_active() {
   local n=0 f
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
@@ -186,11 +199,16 @@ phase_10_commit() {
   echo ""
   echo "[Phase 10] commit + .specops/.gitignore"
   mkdir -p .specops
-  # .gitignore: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+  # .gitignore: memory/ · session-progress.md · FID 의 intent.md 는 commit, 그 밖의 FID 산출물은 ignore
+  #   intent.md 예외(20261008): 의도 문서는 PR 리뷰어·제품 오너가 볼 수 있어야 하고 git 이력이 곧 감사 추적이다
+  #   (Anthropic AI-native SDLC playbook 의 intent.md 규약 — 버전 관리되는 공유 위치).
+  #   git 은 **무시된 디렉토리 안의 파일을 다시 포함할 수 없다** — 그래서 디렉토리(`…-*/`)가 아니라 내용(`…-*/*`)을 무시한다.
   cat > .specops/.gitignore <<'EOF'
-# specops-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+# specops-ko 정책: memory/ · session-progress.md · <FID>/intent.md 는 commit, 그 밖의 FID 산출물은 ignore
 # FID 컨벤션: YYYYMMDD-slug (8자리 날짜 + dash). 일반 디렉토리 false positive 차단.
-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/
+# 디렉토리가 아니라 내용을 무시한다 — 무시된 디렉토리 안의 파일은 `!` 로 되살릴 수 없다.
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/*
+![0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/intent.md
 EOF
   # session-progress.md 골격
   if [ ! -f .specops/session-progress.md ]; then
@@ -216,7 +234,7 @@ EOF
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
     [ -f "$f" ] && git add "$f"
   done
-  # memory/ 전체 add — 조건부 산출물(api-spec-consumer.md 등 13종 배열 밖) 고아화 방지.
+  # memory/ 전체 add — 조건부 산출물(api-spec-consumer.md 등 14종 배열 밖) 고아화 방지.
   #   .specops/.gitignore 정책이 "memory/ 는 commit" 이므로 디렉토리 단위 add 가 정합.
   [ -d .specops/memory ] && git add .specops/memory
   [ -d screens ] && git add screens
@@ -228,7 +246,7 @@ EOF
   # 단일 커밋 계약: Phase 11 enrich 후 1회 커밋이 기본.
   # SPECOPS_INIT_COMMIT_NOW=1 이면 bash 단계에서 즉시 커밋 (테스트·enrich 생략 경로).
   if [ "${SPECOPS_INIT_COMMIT_NOW:-0}" = "1" ]; then
-    git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 13종 중 ${active}종)"
+    git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 14종 중 ${active}종)"
     echo "→ git commit 완료 (${label} · ${active}/13) [SPECOPS_INIT_COMMIT_NOW=1]"
   else
     echo "→ 스테이징 완료 (${label} · ${active}/13). Phase 11 enrich 후 단일 커밋하세요."

@@ -32,7 +32,7 @@ claude plugin install specops-ko@specops-ko
 ## 빠른 시작
 
 ```bash
-/init-project 재고관리          # 새 프로젝트 — 표준 문서 13종(풀스택 기준 · 종류·선택별 6~13종) 부트스트랩 (1회)
+/init-project 재고관리          # 새 프로젝트 — 표준 문서 14종(풀스택 기준 · 종류·선택별 7~14종) 부트스트랩 (1회)
 /start-foundation "라우팅·인증"  # 공통 인프라 먼저 (선택, 1회)
 /start "CSV 줄 수 세기 CLI"      # 기능 1건 구현
 /maintain "auth.js 토큰 만료"    # 기존 코드 수정
@@ -74,7 +74,7 @@ claude plugin install specops-ko@specops-ko
 
 ### 산출물은 기본적으로 로컬이다
 
-`/init-project` 가 만드는 `.specops/.gitignore` 는 **`memory/` 와 `session-progress.md` 만 커밋하고 FID 디렉토리(`.specops/YYYYMMDD-*/`)는 무시**한다. spec·plan·evidence·리뷰 리포트는 저장소에 올라가지 않으므로 **PR 리뷰어는 볼 수 없다**. 팀과 공유해야 하면 PR 본문에 핵심(요구·AC·검증 결과)을 옮겨 적거나, `.specops/.gitignore` 의 패턴을 프로젝트 정책에 맞게 바꾼다.
+`/init-project` 가 만드는 `.specops/.gitignore` 는 **`memory/`·`session-progress.md`·각 FID 의 `intent.md`(의도 문서)만 커밋하고 그 밖의 FID 산출물(`.specops/YYYYMMDD-*/` 의 spec·plan·evidence·리뷰 리포트)은 무시**한다. 의도 문서는 PR 에서 보이지만 나머지는 저장소에 올라가지 않으므로 **PR 리뷰어는 볼 수 없다**. (v2.9.0 이전에 init 한 프로젝트는 FID 디렉토리 전체가 무시된다 — `.specops/.gitignore` 의 규칙을 `…-*/*` + `!…-*/intent.md` 두 줄로 바꾸면 같아진다.) 팀과 공유해야 하면 PR 본문에 핵심(요구·AC·검증 결과)을 옮겨 적거나, `.specops/.gitignore` 의 패턴을 프로젝트 정책에 맞게 바꾼다.
 
 ### 데이터와 프라이버시
 
@@ -98,7 +98,7 @@ claude plugin uninstall specops-ko           # 제거
 
 | 슬래시 | 용도 |
 |---|---|
-| `/init-project` | 프로젝트 초기화 — 표준 산출물 13종(풀스택 기준 · 종류·선택별 6~13종) 부트스트랩 (1회) |
+| `/init-project` | 프로젝트 초기화 — 표준 산출물 14종(풀스택 기준 · 종류·선택별 7~14종) 부트스트랩 (1회) |
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
 | `/start` | 신규 기능 1건 — 표준 경로 (대화형) |
 | `/start-lite` | 신규 기능 경량 — clarify·plan 생략, 화면/IF·리뷰·verify 유지 |

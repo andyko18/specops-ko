@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.3.0
+specops_version: 2.10.0
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -24,6 +24,7 @@ used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all
 - 사용자 선호가 있으면 그 경로 우선
 
 - 입력: `.specops/<FID>/intent.md`(있으면) + `spec.md` + `acceptance-criteria.md` — intent 는 "왜", spec 은 "무엇", plan 은 "어떻게"
+- 프로세스 입력: spec §1 에 `**프로세스**: P-NNN` 이 있으면 `.specops/memory/process-design.md` 의 그 블록을 읽는다 — **트리거→결과** 흐름이 태스크로 끊김 없이 덮이는지, **예외** 항목마다 실패 테스트가 있는지 확인하고 빠진 것은 태스크로 추가한다. 블록의 화면·API·테이블이 plan 의 파일 구조와 어긋나면 plan 을 맞추거나 불일치를 `## 8` 에 기록한다(process-design.md 자체는 여기서 고치지 않는다)
 
 ## 범위 점검
 

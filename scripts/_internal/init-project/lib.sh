@@ -56,7 +56,7 @@ _check_memory() {
 
 _print_artifacts_table() {
   echo ""
-  echo "산출물 현황 (13종):"
+  echo "산출물 현황 (14종):"
   local f
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
     if [ -e "$f" ]; then

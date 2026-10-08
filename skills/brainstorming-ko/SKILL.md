@@ -328,7 +328,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 브레인스토밍 완료 후:
 
-- `/init-project` — 프로젝트 구조 부트스트랩 (탐색 메모로 PRD 6필드 초안 합성 + Phase 11 LLM 보강이 13종 본문에 반영)
+- `/init-project` — 프로젝트 구조 부트스트랩 (탐색 메모로 PRD 6필드 초안 합성 + Phase 11 LLM 보강이 14종 본문에 반영)
 - `/start <기능>` — 프로젝트가 이미 초기화된 경우 바로 Lifecycle 진입
 
 강제 chain 없음 — 탐색 결과로 방향 사용자 결정.
