@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-10-08
+
 ### Fixed
 
 - **설계 통합 뷰 — 백틱이 섞인 미확정·TODO 자리표시가 강조되지 않던 문제** (#151) — `<TODO — \`경로\` 참조>` 처럼 자리표시 안에 백틱 코드가 있으면 `inline()` 의 백틱 분할 뒤 `<` 와 `>` 가 다른 조각에 놓여 강조가 빠졌다(`/init-project` 템플릿의 기술 스택 항목이 이 형태). 종전 변환 경로는 그대로 두고 백틱 코드를 담은 자리표시만 임시 표식으로 뺐다가 되돌린다 — 그 밖의 입력은 출력이 같다(코드 리뷰어가 무작위 30만 입력 + repo `.md` 32713줄로 확인). 잠금: `test-design-overview` D5j~D5m.
@@ -2979,7 +2981,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.10.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.11.0...HEAD
+[2.11.0]: https://github.com/andyko18/specops-ko/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/andyko18/specops-ko/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/andyko18/specops-ko/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/andyko18/specops-ko/compare/v2.7.0...v2.8.0
