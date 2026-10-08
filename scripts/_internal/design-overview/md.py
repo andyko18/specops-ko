@@ -8,7 +8,7 @@
 import html
 import re
 
-TBD_RE = re.compile(r"&lt;(미확정[^&]*?|TODO[^&]*?)&gt;")
+PLACEHOLDER_RE = re.compile(r"(<(?:미확정|TODO)[^<>]*>)")
 ASSUME_RE = re.compile(r"(가정:)")
 HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
 SW = r'<i class="sw" style="background:#\1"></i>#\1'
@@ -30,7 +30,19 @@ def slug(text, used):
 
 
 def inline(text):
-    """인라인 변환. 입력은 원문, 출력은 안전한 HTML."""
+    """인라인 변환. 입력은 원문, 출력은 안전한 HTML.
+    `<미확정 …>`·`<TODO …>` 자리표시는 백틱 분할보다 먼저 통째로 뗀다 — 안에 백틱 코드가 있으면
+    분할 뒤에는 `<` 와 `>` 가 서로 다른 조각에 놓여 강조 정규식이 맞지 않는다."""
+    out = []
+    for seg in PLACEHOLDER_RE.split(text):
+        if PLACEHOLDER_RE.fullmatch(seg):
+            out.append('<mark class="tbd">%s</mark>' % _inline(seg))
+        else:
+            out.append(_inline(seg))
+    return "".join(out)
+
+
+def _inline(text):
     parts = re.split(r"(`[^`]*`)", text)
     out = []
     for part in parts:
@@ -50,7 +62,6 @@ def inline(text):
 
         esc = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, esc)
         esc = HEX_RE.sub(SW, esc)
-        esc = TBD_RE.sub(r'<mark class="tbd">&lt;\1&gt;</mark>', esc)
         esc = ASSUME_RE.sub(r'<mark class="assume">\1</mark>', esc)
         out.append(esc)
     return "".join(out)
