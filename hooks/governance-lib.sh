@@ -597,7 +597,7 @@ _detect_base_branch() {
 
 # 명령이 `gh pr create` 이고 같은 명령에 커밋·add 가 없다 → 0 (PR 범위 판정). 그 밖엔 1 (종전 경로).
 #   커밋을 함께 하는 compound(`git commit … && gh pr create`)는 PR 범위가 아직 확정 전이라 종전 경로를 유지한다.
-#   $1 은 호출부가 heredoc·인용 본문을 벗긴 tool_cmd_scan 이다. 무인자(batch 게이트) = 1.
+#   $1 은 호출부가 heredoc·인용 본문을 벗긴 tool_cmd_scan 이다(batch 게이트도 같은 값을 넘긴다). 무인자 = 1.
 _cmd_is_pr_create_only() {
   local c="${1:-}"
   [ -n "$c" ] || return 1
