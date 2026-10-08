@@ -5,7 +5,7 @@ description: "[유지보수·경량] analyzing-mini + clarify·plan 생략 — �
 triggers:
   - "/maintain-lite"
 mode: ask
-specops_version: 2.6.0
+specops_version: 2.12.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/maintain.md § lite variant)
 ---
@@ -34,12 +34,12 @@ reference_upstream: specops-ko 독자 추가 (commands/maintain.md § lite varia
 | Phase B/C | ✅ | **필수 유지** |
 | AC-R-1 (회귀) | ✅ | ✅ |
 
-**strict 승격**: auth·migration·결제/PII·파괴적 스키마 등이면 거부 후 `/maintain` 안내.
+**strict 승격** (두 지점): ① 진입 직후 요청에 auth·migration·결제/PII·파괴적 스키마 등 strict 신호가 보이면 거부 후 `/maintain` 안내. ② 놓쳤어도 분해 단계의 `LITE-STRICT-GUARD`(`risk-profile.sh` rc=3)가 기계로 잡는다 — 그때는 제자리에서 clarify → plan 을 수행해 승격한다(분석은 mini 로 남는다 — 풀 영향 분석이 필요하면 `/maintain` 재진입). 설계 문서를 **인용만** 한 것(spec §참조)과 테스트가 자기 임시 디렉터리를 치우는 코드는 strict 신호가 아니다.
 
 ## 사용 예
 
 ```
-/maintain-lite auth.js 토큰 만료 버그
+/maintain-lite 주문 목록 정렬이 최신순이 아닌 버그
 
 → <!-- entry: maintain-lite -->
 → analyzing-ko mini ★ HARD GATE

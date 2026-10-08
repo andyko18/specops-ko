@@ -5,7 +5,7 @@ description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 �
 triggers:
   - "/start-lite"
 mode: ask
-specops_version: 2.6.0
+specops_version: 2.12.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
 ---
@@ -40,7 +40,7 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
 | verify · TDD · receipt | ✅ | ✅ |
 | request/receive | 수행 또는 end-loaded skip | end-loaded skip |
 
-**strict 승격**: auth·migration·결제/PII·파괴적 스키마 등 strict 신호면 거부 후 `/start` 안내.
+**strict 승격** (두 지점): ① 진입 직후 요청에 auth·migration·결제/PII·파괴적 스키마 등 strict 신호가 보이면 거부 후 `/start` 안내. ② 놓쳤어도 분해 단계의 `LITE-STRICT-GUARD`(`risk-profile.sh` rc=3)가 기계로 잡는다 — 그때는 제자리에서 clarify → plan 을 수행해 승격한다. 설계 문서를 **인용만** 한 것(spec §참조)과 테스트가 자기 임시 디렉터리를 치우는 코드는 strict 신호가 아니다.
 
 ## 사용 예
 

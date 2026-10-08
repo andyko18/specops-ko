@@ -41,12 +41,12 @@ rp::base_ref() {
 
 rp::collect_files() {
   local files base
-  files=$(git diff HEAD --name-only --no-renames 2>/dev/null || true)
-  [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null || true)
-  if [ -z "$files" ]; then
-    base=$(rp::base_ref)
-    [ -n "$base" ] && files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null || true)
-  fi
+  # 세 출처의 합집합이다 (20261008). 종전엔 앞 출처가 비었을 때만 다음을 봤다 — 트리에 미커밋 변경이 하나라도 있으면
+  #   이 브랜치에 이미 커밋된 변경(예: Step 5.6 이 고쳐 커밋한 data-model.md)이 판정에서 빠졌다.
+  base=$(rp::base_ref)
+  files=$( { git diff HEAD --name-only --no-renames
+             git diff --cached --name-only --no-renames
+             [ -n "$base" ] && git diff "$base"...HEAD --name-only --no-renames; } 2>/dev/null || true)
   # tasks outputs 보강
   if [ -n "${_RP_YAML:-}" ] && command -v python3 >/dev/null 2>&1; then
     local extra
@@ -100,6 +100,7 @@ rp::impl_file_count() {
 # "무엇을 하는가" 가 아니라 "무엇을 언급하는가" 인 조각을 뺀다 — 부정문·괄호 나열·표 셀·격리 정리.
 #   `.` 는 뒤가 공백·줄끝일 때만 경계다. `data-model.md`·`.env`·`path.join` 을 쪼개면 그 신호가 영영 안 걸린다.
 #   영문 부정어는 소문자 단어만, SQL `not null`(대소문자 무관)은 부정어 검사에서 뺀다 — migration 을 놓치지 않게.
+#   부정 수량은 `0건` 과, 뒤가 공백·구두점·조각 끝인 `0개` 다 — `v2.0개선` 은 부정이 아니다.
 #   구조화 필드 `irreversible: true`(뒤가 공백·`#주석`·줄끝뿐)는 필터를 거치지 않는다 — 주석의 "되돌릴 수 없음" 은 위험 긍정이다.
 #   `·` 나열 괄호구는 지운다. split 에 `()` 를 넣지 않는다 — `exec(`·`unlink(` 신호가 죽는다.
 #   부정 표지를 담은 산문 괄호는 지우지 않고 `(` `)` 를 `|` 경계로 바꾼다 — 괄호 안이 독립 조각이 되어
@@ -132,7 +133,7 @@ rp::filter_corpus() {
       n = split(line, parts, /\.[[:space:]]|\.$|[;,|]|—/)
       for (i = 1; i <= n; i++) {
         s = parts[i]
-        if (s ~ /없다|없음|무관|해당 없음|미해당|제외|아님|금지|(^|[^0-9])0건/) continue
+        if (s ~ /없다|없음|무관|해당 없음|미해당|제외|아님|금지|(^|[^0-9])(0건|0개([ \t.,;:)`"]|$))/) continue
         t = s; gsub(/[Nn][Oo][Tt][[:space:]]+[Nn][Uu][Ll][Ll]/, "", t)
         if (t ~ /(^|[^a-zA-Z])(none|not|no)([[:space:]]|$)/) continue
         if (s ~ /rm -rf/ && s ~ /mktemp|trap|[$][{]?(TD|TMP|TMPDIR)[}]?(["[:space:]]|\/|$)/) continue
@@ -142,6 +143,115 @@ rp::filter_corpus() {
     printf '%s' "$out"
   else
     echo "RISK-PROFILE: corpus filter unavailable — raw corpus 로 판정" >&2
+    printf '%s' "$1"
+  fi
+}
+
+# 설계 문서 "인용" 과 "변경" 의 구분 (20261008-lite-strict-misjudge).
+# specifying-ko 는 spec §참조에 `.specops/memory/api-spec.md`·`data-model.md` 경로를 자동 인용한다. 그 경로 문자열이
+#   public_api·db_migration 신호로 읽혀 설계 문서가 있는 프로젝트의 FID 가 전부 strict 였다 — "(변경 없음)" 이라 적어도
+#   괄호 밖 경로 조각은 긍정으로 남는다(실기록: 인용한 FID 67건 전부 strict · lite 는 매번 LITE-STRICT-GUARD).
+# 가리는 것은 **§참조 절 글머리표의 경로 토큰뿐**이다 — 줄의 나머지 글(`/api/…`·DDL 등)은 그대로 판정한다.
+#   §참조 절 = 제목이 `참조` 한 낱말(앞 번호·§ 허용: `## 10. 참조`)인 절. `### 3. 참조 무결성 변경` 같은 제목은 아니다 —
+#   `참조` 가 들었다고 켜면 "data-model.md 의 FK 를 신설한다" 가 인용으로 가려진다(리뷰 I-1 · 실행으로 확인).
+#   `(§)?` 는 묶어서 쓴다 — mawk 는 바이트 단위라 `§?` 가 마지막 바이트에만 걸려 `## 10. 참조` 를 놓친다(Linux CI 의 awk).
+# 한계: 문서 변경이 기준 ref 자체에 커밋돼 있으면(브랜치 없이 main 에 직접) 변경 파일에 안 잡힌다 — 종전부터의 틈이다.
+# 가리지 않는 것: ① git 이 추적하지 않는 문서(바꿨는지 알 길이 없다 — 종전대로 인용도 신호)
+#   ② 갱신을 말하는 줄(갱신·반영·수정·신설·Step 5.6·Phase 2.5 — "수정 없음" 도 남는다: 미탐보다 오탐 쪽).
+#      `변경`·`추가` 는 넣지 않는다 — 실기록의 인용 주석이 대부분 "(변경 없음)"·"엔드포인트 추가 없음" 이라 가림이 통째로 꺼진다.
+#   ③ §참조 밖의 모든 줄(`**인터페이스 반영**:` 등) ④ tasks.md 전체(`Modify:` 줄·outputs).
+# 추적 문서를 실제로 바꿨는지는 rp::collect_files(변경 파일 ∪ tasks outputs)가 말한다 — 탐지 정규식은 그대로다.
+# 이 가림은 raw_corpus 를 잡기 **전에** 한다 — 뒤에 하면 "필터가 신호를 모두 제외함 — --floor strict" 경고가
+#   인용뿐인 FID 마다 떠서 같은 오판을 사람 손으로 되살린다.
+rp::mask_doc_citations() {
+  local docs="" d
+  for d in api-spec data-model; do
+    git ls-files --error-unmatch -- "$SPECOPS/memory/$d.md" >/dev/null 2>&1 && docs="${docs}${docs:+|}$d"
+  done
+  [ -z "$docs" ] && { printf '%s' "$1"; return 0; }
+  local out
+  if out=$(printf '%s\n' "$1" | RP_DOCS="$docs" awk '
+    # rp-mask
+    BEGIN { n = split(ENVIRON["RP_DOCS"], doc, "|") }
+    /^#+[[:space:]]/ { insec = ($0 ~ /^#+[[:space:]]+((§)?[0-9.]+[[:space:]]*)?참조[[:space:]]*$/) }
+    insec && /^[[:space:]]*[-*+][[:space:]]/ && $0 !~ /갱신|반영|수정|신설|Step 5\.6|Phase 2\.5/ {
+      for (i = 1; i <= n; i++) gsub(doc[i] "\\.md", doc[i] "-md")
+    }
+    { print }'); then
+    printf '%s' "$out"
+  else
+    echo "RISK-PROFILE: citation mask unavailable — 인용도 신호로 판정" >&2
+    printf '%s' "$1"
+  fi
+}
+
+# 테스트 샌드박스 정리 가림 (20261008-lite-strict-misjudge).
+# tasks.md 의 TDD 스텝에는 테스트 코드가 실린다. `T=$(mktemp -d)` … `rm -rf "$T"` 는 제품이 하는 일이 아니라
+#   테스트가 자기 임시 디렉터리를 치우는 것인데 destructive_fs 로 잡혔다(실기록: §lite 가드 발동 9건 중 6건이 이 형태이고
+#   8건이 override 로 통과 — 가드가 우회 습관을 만들고 있었다). filter_corpus 의 종전 면제는 변수 **이름**($TD·$TMP·$TMPDIR)만 본다.
+# 여기서는 이름이 아니라 **출처**를 본다: 같은 구간(코드펜스 표지·제목 사이)에서 `이름=$(mktemp …)` 으로 대입된 변수여야 하고,
+#   그 뒤 다른 값으로 재대입되지 않았어야 하며, `rm -rf` 의 **모든** 대상이 그런 변수(+ `..` 없는 하위 경로)여야 한다.
+#   하나라도 어긋나면(리터럴 경로·출처 모르는 변수·다른 구간의 대입·섞인 대상) 손대지 않는다 — 종전대로 신호다.
+#   출처로 인정하는 것은 `mktemp` 명령 그 자체다(`mktemp_backup_dir` 같은 접두 일치는 아니다 · 주석 줄의 대입도 아니다).
+#   하위 경로에 또 다른 `$변수` 가 있으면(`"$T/$SUB"`) 가리지 않는다.
+#   구간 경계는 코드펜스 표지 줄(``` · ~~~)과, **펜스 밖의** 마크다운 제목 줄이다. 펜스 안의 `# 주석` 은 제목이 아니다 —
+#     그걸 경계로 읽으면 대입과 정리 사이에 주석 한 줄만 있어도 출처가 끊긴다. 펜스가 겹쳐 안팎이 뒤집히면
+#     주석이 경계로 읽혀 가림이 줄어들 뿐이다(오탐 쪽).
+# 가리는 것은 그 `rm -rf` 토큰 하나뿐이다. 같은 줄의 다른 명령·다른 신호(`DROP TABLE` 등)는 그대로 판정한다.
+# 출처가 확인된 구조적 비신호라 raw_corpus 를 잡기 전에 한다(문맥 추정으로 빼는 filter_corpus 와 달리 경고 대상이 아니다).
+#   BSD awk 는 괄호식 안 `/` 를 정규식 종료로 읽는다 — `\/` 는 괄호식 밖에 둔다. 작은따옴표는 \047 로 쓴다.
+rp::mask_sandbox_cleanup() {
+  local out
+  if out=$(printf '%s\n' "$1" | awk '
+    # rp-sandbox
+    function all_sandbox(args,   n, i, t, name, cnt) {
+      sub(/[[:space:]]#.*$/, "", args)
+      gsub(/["\047]/, "", args)
+      n = split(args, tk, /[[:space:]]+/); cnt = 0
+      for (i = 1; i <= n; i++) {
+        t = tk[i]
+        if (t == "" || t ~ /^-/) continue
+        if (t !~ /^[$][{]?[A-Za-z_][A-Za-z0-9_]*[}]?(\/[^[:space:]]*)?$/ || t ~ /[.][.]/ || t ~ /.[$]/) return 0
+        name = t; sub(/^[$][{]?/, "", name); sub(/[}].*$/, "", name); sub(/\/.*$/, "", name)
+        if (!(name in sb)) return 0
+        cnt++
+      }
+      return cnt > 0
+    }
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*(```|~~~)/) { infence = !infence; split("", sb); print line; next }
+      if (!infence && line ~ /^#+[[:space:]]/) { split("", sb); print line; next }
+      # 대입이 아닌 방식으로 값이 바뀌는 변수는 출처를 잃는다 (for·read·unset·printf -v·`:=`·`+=`)
+      #   for 는 루프 변수만 다시 묶는다 — 줄에 함께 나온 다른 변수(`touch "$T/$f"` 의 T)는 그대로다.
+      rest = line
+      while (match(rest, /(^|[^A-Za-z0-9_])for[[:space:]]+[A-Za-z_][A-Za-z0-9_]*/)) {
+        name = substr(rest, RSTART, RLENGTH); sub(/^.*for[[:space:]]+/, "", name); delete sb[name]
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+      rebind = (line ~ /(^|[^A-Za-z0-9_])(read|unset|mapfile|readarray|getopts)[[:space:]]/ || line ~ /printf[[:space:]]+-v/)
+      for (k in sb)
+        if (index(line, k ":=") || index(line, k "+=") || (rebind && line ~ ("(^|[^A-Za-z0-9_])" k "([^A-Za-z0-9_]|$)"))) delete sb[k]
+      rest = line
+      comment = (line ~ /^[[:space:]]*#/)
+      while (match(rest, /[A-Za-z_][A-Za-z0-9_]*=/)) {
+        name = substr(rest, RSTART, RLENGTH - 1)
+        rest = substr(rest, RSTART + RLENGTH)
+        if (!comment && rest ~ /^"?[$]\(mktemp([[:space:]]|\))/) sb[name] = 1; else delete sb[name]
+      }
+      out = ""; rest = line
+      while ((p = index(rest, "rm -rf")) > 0) {
+        out = out substr(rest, 1, p - 1)
+        rest = substr(rest, p + 6)
+        args = rest
+        if (match(args, /;|&&|\|/)) args = substr(args, 1, RSTART - 1)
+        out = out (all_sandbox(args) ? "rm-rf" : "rm -rf")
+      }
+      print out rest
+    }'); then
+    printf '%s' "$out"
+  else
+    echo "RISK-PROFILE: sandbox mask unavailable — 정리 코드도 신호로 판정" >&2
     printf '%s' "$1"
   fi
 }
@@ -197,7 +307,7 @@ rp::compute() {
 
   local spec="$fid_dir/spec.md" tasks="$fid_dir/tasks.md"
   local corpus="" files
-  [ -f "$spec" ] && corpus=$(cat "$spec")
+  [ -f "$spec" ] && corpus=$(rp::mask_doc_citations "$(cat "$spec")")
   [ -f "$tasks" ] && corpus=$(printf '%s\n%s\n' "$corpus" "$(cat "$tasks")")
 
   _RP_YAML=""
@@ -205,6 +315,7 @@ rp::compute() {
     _RP_YAML=$(dag::extract_yaml "$tasks" 2>/dev/null || true)
   fi
 
+  corpus=$(rp::mask_sandbox_cleanup "$corpus")
   local raw_corpus="$corpus" raw_signals
   corpus=$(rp::filter_corpus "$corpus")
   files=$(rp::collect_files)
@@ -258,7 +369,8 @@ rp::compute() {
 
   local ts signals_json dj pj ij lj
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  signals_json=$(printf '%s' "$strict_signals" | awk 'NF{printf "%s\"%s\"", (n++?",":""), $1}')
+  # 신호는 공백 구분 한 줄이다 — 필드를 전부 돈다(종전 `$1` 은 첫 신호만 남겨 진단이 가려졌다)
+  signals_json=$(printf '%s' "$strict_signals" | awk '{for(i=1;i<=NF;i++) printf "%s\"%s\"", (n++?",":""), $i}')
   [ "$docs_only" = true ] && dj=true || dj=false
   [ "$parallel_batch" = true ] && pj=true || pj=false
   [ "$irreversible" = true ] && ij=true || ij=false
@@ -317,9 +429,22 @@ rp::compute() {
     if [ "${SPECOPS_LITE_STRICT_OVERRIDE:-}" = "1" ] && [ -n "${SPECOPS_LITE_STRICT_REASON:-}" ]; then
       [ -f "$METRIC_SH" ] && bash "$METRIC_SH" --fid "$fid" --phase lite-strict-override \
         --verdict WAIVED --finding-severity high 2>/dev/null || true
-      printf 'LITE-STRICT-GUARD: override (사유 기록됨) — lite 유지\n' >&2
+      # 사유는 risk-profile.json 에 남긴다 — metrics.jsonl 은 원문을 받지 않는다(스키마 식별자만).
+      #   종전엔 '사유 기록됨' 이라 출력만 하고 어디에도 저장하지 않아, 우회가 오탐 때문인지 사후에 알 수 없었다.
+      if jq --arg r "$SPECOPS_LITE_STRICT_REASON" --arg at "$ts" --arg sig "${strict_signals:-}" \
+           '.lite_strict_override={reason:($r|gsub("[\n\r\t]";" ")|.[0:200]),signals:$sig,recorded_at:$at}' \
+           "$target" > "$tmp" 2>/dev/null && mv "$tmp" "$target"; then
+        printf 'LITE-STRICT-GUARD: override (사유 기록됨) — lite 유지\n' >&2
+      else
+        rm -f "$tmp"
+        printf 'LITE-STRICT-GUARD: override — lite 유지 (사유 기록 실패: risk-profile.json 갱신 불가)\n' >&2
+      fi
       return 0
     fi
+    # 유지보수 lite 는 제자리 승격을 해도 analyzing 이 mini 로 남는다 — 풀 분석이 필요하면 /maintain 재진입이다.
+    local _maint_note=""
+    grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$_spec" 2>/dev/null && _maint_note='
+              유지보수 FID: 제자리 승격은 분석이 mini(대상·직접 호출자)로 남습니다 — 풀 영향 분석이 필요하면 /maintain 으로 재진입하세요.'
     [ -f "$METRIC_SH" ] && bash "$METRIC_SH" --fid "$fid" --phase lite-strict-guard \
       --verdict FAIL --finding-severity high 2>/dev/null || true
     cat >&2 <<EOF
@@ -327,7 +452,7 @@ LITE-STRICT-GUARD: §lite FID 인데 위험 프로파일이 strict 입니다 (�
   lite 는 clarify·plan 을 이미 건너뛴 상태라 이대로 진행하면 고위험 변경이 설계 검토 없이 구현됩니다.
 
   승격(권장): specops-ko:clarifying-ko → specops-ko:planning-ko 수행 후 decomposing 재진입.
-              plan.md 가 생기면 본 가드는 자동 해제됩니다.
+              plan.md 가 생기면 본 가드는 자동 해제됩니다.${_maint_note}
   사용자 주권 우회(사유 병기 필수):
               SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<한 줄 사유>' <명령>
 EOF
