@@ -76,6 +76,10 @@ claude plugin install specops-ko@specops-ko
 
 `/init-project` 가 만드는 `.specops/.gitignore` 는 **`memory/`·`session-progress.md`·각 FID 의 `intent.md`(의도 문서)만 커밋하고 그 밖의 FID 산출물(`.specops/YYYYMMDD-*/` 의 spec·plan·evidence·리뷰 리포트)은 무시**한다. 의도 문서는 PR 에서 보이지만 나머지는 저장소에 올라가지 않으므로 **PR 리뷰어는 볼 수 없다**. (v2.9.0 이전에 init 한 프로젝트는 FID 디렉토리 전체가 무시된다 — `.specops/.gitignore` 의 규칙을 `…-*/*` + `!…-*/intent.md` 두 줄로 바꾸면 같아진다.) 팀과 공유해야 하면 PR 본문에 핵심(요구·AC·검증 결과)을 옮겨 적거나, `.specops/.gitignore` 의 패턴을 프로젝트 정책에 맞게 바꾼다.
 
+### 설계를 한 화면에서 보기
+
+`/init-project` 가 끝나면 `.specops/design-overview.html` 이 함께 만들어진다 — 설계 문서 전체를 묶은 **읽기 전용 생성물**이다. 시스템 구성도·업무 프로세스 흐름·ERD 를 그림으로 그리고, 프로세스 ↔ 요구 ↔ 화면 ↔ API ↔ 테이블 추적표와 전 문서의 미확정·가정을 한 표로 모은다. 원본은 계속 마크다운이라 고칠 때는 `.md` 를 고치고 `/design-overview` 로 다시 만든다. 외부 리소스를 참조하지 않아 폐쇄망에서도 열리고, 기본은 git 에 올리지 않는다(공유 전 내부 URL·계정 정보가 실려 있지 않은지 확인).
+
 ### 데이터와 프라이버시
 
 - 플러그인 자체의 **텔레메트리·외부 전송은 없다.** 훅은 네트워크를 쓰지 않는다. 기록(`.specops/` 의 friction-log·metrics·session-progress)은 전부 로컬 파일이다.
@@ -243,6 +247,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 |---|---|
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 |
 | `/doctor` | 설치·환경 건강 진단 9항목 (read-only) |
+| `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
 | `/security-scan` | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
@@ -257,7 +262,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 specops-ko/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 24건
+├── commands/           슬래시 진입로 25건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30
