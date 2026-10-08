@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-10-08
+
 ### Fixed
 
 - **`/start-lite`·`/maintain-lite` 가 작은 수정에서도 고위험(strict)으로 오판돼 막히던 문제** — 위험도 판정(`risk-profile.sh`)이 spec·tasks 전문을 부분 문자열로 읽어, 하는 일이 아니라 **적힌 글자**에 반응했다. 실기록 214건(5개 저장소) 재판정에서 strict 가 160 → 129건, lite 가드 발동이 9 → 5건으로 줄고 반대 방향(비-strict → strict)은 0건이다. 재판정은 변경 파일 신호 없이 한 것이라 줄어든 수는 상한이다.
@@ -2994,7 +2996,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.11.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.12.0...HEAD
+[2.12.0]: https://github.com/andyko18/specops-ko/compare/v2.11.0...v2.12.0
 [2.11.0]: https://github.com/andyko18/specops-ko/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/andyko18/specops-ko/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/andyko18/specops-ko/compare/v2.8.0...v2.9.0
