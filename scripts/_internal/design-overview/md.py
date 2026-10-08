@@ -8,7 +8,8 @@
 import html
 import re
 
-PLACEHOLDER_RE = re.compile(r"(<(?:미확정|TODO)[^<>]*>)")
+# 백틱으로 통째 감싼 자리표시는 종전대로 code 로 남긴다(앞쪽 대안이 먼저 시작하는 쪽이 이긴다).
+PLACEHOLDER_RE = re.compile(r"(`<(?:미확정|TODO)[^<>`]*>`|<(?:미확정|TODO)[^<>]*>)")
 ASSUME_RE = re.compile(r"(가정:)")
 HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
 SW = r'<i class="sw" style="background:#\1"></i>#\1'
@@ -35,7 +36,7 @@ def inline(text):
     분할 뒤에는 `<` 와 `>` 가 서로 다른 조각에 놓여 강조 정규식이 맞지 않는다."""
     out = []
     for seg in PLACEHOLDER_RE.split(text):
-        if PLACEHOLDER_RE.fullmatch(seg):
+        if PLACEHOLDER_RE.fullmatch(seg) and not seg.startswith("`"):
             out.append('<mark class="tbd">%s</mark>' % _inline(seg))
         else:
             out.append(_inline(seg))
