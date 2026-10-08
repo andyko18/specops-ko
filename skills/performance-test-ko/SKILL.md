@@ -260,8 +260,9 @@ fi
 
 ```bash
 FID="<현재 FID>"
+BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); BASE=${BASE:-main}   # 기본 브랜치가 main 이 아닌 repo 대응
 gh pr create \
-  --base main \
+  --base "$BASE" \
   --head "feat/$FID" \
   --title "feat: <기능명> (#$FID)" \
   --body "$(cat <<'EOF'
@@ -269,8 +270,8 @@ gh pr create \
 - <주요 변경 1~3 bullet>
 
 ## Test plan
-- [ ] `bash scripts/tests/test-*.sh` 전 항목 PASS
-- [ ] `bash scripts/_internal/validate-structure.sh` 전 항목 ✅
+- [ ] 프로젝트 테스트(`tasks.md` 의 test_command) 전 항목 PASS — 근거: `.specops/<FID>/evidence.md` `VERIFY: PASS`
+- [ ] security / integration / performance 게이트 결과: `.specops/<FID>/evidence.md`
 
 🤖 Generated with specops-ko Lifecycle (FID: $FID)
 EOF

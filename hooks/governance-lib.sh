@@ -595,6 +595,24 @@ _detect_base_branch() {
   return 1
 }
 
+# 명령이 `gh pr create` 이고 같은 명령에 커밋·add 가 없다 → 0 (PR 범위 판정). 그 밖엔 1 (종전 경로).
+#   커밋을 함께 하는 compound(`git commit … && gh pr create`)는 PR 범위가 아직 확정 전이라 종전 경로를 유지한다.
+#   $1 은 호출부가 heredoc·인용 본문을 벗긴 tool_cmd_scan 이다. 무인자(batch 게이트) = 1.
+_cmd_is_pr_create_only() {
+  local c="${1:-}"
+  [ -n "$c" ] || return 1
+  printf '%s' "$c" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create' || return 1
+  printf '%s' "$c" | grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(commit|add|stage)([[:space:]]|$)' && return 1
+  return 0
+}
+
+# 명령이 index 에 파일을 더하는 `git add`/`git stage` 를 포함하는가 → 0 (untracked 가 커밋에 실릴 수 있음).
+_cmd_stages_untracked() {
+  local c="${1:-}"
+  [ -n "$c" ] || return 1
+  printf '%s' "$c" | grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(add|stage)([[:space:]]|$)'
+}
+
 # 신규 repo(HEAD 없음) → --cached fallback. working tree·staged 빈(=PR 맥락, 커밋 완료) → base...HEAD PR-범위 diff.
 # 빈 목록·git 실패·base 결정 불가 → 1 (fail-safe — 판정 불가 시 차단 보존). fail-open(hook 에러 allow)과 구분.
 is_docs_only_change() {
@@ -611,6 +629,19 @@ is_docs_only_change() {
   #   계측 전용 결함이지만, 계측이 사실을 말하지 않으면 존재 이유가 없다(5원칙 1).
   _SPECOPS_SCOPE_FILES=""
   local files
+  # PR 생성은 **이미 커밋된 base...HEAD** 가 판정 대상이다 — 작업트리는 PR 에 실리지 않는다.
+  #   종전엔 아래 작업트리 분기를 타서, 추적 중인 .specops/session-progress.md 하나만 dirty 여도 all-docs 로
+  #   보여 커밋된 미검증 코드 PR 이 면제됐다(posttool is_docs_only_audit_scope R-2 와 같은 범위로 정렬).
+  #   base 미검출·범위 빔·git 실패는 종전 fail-safe 와 동일하게 1(비면제 → 이후 verify/fail-open 경로).
+  if _cmd_is_pr_create_only "${1:-}"; then
+    local pr_base
+    pr_base=$(_detect_base_branch) || return 1
+    files=$(git diff "$pr_base"...HEAD --name-only --no-renames 2>/dev/null)
+    [ -z "$files" ] && return 1
+    _SPECOPS_SCOPE_FILES="$files"
+    _files_all_docs "$files"
+    return $?
+  fi
   if _commit_scope_is_staged "${1:-}"; then
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
     files=$(git diff --cached --name-only --no-renames 2>/dev/null)
@@ -624,6 +655,14 @@ is_docs_only_change() {
   fi
   files=$(git diff HEAD --name-only --no-renames 2>/dev/null)
   [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null)
+  # `git add -A && git commit` 류 compound 는 untracked 신규 파일도 커밋에 싣는데 git diff HEAD 는 그걸 못 본다.
+  #   add 가 든 명령에 한해 untracked(비-ignore)를 합쳐, 신규 코드가 문서 dirty 뒤에 숨어 면제되는 것을 막는다.
+  #   `commit -am` 처럼 add 가 없으면 untracked 는 커밋에 실리지 않으므로 합치지 않는다(과잉 차단 방지).
+  if _cmd_stages_untracked "${1:-}"; then
+    local untracked
+    untracked=$(git ls-files --others --exclude-standard 2>/dev/null)
+    [ -n "$untracked" ] && files="${files:+$files$'\n'}$untracked"
+  fi
   if [ -z "$files" ]; then
     local base
     base=$(_detect_base_branch) || return 1

@@ -2,6 +2,8 @@
 # specops-ko 간이 뮤테이션 하니스 (수동 측정 도구)
 # 사용: bash scripts/tests/mutation-score.sh [config]
 #       bash scripts/tests/mutation-score.sh --check-conf [config]   # 변이 없이 equivalent conf 정합만 검사 (1초)
+#       bash scripts/tests/mutation-score.sh --target <target-path> [config]   # 해당 대상 1건만 측정 (CI matrix 용 —
+#         conf 에 없는 대상이면 rc 2: 오타 난 matrix 항목이 "0건 측정 = 초록" 으로 통과하는 것을 막는다)
 # 소스 가능 — 함수만 정의, main 은 가드. run-all 미포함(test-*.sh 비매칭 명명).
 set -uo pipefail
 
@@ -143,11 +145,23 @@ mut::run_target() {  # <target> <test_command>
 }
 
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-  check_only=0
-  if [ "${1:-}" = "--check-conf" ]; then check_only=1; shift; fi
+  check_only=0; only_target=""; target_flag=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check-conf) check_only=1; shift ;;
+      --target)
+        only_target="${2:-}"; target_flag=1; shift; [ $# -gt 0 ] && shift ;;
+      *) break ;;
+    esac
+  done
   conf="${1:-$(dirname "$0")/mutation-targets.conf}"
   [ -f "$conf" ] || { echo "SKIP: config 부재 ($conf)"; exit 0; }
   root=$(cd "$(dirname "$0")/../.." && pwd); cd "$root"
+  # --target 값 누락(빈 값 포함) → rc 2 (인자 파싱 직후의 exit 2 는 test-mutation-score 의 source 분석에서 shellcheck SC2218 오탐을 부른다)
+  if [ "${target_flag:-0}" = 1 ] && [ -z "$only_target" ]; then
+    echo "ERROR: --target 에 대상 경로가 필요하다" >&2
+    exit 2
+  fi
 
   # conf 정합 — 변이 판정 **전에** 검사한다(fail-fast). 사이트 열거는 즉시 끝나고,
   #   18분을 먹는 건 mutant 별 judge 다. stale 이면 score 자체가 틀린 값이라 기다릴 이유가 없다.
@@ -174,11 +188,20 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   fi
 
   MUT_BELOW_MIN=0
+  target_seen=0
   while IFS='|' read -r target testcmd; do
     [ -z "$target" ] && continue
     case "$target" in \#*) continue ;; esac
+    if [ -n "$only_target" ]; then
+      [ "$target" = "$only_target" ] || continue
+      target_seen=1
+    fi
     mut::run_target "$target" "$testcmd"
   done < "$conf"
+  if [ -n "$only_target" ] && [ "$target_seen" = 0 ]; then
+    echo "ERROR: --target $only_target — conf 에 없는 대상 ($conf)" >&2
+    exit 2
+  fi
   # threshold 미달 target 존재 → exit 1 (MUTATION_MIN_SCORE 설정 시). if 필수 —
   #   `[ ... ] && exit 1` 을 마지막 명령으로 두면 조건 false 시 `[` 의 exit 1 이 스크립트 코드가 된다.
   if [ "${MUT_BELOW_MIN:-0}" = 1 ]; then exit 1; fi

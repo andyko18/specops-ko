@@ -372,8 +372,9 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/
 git push -u origin "feat/$BATCH_ID"
 ```
 ```bash
+BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); BASE=${BASE:-main}   # 기본 브랜치가 main 이 아닌 repo 대응
 gh pr create \
-  --base main \
+  --base "$BASE" \
   --head "feat/$BATCH_ID" \
   --title "feat: $BATCH_ID 전체 기능 일괄 구현" \
   --body "$(cat <<'EOF'

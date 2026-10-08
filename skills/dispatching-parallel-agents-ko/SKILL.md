@@ -162,7 +162,7 @@ src/agents/agent-tool-abort.test.ts의 실패 테스트 3개 수정:
 2. **batch 발견 시 (≥2 leaf)**: 각 leaf에 대해:
    - `.specops/<FID>/dispatch/<task-id>-context.md` 작성 (5 컨텍스트 — `templates/dispatch-context.md`)
    - `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh <path>` 실행 — exit 0 확인
-   - `bash skills/using-git-worktrees-ko` 호출 — leaf별 worktree 생성 (`.worktrees/<FID>-<task-id>/`)
+   - `specops-ko:using-git-worktrees-ko` skill 호출(Skill 도구) — leaf별 worktree 생성 (`.worktrees/<FID>-<task-id>/`)
 3. **본 스킬 호출**: leaf id 배열 + context md path 배열 전달
 4. **본 스킬 동작**:
    - 각 leaf 별로 `Task` 도구 병렬 호출 (단일 메시지 다중 tool_use)

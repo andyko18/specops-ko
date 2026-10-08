@@ -323,6 +323,5 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
   - `specops-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
   - `specops-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
   - `specops-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
-  - `specops-ko:integration-test-ko`에서 FAIL 분기로 호출된 경우 → integration-test-ko 재실행 (수정 후 통합 테스트 재검증)
-  - `specops-ko:performance-test-ko`에서 FAIL 분기로 호출된 경우 → performance-test-ko 재실행 (수정 후 성능 테스트 재검증)
+  - `specops-ko:security-review-ko`·`integration-test-ko`·`performance-test-ko` 의 FAIL 분기에서 호출된 경우 → **게이트로 곧장 복귀하지 않는다.** 수정은 새 코드이므로 해당 게이트 SKILL 의 `FAIL 분기` 복귀 경로(SoT)를 그대로 따른다: `verifying-evidence-ko` 재호출 → `requesting-code-review-ko`(Step 0 신선도 검사가 리뷰 이후 변경을 STALE 로 잡아 새로 리뷰) → `receiving-code-review-ko` → 실패한 게이트 재진입(performance 는 integration 경유). 종전 "게이트 곧장 재실행" 은 수정 커밋이 verify·리뷰를 건너뛰는 경로였다.
 - **Phase 4.5 트리거 (3+ 픽스 실패)** → 사용자 파트너 에스컬레이션. chain 정지. 새 스펙 결정 필요

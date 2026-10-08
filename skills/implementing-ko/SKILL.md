@@ -81,6 +81,8 @@ ready 내 disjoint batch 선별 (dag::find_independent_batch 로직):
                                                           │
 SEQUENTIAL 분기 (1 태스크씩):                            │
   ready 중 1개 선택:                                      │
+  작업 디렉터리: 별도 worktree 를 만들지 않는다 — §5 라인을      │
+  repo root 절대경로로 sed 갱신(validate-context 가 절대경로 허용) │
     ┌─ 구현자 dispatch (implementer-ko)  ← Phase A        │
     │     ↓                                                │
     │  [end-loaded] B/C 여기서 하지 않음                   │
@@ -144,6 +146,11 @@ specops-ko:verifying-evidence-ko 호출
 > ```
 >
 > `fid` 는 `YYYYMMDD-slug`, `tid` 는 `T` + 숫자, `phase` 는 `B` 또는 `C` 다. tid 마다 블록을 하나씩 낸다.
+
+> **판정 어휘 → 부모 처리** (본문의 "B/C FAIL" = `NEEDS_FIX`; dispatch-log 판정 열은 `PASS`/`FAIL` 로 정규화):
+> - `PASS`·`READY_TO_MERGE` → 진행 · `NEEDS_FIX` → `FAIL` 기록 + implementer-ko 재dispatch(feedback 경로, 재시도 cap·상향 규칙)
+> - `NEEDS_CONTEXT`(훅 정규식 밖 → 부모 fallback 저장)·`SKIP` → 컨텍스트/B-report 경로 보정 후 재dispatch (재시도 불산입)
+> - C `NEEDS_DISCUSSION` → `HOLD` 기록 + **사용자 판단 대기**(trade-off 선택지 그대로 제시, `§auto` 도 자동 선택 금지, `§batch` 는 FR halt)
 >
 > **채운 예시** — 위 골격의 꺾쇠 자리표시자는 닫는 `>` 가 마커의 `>>>` 와 이어져 개수를 오독하기 쉽다. 프롬프트에는 아래처럼 **값을 채운 형태**로 적는다:
 >
@@ -321,7 +328,7 @@ footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱
 
 ## 구현자 상태 처리
 
-구현자 서브에이전트는 네 가지 상태 중 하나 보고. 각각 적절히 처리:
+구현자 서브에이전트는 다섯 가지 상태 중 하나 보고(`agents/implementer-ko.md` 반환 상태와 1:1). 각각 적절히 처리:
 
 **DONE**: 스펙 준수 리뷰로 진행.
 
@@ -344,6 +351,8 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 > 2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/emit-context.sh <FID>` 재실행 (dispatch context 재생성 — 수기 편집 금지) + §5 worktree 라인 sed 재갱신 (재생성으로 리셋됨)
 > 3. **미완 wave 의 outputs-disjoint 재판정** — 이관으로 두 task 의 outputs 가 겹치게 되면 해당 쌍은 병렬 금지 → 순차 강등
 > 4. dispatch-log 에 `SCOPE-MOVED: <task-id> +<file> (<사유>)` 1줄 기록 후 재dispatch
+
+**NEEDS_APPROVAL**: 구현자가 비가역·범위 변경 작업에서 **멈추고** 승인을 요청한 것 — 무응답으로 두면 태스크가 조용히 멈춘다. 작업 요약을 사용자에게 그대로 제시하고 `NEEDS-APPROVAL: <task-id> … 진행하시겠습니까? [y/n]` 로 묻는다(`§auto` 도 예외 없음, `§batch` 는 해당 FR halt). 절차 전문(승인 기록·`n` 처리·dispatch-log 행)은 같은 디렉터리 `needs-approval.md` 를 Read 한다.
 
 **BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가 (구현자 기본은 sonnet — 컨텍스트 보강·분해와 함께 위 상향 규칙으로 opus 1회 상향, 이후 에스컬레이션):
 1. 컨텍스트 문제 → 컨텍스트 더 주고 재dispatch

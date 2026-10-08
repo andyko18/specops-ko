@@ -308,16 +308,14 @@ if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-pre
 #       (docs: Skill·agent 본문의 ${CLAUDE_PLUGIN_ROOT} 는 로드 시점 절대경로 치환). 예외 2종:
 #       ① 자기유지보수 전용 파일(cwd=plugin 서만 실행): release.md·release-ko·e2e-test-ko
 #       ② 라이브 호출 아닌 산문·PR템플릿: `scripts/*.sh` 러너 glob · `scripts/tests/test-*` · `scripts/_internal/validate-structure`
-prp=$(grep -rnE 'bash scripts/' commands/ skills/ 2>/dev/null \
-  | grep -vE '/(release\.md|release-ko/SKILL\.md|e2e-test-ko/SKILL\.md):' \
-  | grep -vE 'bash scripts/(\*\.sh|tests/test-\*|_internal/validate-structure)' \
-  || true)
-if [ -z "$prp" ]; then
+# 판정은 check-plugin-paths.sh 가 SoT (bash|source + scripts|hooks|skills 경로 · skills/agents/commands/templates 전체 — test-plugin-paths 가 회귀 잠금).
+#   종전 인라인 grep 은 commands/·skills/ 의 `bash scripts/` 만 봤다 — `bash hooks/`·`source scripts/`·agents/·templates/ 는 검사망 밖이었다.
+if [ ! -f "$(dirname "$0")/check-plugin-paths.sh" ]; then
+  emit plugin_root_paths FAIL "check-plugin-paths.sh 부재 — 판정 SoT 스크립트가 없다"
+elif prp=$(bash "$(dirname "$0")/check-plugin-paths.sh" "$PWD" 2>&1); then
   emit plugin_root_paths OK
 else
-  cnt=$(printf '%s\n' "$prp" | grep -c .)
-  loc=$(printf '%s\n' "$prp" | head -3 | cut -d: -f1-2 | tr '\n' ' ')
-  emit plugin_root_paths FAIL "상대 bash scripts/ ${cnt}건(정식형 \${CLAUDE_PLUGIN_ROOT} 필요): ${loc}"
+  emit plugin_root_paths FAIL "$(printf '%s\n' "$prp" | sed -n '2,4p' | tr -s ' ' | tr '\n' ' ')"
 fi
 
 # 13) agent_tools — role: evaluator 역방향 스캔 (Generator-Evaluator 도구 박탈 하드강제)

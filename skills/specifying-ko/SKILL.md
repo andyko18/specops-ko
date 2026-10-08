@@ -485,7 +485,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 personality란?"은 개념 질문 — 터미널. "어떤 위저드 레이아웃이 나은가?"는 시각 질문 — 브라우저.
 
-사용법: `bash skills/brainstorming-ko/scripts/start-server.sh` → 브라우저 오픈 → `helper.js`의 `sendToVisualCompanion(html)` 호출.
+사용법: `bash "${CLAUDE_PLUGIN_ROOT}"/skills/brainstorming-ko/scripts/start-server.sh` → 브라우저 오픈 → `helper.js`의 `sendToVisualCompanion(html)` 호출.
 
 ## 참조
 

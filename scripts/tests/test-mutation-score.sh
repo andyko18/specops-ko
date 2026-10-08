@@ -176,5 +176,27 @@ if [ "$rc" != 0 ] && printf '%s' "$err" | grep -q 'STALE'; then
   echo "PASS T28 빈 pattern 행 stale 판정 (AC-4 잔여 구멍)"; PASS=$((PASS+1))
 else echo "FAIL T28 rc=$rc out=$err"; FAIL=$((FAIL+1)); fi
 
+# T29~T31 --target <path> — CI matrix 가 대상 1건만 측정한다 (20261008-test-holes)
+#   other.sh 는 baseline 이 파손된 대상(testcmd=false → MUT_BELOW_MIN=1)이라, 필터가 안 먹으면 rc=1 이 된다.
+tmpq=$(mktemp -d)
+printf '#!/bin/bash\necho hi\n' > "$tmpq/t.sh"
+printf '#!/bin/bash\necho other\n' > "$tmpq/other.sh"
+printf '%s|true\n%s|false\n' "$tmpq/t.sh" "$tmpq/other.sh" > "$tmpq/two.conf"
+( bash "$_MS" "$tmpq/two.conf" >/dev/null 2>&1 ); ck "T29a --target 없음 → 전 대상 측정(파손 대상 포함 rc=1) — 기본 동작 불변" "$?" "1"
+o=$(bash "$_MS" --target "$tmpq/t.sh" "$tmpq/two.conf" 2>&1); rc=$?
+if [ "$rc" = 0 ] && printf '%s' "$o" | grep -q 't.sh' && ! printf '%s' "$o" | grep -q 'other.sh'; then
+  echo "PASS T29b --target 지정 대상만 측정 (다른 대상 미실행)"; PASS=$((PASS+1))
+else echo "FAIL T29b rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
+o=$(bash "$_MS" --target "$tmpq/nope.sh" "$tmpq/two.conf" 2>&1); rc=$?
+if [ "$rc" = 2 ] && printf '%s' "$o" | grep -q 'conf 에 없는 대상'; then
+  echo "PASS T30 conf 에 없는 --target → rc=2 (오타가 초록이 되지 않는다)"; PASS=$((PASS+1))
+else echo "FAIL T30 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
+o=$(bash "$_MS" --target 2>&1); rc=$?
+if [ "$rc" = 2 ] && printf '%s' "$o" | grep -q -- '--target'; then
+  echo "PASS T31 --target 값 누락 → rc=2"; PASS=$((PASS+1))
+else echo "FAIL T31 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
+
+rm -rf "$tmpq"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
