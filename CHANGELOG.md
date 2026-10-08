@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### cwd `yaml.py` 우회 차단 확대 — 킬스위치·위험 프로파일·chain 검사
+
+직전(#114)에 판정 게이트 3곳을 막고 남겨 둔 `python3` 진입부 3곳에 같은 `sys.path` 정리를 넣었다: `is-hook-enabled.sh`(**거버넌스 킬스위치** — cwd 의 가짜 `yaml.py` 가 `{}` 를 돌려주면 `enabled:false` 로 꺼 둔 훅이 켜진 것으로 판정됐다, 수정 전 RED→후 GREEN 확인) · `risk-profile.sh` · `validate-structure.sh` 의 chain_consistency 검사. 잠금: `test-is-hook-enabled` T6 · `propagation-matrix` `yaml-cwd-shadow` 에 edge 3개 추가. `doctor.sh`(존재 확인만)·`cvt.py`(파일 실행이라 `sys.path[0]` 이 스크립트 디렉터리) 는 해당 없음.
+
+### 게이트 보유율 재측정(2026-10-08)·ponytail 사다리 행동 eval 본 실행
+
+- `gate-coverage.sh` 를 로컬 specops 사용 repo 11곳에 실행: verified 113 · held 20 · **17%**. 7회차(23%, verified 121·held 28)와 비교하면 그때 gobiseo(8/8)가 빠졌을 뿐 나머지 **113/20 이 동일** — 즉 **점수가 오른 것도 내린 것도 아니다**: 외부 repo 에 새 FID 가 거의 없다(측정 모집단 중 2026-10 FID 는 2건뿐). v2.3~v2.7 의 게이트들은 하류 repo 가 새 버전으로 FID 를 돌리기 전에는 이 지표에 나타날 수 없다(설치본이 이번에야 2.2.0→2.7.0). 지표는 **후행**이다
+- `implementing-ko` e-1~e-4(rung 준수: 네이티브·stdlib 우선·안전 요소 비절감·`shortcut:` 규약) 본 실행: **4/4 PASS**($0.96, routed·n=1). 단 대조군(플러그인 없는 갈래)이 없어 통과가 사다리 덕인지 모델 기본 행동인지 구분하지 못한다
+
 ### `test-validate-structure` 분할 — 부하 시 300s TIMEOUT 의 구조적 완화 (스위트 185 → 186)
 
 이 스위트는 외부 부하가 코어 수의 2.5배를 넘으면(로컬 17~29) 300s 상한을 반복해서 넘겼다(`validate-structure.sh` 를 sandbox·실 트리에서 약 45회 돌리는 구조). frontmatter 단일 패스(#118)로 151s → 69s 로 줄였지만 부하 앞에서는 한계가 있어, **같은 단언을 그대로 둘로 나눴다**: `test-validate-structure.sh`(T1~T13 · 33s) · 신규 `test-validate-structure-chain.sh`(T14~T-cc4 · 51s — chain_consistency·agent_tools·hardgate·커맨드 chain 과 사본 복제 케이스). 공용 `SKILL_NAMES`·`make_sandbox`·`add_docs` 는 `scripts/tests/lib/vs-sandbox.sh` 로 빼 두 스위트가 source 한다. 병렬 풀에서 두 스위트가 동시에 돌아 벽시계는 줄고, 각각 상한 대비 여유가 커진다. 단언은 하나도 바꾸지 않았다(분할 전 44 + ISO 1 = 합 45 로 일치 확인). `.githooks/pre-push`·`CLAUDE.md` 의 스위트 수 doc-lock 을 186 으로, `suite-order.txt`·`scripts/README.md` 에 신규 스위트를 등재했다.

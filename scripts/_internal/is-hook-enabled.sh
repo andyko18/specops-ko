@@ -51,7 +51,9 @@ fi
 
 # 파싱
 python3 - "$CONFIG" "$HOOK" <<'PYEOF'
-import sys, yaml
+import sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import yaml
 try:
     with open(sys.argv[1]) as f:
         c = yaml.safe_load(f) or {}
