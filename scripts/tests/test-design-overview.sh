@@ -27,6 +27,7 @@ _fx() {  # 최소 설계 문서 세트
 - 성능: <TODO — 응답시간>
 - 프레임워크: <TODO — `a/b.md` 참조>
 - 백엔드: `<미확정 — 근거 필요>`
+- 표기: `형식: <TODO — x> 로 표기`
 - 위험 문자열: <script>alert(1)</script> 와 [링크](javascript:alert(1))
 MD
   cat > "$d/.specops/memory/requirements.md" <<'MD'
@@ -175,8 +176,8 @@ ext=$(printf '%s' "$H" | grep -oE '<(script|link|img|iframe)[^>]*(src|href)="(ht
   && ok "D4 문서 속 <script> 이스케이프" || nope "D4" "스크립트 미이스케이프"
 ! printf '%s' "$H" | grep -q 'href="javascript:' && ok "D4b javascript: 링크 제거" || nope "D4b" "위험 링크 잔존"
 
-# ④ 집계 — 미확정 4(TODO·미확정)·가정 1 · 추적표 · 미연결 요구(FR-2)
-printf '%s' "$H" | grep -q '미확정 4 · 가정 1' && ok "D5 미확정·가정 집계" || nope "D5" "$(printf '%s' "$H" | grep -o '미확정 [0-9]* · 가정 [0-9]*' | head -1)"
+# ④ 집계 — 미확정 5(TODO·미확정)·가정 1 · 추적표 · 미연결 요구(FR-2)
+printf '%s' "$H" | grep -q '미확정 5 · 가정 1' && ok "D5 미확정·가정 집계" || nope "D5" "$(printf '%s' "$H" | grep -o '미확정 [0-9]* · 가정 [0-9]*' | head -1)"
 printf '%s' "$H" | grep -q 'POST /v1/inbounds' && printf '%s' "$H" | grep -q '추적표' && ok "D5b 추적표" || nope "D5b" "추적표 부재"
 printf '%s' "$H" | grep -q '연결되지 않은 요구 1건' && printf '%s' "$H" | grep -A0 '연결되지 않은 요구' | grep -q 'FR-2' \
   && ok "D5c 프로세스 미연결 요구(FR-2) 고지" || nope "D5c" "미연결 요구 미고지"
@@ -192,6 +193,8 @@ printf '%s' "$H" | grep -q '<mark class="tbd">&lt;TODO — <code>a/b.md</code> �
   && ok "D5j 백틱이 섞인 자리표시도 강조(안의 코드는 유지)" || nope "D5j" "백틱 섞인 자리표시 미강조"
 printf '%s' "$H" | grep -q '<code>&lt;미확정 — 근거 필요&gt;</code>' && ! printf '%s' "$H" | grep -q '`<mark class="tbd">' \
   && ok "D5k 백틱으로 통째 감싼 자리표시는 종전대로 code(백틱 비노출)" || nope "D5k" "백틱 감싼 자리표시 퇴행"
+printf '%s' "$H" | grep -q '<code>형식: &lt;TODO — x&gt; 로 표기</code>' && ! printf '%s' "$H" | grep -q '`형식:' \
+  && ok "D5l 백틱 코드 구간 안 자리표시는 구간 통째 code(mark 비침투)" || nope "D5l" "코드 구간 안 자리표시 퇴행"
 printf '%s' "$H" | grep -q '생성물 — 직접 수정하지 않는다' && ok "D5e 생성물 고지" || nope "D5e" "고지 부재"
 
 # ⑨ 설계서 순서 — 전체 그림(시스템 구성) 먼저, 상세는 뒤 · 장 번호 · 프로세스는 그림과 설명이 한자리
