@@ -56,7 +56,7 @@ reference_upstream: specops-ko 독자 추가
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-fr-table.sh
    ```
    - `rc=0` → 실 FR 개수 확인 후 진행. placeholder 경고가 나오면 **그 FR 은 batch 대상에서 제외**한다.
-   - **`해석하지 못한 FR 행 N건` 경고가 나오면 사용자에게 그대로 알린다** — FR 처럼 보이는데 ID 형식이 달라(`FR 6`·`FR-x7`) 읽지 못한 행이다. batch 대상에서 빠지므로, 진행 전에 requirements 의 ID 를 고칠지 묻는다(`/start-all-auto` 는 고치지 않고 진행하되 queue 머리말과 PR 다이제스트에 남긴다).
+   - **`해석하지 못한 FR 행 N건` 경고가 나오면 사용자에게 그대로 알린다** — FR 처럼 보이는데 ID 형식이 다르거나(`FR 6`·`FR-x7`) 행이 들여쓰여 읽지 못한 행이다. batch 대상에서 빠지므로, 진행 전에 requirements 의 ID 를 고칠지 묻는다(`/start-all-auto` 는 고치지 않고 진행하되 queue 머리말과 PR 다이제스트에 남긴다).
    - `rc=1` → 실 FR 0건. 중단하고 requirements.md 작성 안내.
    - `rc=2` → 파일 부재. 위 `/init-project` 안내와 동일 처리.
 
@@ -295,8 +295,9 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 4. receiving(또는 skip) 후 per-FR security/integration/performance/PR 차단. chain 자동 진행
 5. `.specops/<FID>/review-base.sha` · `evidence.md` · (`review-request.md` **또는** `review-skip.md`) **3종 존재** + session-progress FID 섹션의 **`/verify PASS` 줄 존재** 확인 후 queue.md 해당 FR → `IMPL_DONE` 갱신 (**스크립트로만** — 위 Phase 1 스텝 3 주의 참조):
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> IMPL_DONE
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> IMPL_DONE <FID>
    ```
+    (FID 를 함께 준다 — Phase 1 에서 FID 칸이 채워지지 않은 batch(이전 버전에서 시작한 batch 포함)도 여기서 채워진다. FID 없이 부르면 FID 칸이 빈 행은 거부된다.)
     (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
 6. 다음 PLAN_DONE FR 반복
 

@@ -44,7 +44,7 @@ echo ""
 total=0
 
 # batch 대상에서 빠진 FR 행 (20261009) — init-batch-queue.sh 가 queue 머리말에 남긴 줄을 그대로 옮긴다.
-#   requirements 에 FR 처럼 적혔지만 ID 형식이 달라 읽지 못한 행이다. 무인 batch 에서 사용자가 보는 지점은 이 다이제스트뿐이라,
+#   requirements 에 FR 처럼 적혔지만 ID 형식이 다르거나 들여쓰여 읽지 못한 행이다. 무인 batch 에서 사용자가 보는 지점은 이 다이제스트뿐이라,
 #   여기 없으면 "적었는데 구현되지 않은 기능" 이 아무에게도 보이지 않는다.
 unp_line=$(grep -m1 -E '^> \*\*해석하지 못한 FR 행\*\*' "$QUEUE" 2>/dev/null | sed -E 's/^> //' || true)
 if [ -n "$unp_line" ]; then

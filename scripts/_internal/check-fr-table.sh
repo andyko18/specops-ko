@@ -3,7 +3,8 @@
 # Usage:
 #   check-fr-table.sh [requirements 경로]           # 인간 요약 (현행)
 #   check-fr-table.sh --classify [requirements 경로] # 기계 레코드 (ELIGIBLE|SKIP|UNPARSED|SUMMARY)
-#     UNPARSED|<첫 칸 원문> — FR 처럼 보이나 ID 형식이 달라 읽지 못한 행. 있을 때만 SUMMARY 끝에 `|unparsed=N`.
+#     UNPARSED|<첫 칸 원문> — FR 처럼 보이나 읽지 못한 행(ID 형식이 다르거나 행이 들여쓰였다 — 뒤쪽은 ` (들여쓴 행)` 을 붙인다).
+#       있을 때만 SUMMARY 끝에 `|unparsed=N`.
 #     ID 는 장식(굵게·백틱)을 벗겨 낸 값이다. 접미 ID(FR-11b)도 FR 이다.
 # Exit: 0 = 실 FR ≥1 · 1 = 실 FR 0건 · 2 = 파일 부재
 #
@@ -125,6 +126,12 @@ $(awk -F'|' '
     c = $2; gsub(/[`*]/, "", c); c = trim(c)
     if (c ~ /^FR-[0-9][0-9A-Za-z]*$/) { printf "ROW\037%s\037%s\037%s\n", c, trim($3), trim($4) }
     else if (c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/) { printf "UNP\037%s\n", c }
+  }
+  # 들여쓴 표 행 — 마크다운은 표로 그리지만 이 판정기와 batch-state.sh 는 줄 시작 `|` 만 읽는다(종전부터).
+  #   읽는 범위를 넓히면 queue 를 읽는 쪽들과 어긋나므로 넓히지 않는다. 대신 FR 꼴이면 알린다 — 말없이 빠지지 않게.
+  /^[ \t]+\|/ {
+    c = $2; gsub(/[`*]/, "", c); c = trim(c)
+    if (c ~ /^FR-[0-9][0-9A-Za-z]*$/ || c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/) { printf "UNP\037%s (들여쓴 행)\n", c }
   }' "$REQ" 2>/dev/null)
 EOF
 
@@ -146,7 +153,7 @@ done <"$tmp"
 # 못 읽은 행이 있을 때만 SUMMARY 끝에 건수를 붙인다(없으면 종전 형식 그대로 — 소비자는 real=·eligible= 만 읽는다).
 unp_sfx=""; [ "$unparsed" -gt 0 ] && unp_sfx="|unparsed=${unparsed}"
 unp_warn=""
-[ "$unparsed" -gt 0 ] && unp_warn="  경고: 해석하지 못한 FR 행 ${unparsed}건 (${unparsed_ids}) — FR 처럼 보이나 ID 형식이 달라 batch 대상에서 빠진다. ID 를 FR-<숫자> 꼴로 고치세요"
+[ "$unparsed" -gt 0 ] && unp_warn="  경고: 해석하지 못한 FR 행 ${unparsed}건 (${unparsed_ids}) — FR 처럼 보이나 ID 형식이 다르거나 행이 들여쓰여 batch 대상에서 빠진다. 줄 맨 앞에서 시작하는 | FR-<숫자> | 꼴로 고치세요"
 
 if [ "$real" -eq 0 ]; then
   if [ "$CLASSIFY" -eq 1 ]; then

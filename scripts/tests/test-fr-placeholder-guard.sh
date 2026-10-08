@@ -180,13 +180,16 @@ _req "$TD/.specops/memory/requirements.md" <<'EOF'
 | FR-3 → T4 | 추적 | M1 | must | (TBD) |
 | FRONT-1 | 프론트 | M1 | must | (TBD) |
 | FR_7 | 밑줄 ID | M1 | must | (TBD) |
-  | FR-8 | 들여쓴 행(표 행이 아니다) | M1 | must | (TBD) |
+  | FR-8 | 들여쓴 행 | M1 | must | (TBD) |
+  | 참고 | 들여쓴 일반 표 행 | M1 | must | (TBD) |
 EOF
 out=$(cd "$TD" && bash "$CHK" --classify 2>&1)
 n=$(printf '%s\n' "$out" | grep -c '^UNPARSED|')
-[ "$n" -eq 1 ] && printf '%s\n' "$out" | grep -qx 'UNPARSED|FR_7' && ! printf '%s\n' "$out" | grep -q 'FR-8' \
-  && printf '%s\n' "$out" | grep -q '^SUMMARY|real=1|eligible=1|.*unparsed=1' \
-  && ok "T12b UNPARSED 오탐 없음(FRAME 2·묶음 참조·추적·FRONT-1) · 밑줄 ID 는 알림 · 들여쓴 행은 표 행이 아님" || nope "T12b" "n=$n out=$(printf '%s' "$out" | tr '\n' ' ')"
+#   들여쓴 FR 꼴 행은 종전부터 읽지 않는다(batch-state 와 같은 범위). 말없이 빠지지 않게 알리기만 한다 — 적격으로 올리지 않는다.
+[ "$n" -eq 2 ] && printf '%s\n' "$out" | grep -qx 'UNPARSED|FR_7' && printf '%s\n' "$out" | grep -qx 'UNPARSED|FR-8 (들여쓴 행)' \
+  && ! printf '%s\n' "$out" | grep -qE '^(ELIGIBLE|SKIP)\|FR-8' \
+  && printf '%s\n' "$out" | grep -q '^SUMMARY|real=1|eligible=1|.*unparsed=2' \
+  && ok "T12b UNPARSED 오탐 없음(FRAME 2·묶음 참조·추적·FRONT-1·들여쓴 일반 행) · 밑줄 ID·들여쓴 FR 행은 알림(적격 아님)" || nope "T12b" "n=$n out=$(printf '%s' "$out" | tr '\n' ' ')"
 rm -rf "$TD"
 
 finish
