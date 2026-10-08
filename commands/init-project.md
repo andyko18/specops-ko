@@ -1,10 +1,10 @@
 ---
 name: init-project
-description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 13종(풀스택 기준 · 종류·선택별 6~13종) 산출물 자동 부트스트랩
+description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 14종(풀스택 기준 · 종류·선택별 7~14종) 산출물 자동 부트스트랩
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 1.94.0
+specops_version: 2.10.0
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
@@ -13,7 +13,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 ## 목적
 
-프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 13종 산출물**(풀스택 기준 — 종류·선택별 6~13종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
+프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 14종 산출물**(풀스택 기준 — 종류·선택별 7~14종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
 
 **축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. 화면 껍데기는 만들지 않음(본설계는 `/start-all` Phase 2.5).
 
@@ -45,7 +45,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
 2. **10 Phase 진행**:
-   - Phase 1: 사전검사 (git/.specops/memory 검사 + 13종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
+   - Phase 1: 사전검사 (git/.specops/memory 검사 + 14종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
    - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
@@ -53,8 +53,8 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
      - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
-   - Phase 8: 종류별 산출물 매트릭스 (8a~8h: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy)
-     - `api-spec-consumer.md`(8g)는 **13종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
+   - Phase 8: 종류별 산출물 매트릭스 (8a~8i: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy/process-design)
+     - `api-spec-consumer.md`(8g)는 **14종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
    - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
@@ -68,13 +68,13 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 **문서별 보강 깊이 (Light enrich) — 최소 깊이 기준**:
 
-**깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외 2건: `screens/<name>.md`·`process-design.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. 그중 `process-design.md` 는 KIND 조건도 붙지 않는다):
+**깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외: `screens/<name>.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. `process-design.md` 는 bash 가 골격을 만들며 KIND 조건이 붙지 않는다):
 - `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
 - `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — 남기면 유령 스키마가 설계 계약이 되고 `scan-enrich-placeholders.sh` 가 미채움 판정).
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
 - `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약
-- `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **생성**한다(bash 10 Phase 의 memory 템플릿 복사 목록에 없어 보강이 아니라 생성이다). **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
+- `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **채운다** — 골격은 bash Phase 8i 가 만든다(정본 14종 편입, 20261008). 골격이 없으면(`--enrich` 로 들어온 구 프로젝트) 같은 템플릿으로 새로 만든다. **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
   - **하류 이관** (`--enrich` · `--resume` 실행 시): 구 이름 `.specops/memory/intent.md` 가 프로세스 형식(본문에 `트리거`)으로 있고 `process-design.md` 가 없으면 `git mv .specops/memory/intent.md .specops/memory/process-design.md` 를 제안한다 [y/n]. 사용자가 거절하면 그대로 둔다 — **자동 개명·덮어쓰지 않는다**. `§auto` 는 제안만 기록하고 변경하지 않는다
 - `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`)
 
@@ -159,7 +159,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 → Phase 6 디자인 방향 (1 = 절제된 라이트 업무형)
 → Phase 7 화면 이름 (home, login, dashboard) — overview만
 → Phase 8e DB? (y) · 8f API? (2 = OpenAPI)
-→ 13종 골격(해당 KIND 활성분) + 원장 골격 스테이징
+→ 14종 골격(해당 KIND 활성분) + 원장 골격 스테이징
 → Phase 11.5 인터뷰 ≤5 → Light enrich → 게이트 1회 [y]
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
 → "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요"
@@ -175,10 +175,10 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 ## 참조
 
 - `scripts/_internal/init-project.sh` — 본 슬래시의 오케스트레이터
-- `templates/{constitution,PRD,CLAUDE,README,DESIGN,project-context,decisions,...}.md` — 13종+원장 템플릿(전체 목록 — KIND 별 부분 활성)
+- `templates/{constitution,PRD,CLAUDE,README,DESIGN,project-context,decisions,...}.md` — 14종+원장 템플릿(전체 목록 — KIND 별 부분 활성)
 - `skills/using-specops-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)
 
 ---
 
-*specops-ko v1.94.0 · 2026-08-03 · Light enrich · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v2.10.0 · 2026-08-03 · Light enrich · 원장 · Phase7 목록만 · 커밋1*

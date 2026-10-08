@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`process-design.md`(업무 프로세스 설계서)를 `/init-project` 정본 목록에 편입 — 13종 → 14종(종류·선택별 7~14종)** — 종전엔 bash 가 만들지 않고 Phase 11 LLM 보강이 "새로 생성"해, 보강이 빠지면 문서 자체가 없었고 사전검사 표·활성 카운트에도 잡히지 않았다. 이제 Phase 8i 가 KIND 무관으로 골격을 만들고(`ARTIFACTS_MEMORY`) Phase 11 이 본문을 채운다. 구 프로젝트(`--enrich`)는 골격이 없으면 같은 템플릿으로 새로 만든다.
+- **프로세스 설계서의 lifecycle 소비 배선** — `specifying-ko` 는 종전에 spec §참조에 경로만 인용했다. 이제 기능이 속한 프로세스 ID 를 spec §1 `**프로세스**: P-NNN` 으로 적고 그 블록의 트리거·결과·예외를 AC 도출 입력으로 쓴다(대응 프로세스가 없으면 `해당 없음 (신규 — process-design.md 갱신 필요)`). `planning-ko` 는 그 블록을 읽어 트리거→결과 흐름이 태스크로 덮이는지·예외마다 실패 테스트가 있는지 확인한다. 두 skill 모두 `process-design.md` 자체는 고치지 않는다.
+- **`<FID>/intent.md` 를 git 추적 대상으로** — `/init-project` 가 만드는 `.specops/.gitignore` 가 FID 디렉토리를 통째로 무시해 의도 문서가 저장소에 올라가지 않았다(PR 리뷰어가 볼 수 없고 git 이력이 없음). 규칙을 `…-*/*` + `!…-*/intent.md` 로 바꿔 intent.md 만 추적하고 그 밖의 FID 산출물은 계속 무시한다(git 은 무시된 디렉토리 안의 파일을 되살릴 수 없어 디렉토리가 아니라 내용을 무시한다). `specifying-ko` Step 1.5 는 승인된 intent 를 커밋한다(`git check-ignore` 로 추적 대상일 때만). Anthropic "AI-native SDLC playbook" 의 intent.md 규약(버전 관리되는 공유 위치·git 이력이 감사 추적)과 정렬. **소급 없음** — 이미 init 한 프로젝트는 두 줄을 직접 바꾼다(README 안내). 잠금: `test-init-project` T29.a~c(실제 git 판정)·T3.a·T4.a.
+
 ### Docs
 
 - **`docs/audit/2026-10-08-plugin-evaluation-9th.md`** — 9회차 당일 델타 평가 6.6/10(+0.3). 8회차 결함 수정 직후라 편향이 큰 구간이므로 정적 확인(코드·테스트·CI)분만 반영하고 현장 효과는 한 점도 올리지 않았다. 강제력 +0.5 는 사전등록 트리거(보유율)가 아니라 구멍을 기계적으로 닫은 근거임을 명시. 10회차 트리거(보유율 재측정·주간 변이 게이트 첫 실행·온보딩 피드백) 사전등록. README 점수 문구 갱신.

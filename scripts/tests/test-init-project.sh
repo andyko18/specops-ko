@@ -29,13 +29,13 @@ teardown_fixture() {
 count_active() {
   local n=0 f
   for f in PRD.md CLAUDE.md README.md DESIGN.md \
-    .specops/memory/{constitution,requirements,test-strategy,architecture,frontend-architecture,backend-architecture,api-spec,api-spec-consumer,data-model,screens-overview}.md; do
+    .specops/memory/{process-design,constitution,requirements,test-strategy,architecture,frontend-architecture,backend-architecture,api-spec,api-spec-consumer,data-model,screens-overview}.md; do
     [ -f "$f" ] && n=$((n+1))
   done
   echo "$n"
 }
 
-# 표준 풀스택 stdin (KIND=4) — 13종 모두 활성
+# 표준 풀스택 stdin (KIND=4) — 14종 모두 활성
 fullstack_stdin() {
   printf "4\np1\np2\np3\np4\np5\n"
   printf "1. 한 줄: 풀스택 데모\n2. 페르소나: dev\n3. 가치: a, b, c\n4. M1: m1\n5. M2: m2\n6. M3: m3\n\n"
@@ -100,27 +100,27 @@ setup_fixture
   printf "1. CLI\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
   printf "n\n"  # DB=n
 } | bash "$SCRIPT" >/dev/null 2>&1
-# CLI: PRD/CLAUDE/README/constitution/requirements/test-strategy = 6종
+# CLI: PRD/CLAUDE/README/constitution/requirements/test-strategy/process-design = 7종
 n=$(count_active)
-if [ "$n" = "6" ] \
+if [ "$n" = "7" ] && [ -f .specops/memory/process-design.md ] \
    && [ ! -f DESIGN.md ] \
    && [ ! -f .specops/memory/architecture.md ] \
    && [ ! -f .specops/memory/frontend-architecture.md ] \
    && [ ! -f .specops/memory/backend-architecture.md ]; then
-  ok "T3.a CLI(KIND=3) → 6종 (PRD/CLAUDE/README/constitution/requirements/test-strategy)"
+  ok "T3.a CLI(KIND=3) → 7종 (PRD/CLAUDE/README/constitution/requirements/test-strategy/process-design)"
 else
-  nope "T3.a CLI" "활성 카운트=${n} (기대 6), architecture 부재 검증"
+  nope "T3.a CLI" "활성 카운트=${n} (기대 7), architecture 부재 검증"
 fi
 teardown_fixture
 
-# ── T4.a 풀스택 (KIND=4) → 13종 ───────────────
+# ── T4.a 풀스택 (KIND=4) → 14종 ───────────────
 setup_fixture
 fullstack_stdin | bash "$SCRIPT" >/dev/null 2>&1
 n=$(count_active)
-if [ "$n" = "13" ]; then
-  ok "T4.a Full(KIND=4) → 13종 모두 활성"
+if [ "$n" = "14" ] && ! grep -q "<프로젝트명>" .specops/memory/process-design.md; then
+  ok "T4.a Full(KIND=4) → 14종 모두 활성 (process-design 골격 포함·프로젝트명 치환)"
 else
-  nope "T4.a Full" "활성=${n} (기대 13)"
+  nope "T4.a Full" "활성=${n} (기대 14)"
 fi
 teardown_fixture
 
@@ -754,6 +754,23 @@ if [ -n "$_rc" ] && [ "$_rc" != "rc=0" ] \
 else
   nope "T28.i" "rc=[$_rc] out=[$_out]"
 fi
+
+# ── T29: `.specops/.gitignore` — FID 의 intent.md 만 추적, 그 밖의 FID 산출물은 무시 (20261008) ──
+# 왜: 종전 규칙(`…-*/`)은 FID 디렉토리를 통째로 무시해 intent.md 가 저장소에 올라가지 않았다 — PR 리뷰어가
+#   의도 문서를 볼 수 없고 git 이력도 남지 않는다. git 은 무시된 디렉토리 안의 파일을 `!` 로 되살릴 수 없으므로
+#   규칙은 디렉토리가 아니라 **내용**(`…-*/*`)을 무시해야 한다 — 이 잠금은 생성기의 규칙을 실제 git 으로 판정한다.
+_gi=$(awk '/cat > \.specops\/\.gitignore <</{f=1;next} f&&/^EOF$/{exit} f' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh")
+_t29=$(mktemp -d)
+( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+  cd "$_t29" && git init -q && mkdir -p .specops/20261008-x/reviews .specops/memory \
+  && printf '%s\n' "$_gi" > .specops/.gitignore \
+  && : > .specops/20261008-x/intent.md && : > .specops/20261008-x/plan.md && : > .specops/20261008-x/evidence.md \
+  && : > .specops/20261008-x/reviews/T1-B-report.md && : > .specops/memory/requirements.md && : > .specops/session-progress.md ) >/dev/null 2>&1
+_st=$(cd "$_t29" && git status --porcelain -uall 2>/dev/null)
+if printf '%s\n' "$_st" | grep -q '20261008-x/intent.md'; then ok "T29.a intent.md 는 추적 대상(무시되지 않음)"; else nope "T29.a" "status=[$_st]"; fi
+if ! printf '%s\n' "$_st" | grep -qE '20261008-x/(plan|evidence)\.md|reviews/'; then ok "T29.b plan·evidence·reviews 는 계속 무시"; else nope "T29.b" "status=[$_st]"; fi
+if printf '%s\n' "$_st" | grep -q 'memory/requirements.md' && printf '%s\n' "$_st" | grep -q 'session-progress.md'; then ok "T29.c memory/·session-progress 는 추적 유지"; else nope "T29.c" "status=[$_st]"; fi
+rm -rf "$_t29"
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

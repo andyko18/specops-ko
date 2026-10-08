@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.9.0
+specops_version: 2.10.0
 used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 
@@ -72,6 +72,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
        | `project-context.md` | 프로젝트 컨텍스트 — `.specops/memory/project-context.md` |
        | `decisions.md` | 결정 원장 — `.specops/memory/decisions.md` |
 
+     - **프로세스 연결** — `process-design.md` 가 있으면 이 기능이 속한 프로세스 ID(`P-NNN`)를 찾아 spec §1 에 `**프로세스**: P-NNN <이름>` 을 적고, 그 블록의 트리거·결과·예외를 AC 도출의 입력으로 쓴다. 대응 프로세스가 없으면 `**프로세스**: 해당 없음 (신규 — process-design.md 갱신 필요)` 로 적는다(문서 자체는 여기서 고치지 않는다)
      - 레거시: `memory/intent.md` 가 프로세스 형식으로 남아 있으면 프로세스 설계서로 인용하고 `process-design.md` 로의 이관을 1줄 안내한다(자동 변경 금지)
 
      - **`.specops/memory/brainstorming-*.md` PRD-first 합성** (v2.2 신규):
@@ -141,7 +142,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-auto, /start-foundation, 
      - Step 5.5·5.6: [유지보수 분기]와 동일(기존 API/스키마 수정 시 5.6 등) — **제외 금지**
      - clarifying-ko·planning-ko **호출 금지** — 승인 후 §lite 단축으로 decomposing-ko 직행
 
-1.5. **Intent 캡처 (spec 이전)** — 요청을 요청자의 말로 옮긴 `.specops/<FID>/intent.md` 를 먼저 남긴다. 5절: 문제(요청 원문 인용) · 기대 결과 · 영향 사용자·시스템 · 제약 · 열린 질문(IQ-n · 없으면 `- 없음`). 템플릿 `templates/intent.md`. **판정 SoT = `scripts/_internal/check-intent.sh`** (구현 직전 emit-context 가 존재·채움 재검 — 도입 전 FID·비날짜 FID 는 SKIP).
+1.5. **Intent 캡처 (spec 이전)** — 요청을 요청자의 말로 옮긴 `.specops/<FID>/intent.md` 를 먼저 남긴다. 5절: 문제(요청 원문 인용) · 기대 결과 · 영향 사용자·시스템 · 제약 · 열린 질문(IQ-n · 없으면 `- 없음`). 템플릿 `templates/intent.md`. **판정 SoT = `scripts/_internal/check-intent.sh`** (구현 직전 emit-context 가 존재·채움 재검 — 도입 전 FID·비날짜 FID 는 SKIP). 승인된 intent 는 **커밋해 공유한다**(PR 에서 보이고 git 이력이 감사 추적이 된다): `git check-ignore -q .specops/<FID>/intent.md` 가 rc 1(추적 대상)일 때만 `git add .specops/<FID>/intent.md` → 별도 호출로 `git commit -m "docs(intent): <FID>"`. 무시되는 프로젝트(구 `.specops/.gitignore`)는 건너뛴다.
 
    | 분기 | 내용 | 게이트 |
    |---|---|---|

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # /init-project 오케스트레이터 — 10 Phase 구현 (T13b~T13f 가 각 phase 함수 추가)
-# 한국 SI 표준 13종 산출물 자동 부트스트랩
+# 한국 SI 표준 14종 산출물 자동 부트스트랩
 set -u
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
-# 13종 산출물 (root 4개 + .specops/memory 9개)
+# 14종 산출물 (root 4개 + .specops/memory 10개 — process-design.md 는 20261008 정본 편입)
 ARTIFACTS_ROOT=("PRD.md" "CLAUDE.md" "README.md" "DESIGN.md")
 ARTIFACTS_MEMORY=(
   ".specops/memory/constitution.md"
@@ -17,6 +17,7 @@ ARTIFACTS_MEMORY=(
   ".specops/memory/api-spec.md"
   ".specops/memory/data-model.md"
   ".specops/memory/screens-overview.md"
+  ".specops/memory/process-design.md"
 )
 PROJECT_KIND=""           # 1=UI 2=BE 3=CLI 4=Full 5=Mobile 6=Other
 CONFLICT_POLICY="skip"    # skip|overwrite|merge
@@ -42,13 +43,13 @@ main() {
   if [ "${project_name}" = "--help" ]; then
     echo "Usage: $0 [--resume [<project-name>] | <project-name>]"
     echo ""
-    echo "specops-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 13종 산출물 자동 생성"
+    echo "specops-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 14종 산출물 자동 생성"
     echo ""
     echo "Options:"
     echo "  --resume [<project-name>]    기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개; project-name 선택적)"
     echo ""
     echo "Phase:"
-    echo "  1  사전검사 (git/memory/ + 13종 파일별 표)"
+    echo "  1  사전검사 (git/memory/ + 14종 파일별 표)"
     echo "  2  종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)"
     echo "  3  헌법 입력"
     echo "  4  PRD 입력 (numbered list 6 필드)"
