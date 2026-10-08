@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-10-08
+
 ### Fixed
 
 - **batch PR 게이트(`_batch_pr_gate`)의 docs-only 면제가 여전히 작업트리 기준이던 구멍** — #142 가 R-2 를 PR 범위(`base...HEAD`)로 옮길 때 batch 게이트는 `is_docs_only_change` 를 무인자로 불러 제외됐다. 뭉개진 batch(라벨 DONE·per-FR 산출물 없음)라도 추적 중인 문서 하나가 dirty 면 게이트가 열려, 가장 되돌리기 비싼 batch PR 이 새고 있었다(수정 전 RED: `T-prscope.e`). 이제 `tool_cmd_scan` 을 넘겨 PR 범위로 판정한다. 범위가 문서뿐인 batch PR 은 종전대로 면제(`T-prscope.f`).
@@ -2945,7 +2947,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/andyko18/specops-ko/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/andyko18/specops-ko/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/andyko18/specops-ko/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/andyko18/specops-ko/compare/v2.5.0...v2.6.0
