@@ -10,7 +10,7 @@
 - **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다.
 
 > **도입을 검토 중이라면** → [docs/architecture.md](docs/architecture.md) — 무엇을 보장하고, **어떤 장치로** 보장하며, 무엇을 보장하지 **않는지**를 실측 수치와 함께 정리했다.
-> 이 도구가 **자기 결함을 어떻게 다루는가**가 궁금하다면 → [docs/audit/](docs/audit/) — 저자가 동일 루브릭으로 5회 반복 측정한 평가서(현재 7.3/10)와 개선 제안·이후 경과.
+> 이 도구가 **자기 결함을 어떻게 다루는가**가 궁금하다면 → [docs/audit/](docs/audit/) — 저자가 동일 루브릭으로 반복 측정한 평가서(최신 8회차 6.3/10 — 독립 감사 5건으로 방법이 달라졌고, 점수 하락은 새로 드러난 결함 때문이다)와 개선 제안·이후 경과.
 
 ---
 
@@ -40,6 +40,57 @@ claude plugin install specops-ko@specops-ko
 ```
 
 자연어로 해도 된다 — "CSV 줄 수 세기 CLI 만들어줘" 처럼 쓰면 메타 스킬이 신호를 감지해 라우팅한다.
+
+---
+
+## 알아둘 것
+
+도입 전에 한 번 읽어 두면 시행착오가 줄어드는 사실들이다. 수치는 저자가 쓰는 6개 repo 의 `.specops/` 실측이다(대조군 없음 — 효과가 아니라 **비용**을 보여 주는 숫자다).
+
+### 필요한 도구
+
+| 도구 | 필요성 | 없으면 |
+|---|---|---|
+| `git` | 필수 | lifecycle 자체가 성립하지 않는다 |
+| `jq` | 거버넌스 훅의 필수 의존 | **훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. `brew install jq` 후 `/doctor` 의 `deps` 항목으로 확인 |
+| `python3` + `pyyaml` | DAG 파서·태스크 id/크기 게이트·훅 킬스위치 | 해당 게이트가 SKIP 되고, 킬스위치(`config.yaml`)를 훅이 읽지 못한다 |
+| `gh` | 선택 | `gh pr create` 단계만 수동 |
+| `bash` 3.2+ | 필수 | macOS 기본 bash(3.2)에서 동작하도록 작성돼 있다 |
+
+설치 직후 `/doctor` 를 한 번 돌려 `deps`·`governance` 항목이 ✅ 인지 본다.
+
+### 한 건에 걸리는 시간
+
+- FID 1건(spec → verify)의 **중앙값 약 2시간, p90 약 7.6시간** (`metrics.jsonl` 기록이 있는 48건). 스테이지 단위 시각은 일괄 기록이라 부정확하다.
+- 변경이 **약 150줄 미만**이면 산출물(spec·plan·tasks·evidence·dispatch·리뷰)이 변경량보다 훨씬 크다 — 무게가 변경 크기에 비례하지 않는다. 작은 수정은 `/start-lite`·`/maintain-lite` 로 clarify·plan 을 건너뛰되, 화면/IF·Phase B/C·verify 는 유지된다.
+- 대화형 `/start` 는 승인 관문(spec 검토·clarify·plan·실행 전환)마다 응답을 기다린다. 첫 코드가 나오기 전에 여러 번의 왕복이 있다.
+- **코드를 바꾸는 커밋은 항상 verify 증거를 요구한다.** 정말 필요 없는 변경이면 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>'` 로 우회하되, 사유는 `friction-log` 에 원문째 남는다.
+
+### 적용 범위
+
+- 훅 **차단**은 cwd 에 `.specops/` 가 있는 repo 에서만 동작한다(없으면 면제).
+- 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install specops-ko@specops-ko --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable specops-ko` 후 필요한 repo 에서만 켠다.
+- 기존 프로젝트에 도입할 때는 `/init-project` 를 먼저 돌리고(표준 문서 부트스트랩), 이후 수정은 `/maintain` 으로 시작한다.
+
+### 산출물은 기본적으로 로컬이다
+
+`/init-project` 가 만드는 `.specops/.gitignore` 는 **`memory/` 와 `session-progress.md` 만 커밋하고 FID 디렉토리(`.specops/YYYYMMDD-*/`)는 무시**한다. spec·plan·evidence·리뷰 리포트는 저장소에 올라가지 않으므로 **PR 리뷰어는 볼 수 없다**. 팀과 공유해야 하면 PR 본문에 핵심(요구·AC·검증 결과)을 옮겨 적거나, `.specops/.gitignore` 의 패턴을 프로젝트 정책에 맞게 바꾼다.
+
+### 데이터와 프라이버시
+
+- 플러그인 자체의 **텔레메트리·외부 전송은 없다.** 훅은 네트워크를 쓰지 않는다. 기록(`.specops/` 의 friction-log·metrics·session-progress)은 전부 로컬 파일이다.
+- 외부 송신이 가능한 유일한 경로는 **외부 모델 의견 병행**(`scripts/critic-ask.sh`, 코드 리뷰 요청 시 diff 를 의견용으로 위탁)이다. provider 는 `claude` → `codex` → `gemini` → `ollama(로컬)` 순으로 **먼저 쓸 수 있는 하나**를 고르고, 한 번에 최대 200KB 만 보낸다. 비밀(자격증명·`.env`·키)이 diff 에 있을 것 같으면 위탁하지 않는 규약이다. 쓰고 싶지 않으면 해당 CLI 를 PATH 에서 빼거나 `CRITIC_BIN` 으로 로컬 도구를 지정한다.
+- **자유작업 캡처**(Stop 훅): lifecycle 밖에서 파일을 고친 턴이면 그때의 사용자 입력을 **정규식으로 마스킹하고 2,000자로 자른 뒤** `.specops/pending-capture.jsonl` 에 로컬 저장한다. 정규식 마스킹은 비밀 노출을 완전히 막지 못하며(마스킹 실패 시 입력을 버린다), 현재 거버넌스 프로파일로는 **끌 수 없다** — 쓰고 싶지 않으면 해당 repo 에서 플러그인을 `disable` 한다. 알림 훅(Notification)은 데스크톱 알림을 띄우며 `SPECOPS_GOVERNANCE_PROFILE=standard`(또는 `minimal`)이면 꺼진다.
+
+### 업그레이드 · 삭제
+
+```bash
+claude plugin update specops-ko@specops-ko   # 적용하려면 Claude Code 재시작
+claude plugin uninstall specops-ko           # 제거
+```
+
+- 업그레이드 후 `/doctor` 로 `deps`·`governance`·`statusline` 을 다시 확인한다. 상태바는 `statusline-install.sh` 가 `.claude/settings.json` 의 `statusLine` 키에 **절대경로를 박아 둔** 것이라, 플러그인 버전이 바뀌면 경로가 낡을 수 있다(`scripts/statusline-install.sh --check` 로 미리보기).
+- 삭제해도 각 repo 의 `.specops/`·`CLAUDE.md`·`screens/` 는 **남는다**(사용자 데이터). 필요 없으면 직접 지운다. `statusLine` 키도 수동으로 제거한다.
 
 ---
 
