@@ -3,11 +3,14 @@
 원본은 계속 마크다운이다. 이 파일이 만드는 HTML 은 **생성물**이라 사람이 고치지 않는다(고쳐도 lifecycle 이 읽지 않는다).
 외부 리소스(스크립트·스타일·폰트·이미지)를 하나도 참조하지 않는다 — 폐쇄망에서 파일만 열어도 그대로 보인다.
 
+구성은 설계서의 통상 순서를 따른다 — **전체 그림 먼저, 상세는 뒤**:
+  머리(한 줄 설명·규모·미결) → 1 개요(PRD) → 2 시스템 구성 → 3 요구사항 → 4 업무 프로세스 → 5 화면 → 6 인터페이스
+  → 7 데이터 → 8 품질·원칙 → 9 추적·미결. 각 장도 같은 원칙이다: 장 머리에 그림·요약, 그 아래 문서 본문.
+
 Usage: build.py <project-root> <out.html> [--check]
 Exit : 0 = 생성(또는 --check 시 최신) · 1 = --check 시 낡음/부재 · 2 = 설계 문서 없음
 """
 import datetime
-import hashlib
 import html
 import os
 import re
@@ -16,134 +19,32 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diagrams  # noqa: E402
+import er  # noqa: E402
+import flows  # noqa: E402
 import md  # noqa: E402
+import sources as src  # noqa: E402
+from page import TEMPLATE  # noqa: E402
 
-# (경로, 표시 이름) — 읽는 순서: 무엇을(PRD·요구) → 어떻게 흐르나(프로세스) → 구조 → 계약 → 화면 → 품질 → 원장
-DOCS = (
-    ("PRD.md", "PRD"),
-    (".specops/memory/requirements.md", "요구사항"),
-    (".specops/memory/process-design.md", "프로세스 설계"),
-    (".specops/memory/architecture.md", "전체 아키텍처"),
-    (".specops/memory/frontend-architecture.md", "프론트엔드 아키텍처"),
-    (".specops/memory/backend-architecture.md", "백엔드 아키텍처"),
-    (".specops/memory/api-spec.md", "IF 설계 (API)"),
-    (".specops/memory/api-spec-consumer.md", "IF 소비 계약"),
-    (".specops/memory/data-model.md", "테이블 설계"),
-    (".specops/memory/screens-overview.md", "화면 목록"),
-    ("DESIGN.md", "디자인 시스템"),
-    (".specops/memory/test-strategy.md", "테스트 전략"),
-    (".specops/memory/constitution.md", "헌법"),
-    (".specops/memory/decisions.md", "결정 원장"),
-    (".specops/memory/project-context.md", "프로젝트 컨텍스트"),
-)
-OPEN_RE = re.compile(r"<미확정[^>]*>|<TODO[^>]*>")
-HEAD_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 META = "specops-design-sources"
+M = ".specops/memory/"
+ARCH, REQ, PROC, API, DATA, SCR = M + "architecture.md", M + "requirements.md", M + "process-design.md", M + "api-spec.md", M + "data-model.md", M + "screens-overview.md"
+# (id, 장 이름, 문서들) — 전체 구조에서 상세로
+CHAPTERS = (
+    ("intro", "개요", ("PRD.md",)),
+    ("sys", "시스템 구성", (ARCH, M + "frontend-architecture.md", M + "backend-architecture.md")),
+    ("req", "요구사항", (REQ,)),
+    ("proc", "업무 프로세스", (PROC,)),
+    ("ui", "화면", (SCR, "DESIGN.md")),
+    ("if", "인터페이스", (API, M + "api-spec-consumer.md")),
+    ("data", "데이터", (DATA,)),
+    ("qa", "품질 · 원칙", (M + "test-strategy.md", M + "constitution.md")),
+    ("trace", "추적 · 미결", (M + "decisions.md", M + "project-context.md")),
+)
+HOISTED = '<p class="note">이 그림은 장 머리에 있다 — <a href="#%s">%s 보기</a></p><details class="src"><summary>원문(mermaid)</summary><pre><code>%s</code></pre></details>'
 
 
-def read(path):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return f.read()
-    except (OSError, UnicodeDecodeError):
-        return None
-
-
-def load(root):
-    docs = []
-    for rel, name in DOCS:
-        text = read(os.path.join(root, rel))
-        if text is not None and text.strip():
-            docs.append({"rel": rel, "name": name, "key": "d%d" % len(docs), "text": text})
-    return docs
-
-
-def sources_hash(docs, screens):
-    h = hashlib.sha256()
-    for d in docs:
-        h.update(d["rel"].encode("utf-8") + b"\0" + d["text"].encode("utf-8") + b"\0")
-    for s in screens:
-        h.update(s.encode("utf-8") + b"\0")
-    return h.hexdigest()[:20]
-
-
-def scan(doc):
-    """제목 앵커(렌더와 같은 순서·같은 slug)와 미확정·가정 항목을 모은다."""
-    used, heads, opens, fence = set(), [], [], False
-    anchor = doc["key"]
-    for line in md.strip_comments(doc["text"]).split("\n"):
-        s = line.strip()
-        if s.startswith("```"):
-            fence = not fence
-            continue
-        if fence:
-            continue
-        m = HEAD_RE.match(s)
-        if m:
-            anchor = "%s--%s" % (doc["key"], md.slug(m.group(2).strip(), used))
-            heads.append((len(m.group(1)), m.group(2).strip(), anchor))
-            continue
-        kind = "가정" if "가정:" in s else ("미확정" if OPEN_RE.search(s) else None)
-        if kind:
-            opens.append((kind, doc["name"], anchor, re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+|>\s*|\|\s*)+", "", s)[:220]))
-    return heads, opens
-
-
-def parse_processes(text):
-    procs, cur = [], None
-    for line in md.strip_comments(text or "").split("\n"):
-        s = line.strip()
-        m = re.match(r"^#{2,4}\s+(P-\d+)\s*[·:\-–—]?\s*(.*)$", s)
-        if m:
-            cur = {"id": m.group(1), "name": m.group(2).strip()}
-            procs.append(cur)
-            continue
-        if s.startswith("## "):
-            cur = None
-            continue
-        if cur is not None:
-            m = re.match(r"^[-*]\s+\*\*(.+?)\*\*\s*:\s*(.*)$", s)
-            if m:
-                cur[m.group(1).strip()] = m.group(2).strip()
-        m = re.match(r"^\|\s*(P-\d+)\s*\|(.*)\|\s*$", s)
-        if m:
-            cells = [c.strip() for c in m.group(2).split("|")]
-            for p in procs:
-                if p["id"] == m.group(1):
-                    break
-            else:
-                p = {"id": m.group(1), "name": cells[0] if cells else ""}
-                procs.append(p)
-                cur = None
-            if len(cells) >= 3:
-                p.setdefault("주 행위자", cells[1])
-                p["FR"] = cells[2]
-    # 채우지 않은 골격 행(`<프로세스명>`)은 프로세스로 세지 않는다 — 빈 그림·빈 추적표 행을 만들지 않는다
-    return [p for p in procs if not re.fullmatch(r"<[^>]*>", p.get("name", "").strip())]
-
-
-def parse_frs(text):
-    frs = []
-    for line in md.strip_comments(text or "").split("\n"):
-        m = re.match(r"^\|\s*\**(FR-\d+)\**\s*\|\s*([^|]*)\|", line.strip())
-        if m and m.group(1) not in [f[0] for f in frs]:
-            frs.append((m.group(1), m.group(2).strip()))
-    return frs
-
-
-def arch_diagram(text):
-    """architecture.md 의 첫 graph 블록, 없으면 §2 통신 표(From → To)로 구성도를 만든다."""
-    for code in re.findall(r"```mermaid\n(.*?)```", text or "", flags=re.S):
-        g = diagrams.parse_graph(code)
-        if g:
-            return diagrams.render_graph(g, "시스템 구성도")
-    pairs = []
-    for line in (text or "").split("\n"):
-        m = re.match(r"^\|\s*([^|]+?)\s*(?:→|->)\s*([^|]+?)\s*\|\s*([^|]*)\|", line.strip())
-        if m and "From" not in m.group(1):
-            pairs.append((m.group(1).strip(), m.group(2).strip(), m.group(3).strip()))
-    g = diagrams.graph_from_pairs(pairs)
-    return diagrams.render_graph(g, "시스템 구성도") if g else ""
+def e(t):
+    return html.escape(str(t), quote=True)
 
 
 def git_rev(root):
@@ -154,21 +55,112 @@ def git_rev(root):
         return ""
 
 
-def e(t):
-    return html.escape(str(t), quote=True)
+def tiers_svg(graph, tech, pairs):
+    """parse_graph 결과(또는 (nodes, edges, order))를 계층형 구성도로. 구성요소 표의 기술·통신 표의 프로토콜을 입힌다."""
+    nodes, edges, order = graph[-3], graph[-2], graph[-1]
+    node_tech = {}
+    for nid in order:
+        for comp, t in tech.items():
+            if src.same_component(comp, nodes[nid][0]):
+                node_tech[nid] = t
+                break
+    labeled = []
+    for a, b, lab, dashed in edges:
+        if not lab:
+            lab = next((p for f, t, p in pairs if p and src.same_component(f, nodes[a][0]) and src.same_component(t, nodes[b][0])), "")
+        labeled.append((a, b, lab, dashed))
+    return flows.render_tiers(nodes, labeled, order, node_tech)
+
+
+def mermaid_blocks(text):
+    return re.findall(r"```mermaid\n(.*?)```", text or "", flags=re.S)
+
+
+def arch_lead(text):
+    """architecture.md 의 첫 graph 블록, 없으면 §1 구성 요소 + §2 통신 표로 구성도를 만든다."""
+    tech, pairs = src.arch_model(text)
+    for code in mermaid_blocks(text):
+        g = diagrams.parse_graph(code)
+        if g:
+            return tiers_svg(g, tech, pairs)
+    g = diagrams.graph_from_pairs(pairs)
+    return tiers_svg(g, tech, pairs) if g else ""
+
+
+def erd_lead(text):
+    for code in mermaid_blocks(text):
+        parsed = er.parse_er(code)
+        if parsed:
+            return er.render_er(parsed)
+    return ""
+
+
+def req_matrix(frs):
+    """요구사항 현황 — 마일스톤 × 우선순위 건수."""
+    if not any(f["ms"] or f["pri"] for f in frs):
+        return ""
+    ms = sorted({f["ms"] or "미지정" for f in frs})
+    pri = [p for p in ("must", "should", "nice", "nice-to-have", "could", "") if any(f["pri"] == p for f in frs)]
+    head = "".join("<th>%s</th>" % md.cell(p or "미지정") for p in pri)
+    rows = []
+    for m in ms:
+        cnt = [sum(1 for f in frs if (f["ms"] or "미지정") == m and f["pri"] == p) for p in pri]
+        rows.append("<tr><td>%s</td>%s<td><b>%d</b></td></tr>" % (e(m), "".join("<td>%s</td>" % (c or "·") for c in cnt), sum(cnt)))
+    return ('<div class="tw"><table class="mx"><thead><tr><th>마일스톤</th>%s<th>합계</th></tr></thead><tbody>%s</tbody></table></div>'
+            % (head, "".join(rows)))
+
+
+def proc_tables(text):
+    """프로세스 블록의 `- **항목**: 내용` 줄을 정의 표로 바꾼다 — 그림 바로 아래에 프로세스 정의서 형태로 붙는다.
+    보여 주는 형식만 바꾼다(원본 문서와 미확정·가정 집계는 그대로)."""
+    out, buf, inside = [], [], False
+
+    def flush():
+        if buf:
+            out.extend(["| 항목 | 내용 |", "|---|---|"] + ["| %s | %s |" % (k, v.replace("|", "\\|")) for k, v in buf] + [""])
+            del buf[:]
+
+    for line in text.split("\n"):
+        m = re.match(r"^[-*]\s+\*\*(.+?)\*\*\s*:\s*(.*)$", line)
+        if inside and m:
+            buf.append((m.group(1).strip(), m.group(2).strip()))
+            continue
+        flush()
+        if re.match(r"^#{2,4}\s+P-\d+", line):
+            inside = True
+        elif re.match(r"^#{1,2}\s", line):
+            inside = False
+        out.append(line)
+    flush()
+    return "\n".join(out)
+
+
+def table(heads, rows, cls=""):
+    return '<div class="tw"><table%s><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (
+        ' class="%s"' % cls if cls else "", "".join("<th>%s</th>" % e(h) for h in heads), "".join(rows))
 
 
 def build(root, out_path):
-    docs = load(root)
+    docs = src.load(root)
     if not docs:
         return None
     by_rel = {d["rel"]: d for d in docs}
+    out_dir = os.path.dirname(os.path.abspath(out_path))
     sdir = os.path.join(root, "screens")
-    screens = sorted(f for f in os.listdir(sdir) if f.endswith(".html")) if os.path.isdir(sdir) else []
-    digest = sources_hash(docs, screens)
-    opens, toc, sections = [], [], []
+    shot_files = sorted(f for f in os.listdir(sdir) if f.endswith(".html")) if os.path.isdir(sdir) else []
+    digest = src.sources_hash(docs, shot_files)
+    text = lambda rel: by_rel[rel]["text"] if rel in by_rel else ""  # noqa: E731
+
+    procs = src.parse_processes(text(PROC))
+    frs = src.parse_frs(text(REQ))
+    eps = src.parse_endpoints(text(API))
+    screens = src.parse_screens(text(SCR))
+    arch, erd = arch_lead(text(ARCH)), erd_lead(text(DATA))
+
+    opens = []
+    rendered = {}
     for d in docs:
-        heads, o = scan(d)
+        heads, o = src.scan(d)
         opens.extend(o)
         queue = {}
         for _lv, _t, _a in heads:
@@ -179,134 +171,127 @@ def build(root, out_path):
             lst = _q.get(title)
             return lst.pop(0) if lst else anchor
 
-        body = md.render(d["text"], diagram_hook=diagrams.render_fence, heading_hook=hook)
-        sub = "".join('<li><a href="#%s">%s</a></li>' % (e(a), e(t)) for lv, t, a in heads if lv == 2)
-        toc.append('<li><a class="doc" href="#%s">%s</a>%s</li>' % (d["key"], e(d["name"]), "<ul>%s</ul>" % sub if sub else ""))
-        sections.append('<section class="docsec" id="%s"><div class="src-tag">원본 <code>%s</code></div>%s</section>'
-                        % (d["key"], e(d["rel"]), body))
+        state = {"hoisted": False}
 
-    proc_doc = by_rel.get(".specops/memory/process-design.md")
-    procs = parse_processes(proc_doc["text"]) if proc_doc else []
-    frs = parse_frs(by_rel[".specops/memory/requirements.md"]["text"]) if ".specops/memory/requirements.md" in by_rel else []
-    arch = arch_diagram(by_rel[".specops/memory/architecture.md"]["text"]) if ".specops/memory/architecture.md" in by_rel else ""
+        def fence(lang, code, _rel=d["rel"], _st=state):
+            # 장 머리로 올린 그림(구성도·ERD)은 본문에서 다시 그리지 않는다 — 같은 그림이 두 번 나오면 읽는 흐름이 끊긴다
+            if lang == "mermaid" and not _st["hoisted"]:
+                if _rel == ARCH and arch and diagrams.parse_graph(code):
+                    _st["hoisted"] = True
+                    return HOISTED % ("lead-sys", "시스템 구성도", html.escape(code))
+                if _rel == DATA and erd and er.parse_er(code):
+                    _st["hoisted"] = True
+                    return HOISTED % ("lead-data", "ERD", html.escape(code))
+            return diagrams.render_fence(lang, code)
 
-    title = os.path.basename(os.path.abspath(root))
-    m = re.search(r"^#\s+(.+)$", md.strip_comments(by_rel["PRD.md"]["text"]) if "PRD.md" in by_rel else "", flags=re.M)
-    if m:
-        title = re.sub(r"\s*(PRD|—.*)$", "", m.group(1)).strip() or title
+        def after(level, title, _rel=d["rel"]):
+            # 프로세스 제목 바로 뒤에 흐름도 — 그림과 설명(그 아래 항목)을 한자리에서 본다
+            m = re.match(r"^(P-\d+)\b", title) if _rel == PROC else None
+            p = next((x for x in procs if m and x["id"] == m.group(1)), None)
+            return flows.render_swimlane(p) if p else None
+
+        doc_dir = os.path.dirname(os.path.join(os.path.abspath(root), d["rel"]))
+
+        def rebase(url, _dd=doc_dir):
+            path, _, frag = url.partition("#")
+            new = os.path.relpath(os.path.normpath(os.path.join(_dd, path)), out_dir).replace(os.sep, "/") if path else ""
+            return new + ("#" + frag if frag else "")
+
+        md.LINK_REBASE = rebase
+        doc_text = proc_tables(d["text"]) if d["rel"] == PROC else d["text"]
+        body = md.render(doc_text, diagram_hook=fence, heading_hook=hook, shift=1, after_heading=after)
+        md.LINK_REBASE = None
+        rendered[d["rel"]] = '<section class="docsec" id="%s"><div class="src-tag">원본 <code>%s</code></div>%s</section>' % (d["key"], e(d["rel"]), body)
 
     n_tbd = sum(1 for o in opens if o[0] == "미확정")
     n_asm = len(opens) - n_tbd
-    cards = "".join('<div class="card"><b>%s</b><span>%s</span></div>' % (e(v), e(k)) for k, v in (
-        ("문서", len(docs)), ("요구(FR)", len(frs)), ("프로세스", len(procs)), ("화면 미리보기", len(screens)),
-        ("미확정", n_tbd), ("가정", n_asm)))
+    rel_shots = os.path.relpath(sdir, out_dir).replace(os.sep, "/")
 
-    ov = ['<section id="overview"><h1>%s — 설계 한눈에 보기</h1><div class="cards">%s</div>' % (e(title), cards)]
+    # ── 장 머리(그림·요약) ──
+    leads = {k: [] for k, _, _ in CHAPTERS}
+
+    def lead(ch, anchor, name, content):
+        leads[ch].append((anchor, name, '<h2 id="%s">%s</h2>%s' % (anchor, e(name), content)))
+
     if arch:
-        ov.append('<h2 id="ov-arch">시스템 구성도</h2>%s<p class="note">출처: <a href="#%s">전체 아키텍처</a> 문서의 다이어그램(없으면 §2 통신 표)</p>'
-                  % (arch, by_rel[".specops/memory/architecture.md"]["key"]))
+        lead("sys", "lead-sys", "시스템 구성도", arch + '<p class="note">계층: 사용자 → 채널·프레젠테이션 → 애플리케이션 → 데이터·미들웨어 · '
+             "오른쪽 점선 칸은 외부 연계. 상자의 작은 글씨는 기술, 화살표의 글씨는 통신 방식이다.</p>")
+    mx = req_matrix(frs)
+    if mx:
+        lead("req", "lead-req", "요구사항 현황", mx)
+    if screens or shot_files:
+        names = [s[0] for s in screens] + [f[:-5] for f in shot_files if f[:-5] not in [s[0] for s in screens]]
+        info = {s[0]: s for s in screens}
+        rows = []
+        for n in names:
+            has = (n + ".html") in shot_files
+            status = '<a href="%s/%s.html">미리보기</a>' % (e(rel_shots), e(n)) if has else '<span class="pill">설계 전</span>'
+            rows.append("<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                        % (e(n), md.inline(info.get(n, ("", "", ""))[1]), md.inline(info.get(n, ("", "", ""))[2]), status))
+        done = sum(1 for n in names if (n + ".html") in shot_files)
+        lead("ui", "lead-ui", "화면 현황", table(("화면", "제목", "목적", "상태"), rows)
+             + '<p class="note">화면 %d개 중 미리보기 %d개. 상세 설계는 <code>/start-all</code> Phase 2.5 · <code>/design-screen</code> 이 채운다.</p>' % (len(names), done))
+    if eps:
+        lead("if", "lead-if", "API 목록", table(("메서드", "경로", "인증", "설명"), [
+            "<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>" % (md.cell(mt), e(pa), md.inline(au), md.inline(no))
+            for mt, pa, au, no in eps]))
+    if erd:
+        lead("data", "lead-data", "ERD", erd + '<p class="note">관계선 끝 표기: 막대 = 1 · 원 = 0 · 까마귀발 = 여럿.</p>')
     if procs:
-        ov.append('<h2 id="ov-flow">업무 프로세스 흐름</h2>')
-        for p in procs:
-            ov.append('<h3>%s %s</h3>%s' % (e(p["id"]), e(p.get("name", "")), diagrams.render_flow(p)
-                                           or '<p class="note">흐름을 그릴 항목이 아직 없다(트리거·행위자·화면·API·테이블·결과 미기재).</p>'))
-        rows = "".join("<tr>%s</tr>" % "".join("<td>%s</td>" % md.inline(p.get(k, "")) for k in ("id", "name", "FR", "화면", "API", "테이블"))
-                       for p in procs)
-        ov.append('<h2 id="ov-trace">추적표 — 프로세스 ↔ 요구 ↔ 화면 ↔ API ↔ 테이블</h2><div class="tw"><table><thead><tr>'
-                  "<th>ID</th><th>프로세스</th><th>관련 FR</th><th>화면</th><th>API</th><th>테이블</th></tr></thead><tbody>%s</tbody></table></div>" % rows)
-        linked = " ".join(p.get("FR", "") for p in procs) + (proc_doc["text"] if proc_doc else "")
-        orphan = [f for f in frs if not re.search(r"\b%s\b" % re.escape(f[0]), linked)]
-        if orphan:
-            ov.append('<p class="warn">프로세스에 연결되지 않은 요구 %d건: %s</p>'
-                      % (len(orphan), ", ".join("<code>%s</code> %s" % (e(i), e(t[:40])) for i, t in orphan)))
-    ov.append('<h2 id="ov-open">결정이 필요한 항목 — 미확정 %d · 가정 %d</h2>' % (n_tbd, n_asm))
-    if opens:
-        ov.append('<div class="tw"><table><thead><tr><th>구분</th><th>문서</th><th>내용</th></tr></thead><tbody>%s</tbody></table></div>' % "".join(
-            '<tr><td><span class="pill %s">%s</span></td><td><a href="#%s">%s</a></td><td>%s</td></tr>'
-            % ("tbd" if k == "미확정" else "assume", k, e(a), e(n), md.inline(t)) for k, n, a, t in opens))
-    else:
-        ov.append('<p class="note">미확정·가정 표시가 없다.</p>')
-    if screens:
-        rel = os.path.relpath(sdir, os.path.dirname(os.path.abspath(out_path))).replace(os.sep, "/")
-        ov.append('<h2 id="ov-screens">화면 미리보기</h2><ul class="screens">%s</ul>' % "".join(
-            '<li><a href="%s/%s">%s</a></li>' % (e(rel), e(s), e(s[:-5])) for s in screens))
-    ov.append("</section>")
+        rows = ["<tr>%s</tr>" % "".join("<td>%s</td>" % md.inline(p.get(k, "")) for k in ("id", "name", "FR", "화면", "API", "테이블")) for p in procs]
+        linked = " ".join(p.get("FR", "") for p in procs) + text(PROC)
+        orphan = [f for f in frs if not re.search(r"\b%s\b" % re.escape(f["id"]), linked)]
+        warn = ('<p class="warn">프로세스에 연결되지 않은 요구 %d건: %s</p>' % (
+            len(orphan), ", ".join("<code>%s</code> %s" % (e(f["id"]), e(f["text"][:40])) for f in orphan))) if orphan else ""
+        lead("trace", "lead-trace", "추적표", table(("ID", "프로세스", "관련 FR", "화면", "API", "테이블"), rows) + warn)
+    open_rows = ['<tr><td><span class="pill %s">%s</span></td><td><a href="#%s">%s</a></td><td>%s</td></tr>'
+                 % ("tbd" if k == "미확정" else "assume", k, e(a), e(n), md.inline(t)) for k, n, a, t in opens]
+    lead("trace", "lead-open", "결정이 필요한 항목", ('<p>미확정 %d · 가정 %d</p>' % (n_tbd, n_asm))
+         + (table(("구분", "문서", "내용"), open_rows) if opens else '<p class="note">미확정·가정 표시가 없다.</p>'))
 
-    rev = git_rev(root)
+    # ── 머리 ──
+    title = os.path.basename(os.path.abspath(root))
+    m = re.search(r"^#\s+(.+)$", md.strip_comments(text("PRD.md")), flags=re.M)
+    if m:
+        title = re.sub(r"\s*(PRD|—.*)$", "", m.group(1)).strip() or title
+    one = src.one_liner(text("PRD.md"))
+    cards = "".join('<a class="card" href="#%s"><b>%s</b><span>%s</span></a>' % (h, e(v), e(k)) for k, v, h in (
+        ("요구(FR)", len(frs), "ch-req"), ("프로세스", len(procs), "ch-proc"), ("화면", len(screens) or len(shot_files), "ch-ui"),
+        ("API", len(eps), "ch-if"), ("문서", len(docs), "top"), ("미확정", n_tbd, "lead-open"), ("가정", n_asm, "lead-open")))
+    body = ['<section id="top"><h1>%s — 설계서</h1>%s<div class="cards">%s</div>' % (
+        e(title), '<p class="lede">%s</p>' % md.inline(one) if one else "", cards)]
+    if opens:
+        body.append('<p class="banner">결정이 필요한 항목이 있다 — 미확정 %d · 가정 %d. <a href="#lead-open">목록 보기</a></p>' % (n_tbd, n_asm))
+    body.append("</section>")
+
+    # ── 장 ──
+    nav, num = [], 0
+    for cid, cname, rels in CHAPTERS:
+        present = [r for r in rels if r in rendered]
+        if not present and not leads[cid]:
+            continue
+        num += 1
+        body.append('<section class="chapter" id="ch-%s"><h1><span class="chn">%d</span>%s</h1>' % (cid, num, e(cname)))
+        body.extend(c for _, _, c in leads[cid])
+        body.extend(rendered[r] for r in present)
+        body.append("</section>")
+        items = [(a, n) for a, n, _ in leads[cid]] + [(by_rel[r]["key"], by_rel[r]["name"]) for r in present]
+        nav.append('<li><a class="doc" href="#ch-%s">%d. %s</a><ul>%s</ul></li>' % (
+            cid, num, e(cname), "".join('<li><a href="#%s">%s</a></li>' % (e(a), e(n)) for a, n in items)))
+
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    nav = ('<li><a class="doc" href="#overview">한눈에 보기</a><ul>%s</ul></li>' % "".join(
-        '<li><a href="#%s">%s</a></li>' % (a, t) for a, t, ok in (
-            ("ov-arch", "시스템 구성도", arch), ("ov-flow", "프로세스 흐름", procs), ("ov-trace", "추적표", procs),
-            ("ov-open", "결정 필요 항목", True), ("ov-screens", "화면 미리보기", screens)) if ok))
     page = TEMPLATE.replace("{{TITLE}}", e(title)).replace("{{META}}", META).replace("{{HASH}}", digest) \
-        .replace("{{STAMP}}", e(stamp)).replace("{{REV}}", e(rev or "—")).replace("{{NAV}}", nav + "".join(toc)) \
-        .replace("{{BODY}}", "".join(ov) + "".join(sections))
+        .replace("{{STAMP}}", e(stamp)).replace("{{REV}}", e(git_rev(root) or "—")).replace("{{NAV}}", "".join(nav)) \
+        .replace("{{BODY}}", "".join(body))
     return page, digest
 
 
 def existing_hash(path):
-    text = read(path)
+    text = src.read(path)
     if not text:
         return None
     m = re.search(r'<meta name="%s" content="([0-9a-f]+)"' % META, text)
     return m.group(1) if m else None
-
-
-TEMPLATE = """<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="{{META}}" content="{{HASH}}"><title>{{TITLE}} — 설계 통합 뷰</title>
-<style>
-:root{--bg:#fbfbfa;--fg:#1d2126;--mut:#667080;--line:#d8dce2;--box:#fff;--acc:#2f5fd0;--side:#f1f2f4;--tbd:#ffe3b0;--asm:#d6e6ff;--warn:#b3401d}
-@media(prefers-color-scheme:dark){:root{--bg:#15171a;--fg:#e6e8eb;--mut:#98a1ad;--line:#343a43;--box:#1e2126;--acc:#8fb0ff;--side:#1a1c20;--tbd:#5c4310;--asm:#1f3a66;--warn:#ff9a7a}}
-*{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif}
-nav{position:fixed;inset:0 auto 0 0;width:270px;overflow:auto;background:var(--side);border-right:1px solid var(--line);padding:14px 12px 30px}
-nav input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--box);color:var(--fg);font:inherit}
-nav ul{list-style:none;margin:6px 0;padding:0}nav ul ul{margin:0 0 6px 10px;border-left:1px solid var(--line);padding-left:8px}
-nav a{display:block;padding:3px 6px;border-radius:5px;color:var(--mut);text-decoration:none;font-size:13.5px}
-nav a.doc{color:var(--fg);font-weight:600;font-size:14px}nav a:hover,nav a.on{background:var(--box);color:var(--acc)}
-main{margin-left:270px;padding:0 34px 80px;max-width:1080px}
-header.bar{margin:0 -34px 8px;padding:9px 34px;border-bottom:1px solid var(--line);color:var(--mut);font-size:12.5px}
-header.bar b{color:var(--warn)}
-section{padding-top:18px}section.docsec{border-top:2px solid var(--line);margin-top:42px}
-.src-tag{color:var(--mut);font-size:12.5px;margin-bottom:-6px}
-h1{font-size:25px;margin:14px 0 10px}h2{font-size:19px;margin:30px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
-h3{font-size:16px;margin:22px 0 6px}h4,h5,h6{font-size:14.5px;margin:16px 0 4px}
-a{color:var(--acc)}code{background:var(--side);padding:1px 5px;border-radius:4px;font:12.8px/1.5 ui-monospace,Menlo,Consolas,monospace}
-pre{background:var(--side);border:1px solid var(--line);border-radius:7px;padding:11px 13px;overflow:auto}pre code{background:none;padding:0}
-blockquote{margin:10px 0;padding:6px 13px;border-left:3px solid var(--line);color:var(--mut)}
-.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.8px}
-th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--side)}
-mark.tbd,.pill.tbd{background:var(--tbd);color:inherit}mark.assume,.pill.assume{background:var(--asm);color:inherit}
-mark,.pill{padding:1px 6px;border-radius:4px}.pill{font-size:12px;white-space:nowrap}
-.cards{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 4px}.card{background:var(--box);border:1px solid var(--line);border-radius:9px;padding:9px 16px;min-width:104px}
-.card b{display:block;font-size:22px}.card span{color:var(--mut);font-size:12.5px}
-.note{color:var(--mut);font-size:13px}.warn{color:var(--warn);font-size:13.5px}
-.screens{columns:3;padding-left:18px}
-figure.dg{margin:10px 0;padding:10px;background:var(--box);border:1px solid var(--line);border-radius:9px;overflow-x:auto}
-figure.dg svg{max-width:100%;height:auto;display:block;margin:0 auto}
-.dg .nd{fill:var(--side);stroke:var(--mut);stroke-width:1.2}.dg .ed{fill:none;stroke:var(--mut);stroke-width:1.3}.dg .dash{stroke-dasharray:5 4}
-.dg .ah{fill:var(--mut)}.dg .sep{stroke:var(--mut);stroke-width:1}.dg text{fill:var(--fg);font:13px -apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-.dg .hd{font-weight:700}.dg .at{font-size:12px}.dg .el{font-size:11.5px;fill:var(--mut)}.dg .card{font-weight:700;fill:var(--acc)}
-.dg .elb{fill:var(--box)}.dg .fk{font-size:11px;fill:var(--mut);font-weight:700}
-.dg .f-trg{stroke:#c58a1a}.dg .f-act{stroke:#7a5bd1}.dg .f-scr{stroke:#2f8f5b}.dg .f-api{stroke:#2f5fd0}.dg .f-tbl{stroke:#b3401d}.dg .f-res{stroke:#4a7a8c}
-.dg .exc{stroke:var(--warn);stroke-dasharray:5 4}
-details.src{margin:-4px 0 12px}details.src summary{color:var(--mut);font-size:12.5px;cursor:pointer}
-@media(max-width:900px){nav{position:static;width:auto;max-height:260px;border-right:0;border-bottom:1px solid var(--line)}main{margin:0;padding:0 16px 60px}header.bar{margin:0 -16px 8px;padding:9px 16px}.screens{columns:1}}
-@media print{nav{display:none}main{margin:0;max-width:none}section.docsec{break-before:page}}
-</style></head><body>
-<nav><input id="q" type="search" placeholder="목차 걸러 보기" aria-label="목차 걸러 보기"><ul id="toc">{{NAV}}</ul></nav>
-<main><header class="bar"><b>생성물 — 직접 수정하지 않는다.</b> 원본은 각 절 머리에 적힌 마크다운 파일이고, 고친 뒤 다시 생성한다.
- · 생성 {{STAMP}} · 커밋 {{REV}} · 지문 {{HASH}}</header>
-{{BODY}}</main>
-<script>
-(function(){var q=document.getElementById('q'),items=[].slice.call(document.querySelectorAll('#toc a'));
-q.addEventListener('input',function(){var v=q.value.trim().toLowerCase();items.forEach(function(a){a.parentNode.style.display=(!v||a.textContent.toLowerCase().indexOf(v)>-1||a.classList.contains('doc'))?'':'none';});});
-if(!('IntersectionObserver' in window))return;var map={};items.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
-var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting&&map[en.target.id]){items.forEach(function(a){a.classList.remove('on');});map[en.target.id].classList.add('on');}});},{rootMargin:'0px 0px -75% 0px'});
-[].forEach.call(document.querySelectorAll('section[id],h2[id]'),function(el){io.observe(el);});})();
-</script></body></html>
-"""
 
 
 def main(argv):

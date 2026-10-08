@@ -1,11 +1,11 @@
-"""다이어그램 → 인라인 SVG (design-overview 전용 · 표준 라이브러리만).
+"""다이어그램 → 인라인 SVG (design-overview 전용 · 표준 라이브러리만) — 공통 도우미 + 일반 graph 렌더.
 
-설계 문서가 이미 담고 있는 mermaid 부분집합(`graph TD|LR`·`erDiagram`)과 프로세스 블록을 외부 라이브러리 없이 그린다.
+설계 문서가 이미 담고 있는 mermaid 부분집합(`graph TD|LR`·`erDiagram`)을 외부 라이브러리 없이 그린다.
+통상 표기 전용 렌더는 따로 있다: ERD(까마귀발)는 er.py · 계층형 시스템 구성도와 스윔레인 업무 흐름도는 flows.py.
 폐쇄망에서도 열려야 해서 CDN 의 mermaid.js 를 쓰지 않는다. 지원하지 않는 문법은 **None 을 돌려** 호출자가 원문 코드를
 그대로 보여 주게 한다 — 틀린 그림을 그리느니 원문을 보여 준다.
 """
 import html
-import math
 import re
 
 _seq = [0]
@@ -225,7 +225,8 @@ def render_graph(parsed, label="다이어그램"):
                 x1, y1, x2, y2 = ax + aw / 2, ay + ah, bx + bw / 2, by + bh
                 yo = max(y1, y2) + 30
                 d = "M%.1f %.1fC%.1f %.1f %.1f %.1f %.1f %.1f" % (x1, y1, x1, yo, x2, yo, x2, y2)
-            lx, ly = (x1 + x2) / 2, (y1 + y2) / 2
+            # 레이블은 도착 노드 쪽에 둔다 — 같은 노드에서 갈라지는 선들의 레이블이 가운데서 겹치지 않게
+            lx, ly = (x1 + (x2 - x1) * 0.66, y1 + (y2 - y1) * 0.66) if forward else ((x1 + x2) / 2, max(y1, y2) + 20)
         body.append('<path d="%s" class="ed%s" marker-end="url(#{AR})"/>' % (d, " dash" if dashed else ""))
         if lab:
             t = clip(lab, 22)
@@ -245,170 +246,65 @@ def render_graph(parsed, label="다이어그램"):
     return _svg(int(total_w), int(total_h), "".join(body), label)
 
 
-# ── erDiagram ──────────────────────────────────────────────────
-_REL = re.compile(r'^([\w\-가-힣]+)\s+([|}o]{2})(--|\.\.)([|{o]{2})\s+([\w\-가-힣]+)\s*(?::\s*(.+))?$')
-_CARD = {"||": "1", "o|": "0..1", "|o": "0..1", "}o": "0..N", "o{": "0..N", "}|": "1..N", "|{": "1..N"}
-
-
-def parse_er(code):
+def parse_state(code):
+    """stateDiagram(-v2) → render_graph 입력. 화면 전이도(`[*] --> A : 진입`)를 좌→우 흐름으로 그린다."""
     lines = [l.strip() for l in code.split("\n") if l.strip() and not l.strip().startswith("%%")]
-    if not lines or not lines[0].lower().startswith("erdiagram"):
+    if not lines or not lines[0].lower().startswith("statediagram"):
         return None
-    ents, rels, cur = {}, [], None
+    nodes, order, edges = {}, [], []
+
+    def node(name, is_src):
+        name = name.strip()
+        if name == "[*]":
+            nid, lab = ("__start", "시작") if is_src else ("__end", "종료")
+        else:
+            nid, lab = name, name
+        if nid not in nodes:
+            nodes[nid] = [lab, "round" if name == "[*]" else "rect"]
+            order.append(nid)
+        return nid
+
     for line in lines[1:]:
-        if cur is not None:
-            if line == "}":
-                cur = None
+        m = re.match(r"^(.+?)\s*-->\s*(.+?)(?:\s*:\s*(.+))?$", line)
+        if not m:
+            if re.match(r"^(direction|state|note|\}|\{)", line):
                 continue
-            parts = line.split()
-            if len(parts) >= 2:
-                ents[cur].append((parts[0], parts[1], " ".join(parts[2:]).strip('"')))
-            continue
-        m = re.match(r"^([\w\-가-힣]+)\s*\{$", line)
-        if m:
-            cur = m.group(1)
-            ents.setdefault(cur, [])
-            continue
-        m = _REL.match(line)
-        if m:
-            a, ca, style, cb, b, lab = m.groups()
-            ents.setdefault(a, [])
-            ents.setdefault(b, [])
-            rels.append((a, _CARD.get(ca, ""), b, _CARD.get(cb, ""), (lab or "").strip().strip('"'), style == ".."))
-            continue
-        if re.match(r"^[\w\-가-힣]+$", line):
-            ents.setdefault(line, [])
-            continue
-        return None
-    return (ents, rels) if ents else None
+            return None
+        edges.append((node(m.group(1), True), node(m.group(2), False), (m.group(3) or "").strip(), False))
+    return ("LR", nodes, edges, order) if edges else None
 
 
-def _edge_point(cx, cy, hw, hh, tx, ty):
-    dx, dy = tx - cx, ty - cy
-    if dx == 0 and dy == 0:
-        return cx, cy
-    sx = hw / abs(dx) if dx else math.inf
-    sy = hh / abs(dy) if dy else math.inf
-    s = min(sx, sy)
-    return cx + dx * s, cy + dy * s
-
-
-def render_er(parsed, label="ERD"):
-    ents, rels = parsed
-    names = list(ents)
-    cols = max(1, min(4, int(math.ceil(math.sqrt(len(names))))))
-    row_h, head = 18, 26
-    box = {}
-    for n in names:
-        rows = ["%s %s%s" % (t, a, (" " + k) if k else "") for t, a, k in ents[n]]
-        w = max([units(n) * CH + 28] + [units(clip(r, 34)) * CH + 20 for r in rows] + [120])
-        box[n] = (w, head + row_h * max(1, len(rows)) + 6, rows)
-    col_w = [0] * cols
-    row_hs = []
-    for i, n in enumerate(names):
-        c, r = i % cols, i // cols
-        col_w[c] = max(col_w[c], box[n][0])
-        if r == len(row_hs):
-            row_hs.append(0)
-        row_hs[r] = max(row_hs[r], box[n][1])
-    gx, gy, pad = 90, 70, 20
-    pos = {}
-    for i, n in enumerate(names):
-        c, r = i % cols, i // cols
-        x = pad + sum(col_w[:c]) + gx * c + (col_w[c] - box[n][0]) / 2
-        y = pad + sum(row_hs[:r]) + gy * r
-        pos[n] = (x, y)
-    total_w = pad * 2 + sum(col_w) + gx * (cols - 1)
-    total_h = pad * 2 + sum(row_hs) + gy * (len(row_hs) - 1)
-    body = []
-    for a, ca, b, cb, lab, dashed in rels:
-        if a == b:
-            continue
-        (ax, ay), (aw, ah, _) = pos[a], box[a]
-        (bx, by), (bw, bh, _) = pos[b], box[b]
-        acx, acy, bcx, bcy = ax + aw / 2, ay + ah / 2, bx + bw / 2, by + bh / 2
-        x1, y1 = _edge_point(acx, acy, aw / 2, ah / 2, bcx, bcy)
-        x2, y2 = _edge_point(bcx, bcy, bw / 2, bh / 2, acx, acy)
-        body.append('<path d="M%.1f %.1fL%.1f %.1f" class="ed%s"/>' % (x1, y1, x2, y2, " dash" if dashed else ""))
-        for t, f in ((ca, 0.14), (cb, 0.86)):
-            if t:
-                body.append('<text x="%.1f" y="%.1f" class="el card" text-anchor="middle">%s</text>'
-                            % (x1 + (x2 - x1) * f, y1 + (y2 - y1) * f - 4, _esc(t)))
-        if lab:
-            t = clip(lab, 20)
-            w = units(t) * CH + 8
-            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-            body.append('<rect x="%.1f" y="%.1f" width="%.1f" height="16" rx="3" class="elb"/>' % (mx - w / 2, my - 8, w))
-            body.append('<text x="%.1f" y="%.1f" class="el" text-anchor="middle">%s</text>' % (mx, my + 4, _esc(t)))
-    for n in names:
-        (x, y), (w, h, rows) = pos[n], box[n]
-        body.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%d" rx="6" class="nd"/>' % (x, y, w, h))
-        body.append('<path d="M%.1f %.1fh%.1f" class="sep"/>' % (x, y + head, w))
-        body.append('<text x="%.1f" y="%.1f" text-anchor="middle" class="nt hd">%s</text>' % (x + w / 2, y + 18, _esc(n)))
-        for i, r in enumerate(rows):
-            body.append('<text x="%.1f" y="%.1f" class="at"><title>%s</title>%s</text>'
-                        % (x + 10, y + head + 16 + row_h * i, _esc(r), _esc(clip(r, 34))))
-    return _svg(int(total_w), int(total_h), "".join(body), label)
-
-
-# ── 프로세스 흐름 (process-design.md 블록 → 가로 체인) ─────────────
-FLOW_STEPS = (("트리거", "trg"), ("행위자", "act"), ("화면", "scr"), ("API", "api"), ("테이블", "tbl"), ("결과", "res"))
-
-
-def _absent(v):
-    v = v.strip()
-    return (not v) or v.startswith("해당 없음") or v in ("-", "—")
-
-
-def render_flow(proc):
-    steps = [(k, proc.get(k, "").strip(), cls) for k, cls in FLOW_STEPS if not _absent(proc.get(k, ""))]
-    if not steps:
-        return ""
-    bw, bh, gap, pad = 168, 58, 34, 14
-    exc = proc.get("예외", "").strip()
-    total_w = pad * 2 + bw * len(steps) + gap * (len(steps) - 1)
-    total_h = pad * 2 + bh + (46 if not _absent(exc) else 0)
-    body = []
-    for i, (k, v, cls) in enumerate(steps):
-        x, y = pad + i * (bw + gap), pad
-        body.append('<rect x="%d" y="%d" width="%d" height="%d" rx="8" class="nd f-%s"/>' % (x, y, bw, bh, cls))
-        body.append('<text x="%d" y="%d" class="fk">%s</text>' % (x + 10, y + 18, _esc(k)))
-        body.append('<text x="%d" y="%d" class="at"><title>%s</title>%s</text>' % (x + 10, y + 40, _esc(v), _esc(clip(v, 20))))
-        if i:
-            body.append('<path d="M%d %dh%d" class="ed" marker-end="url(#{AR})"/>' % (x - gap + 2, y + bh // 2, gap - 5))
-    if not _absent(exc):
-        y = pad + bh + 12
-        body.append('<rect x="%d" y="%d" width="%d" height="28" rx="6" class="nd exc"/>' % (pad, y, total_w - pad * 2))
-        body.append('<text x="%d" y="%d" class="at"><title>%s</title>예외 · %s</text>'
-                    % (pad + 10, y + 19, _esc(exc), _esc(clip(exc, int((total_w - pad * 2 - 80) / CH)))))
-    return _svg(total_w, total_h, "".join(body), "프로세스 흐름 %s" % proc.get("id", ""))
-
-
-def graph_from_pairs(pairs, direction="LR"):
-    """[(from, to, label)] → render_graph 입력. architecture.md §2 통신 표 fallback 용."""
+def graph_from_pairs(pairs):
+    """[(from, to, label)] → (nodes, edges, order). architecture.md §2 통신 표 fallback 용."""
     nodes, order, edges = {}, [], []
     for a, b, lab in pairs:
         for n in (a, b):
             if n not in nodes:
-                nodes[n] = [n, "db" if re.search(r"DB|Database|Cache|Storage|저장", n, re.I) else "rect"]
+                nodes[n] = [n, "rect"]
                 order.append(n)
         edges.append((a, b, lab, False))
-    return (direction, nodes, edges, order) if nodes else None
+    return (nodes, edges, order) if nodes else None
 
 
-def render_fence(lang, code):
-    """코드펜스 훅. 그릴 수 있으면 SVG + 접힌 원문, 아니면 None."""
+def render_fence(lang, code, graph_renderer=None):
+    """코드펜스 훅. 그릴 수 있으면 SVG + 접힌 원문, 아니면 None(호출자가 원문 코드를 보여 준다).
+    graph_renderer(parsed) 를 주면 graph 블록을 그 함수로 그린다(아키텍처 문서의 계층형 구성도)."""
     if lang != "mermaid":
         return None
     svg = None
     try:
         g = parse_graph(code)
         if g:
-            svg = render_graph(g)
+            svg = graph_renderer(g) if graph_renderer else render_graph(g)
         else:
-            e = parse_er(code)
+            import er
+            e = er.parse_er(code)
             if e:
-                svg = render_er(e)
+                svg = er.render_er(e)
+            else:
+                st = parse_state(code)
+                if st:
+                    svg = render_graph(st, "화면 흐름도")
     except Exception:  # 그리다 실패하면 원문을 보여 준다 — 뷰 생성 전체를 죽이지 않는다
         svg = None
     if not svg:

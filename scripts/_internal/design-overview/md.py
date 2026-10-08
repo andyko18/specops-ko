@@ -10,6 +10,12 @@ import re
 
 TBD_RE = re.compile(r"&lt;(미확정[^&]*?|TODO[^&]*?)&gt;")
 ASSUME_RE = re.compile(r"(가정:)")
+HEX_RE = re.compile(r"(?<![\w/&(=#])#([0-9a-fA-F]{6})\b")
+SW = r'<i class="sw" style="background:#\1"></i>#\1'
+METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+PRIORITY = {"must": "must", "should": "should", "nice": "nice", "nice-to-have": "nice", "could": "nice"}
+# 문서 안 상대 링크는 그 문서 위치 기준이다. 생성물은 다른 디렉터리에 놓이므로 호출자가 재기준 함수를 꽂는다.
+LINK_REBASE = None
 SAFE_URL_RE = re.compile(r"^(https?://|\.{0,2}/|#|[A-Za-z0-9_.\-/]+(#[\w\-가-힣.]*)?$)")
 
 
@@ -29,7 +35,7 @@ def inline(text):
     out = []
     for part in parts:
         if len(part) >= 2 and part.startswith("`") and part.endswith("`"):
-            out.append("<code>%s</code>" % html.escape(part[1:-1]))
+            out.append("<code>%s</code>" % HEX_RE.sub(SW, html.escape(part[1:-1])))
             continue
         esc = html.escape(part, quote=False)
         esc = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", esc)
@@ -38,13 +44,26 @@ def inline(text):
             label, url = m.group(1), html.unescape(m.group(2)).strip()
             if not SAFE_URL_RE.match(url) or url.lower().startswith("javascript:"):
                 return label
+            if LINK_REBASE and not re.match(r"^(https?://|#)", url):
+                url = LINK_REBASE(url)
             return '<a href="%s">%s</a>' % (html.escape(url, quote=True), label)
 
         esc = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, esc)
+        esc = HEX_RE.sub(SW, esc)
         esc = TBD_RE.sub(r'<mark class="tbd">&lt;\1&gt;</mark>', esc)
         esc = ASSUME_RE.sub(r'<mark class="assume">\1</mark>', esc)
         out.append(esc)
     return "".join(out)
+
+
+def cell(text):
+    """표 칸 — HTTP 메서드·우선순위는 통상 표기대로 배지로 보여 준다."""
+    raw = text.strip().strip("`*").strip()
+    if raw.upper() in METHODS and raw == raw.upper():
+        return '<span class="mth m-%s">%s</span>' % (raw.lower(), raw)
+    if raw.lower() in PRIORITY:
+        return '<span class="pri p-%s">%s</span>' % (PRIORITY[raw.lower()], html.escape(raw))
+    return inline(text)
 
 
 def _split_row(line):
@@ -53,7 +72,7 @@ def _split_row(line):
         cells = cells[1:]
     if cells.endswith("|"):
         cells = cells[:-1]
-    return [c.strip() for c in re.split(r"(?<!\\)\|", cells)]
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", cells)]
 
 
 def _is_sep(line):
@@ -64,9 +83,10 @@ def strip_comments(text):
     return re.sub(r"<!--.*?-->", "", text, flags=re.S)
 
 
-def render(text, diagram_hook=None, heading_hook=None):
+def render(text, diagram_hook=None, heading_hook=None, shift=0, after_heading=None):
     """text → HTML. diagram_hook(lang, code) 가 문자열을 주면 코드펜스 대신 그것을 넣는다.
-    heading_hook(level, title, anchor) 는 목차 수집용."""
+    heading_hook(level, title, anchor) 는 목차 수집용. shift 는 제목 단계를 그만큼 내린다(문서를 장 아래에 넣을 때).
+    after_heading(level, title) 이 문자열을 주면 그 제목 바로 뒤에 넣는다(프로세스 제목 뒤 흐름도)."""
     lines = strip_comments(text).split("\n")
     out, used = [], set()
     i, n = 0, len(lines)
@@ -104,7 +124,11 @@ def render(text, diagram_hook=None, heading_hook=None):
             anchor = slug(title, used)
             if heading_hook:
                 anchor = heading_hook(level, title, anchor) or anchor
-            out.append('<h%d id="%s">%s</h%d>' % (level, html.escape(anchor, quote=True), inline(title), level))
+            lv = min(6, level + shift)
+            out.append('<h%d id="%s">%s</h%d>' % (lv, html.escape(anchor, quote=True), inline(title), lv))
+            extra = after_heading(level, title) if after_heading else None
+            if extra:
+                out.append(extra)
             i += 1
             continue
         if re.match(r"^(-{3,}|\*{3,}|_{3,})$", stripped):
@@ -122,7 +146,7 @@ def render(text, diagram_hook=None, heading_hook=None):
                 i += 1
             t = ['<div class="tw"><table><thead><tr>%s</tr></thead><tbody>' % "".join("<th>%s</th>" % inline(c) for c in head)]
             for r in rows:
-                t.append("<tr>%s</tr>" % "".join("<td>%s</td>" % inline(c) for c in r))
+                t.append("<tr>%s</tr>" % "".join("<td>%s</td>" % cell(c) for c in r))
             t.append("</tbody></table></div>")
             out.append("".join(t))
             continue
