@@ -6,6 +6,7 @@
 
 ### Fixed
 
+- **설계 통합 뷰 — 백틱이 섞인 미확정·TODO 자리표시가 강조되지 않던 문제** (#151) — `<TODO — \`경로\` 참조>` 처럼 자리표시 안에 백틱 코드가 있으면 `inline()` 의 백틱 분할 뒤 `<` 와 `>` 가 다른 조각에 놓여 강조가 빠졌다(`/init-project` 템플릿의 기술 스택 항목이 이 형태). 종전 변환 경로는 그대로 두고 백틱 코드를 담은 자리표시만 임시 표식으로 뺐다가 되돌린다 — 그 밖의 입력은 출력이 같다(코드 리뷰어가 무작위 30만 입력 + repo `.md` 32713줄로 확인). 잠금: `test-design-overview` D5j~D5m.
 - **위험도·PR 범위 판정이 낡은 로컬 `main` 을 기준으로 삼던 문제** — `risk-profile.sh` 와 `governance-lib.sh` `_detect_base_branch` 가 로컬 `main`/`master` 만 봤다. 로컬 `main` 이 원격보다 뒤처진 repo(원격에서 직접 분기해 작업하는 worktree 등)에서는 클린 트리의 `base...HEAD` 가 **그동안 원격에 쌓인 변경 전부**를 이 FID 의 변경으로 읽었다. 실측(20261008 `/maintain-lite` 소요 측정 실행): 100커밋 뒤처진 `main` → 3줄 수정이 151파일·`infra` strict 로 판정돼 `LITE-STRICT-GUARD` 가 lite 를 풀 경로(clarify·plan)로 올리려 했다 — 이 저장소에서 lite 가 풀 경로처럼 느렸던 직접 원인 후보다. 이제 `main`·`master`·`origin/main`·`origin/master` 중 **HEAD 에 가장 가까운**(ref..HEAD 커밋 수 최소) ref 를 기준으로 쓴다(동률이면 로컬, 원격 추적 ref 가 없으면 종전과 동일). 같은 원인으로 문서뿐인 PR 이 코드 포함으로 판정되던 false-deny 도 해소된다. 잠금: `test-risk-profile` T51·T51b · `governance/test-lib` T-base.d·e (수정 전 RED 확인).
 
 ### Changed
