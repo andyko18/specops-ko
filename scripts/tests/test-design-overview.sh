@@ -191,11 +191,11 @@ printf '%s' "$H" | grep -q '생성물 — 직접 수정하지 않는다' && ok "
 # ⑨ 설계서 순서 — 전체 그림(시스템 구성) 먼저, 상세는 뒤 · 장 번호 · 프로세스는 그림과 설명이 한자리
 order=$(python3 -c 'import re,sys
 t=sys.stdin.read()
-ids=["lead-sys","ch-req","ch-proc","ch-ui","ch-if","ch-data","ch-trace","lead-open"]
+ids=["ch-intro","lead-sys","ch-req","ch-proc","ch-ui","ch-if","ch-data","ch-trace","lead-open"]
 pos=[t.find("id=\"%s\"" % i) for i in ids]
 print("OK" if all(p>=0 for p in pos) and pos==sorted(pos) else "BAD %s" % pos)' < "$OUT")
-[ "$order" = "OK" ] && ok "D10 순서: 시스템 구성도 → 요구사항 → 프로세스 → 화면 → 인터페이스 → 데이터 → 추적·미결" || nope "D10" "$order"
-printf '%s' "$H" | grep -q '<span class="chn">1</span>시스템 구성' && ok "D10b 장 번호" || nope "D10b" "장 번호 부재"
+[ "$order" = "OK" ] && ok "D10 순서: 개요 → 시스템 구성도 → 요구사항 → 프로세스 → 화면 → 인터페이스 → 데이터 → 추적·미결" || nope "D10" "$order"
+printf '%s' "$H" | grep -q '<span class="chn">1</span>개요' && printf '%s' "$H" | grep -q '<span class="chn">2</span>시스템 구성' && ok "D10b 장 번호(1 개요 · 2 시스템 구성)" || nope "D10b" "장 번호 부재"
 [ "$(printf '%s' "$H" | grep -o 'aria-label="시스템 구성도"' | wc -l | tr -d ' ')" -eq 1 ] && printf '%s' "$H" | grep -q '이 그림은 장 머리에 있다' \
   && ok "D10c 구성도는 한 번만(본문에는 장 머리 안내 + 원문)" || nope "D10c" "구성도 중복"
 proc=$(python3 -c 'import re,sys

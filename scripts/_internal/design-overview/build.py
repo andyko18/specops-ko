@@ -4,8 +4,8 @@
 외부 리소스(스크립트·스타일·폰트·이미지)를 하나도 참조하지 않는다 — 폐쇄망에서 파일만 열어도 그대로 보인다.
 
 구성은 설계서의 통상 순서를 따른다 — **전체 그림 먼저, 상세는 뒤**:
-  머리(한 줄 설명·규모·미결) → 1 시스템 구성 → 2 요구사항 → 3 업무 프로세스 → 4 화면 → 5 인터페이스 → 6 데이터
-  → 7 품질·원칙 → 8 추적·미결. 각 장도 같은 원칙이다: 장 머리에 그림·요약, 그 아래 문서 본문.
+  머리(한 줄 설명·규모·미결) → 1 개요(PRD) → 2 시스템 구성 → 3 요구사항 → 4 업무 프로세스 → 5 화면 → 6 인터페이스
+  → 7 데이터 → 8 품질·원칙 → 9 추적·미결. 각 장도 같은 원칙이다: 장 머리에 그림·요약, 그 아래 문서 본문.
 
 Usage: build.py <project-root> <out.html> [--check]
 Exit : 0 = 생성(또는 --check 시 최신) · 1 = --check 시 낡음/부재 · 2 = 설계 문서 없음
@@ -30,8 +30,9 @@ M = ".specops/memory/"
 ARCH, REQ, PROC, API, DATA, SCR = M + "architecture.md", M + "requirements.md", M + "process-design.md", M + "api-spec.md", M + "data-model.md", M + "screens-overview.md"
 # (id, 장 이름, 문서들) — 전체 구조에서 상세로
 CHAPTERS = (
+    ("intro", "개요", ("PRD.md",)),
     ("sys", "시스템 구성", (ARCH, M + "frontend-architecture.md", M + "backend-architecture.md")),
-    ("req", "요구사항", (REQ, "PRD.md")),
+    ("req", "요구사항", (REQ,)),
     ("proc", "업무 프로세스", (PROC,)),
     ("ui", "화면", (SCR, "DESIGN.md")),
     ("if", "인터페이스", (API, M + "api-spec-consumer.md")),

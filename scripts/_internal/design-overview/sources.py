@@ -11,7 +11,7 @@ import md
 
 # (경로, 표시 이름) — 읽는 순서: 무엇을(PRD·요구) → 어떻게 흐르나(프로세스) → 구조 → 계약 → 화면 → 품질 → 원장
 DOCS = (
-    ("PRD.md", "PRD"),
+    ("PRD.md", "제품 요구 정의 (PRD)"),
     (".specops/memory/requirements.md", "요구사항"),
     (".specops/memory/process-design.md", "프로세스 설계"),
     (".specops/memory/architecture.md", "전체 아키텍처"),
@@ -20,7 +20,7 @@ DOCS = (
     (".specops/memory/api-spec.md", "IF 설계 (API)"),
     (".specops/memory/api-spec-consumer.md", "IF 소비 계약"),
     (".specops/memory/data-model.md", "테이블 설계"),
-    (".specops/memory/screens-overview.md", "화면 목록"),
+    (".specops/memory/screens-overview.md", "화면 목록 마스터"),
     ("DESIGN.md", "디자인 시스템"),
     (".specops/memory/test-strategy.md", "테스트 전략"),
     (".specops/memory/constitution.md", "헌법"),
