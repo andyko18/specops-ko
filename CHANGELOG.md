@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-10-08
+
 ### Changed
 
 - **개발 구간(구현 ~ PR 직전)에서는 사용자에게 묻지 않는다** — 질문은 설계 구간에서 끝내고, 개발 중에는 기본값으로 진행한 뒤 끝에 한 번 보고한다. 실측(하류 3개 프로젝트의 대화 기록, 개발 중 질문 40건): 플러그인이 강제로 멈춘 것은 7건뿐이고 나머지 33건은 세션이 스스로 물었다 — 개발 중 발견한 범위 밖 결정 15 · "계속할까/어느 순서" 8 · 실데이터·외부 작업 승인 4(태스크마다 따로) · 리뷰 지적 처리 3. 구현자에게는 재확인 금지가 있었지만 부모 세션에는 없었고, `implementing-ko` 에는 오히려 "리뷰 이슈 발견 시 자동 수정 전 확인" 이 적혀 있었다.
@@ -3008,7 +3010,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.12.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.13.0...HEAD
+[2.13.0]: https://github.com/andyko18/specops-ko/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/andyko18/specops-ko/compare/v2.11.0...v2.12.0
 [2.11.0]: https://github.com/andyko18/specops-ko/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/andyko18/specops-ko/compare/v2.9.0...v2.10.0
