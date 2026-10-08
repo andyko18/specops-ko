@@ -51,9 +51,11 @@ QUIET=false
 # 왜: 한 스위트가 무한 대기하면 aggregator 전체가 멈추고, 이 게이트는 pre-push 훅과 릴리즈
 #   pre-flight 가 그대로 쓴다 — 즉 `git push` 가 정지한다(실측: test-security-scan 8분+ 무출력).
 #   상한은 "느린 스위트를 벌주는 것" 이 아니라 **정지를 실패로 바꾸는 것**이다.
-# 왜 300 인가: 스위트별 실측 최대가 test-validate-structure 73s(전체 322s / 147 스위트 / 평균 2.2s). doc-lock: historical (당시 실측)
-#   300s 는 그 4배 여유라 정상 스위트를 절대 못 끊고, 정지는 확실히 끊는다. 느린 CI 러너 대비도 같다.
-SUITE_TIMEOUT="${SPECOPS_SUITE_TIMEOUT:-300}"
+# 왜 600 인가: 부하 없는 단독 실측 test-validate-structure 114s(20261008; 처음엔 73s)·llm-eval/test-skill-evals 149s. 다른 세션이 겹쳐 load 17·병렬 8 워커이면
+#   test-validate-structure 가 300s 상한을 넘어 TIMEOUT 거짓 FAIL 이 2회 재현됐다(변경과 무관, 900s 재실행 185/0). 600s 는 단독 최대의 약 4배이며
+#   부하 시 600s 로 충분한지는 실측하지 않았다(추정·한계). 정지는 여전히 끊는다. doc-lock: historical (당시 실측)
+#   600s 는 Bash 도구 포그라운드 최대(600s)와 같다 — 스위트 하나가 멈추면 run-all 전체가 포그라운드로 못 끝나므로 백그라운드 실행 후 Read 회수 경로(verifying-evidence-ko)를 쓴다.
+SUITE_TIMEOUT="${SPECOPS_SUITE_TIMEOUT:-600}"
 if [ -f "$PLUGIN/scripts/_internal/run-bounded.sh" ]; then
   # shellcheck source=/dev/null
   . "$PLUGIN/scripts/_internal/run-bounded.sh"

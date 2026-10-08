@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 작은 수정 소요 단축 — 스위트 상한 600s · 느린 대상 스위트 리뷰·구현 실행 상한 (#137)
+
+사용자 피드백 "2줄짜리 테스트 수정에 분석부터 PR 까지 약 1시간 50분"의 실측 원인 두 가지를 고쳤다. **품질 게이트(B·C 리뷰 각 1회·독립 되돌려-관찰·verify·전체 스위트)는 줄이지 않는다**(비용보다 품질 우선).
+- `run-all.sh` 의 `SPECOPS_SUITE_TIMEOUT` 기본 **300 → 600초** — 다른 세션이 겹친 부하(load 17)에서 `test-validate-structure` 가 상한을 넘겨 변경과 무관한 TIMEOUT 거짓 FAIL 이 2회 재현됐다(명시값 우선·정지는 여전히 끊는다). 이후 스위트 분할(#138)·frontmatter 단일 패스(#118)로 해당 스위트 자체도 가벼워졌다. 한계: 600s 가 극단 부하에서도 충분한지는 미실측이며, 600s 는 Bash 포그라운드 최대와 같아 스위트 하나가 멈추면 run-all 전체는 백그라운드 실행 후 회수 경로를 써야 한다
+- `implementing-ko` `### 리뷰어 실행 예산` 에 **느린 대상 스위트 규칙**(`lite`·`standard` 한정, `strict` 불변): dispatch 프롬프트에 실행 상한을 숫자로 적고, 동시 실행으로 생긴 실패는 단독 재실행으로 구분하며, 부모는 계약 밖 점검을 프롬프트에 추가하지 않고, 구현자는 `RED 1회·GREEN 1회·되돌려-관찰 1회` 상한. 실측(이 변경 자체가 첫 적용): 구현자 616s→85s · Phase B 1231s→44s · Phase C 1735s→약 7분
+- 잠금: `test-gate-presence`(규칙 문구·상한 기본값 정합) · 크기 래칫 기준선 명시 갱신(`implementing-ko` 38311→39365B). 규칙은 서술이라 기계는 문구 존재만 잠근다
+
 ### ponytail 사다리 효과 대조 실측 — `claude plugin eval` with/without ablation (결과: Δ = 0, 천장 효과)
 
 사다리(rung)가 코드 재사용·양을 줄였는지 처음으로 **플러그인 있는 갈래와 없는 갈래를 같은 prompt 로** 쟀다. `evals/` 에 rung 케이스 5개를 추가했다: `rung-native-date`(플랫폼 기본 기능) · `rung-stdlib-cache`(표준 라이브러리) · `rung-keep-validation`(안전 요소 비절감) · **`rung-reuse-helper`**(이미 있는 `slugify` 유틸 재사용 — 사다리 2단) · **`rung-reuse-dependency`**(이미 설치된 `dayjs` 사용 — 5단). 뒤 둘은 scaffold 로 작은 프로젝트를 깔아 두고 "코드는 쓰지 말고 변경 계획만" 을 묻는다. 케이스당 3회 × 2 갈래(`claude plugin eval --runs 3`, Claude Code 2.1.293, 총 약 $3.2).
