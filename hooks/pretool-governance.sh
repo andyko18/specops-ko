@@ -117,7 +117,7 @@ _batch_pr_gate() {
     [ -f "$d/queue.md" ] && queue="$d/queue.md" && break
   done
   [ -n "$queue" ] || return 0
-  is_docs_only_change && return 0
+  is_docs_only_change "$tool_cmd_scan" && return 0   # PR 범위(base...HEAD) 기준 — 무인자는 작업트리라 dirty docs 하나로 새던 구멍
   local gout grc
   gout=$(bash "$plugin_root/scripts/batch-state.sh" --gate "$(dirname "$queue")" 2>&1); grc=$?
   # 0=뭉개짐 없음 · 2=판정 불가(queue/requirements 파싱 실패) → fail-open. 1 만 차단.

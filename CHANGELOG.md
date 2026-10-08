@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **batch PR 게이트(`_batch_pr_gate`)의 docs-only 면제가 여전히 작업트리 기준이던 구멍** — #142 가 R-2 를 PR 범위(`base...HEAD`)로 옮길 때 batch 게이트는 `is_docs_only_change` 를 무인자로 불러 제외됐다. 뭉개진 batch(라벨 DONE·per-FR 산출물 없음)라도 추적 중인 문서 하나가 dirty 면 게이트가 열려, 가장 되돌리기 비싼 batch PR 이 새고 있었다(수정 전 RED: `T-prscope.e`). 이제 `tool_cmd_scan` 을 넘겨 PR 범위로 판정한다. 범위가 문서뿐인 batch PR 은 종전대로 면제(`T-prscope.f`).
+
 ### Docs
 
 - **README `## 알아둘 것` 신설 (온보딩)** — 필요 도구 표(`jq` 부재 시 훅 전면 fail-open·`pyyaml` 부재 시 게이트 SKIP), FID 1건의 실측 소요(중앙값 약 2시간·p90 약 7.6시간)와 소형 변경의 산출물 무게, 적용 범위(훅 차단은 `.specops/` 있는 repo 만 · 기본 `user` 설치는 모든 세션에 메타 스킬 주입 → `--scope project` 안내), 산출물이 기본 로컬이라는 사실(`.specops/.gitignore` 는 `memory/`·`session-progress.md` 만 커밋 → PR 리뷰어는 FID 산출물을 못 봄), 데이터·프라이버시(훅은 네트워크 미사용, 외부 송신 가능 경로는 `critic-ask.sh` 뿐 — provider 순서·200KB 상한, 자유작업 캡처는 마스킹이 완전하지 않고 프로파일로 끌 수 없음), 업그레이드·삭제(`claude plugin update|uninstall`, `statusLine` 절대경로 낡음, `.specops/` 는 남음). 모든 주장은 코드에서 직접 확인했다.

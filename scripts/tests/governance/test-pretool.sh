@@ -1316,6 +1316,35 @@ check "T-prscope.a 커밋된 코드 + 작업트리 docs dirty → PR deny (범�
 out=$(mkstdin "cd $_prs_code && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_prs_code" bash "$HOOK" 2>/dev/null)
 check "T-prscope.b compound(cd &&) PR 도 deny" '"permissionDecision":"deny"' "$out"
 rm -rf "$_prs_code"
+
+# ── T-prscope.e~f: batch PR 게이트(_batch_pr_gate)도 같은 범위 기준이어야 한다 ──
+# 왜: 게이트는 `is_docs_only_change` 를 무인자로 불러 작업트리 기준 면제를 탔다. 뭉개진 batch 라도 추적 중인
+#   문서 하나가 dirty 면 "docs-only" 로 보고 통과해, 가장 되돌리기 비싼 batch PR 이 새고 있었다.
+_prs_batch() {  # $1=dir — feat/batch-p 브랜치에 코드 커밋 + 뭉개진 queue(DONE·산출물 없음) + 작업트리 docs dirty
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$1" && git init -q -b main \
+    && mkdir -p .specops/batch-p .specops/memory && echo "# SP" > .specops/session-progress.md && echo base > README.md \
+    && git add -A && git -c user.email=e@t -c user.name=t commit -q -m base \
+    && git checkout -q -b feat/batch-p \
+    && echo "echo x" > a.sh && git add a.sh && git -c user.email=e@t -c user.name=t commit -q -m "feat: a" \
+    && printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-4 | 20260721-login | 로그인 | DONE |\n' > .specops/batch-p/queue.md \
+    && printf '| FR-4 | a | M1 | must | s | f |\n' > .specops/memory/requirements.md \
+    && : > .specops/batch-p/ACTIVE && echo "dirty" >> README.md ) >/dev/null 2>&1
+}
+_prs_b=$(mktemp -d); _prs_batch "$_prs_b"
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_prs_b" bash "$HOOK" 2>/dev/null)
+check "T-prscope.e ★ 뭉개진 batch + 커밋된 코드 + 작업트리 docs dirty → BATCH-GATE deny" 'BATCH-GATE' "$out"
+# 대조: 범위가 문서뿐이면(코드 커밋 없음) batch 게이트는 면제 유지
+_prs_d=$(mktemp -d)
+( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+  cd "$_prs_d" && git init -q -b main && mkdir -p .specops/batch-p .specops/memory && echo "# SP" > .specops/session-progress.md && echo base > README.md \
+  && git add -A && git -c user.email=e@t -c user.name=t commit -q -m base && git checkout -q -b feat/batch-p \
+  && echo notes > notes.md && git add notes.md && git -c user.email=e@t -c user.name=t commit -q -m "docs: n" \
+  && printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-4 | 20260721-login | 로그인 | DONE |\n' > .specops/batch-p/queue.md \
+  && printf '| FR-4 | a | M1 | must | s | f |\n' > .specops/memory/requirements.md && : > .specops/batch-p/ACTIVE ) >/dev/null 2>&1
+out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_prs_d" bash "$HOOK" 2>/dev/null)
+check "T-prscope.f 범위가 문서뿐인 batch PR → 게이트 면제(allow)" '"continue":true' "$out"
+rm -rf "$_prs_b" "$_prs_d"
 # c: 대조군 — PR 범위가 진짜 all-docs 면 작업트리 dirty 와 무관하게 면제 유지(과잉 차단 방지)
 _prs_doc=$(mktemp -d)
 _prs_mk "$_prs_doc" notes.md
