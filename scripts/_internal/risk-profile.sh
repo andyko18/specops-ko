@@ -24,13 +24,27 @@ rp::max_profile() {
   [ "$ra" -ge "$rb" ] && printf '%s' "$a" || printf '%s' "$b"
 }
 
+# 기준 브랜치 — main·master·origin/main·origin/master 중 **HEAD 에 가장 가까운**(ref..HEAD 커밋 수 최소) ref.
+#   로컬 main 만 보던 종전 판정은 로컬 main 이 원격보다 뒤처진 repo 에서, 그동안 원격에 쌓인 변경 전부를 이 FID 의
+#   변경으로 읽었다(실측 20261008: 100커밋 뒤처진 main → 3줄 수정이 151파일·infra strict → lite 가 풀 경로로 승격).
+#   동률이면 앞선 후보(로컬)를 쓴다. 후보가 하나도 없으면 빈 문자열(종전과 동일 — 파일 신호 없음).
+rp::base_ref() {
+  local ref n best="" best_n=""
+  for ref in main master origin/main origin/master; do
+    git rev-parse --verify --quiet "$ref^{commit}" >/dev/null 2>&1 || continue
+    n=$(git rev-list --count "$ref..HEAD" 2>/dev/null) || continue
+    case "$n" in ''|*[!0-9]*) continue ;; esac
+    if [ -z "$best" ] || [ "$n" -lt "$best_n" ]; then best=$ref; best_n=$n; fi
+  done
+  printf '%s' "$best"
+}
+
 rp::collect_files() {
   local files base
   files=$(git diff HEAD --name-only --no-renames 2>/dev/null || true)
   [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null || true)
   if [ -z "$files" ]; then
-    base=$(git show-ref --verify --quiet refs/heads/main && echo main \
-      || { git show-ref --verify --quiet refs/heads/master && echo master || true; })
+    base=$(rp::base_ref)
     [ -n "$base" ] && files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null || true)
   fi
   # tasks outputs 보강

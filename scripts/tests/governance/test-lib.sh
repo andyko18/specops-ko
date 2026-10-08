@@ -352,6 +352,9 @@ _base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
 _base_case "main"   "T-base.a main 우선"      'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
 _base_case "master" "T-base.b master 차선"    'git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
 _base_case ""       "T-base.c 둘 다 부재 실패" 'git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+# T-base.d~e: 로컬 main 이 낡고 origin/main 이 HEAD 에 더 가까우면 origin/main (20261008 — 낡은 기준이 PR 범위·위험도를 부풀렸다)
+_base_case "origin/main" "T-base.d 낡은 로컬 main → origin/main(HEAD 에 더 가까움)" 'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git checkout -q -b up; echo b>b.md; git add b.md; git "$C" -q -m u; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f'
+_base_case "main"        "T-base.e 로컬 main 과 origin/main 이 같으면 로컬 우선" 'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f'
 
 # T-symlink: log_friction — .specops 가 symlink 면 쓰기 거부 (path-escape 차단)
 tmp=$(mktemp -d); real=$(mktemp -d); cd "$tmp"; ln -s "$real" .specops

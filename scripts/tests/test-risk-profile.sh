@@ -465,4 +465,30 @@ r=$(_rp_case 20260914-rp-i1-ctl2 "$(printf -- '- JWT 추가 (\002없음)')")
 [ "$(_eff "$r")" = "strict" ] && _has "$r" auth \
   && ok "T50d 입력 제어문자 \\002 + 부정 괄호 → strict(auth) 유지" || nope "T50d" "$r"
 
+
+# T51: ★ 낡은 로컬 main — 기준은 HEAD 에 가장 가까운 ref(origin/main)여야 한다 (20261008 측정 실행에서 발견)
+#   로컬 main 이 원격보다 뒤처진 repo 에서 클린 트리(decompose 시점)의 base...HEAD 가 "그동안 원격에 쌓인 모든 변경"을
+#   이 FID 의 변경으로 읽었다 — 3줄 수정이 infra(.github/workflows) strict 로 판정돼 lite 가 풀 경로로 승격됐다.
+TD=$(mktemp -d); FID=20261008-rp-stale
+_setup "$TD" "$FID"
+( cd "$TD" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git branch -M main \
+  && git checkout -q -b up && mkdir -p .github/workflows && printf 'on: push\n' > .github/workflows/ci.yml \
+  && printf 'a\n' > src/a.sh && printf 'b\n' > src/b.sh \
+  && git add -A && git -c user.name=t -c user.email=t@e.com commit -qm upstream \
+  && git update-ref refs/remotes/origin/main HEAD \
+  && git checkout -q -b feat && printf 'z\n' > src/z.sh && git add src/z.sh \
+  && git -c user.name=t -c user.email=t@e.com commit -qm feat ) >/dev/null 2>&1
+printf '**§유형**: 신규\n일반 기능\n' > "$TD/.specops/$FID/spec.md"
+out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" != "strict" ] && jq -e '(.signals.strict|index("infra"))==null and .signals.impl_files==1' \
+  "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T51 ★ 낡은 로컬 main — origin/main 기준으로 이 FID 의 변경 1파일만 본다(infra 오탐 없음)" \
+  || nope "T51" "out=$out $(jq -c '.signals' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
+# T51b: 원격 추적 ref 가 없으면 종전대로 로컬 main 기준(회귀 없음)
+( cd "$TD" && git update-ref -d refs/remotes/origin/main ) >/dev/null 2>&1
+out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" = "strict" ] && jq -e '.signals.strict|index("infra")' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T51b origin ref 부재 → 로컬 main 기준 유지(infra 신호 그대로)" || nope "T51b" "out=$out"
+rm -rf "$TD"
+
 finish
