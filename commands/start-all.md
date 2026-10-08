@@ -5,7 +5,7 @@ description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requ
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.6.0
+specops_version: 2.9.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -434,4 +434,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.6.0 · 2026-08-04 · Phase 2.5 design-reviewer 무거운 설계 리뷰*
+*specops-ko v2.9.0 · 2026-08-04 · Phase 2.5 design-reviewer 무거운 설계 리뷰*
