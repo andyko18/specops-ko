@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### ponytail 사다리 효과 대조 실측 — `claude plugin eval` with/without ablation (결과: Δ = 0, 천장 효과)
+
+사다리(rung)가 코드 재사용·양을 줄였는지 처음으로 **플러그인 있는 갈래와 없는 갈래를 같은 prompt 로** 쟀다. `evals/` 에 rung 케이스 5개를 추가했다: `rung-native-date`(플랫폼 기본 기능) · `rung-stdlib-cache`(표준 라이브러리) · `rung-keep-validation`(안전 요소 비절감) · **`rung-reuse-helper`**(이미 있는 `slugify` 유틸 재사용 — 사다리 2단) · **`rung-reuse-dependency`**(이미 설치된 `dayjs` 사용 — 5단). 뒤 둘은 scaffold 로 작은 프로젝트를 깔아 두고 "코드는 쓰지 말고 변경 계획만" 을 묻는다. 케이스당 3회 × 2 갈래(`claude plugin eval --runs 3`, Claude Code 2.1.293, 총 약 $3.2).
+
+**결과: 5개 케이스 전부 with 3/3 · without 3/3 — Δ 0.** 기본 모델(Sonnet 5.5)이 힌트 없이도 네이티브·stdlib·기존 유틸·설치된 의존성을 먼저 고르고 안전 요소를 지킨다. 그래서 **이 케이스들로는 사다리의 효과가 있다고도 없다고도 말할 수 없다** — 천장이라 변별하지 못한다. 앞서 `e-1~e-4` 4/4 통과도 같은 이유로 사다리 덕이라고 볼 근거가 아니었다.
+
+해석 시 주의: ① 케이스는 "계획을 말로 답하는" 짧은 단일 응답이라 실제 구현 중 과잉 설계(여러 파일·반복)와 다르다 ② 사다리는 구현 단계의 `implementer-ko` 에는 문구가 없고 상위 4 skill 에만 있어, 단일 응답 케이스에서는 plugin 갈래도 skill 이 호출되지 않을 수 있다(미확인) ③ n=3·케이스 5개의 소표본. **사다리가 코드량을 줄이는지 알려면 실제 lifecycle 로 같은 기능을 with/without 구현해 diff 줄 수를 비교해야 하며(본격안·FID 당 승인 게이트·수 $/회) 아직 하지 않았다.**
+
 ### cwd `yaml.py` 우회 차단 확대 — 킬스위치·위험 프로파일·chain 검사
 
 직전(#114)에 판정 게이트 3곳을 막고 남겨 둔 `python3` 진입부 3곳에 같은 `sys.path` 정리를 넣었다: `is-hook-enabled.sh`(**거버넌스 킬스위치** — cwd 의 가짜 `yaml.py` 가 `{}` 를 돌려주면 `enabled:false` 로 꺼 둔 훅이 켜진 것으로 판정됐다, 수정 전 RED→후 GREEN 확인) · `risk-profile.sh` · `validate-structure.sh` 의 chain_consistency 검사. 잠금: `test-is-hook-enabled` T6 · `propagation-matrix` `yaml-cwd-shadow` 에 edge 3개 추가. `doctor.sh`(존재 확인만)·`cvt.py`(파일 실행이라 `sys.path[0]` 이 스크립트 디렉터리) 는 해당 없음.

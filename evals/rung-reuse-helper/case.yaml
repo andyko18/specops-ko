@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: rung-reuse-helper
+context:
+  scaffold_script: scaffold.sh
