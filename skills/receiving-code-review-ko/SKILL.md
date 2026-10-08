@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
   - skills/receiving-code-review-ko/SKILL.md
-specops_version: 1.73.0
+specops_version: 2.13.0
 used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
 ---
 
@@ -44,6 +44,8 @@ used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 �
 - 그냥 작업 시작 (말보다 행동)
 
 ## 불명확한 피드백 처리
+
+> **lifecycle chain 안(개발 구간)에서는 `skills/implementing-ko/dev-autonomy.md` 가 우선한다** — 아래의 "명확화 요청"·"할까요?"·"먼저 논의" 는 사용자에게 묻는 대신 그 문서의 기준으로 정하고 `dev-decision.sh add` 로 기록한다(계약 안이면 처리, 밖이면 `backlog`). 사용자에게 묻는 것은 그 문서 §3 의 경우뿐이다 — 사용자의 이전 결정(설계 승인·AC)을 뒤집어야 하는 지적은 구현하지 않고 `backlog` 로 넘긴다. chain 밖에서 리뷰를 받았을 때는 아래 그대로다.
 
 ```
 어떤 항목이든 불명확하면:

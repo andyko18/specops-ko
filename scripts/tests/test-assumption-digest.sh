@@ -102,4 +102,27 @@ printf '%s' "$out" | grep -q '자동 결정 intent' \
   || { FAIL=$((FAIL+1)); echo "FAIL T-intent ($out)"; }
 rm -rf "$TD"
 
+# T-devdec: 개발 구간에서 묻지 않고 정한 결정도 batch 다이제스트에 모인다 (20261008-dev-no-ask)
+#   batch 는 FR 마다 PR 게이트가 없다 — 이 집계가 사용자가 그 결정을 보는 유일한 지점이다.
+TD=$(mktemp -d); mkdir -p "$TD/.specops/batch-x" "$TD/.specops/20261008-x"
+printf '| FR-1 | 20261008-x | 결정 기록 케이스 | IMPL_DONE |\n' > "$TD/.specops/batch-x/queue.md"
+printf '**§유형**: 신규\n' > "$TD/.specops/20261008-x/spec.md"
+( cd "$TD" && bash "$PLUGIN/scripts/dev-decision.sh" add 20261008-x backlog "기존 결함은 다음 FID 로" "이번 FID 이전부터" \
+  && bash "$PLUGIN/scripts/dev-decision.sh" add 20261008-x order "리뷰 먼저" ) >/dev/null 2>&1
+printf -- '- 손으로 쓴 줄은 집계하지 않는다\n' >> "$TD/.specops/20261008-x/dev-decisions.md"
+out=$(bash "$PLUGIN/scripts/_internal/collect-assumptions.sh" "$TD/.specops/batch-x" 2>&1)
+printf '%s' "$out" | grep -q '개발 중 결정 · \[backlog\] 기존 결함은 다음 FID 로 — 이번 FID 이전부터' \
+  && printf '%s' "$out" | grep -q '개발 중 결정 · \[order\] 리뷰 먼저' \
+  && printf '%s' "$out" | grep -q '\*\*2건\*\*' && ! printf '%s' "$out" | grep -q '손으로 쓴 줄' \
+  && { PASS=$((PASS+1)); echo "PASS T-devdec 개발 중 결정 집계(기록 형식 줄만 · 건수 포함)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-devdec ($out)"; }
+#   심볼릭 링크로 걸린 기록 파일은 읽지 않는다 — 링크 밖 파일 내용이 다이제스트로 새지 않게
+printf -- '- 2026-10-08T00:00:00Z [backlog] 링크 밖 파일의 줄\n' > "$TD/outside.md"
+rm -f "$TD/.specops/20261008-x/dev-decisions.md"; ln -s "$TD/outside.md" "$TD/.specops/20261008-x/dev-decisions.md"
+out=$(bash "$PLUGIN/scripts/_internal/collect-assumptions.sh" "$TD/.specops/batch-x" 2>&1)
+! printf '%s' "$out" | grep -q '링크 밖 파일의 줄' \
+  && { PASS=$((PASS+1)); echo "PASS T-devdec.b 심볼릭 링크 기록 파일은 집계하지 않는다"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T-devdec.b ($out)"; }
+rm -rf "$TD"
+
 finish

@@ -3,7 +3,7 @@ name: implementing-ko
 description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task"
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
-specops_version: 2.9.0
+specops_version: 2.13.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
 ---
 
@@ -31,6 +31,10 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 
 **§lite 불변** (`spec.md`에 `**§lite**: true` — `/start-lite`·`/maintain-lite`): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
 
+## 개발 구간 무질문
+
+구현 시작부터 PR 게이트 직전까지 사용자에게 **묻지 않고** 진행한다 — "계속할까요?" 류 재확인 금지, 순서·리뷰 지적 처리는 기본값으로 정하고 `dev-decision.sh` 로 기록해 끝에 한 번 보고한다. wave loop **직전에** 같은 디렉터리 `dev-autonomy.md` 를 Read 한다 (알려진 외부 작업의 일괄 사전 승인 · 계약 안이면 고치고 밖이면 넘기는 기준 · 그래도 멈추는 예외).
+
 ## 설계 계약 준수 (design-first 후진 teeth)
 
 사전 설계 산출물이 존재하면 구현은 이를 **계약**으로 준수한다 (specifying-ko 의 정방향 design-first 가 구현까지 이어지도록 — 화면·인터페이스 대칭):
@@ -38,7 +42,7 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 - `screens/{name}.md`·`.html` — 화면 기능의 **UI 계약** (Step 5.5 산출)
 - `.specops/memory/api-spec.md`·`api-spec-consumer.md`·`data-model.md` — **인터페이스(제공·소비)/스키마 계약** (Step 5.6 design-first · Phase 8g 산출)
 
-`emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`api-spec-consumer.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고, 어긋나야 할 불가피한 근거가 있으면 **사용자 확인 후** 진행하며, `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
+`emit-context.sh`(decomposing Step 10b)가 설계 산출물(`api-spec.md`·`api-spec-consumer.md`·`data-model.md`·`screens/`) 존재 시 dispatch 컨텍스트의 **§6 설계 계약** 섹션에 경로를 **자동 포함**한다(Wave 2 배선 — 부재 시 §6 생략 graceful). 구현자는 §6 계약을 준수하고 임의로 벗어나지 않으며(계약을 바꿔야만 구현되면 BLOCKED 로 올린다 — `dev-autonomy.md` §2), `verifying-evidence-ko` 의 "memory 설계 동기화 점검"(역방향 안전망)이 사후 검증한다. (정방향 계약(§6 자동 emit) + 역방향 net 으로 design-first 의 전·후진 teeth 를 모두 확보)
 
 **최소 구현**: leaf 구현 전 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? · 한 줄 가능? · 아니면 최소 코드. 검증·에러 처리·보안·접근성·AC 테스트는 절감 제외. scope 이관 시 재사용 우선.
 
@@ -199,10 +203,10 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 | Phase | FAIL 시 동작 | 재dispatch subagent_type | cap | cap 초과 시 |
 |---|---|---|---|---|
-| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | HARD GATE: `HARD-GATE: <task-id> Phase B cap 초과 — 사용자 개입 필요` |
-| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | HARD GATE: `HARD-GATE: <task-id> Phase C cap 초과 — 사용자 개입 필요` |
+| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase B cap 초과` |
+| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase C cap 초과` |
 
-**cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 자동 진행 금지 — 사용자 입력 대기 (5원칙 4 주권). end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
+**cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 곧바로 멈추지 않는다 — 아래 「cap 초과 처리」의 전역 재시도 1회 뒤에도 Critical 이 남을 때만 HARD GATE 다. end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
 
 ## Evaluator 모델 불가 fallback (P1 — 20260718 test2 정주행 회고)
 
@@ -218,9 +222,9 @@ Phase B/C Evaluator 는 frontmatter 별칭 모델(spec sonnet·code opus)로 고
 
 > **[B/C 판정 file-based 감사 추적]** (20260716 dogfood 관찰 B — Phase C 리뷰어가 "B PASS 근거가 부모 선언뿐" 지적): Phase B·C 판정은 **PASS 여도** `reviews/<task-id>-B-report.md`(·`-C-report.md`) 로 저장한다 — 판정·AC별 근거 요약(리뷰어 반환 그대로). FAIL 피드백(`-B-feedback.md`)만 파일화하고 PASS 는 대화 선언으로 흘리면, Phase C 는 B 통과 자격을 검증 불가능한 부모 말로 수용하게 되고(file-based-communication 위반) 사후 감사 추적이 비어버린다. Phase C dispatch 프롬프트에는 `-B-report.md` **경로**를 포함한다(최초 병렬 쌍은 사후 대조 행으로 대체 — 「최초 B/C 쌍 병렬」).
 
-**[§auto 모드] cap 초과 처리** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
+**cap 초과 처리** (모드 무관 — 종전엔 `§auto` 전용이었고 단일 모드는 곧바로 사용자에게 물었다):
 
-cap 초과 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
+cap 초과 시 곧바로 멈추지 않고 **systematic-debugging-ko → 전역 재시도** 흐름을 먼저 탄다 (Phase C 의 Important 만 남은 경우는 재시도 없이 `backlog` 로 넘긴다 — `dev-autonomy.md` §2):
 
 ```
 auto-state.md 읽기 (.specops/<FID>/auto-state.md — 없으면 auto_retry_count=0 으로 간주)
@@ -228,7 +232,7 @@ auto_retry_count < 1?
   ├─ YES → auto_retry_count += 1 저장 + escalations 기록
   │        → specops-ko:systematic-debugging-ko 호출
   │        → 복귀 후 task 재dispatch (loop 재진입)
-  └─ NO  → HARD GATE (무인 종료):
+  └─ NO  → HARD GATE (`§auto` 는 무인 종료 · 그 밖은 사용자에게 한 번에 묻는다):
            "AUTO-HARD-GATE: <task-id> Phase B/C 전역 재시도 초과 (1/1)
             FAIL: <이슈 목록>
             systematic-debugging 또는 사용자 개입 필요"
@@ -255,7 +259,7 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
   진행하시겠습니까? [y/n]
   ```
   `n` 시 → Lifecycle 종료. `y` 시 → 진행.
-- 단일 모드 + `irreversible: true` → task 내부 Step 0 (기존 동작)
+- 단일 모드 + `irreversible: true` → 사전 승인 기록(`dispatch/<task-id>-approval.md` — `dev-autonomy.md` §1)이 있으면 다시 묻지 않고 진행, 없으면 task 내부 Step 0
 
 **reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
 - `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장
@@ -311,7 +315,7 @@ task 시작 시 `.specops/<FID>/dispatch-log.md` 부재면 `templates/dispatch-l
 | # | <ISO-8601> | <Phase> | <agent> | PASS|FAIL | <feedback path 또는 -> |
 ```
 
-footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱신. cap 초과 시 자동 진행 금지, 사용자 결정 대기.
+footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱신. cap 초과 시 처리는 위 「cap 초과 처리」를 따른다.
 
 ## 모델 라우팅 (역할별 고정)
 
@@ -324,7 +328,7 @@ footer 의 `재시도 누적: B=N/2 C=N/2 (cap=2)` 카운트도 시도마다 갱
 | Evaluator (계획·Phase C) | `plan-reviewer-ko`·`code-reviewer-ko` | opus · high |
 | self-config 감사 | `red-team-ko`·`blue-team-ko`·`auditor-ko` | inherit |
 
-**재dispatch 시 (상향 규칙)**: BLOCKED·Phase B/C FAIL 로 `implementer-ko` 를 재dispatch 할 때는 컨텍스트 보강과 함께 부모가 Agent 도구 `model` 인자로 `opus` 를 지정해 **1회 상향**한다(재dispatch 마다, 횟수·cap 불변). 상향 후에도 실패하면 B/C 는 cap(HARD GATE), BLOCKED 는 에스컬레이션이다. 상향한 때만 dispatch-log 에 `(모델 상향: sonnet → opus)` 를 기록한다(FORCE 설정 시 상향 불가).
+**재dispatch 시 (상향 규칙)**: BLOCKED·Phase B/C FAIL 로 `implementer-ko` 를 재dispatch 할 때는 컨텍스트 보강과 함께 부모가 Agent 도구 `model` 인자로 `opus` 를 지정해 **1회 상향**한다(재dispatch 마다, 횟수·cap 불변). 상향 후에도 실패하면 B/C 는 「cap 초과 처리」, BLOCKED 는 에스컬레이션이다. 상향한 때만 dispatch-log 에 `(모델 상향: sonnet → opus)` 를 기록한다(FORCE 설정 시 상향 불가).
 
 ## 구현자 상태 처리
 
@@ -377,7 +381,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 **절대 금지**:
 - main/master 브랜치에서 **명시 동의 없이** 구현 시작
 - 리뷰 생략 (스펙 준수 OR 코드 품질)
-- **미해결 이슈를 두고 진행**
+- **미해결 이슈를 두고 진행** (`backlog` 로 기록해 넘긴 계약 밖 항목은 미해결이 아니다 — `dev-autonomy.md` §2)
 - 구현 서브에이전트를 **상태 공유 시 병렬로** dispatch (충돌, R11). v0.4a 정정: outputs disjoint 한 독립 leaf 2+ 는 `dispatching-parallel-agents-ko` DAG-aware 모드로 자동 병렬 권장 — `dag::find_independent_batch` 가 자동 식별. **상태 공유 (같은 파일 수정) 시에만 병렬 금지**
 - 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — `file-based-communication-ko` 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
@@ -442,7 +446,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 | 1 **투명성** | 서브에이전트 dispatch 시 지시·컨텍스트 **전체 기록** (`.specops/<FID>/dispatch-log.md`) |
 | 2 **문지기** | 파괴적 명령은 서브에이전트에게도 **명시 확인 루틴** 삽입 |
 | 3 **깊이** | BLOCKED 상태는 에스컬레이션. 우회 금지 |
-| 4 **주권 존중** | 리뷰 루프에서 이슈 발견 시 **사용자에게 알림** — 자동 수정 전 확인 |
+| 4 **주권 존중** | 승인받은 계약(AC·spec) 밖의 것은 **묻지 않고 만들지 않는다** — 넘기고 `dev-decisions.md` 로 끝에 보고. 비가역 작업은 반드시 승인 |
 | 5 **한계 고백** | 서브에이전트 자체검토 보고를 **독립 검증 없이** 수용 금지 |
 
 ## 통합

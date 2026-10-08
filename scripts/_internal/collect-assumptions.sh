@@ -14,6 +14,7 @@
 # 집계 범위: queue.md 의 **IMPL_DONE FID** 만(batch 에 실제 포함된 것).
 #   ① clarifications.md 의 `status: ASSUMED` Q-block
 #   ② spec.md §1 의 `**자동 결정 화면**` · `**자동 결정 인터페이스**` · `**자동 결정 intent**` (사용자 미확인 결정)
+#   ③ dev-decisions.md 의 기록 줄 — 개발 구간에서 묻지 않고 정한 것(20261008 · dev-decision.sh 가 쓴 형식만)
 # 가정 0건도 **명시 보고**한다 — "0건" 과 "집계 안 함" 은 다르다.
 set -u
 
@@ -70,6 +71,17 @@ EOF
       total=$((total + 1))
     done <<EOF
 $(grep -E '^\*\*자동 결정 (화면|인터페이스|intent)\*\*:' "$spec" 2>/dev/null | sed 's/^\*\*//; s/\*\*//' || true)
+EOF
+  fi
+
+  dd="$SPECOPS/$fid/dev-decisions.md"
+  if [ -f "$dd" ] && [ ! -L "$dd" ]; then
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      section="${section}- 개발 중 결정 · ${line}"$'\n'
+      total=$((total + 1))
+    done <<EOF
+$(grep -E '^- [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+Z \[(fixed|backlog|order|retry|skip|approval)\] ' "$dd" 2>/dev/null | sed -E 's/^- [^ ]+ //' || true)
 EOF
   fi
 

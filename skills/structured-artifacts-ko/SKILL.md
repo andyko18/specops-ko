@@ -3,7 +3,7 @@ name: structured-artifacts-ko
 description: 모든 Lifecycle 커맨드의 Process 첫 스텝 — `.specops/<FID>/` 디렉토리 규약으로 단계 간 파일-기반 통신을 강제한다
 layer: 3
 reference_upstream: revfactory/harness@v1.0 skills/structured-artifacts/SKILL.md
-specops_version: 1.10.0
+specops_version: 2.13.0
 used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 ---
 
@@ -45,7 +45,8 @@ used_by: 모든 engine skills (아티팩트 경로 규약 참조)
 │   ├── review.md                  # /code-review 생성
 │   ├── verify.md                  # /verify 생성
 │   ├── verify-loop.md             # bounded verify→fix 루프 카운터 (P2-2)
-│   └── auto-state.md              # §auto 모드 전역 재시도 카운터 (v1.10.0)
+│   ├── auto-state.md              # 전역 재시도 카운터 (v1.10.0 §auto 전용 → v2.13.0 모드 무관)
+│   └── dev-decisions.md           # 개발 구간에서 묻지 않고 정한 결정 — dev-decision.sh 가 기록 (v2.13.0)
 └── session-progress.md            # 전역, 모든 커맨드 append
 ```
 
@@ -100,7 +101,7 @@ fi
 
 **주의**: 모드별 halt 동작은 mode-specific이다. `§batch`의 halt 신호(`BATCH-PHASE1-DONE`)는 `§auto`에 적용되지 않는다. 모든 분기점에서 3-way 검사를 사용한다.
 
-## auto-state.md 규약 (§auto 전용, v1.10.0 신규)
+## auto-state.md 규약 (v1.10.0 §auto 전용 → v2.13.0 재시도 카운터는 모드 무관)
 
 **경로**: `.specops/<FID>/auto-state.md`
 
