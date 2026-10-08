@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### `/doctor` 9번째 점검 `effort_env` · skill effort 실측 (#130·#131)
+
+`/doctor` 가 `CLAUDE_CODE_EFFORT_LEVEL` 환경변수 설정 여부를 항상 보고한다(9항목). 설정돼 있으면 ⚠️ — 이 env 가 있으면 skill·agent frontmatter `effort` 가 **전부 무력화**되고(서브에이전트 effort 프로파일 포함) 지금까지 어떤 층도 알리지 못했다. README 의 "skill frontmatter effort 동작 미확인" 을 20261007 실측 4사실로 교체했다: 활성화 **이후** 적용 · skill 종료 후 **비복원**(같은 턴 끝까지 마지막 값 유지) · 다음 턴 복원(약한 증거) · env 가 모두 무력화 → 연쇄 skill 에서 일부만 지정하면 후속 skill 이 상속하므로 **전부-또는-전무**. 함께 `doctor.sh` `_add` 구분자 치환이 macOS `/bin/bash` 3.2 에서 `|` 를 `\/` 로 남기던 표시 결함을 고쳤다(행·JSON 위조 방지는 불변, 테스트 엄격화).
+
+### skill eval 러너 확장 — 행동 eval 8건 · agent 본문 주입 · effort/model arm · 케이스 필터 (#128·#129·#132·#133)
+
+- `implementing-ko` 행동 eval **e-5~e-12 8건**(구현자 실행 모드 계약 5 · 과잉 설계 리뷰 3) — 각 `llm_rubric` 에 FAIL 조건 명시, 최상위 `_note` 에 한계(미보정 채점기·도구 차단으로 서술만 측정) 고백
+- `SKILL_EVAL_INJECT=1` — 케이스의 선택 필드 `agent` 본문을 그 질의에만 `--append-system-prompt` 로 주입해 **계약 본문 유무(with/without)** 를 같은 prompt 로 비교(주입 off 에서는 호출 인자 바이트 동일, agent 파일 부재는 케이스 SKIP)
+- `SKILL_EVAL_EFFORT`·`SKILL_EVAL_MODEL` — candidate 질의에만 `--effort`/`--model`(채점기 격리). `CLAUDE_CODE_EFFORT_LEVEL` 이 설정돼 있으면 비용 전에 거절(arm 이 전부 같아지는 오염 방지)
+- `SKILL_EVAL_CASES=<id,…>` — 지정 케이스만 질의·채점(선택 밖은 열거도 SKIP 집계도 없음). 파일럿 비용 ≈ $49 → ≈ $16
+- 본 실행 결과: 계약 본문 주입 with/without 통과 14/24 → 23/24(약 $10.9, 방향 신호)
+
+### agent effort 프로파일 파일럿 — 프로파일 유지 (#134)
+
+implementing-ko 판별 케이스를 effort low·medium·high × N=3 으로 실행(약 $16.4): 구현자 세 effort 모두 6/6, 리뷰어 low 6/6 · medium 5/6(채점 노이즈로 보이는 1회 FAIL) · high 6/6 — 하락 미관측이라 낮춰도 무방하다는 **방향 신호**일 뿐 통계적 결론이 아니다(2케이스 소표본·천장 효과·짧은 단일 응답). **현행 프로파일은 바꾸지 않는다**(품질 근거가 강할 때만 절감).
+
+⚠️ **한계 (정직 고백)**: 위 eval 은 모두 수동 실행(토큰 비용)이며 CI 비포함이다. `llm_rubric` 채점기는 `judge-calibration` 범위 밖이라 판별력이 보정되지 않았다. `commands/doctor.md` 의 `specops_version` 을 이번 릴리즈 값으로 올렸다.
+
+
 ## [2.6.0] — 2026-10-07
 
 ### 공식 문서 대조 반영 (3/3) — `claude plugin eval` 라우팅 스위트 · 주입 문구 가설 검증
