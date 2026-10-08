@@ -5,7 +5,7 @@ description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requ
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.9.0
+specops_version: 2.15.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -310,6 +310,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 ```
 - exit 0 → Step A 진행
+- `SKIP` 행(시드·공통부)과 requirements 의 placeholder FR 은 batch 대상이 아니다 — 미완·드리프트로 세지 않고 `[제외]` 로 출력된다. 적격 FR 이 전부 `IMPL_DONE` 이면 SKIP 이 있어도 exit 0 이다(`HELD`·`BLOCKED` 는 멈춘 것이라 여전히 미완). **적격 FR 을 SKIP 으로 바꿔 넘기지 않는다** — 분류기(`check-fr-table.sh --classify`)가 batch 대상이라는 FR 의 SKIP 은 미완으로 판정된다. 이번 batch 에서 못 끝내는 FR 은 `HELD` 로 두고 queue 헤더에 사유를 적는다.
 - exit 1 (미완·드리프트·중복 목록 출력) → 사용자 확인 게이트: **"미완/드리프트 N건 — 그래도 batch PR 진행? [y/n]"**. `y`=의도적 부분 진행 허용(주권 — queue 헤더에 사유 기록 권장), `n`=중단. **§auto 무인은 여기서 정지**(목록 출력 + 사용자 입력 대기 — silent 부분 PR 금지)
 
 > **이 스캔은 산문 지시일 뿐 아니라 훅으로도 강제된다** (20260721-batch-pr-teeth). `gh pr create` 시
@@ -329,9 +330,9 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
    - Critical/High 검출 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
-   - **PASS/SKIP 후 전 FID 전파 (필수)** — skill 은 대표 FID 1곳의 evidence.md 에만 기록하는데, `gh pr create` 의 RELEASE_READY 는 **전 IMPL_DONE FID** 각각에 이 게이트를 요구한다(MISSING → hard deny):
+   - **PASS/SKIP 후 전 FID 전파 (필수)** — skill 은 대표 FID 1곳의 evidence.md 에만 기록하는데, `gh pr create` 의 RELEASE_READY 는 **전 IMPL_DONE FID** 각각에 이 게이트를 요구한다(MISSING → hard deny). **SKIP 근거는 spec.md 섹션명+줄 번호를 인용한다**(예: `"§범위 L12-15 — 통합 표면 없음"`) — 인용이 없으면 스크립트가 기록을 거부한다(RELEASE_READY 가 인용 없는 SKIP 을 차단하므로 여기서 먼저 막는다):
      ```bash
-     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" security <PASS|SKIP> [SKIP근거]
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" security <PASS|SKIP> ["§섹션 L줄 — 사유"]
      ```
 
 **Step B: batch 레벨 통합·E2E 테스트**
@@ -345,7 +346,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
    - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
      ```bash
-     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" integration <PASS|SKIP> [SKIP근거]
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" integration <PASS|SKIP> ["§섹션 L줄 — 사유"]
      ```
 
 **Step C: batch 레벨 성능 테스트**
@@ -357,10 +358,19 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
    - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환)
    - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
      ```bash
-     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" performance <PASS|SKIP> [SKIP근거]
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" performance <PASS|SKIP> ["§섹션 L줄 — 사유"]
      ```
 
 **Step D: batch PR 생성**
+
+**닫기 전 게이트 현황 확인 (필수)** — Step A/B/C 판정이 전 IMPL_DONE FID 에 전파됐는지 스크립트로 확인한다:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" status
+```
+- rc 0 (`BATCH-GATE-STATUS: OK`) → 아래로 진행.
+- rc 1 (`INCOMPLETE`) → **닫지 않는다.** `MISSING` 은 그 Step 을 실행하고 전파한다. `SKIP(BARE)` 는 같은 전파 명령을 줄 번호를 인용한 근거로 다시 부르면 보완된다.
+- PR 을 만들지 않고 닫는 경우(원격 없는 저장소 · 로컬 병합)에도 **반드시** 돌린다 — batch PR 게이트와 RELEASE_READY 는 `gh pr create` 에서만 발화하므로, 그 경로에서는 이 확인이 유일한 관문이다(실기록 20261008: batch 6건 중 PR 로 닫힌 것은 0건이었고 2건은 전파 없이 닫히거나 멈췄다).
 
 PR 직전 **자동 확정 항목을 집계기로 수집**해 PR 본문·사용자 확인에 포함한다 — `/start-all` 도 Phase 2.5 에서 화면·인터페이스를 **대화 승인 없이** 반영하는 경로가 있고(§auto 여부와 무관하게 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 가 남는다), 수기 집계는 과소보고를 막지 못한다:
 
@@ -434,4 +444,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.9.0 · 2026-08-04 · Phase 2.5 design-reviewer 무거운 설계 리뷰*
+*specops-ko v2.15.0 · 2026-10-09 · 끝단 판정 정비(SKIP 제외 · SKIP 근거 형식 · 닫기 전 게이트 현황)*

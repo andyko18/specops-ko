@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # batch-state.sh — batch queue ↔ requirements parity 검사 (read-only 감지 도구)
 # 사용: batch-state.sh <batch-dir> [requirements-path]
-#   exit 0 = clean (전 FR 완료 + 드리프트 0 + 중복 0)
+#   exit 0 = clean (batch 대상 FR 전부 완료 + 드리프트 0 + 중복 0)
+#     SKIP 행(시드·공통부 — init-batch-queue.sh 가 쓴다)과 requirements 의 placeholder FR 은 batch 대상이 아니다:
+#     미완·드리프트로 세지 않고 [제외] 로 밝힌다(20261009). HELD·BLOCKED 는 멈춘 것이라 여전히 미완이다.
+#     단 queue 의 SKIP 글자만으로 빼지 않는다 — check-fr-table.sh --classify 가 batch 대상이 아니라고 한 FR 만 뺀다.
+#     분류기가 적격이라는 FR 을 SKIP 으로 둔 행은 미완이다(못 끝낸 FR 을 SKIP 으로 바꿔 완료를 만드는 경로 차단).
 #   exit 1 = 불일치 (미완·드리프트·중복 목록 출력 — 차단 결정은 호출측 게이트 소관)
 #   exit 2 = 사용 오류
 # 완료 토큰: IMPL_DONE | MERGED (Status 마지막 컬럼 기준 — 설명 컬럼 오탐 방지)
@@ -76,9 +80,36 @@ if [ -n "$dups" ]; then
 fi
 
 # 2) 드리프트 — requirements 에 있으나 queue 미추적
+# batch 대상이 아닌 FR 은 **분류기가 그렇다고 한 것만** 뺀다 (판정 SoT = check-fr-table.sh --classify).
+#   - placeholder FR(`| FR-9 | <한 줄> | …`): init-batch-queue.sh 가 queue 에서 의도적으로 뺀다 → 드리프트가 아니다.
+#   - 시드·공통부 FR: init-batch-queue.sh 가 `SKIP` 행으로 쓴다 → 미완이 아니다.
+#   queue 의 `SKIP` 글자만 보고 빼지 않는다 — 그러면 모델이 못 끝낸 적격 FR 을 SKIP 으로 바꿔 "완료" 를 만들 수 있다
+#   (`--gate` 와 RELEASE_READY 는 IMPL_DONE 행만 보므로 막지 못하고, 무인은 exit code 만 본다 · 독립 리뷰가 재현).
+#   분류기를 못 돌리면(부재·출력 없음) 아무것도 빼지 않고 종전대로 센다 — 판정 불가를 "문제 없음" 으로 읽지 않는다.
+placeholder_ids=""; skip_ok_ids=""; cls_out=""
+_chk="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/check-fr-table.sh"
+if [ -f "$_chk" ]; then
+  cls_out=$(bash "$_chk" --classify "$REQ" 2>/dev/null | grep -E '^(ELIGIBLE|SKIP)\|' || true)
+fi
+if [ -n "$cls_out" ]; then
+  # 같은 id 가 ELIGIBLE 로도 나오면(표에 실 행과 placeholder 행이 겹침) batch 대상이다 — 빼지 않는다.
+  _elig=$(printf '%s\n' "$cls_out" | awk -F'|' '$1=="ELIGIBLE" {print $2}')
+  placeholder_ids=$(printf '%s\n' "$cls_out" | awk -F'|' '$1=="SKIP" && $3=="placeholder" {print $2}' \
+    | while IFS= read -r id; do [ -n "$id" ] && ! printf '%s\n' "$_elig" | grep -qx "$id" && printf '%s\n' "$id"; done | sort -u)
+  skip_ok_ids=$(printf '%s\n' "$cls_out" | awk -F'|' '$1=="SKIP" {print $2}' \
+    | while IFS= read -r id; do [ -n "$id" ] && ! printf '%s\n' "$_elig" | grep -qx "$id" && printf '%s\n' "$id"; done | sort -u)
+fi
+excluded_ph=""
 drift=$(printf '%s\n' "$req_ids" | while IFS= read -r id; do
   [ -z "$id" ] && continue
-  printf '%s\n' "$queue_ids" | grep -qx "$id" || printf '%s\n' "$id"
+  printf '%s\n' "$queue_ids" | grep -qx "$id" && continue
+  printf '%s\n' "$placeholder_ids" | grep -qx "$id" && continue
+  printf '%s\n' "$id"
+done)
+excluded_ph=$(printf '%s\n' "$req_ids" | while IFS= read -r id; do
+  [ -z "$id" ] && continue
+  printf '%s\n' "$queue_ids" | grep -qx "$id" && continue
+  printf '%s\n' "$placeholder_ids" | grep -qx "$id" && printf '%s\n' "$id"
 done)
 if [ -n "$drift" ]; then
   echo "[드리프트] requirements 에 있으나 queue 미추적:"
@@ -89,19 +120,44 @@ fi
 # 3) 미완 — Status(마지막 컬럼)가 IMPL_DONE|MERGED 아님
 incomplete=""
 if [ -n "$queue_rows" ]; then  # 빈 queue 가드 — awk 빈 줄 유입 시 "  - : " phantom 차단
-incomplete=$(printf '%s\n' "$queue_rows" | awk -F'|' "$QUEUE_AWK_QNORM"'
+incomplete=$(printf '%s\n' "$queue_rows" | SKIP_OK=" $(printf '%s' "$skip_ok_ids" | tr '\n' ' ') " awk -F'|' "$QUEUE_AWK_QNORM"'
 {
   # 마지막 비어있지 않은 필드 = Status. qnorm 이 CRLF·공백·표기 장식을 함께 흡수한다.
   st = ""
   for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
   id = qnorm($2)
-  if (st !~ /^(IMPL_DONE|MERGED)/) print "  - " id ": " st
+  if (st ~ /^(IMPL_DONE|MERGED)/) next
+  # SKIP 행은 분류기가 batch 대상이 아니라고 한 FR(시드·공통부)일 때만 미완에서 뺀다.
+  #   종전엔 모든 SKIP 이 미완이라, 적격 FR 이 전부 끝나도 항상 exit 1 이었다(대화형은 매번 질문 · 무인은 PR 직전 정지).
+  if (st ~ /^SKIP([^A-Za-z0-9_]|$)/) {
+    if (index(ENVIRON["SKIP_OK"], " " id " ")) next
+    print "  - " id ": " st " — requirements 에서는 batch 대상 FR 이다(시드·공통부·placeholder 가 아님). 끝내거나 HELD 로 두고 사유를 남긴다"
+    next
+  }
+  print "  - " id ": " st
 }')
 fi
 if [ -n "$incomplete" ]; then
   echo "[미완] 완료(IMPL_DONE|MERGED) 아님:"
   printf '%s\n' "$incomplete"
   fail=1
+fi
+
+# 제외한 것은 숨기지 않는다 — 무엇을 빼고 완료라 했는지 남긴다(exit code 에는 반영하지 않는다).
+skipped=""
+if [ -n "$queue_rows" ]; then
+  skipped=$(printf '%s\n' "$queue_rows" | SKIP_OK=" $(printf '%s' "$skip_ok_ids" | tr '\n' ' ') " awk -F'|' "$QUEUE_AWK_QNORM"'
+  {
+    st = ""
+    for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+    id = qnorm($2)
+    if (st ~ /^SKIP([^A-Za-z0-9_]|$)/ && index(ENVIRON["SKIP_OK"], " " id " ")) print "  - " id ": SKIP (시드·공통부 — 분류기 판정)"
+  }')
+fi
+if [ -n "$skipped" ] || [ -n "$excluded_ph" ]; then
+  echo "[제외] batch 대상이 아닌 FR (미완·드리프트로 세지 않는다):"
+  [ -n "$skipped" ] && printf '%s\n' "$skipped"
+  [ -n "$excluded_ph" ] && printf '%s\n' "$excluded_ph" | sed 's/^/  - /; s/$/: placeholder (requirements 미작성 행)/'
 fi
 
 # 4) 산출물 뭉개짐 방지 teeth — IMPL_DONE FID 마다 per-FR 검증·리뷰 산출물 3종 필수
@@ -260,7 +316,7 @@ if [ "$fail" -eq 0 ]; then
   #   라벨 드리프트로 그 상태였고, 31 FR 이 무검증인 채 "완비" 로 보고됐다.
   #   건수를 노출하면 0 이 눈에 띄어 사람이 물을 수 있다 — 차단이 아니라 가시성이다.
   _checked=$(printf '%s\n' "$done_pairs" | grep -c '|' || true)
-  echo "BATCH-STATE: OK (전 FR 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 ${_checked} FID 검사)"
+  echo "BATCH-STATE: OK (batch 대상 FR 전부 완료 · 드리프트 0 · 중복 0 · 산출물·진행기록 ${_checked} FID 검사)"
   exit 0
 fi
 echo "BATCH-STATE: MISMATCH — batch PR 전 확인 필요" >&2
