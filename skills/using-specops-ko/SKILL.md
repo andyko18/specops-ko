@@ -3,7 +3,7 @@ name: using-specops-ko
 description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
-specops_version: 2.17.0
+specops_version: 2.18.0
 used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 ---
 
@@ -99,7 +99,7 @@ specops-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 
 **announce 메시지** (5 원칙 1 투명성):
 - `false` → "Using specifying-ko to <purpose>"
-- `true` → "Using analyzing-ko (maintenance) to <purpose>" (Phase C 후) 또는 "Using specifying-ko (maintenance) to <purpose>" (Phase A 단독)
+- `true` → "Using analyzing-ko (maintenance) to <purpose>"
 
 **분류 모호** (양쪽 신호 혼재) 시 사용자에게 1 문항 확인 — "신규 / 유지보수 어느 쪽?".
 

@@ -3,7 +3,7 @@ name: implementing-ko
 description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task"
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
-specops_version: 2.13.0
+specops_version: 2.18.0
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
 ---
 
@@ -154,7 +154,7 @@ specops-ko:verifying-evidence-ko 호출
 > **판정 어휘 → 부모 처리** (본문의 "B/C FAIL" = `NEEDS_FIX`; dispatch-log 판정 열은 `PASS`/`FAIL` 로 정규화):
 > - `PASS`·`READY_TO_MERGE` → 진행 · `NEEDS_FIX` → `FAIL` 기록 + implementer-ko 재dispatch(feedback 경로, 재시도 cap·상향 규칙)
 > - `NEEDS_CONTEXT`(훅 정규식 밖 → 부모 fallback 저장)·`SKIP` → 컨텍스트/B-report 경로 보정 후 재dispatch (재시도 불산입)
-> - C `NEEDS_DISCUSSION` → `HOLD` 기록 + **사용자 판단 대기**(trade-off 선택지 그대로 제시, `§auto` 도 자동 선택 금지, `§batch` 는 FR halt)
+> - C `NEEDS_DISCUSSION` → `HOLD` 기록 + **사용자 판단 대기**(trade-off 선택지 그대로 제시, `§auto` 도 자동 선택 금지, `§batch` 는 `BATCH-FR-HELD: <FID>` 출력 후 halt)
 >
 > **채운 예시** — 위 골격의 꺾쇠 자리표시자는 닫는 `>` 가 마커의 `>>>` 와 이어져 개수를 오독하기 쉽다. 프롬프트에는 아래처럼 **값을 채운 형태**로 적는다:
 >
@@ -356,7 +356,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 > 3. **미완 wave 의 outputs-disjoint 재판정** — 이관으로 두 task 의 outputs 가 겹치게 되면 해당 쌍은 병렬 금지 → 순차 강등
 > 4. dispatch-log 에 `SCOPE-MOVED: <task-id> +<file> (<사유>)` 1줄 기록 후 재dispatch
 
-**NEEDS_APPROVAL**: 구현자가 비가역·범위 변경 작업에서 **멈추고** 승인을 요청한 것 — 무응답으로 두면 태스크가 조용히 멈춘다. 작업 요약을 사용자에게 그대로 제시하고 `NEEDS-APPROVAL: <task-id> … 진행하시겠습니까? [y/n]` 로 묻는다(`§auto` 도 예외 없음, `§batch` 는 해당 FR halt). 절차 전문(승인 기록·`n` 처리·dispatch-log 행)은 같은 디렉터리 `needs-approval.md` 를 Read 한다.
+**NEEDS_APPROVAL**: 구현자가 비가역·범위 변경 작업에서 **멈추고** 승인을 요청한 것 — 무응답으로 두면 태스크가 조용히 멈춘다. 작업 요약을 사용자에게 그대로 제시하고 `NEEDS-APPROVAL: <task-id> … 진행하시겠습니까? [y/n]` 로 묻는다(`§auto` 도 예외 없음, `§batch` 는 `BATCH-FR-HELD: <FID>` 출력 후 halt). 절차 전문(승인 기록·`n` 처리·dispatch-log 행)은 같은 디렉터리 `needs-approval.md` 를 Read 한다.
 
 **BLOCKED**: 구현자가 태스크 완료 불가. 블로커 평가 (구현자 기본은 sonnet — 컨텍스트 보강·분해와 함께 위 상향 규칙으로 opus 1회 상향, 이후 에스컬레이션):
 1. 컨텍스트 문제 → 컨텍스트 더 주고 재dispatch

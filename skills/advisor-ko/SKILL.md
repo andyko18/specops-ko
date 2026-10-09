@@ -3,7 +3,7 @@ name: advisor-ko
 description: 기획·분석·설계·개발 중 스스로 확신이 없거나 모르는 지점이 생길 때, 또는 사용자가 결정을 맡기며 불확실함을 드러내거나 판단 근거의 검증을 요청할 때 호출 — advisor 도구로 외부 자문을 받아 단정·합리화·circular 검증을 차단
 layer: 2
 reference_upstream: specops-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
-specops_version: 1.105.0
+specops_version: 2.18.0
 used_by: using-specops-ko (cross-cutting 상시 — 기획·분석·설계·구현 중 애매성 발생 시 ambient 적용), planning-ko (advisor() 실호출)
 ---
 
@@ -135,7 +135,7 @@ advisor 는 **서버사이드 도구**다 (Anthropic 인프라 실행 — `/advi
 advisor disabled 환경 또는 동종 모델 편향 차단이 필요할 때, **파일 기반 산출물 검증** 은 외부 모델로 위탁 가능:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-plan.md --files .specops/<FID>/plan.md
 ```
 
 - 한계: 외부 CLI 는 본 세션의 conversation 에 접근 불가 — `advisor()` (세션 전체 자동 전송) 의 **대체가 아니라 산출물 검증 보강**. 세션 맥락 의존 자문은 critic-ask 부적합(파일 기반만).

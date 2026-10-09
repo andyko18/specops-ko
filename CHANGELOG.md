@@ -20,6 +20,13 @@
 - **부트스트랩 직후 `/status` 가 오류로 끝났다.** 진행 기록의 최상단이 `<날짜>-init-project` 인데 그 디렉토리는 없다. 인자 없는 조회는 이제 스크립트가 디렉토리가 있는 첫 FID 를 고르고, 없으면 시작 안내 1줄로 끝난다(rc 0). 인자를 준 조회의 계약은 그대로다.
 - **게이트의 해법 안내가 하류 저장소에 없는 경로를 가리켰다** — `batch-state.sh`(FID 칸 미기재) · `check-foundation-manifest.sh`(공통부 FR 기록) · `check-stack-decided.sh`(원장 확인) · R-6 안내. `bash scripts/_internal/…` 를 플러그인 절대경로로 바꿨고, `check-plugin-paths.sh` 가 스크립트·훅의 안내문도 검사한다(종전에는 프롬프트만).
 - `/doctor` 의 pyyaml 설치 안내에 externally-managed(PEP 668) 환경의 길을 같이 적는다.
+- **batch 에서 FR 을 보류하는 신호를 받는 쪽이 없었다.** 구현 단계가 승인 요청(`NEEDS_APPROVAL`)이나 리뷰어의 판단 요청(`NEEDS_DISCUSSION`)으로 멈출 때 문서는 "FR halt" 라고만 적었고, `/start-all` 에는 그 뒤를 받는 절차가 없어 보류된 FR 을 어떻게 할지가 모델 재량이었다. 신호 `BATCH-FR-HELD: <FID>` 를 만들어 `implementing-ko`(2곳)·`needs-approval.md` 가 내고 `/start-all` Phase 3 스텝 1b · `/start-all-auto` 가 받는다(그 FR 만 `HELD` 로 두고 나머지를 계속 — Phase 3 완료 스캔에서 미완으로 잡혀 사용자 답을 기다린다). 승인·결정을 받으면 `PLAN_DONE` 으로 되돌려 다시 돌고, 그때 리뷰 기준점(`review-base.sha`)은 다시 쓰지 않는다. 세션이 끊겨도 재개 안내(`batch-resume-check.sh`)가 보류 건수를 말한다. `validate-structure` 의 신호 계약 검사가 `-HELD` 도 방출↔감시 대조한다.
+- **무인 모드에서 plan 리뷰가 한도를 넘겼을 때의 처리가 진입로마다 달랐다** — `/start-auto` 는 자동 통과, `/start-all-auto` 는 Critical 이면 정지. `planning-ko` 를 "Critical 이 하나라도 남으면 무인이어도 정지, Important 만 남았을 때만 자동 통과" 로 맞췄다(`/start-auto`·`/maintain-auto` 표 포함). 판정도 batch 와 같게 기계로 한다 — 리뷰어 반환을 `.specops/<FID>/plan-review.md` 에 저장하고 `^Critical: 0` 줄이 있을 때만 통과(줄이 없으면 정지).
+- **batch 게이트(보안·통합·성능)가 실패한 뒤의 복귀 경로가 없었다** — "디버깅 → 수정 후 재실행" 뿐이라 수정 커밋이 verify·리뷰를 건너뛰었다. 이제 수정이 속한 FR 마다 verify·리뷰를 다시 거치고 **보안 단계부터** 다시 실행한다(단일 모드와 같은 순서).
+- **외부 critic(`critic-ask.sh`)이 하류 저장소에서 "prompt-file 부재" 로 끝났다** — 문서가 프롬프트를 `templates/critic-prompt-*.md` 상대경로로 적었는데 하류에는 그 디렉토리가 없다. skill 3곳을 플러그인 루트 경로로 바꾸고, 스크립트도 `templates/critic-prompt-*.md` 형태의 상대경로가 cwd 에 없으면 플러그인에서 찾는다(찾았으면 stderr 로 알린다 — 외부로 나가는 입력이다). `check-plugin-paths.sh` 가 이 유형을 검사한다: 플러그인 스크립트에 넘기는 인자가 **이 플러그인에 실제로 있는 파일**의 상대경로일 때만 위반으로 본다(하류 프로젝트의 `scripts/…`·`templates/…` 를 넘기는 정상 호출은 통과).
+- 게이트 문서 3종(보안·통합·성능)의 SKIP 근거 인용 의무를 판정기(`release-ready.sh`)와 맞췄다 — 문서는 `§유형≠trivial` 일 때만 요구한다고 적었지만 판정기는 유형과 무관하게 인용 없는 SKIP 을 막는다.
+- 보안 단계 문서가 스캐너 미설치를 `SECURITY: SKIP` 으로 안내했다 — 스크립트는 그 출력을 내지 않는다(self-check 가 항상 돌고 `self-check only` 접미가 붙는다). 문서를 스크립트에 맞췄다.
+- 낡은 문구: `templates/tasks.md` 의 foundation 크기 예외(v2.17.0 에서 없어졌다) · 메타 스킬의 "Phase A 단독" 잔재 · `plan-reviewer-ko` 의 관점 수(6관점) · `decomposing-ko` 의 분할 안내. 자유작업 귀속(`freework-resolve-fid.sh`)이 `/finishing 완료`·`DONE (PR …)` 를 종결로 본다(메타 스킬의 재개 통보와 같은 목록). 본문이 바뀐 skill 8개의 `specops_version` 을 올렸다.
 
 ## [2.17.0] — 2026-10-09
 

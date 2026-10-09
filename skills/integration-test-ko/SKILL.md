@@ -3,7 +3,7 @@ name: integration-test-ko
 description: lifecycle chain에서 통합 표면(API 엔드포인트·DB·다중 모듈 경계) 검출 시 통합 테스트를 작성·실행·증거화. 표면 부재 시 graceful skip
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 1.8.0
+specops_version: 2.18.0
 used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
 ---
 
@@ -44,7 +44,7 @@ INTEGRATION: SKIP — <근거: spec.md §섹션명 Lxx-yy, 표현 예: "§범위
 ```
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## 다음 skill`로 chain** (나머지 절차 스킵).
 
-> **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-1 L52`). 근거 없는 SKIP 은 형식화 — 거부.
+> **SKIP 근거 의무** (V3): SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-1 L52`) — `§유형` 과 무관하다(`release-ready.sh` 가 인용 없는 SKIP 을 NOT_READY 로 본다). 근거 없는 SKIP 은 형식화 — 거부.
 > **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호). 판정 무기록 FID 는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gate-coverage.sh ~/repoA ~/repoB` (scripts/README).
 
 > 한계 고백: spec.md가 없거나 §범위 섹션이 없는 경우 → 사용자에게 "spec.md §범위 미발견 — 통합 표면을 수동으로 알려주세요 [혹은 skip?]" 1줄 질문. 사용자 응답에 따라 진행 또는 SKIP 처리.
@@ -152,7 +152,7 @@ INTEGRATION: FAIL — <N> failures:
 
 systematic-debugging-ko가 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
-수정 완료 → verifying-evidence-ko 재호출 → requesting-code-review-ko → receiving-code-review-ko → integration-test-ko (재진입)
+수정 완료 → verifying-evidence-ko 재호출 → requesting-code-review-ko → receiving-code-review-ko → (chain 대로 security-review-ko →) integration-test-ko (재진입)
 ```
 
 > 5원칙 2 문지기: FAIL을 숨기거나 "warning"으로 격하해 통과시키는 것은 금지. 1건이라도 FAIL = chain 차단.

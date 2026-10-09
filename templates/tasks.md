@@ -145,7 +145,7 @@ tasks:
 - `outputs`: 본 태스크가 생성·수정하는 파일 — 다른 leaf 와 disjoint 시 병렬 후보
 - `ac`: 본 태스크가 충족하는 AC ID 배열 (acceptance-criteria.md 참조)
 
-**FID 스코프(분할 계획행)**: 태스크가 **7개 이상**이면 tasks.md 끝에 줄 선두 `**분할 계획**: <어느 태스크까지 이번 FID, 나머지는 후속 FID 후보>` 1행을 기재한다(내용이 비면 없는 것). 미기재면 `emit-context` 가 `check-fid-size.sh` 로 구현 전에 거부한다. **10개 이상**은 대화형에서 계획행이 있어도 거부(FID 분할 후 재진입) — `§auto`·`§batch`·`foundation` 만 경고 후 진행.
+**FID 스코프(분할 계획행)**: 태스크가 **7개 이상**이면 tasks.md 끝에 줄 선두 `**분할 계획**: <어느 태스크까지 이번 FID, 나머지는 후속 FID 후보>` 1행을 기재한다(내용이 비면 없는 것). 미기재면 `emit-context` 가 `check-fid-size.sh` 로 구현 전에 거부한다. **10개 이상**은 대화형에서 계획행이 있어도 거부(FID 분할 후 재진입) — `§auto`·`§batch` 만 경고 후 진행한다(`foundation` 도 대화형이라 거부 대상이다 — 층별 FID 로 나눈다).
 
 **예시 fixture**: `scripts/tests/dag/fixtures/tasks-md/01-two-leaves-disjoint.md` (T1·T2 절대 leaf disjoint → 병렬 가능).
 

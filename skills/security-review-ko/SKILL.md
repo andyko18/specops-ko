@@ -3,7 +3,7 @@ name: security-review-ko
 description: lifecycle chain에서 코드 변경 표면 검출 시 SAST(semgrep+gitleaks) 보안 스캔을 실행·판정·증거화. Critical/High 발견 시 chain 차단, 표면 부재·도구 미설치 시 graceful skip
 layer: 2
 reference_upstream: specops-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
-specops_version: 1.18.0
+specops_version: 2.18.0
 used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), integration-test-ko (chain 출구)
 ---
 
@@ -38,7 +38,7 @@ SECURITY: SKIP — <근거: spec.md §섹션명 Lxx-yy, 표현 예: "§범위 L1
 ```
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## 다음 skill`로 chain** (나머지 절차 스킵).
 
-> **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§범위 L12`). 근거 없는 SKIP 은 형식화 — 거부.
+> **SKIP 근거 의무** (V3): SKIP 근거에 spec.md **섹션명 + 라인 번호**를 반드시 인용한다 (예: `§범위 L12`) — `§유형` 과 무관하다(`release-ready.sh` 가 인용 없는 SKIP 을 NOT_READY 로 본다). 근거 없는 SKIP 은 형식화 — 거부.
 > **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호). 판정 무기록 FID 는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gate-coverage.sh ~/repoA ~/repoB` (scripts/README).
 
 > 한계 고백: spec.md가 없거나 §범위 섹션이 없는 경우 → 사용자에게 "spec.md §범위 미발견 — 보안 스캔 대상을 수동으로 알려주세요 [혹은 skip?]" 1줄 질문. 사용자 응답에 따라 진행 또는 SKIP 처리.
@@ -67,7 +67,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <스캔대상 디렉토리
 ```
 
 출력 형식:
-- `SECURITY: SKIP (...)` — 스캐너 미설치 또는 jq 부재 (exit 0)
+- 스캐너가 없어도 `SECURITY: SKIP` 은 나오지 않는다 — 설치가 필요 없는 self-check 가 항상 돈다. semgrep·gitleaks 가 둘 다 없으면 아래 줄 끝에 `(self-check only — semgrep·gitleaks 미설치)` 가 붙는다
 - `SECURITY: crit=<N> high=<N> med=<N>` — 스캔 실행됨. crit/high>0 이면 exit 1
   - 접미 `(룰셋: 로컬 bash-injection)` 이 붙으면 semgrep 이 실제로 완주했다는 **실행 receipt** 다. 부재하면 semgrep 층이 돌지 않은 것이다(미설치·룰셋 부재·시간초과·하드 실패) — `crit=0` 만 보고 통과로 읽지 않는다
   - 강등 사유는 `(외부 SAST 미반영 — …)` 접미로 함께 표기된다
@@ -76,7 +76,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <스캔대상 디렉토리
 
 | 결과 | 처리 |
 |---|---|
-| `SECURITY: SKIP` (스캐너 미설치) | graceful skip — `.specops/<FID>/evidence.md`에 SKIP 기록 → `## 다음 skill` |
+| `crit=0 high=0` + `(self-check only — …)` 접미 | PASS 로 진행하되 evidence.md 에 **접미까지 그대로** 남긴다 — 외부 스캐너가 돌지 않았다는 뜻이다(전체 SAST 통과로 적지 않는다) |
 | `crit=0 high=0` (exit 0) | `SECURITY: PASS — crit=0 high=0 med=<N>` → evidence.md append → `## 다음 skill` |
 | `crit>0` 또는 `high>0` (exit 1) | → **차단 분기** (아래) |
 | 실행 자체 실패 (스크립트 없음 등) | → 사용자에게 "security-scan.sh를 찾을 수 없습니다" 보고 + 해결 후 재시도 |
@@ -139,7 +139,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /security-
 
 `spec.md`에 `**§auto**` 라벨이 있어도 (완전자동 모드), **Critical/High 자동 통과는 금지**한다.
 
-- SKIP(표면 없음·스캐너 미설치)·PASS(crit=0 high=0) → §auto에서 자동 진행 허용
+- SKIP(표면 없음)·PASS(crit=0 high=0 — `self-check only` 접미 포함) → §auto에서 자동 진행 허용
 - crit/high>0 (FAIL) → §auto여도 **차단**. systematic-debugging-ko 경유 필수. 보안 결함은 가역 게이트가 아니다
 
 > 5원칙 2 문지기: 자동 모드는 "가역적·저위험" 게이트만 자동 통과한다. Critical 취약점 통과는 비가역적 위험이므로 자동 통과 대상이 아니다.
@@ -154,7 +154,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /security-
 | 2 **문지기** | Critical/High 1건 = chain 차단. §auto여도 자동 통과 금지. "med으로 격하" 금지 |
 | 3 **깊이** | 스캔 실행 없이 PASS 주장 금지. 출력 전문을 evidence.md에 기록 |
 | 4 **주권 존중** | SKIP 처리 시 근거를 spec.md 라인 번호로 명시 — 사용자가 판단 가능하게 |
-| 5 **한계 고백** | 스캐너 미설치 시 SKIP을 명시(거짓 PASS 금지). 도구 부재는 "검증 불가"이지 "안전"이 아님 |
+| 5 **한계 고백** | 스캐너 미설치 시 `self-check only` 접미를 그대로 기록(전체 SAST 통과로 쓰지 않는다). 도구 부재는 "검증 불가"이지 "안전"이 아님 |
 
 ---
 

@@ -94,6 +94,22 @@ _detail() {
   else
     echo "⚠️ 미완 batch — ${batch_id}: ${done_n}/${total} 완료. ACTIVE 마커가 남아 있다."
     echo "   재개: /start-all 재호출 시 Phase 0 이 이 batch 를 재개한다(PENDING/PLAN_DONE 부터)."
+    # 보류(HELD) FR 은 Phase 3 가 순회하지 않는다(PLAN_DONE 만 돈다) — 세션이 끊기면 아무도 되살리라고 말하지 않았다.
+    #   있을 때만 한 줄 더 낸다(훅 모드의 바이트 예산 — 없으면 출력은 종전과 같다).
+    local held
+    held=$(awk -F'|' "$QUEUE_AWK_QNORM"'
+      /^[[:space:]]*\|/ {
+        id = qnorm($2)
+        if (id == "FR-ID" || id !~ /^FR-/) next
+        st = ""
+        for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
+        if (st == "HELD") n++
+      }
+      END { print n + 0 }
+    ' "$queue" 2>/dev/null) || held=0
+    if [ "${held:-0}" -gt 0 ] 2>/dev/null; then
+      echo "   보류(HELD) ${held}건은 자동으로 다시 돌지 않는다 — 그 FID 의 dispatch-log.md 사유를 확인해 결정한 뒤 PLAN_DONE 으로 되돌린다."
+    fi
   fi
   return 0
 }

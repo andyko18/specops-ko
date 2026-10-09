@@ -25,7 +25,7 @@ wave loop 전에 아래 태스크를 모은다:
 
 - 승인받지 못한 태스크와 **그 태스크에 의존하는 태스크**(`depends_on`)는 dispatch 하지 않고 끝 보고에 `skip` 으로 남긴다. 그 때문에 AC 가 비면 verify 가 FAIL 한다 — 숨기지 않는다. 이 FAIL 은 fix_loop 로 다시 시도하지 않는다(사용자가 거부한 일을 되묻게 된다): "사용자 거부로 미구현: <task-id> · 빈 AC" 를 보고하고 멈춘다.
 - 사전 승인된 태스크는 그 태스크의 Step 0(승인 요청)을 다시 묻지 않는다 — 승인 기록이 그 답이다.
-- `§auto` 는 종전대로 태스크 위치에서 `AUTO-HARD-GATE` 다. `§batch` 는 사용자 채널이 없다 — 종전 halt 규칙을 따른다.
+- `§auto` 는 종전대로 태스크 위치에서 `AUTO-HARD-GATE` 다. `§batch` 는 사용자 채널이 없다 — `BATCH-FR-HELD: <FID>` 를 내고 그 FR 을 halt 한다(`needs-approval.md` 4항).
 - 외부 적재 태스크에 `irreversible: true` 를 **붙이지 않는다** — 그 필드는 위험도 판정이 strict 신호로 읽는다. 되돌릴 수 없는 작업에만 쓴다.
 
 ## 2. 진행 중 — 묻지 않고 정하는 것

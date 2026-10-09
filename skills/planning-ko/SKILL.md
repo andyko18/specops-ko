@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.17.0
+specops_version: 2.18.0
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -213,7 +213,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-predispatch.sh <FID>
 **Evaluator 모델 불가 fallback (P1 — 20260718)**: `plan-reviewer-ko`(opus 고정)도 모델 불가(한도·접근) 시 dispatch 가 실패한다. 이때 **부모 self-review 로 후퇴 금지** — 같은 `plan-reviewer-ko` 를 **독립 서브에이전트로 가용 모델 override 재dispatch**(Agent `model` 인자)해 Generator↔Evaluator 분리를 보존한다. dispatch-log 에 `plan-reviewer-ko (모델 fallback: <지정 모델> 불가 → <모델>)` 기록. 상세 규약은 `skills/implementing-ko/SKILL.md` "Evaluator 모델 불가 fallback" 참조(동일 원칙).
 
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
-cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/review 단계가 검증). dispatch-log.md에 "plan-reviewer cap 초과 → §auto 자동통과" 기록. cap 초과 자동통과 **직전** `advisor()` 1회 자문 시도 → 권고 요지를 dispatch-log.md에 기록(보조 입력 — plan 판정 권한 없음, 가역 게이트라 자동 진행). `advisor()` 미연결 시 자문 없이 자동통과 진행(graceful fallback — 하드 의존 금지).
+cap 초과 시 리뷰어 반환 전문을 `.specops/<FID>/plan-review.md` 에 저장하고 **그 파일을 기계 판정**한다 — `grep -qE '^Critical:[[:space:]]*0([^0-9]|$)' .specops/<FID>/plan-review.md` 가 맞을 때만 Critical=0 이다(plan-reviewer 는 `Critical: <N>건` 줄을 낸다. 줄이 없거나 형식이 다르면 Critical 이 있는 것으로 본다). 눈으로 세지 않는다 — 무인에서 오판하면 Critical plan 이 자동 통과하고 사람이 없다. **Critical≥1 이면 무인이라도 `HARD-GATE: plan-reviewer Critical cap — 사용자 결정` 으로 정지**한다(`/start-all` Phase 2·2.5-D 와 같은 판정 — 진입 경로에 따라 답이 달라지지 않는다). **Critical=0(Important 만 남음)** 일 때만 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/review 단계가 검증). dispatch-log.md에 "plan-reviewer cap 초과(Important <N>건) → §auto 자동통과" 기록. cap 초과 자동통과 **직전** `advisor()` 1회 자문 시도 → 권고 요지를 dispatch-log.md에 기록(보조 입력 — plan 판정 권한 없음, 가역 게이트라 자동 진행). `advisor()` 미연결 시 자문 없이 자동통과 진행(graceful fallback — 하드 의존 금지).
 
 **dispatch-log.md 기록** (`.specops/<FID>/dispatch-log.md` — 부재 시 `templates/dispatch-log.md` 복사):
 
@@ -223,7 +223,7 @@ cap 초과 시 HARD GATE 대신 **자동 통과** (가역 — plan은 verify/rev
 
 **비-batch만**: plan-reviewer **최종 PASS 직후** 1회 (§auto cap 초과 자동통과 경로 포함 — 자동통과도 진행 확정이므로 동일 호출. FAIL 루프 중에는 미호출):
 
-1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`
+1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`
 2. 의견 출력 시 (`CRITIC[<provider>]:`): 요지 1~2문장을 plan.md §8 에 행 추가 —
    `| <ts> | 외부 critic (<provider>) | <요지> | 참고 | §N |`
 3. `CRITIC: SKIP/FAIL` → dispatch-log 1줄만 기록 (plan.md §8 미기재 — 잡음 방지)
