@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.17.0] — 2026-10-09
+
 ### Changed
 
 - **foundation FID 도 태스크 10개 이상이면 구현에 들어갈 수 없다** (`check-fid-size.sh`). 종전엔 `§auto`·batch 와 함께 예외라 분할 계획행과 경고만으로 통과했다. 예외의 근거는 "분할을 물을 사용자 채널이 없다" 였는데 `/start-foundation` 은 대화형이다. 실기록 foundation FID 3건이 10·11·21 태스크였고, 21건짜리는 32시간이 걸리고 plan 리뷰가 2회 FAIL 한 뒤 사용자 결정으로 진행했다. 이번 릴리즈에서 manifest 가 행을 더하는 문서가 되어(아래 Fixed) 공통부를 층별 FID 로 나눌 수 있다 — 막을 때 그 길(스캐폴딩·DB 베이스 → 인증 → 화면 셸 · 층마다 `/start-foundation` · manifest 는 행 추가 · 공통부 FR 은 `fr-set-fid.sh` 로 FID 마다 기록)을 함께 말한다.
@@ -3131,7 +3133,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.16.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.17.0...HEAD
+[2.17.0]: https://github.com/andyko18/specops-ko/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/andyko18/specops-ko/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/andyko18/specops-ko/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/andyko18/specops-ko/compare/v2.13.0...v2.14.0
