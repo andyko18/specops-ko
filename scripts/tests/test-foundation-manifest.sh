@@ -157,4 +157,44 @@ EOF
 [ "$rc" -eq 0 ] && ok "T12 '해당 없음' 명시 형태 → PASS" || nope "T12" "rc=$rc"
 rm -rf "$TD"
 
+# ── T13: 템플릿의 **안내문**이 미채움으로 잡히면 안 된다 (20261009 /start-foundation 점검) ──
+# 결함: 표·스택·제목·FID 를 전부 채워도 템플릿 자신의 안내문(`<경로>` 를 인용한 경고)과
+#   `재사용 게이트 규약` 절의 꺾쇠 예시가 스캐너에 걸려 VERIFY: FAIL 이 났다 — 채울 값이 아닌 줄이다.
+#   판정기(스캐너)는 6곳이 함께 쓰므로 건드리지 않고, 템플릿의 안내문에서 꺾쇠 표기를 뺀다.
+# 채워야 하는 자리: 머리 FID 주석 · 제목의 프로젝트명 · 모듈 표 · 기술 스택 · 꼬리말 FID.
+_fill_real() {  # $1=출력 경로 — 템플릿의 **실제 자리표시자만** 채운다(안내문은 손대지 않는다)
+  sed -e 's/<YYYYMMDD-kebab-slug>/20260806-foundation/' \
+      -e 's/<프로젝트명>/mychat/' \
+      -e 's/^| \([^|]*\) | `<경로>` | <설명> | `<import 예시>` |$/| \1 | `src\/x.ts` | 역할 설명 | `import x` |/' \
+      -e 's/<확정된 프레임워크>/React 19/; s/<확정된 DB>/PostgreSQL 17/' \
+      -e 's/FID: <FID>/FID: 20260806-foundation/' \
+      "$TPL" > "$1"
+}
+TD=$(mktemp -d); _mk "$TD" 20260806-foundation foundation
+_fill_real "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-foundation 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T13.a 실제 자리표시자만 채운 템플릿 → PASS (안내문은 미채움이 아니다)" \
+  || nope "T13.a" "rc=$rc out=$(printf '%s' "$out" | head -8)"
+rm -rf "$TD"
+
+# T13.b: 그렇다고 실제 자리표시자가 풀린 건 아니다 — 하나씩 남기면 여전히 FAIL
+for keep in '<프로젝트명>' '<확정된 DB>' 'FID: <FID>'; do
+  TD=$(mktemp -d); _mk "$TD" 20260806-foundation foundation
+  _fill_real "$TD/.specops/memory/foundation-manifest.md"
+  # 채운 값 하나를 템플릿 원문으로 되돌린다
+  case "$keep" in
+    '<프로젝트명>') sed -i.bak 's/^# Foundation Manifest — mychat/# Foundation Manifest — <프로젝트명>/' "$TD/.specops/memory/foundation-manifest.md" ;;
+    '<확정된 DB>')  sed -i.bak 's/PostgreSQL 17/<확정된 DB>/' "$TD/.specops/memory/foundation-manifest.md" ;;
+    'FID: <FID>')   sed -i.bak 's/· FID: 20260806-foundation ·/· FID: <FID> ·/' "$TD/.specops/memory/foundation-manifest.md" ;;
+  esac
+  grep -qF -- "$keep" "$TD/.specops/memory/foundation-manifest.md" || nope "T13.b-setup" "되돌리기 실패: $keep"
+  (cd "$TD" && bash "$CHK" 20260806-foundation >/dev/null 2>&1); rc=$?
+  [ "$rc" -eq 1 ] && ok "T13.b 실제 자리표시자 잔존($keep) → FAIL" || nope "T13.b" "$keep rc=$rc"
+  rm -rf "$TD"
+done
+
+# T13.c: 안내문이 사라진 게 아니라 표기만 바뀐 것이다 — 재사용 규약 두 필드명은 그대로 보인다
+grep -qF '**재사용 foundation**:' "$TPL" && grep -qF '**미재사용 근거**:' "$TPL" \
+  && ok "T13.c 템플릿이 재사용 규약 두 필드를 여전히 안내" || nope "T13.c" "필드 안내 소실"
+
 finish
