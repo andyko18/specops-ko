@@ -41,7 +41,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 - **슬래시 전용** — 자연어("공통부 만들어줘")로는 이 분기에 들어오지 않는다(메타 skill 은 신규·유지보수만 가른다). 자연어로 시작하면 일반 `/start` 로 가서 manifest 게이트·셸 규칙이 적용되지 않는다.
 - **`/start-all` 은 이 FID 가 main 에 머지된 뒤** — `/start-all` Phase 0 의 `check-foundation-merged.sh` 가 `feat/<FID>` 미머지면 막는다. squash·rebase 머지는 git 조상 판정에 안 잡히므로 `gh` 로 PR 상태를 읽을 수 있어야 한다(읽을 수 없으면 로컬의 머지된 `feat/<FID>` 브랜치를 지운다 — 브랜치가 없으면 머지 후 삭제로 본다).
-- **태스크가 10개를 넘으면** — 차단하지는 않지만 `FID-SIZE: WARN` 이 층별 분할을 권한다(실기록: 21 태스크 FID 는 32시간이 걸렸고 plan 리뷰가 2회 FAIL 했다). 나눠 만들 때 manifest 는 다음 FID 가 행을 더한다.
+- **태스크는 9개까지** — 10개 이상이면 구현 직전 `FID-SIZE: FAIL` 로 막힌다(다른 대화형 FID 와 같다 · 실기록: 21 태스크 FID 는 32시간이 걸렸고 plan 리뷰가 2회 FAIL 했다). 공통부가 크면 **spec 단계에서 층별로 나눠** 시작한다 — 예: 스캐폴딩·DB 베이스 → 인증 → 화면 셸. 층마다 `/start-foundation` 을 다시 돌리고, manifest 는 다음 FID 가 행을 더한다. 0b 에서 이번 FID 가 다룰 FR 을 고를 때 이 상한을 함께 본다.
 - **스택 근거** — architecture 문서의 스택 줄(프레임워크·언어·런타임)에 미확정이 남아 있으면 구현 직전 `check-stack-decided.sh` 가 결정 원장 또는 clarifications 의 RESOLVED 를 요구한다. architecture 문서가 없는 프로젝트(CLI·라이브러리)는 막지 않고, 근거가 어디에도 없을 때만 `STACK-DECIDED: NOTE` 로 알린다.
 
 ## 사용 예

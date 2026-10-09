@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 2.14.0
+specops_version: 2.17.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -150,11 +150,11 @@ per-태스크 크기(2~5분)와 **별개로**, **FID 전체 태스크 수**가 �
 그리고 아래 중 하나를 택한다:
 
 - **선호 (예방)** — 다음 기능부터 `specifying-ko` 단계에서 **수직 슬라이스**(각자 독립 shippable 단위)로 FID 를 작게 스코프한다. 큰 기능 1 FID 보다 작은 기능 여러 FID 가 완주율이 높다.
-- **현 FID (완화)** — (6개 초과 9개 이하, 또는 아래 무인·batch·foundation 예외) `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
+- **현 FID (완화)** — (6개 초과 9개 이하, 또는 아래 무인·batch 예외) `implementing-ko` 는 태스크별로 `dispatch-log` 를 갱신하므로(session-progress 는 끝에 1줄), 중간 이탈해도 `/status` reconcile 이 그 dispatch-log·커밋을 읽어 정확한 재개점을 잡는다. 즉 큰 FID 의 세션 경계 생존은 reconcile(#220)에 의존한다.
 
 **7개 이상 분할 계획행 의무** — tasks.md 끝에 줄 선두 `**분할 계획**: <이번 FID 범위·후속 FID 후보>` 1행. 미기재 시 `emit-context.sh`(`check-fid-size.sh`)가 거부한다.
 
-**10개 이상 차단 (대화형)** — FID 분할 없이 구현 진입 불가(계획행이 있어도 `check-fid-size.sh` 가 거부). 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입. **예외** — 사용자 채널이 없는 `§auto`·`/start-all` batch(FR 단위 FID)·`foundation`(나눌 수 있다)은 계획행 + `FID-SIZE` 경고만으로 진행한다.
+**10개 이상 차단 (대화형)** — FID 분할 없이 구현 진입 불가(계획행이 있어도 `check-fid-size.sh` 가 거부). 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입. **예외** — 사용자 채널이 없는 `§auto`·`/start-all` batch(FR 단위 FID)는 계획행 + `FID-SIZE` 경고만으로 진행한다(`foundation` 은 층별 FID 로 나눈다).
 
 ## 테스트 컨벤션 (bash)
 

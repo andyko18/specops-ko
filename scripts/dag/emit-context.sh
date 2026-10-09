@@ -42,7 +42,7 @@ if [ -f "$_TID_SH" ]; then
 fi
 
 # FID 스코프 게이트 — 7개 이상은 tasks.md 의 `**분할 계획**:` 행 의무, 10개 이상은 대화형 차단
-#   (§auto·§batch 는 분할을 물을 채널이 없어, foundation 은 한 덩어리가 필요한 경우가 있어 경고 후 진행). decomposing-ko `## FID 크기 규약` 의 기계 강제.
+#   (§auto·§batch 는 분할을 물을 채널이 없어 경고 후 진행 — foundation 은 예외가 아니다). decomposing-ko `## FID 크기 규약` 의 기계 강제.
 #   WARN 은 통과하되 경고를 stderr 로 남긴다 — 큰 FID 가 조용히 지나가지 않게.
 _FS_SH="$SCRIPT_DIR/../_internal/check-fid-size.sh"
 if [ -f "$_FS_SH" ]; then

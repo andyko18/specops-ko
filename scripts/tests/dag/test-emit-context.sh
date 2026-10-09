@@ -491,14 +491,14 @@ _pf "T6.c 7 태스크 계획행 있음 → WARN rc=0·경고 줄" "$([ "$rc" -eq
 mk_fs_fixture "$tmp" 20261007-fs9y 9 y; fs_run "$tmp" 20261007-fs9y; r9=$rc
 mk_fs_fixture "$tmp" 20261007-fs10y 10 y; fs_run "$tmp" 20261007-fs10y
 _pf "T6.d 9 태스크 통과 · 10 태스크 대화형은 계획행이 있어도 FAIL" "$([ "$r9" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '≥10' && echo ok || echo no)" "r9=$r9 rc=$rc out=$out"
-# T6.e 10 태스크 + 줄 선두 §auto·§batch·foundation + 계획행 → WARN 통과 (분할할 채널이 없다)
+# T6.e 10 태스크 + 줄 선두 §auto·§batch + 계획행 → WARN 통과 (분할을 물을 사용자 채널이 없다)
 oke=ok
-for lab in '**§auto**: true' '**§batch**: batch-20261007' '**§유형**: foundation'; do
+for lab in '**§auto**: true' '**§batch**: batch-20261007'; do
   mk_fs_fixture "$tmp" 20261007-fs10x 10 y "# spec
 $lab"; fs_run "$tmp" 20261007-fs10x
   { [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && printf '%s' "$out" | grep -q '⚠️ FID-SIZE: 10 태스크'; } || { oke=no; echo "  (예외 미작동: $lab rc=$rc out=$out)"; }
 done
-_pf "T6.e 10 태스크 + 예외 라벨 3종 + 계획행 → WARN 통과" "$oke"
+_pf "T6.e 10 태스크 + 예외 라벨 2종(§auto·§batch) + 계획행 → WARN 통과" "$oke"
 # T6.f 예외 라벨이어도 10 태스크에 계획행이 없으면 FAIL (예외는 계획행 의무를 면하지 않는다)
 mk_fs_fixture "$tmp" 20261007-fs10xn 10 n '**§auto**: true'; fs_run "$tmp" 20261007-fs10xn
 _pf "T6.f 10 태스크 §auto 계획행 없음 → FAIL" "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL' && echo ok || echo no)" "rc=$rc out=$out"
@@ -698,12 +698,23 @@ _pf "T11.g 번호 불일치 → 선언 미대응(잘못된 선언을 싣지 않�
      && printf '%s' "$out" | grep -q '번호가 어긋' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp"
 
-# T6.q foundation 예외의 경고는 "분할 불가" 가 아니라 나누는 길을 말한다 — /start-foundation 은 대화형이라 나눌 수 있다
-#   (실기록 3건이 10·11·21 태스크 · 종전 문구는 사용자 채널이 없는 §auto·§batch 와 같은 이유를 댔다)
+# T6.q foundation 은 예외가 아니다 (20261009) — /start-foundation 은 대화형이라 나눌 수 있다.
+#   실기록 foundation FID 3건이 10·11·21 태스크였고 21건짜리는 32시간이 걸리고 plan 리뷰가 2회 FAIL 했다.
+#   manifest 가 행을 더하는 문서가 되어(같은 릴리즈) 공통부를 층별 FID 로 나눌 수 있다.
 tmp=$(mktemp -d); mk_fs_fixture "$tmp" 20261007-fsq 10 y "# spec
 **§유형**: foundation"; fs_run "$tmp" 20261007-fsq
-_pf "T6.q foundation 10 태스크 → WARN rc=0 · 층별 분할 안내 · '분할 불가' 문구 없음" \
-  "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'foundation 예외' && printf '%s' "$out" | grep -q '층별로 나눠' && ! printf '%s' "$out" | grep -q '분할 불가' && echo ok || echo no)" "rc=$rc out=$out"
+_pf "T6.q foundation 10 태스크 → 계획행이 있어도 FAIL · 층별 분할 안내" \
+  "$([ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FID-SIZE: FAIL' && printf '%s' "$out" | grep -q '층별' && printf '%s' "$out" | grep -q '/start-foundation' && echo ok || echo no)" "rc=$rc out=$out"
+[ ! -f "$tmp/.specops/20261007-fsq/friction-log.jsonl" ] && _pf "T6.s 차단된 foundation 은 예외 사용 기록을 남기지 않는다" ok || _pf "T6.s 차단된 foundation 은 예외 사용 기록을 남기지 않는다" no "friction-log 생성됨"
+# 9 태스크까지는 종전대로 계획행 + 경고로 통과한다 (경계)
+mk_fs_fixture "$tmp" 20261007-fsq9 9 y "# spec
+**§유형**: foundation"; fs_run "$tmp" 20261007-fsq9
+_pf "T6.t foundation 9 태스크 + 계획행 → WARN 통과(경계)" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FID-SIZE: WARN' && echo ok || echo no)" "rc=$rc out=$out"
+# 무인 표지가 함께 있으면 물을 채널이 없으므로 종전 예외 그대로다
+mk_fs_fixture "$tmp" 20261007-fsqa 10 y "# spec
+**§유형**: foundation
+**§auto**: true"; fs_run "$tmp" 20261007-fsqa
+_pf "T6.u foundation + §auto 10 태스크 → §auto 예외로 WARN 통과" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '§auto 예외' && echo ok || echo no)" "rc=$rc out=$out"
 mk_fs_fixture "$tmp" 20261007-fsq2 10 y "# spec
 **§auto**: true"; fs_run "$tmp" 20261007-fsq2
 _pf "T6.r §auto 예외는 종전 사유(사용자 채널 없음) 그대로 · 층별 분할 안내 없음" \
