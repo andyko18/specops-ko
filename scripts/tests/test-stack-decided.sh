@@ -237,4 +237,130 @@ EOF
 _clar T22 'CRLF + 빈 답 → FAIL' 1 < <(printf '# C\r\n\r\n**status**: RESOLVED\r\n\r\n## Q1 · 프레임워크 · BLOCKING\r\n\r\n**답변**: \r\n')
 _clar T23 'CRLF + 정상 답 → PASS' 0 < <(printf '# C\r\n\r\n**status**: RESOLVED\r\n\r\n## Q1 · 프레임워크 · BLOCKING\r\n\r\n**답변**: Next.js\r\n')
 
+# ── T24~: 미확정 판정·사각 (20261009 /start-foundation 점검 묶음 D) ──────────────────
+# 결함 ①: 아키텍처 문서의 미확정 여부를 범용 미채움 스캐너로 봤다 — 다 채운 문서의 `useState<string>`·`<cmd>` 를
+#   미확정으로 읽어, 원장 행이 없으면 "스택 확정 증거 없음" 으로 막았다(거짓 차단). 템플릿의 자리표시자와
+#   한글 꺾쇠 표기(`<미확정 — 근거 필요>`)만 미확정으로 본다. 경로 규약 표기(`<feature>`·`<name>`)는 채울 자리가 아니다.
+_arch_case() {  # $1=id $2=설명 $3=기대 rc $4=출력에 있어야 할 문자열(선택) · stdin=frontend-architecture.md 본문
+  local td out rc
+  td=$(mktemp -d); mkdir -p "$td/.specops/20260806-f" "$td/.specops/memory"
+  printf '**§유형**: foundation\n' > "$td/.specops/20260806-f/spec.md"
+  cat > "$td/.specops/memory/frontend-architecture.md"
+  _ledger "$td" "${ARCH_LEDGER:-}"
+  out=$(cd "$td" && bash "$CHK" 20260806-f 2>&1); rc=$?
+  if [ "$rc" -eq "$3" ] && { [ -z "${4:-}" ] || printf '%s' "$out" | grep -qF -- "$4"; }; then ok "$1 $2"
+  else nope "$1" "rc=$rc(기대 $3) out=$out"; fi
+  rm -rf "$td"
+}
+ARCH_LEDGER=''
+_arch_case T24 '다 채운 문서의 코드 표기(useState<string>·<cmd>)는 미확정이 아니다 → 비발동' 0 '이미 확정' <<'EOF'
+# 프론트 아키텍처
+
+- 프레임워크: React 19 (`app/<feature>/page.tsx` 파일 기반 · 화면 문서 `screens/<name>.md`)
+- 상태: `useState<string>` 로 폼 값을 둔다
+- 실행: `pnpm --filter web <cmd>`
+- 기능 폴더: `src/features/<feature>/` · 화면: `screens/<name>.md`
+EOF
+_arch_case T25 '템플릿 자리표시자가 남으면 미확정 → 증거 없으면 FAIL' 1 'STACK-DECIDED: FAIL' <<'EOF'
+# 프론트 아키텍처
+
+- 프레임워크: <React 18 / Vue 3 / Svelte / Solid / Next.js / Nuxt>
+EOF
+_arch_case T26 '스택 줄의 <미확정 — 근거 필요> → 미확정 → FAIL + 그 줄을 보여 준다' 1 '주 프레임워크**: <미확정' <<'EOF'
+# 프론트 아키텍처
+
+- **주 프레임워크**: <미확정 — 근거 필요>
+- **언어**: TypeScript
+EOF
+_arch_case T26b '스택이 아닌 줄(호스팅)의 미확정은 이 게이트의 일이 아니다 → 비발동' 0 '이미 확정' <<'EOF'
+# 프론트 아키텍처
+
+- **주 프레임워크**: React 19
+- **언어**: TypeScript
+- **호스팅**: <미확정 — 근거 필요> (Vercel / Netlify 중 택일)
+- 테스트: <Vitest + Testing Library / Jest + RTL>
+EOF
+_arch_case T26c '손대지 않은 템플릿 그대로 → 미확정 → FAIL' 1 'STACK-DECIDED: FAIL' < "$PLUGIN/templates/frontend-architecture.md"
+# 템플릿과 글자가 다른 자리표시자도 스택 줄의 **값 자리**에 있으면 미확정이다 (독립 리뷰: 템플릿 토큰만 대조하면 놓친다)
+okv=ok
+for v in '<Express / Fastify>' '<React>' '<확정 필요>' '`<TypeScript>`' '**<Next.js 또는 Remix>**'; do
+  td=$(mktemp -d); mkdir -p "$td/.specops/20260806-f" "$td/.specops/memory"; printf '**§유형**: foundation\n' > "$td/.specops/20260806-f/spec.md"
+  printf '# FE\n\n- **주 프레임워크**: %s\n- **호스팅**: Vercel\n' "$v" > "$td/.specops/memory/frontend-architecture.md"
+  (cd "$td" && bash "$CHK" 20260806-f >/dev/null 2>&1); rc=$?; [ "$rc" -eq 1 ] || okv="no($v → rc=$rc)"
+  printf '# FE\n\n| 항목 | 값 |\n|---|---|\n| 언어 | %s |\n' "$v" > "$td/.specops/memory/frontend-architecture.md"
+  (cd "$td" && bash "$CHK" 20260806-f >/dev/null 2>&1); rc=$?; [ "$rc" -eq 1 ] || okv="no(표: $v → rc=$rc)"
+  rm -rf "$td"
+done
+[ "$okv" = ok ] && ok "T26d 스택 줄의 값이 꺾쇠 표기로 시작(목록·표 5종) → 미확정 → FAIL" || nope "T26d" "$okv"
+# 템플릿의 자리표시자는 값 **중간**에 남아 있어도 미확정이다(값 자리 규칙과 별개의 근거 — 템플릿 토큰 대조)
+_arch_case T26h '스택 줄 값 중간에 남은 템플릿 선택지 토큰 → 미확정 → FAIL' 1 'frontend-architecture.md:3:' <<'EOF'
+# 프론트 아키텍처
+
+- **주 프레임워크**: 아직 못 정함 — <React 18 / Vue 3 / Svelte / Solid / Next.js / Nuxt> 중 택일
+EOF
+# 값 중간의 코드 표기·한글 경로 규약·비교식·펜스 안은 미확정이 아니다
+_arch_case T26e '스택 줄 값 중간의 코드 표기·한글 경로 규약 → 비발동' 0 '이미 확정' <<'EOF'
+# 프론트 아키텍처
+
+- **주 프레임워크**: Next.js 15 — `app/<페이지명>/page.tsx` 파일 기반 · `useQuery<사용자[]>()`
+- **런타임**: Node 22 (`node --import <loader>` 로 계측) · 응답 < 200ms 이고 처리량 > 100
+- **언어**: TypeScript — 제네릭 `Result<T, E>` 를 쓴다
+
+```ts
+// 프레임워크: <여기는 코드펜스 안>
+```
+EOF
+# 경로에 framework·runtime 이 들어 있어도 줄 내용만 본다 (절대경로 SPECOPS_ROOT)
+td=$(mktemp -d); d2="$td/my-framework-runtime-x"; mkdir -p "$d2/.specops/20260806-f" "$d2/.specops/memory"
+printf '**§유형**: foundation\n' > "$d2/.specops/20260806-f/spec.md"
+printf '# FE\n\n- **주 프레임워크**: React 19\n- **호스팅**: <미확정 — 근거 필요>\n' > "$d2/.specops/memory/frontend-architecture.md"
+out=$(cd / && SPECOPS_ROOT="$d2/.specops" bash "$CHK" 20260806-f 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '이미 확정' && ok "T26f 경로에 framework·runtime 이 든 프로젝트 — 호스팅 미확정은 스택 줄이 아니다" || nope "T26f" "rc=$rc out=$out"
+rm -rf "$td"
+# 문서가 둘이고 같은 행 번호에 미확정이 있어도 둘 다 보여 준다
+td=$(mktemp -d); mkdir -p "$td/.specops/20260806-f" "$td/.specops/memory"; printf '**§유형**: foundation\n' > "$td/.specops/20260806-f/spec.md"
+printf '# FE\n\n- **주 프레임워크**: <미확정 — 근거 필요>\n' > "$td/.specops/memory/frontend-architecture.md"
+printf '# BE\n\n- **런타임**: <미확정 — 근거 필요>\n' > "$td/.specops/memory/backend-architecture.md"
+out=$(cd "$td" && bash "$CHK" 20260806-f 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'frontend-architecture.md:3:' && printf '%s' "$out" | grep -q 'backend-architecture.md:3:' \
+  && ok "T26g 두 문서의 미확정 줄을 문서 이름과 함께 모두 보여 준다" || nope "T26g" "rc=$rc out=$out"
+rm -rf "$td"
+# 결함 ②: 결정 원장의 확정값이 백틱으로 감싼 자리표시자면 "확정" 으로 읽었다(foundation-kind.sh 는 벗겨 읽는다 — 같은 표를 두 판정기가 다르게 읽었다)
+ARCH_LEDGER='| D-002 | 프론트 프레임워크 | `<미확정 — 근거 필요>` | init | 2026-10-09 |'
+_arch_case T27 '원장 확정값이 백틱 자리표시자 → 확정 아님 → FAIL' 1 'STACK-DECIDED: FAIL' <<'EOF'
+# 프론트 아키텍처
+
+- 프레임워크: <React 18 / Vue 3 / Svelte / Solid / Next.js / Nuxt>
+EOF
+ARCH_LEDGER='| D-002 | 프론트 프레임워크 | `React 19` | clarify | 2026-10-09 |'
+_arch_case T28 '원장 확정값이 백틱으로 감싼 실값 → 확정' 0 'decisions.md 확정 행' <<'EOF'
+# 프론트 아키텍처
+
+- 프레임워크: <React 18 / Vue 3 / Svelte / Solid / Next.js / Nuxt>
+EOF
+ARCH_LEDGER=''
+
+# 결함 ③: 아키텍처 문서가 없는 프로젝트(CLI·라이브러리 · init 을 거치지 않은 저장소)는 통째로 SKIP 이라
+#   스택 근거가 하나도 없어도 조용히 구현에 들어갔다. 막지는 않되(그런 프로젝트에 아키텍처 문서를 강제하지 않는다) 알린다.
+_noarch() {  # $1=id $2=설명 $3=NOTE 기대(y|n) $4=원장 행 $5=clarifications 본문
+  local td out rc n
+  td=$(mktemp -d); mkdir -p "$td/.specops/20260806-f" "$td/.specops/memory"
+  printf '**§유형**: foundation\n' > "$td/.specops/20260806-f/spec.md"
+  [ -n "$4" ] && _ledger "$td" "$4"
+  [ -n "$5" ] && printf '%b' "$5" > "$td/.specops/20260806-f/clarifications.md"
+  out=$(cd "$td" && bash "$CHK" 20260806-f 2>&1); rc=$?
+  n=n; printf '%s' "$out" | grep -q '^STACK-DECIDED: NOTE' && n=y
+  [ "$rc" -eq 0 ] && [ "$n" = "$3" ] && ok "$1 $2" || nope "$1" "rc=$rc note=$n(기대 $3) out=$out"
+  rm -rf "$td"
+}
+_noarch T29 '아키텍처 문서 없음 + 스택 근거 없음 → 통과하되 알린다' y '' ''
+_noarch T30 '아키텍처 문서 없음 + 원장에 구현 언어 행 → 조용히 통과' n '| D-002 | 구현 언어 | Python 3.12 | init | 2026-10-09 |' ''
+_noarch T31 '아키텍처 문서 없음 + 원장은 예시 행뿐 → 알린다' y '' ''
+_noarch T32 '아키텍처 문서 없음 + clarifications 에 스택 RESOLVED → 조용히 통과' n '' '# C\n\n**status**: RESOLVED\n\n## Q1 · 런타임·프레임워크 · BLOCKING\n\n**답변**: Node 22\n'
+_noarch T33 '아키텍처 문서 없음 + 무관한 원장 행만 → 알린다' y '| D-002 | 배포 방식 | 수동 | init | 2026-10-09 |' ''
+
+# T34: emit-context 가 그 알림을 중계한다(통과 출력은 삼키므로 중계하지 않으면 보이지 않는다)
+grep -qF 'case "$stack_out" in *"STACK-DECIDED: NOTE"*)' "$PLUGIN/scripts/dag/emit-context.sh" \
+  && ok "T34 emit-context 가 STACK-DECIDED: NOTE 를 중계" || nope "T34" "미중계 — 알림이 삼켜진다"
+
 finish

@@ -154,7 +154,7 @@ per-태스크 크기(2~5분)와 **별개로**, **FID 전체 태스크 수**가 �
 
 **7개 이상 분할 계획행 의무** — tasks.md 끝에 줄 선두 `**분할 계획**: <이번 FID 범위·후속 FID 후보>` 1행. 미기재 시 `emit-context.sh`(`check-fid-size.sh`)가 거부한다.
 
-**10개 이상 차단 (대화형)** — FID 분할 없이 구현 진입 불가(계획행이 있어도 `check-fid-size.sh` 가 거부). 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입. **예외** — 사용자 채널이 없는 `§auto`·`/start-all` batch(FR 단위 FID)·`foundation` 은 분할할 수 없어 계획행 + `FID-SIZE` 경고만으로 진행한다.
+**10개 이상 차단 (대화형)** — FID 분할 없이 구현 진입 불가(계획행이 있어도 `check-fid-size.sh` 가 거부). 수직 슬라이스로 FID 를 나눈 뒤 본 스킬 재진입. **예외** — 사용자 채널이 없는 `§auto`·`/start-all` batch(FR 단위 FID)·`foundation`(나눌 수 있다)은 계획행 + `FID-SIZE` 경고만으로 진행한다.
 
 ## 테스트 컨벤션 (bash)
 

@@ -11,15 +11,17 @@
 #     FMC_REAL    그중 저장소에 실재하는 수
 #     FMC_MISSING 실재하지 않는 경로(줄바꿈 구분)
 #   fmc_module_names <manifest|->  표 첫 칸의 모듈명(머리 행·구분선 제외)을 한 줄씩 (`-` 는 stdin)
-#   fmc_template_leftovers <문서> <템플릿>
+#   fmc_template_leftovers <문서> <템플릿> [<뺄 토큰>]
 #     템플릿의 자리표시자가 문서에 그대로 남은 줄을 `파일:행:내용` 으로 낸다. 남은 것이 없으면 rc 0, 있으면 rc 1,
 #     템플릿을 읽을 수 없으면 rc 2(호출자가 다른 판정으로 물러난다).
 #     범용 미채움 스캐너(scan-enrich-placeholders.sh)를 쓰지 않는 이유: 그 스캐너는 꺾쇠 모양을 전부 세는데,
 #     manifest 는 사용 예(`<AppShell …>` · `apiFetch<T>(path)` · `<input>`)를 적는 문서다 — 실 프로젝트의
 #     다 채운 226줄 manifest 가 "템플릿 placeholder 잔존" 으로 막혔다(20261009 재생). 이 게이트가 묻는 것은
 #     "템플릿의 자리표시자가 남았는가"이므로 **템플릿이 실제로 가진 토큰**만 찾는다.
-#     템플릿에 없더라도 미채움을 뜻하는 표기(`<TODO…`·`<TBD…`·`<todo>`·`<tbd>`·`<미정…`·`<미확정…`)는 함께 본다
-#     (`<Todo />`·`<TodoList>` 같은 컴포넌트 표기는 아니다).
+#     템플릿에 없더라도 미채움을 뜻하는 표기는 함께 본다 — `<TODO…`·`<TBD…`·`<todo>`·`<tbd>`·`<미정…`·`<미확정…`.
+#     `<Todo />`·`<TodoList>` 같은 컴포넌트 표기는 아니다. 한글이 든 꺾쇠 표기 전부를 미채움으로 보지는 않는다 —
+#     채운 문서에도 `src/features/<기능명>/`·`useQuery<사용자[]>()`·`응답 < 200ms … > 100` 이 나온다(독립 리뷰 실측).
+#     셋째 인자(선택)는 대조에서 뺄 템플릿 토큰이다(줄바꿈 구분 · 채울 자리가 아닌 규약 표기).
 #
 # 경로 표기 = 표 행(`|` 로 시작)의 백틱 표기 가운데 경로처럼 생긴 것:
 #   공백·중괄호·`=`·`;`·`,`·`*`·`<>`·따옴표가 없고 · `/`·`@`·`http`·`-`·`~`·`$` 로 시작하지 않는다.
@@ -33,9 +35,13 @@
 # shellcheck shell=bash
 
 fmc_template_leftovers() {
-  local doc="$1" tpl="$2" toks pats out
+  local doc="$1" tpl="$2" skip="${3:-}" toks pats out
   [ -f "$tpl" ] || return 2
-  toks=$(LC_ALL=C grep -oE '<[^<>]{1,60}>' "$tpl" 2>/dev/null | LC_ALL=C grep -v '^<!--' | LC_ALL=C sort -u)
+  # 템플릿도 문서와 같은 정규화(꺾쇠 안쪽 가장자리 공백 제거)를 거쳐 토큰을 뽑는다 — `< 100ms>` 같은 토큰이 어긋나지 않게.
+  toks=$(LC_ALL=C sed -e 's/<[ 	]*/</g' -e 's/[ 	]*>/>/g' "$tpl" 2>/dev/null | LC_ALL=C grep -oE '<[^<>]{1,60}>' \
+    | LC_ALL=C grep -v '^<!--' | LC_ALL=C sort -u)
+  # 채울 자리가 아닌 규약 표기(예: 경로 안의 `<feature>`)는 호출자가 빼 달라고 줄 수 있다(줄바꿈 구분).
+  [ -n "$skip" ] && toks=$(printf '%s\n' "$toks" | LC_ALL=C grep -vxF -e "$skip")
   [ -n "$toks" ] || return 2
   # 한글이 든 토큰은 닫는 꺾쇠를 뗀 **앞머리**로 찾는다 — `<경로 입력>`·`<설명 작성>` 처럼 고쳐 쓴 미채움도 잡는다.
   #   영문만으로 된 토큰(`<FID>`)은 그대로 찾는다(앞머리로 찾으면 `<FIDBadge />` 같은 코드 표기에 걸린다).
@@ -43,9 +49,9 @@ fmc_template_leftovers() {
   pats="${pats}
 <미정
 <미확정"
-  # 꺾쇠 안쪽 가장자리의 공백은 지우고 대조한다(`< 경로 >`). 줄 번호는 원문과 같다.
   out=$( { LC_ALL=C sed -e 's/<[ 	]*/</g' -e 's/[ 	]*>/>/g' "$doc" 2>/dev/null | LC_ALL=C grep -nF -e "$pats"
-           LC_ALL=C grep -nE '<(TODO|TBD)([ :>]|$)|<(todo|tbd)>' "$doc" 2>/dev/null; } | LC_ALL=C sort -t: -k1,1n -u | sed "s|^|$doc:|")
+           LC_ALL=C grep -nE '<(TODO|TBD)([ :>]|$)|<(todo|tbd)>' "$doc" 2>/dev/null
+         } | LC_ALL=C sort -t: -k1,1n -u | sed "s|^|$doc:|")
   [ -z "$out" ] && return 0
   printf '%s\n' "$out"
   return 1

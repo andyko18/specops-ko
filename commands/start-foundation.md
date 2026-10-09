@@ -37,6 +37,13 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 - **최소 내용**: 표에 적은 경로 가운데 저장소에 실재하는 것이 하나는 있어야 verify(`check-foundation-manifest.sh`)와 `/start-all` 입구(`check-foundation-present.sh`)를 통과한다. 없는 경로는 경고로 나열된다.
 - **기능 FID 가 공통 모듈을 바꿀 때**: 경로·공개 이름·사용법을 바꾸거나 새 공통 모듈을 더하는 커밋은 같은 커밋에서 표를 고친다(템플릿의 `갱신 규약`). 재사용 게이트의 `FOUNDATION-REUSE: WARN`(선언이 manifest 의 어떤 이름도 담지 않음)과 입구의 없는 경로 경고가 낡은 manifest 의 신호다.
 
+## 앞뒤 조건
+
+- **슬래시 전용** — 자연어("공통부 만들어줘")로는 이 분기에 들어오지 않는다(메타 skill 은 신규·유지보수만 가른다). 자연어로 시작하면 일반 `/start` 로 가서 manifest 게이트·셸 규칙이 적용되지 않는다.
+- **`/start-all` 은 이 FID 가 main 에 머지된 뒤** — `/start-all` Phase 0 의 `check-foundation-merged.sh` 가 `feat/<FID>` 미머지면 막는다. squash·rebase 머지는 git 조상 판정에 안 잡히므로 `gh` 로 PR 상태를 읽을 수 있어야 한다(읽을 수 없으면 로컬의 머지된 `feat/<FID>` 브랜치를 지운다 — 브랜치가 없으면 머지 후 삭제로 본다).
+- **태스크가 10개를 넘으면** — 차단하지는 않지만 `FID-SIZE: WARN` 이 층별 분할을 권한다(실기록: 21 태스크 FID 는 32시간이 걸렸고 plan 리뷰가 2회 FAIL 했다). 나눠 만들 때 manifest 는 다음 FID 가 행을 더한다.
+- **스택 근거** — architecture 문서의 스택 줄(프레임워크·언어·런타임)에 미확정이 남아 있으면 구현 직전 `check-stack-decided.sh` 가 결정 원장 또는 clarifications 의 RESOLVED 를 요구한다. architecture 문서가 없는 프로젝트(CLI·라이브러리)는 막지 않고, 근거가 어디에도 없을 때만 `STACK-DECIDED: NOTE` 로 알린다.
+
 ## 사용 예
 
 ```
@@ -47,8 +54,9 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 → Step 5.6: 공통 API·테이블을 api-spec.md·data-model.md 에 먼저 반영 (foundation-baseline 마커 안에)
 → clarifying-ko: 기술 프레임워크 BLOCKING 확정
 → planning-ko: 공통부 구현 + foundation-manifest.md 산출
-→ decomposing-ko: 재사용 HARD GATE 활성
-→ 이후 /start <기능> 시 각 task 가 재사용 선언 의무화
+→ decomposing-ko: 태스크 분해 (이 FID 는 공통부를 **만드는** 쪽이라 재사용 선언 대상이 아니다)
+→ verify: manifest 채움·실재 경로 검사 → 통과 후 fr-set-fid.sh 로 공통 FR 기록
+→ main 머지 뒤 /start·/start-all 의 각 task 가 재사용 선언 의무(manifest 가 생겼으므로)
 ```
 
 ## 안티패턴
@@ -73,4 +81,4 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 ---
 
-*specops-ko v2.17.0 · 2026-10-09 · 공통부 FR 범위·완료 기록 · manifest 최소 내용과 갱신 규약*
+*specops-ko v2.17.0 · 2026-10-09 · 공통부 FR 범위·완료 기록 · manifest 최소 내용과 갱신 규약 · 앞뒤 조건*
