@@ -411,4 +411,27 @@ done
 [ "$okc" = ok ] && ok "T15.e 컴포넌트·제네릭 표기 5종은 미채움이 아니다 → PASS" || nope "T15.e" "$okc"
 rm -rf "$TD"
 
+# T15.f: 한글이 든 꺾쇠 표기 전부를 미채움으로 보지 않는다 — 채운 manifest 에 실제로 나오는 표기들(독립 리뷰 실측)
+#   manifest 게이트는 VERIFY FAIL 이라 오탐에 풀 길이 없다. 미채움 표기는 `<미정…`·`<미확정…`·템플릿 토큰으로만 잡는다.
+TD=$(mktemp -d); _mk "$TD" 20260806-fnd foundation
+okh=ok
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  _jsx_manifest "$TD/.specops/memory/foundation-manifest.md"
+  printf '\n%s\n' "$line" >> "$TD/.specops/memory/foundation-manifest.md"
+  (cd "$TD" && bash "$CHK" 20260806-fnd >/dev/null 2>&1); rc=$?
+  [ "$rc" -eq 0 ] || okh="no($line → rc=$rc)"
+done <<'EOF'
+- 각 기능은 `src/features/<기능명>/` 아래에 둔다
+- 성능: 응답 < 200ms 이고 처리량 > 100 건
+- 조회: `useQuery<사용자[]>()`
+- 관계: Base <<상속>> Derived
+- 문서: <https://example.com/한글>
+- 담당: 홍길동 <홍길동@example.com>
+- 흐름: B <-- 한글 --> C
+- 버튼: <Button label="저장">
+EOF
+[ "$okh" = ok ] && ok "T15.f 채운 문서의 한글 꺾쇠 표기 8종 → PASS" || nope "T15.f" "$okh"
+rm -rf "$TD"
+
 finish

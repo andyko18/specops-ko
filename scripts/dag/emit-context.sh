@@ -42,7 +42,7 @@ if [ -f "$_TID_SH" ]; then
 fi
 
 # FID 스코프 게이트 — 7개 이상은 tasks.md 의 `**분할 계획**:` 행 의무, 10개 이상은 대화형 차단
-#   (§auto·§batch·foundation 은 분할할 채널이 없어 경고 후 진행). decomposing-ko `## FID 크기 규약` 의 기계 강제.
+#   (§auto·§batch 는 분할을 물을 채널이 없어, foundation 은 한 덩어리가 필요한 경우가 있어 경고 후 진행). decomposing-ko `## FID 크기 규약` 의 기계 강제.
 #   WARN 은 통과하되 경고를 stderr 로 남긴다 — 큰 FID 가 조용히 지나가지 않게.
 _FS_SH="$SCRIPT_DIR/../_internal/check-fid-size.sh"
 if [ -f "$_FS_SH" ]; then
@@ -143,6 +143,8 @@ if [ -f "$_STACK_SH" ]; then
     echo "emit-context: foundation 기술스택 미확정 — clarify·원장 보완 후 재실행" >&2
     exit 1
   fi
+  # 통과 출력은 삼키지만 알림은 중계한다 — 아키텍처 문서가 없어 스택을 검사하지 못한 경우(STACK-DECIDED: NOTE).
+  case "$stack_out" in *"STACK-DECIDED: NOTE"*) printf '%s\n' "$stack_out" >&2 ;; esac
 fi
 
 # 1단계 dry-run 검증 (Python)

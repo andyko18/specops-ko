@@ -698,5 +698,29 @@ _pf "T11.g 번호 불일치 → 선언 미대응(잘못된 선언을 싣지 않�
      && printf '%s' "$out" | grep -q '번호가 어긋' && echo ok || echo no)" "rc=$rc out=$out"
 rm -rf "$tmp"
 
+# T6.q foundation 예외의 경고는 "분할 불가" 가 아니라 나누는 길을 말한다 — /start-foundation 은 대화형이라 나눌 수 있다
+#   (실기록 3건이 10·11·21 태스크 · 종전 문구는 사용자 채널이 없는 §auto·§batch 와 같은 이유를 댔다)
+tmp=$(mktemp -d); mk_fs_fixture "$tmp" 20261007-fsq 10 y "# spec
+**§유형**: foundation"; fs_run "$tmp" 20261007-fsq
+_pf "T6.q foundation 10 태스크 → WARN rc=0 · 층별 분할 안내 · '분할 불가' 문구 없음" \
+  "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'foundation 예외' && printf '%s' "$out" | grep -q '층별로 나눠' && ! printf '%s' "$out" | grep -q '분할 불가' && echo ok || echo no)" "rc=$rc out=$out"
+mk_fs_fixture "$tmp" 20261007-fsq2 10 y "# spec
+**§auto**: true"; fs_run "$tmp" 20261007-fsq2
+_pf "T6.r §auto 예외는 종전 사유(사용자 채널 없음) 그대로 · 층별 분할 안내 없음" \
+  "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '사용자 채널이 없어' && ! printf '%s' "$out" | grep -q '층별로 나눠' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
+# T12.a foundation FID · 아키텍처 문서 없음 · 스택 근거 없음 → emit 은 성공하고 알림(STACK-DECIDED: NOTE)이 stderr 로 중계된다
+#   (게이트의 통과 출력은 삼켜지므로 중계하지 않으면 "검사하지 않았다" 는 사실이 보이지 않는다)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops/20260902-fstk" "$tmp/.specops/memory"; cp "$FIXTURES/ok-fid"/*.md "$tmp/.specops/20260902-fstk/"
+printf '\n**§유형**: foundation\n' >> "$tmp/.specops/20260902-fstk/spec.md"
+err=$(cd "$tmp" && bash "$EMIT" 20260902-fstk 2>&1 >/dev/null); rc=$?
+_pf "T12.a 스택 미검사 알림이 emit stderr 로 중계" "$([ "$rc" -eq 0 ] && printf '%s' "$err" | grep -q '^STACK-DECIDED: NOTE' && [ -f "$tmp/.specops/20260902-fstk/dispatch/T1-context.md" ] && echo ok || echo no)" "rc=$rc err=$err"
+# 근거가 있으면 조용하다
+printf '| DECISION-ID | 주제 | 확정값 | 출처 | 갱신일 |\n|---|---|---|---|---|\n| D-002 | 구현 언어 | Python 3.12 | init | 2026-10-09 |\n' > "$tmp/.specops/memory/decisions.md"
+err=$(cd "$tmp" && bash "$EMIT" 20260902-fstk 2>&1 >/dev/null); rc=$?
+_pf "T12.b 원장에 스택 근거가 있으면 알림 없음" "$([ "$rc" -eq 0 ] && ! printf '%s' "$err" | grep -q 'STACK-DECIDED' && echo ok || echo no)" "rc=$rc err=$err"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

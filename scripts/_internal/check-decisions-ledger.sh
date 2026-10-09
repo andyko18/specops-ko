@@ -15,7 +15,7 @@
 #
 # 확정으로 인정하지 않는 값:
 #   - 주제가 `(예시)` 로 시작 (템플릿 골격 행)
-#   - 확정값이 빈칸 · `<...>` placeholder · TBD/미정/해당없음 류 무정보 토큰
+#   - 확정값이 빈칸 · `<...>` placeholder(백틱으로 감싼 것 포함) · TBD/미정/해당없음 류 무정보 토큰
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -32,6 +32,9 @@ _rows() {
       if (NF < 4) next
       topic = $3; value = $4
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", topic)
+      # 백틱을 벗기고 본다 — `<미확정 — 근거 필요>` 처럼 백틱으로 감싼 자리표시자가 "확정" 으로 읽혔다
+      #   (foundation-kind.sh 는 벗겨 읽는다 — 같은 표를 두 판정기가 다르게 읽었다 · 20261009).
+      gsub(/`/, "", value)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
       if (topic == "" ) next
       # 템플릿 예시 행 — 실결정 아님
