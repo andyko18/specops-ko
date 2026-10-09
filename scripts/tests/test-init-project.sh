@@ -311,12 +311,14 @@ fi
 # ── T15.a (C1) overwrite 정책 → 기존 PRD.md 덮어쓰기 ──
 setup_fixture
 echo "# OLD MARKER" > PRD.md
-# stdin 순서: phase_1 충돌 정책 → phase_2 KIND → phase_3 헌법 skip → phase_4 빈 sentinel → phase_8e DB
+# stdin 순서: phase_1 충돌 정책 → phase_2 KIND → phase_3 헌법 skip → phase_4 PRD 6필드 + sentinel → phase_8e DB
+#   (20261009) PRD 를 빈 sentinel 로만 주던 종전 입력은 "필드 0개 + 터미널 없음" 이라 이제 rc=2 로 멈춘다 —
+#   그때는 `<TODO>` PRD 가 조용히 만들어져 통과했다. 이 테스트의 대상은 overwrite 이므로 유효한 PRD 를 준다.
 {
   printf "overwrite\n"  # 충돌 정책
   printf "3\n"          # KIND=CLI
   printf "skip\n"       # 헌법 skip
-  printf "\n"           # phase_4 sentinel
+  printf "1. 한 줄: 새 PRD\n2. 페르소나: dev\n3. 가치: a, b, c\n4. M1: m1\n5. M2: m2\n6. M3: m3\n\n"
   printf "n\n"          # 8e DB
 } | bash "$SCRIPT" >/dev/null 2>&1
 if grep -q "OLD MARKER" PRD.md; then
@@ -1005,6 +1007,269 @@ git check-ignore -q .specops/20261009-x/plan.md || _m="$_m plan추적됨"
 grep -qx 'my-rule/' .specops/.gitignore || _m="$_m 사용자줄소실"
 [ -z "$_m" ] && ok "T30.g intent 예외 누락 파일 → 내용 무시 규칙 뒤에 끼움 (예외가 실제로 듣는다)" || nope "T30.g" "$_m"
 teardown_fixture
+
+# ── T32: 답이 빠지거나 밀리면 기본값으로 덮지 않고 멈춘다 (20261009 init 점검 — 입력 계약) ──
+# 왜: 이 스크립트는 질문을 stdin 에서 **순서대로** 읽는데 실제 호출자(Claude Code 의 Bash 도구)는 터미널이
+#   아니다. 답이 모자라거나 한 줄 밀려도 전부 기본값으로 흡수하고 rc=0 으로 끝났다(설치본 재현 — 헌법 원칙
+#   자리에 PRD 문구 · `<TODO>` 8건짜리 PRD · CLI 저장소에 풀스택 파일).
+cli_stdin() {
+  printf "3\nskip\n"
+  printf "1. 한 줄: CLI 데모\n2. 페르소나: dev\n3. 가치: a, b, c\n4. M1: m1\n5. M2: m2\n6. M3: m3\n\n"
+  printf "n\n"
+}
+_no_artifacts() { [ ! -e PRD.md ] && [ ! -e CLAUDE.md ] && [ ! -d .specops/memory ]; }
+
+# T32.a 모르는 옵션은 프로젝트 이름으로 삼지 않는다 (`--enrich` 를 bash 에 넘기면 README 제목이 `# --enrich` 였다)
+setup_fixture
+out=$(cli_stdin | bash "$SCRIPT" --enrich 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && _no_artifacts && printf '%s' "$out" | grep -q -- '--enrich 는 이 스크립트의 옵션이 아닙니다'; then
+  ok "T32.a --enrich 를 bash 에 넘김 → rc=2 · 산출물 0 · 사유 출력"
+else
+  nope "T32.a" "rc=$rc PRD=$([ -e PRD.md ] && echo 있음 || echo 없음) out=$(printf '%s' "$out" | head -2 | tr '\n' ' ')"
+fi
+out=$(cli_stdin | bash "$SCRIPT" --nonsense 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && _no_artifacts && printf '%s' "$out" | grep -q '모르는 옵션'; } \
+  && ok "T32.b 모르는 옵션 → rc=2 · 산출물 0 (프로젝트 이름으로 삼지 않음)" || nope "T32.b" "rc=$rc"
+out=$(cli_stdin | bash "$SCRIPT" one two 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && _no_artifacts; } && ok "T32.b2 이름 인자 2개 → rc=2 · 산출물 0" || nope "T32.b2" "rc=$rc"
+teardown_fixture
+
+# T32.c 종류 질문에 선택지가 아닌 값(답이 밀렸다는 가장 이른 신호) → 멈춘다
+setup_fixture
+out=$({ printf "Y\n"; cli_stdin; } | bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && _no_artifacts && printf '%s' "$out" | grep -q '종류'; then
+  ok "T32.c 종류에 'Y' → rc=2 · 산출물 0 (풀스택으로 넘어가지 않음)"
+else
+  nope "T32.c" "rc=$rc out=$(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T32.d 답이 중간에 끊기면(입력 소진) 기본값으로 이어 가지 않는다
+setup_fixture
+out=$(printf '4\nskip\n1. 한 줄: x\n2. 페르소나: y\n3. 가치: a, b, c\n4. M1: m1\n5. M2: m2\n6. M3: m3\n\n' | bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q '입력이' && [ -z "$(git diff --cached --name-only)" ]; then
+  ok "T32.d 디자인 방향 질문에서 입력 소진 → rc=2 · 멈춘 질문을 알림 · stage 없음"
+else
+  nope "T32.d" "rc=$rc staged=$(git diff --cached --name-only | grep -c .) out=$(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T32.e PRD 필드가 모자라고 터미널도 없으면 `<TODO>` PRD 를 만들지 않는다
+#   종전 가드는 `/dev/tty` 의 **존재**만 봤다 — 존재하지만 열 수 없는 환경(Claude Code 의 Bash 도구)에서 듣지 않았다.
+#   SPECOPS_INIT_NO_TTY=1 은 "터미널 없음"을 고정하는 스위치다 — 개발자 터미널에서 돌려도 결과가 같게 한다.
+setup_fixture
+out=$(printf '4\nskip\n1. 한 줄: x\n\n1\nhome\nn\n1\n' | SPECOPS_INIT_NO_TTY=1 bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && [ ! -e PRD.md ]; then
+  ok "T32.e PRD 1/6 + 터미널 없음 → rc=2 · PRD.md 미생성"
+else
+  nope "T32.e" "rc=$rc PRD=$([ -e PRD.md ] && grep -c TODO PRD.md || echo 없음)"
+fi
+teardown_fixture
+
+# T32.f 답이 한 줄 밀려 DB 질문에 문장이 들어오면 멈춘다 (문서가 허용하던 "필드 파일 + stdin 둘 다" 재현)
+setup_fixture
+mkdir -p .specops
+printf '주문 관리\n영업\n가, 나, 다\n등록\n승인\n통계\n' > .specops/.init-prd-fields
+out=$(printf '4\nskip\n1. 한 줄: 주문 관리\n2. 페르소나: 영업\n3. 가치: 가, 나, 다\n4. M1: 등록\n5. M2: 승인\n6. M3: 통계\n\n1\nhome\ny\n1\n' | bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && [ ! -e .specops/memory/data-model.md ] && [ -z "$(git diff --cached --name-only)" ]; then
+  ok "T32.f 밀린 답(DB 질문에 문장) → rc=2 · stage 없음"
+else
+  nope "T32.f" "rc=$rc out=$(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T32.g 브레인스토밍 메모만 있는 저장소는 "이미 부트스트랩됨" 이 아니다 (/brainstorming → /init-project 권장 흐름)
+#   종전엔 메모가 .specops/memory/ 를 만들어 재부트스트랩 질문이 떴고, 첫 답이 거기 소비돼 "취소됨" rc=0 · 산출물 0.
+setup_fixture
+mkdir -p .specops/memory
+printf '# 브레인스토밍 메모\n## 문제\n사용자 인사 자동화\n' > .specops/memory/brainstorming-20261009-greet.md
+out=$(cli_stdin | bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ -f PRD.md ] && grep -q '## 브레인스토밍 컨텍스트' PRD.md \
+   && ! printf '%s' "$out" | grep -q '재부트스트랩' && [ -f .specops/memory/requirements.md ]; then
+  ok "T32.g 메모만 있는 저장소 → 재부트스트랩 질문 없이 진행 · PRD 에 메모 참조"
+else
+  nope "T32.g" "rc=$rc PRD=$([ -f PRD.md ] && echo 있음 || echo 없음) out=$(printf '%s' "$out" | head -3 | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# ── T34: 프로젝트 종류를 기록하고 다시 쓴다 ──
+# 왜: 종류를 어디에도 적지 않아 뒤 단계가 파일 존재와 자유 서술로 추정했다. CLI 로 init 한 직후
+#   foundation 필수 판정이 FAIL 이었고(/start-all 진입 막힘), 답 없이 `--resume` 하면 풀스택으로 잡혀
+#   CLI 저장소에 풀스택 파일 6개가 생겼다(설치본 재현).
+setup_fixture
+cli_stdin | bash "$SCRIPT" demo >/dev/null 2>&1
+_k=$(sed -n 's/^<!-- specops:project-kind: \([1-6]\).*/\1/p' .specops/memory/project-context.md 2>/dev/null | head -1)
+[ "$_k" = "3" ] && ok "T34.a 종류를 project-context.md 에 기록 (kind=3)" || nope "T34.a" "기록=[$_k]"
+out=$(bash "$PLUGIN/scripts/_internal/check-foundation-present.sh" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'FAIL'; } \
+  && ok "T34.b CLI 로 init 한 직후 foundation 필수 판정에 걸리지 않는다" || nope "T34.b" "rc=$rc out=$(printf '%s' "$out" | head -1)"
+git add -A; git commit -q -m base
+# 빈 답으로 재개 → 기록된 종류(3)를 쓴다 · 질문 수는 그대로(종류 → DB)
+out=$(printf '\nn\n' | bash "$SCRIPT" --resume demo 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3' \
+   && [ ! -e DESIGN.md ] && [ ! -e .specops/memory/frontend-architecture.md ] && [ -z "$(git status --porcelain)" ]; then
+  ok "T34.c 빈 답으로 --resume → 기록된 종류 사용 · 풀스택 파일 미생성 · 무변경"
+else
+  nope "T34.c" "rc=$rc kind=$(printf '%s' "$out" | grep -o 'PROJECT_KIND=.' | head -1) st=[$(git status --porcelain | tr '\n' '|' | cut -c1-120)]"
+fi
+# 답이 아예 없으면(입력 소진) 멈춘다 — 풀스택으로 넘어가지 않는다
+out=$(bash "$SCRIPT" --resume demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && [ ! -e DESIGN.md ] && [ -z "$(git status --porcelain)" ]; } \
+  && ok "T34.d 답 없이 --resume → rc=2 · 무변경" || nope "T34.d" "rc=$rc st=[$(git status --porcelain | tr '\n' '|' | cut -c1-120)]"
+teardown_fixture
+
+# ── T33: 답변 파일 모드 (`--answers <파일>`) — 순서가 아니라 이름으로 답한다 ──
+# 답변 파일의 키를 채우는 도우미: 빠졌다고 알려 준 키에 유효한 값을 넣는다.
+_fill_key() {
+  case "$1" in
+    rebootstrap) echo "rebootstrap=y" ;; conflict) echo "conflict=skip" ;;
+    principles) echo "principles=skip" ;;
+    prd.oneline) echo "prd.oneline=주문 관리 | 영업 & 승인 = 한 화면" ;;
+    prd.persona) echo "prd.persona=영업 담당" ;; prd.values) echo "prd.values=가, 나, 다" ;;
+    prd.m1) echo "prd.m1=등록" ;; prd.m2) echo "prd.m2=승인" ;; prd.m3) echo "prd.m3=통계" ;;
+    design) echo "design=1" ;; screens) echo "screens=home, orders" ;;
+    db) echo "db=n" ;; api) echo "api=1" ;; api.consumer) echo "api.consumer=n" ;;
+    *) echo "$1=?" ;;
+  esac
+}
+
+# T33.a 종류별 자기 정합: `kind` 만 주면 빠진 키를 **전부** 알려 주고 아무것도 쓰지 않는다 →
+#   알려 준 키만 채우면 완주한다. (사전 점검이 실제 질문과 어긋나면 여기서 드러난다)
+for _kind in 1 2 3 4 5 6; do
+  setup_fixture
+  printf 'kind=%s\n' "$_kind" > ans.txt
+  out=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc1=$?
+  _clean=0; _no_artifacts && [ -z "$(git status --porcelain | grep -v 'ans.txt')" ] && _clean=1
+  _missing=$(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*- 빠짐: \([a-z0-9.]*\).*/\1/p')
+  for _key in $_missing; do _fill_key "$_key" >> ans.txt; done
+  out2=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc2=$?
+  if [ "$rc1" -eq 2 ] && [ "$_clean" = "1" ] && [ -n "$_missing" ] && [ "$rc2" -eq 0 ] \
+     && [ -f PRD.md ] && grep -qF '**한 줄 설명**: 주문 관리 | 영업 & 승인 = 한 화면' PRD.md \
+     && grep -qF -- '- **M3**: 통계' PRD.md && [ -n "$(git diff --cached --name-only)" ]; then
+    ok "T33.a(kind=$_kind) 빠진 키 $(printf '%s\n' "$_missing" | grep -c .)개 고지·무기록 → 채우면 완주"
+  else
+    nope "T33.a(kind=$_kind)" "rc1=$rc1 clean=$_clean missing=[$(printf '%s' "$_missing" | tr '\n' ' ')] rc2=$rc2 out2=$(printf '%s' "$out2" | tail -2 | tr '\n' ' ' | cut -c1-160)"
+  fi
+  teardown_fixture
+done
+
+# T33.b 모르는 키·잘못된 값 → 전부 한 번에 알리고 아무것도 쓰지 않는다
+setup_fixture
+printf 'kind=3\nprinciples=skip\nprd.oneline=a\nprd.persona=b\nprd.values=c\nprd.m1=d\nprd.m2=e\nprd.m3=f\ndb=maybe\nscreen=home\n' > ans.txt
+out=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc=$?
+if [ "$rc" -eq 2 ] && _no_artifacts && printf '%s' "$out" | grep -q 'db' && printf '%s' "$out" | grep -q 'screen'; then
+  ok "T33.b 잘못된 값(db=maybe)·모르는 키(screen) → rc=2 · 둘 다 고지 · 산출물 0"
+else
+  nope "T33.b" "rc=$rc out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
+fi
+# T33.c 답변 파일이 없으면 멈춘다
+out=$(bash "$SCRIPT" --answers nope.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && _no_artifacts; } && ok "T33.c 답변 파일 부재 → rc=2" || nope "T33.c" "rc=$rc"
+teardown_fixture
+
+# T33.d 답변 파일 모드는 stdin 을 읽지 않는다 — stdin 에 엉뚱한 줄이 있어도 결과가 같다
+setup_fixture
+printf 'db=n\nprd.m3=통계\nkind=3\nprd.m1=등록\nprinciples=skip\nprd.oneline=CLI 데모\nprd.persona=dev\nprd.values=a, b, c\nprd.m2=승인\n' > ans.txt
+out=$(printf '4\noverwrite\ny\ny\ny\n' | bash "$SCRIPT" --answers ans.txt demo 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3' && [ ! -e DESIGN.md ] \
+   && grep -q 'CLI 데모' PRD.md && [ ! -e .specops/memory/data-model.md ]; then
+  ok "T33.d 키 순서 무관 · stdin 무시 (kind=3 · db=n 그대로)"
+else
+  nope "T33.d" "rc=$rc kind=$(printf '%s' "$out" | grep -o 'PROJECT_KIND=.' | head -1)"
+fi
+# T33.e 이미 부트스트랩된 저장소: rebootstrap·conflict 를 요구하고, rebootstrap=n 이면 아무것도 바꾸지 않는다
+git add -A >/dev/null 2>&1; git commit -q -m base
+out=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc=$?
+_need=$(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*- 빠짐: \([a-z0-9.]*\).*/\1/p' | tr '\n' ' ')
+printf 'rebootstrap=n\nconflict=skip\n' >> ans.txt
+out2=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc2=$?
+if [ "$rc" -eq 2 ] && [ "$_need" = "rebootstrap conflict " ] && [ "$rc2" -eq 0 ] \
+   && printf '%s' "$out2" | grep -q '취소' && [ -z "$(git status --porcelain | grep -v ans.txt)" ]; then
+  ok "T33.e 부트스트랩된 저장소 → rebootstrap·conflict 요구 · rebootstrap=n 이면 무변경"
+else
+  nope "T33.e" "rc=$rc need=[$_need] rc2=$rc2 st=[$(git status --porcelain | tr '\n' '|' | cut -c1-100)]"
+fi
+# T33.f --resume + 기록된 종류 → kind 없이도 된다
+printf 'db=n\n' > ans2.txt
+out=$(bash "$SCRIPT" --resume --answers ans2.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3'; } \
+  && ok "T33.f --resume + 답변 파일 → kind 생략 가능(기록된 종류 사용)" || nope "T33.f" "rc=$rc out=$(printf '%s' "$out" | tail -3 | tr '\n' ' ' | cut -c1-200)"
+teardown_fixture
+
+# T33.g 키 목록은 스크립트가 알려 준다 — 호출자가 스크립트 원문을 읽어 순서를 알아낼 필요가 없다
+setup_fixture
+out=$(bash "$SCRIPT" --answers-template 2>&1 </dev/null); rc=$?
+_miss=""; for k in kind principles prd.oneline prd.persona prd.values prd.m1 prd.m2 prd.m3 design screens db api api.consumer rebootstrap conflict; do
+  printf '%s\n' "$out" | grep -qE "^#? ?${k}=" || _miss="$_miss $k"
+done
+{ [ "$rc" -eq 0 ] && [ -z "$_miss" ] && _no_artifacts; } \
+  && ok "T33.g --answers-template → 키 15종 출력 · 아무것도 쓰지 않음" || nope "T33.g" "rc=$rc 누락:[$_miss]"
+teardown_fixture
+
+# ── T33.h~: 독립 리뷰가 찾은 사전 점검↔실행 불일치와 가장자리 (20261009) ──
+setup_fixture
+printf 'kind=3\nprinciple.1=skip\nprd.oneline=a\nprd.persona=b\nprd.values=c, d, e\nprd.m1=f\nprd.m2=g\nprd.m3=h\ndb=skip\n' > ans.txt
+out=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && [ -f PRD.md ] && [ ! -e .specops/memory/data-model.md ]; } \
+  && ok "T33.h principle.1=skip · db=skip → stdin 모드와 같은 뜻으로 완주(2~5 를 요구하지 않음)" \
+  || nope "T33.h" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-200)"
+git add -A >/dev/null 2>&1; git commit -q -m base
+# 취소로 끝나는 답은 다른 키를 요구하지 않는다
+printf 'rebootstrap=n\n' > only-n.txt
+out=$(bash "$SCRIPT" --answers only-n.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '취소' && ! printf '%s' "$out" | grep -q '빠짐'; } \
+  && ok "T33.i rebootstrap=n 한 줄 → 취소 rc=0 (종류 등 다른 키를 요구하지 않음)" || nope "T33.i" "rc=$rc out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-160)"
+# 템플릿의 빈 `kind=` 를 둔 채 재개해도 된다(기록된 종류)
+printf 'kind=\ndb=n\n' > resume.txt
+out=$(bash "$SCRIPT" --resume --answers resume.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3'; } \
+  && ok "T33.j --resume + 빈 kind= → 기록된 종류 사용" || nope "T33.j" "rc=$rc out=$(printf '%s' "$out" | head -3 | tr '\n' ' ' | cut -c1-160)"
+teardown_fixture
+
+setup_fixture
+out=$(cli_stdin | bash "$SCRIPT" --answers "" demo 2>&1); rc=$?
+out2=$(cli_stdin | bash "$SCRIPT" --answers= demo 2>&1); rc2=$?
+{ [ "$rc" -eq 2 ] && [ "$rc2" -eq 2 ] && _no_artifacts; } \
+  && ok "T33.k 빈 답변 파일 경로 → rc=2 (stdin 모드로 조용히 넘어가지 않음)" || nope "T33.k" "rc=$rc rc2=$rc2"
+printf '\357\273\277kind=3\n' > bom.txt
+out=$(bash "$SCRIPT" --answers bom.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'BOM' && _no_artifacts; } \
+  && ok "T33.l BOM 이 붙은 답변 파일 → rc=2 · 원인을 말한다" || nope "T33.l" "rc=$rc out=$(printf '%s' "$out" | head -2 | tr '\n' ' ')"
+# 템플릿은 결정을 미리 채워 두지 않는다 — 빈칸만 채우는 호출자가 기본값을 사용자 선택으로 확정하지 않게
+out=$(bash "$SCRIPT" --answers-template 2>&1 </dev/null)
+_pre=$(printf '%s\n' "$out" | grep -E '^(kind|principles|design|db|api|api\.consumer|screens|prd\.[a-z0-9]+)=.' | tr '\n' ' ')
+[ -z "$_pre" ] && ok "T33.m --answers-template 은 값을 미리 채우지 않는다" || nope "T33.m" "채워진 키: $_pre"
+teardown_fixture
+
+# T32.h 메모만 있는 memory 에 숨김 파일(.DS_Store)이 있어도 재부트스트랩을 묻지 않는다
+setup_fixture
+mkdir -p .specops/memory
+printf '# 메모\n' > .specops/memory/brainstorming-20261009-x.md; : > .specops/memory/.DS_Store; : > .specops/memory/learnings.jsonl
+out=$(cli_stdin | bash "$SCRIPT" demo 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && [ -f PRD.md ] && ! printf '%s' "$out" | grep -q '재부트스트랩'; } \
+  && ok "T32.h 메모 + 학습 기록 + 숨김 파일 → 재부트스트랩 질문 없음" || nope "T32.h" "rc=$rc"
+teardown_fixture
+
+# T34.e 종류 기록은 머리 구조를 깨지 않는다 — 여러 줄 주석·frontmatter 로 시작하면 끼워 넣지 않고 끝에 붙인다
+for _head in multi front; do
+  setup_fixture
+  mkdir -p .specops/memory
+  if [ "$_head" = "multi" ]; then
+    printf '<!--\n 손으로 쓴\n 여러 줄 주석\n-->\n# ctx\n' > .specops/memory/project-context.md
+  else
+    printf -- '---\ntitle: ctx\n---\n# ctx\n' > .specops/memory/project-context.md
+  fi
+  _orig=$(cat .specops/memory/project-context.md)
+  { printf "y\n"; cli_stdin; } | bash "$SCRIPT" demo >/dev/null 2>&1     # y = 재부트스트랩(원장 파일이 이미 있다)
+  _now=$(cat .specops/memory/project-context.md)
+  _k=$(sed -n 's/^<!-- specops:project-kind: \([1-6]\)[^0-9].*/\1/p' .specops/memory/project-context.md | head -1)
+  if [ "$_k" = "3" ] && [ "$(printf '%s\n' "$_now" | sed '$d')" = "$_orig" ]; then
+    ok "T34.e($_head) 종류 기록 → 기존 내용 그대로 · 마커는 파일 끝"
+  else
+    nope "T34.e($_head)" "kind=[$_k] 내용=$(printf '%s' "$_now" | tr '\n' '|' | cut -c1-120)"
+  fi
+  teardown_fixture
+done
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

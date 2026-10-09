@@ -21,13 +21,19 @@ phase_2_classify() {
   echo "  (4) 풀스택"
   echo "  (5) 모바일"
   echo "  (6) 기타"
-  printf "선택 [4]: "
-  local k=""
-  read -r k || true
-  case "$k" in
-    1|2|3|4|5|6) PROJECT_KIND="$k" ;;
-    *) PROJECT_KIND="4" ;;
-  esac
+  # 빈 답의 기본값: 재개(--resume)이고 종류가 기록돼 있으면 그 값, 아니면 4(풀스택).
+  #   종전엔 재개에서도 4 였다 — 답 없이 재개하면 CLI 저장소에 풀스택 파일이 생겼다(20261009 재현).
+  #   질문 자체는 건너뛰지 않는다: stdin 모드는 질문 수가 바뀌면 뒤의 답이 밀린다.
+  local def="4" rec
+  rec=$(_recorded_kind)
+  [ "$RESUME_MODE" = "1" ] && [ -n "$rec" ] && def="$rec"
+  printf "선택 [%s]: " "$def"
+  if [ -n "$ANSWERS_FILE" ] && [ -z "$(_ans_get kind 2>/dev/null)" ] && [ "$RESUME_MODE" = "1" ] && [ -n "$rec" ]; then
+    REPLY="$rec"      # 답변 파일 모드의 재개 — 기록된 종류면 키를 생략할 수 있다
+  else
+    _ask_choice kind "프로젝트 종류" "$def" '[1-6]' "1~6"
+  fi
+  PROJECT_KIND="$REPLY"
   echo "→ PROJECT_KIND=${PROJECT_KIND}"
 }
 phase_3_constitution() {
@@ -39,17 +45,21 @@ phase_3_constitution() {
   echo ""
   echo "[Phase 3] 헌법 — 핵심 원칙 5개 입력 ('skip' 시 placeholder 유지)"
   local p1="" p2="" p3="" p4="" p5=""
-  printf "원칙 1 이름: "; read -r p1 || true
+  if [ -n "$ANSWERS_FILE" ] && [ "$(_ans_get principles 2>/dev/null)" = "skip" ]; then
+    p1="skip"
+  else
+    printf "원칙 1 이름: "; _ask principle.1 "헌법 원칙 1"; p1="$REPLY"
+  fi
   if [ "${p1}" = "skip" ]; then
     mkdir -p .specops/memory
     cp "$PLUGIN/templates/constitution.md" "$target"
     echo "→ ${target} (placeholder 유지)"
     return
   fi
-  printf "원칙 2 이름: "; read -r p2 || true
-  printf "원칙 3 이름: "; read -r p3 || true
-  printf "원칙 4 이름: "; read -r p4 || true
-  printf "원칙 5 이름: "; read -r p5 || true
+  printf "원칙 2 이름: "; _ask principle.2 "헌법 원칙 2"; p2="$REPLY"
+  printf "원칙 3 이름: "; _ask principle.3 "헌법 원칙 3"; p3="$REPLY"
+  printf "원칙 4 이름: "; _ask principle.4 "헌법 원칙 4"; p4="$REPLY"
+  printf "원칙 5 이름: "; _ask principle.5 "헌법 원칙 5"; p5="$REPLY"
   mkdir -p .specops/memory
   cp "$PLUGIN/templates/constitution.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
@@ -91,10 +101,11 @@ _phase_4_count_filled() {
 _phase_4_fallback_singleshot() {
   local got
   got=$(_phase_4_count_filled)
-  if [ ! -e /dev/tty ]; then
+  # 터미널을 **열 수 있는지** 본다 — 존재만 보던 종전 가드는 열 수 없는 환경에서 듣지 않았고,
+  #   아래 `read … </dev/tty || true` 가 전부 실패해 `<TODO>` 8건짜리 PRD 를 만들고 rc=0 으로 끝났다(20261009 재현).
+  if ! _tty_ok; then
     echo "양식 파싱 실패 (${got}/6) + 비대화 환경 (tty 부재) — abort." >&2
-    echo "PRD.md 가 <TODO> 로 채워지는 silent failure 차단." >&2
-    exit 2
+    _stop_input "PRD 6필드 중 ${got}개만 읽혔습니다 (PRD.md 를 <TODO> 로 채우지 않습니다)."
   fi
   echo "양식 파싱 실패 (${got}/6). 개별 입력 모드로 전환합니다."
   [ -z "$PRD_F1" ] && { printf "1. 한 줄 설명: "; read -r PRD_F1 </dev/tty || true; }
@@ -107,6 +118,19 @@ _phase_4_fallback_singleshot() {
 
 # PRD 6 필드 수집: Phase 0 확정 파일 → numbered list stdin → < 4 시 단답 fallback
 _phase_4_collect() {
+  # 답변 파일 모드 — 키로 받는다(사전 점검이 6필드 존재를 이미 확인했다). 낡은 필드 파일은 쓰지 않고 지운다.
+  if [ -n "$ANSWERS_FILE" ]; then
+    echo ""
+    echo "[Phase 4] 답변 파일의 PRD 6필드 사용"
+    _ask prd.oneline "PRD 한 줄 설명"; PRD_F1="$REPLY"
+    _ask prd.persona "PRD 페르소나";   PRD_F2="$REPLY"
+    _ask prd.values "PRD 가치제안";    PRD_F3="$REPLY"
+    _ask prd.m1 "PRD M1"; PRD_F4="$REPLY"
+    _ask prd.m2 "PRD M2"; PRD_F5="$REPLY"
+    _ask prd.m3 "PRD M3"; PRD_F6="$REPLY"
+    rm -f .specops/.init-prd-fields
+    return
+  fi
   # Phase 0 확정값 강제 공급 (.specops/.init-prd-fields — 줄당 1필드, 6줄)
   if [ -f .specops/.init-prd-fields ]; then
     echo ""
