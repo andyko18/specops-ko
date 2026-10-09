@@ -26,16 +26,18 @@ _root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$_root" ] || { echo "init-finalize: repo 루트 확인 실패" >&2; exit 1; }
 cd "$_root" || { echo "init-finalize: repo 루트 이동 실패 ($_root)" >&2; exit 1; }
 
-# 재-add — Phase 10 과 동일 순서·동일 대상 (phases-artifacts.sh:214~223)
-for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
-  [ -f "$f" ] && git add "$f"
-done
-[ -d .specops/memory ] && git add .specops/memory
-[ -d screens ] && git add screens
-[ -f .specops/.gitignore ] && git add .specops/.gitignore
-[ -f .specops/session-progress.md ] && git add .specops/session-progress.md
+# 재-add — Phase 10 과 같은 범위(lib.sh `_init_stage_own`): enrich 가 고친 산출물을 다시 stage 한다.
+#   범위 밖(미리 stage 돼 있던 무관한 파일 · 화면 목록에 없는 screens/ 파일)과 보류 기록(.init-hold)의
+#   파일은 건드리지 않는다 — 아래 커밋도 경로를 지정하므로 인덱스의 나머지는 그대로 남는다.
+_init_stage_own
 
-if git diff --cached --quiet; then
+# 판정 실패(rc≠0)를 "대상 없음"으로 읽지 않는다 — git 오류가 no-op 성공으로 둔갑하면 산출물이 staged 로
+#   남은 채 "종결됐다"고 보고하게 된다(독립 리뷰 재현).
+if ! _own=$(_init_staged_own); then
+  echo "init-finalize: staged 산출물을 판정하지 못했습니다 (git diff 실패) — 커밋하지 않았습니다" >&2
+  exit 1
+fi
+if [ -z "$_own" ]; then
   echo "init-finalize: 커밋 대상 없음 — 이미 종결됐거나 변경이 없습니다 (no-op)"
   exit 0
 fi
@@ -64,8 +66,13 @@ bash "$_DIR/../session-progress-append.sh" "$_fid" /init-project 완료 \
 # 기록 실패가 커밋을 막지 않는다(|| true) — 커밋이 본질이고 기록은 보조다.
 [ -f .specops/session-progress.md ] && git add .specops/session-progress.md
 
-n=$(git diff --cached --name-only | wc -l | tr -d ' ')
-if ! out=$(git commit -q -m "chore(init): /init-project 부트스트랩+enrich (${n}종)" 2>&1); then
+# 커밋 경로 = init 범위 안에서 staged 인 것(진행 기록 포함). 건수도 여기서 센다 — 인덱스 전체가 아니다.
+cpaths=()
+while IFS= read -r _p; do [ -n "$_p" ] && cpaths+=("$_p"); done <<EOF
+$(_init_staged_own)
+EOF
+n=${#cpaths[@]}
+if ! out=$(git commit -q -m "chore(init): /init-project 부트스트랩+enrich (${n}종)" -- "${cpaths[@]}" 2>&1); then
   # 기록 되돌리기 — FR-5/AC-5 는 기록을 **커밋 성공**에 조건부로 둔다(spec.md:62 "성공 시",
   #   acceptance-criteria.md:71 Given). 실패했는데 "완료" 가 남으면 검출형 근거 자체가
   #   거짓이 되고, 재시도는 분(分)이 바뀌면 append 멱등키(%H:%M)를 벗어나 줄이 하나 더 는다.
@@ -111,3 +118,25 @@ fi
 
 sha=$(git rev-parse --short HEAD)
 echo "init-finalize: 커밋 완료 ${sha} (${n}파일)"
+
+# 커밋에 넣지 않은 것을 알린다 — 조용히 빼면 "왜 안 들어갔나"를 사용자가 뒤늦게 찾는다.
+_brief() {   # 줄단위 목록 → 앞 5개 + "외 N개"
+  local list="$1" total
+  total=$(printf '%s\n' "$list" | grep -c . || true)
+  printf '%s' "$(printf '%s\n' "$list" | head -5 | tr '\n' ' ')"
+  [ "${total:-0}" -gt 5 ] && printf '외 %s개' "$((total - 5))"
+  return 0
+}
+if [ -f "$INIT_HOLD_FILE" ]; then
+  _held=$(grep . "$INIT_HOLD_FILE" 2>/dev/null || true)
+  [ -n "$_held" ] && echo "init-finalize: init 이 쓰지 않은 기존 파일의 미커밋 내용은 커밋에 넣지 않았습니다(확인 후 직접 커밋): $(_brief "$_held")"
+  rm -f "$INIT_HOLD_FILE"
+fi
+# 이번 부트스트랩이 쓴 파일의 기록도 닫는다 — 종결됐으니 다음 실행은 새 부트스트랩이다.
+rm -f "$INIT_WRITTEN_FILE" 2>/dev/null
+_rest=$(git diff -z --cached --name-only 2>/dev/null | tr '\0' '\n' || true)
+[ -n "$_rest" ] && echo "init-finalize: init 과 무관한 staged 파일은 커밋하지 않고 그대로 두었습니다: $(_brief "$_rest")"
+# 화면 파일 형식(.md·.html)만 알린다 — 기존 앱의 screens/ 소스(.tsx 등)는 애초에 init 의 대상이 아니다.
+_scr=$(git -c core.quotePath=false status --porcelain -uall -- 'screens/*.md' 'screens/*.html' 2>/dev/null | sed 's/^...//' || true)
+[ -n "$_scr" ] && echo "init-finalize: screens/ 의 다음 파일은 화면 목록(screens-overview.md)에 없거나 보류돼 커밋하지 않았습니다: $(_brief "$_scr")"
+exit 0

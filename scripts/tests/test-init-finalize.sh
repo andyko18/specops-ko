@@ -180,6 +180,142 @@ out=$(bash "$FIN" 2>&1); rc=$?
 chmod 755 .specops; chmod 644 .specops/session-progress.md.bak 2>/dev/null || true
 _stale_assert "F13" "$rc" "$out"
 
+# ── F14~F17 — 종결 커밋은 init 의 파일만 담는다 (20261009 init 점검) ──
+#   종전엔 `git commit` 에 경로가 없어 인덱스 전체가 `chore(init)` 커밋에 들어갔다(설치본 재현):
+#   미리 stage 해 둔 무관 파일(API 키가 든 notes.env) · 사용자가 고치던 README · 기존 앱의 screens/ 파일.
+
+# F14 — 미리 stage 된 무관 파일은 커밋에 들어가지 않고 staged 로 남는다
+R="$TMP/f14"; _mkstaged "$R"
+printf 'API_KEY=sk-test-000\n' > notes.env; git add notes.env
+out=$(bash "$FIN" 2>&1); rc=$?
+in_commit=$(git show --name-only --format= HEAD 2>/dev/null | grep -c '^notes\.env$' || true)
+still_staged=$(git diff --cached --name-only 2>/dev/null | grep -c '^notes\.env$' || true)
+n_files=$(git show --name-only --format= HEAD 2>/dev/null | grep -c . || true)
+subj_n=$(git log -1 --format=%s 2>/dev/null | sed -n 's/.*(\([0-9][0-9]*\)종).*/\1/p')
+if [ "$rc" -eq 0 ] && [ "${in_commit:-1}" -eq 0 ] && [ "${still_staged:-0}" -eq 1 ] \
+   && printf '%s' "$out" | grep -q 'notes\.env' && [ "$subj_n" = "$n_files" ]; then
+  ok "F14 무관 staged 파일 → 커밋 제외 · staged 유지 · 출력에 고지 · 제목의 건수($subj_n)=커밋 파일 수"
+else
+  nope "F14" "rc=$rc in_commit=$in_commit still_staged=$still_staged subj_n=$subj_n files=$n_files out=$out"
+fi
+
+# F15 — init 이 보존한 파일의 미커밋 수정분(.init-hold)은 커밋에 넣지 않는다
+#   기록은 bash 가 Phase 1 에서 남긴다(test-init-project T30.e). 여기서는 소비 쪽을 잠근다.
+R="$TMP/f15"; mkdir -p "$R"; cd "$R" || exit 1
+git init -q; git config user.email t@t; git config user.name t
+printf '# 팀 README\n' > README.md; git add README.md; git commit -q -m base
+printf '# 팀 README\n\n작성 중인 문단\n' > README.md          # 사용자의 미커밋 수정
+mkdir -p .specops/memory; printf '# PRD\n' > PRD.md; printf '# req\n' > .specops/memory/requirements.md
+printf 'README.md\n' > .specops/.init-hold
+out=$(bash "$FIN" 2>&1); rc=$?
+in_commit=$(git show --name-only --format= HEAD 2>/dev/null | grep -c '^README\.md$' || true)
+kept=$(grep -c '작성 중인 문단' README.md 2>/dev/null || true)
+prd_in=$(git show --name-only --format= HEAD 2>/dev/null | grep -c '^PRD\.md$' || true)
+# 루트 파일 하나가 보류돼도 memory/ 는 그대로 커밋돼야 한다 — 보류 경로를 디렉토리 add 의 제외 인자로
+#   섞으면 git 이 rc=0 으로 memory/ 전체를 건너뛴다(구현 중 실측).
+mem_in=$(git show --name-only --format= HEAD 2>/dev/null | grep -c '^\.specops/memory/requirements\.md$' || true)
+if [ "$rc" -eq 0 ] && [ "${in_commit:-1}" -eq 0 ] && [ "${kept:-0}" -eq 1 ] && [ "${prd_in:-0}" -eq 1 ] \
+   && [ "${mem_in:-0}" -eq 1 ] \
+   && [ -n "$(git status --short README.md)" ] && [ ! -e .specops/.init-hold ] \
+   && printf '%s' "$out" | grep -q 'README\.md'; then
+  ok "F15 보존 파일의 미커밋 수정분 → 커밋 제외 · 내용 유지 · 고지 · 종결 뒤 기록 파일 회수"
+else
+  nope "F15" "rc=$rc in_commit=$in_commit kept=$kept prd_in=$prd_in mem_in=$mem_in hold=$([ -e .specops/.init-hold ] && echo 남음 || echo 없음) out=$out"
+fi
+
+# F15b — memory/ 안의 보류 파일만 빠지고 같은 디렉토리의 나머지는 커밋된다
+R="$TMP/f15b"; mkdir -p "$R/.specops/memory"; cd "$R" || exit 1
+git init -q; git config user.email t@t; git config user.name t
+printf '# api\n' > .specops/memory/api-spec.md; git add -A; git commit -q -m base
+printf '# api\n\n진행 중인 설계\n' > .specops/memory/api-spec.md      # 진행 중 FID 의 미커밋 설계 수정
+printf '# req\n' > .specops/memory/requirements.md
+printf '.specops/memory/api-spec.md\n' > .specops/.init-hold
+out=$(bash "$FIN" 2>&1); rc=$?
+files=$(git show --name-only --format= HEAD 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s\n' "$files" | grep -qx '.specops/memory/requirements.md' \
+   && ! printf '%s\n' "$files" | grep -qx '.specops/memory/api-spec.md' \
+   && [ "$(git status --short .specops/memory/api-spec.md | cut -c1-2)" = " M" ]; then
+  ok "F15b memory/ 안 보류 파일 → 그 파일만 제외(미stage 유지) · 나머지 memory 는 커밋"
+else
+  nope "F15b" "rc=$rc files=$(printf '%s' "$files" | tr '\n' ' ') st=[$(git status --short | tr '\n' '|')] out=$out"
+fi
+
+# F16 — screens/ 는 화면 목록에 있는 화면 파일만 담는다 (기존 앱의 screens/ 폴더 보호)
+R="$TMP/f16"; _mkstaged "$R"
+cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
+bash "$PLUGIN/scripts/_internal/design-screen.sh" home >/dev/null 2>&1      # 목록에 등록되는 화면
+printf 'export default function Draft() {}\n' > screens/Draft.tsx            # 앱 소스(무관)
+printf '# 목록에 없는 화면\n' > screens/orphan.md                            # 화면 형식이지만 목록 밖
+out=$(bash "$FIN" 2>&1); rc=$?
+files=$(git show --name-only --format= HEAD 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s\n' "$files" | grep -qx 'screens/home.md' \
+   && printf '%s\n' "$files" | grep -qx 'screens/home.html' \
+   && ! printf '%s\n' "$files" | grep -qE 'Draft\.tsx|orphan\.md' \
+   && git status --porcelain -uall 2>/dev/null | grep -q '^?? screens/Draft.tsx' \
+   && printf '%s' "$out" | grep -q 'screens/orphan\.md' \
+   && ! printf '%s' "$out" | grep -q 'Draft\.tsx'; then
+  ok "F16 화면 목록의 화면만 커밋 · 앱 소스는 미추적 그대로(무고지) · 목록 밖 화면 파일은 고지"
+else
+  nope "F16" "rc=$rc files=$(printf '%s' "$files" | tr '\n' ' ') status=$(git status --porcelain | tr '\n' '|') out=$out"
+fi
+
+# F17 — 커밋 실패 시에도 무관 staged 파일이 그대로다 (경로 지정 커밋이 인덱스를 흩뜨리지 않는다)
+#   방어 단언이다: 경로 없는 구판도 통과한다(독립 리뷰 확인). 경로 지정 커밋의 임시 인덱스가 실패 경로에서
+#   원래 인덱스를 훼손하지 않는다는 것만 지킨다.
+R="$TMP/f17"; _mkstaged "$R"
+printf 'x\n' > other.txt; git add other.txt
+mkdir -p .git/hooks
+printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 1 ] && git diff --cached --name-only | grep -qx 'other.txt' \
+   && git diff --cached --name-only | grep -qx 'PRD.md'; then
+  ok "F17 커밋 실패 → init 산출물·무관 파일 모두 staged 보존"
+else
+  nope "F17" "rc=$rc staged=$(git diff --cached --name-only | tr '\n' ' ') out=$out"
+fi
+
+# F18 — 화면 목록에 파일명이 될 수 없는 이름이 있어도 종결 커밋이 조용히 no-op 이 되지 않는다
+#   독립 리뷰 재현: 손으로 고친 표의 `../x` 행 → git 경로 오류 → 삼켜져 "커밋 대상 없음" rc=0 · 산출물은 staged 방치.
+R="$TMP/f18"; _mkstaged "$R"
+cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
+awk '/^<!-- screens-table:end -->/{print "| ../../../etc/x | t | t | l | l |"} {print}' \
+  .specops/memory/screens-overview.md > ov.tmp && mv ov.tmp .specops/memory/screens-overview.md
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ "$(git rev-list --count HEAD 2>/dev/null)" = "1" ] \
+   && git show --name-only --format= HEAD | grep -qx 'PRD.md' && [ -z "$(git status --porcelain)" ]; then
+  ok "F18 화면 목록의 잘못된 이름 → 건너뛰고 산출물은 커밋 (no-op 둔갑 없음)"
+else
+  nope "F18" "rc=$rc commits=$(git rev-list --count HEAD 2>/dev/null) st=[$(git status --porcelain | tr '\n' '|')] out=$out"
+fi
+
+# F19 — 따옴표·공백·한글이 든 파일명도 커밋 경로로 넘어간다 (git 의 "…" 감싸기를 경로로 되먹이지 않는다)
+R="$TMP/f19"; _mkstaged "$R"
+printf '# m\n' > '.specops/memory/q"uote 한글.md'
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$(git status --porcelain)" ] \
+   && [ "$(git ls-files .specops/memory | grep -c 'uote')" = "1" ]; then
+  ok "F19 따옴표·공백·한글 파일명 → 커밋 성공 · 워킹트리 clean"
+else
+  nope "F19" "rc=$rc st=[$(git status --porcelain | tr '\n' '|')] out=$out"
+fi
+
+# F20 — git 이 staged 판정에 실패하면 "커밋 대상 없음" 이 아니라 실패로 끝난다
+#   판정 호출(--no-renames 가 붙은 diff)만 실패시키는 git 대역을 PATH 앞에 둔다.
+R="$TMP/f20"; _mkstaged "$R"
+_real_git=$(command -v git)
+mkdir -p "$TMP/shim"
+printf '#!/bin/sh\ncase " $* " in *" --no-renames "*) exit 128 ;; esac\nexec "%s" "$@"\n' "$_real_git" > "$TMP/shim/git"
+chmod +x "$TMP/shim/git"
+out=$(PATH="$TMP/shim:$PATH" bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '판정하지 못했습니다' \
+   && ! printf '%s' "$out" | grep -q '커밋 대상 없음' \
+   && [ "$(git rev-list --count HEAD 2>/dev/null || echo 0)" = "0" ] \
+   && [ "$(git diff --cached --name-only | grep -c .)" -gt 0 ]; then
+  ok "F20 staged 판정 실패 → rc=1 · no-op 으로 둔갑하지 않음 · 산출물 staged 보존"
+else
+  nope "F20" "rc=$rc out=$out"
+fi
+
 DOC="$PLUGIN/scripts/doctor.sh"
 
 # F6 — 미커밋 부트스트랩 → bootstrap warn · exit 0 / 커밋 후 → ok

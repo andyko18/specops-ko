@@ -759,7 +759,9 @@ fi
 # 왜: 종전 규칙(`…-*/`)은 FID 디렉토리를 통째로 무시해 intent.md 가 저장소에 올라가지 않았다 — PR 리뷰어가
 #   의도 문서를 볼 수 없고 git 이력도 남지 않는다. git 은 무시된 디렉토리 안의 파일을 `!` 로 되살릴 수 없으므로
 #   규칙은 디렉토리가 아니라 **내용**(`…-*/*`)을 무시해야 한다 — 이 잠금은 생성기의 규칙을 실제 git 으로 판정한다.
-_gi=$(awk '/cat > \.specops\/\.gitignore <</{f=1;next} f&&/^EOF$/{exit} f' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh")
+# 규칙 본문은 생성기 함수에서 직접 받는다(종전엔 heredoc 을 awk 로 긁었다 — 병합 방식으로 바뀌며 함수가 됐다).
+_gi=$(bash -c 'source "$1" && _specops_gitignore_template' _ "$SCRIPT" 2>/dev/null)
+[ -n "$_gi" ] && ok "T29.0 생성기가 규칙 본문을 낸다" || nope "T29.0" "_specops_gitignore_template 출력 없음"
 _t29=$(mktemp -d)
 ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
   cd "$_t29" && git init -q && mkdir -p .specops/20261008-x/reviews .specops/memory \
@@ -771,6 +773,212 @@ if printf '%s\n' "$_st" | grep -q '20261008-x/intent.md'; then ok "T29.a intent.
 if ! printf '%s\n' "$_st" | grep -qE '20261008-x/(plan|evidence)\.md|reviews/'; then ok "T29.b plan·evidence·reviews 는 계속 무시"; else nope "T29.b" "status=[$_st]"; fi
 if printf '%s\n' "$_st" | grep -q 'memory/requirements.md' && printf '%s\n' "$_st" | grep -q 'session-progress.md'; then ok "T29.c memory/·session-progress 는 추적 유지"; else nope "T29.c" "status=[$_st]"; fi
 rm -rf "$_t29"
+
+# ── T30: 재실행·기존 프로젝트에서 사용자 내용을 지우지 않는다 (20261009 init 점검) ──
+# 왜: `--resume`·재실행이 화면 목록 표와 `.specops/.gitignore` 를 통째로 다시 썼다(설치본 재현) —
+#   보강 표기·손으로 쓴 줄·하류가 직접 넣은 무시 규칙이 사라지고, 그 상태가 그대로 stage 됐다.
+
+# T30.a 화면 목록: 기존 행·표 밖 내용 보존, 새 이름만 추가
+setup_fixture
+fullstack_stdin | bash "$SCRIPT" demo >/dev/null 2>&1
+_ov=.specops/memory/screens-overview.md
+sed -i.bak 's#^| home | home | 예정 — /start-all Phase 2.5 |#| home | 홈 대시보드 | init 보강 (미확정 3) |#' "$_ov"; rm -f "$_ov.bak"
+printf '\n손으로 쓴 메모 줄\n' >> "$_ov"
+printf '4\nhome, billing\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
+if grep -qF '| home | 홈 대시보드 | init 보강 (미확정 3) |' "$_ov" && grep -qx '손으로 쓴 메모 줄' "$_ov" \
+   && grep -qE '^\| login \|' "$_ov" && [ "$(grep -cE '^\| billing \|' "$_ov")" = "1" ] \
+   && [ "$(grep -cE '^\| home \|' "$_ov")" = "1" ]; then
+  ok "T30.a 재실행 → 화면 목록의 기존 행·손으로 쓴 줄 보존 · 새 화면 1행만 추가"
+else
+  nope "T30.a" "home=[$(grep -E '^\| home \|' "$_ov" | head -2 | tr '\n' ' ')] billing=$(grep -cE '^\| billing \|' "$_ov") 메모=$(grep -cx '손으로 쓴 메모 줄' "$_ov")"
+fi
+# T30.b 화면 이름을 비워 재실행해도 표는 그대로다
+_before=$(cat "$_ov")
+printf '4\n\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
+[ "$_before" = "$(cat "$_ov")" ] && ok "T30.b 화면 이름 없이 재실행 → 화면 목록 무변경" || nope "T30.b" "화면 목록이 바뀜"
+
+# T30.c .gitignore: 사용자 줄 보존 · 중복 없음 · 두 번째 실행은 무변경
+printf '# 팀 규칙\nmy-local-notes/\n' >> .specops/.gitignore
+printf '4\n\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
+_g1=$(cat .specops/.gitignore)
+printf '4\n\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
+_dup=$(grep -vE '^(#|$)' .specops/.gitignore | sort | uniq -d | tr '\n' ' ')
+if grep -qx 'my-local-notes/' .specops/.gitignore && grep -qx '# 팀 규칙' .specops/.gitignore \
+   && [ -z "$_dup" ] && [ "$_g1" = "$(cat .specops/.gitignore)" ]; then
+  ok "T30.c 재실행 → .gitignore 의 사용자 줄 보존 · 중복 0 · 재실행 멱등"
+else
+  nope "T30.c" "user=$(grep -cx 'my-local-notes/' .specops/.gitignore) dup=[$_dup] idem=$([ "$_g1" = "$(cat .specops/.gitignore)" ] && echo y || echo n)"
+fi
+
+# T30.d 새 프로젝트: 훅·스크립트가 쓰는 로컬 파일은 무시되고, 기록물은 추적 대상으로 남는다
+_ign=""; for f in pending-capture.jsonl redact-failures.log friction-log.jsonl session-progress.md.bak .init-prd-fields .init-hold; do
+  git check-ignore -q ".specops/$f" || _ign="$_ign $f"
+done
+_trk=""; for f in freelog.md session-progress.md memory/requirements.md 20261009-x/intent.md; do
+  git check-ignore -q ".specops/$f" && _trk="$_trk $f"
+done
+git check-ignore -q .specops/20261009-x/plan.md || _ign="$_ign 20261009-x/plan.md"
+[ -z "$_ign" ] && [ -z "$_trk" ] \
+  && ok "T30.d 로컬 상태 파일 6종·FID 산출물 무시 · freelog·session-progress·memory·intent 는 추적 대상" \
+  || nope "T30.d" "무시 안 됨:[$_ign] 잘못 무시됨:[$_trk]"
+teardown_fixture
+
+# T30.e 구판 .gitignore(하류 실물 형태) 이관: FID 디렉토리 통째 무시 → 내용 무시 + intent.md 예외
+setup_fixture
+mkdir -p .specops
+cat > .specops/.gitignore <<'LEGACY'
+# specops-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore
+# FID 컨벤션: YYYYMMDD-slug (8자리 날짜 + dash). 일반 디렉토리 false positive 차단.
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/
+
+# batch 디렉토리 (queue.md·plan-review.md·ACTIVE) — FID 컨벤션에 안 걸린다.
+batch-*/
+
+# 세션 훅 산출물 — 커밋 대상 아님
+friction-log.jsonl
+
+# 스크립트 백업 산출물
+*.bak
+LEGACY
+{
+  printf "3\nskip\n"
+  printf "1. cli\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n"
+} | bash "$SCRIPT" --resume legacy >/dev/null 2>&1
+mkdir -p .specops/20261008-x .specops/batch-20261008-1200
+: > .specops/20261008-x/intent.md; : > .specops/20261008-x/plan.md; : > .specops/batch-20261008-1200/queue.md
+_miss=""
+git check-ignore -q .specops/20261008-x/intent.md && _miss="$_miss intent무시됨"
+git check-ignore -q .specops/20261008-x/plan.md   || _miss="$_miss plan추적됨"
+git check-ignore -q .specops/batch-20261008-1200/queue.md || _miss="$_miss 사용자규칙(batch)소실"
+for l in 'batch-*/' 'friction-log.jsonl' '*.bak' '# 세션 훅 산출물 — 커밋 대상 아님'; do
+  grep -qxF -- "$l" .specops/.gitignore || _miss="$_miss 줄소실($l)"
+done
+grep -qxF '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/' .specops/.gitignore && _miss="$_miss 구규칙잔존"
+[ "$(grep -cxF 'friction-log.jsonl' .specops/.gitignore)" = "1" ] || _miss="$_miss 중복(friction-log)"
+[ -z "$_miss" ] && ok "T30.e 구판 .gitignore 이관 → intent.md 추적 · 나머지 FID 산출물 무시 · 사용자 줄 보존 · 중복 0" \
+  || nope "T30.e" "$_miss"
+teardown_fixture
+
+# ── T31: bash 단계가 stage 하는 범위 (20261009 init 점검) ──
+# T31.a 기존 앱의 screens/ 폴더는 stage 하지 않는다 — init 시점엔 specops 화면 파일이 아직 없다
+setup_fixture
+mkdir -p screens; printf 'export default function Draft() {}\n' > screens/Draft.tsx
+fullstack_stdin | bash "$SCRIPT" demo >/dev/null 2>&1
+if ! git diff --cached --name-only | grep -q 'Draft\.tsx' && git diff --cached --name-only | grep -qx 'PRD.md'; then
+  ok "T31.a 기존 앱의 screens/ 파일은 stage 하지 않음 (산출물은 stage)"
+else
+  nope "T31.a" "staged=$(git diff --cached --name-only | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T31.b 보존한 파일에 미커밋 수정분이 있으면 stage 하지 않고 기록한다(.init-hold) — 종결 커밋이 건너뛴다
+setup_fixture
+printf '# 팀 README\n' > README.md; printf '# 팀 가이드\n' > CLAUDE.md
+git add README.md CLAUDE.md; git commit -q -m base
+printf '# 팀 README\n\n작성 중인 문단\n' > README.md        # 미커밋 수정 (CLAUDE.md 는 깨끗)
+{ printf "skip\n"; fullstack_stdin; } | bash "$SCRIPT" demo >/dev/null 2>&1
+_hold=$(cat .specops/.init-hold 2>/dev/null | tr '\n' ' ')
+if [ "$_hold" = "README.md " ] && ! git diff --cached --name-only | grep -qx 'README.md' \
+   && grep -q '작성 중인 문단' README.md && git diff --cached --name-only | grep -qx 'PRD.md' \
+   && git diff --cached --name-only | grep -qx '.specops/memory/requirements.md'; then
+  ok "T31.b 보존 파일의 미커밋 수정분 → stage 안 함 · .init-hold 기록(깨끗한 보존 파일은 제외)"
+else
+  nope "T31.b" "hold=[$_hold] staged=$(git diff --cached --name-only | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T31.c overwrite 를 고르면 기록하지 않는다 — 덮어쓴 파일은 init 의 산출물이다
+setup_fixture
+printf '# 팀 README\n' > README.md; git add README.md; git commit -q -m base
+printf '# 팀 README\n\n작성 중\n' > README.md
+{ printf "overwrite\n"; fullstack_stdin; } | bash "$SCRIPT" demo >/dev/null 2>&1
+if [ ! -e .specops/.init-hold ] && git diff --cached --name-only | grep -qx 'README.md'; then
+  ok "T31.c overwrite → 기록 없음 · 덮어쓴 README 는 stage"
+else
+  nope "T31.c" "hold=$([ -e .specops/.init-hold ] && cat .specops/.init-hold | tr '\n' ' ' || echo 없음) staged=$(git diff --cached --name-only | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T31.d 즉시 커밋 경로도 init 의 파일만 담는다
+setup_fixture
+printf 'API_KEY=sk-test-000\n' > notes.env; git add notes.env
+fullstack_stdin | SPECOPS_INIT_COMMIT_NOW=1 bash "$SCRIPT" demo >/dev/null 2>&1
+if [ "$(git rev-list --count HEAD 2>/dev/null)" = "1" ] \
+   && ! git show --name-only --format= HEAD | grep -q 'notes\.env' \
+   && git diff --cached --name-only | grep -qx 'notes.env'; then
+  ok "T31.d SPECOPS_INIT_COMMIT_NOW=1 → 무관 staged 파일은 커밋 제외 · staged 유지"
+else
+  nope "T31.d" "commits=$(git rev-list --count HEAD 2>/dev/null) files=$(git show --name-only --format= HEAD 2>/dev/null | tr '\n' ' ')"
+fi
+teardown_fixture
+
+# T31.e 사용자가 만든 미커밋 파일(미추적 · 직접 stage 한 새 파일)도 보존하면 커밋에 넣지 않는다
+#   독립 리뷰 재현: HEAD 대비 수정분만 보류하던 초판은 이 둘을 `chore(init)` 커밋에 쓸어 담았다 —
+#   "README.md 보존" 이라고 출력해 놓고서다. git 상태만으로는 init 의 골격과 구분되지 않아, init 이 쓴 파일을
+#   따로 기록한다(.init-written).
+setup_fixture
+printf 'x\n' > seed.txt; git add seed.txt; git commit -q -m base
+printf '# 내 README (커밋 전)\n' > README.md                       # 미추적
+printf '# 내 가이드\n' > CLAUDE.md; git add CLAUDE.md               # 사용자가 stage 한 새 파일
+{ printf "skip\n"; fullstack_stdin; } | bash "$SCRIPT" demo >/dev/null 2>&1
+_hold=$(sort .specops/.init-hold 2>/dev/null | tr '\n' ' ')
+bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+_cf=$(git show --name-only --format= HEAD 2>/dev/null)
+if [ "$_hold" = "CLAUDE.md README.md " ] && ! printf '%s\n' "$_cf" | grep -qxE 'README\.md|CLAUDE\.md' \
+   && printf '%s\n' "$_cf" | grep -qx 'PRD.md' \
+   && git status --porcelain | grep -q '^?? README.md' && git status --porcelain | grep -q '^A  CLAUDE.md' \
+   && grep -q '내 README' README.md; then
+  ok "T31.e 사용자의 미추적·staged 새 파일 → 보류 · 커밋 제외 · 상태 그대로"
+else
+  nope "T31.e" "hold=[$_hold] commit=[$(printf '%s' "$_cf" | tr '\n' ' ' | cut -c1-120)] st=[$(git status --porcelain | tr '\n' '|')]"
+fi
+teardown_fixture
+
+# T31.f 종결 전 재실행(재개든 아니든)은 이전 실행의 골격을 보류하지 않는다 — 종결 커밋이 전부 담는다
+for _mode in rerun resume; do
+  setup_fixture
+  fullstack_stdin | bash "$SCRIPT" demo >/dev/null 2>&1                 # 1차: stage 만, 종결 안 함
+  if [ "$_mode" = "rerun" ]; then
+    printf 'y\nskip\n4\nhome, login\n' | bash "$SCRIPT" demo >/dev/null 2>&1
+  else
+    printf '4\nhome, login\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
+  fi
+  _h=$([ -e .specops/.init-hold ] && tr '\n' ' ' < .specops/.init-hold || echo "")
+  bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+  _n=$(git show --name-only --format= HEAD 2>/dev/null | grep -c . || true)
+  if [ -z "$_h" ] && [ "${_n:-0}" -ge 15 ] && [ -z "$(git status --porcelain)" ] \
+     && [ ! -e .specops/.init-written ]; then
+    ok "T31.f($_mode) 종결 전 재실행 → 이전 골격 보류 0 · 종결 커밋 ${_n}파일 · clean · 기록 파일 회수"
+  else
+    nope "T31.f($_mode)" "hold=[$_h] files=$_n st=[$(git status --porcelain | tr '\n' '|' | cut -c1-160)]"
+  fi
+  teardown_fixture
+done
+
+# T30.f .gitignore 보충은 사용자 규칙을 뒤집지 않는다 — 보충 규칙은 위에, 사용자 규칙은 아래(뒤가 이긴다)
+setup_fixture
+mkdir -p .specops
+printf '# 팀 규칙\n!keep.bak\n' > .specops/.gitignore
+{ printf "3\nskip\n"; printf "1. cli\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"; printf "n\n"; } \
+  | bash "$SCRIPT" --resume neg >/dev/null 2>&1
+: > .specops/keep.bak; : > .specops/other.bak
+mkdir -p .specops/20261009-x; : > .specops/20261009-x/intent.md; : > .specops/20261009-x/plan.md
+_m=""
+git check-ignore -q .specops/keep.bak && _m="$_m keep.bak무시됨"
+git check-ignore -q .specops/other.bak || _m="$_m other.bak추적됨"
+git check-ignore -q .specops/20261009-x/intent.md && _m="$_m intent무시됨"
+git check-ignore -q .specops/20261009-x/plan.md || _m="$_m plan추적됨"
+[ -z "$_m" ] && ok "T30.f 사용자의 부정 규칙(!keep.bak)이 보충 뒤에도 듣는다 · 보충 규칙도 동작" || nope "T30.f" "$_m"
+# T30.g 내용 무시 규칙만 있고 intent 예외가 없는 파일 → 예외를 그 규칙 바로 뒤에 끼운다
+printf '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/*\nmy-rule/\n' > .specops/.gitignore
+printf '3\nn\n' | bash "$SCRIPT" --resume neg >/dev/null 2>&1
+_m=""
+git check-ignore -q .specops/20261009-x/intent.md && _m="$_m intent무시됨"
+git check-ignore -q .specops/20261009-x/plan.md || _m="$_m plan추적됨"
+grep -qx 'my-rule/' .specops/.gitignore || _m="$_m 사용자줄소실"
+[ -z "$_m" ] && ok "T30.g intent 예외 누락 파일 → 내용 무시 규칙 뒤에 끼움 (예외가 실제로 듣는다)" || nope "T30.g" "$_m"
+teardown_fixture
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

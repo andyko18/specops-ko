@@ -9,6 +9,7 @@ phase_1_precheck() {
   _check_memory
   _print_artifacts_table
   _resolve_conflict_policy
+  _init_hold_scan
   _check_brainstorming
 }
 
