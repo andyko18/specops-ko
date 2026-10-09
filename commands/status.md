@@ -4,7 +4,7 @@ description: "[조회] 진행 중 FID 의 Lifecycle 단계·아티팩트 현황 
 triggers:
   - "/status"
 mode: ask
-specops_version: 1.51.0
+specops_version: 2.18.0
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -20,11 +20,11 @@ reference_upstream: specops-ko 독자 추가
 ## Process
 
 1. **FID 결정**:
-   - 인자로 `<FID>` 가 주어지면 그대로 사용.
-   - 인자가 없으면 `.specops/session-progress.md` 의 **최상단 `## <FID>` 헤더**(최신 진행 FID)를 추출해 사용.
+   - 인자로 `<FID>` 가 주어지면 그대로 넘긴다.
+   - 인자가 없으면 **인자 없이 실행한다** — 스크립트가 `active-fid` 표지 → 진행 기록의 헤더 순으로 **디렉토리가 있는 첫 FID** 를 고른다. 진행 중 FID 가 없으면(부트스트랩 직후 등) 오류가 아니라 시작 안내 1줄로 끝난다.
 2. **현황 조회 실행**:
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/show-fid-status.sh <FID>
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/show-fid-status.sh [<FID>]
    ```
 3. 출력(Lifecycle 단계 진행 + 아티팩트 ✅/❌ 체크리스트)을 그대로 표시.
 
@@ -55,4 +55,4 @@ reference_upstream: specops-ko 독자 추가
 
 ---
 
-*specops-ko v1.51.0 · 2026-07-18 · reconcile 대조(기록↔증거 frontier, 정체 재개점 제시)*
+*specops-ko v2.18.0 · 2026-10-09 · 인자 없는 조회는 스크립트가 FID 를 정한다(진행 중 FID 없음 → 안내)*

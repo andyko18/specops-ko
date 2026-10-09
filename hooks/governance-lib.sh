@@ -1646,7 +1646,7 @@ apply_gbrain_absence_rule() {
   local fid
   fid=$(echo "$last_evi_path" | sed -E 's|.*\.specops/([^/]+)/evidence\.md$|\1|')
 
-  local snippet="lifecycle 완주 후 gbrain-append 호출 부재 — 1줄 인사이트 작성 권장: bash scripts/gbrain-append.sh '<insight>' --fid $fid"
+  local snippet="lifecycle 완주 후 gbrain-append 호출 부재 — 1줄 인사이트 작성 권장: bash \"$_GOV_LIB_DIR/../scripts/gbrain-append.sh\" '<insight>' --fid $fid"
   jq -nc --arg id "R-6" --arg snippet "$snippet" --argjson offset "$last_evi_line" --arg fid "$fid" \
     '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset, fid: $fid }'
 }

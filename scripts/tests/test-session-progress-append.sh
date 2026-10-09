@@ -124,6 +124,19 @@ T4_a() {
 }
 T4_a && ok "T4.a 파일 미존재 시 자동 생성" || fail "T4.a 파일 미존재 시 자동 생성"
 
+# T4.b: .specops/ 디렉토리째 없음 → 기록기가 만든다.
+#   진행 기록 쓰기는 lifecycle 의 명시적 행위라 관할을 여는 쪽이다. Stop 훅(ensure-session-progress)은
+#   .specops 부재 시 아무것도 만들지 않으므로, 디렉토리 생성은 기록기 몫이다.
+T4_b() {
+  local tmp ret=0
+  tmp=$(mktemp -d)
+  (cd "$tmp" && bash "$PLUGIN/scripts/session-progress-append.sh" "20260101-first-write" "/specify" "완료") >/dev/null 2>&1 || ret=1
+  grep -q '^## 20260101-first-write' "$tmp/.specops/session-progress.md" 2>/dev/null || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T4_b && ok "T4.b .specops 부재 → 기록기가 디렉토리·파일 생성" || fail "T4.b .specops 부재 시 기록 실패"
+
 # ── T5: 멱등성·빈섹션 회귀 ─────────────────────────────────────────────
 
 # T5.a AC-2/5: 신규섹션 동일 라인 재append → 1회 (멱등 섹션 전체 스캔)

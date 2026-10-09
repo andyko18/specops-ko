@@ -845,6 +845,8 @@ EOF
   [ "$code" -eq 1 ] && printf '%s' "$out" | grep -q 'FID 미기재' || nope "T-fid.a2 '${cell:-(빈칸)}' 기본 모드" "exit=$code"
   #   메시지는 FID 칸의 값을 그대로 보인다 — 빈칸이면 설명 칸의 글자("two")가 아니라 (빈칸) 이다
   printf '%s' "$out" | grep -qF "FR-2: FID 칸 '${cell:-(빈칸)}'" || nope "T-fid.a3 '${cell:-(빈칸)}' 메시지" "$(printf '%s' "$out" | grep 'FR-2' | head -1)"
+  #   해법 명령은 절대경로다 — 하류 저장소에는 scripts/ 가 없어 상대 경로로 적으면 그대로 실행할 수 없다
+  printf '%s' "$out" | grep -qE '해법: bash "/[^"]*/scripts/_internal/queue-set-status\.sh"' || nope "T-fid.a4 '${cell:-(빈칸)}' 해법 경로" "$(printf '%s' "$out" | grep '해법' | head -1)"
   rm -rf "$TMP/fid"
 done
 #   건수는 실제로 검사한 FID 만 센다

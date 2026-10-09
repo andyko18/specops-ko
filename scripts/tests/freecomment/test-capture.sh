@@ -7,6 +7,7 @@ TMP=$(mktemp -d) || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
 # T1.a 변경 없는 세션 → continue:true + pending 미생성 (AC-2)
+mkdir -p "$TMP/.specops"   # 도입 저장소 — 부재면 관할 가드가 먼저 빠져 이 단언이 공허해진다(부재 쪽은 T9)
 tr_empty="$TMP/empty.jsonl"
 printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}' > "$tr_empty"
 out=$(echo "{\"transcript_path\":\"$tr_empty\",\"cwd\":\"$TMP\"}" | bash "$HOOK" 2>/dev/null)
@@ -25,7 +26,7 @@ else
 fi
 
 # T2.a 자유작업 감지 → pending stub 기록 + type 분류 (AC-3)
-work="$TMP/work"; mkdir -p "$work"
+work="$TMP/work"; mkdir -p "$work/.specops"
 (cd "$work" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 echo "x" > "$work/foo.sh"
 (cd "$work" && git add foo.sh)
@@ -42,7 +43,7 @@ else
 fi
 
 # T2.b 공백 파일명 → files_json 에 정확히 1항목 (분할 안 됨)
-work2="$TMP/work2"; mkdir -p "$work2"
+work2="$TMP/work2"; mkdir -p "$work2/.specops"
 (cd "$work2" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 printf 'x' > "$work2/a b.sh"
 (cd "$work2" && git add "a b.sh")
@@ -64,7 +65,7 @@ else
 fi
 
 # T2.c substring 오탐 방지 — changed=app.sh, edit=pp.sh → pending 미생성
-work3="$TMP/work3"; mkdir -p "$work3"
+work3="$TMP/work3"; mkdir -p "$work3/.specops"   # 도입 저장소 — 부재면 관할 가드가 먼저 빠져 이 단언이 공허해진다
 (cd "$work3" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
 printf 'x' > "$work3/app.sh"
 (cd "$work3" && git add app.sh)
@@ -291,7 +292,7 @@ o2=$(cd "$rd" && printf 'k %s' "$K_AWS" | bash ./redact.sh 2>/dev/null); r2=$?
   && pass "T7.o 슬래시 없는·./ 상대 호출" || fail "T7.o" "r1=$r1 o1=$o1 r2=$r2 o2=$o2"
 
 # ── capture 훅 통합 (AC-4 · AC-6) ──
-mk_work() { mkdir -p "$1"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
+mk_work() { mkdir -p "$1/.specops"; (cd "$1" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q); echo x > "$1/r.sh"; (cd "$1" && git add r.sh); }
 mk_tr() {  # $1=출력 파일 $2=마지막 사용자 프롬프트 — 사용자 발화 뒤에 Edit 이벤트
   jq -cn --arg t "$2" '{type:"user",message:{content:[{type:"text",text:$t}]}}' > "$1"
   printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"r.sh"}}]}}' >> "$1"
@@ -355,5 +356,33 @@ mk_tr "$TMP/tr8d.jsonl" "고쳐줘 $K_AWS"
 out=$(echo "{\"transcript_path\":\"$TMP/tr8d.jsonl\",\"cwd\":\"$w8d\"}" | bash "$pl/hooks/freecomment-capture.sh" 2>/dev/null)
 echo "$out" | grep -q '"continue":true' && [ ! -e "$od8/leak.log" ] && [ -s "$w8d/.specops/pending-capture.jsonl" ] \
   && pass "T8.d 로그 symlink write 거부" || fail "T8.d" "out=$out leak=$([ -e "$od8/leak.log" ] && echo yes || echo no)"
+# T9 관할 한정 — .specops 없는 저장소에서는 자유작업을 캡처하지 않는다.
+#   왜: pending 을 쓰려고 .specops/ 를 만들면 그 저장소가 관할로 편입되고, 다음 세션 시작에
+#   "미기록 자유작업" 처리 지시가 주입된다 — 플러그인을 쓰지 않는 저장소에서.
+w9="$TMP/w9"; mkdir -p "$w9"
+(cd "$w9" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
+echo "x" > "$w9/foo.sh"; (cd "$w9" && git add foo.sh)
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"이 버그 고쳐줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"foo.sh"}}]}}' > "$TMP/tr9.jsonl"
+out=$(echo "{\"transcript_path\":\"$TMP/tr9.jsonl\",\"cwd\":\"$w9\"}" | bash "$HOOK" 2>/dev/null)
+echo "$out" | grep -q '"continue":true' && [ ! -e "$w9/.specops" ] \
+  && pass "T9.a .specops 부재 → 캡처 없음·디렉토리 미생성" || fail "T9.a" "out=$out .specops=$([ -e "$w9/.specops" ] && echo yes || echo no)"
+# T9.b 대조 — 같은 입력에 .specops 만 있으면 캡처한다 (가드가 도입 저장소를 막지 않는다)
+mkdir -p "$w9/.specops"
+out=$(echo "{\"transcript_path\":\"$TMP/tr9.jsonl\",\"cwd\":\"$w9\"}" | bash "$HOOK" 2>/dev/null)
+[ -s "$w9/.specops/pending-capture.jsonl" ] \
+  && pass "T9.b .specops 존재 → 캡처" || fail "T9.b" "out=$out"
+# T9.c 하위 디렉토리 cwd 세션 — 프로젝트 루트에 .specops 가 있으면 루트에 캡처한다 (중첩 디렉토리를 만들지 않는다)
+w9c="$TMP/w9c"; mkdir -p "$w9c/.specops" "$w9c/src"
+(cd "$w9c" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
+echo "x" > "$w9c/src/foo.sh"; (cd "$w9c" && git add src/foo.sh)
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"이 버그 고쳐줘"}]}}' \
+  "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Edit\",\"input\":{\"file_path\":\"$w9c/src/foo.sh\"}}]}}" > "$TMP/tr9c.jsonl"
+out=$(echo "{\"transcript_path\":\"$TMP/tr9c.jsonl\",\"cwd\":\"$w9c/src\"}" | CLAUDE_PROJECT_DIR="$w9c" bash "$HOOK" 2>/dev/null)
+[ -s "$w9c/.specops/pending-capture.jsonl" ] && [ ! -e "$w9c/src/.specops" ] \
+  && [ "$(jq -r '.files[0]' "$w9c/.specops/pending-capture.jsonl" 2>/dev/null)" = "src/foo.sh" ] \
+  && pass "T9.c 하위 cwd → 루트에 캡처(경로는 루트 기준)" || fail "T9.c" "out=$out pend=$(cat "$w9c/.specops/pending-capture.jsonl" 2>/dev/null) nested=$([ -e "$w9c/src/.specops" ] && echo yes || echo no)"
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

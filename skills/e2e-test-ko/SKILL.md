@@ -800,7 +800,7 @@ PASS=25 FAIL=0 목표 (python3+pyyaml 없을 시 V8 SKIP — PASS≥24 허용)
 | V2 (spec.md 섹션) | 섹션 헤더 형식 불일치 | spec.md에서 `## 1.` `## 2.` `## 5.` 헤더 확인 |
 | V3 (AC 3개+) | AC-3 append 누락 | acceptance-criteria.md에 `### AC-3:` 블록 존재 여부 확인 |
 | V6 (tasks.md YAML) | 백틱 이스케이프 문제 | tasks.md에서 ` ```yaml ` 블록 직접 확인 |
-| V7 (session-progress) | scripts/session-progress-append.sh 실패 | ensure-session-progress.sh 실행 후 재시도 |
+| V7 (session-progress) | scripts/session-progress-append.sh 실패 | stderr 사유 확인 후 재시도 |
 | V8 (DAG 파싱) | parse-dag.sh 로드 실패 | `bash scripts/dag/parse-dag.sh` 직접 실행해 오류 확인 |
 | V9 (validate-structure) | 파일 개수 불일치 | validate-structure.sh 실행해 구체적 FAIL 항목 확인 |
 | V10~V12 (부트스트랩) | init-project.sh phase_4 fallback 진입 (parse <4/6) | stdin numbered list 라인이 `숫자. 라벨: 값` 형식인지·빈 줄 sentinel 누락 확인. `[Phase 4] ... 개별 입력 모드로 전환` 출력 시 fallback 진입 (parse 실패) |

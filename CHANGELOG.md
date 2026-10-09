@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **훅이 플러그인을 쓰지 않는 저장소에 `.specops/` 를 만들어 그 저장소를 관할로 편입시켰다.** Stop 훅(`ensure-session-progress.sh`)은 `.specops/` 가 없어도 `session-progress.md` 를 만들었고, 자유작업 캡처(`freecomment-capture.sh`)·Stop 거버넌스(R-4)·사후 감사(R-1)도 기록을 남기려고 디렉토리를 만들었다. 그 뒤로는 그 저장소의 코드 커밋이 R-1 로 막혔다 — README 의 "`.specops/` 없으면 면제" 가 성립하지 않았다(실측: 플러그인을 쓰지 않는 저장소 4곳에 `session-progress.md` 만 든 `.specops/`, 하위 디렉토리에서 발화한 `.specops/.specops` 1곳). 이제 훅 4종 모두 `.specops/` 가 없으면 판정·기록·생성을 하지 않는다. 디렉토리는 관할을 여는 쪽(`/init-project` · FID 생성 · `session-progress-append.sh`)만 만든다. **이미 생긴 흔적은 지우지 않는다** — `/doctor` 의 `bootstrap` 항목이 "memory 도 FID 도 없는 `.specops/`" 를 알려 주므로 직접 지운다.
+- **`/doctor` 가 설치 직후에는 아무것도 검사하지 않았다.** `.specops/` 가 없으면 "진단할 대상이 없습니다" 로 끝나, README 가 안내한 "설치 직후 의존성 확인" 을 할 수 없었다. 이제 환경 항목(`deps`·`effort_env`)은 `.specops/` 없이도 점검한다(`--json` 은 `"scope":"env-only"`).
+- **`/doctor` 가 jq 없이도 `governance ✅ 훅 4종 활성` 을 냈다.** 같은 표의 `deps` 는 "거버넌스 비활성" 이라고 했다. 훅이 켜져 있어도 jq 가 없으면 전부 fail-open 이므로 이제 ⚠️ 로 낸다.
+- **부트스트랩 직후 `/status` 가 오류로 끝났다.** 진행 기록의 최상단이 `<날짜>-init-project` 인데 그 디렉토리는 없다. 인자 없는 조회는 이제 스크립트가 디렉토리가 있는 첫 FID 를 고르고, 없으면 시작 안내 1줄로 끝난다(rc 0). 인자를 준 조회의 계약은 그대로다.
+- **게이트의 해법 안내가 하류 저장소에 없는 경로를 가리켰다** — `batch-state.sh`(FID 칸 미기재) · `check-foundation-manifest.sh`(공통부 FR 기록) · `check-stack-decided.sh`(원장 확인) · R-6 안내. `bash scripts/_internal/…` 를 플러그인 절대경로로 바꿨고, `check-plugin-paths.sh` 가 스크립트·훅의 안내문도 검사한다(종전에는 프롬프트만).
+- `/doctor` 의 pyyaml 설치 안내에 externally-managed(PEP 668) 환경의 길을 같이 적는다.
+
 ## [2.17.0] — 2026-10-09
 
 ### Changed

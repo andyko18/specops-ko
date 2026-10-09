@@ -988,6 +988,24 @@ else
 fi
 cd "$_cz_orig" || exit 1; rm -rf "$_cz"
 
+# T-NA 관할 한정 — .specops 없는 저장소에서 Stop 거버넌스는 아무것도 기록하지 않는다.
+#   R-4(성공 주장 + 테스트 미실행)가 발화하는 transcript 를 그대로 쓴다 — 도입 저장소(.specops 존재)에서는 기록된다.
+_na=$(mktemp -d)
+_na_out=$(cd "$_na" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$FIXTURES/transcripts/r4-claim-without-runner.jsonl" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
+if [ "$(echo "$_na_out" | jq -r '.continue' 2>/dev/null)" = "true" ] && [ ! -e "$_na/.specops" ]; then
+  PASS=$((PASS+1)); echo "PASS T-NA.a .specops 부재 → Stop 거버넌스 기록·디렉토리 미생성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-NA.a (out=$_na_out .specops=$([ -e "$_na/.specops" ] && echo yes || echo no))"
+fi
+mkdir -p "$_na/.specops"
+(cd "$_na" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$FIXTURES/transcripts/r4-claim-without-runner.jsonl" | bash "$PLUGIN/hooks/stop-governance.sh" >/dev/null 2>&1)
+if grep -q '"rule_id":"R-4"' "$_na/.specops/friction-log.jsonl" 2>/dev/null; then
+  PASS=$((PASS+1)); echo "PASS T-NA.b 대조 — .specops 존재 시 같은 입력이 R-4 를 기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-NA.b 대조군이 발화하지 않음 — T-NA.a 가 공허하다"
+fi
+rm -rf "$_na"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

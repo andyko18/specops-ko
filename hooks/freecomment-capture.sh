@@ -13,6 +13,14 @@ input=$(cat 2>/dev/null) || safe_exit
 
 cwd=$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)
 [ -n "$cwd" ] && [ -d "$cwd" ] || safe_exit
+# 하위 디렉토리 cwd 세션 — cwd 에 `.specops/` 가 없고 프로젝트 루트에 있으면 루트 기준으로 캡처한다(posttool·stop 과 같은 앵커).
+if [ ! -e "$cwd/.specops" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}/.specops" ]; then
+  cwd="$CLAUDE_PROJECT_DIR"
+fi
+# 관할 한정 — `.specops/` 가 없는 저장소의 자유작업은 캡처하지 않는다.
+#   pending 을 쓰려고 디렉토리를 만들면 그 저장소가 관할로 편입되고(R-1 차단 대상), 다음 세션 시작에
+#   "미기록 자유작업" 처리 지시가 주입된다. symlink 는 아래 가드가 거부한다.
+[ -d "$cwd/.specops" ] || [ -L "$cwd/.specops" ] || safe_exit
 transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 [ -n "$transcript" ] && [ -f "$transcript" ] || safe_exit
 
@@ -64,7 +72,6 @@ fi
 # 외부 dir symlink 로 심으면 write-through path-escape. 훅 자기 cwd 가 아닌 $cwd 기준이라 인라인 검사.
 [ ! -L "$cwd/.specops" ] || safe_exit
 [ ! -L "$cwd/.specops/pending-capture.jsonl" ] || safe_exit
-mkdir -p "$cwd/.specops"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전
 fid=$(cd "$cwd" && detect_fid 2>/dev/null || echo "")

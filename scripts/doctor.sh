@@ -180,6 +180,11 @@ _chk_bootstrap() {
   #   미탐한다. 그래서 init 커밋(chore(init) 접두 — init-finalize.sh 자신이 쓰는 문구)의
   #   부재를 본다.
   if [ ! -d "$SPECOPS/memory" ]; then
+    # memory 도 FID 도 없으면 플러그인을 쓴 적이 없는 저장소일 수 있다 — v2.17.0 이하의 Stop 훅은 `.specops/` 가
+    #   없는 저장소에도 session-progress.md 를 만들어 그 저장소를 관할로 편입시켰다. 빠져나가는 길을 같이 말한다.
+    if ! ls -d "$SPECOPS"/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-* >/dev/null 2>&1; then
+      _add bootstrap unknown "$SPECOPS/memory 부재 — 부트스트랩 안 됨 · FID 도 없음(플러그인을 쓰지 않는 저장소라면 이전 버전 훅이 남긴 흔적일 수 있다 — $SPECOPS 를 지우면 관할에서 빠진다)" "/init-project"; return
+    fi
     _add bootstrap unknown "$SPECOPS/memory 부재 — 부트스트랩 안 됨" "/init-project"; return
   fi
   if ! git rev-parse --git-dir >/dev/null 2>&1; then
@@ -413,7 +418,13 @@ _chk_governance() {
     fi
   done
   if [ "$n" -eq 0 ] && [ "$nbad" -eq 0 ]; then
-    _add governance ok "훅 4종 활성" ""
+    # 켜져 있는 것과 동작하는 것은 다르다 — jq 가 없으면 훅은 전부 fail-open 한다.
+    #   종전에는 한 표에 `governance ✅ 훅 4종 활성` 과 `deps ⚠️ … 거버넌스 비활성` 이 같이 나왔다.
+    if command -v jq >/dev/null 2>&1; then
+      _add governance ok "훅 4종 활성" ""
+    else
+      _add governance warn "훅 4종이 켜져 있으나 jq 미설치 — 전부 fail-open 이라 차단·감사가 동작하지 않는다" "brew install jq"
+    fi
   elif [ "$nbad" -eq 0 ]; then
     _add governance warn "훅 ${n}/4 비활성: ${off}" ".specops/config.yaml 의 profile/hooks 설정을 확인하세요"
   elif [ "$n" -eq 0 ]; then
@@ -440,7 +451,8 @@ _chk_deps() {
   if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
     miss="${miss}${miss:+,}python3/pyyaml"
     note="${note} · governance 항목이 config 킬스위치를 탐지 못 함"
-    fixcmd="${fixcmd}${fixcmd:+ · }pip3 install pyyaml"
+    # PEP 668(externally-managed) 환경에서는 맨 `pip3 install` 이 거부된다 — 그때의 길을 같이 적는다.
+    fixcmd="${fixcmd}${fixcmd:+ · }pip3 install pyyaml (externally-managed 오류면: Debian·Ubuntu 는 apt install python3-yaml, 그 밖은 pip3 install --user --break-system-packages pyyaml)"
   fi
   if [ -z "$miss" ]; then
     _add deps ok "jq · python3/pyyaml 확인" ""
@@ -465,35 +477,43 @@ _chk_effort_env() {
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
-# 비-specops repo 면제 — 플러그인은 자기 관할만 통제한다(5원칙 4 주권)
+# 비-specops repo — 프로젝트 항목은 내지 않는다(플러그인은 자기 관할만 통제한다 — 5원칙 4 주권).
+#   환경 항목(deps·effort_env)은 낸다: README 가 "설치 직후 /doctor 로 deps 확인" 을 안내하는데 설치 직후에는
+#   `.specops/` 가 없다. 종전에는 그 시점에 아무 항목도 내지 않아, jq 부재(훅 전면 fail-open)를 도입 전에 알 길이 없었다.
+SCOPE="project"
 if [ ! -d "$SPECOPS" ]; then
-  if [ "$JSON" -eq 1 ]; then
-    echo '{"schema_version":1,"checks":[],"warn_count":0}'
-  else
-    echo "specops 미사용 프로젝트입니다 ($SPECOPS 부재) — 진단할 대상이 없습니다."
-  fi
-  exit 0
+  SCOPE="env-only"
+  _chk_deps
+  _chk_effort_env
+else
+  _chk_hooks
+  _chk_memory
+  _chk_orphan
+  _chk_progress
+  _chk_bootstrap
+  _chk_stale
+  _chk_governance
+  _chk_deps
+  _chk_effort_env
 fi
 
-_chk_hooks
-_chk_memory
-_chk_orphan
-_chk_progress
-_chk_bootstrap
-_chk_stale
-_chk_governance
-_chk_deps
-_chk_effort_env
-
 if [ "$JSON" -eq 1 ]; then
-  printf '%s' "$ROWS" | jq -Rs '
+  # jq 가 없으면 표를 JSON 으로 만들 수 없다 — 빈 checks 로 "문제 없음" 을 흉내내지 않고 사유를 싣는다.
+  if ! command -v jq >/dev/null 2>&1; then
+    printf '{"schema_version":1,"scope":"%s","checks":[{"id":"deps","status":"warn","detail":"jq 미설치 — JSON 출력 불가(표 출력은 --json 없이)","fix":"brew install jq"}],"warn_count":1}\n' "$SCOPE"
+    exit 0
+  fi
+  printf '%s' "$ROWS" | jq -Rs --arg scope "$SCOPE" '
     [ split("\n")[] | select(length > 0) | split("|")
       | {id: .[0], status: .[1], detail: .[2], fix: .[3]} ] as $c
-    | {schema_version: 1, checks: $c,
+    | {schema_version: 1, scope: $scope, checks: $c,
        warn_count: ([$c[] | select(.status != "ok")] | length)}'
   exit 0
 fi
 
+if [ "$SCOPE" = "env-only" ]; then
+  printf 'specops 미사용 프로젝트입니다 (%s 부재) — 프로젝트 항목은 건너뛰고 환경 항목만 점검합니다. 도입은 `/init-project`.\n\n' "$SPECOPS"
+fi
 printf '### specops 건강 진단\n\n| 항목 | 상태 | 상세 | 조치 |\n|---|---|---|---|\n'
 printf '%s' "$ROWS" | while IFS='|' read -r id st detail fix; do
   [ -n "$id" ] || continue

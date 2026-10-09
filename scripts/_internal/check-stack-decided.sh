@@ -169,7 +169,7 @@ STACK-DECIDED: FAIL — foundation 인데 기술스택 확정 증거가 없습�
 
   해법: clarifying-ko BLOCKING 으로 기술 프레임워크를 확정하고
         .specops/memory/decisions.md 에 행을 upsert 하세요.
-        확인: bash scripts/_internal/check-decisions-ledger.sh --list
+        확인: bash "$LEDGER_SH" --list
 
   미확정이 남은 줄:
 EOF

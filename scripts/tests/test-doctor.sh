@@ -156,6 +156,65 @@ R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
 _run "$R"
 [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
+# T7.b: 부트스트랩 전에도 환경 항목(deps·effort_env)은 점검한다.
+#   README 가 "설치 직후 /doctor 로 deps 확인" 을 안내하는데 설치 직후에는 .specops 가 없다 —
+#   종전에는 그 시점에 아무 항목도 내지 않아, jq 부재(훅 전면 fail-open)를 도입 전에 알 길이 없었다.
+printf '%s' "$_OUT" | grep -qE '^\| deps ' && printf '%s' "$_OUT" | grep -qE '^\| effort_env ' \
+  && ok "T7.b .specops 부재 → deps·effort_env 는 점검" || nope "T7.b" "out=$_OUT"
+# T7.c: 프로젝트 항목은 내지 않는다 (없는 프로젝트를 진단하지 않는다) + 무엇을 건너뛰었는지 말한다
+if printf '%s' "$_OUT" | grep -qE '^\| (memory|orphan_fid|progress|bootstrap|stale|governance|git_hooks) '; then
+  nope "T7.c" "프로젝트 항목이 섞임: $_OUT"
+else
+  printf '%s' "$_OUT" | grep -q '프로젝트 항목은 건너' \
+    && ok "T7.c .specops 부재 → 프로젝트 항목 생략 + 생략 사실 고지" || nope "T7.c" "생략 고지 없음: $_OUT"
+fi
+# T7.d: --json 도 같은 범위 — checks 는 deps·effort_env 2건, scope 로 범위를 밝힌다
+_run "$R" --json
+printf '%s' "$_OUT" | jq -e '.schema_version == 1 and .scope == "env-only" and ([.checks[].id] | sort) == ["deps","effort_env"] and (.warn_count | type) == "number"' >/dev/null 2>&1 \
+  && ok "T7.d .specops 부재 --json → env-only 2항목" || nope "T7.d" "out=$_OUT"
+# T7.e: jq 가 없으면 부트스트랩 전에도 ⚠️ 로 보인다 (이 항목의 존재 이유)
+_nojq="$TMP/nojq-bin"; mkdir -p "$_nojq"
+for _b in bash sh git python3 grep sed awk cat printf dirname basename date tr cut head tail sort uniq wc env mktemp rm ls find; do
+  _p=$(command -v "$_b" 2>/dev/null) && [ -n "$_p" ] && ln -sf "$_p" "$_nojq/$_b"
+done
+_OUT=$(cd "$R" && PATH="$_nojq" SPECOPS_ROOT=".specops" bash "$SH" 2>&1); _RC=$?
+[ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -E '^\| deps ' | grep -q '⚠️' \
+  && ok "T7.e .specops 부재 + jq 없음 → deps ⚠️" || nope "T7.e" "rc=$_RC out=$_OUT"
+# T7.e2: jq 없이 --json — 빈 checks 로 "문제 없음" 을 흉내내지 않는다. 유효한 한 줄 JSON 에 jq 부재를 싣는다.
+_OUT=$(cd "$R" && PATH="$_nojq" SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
+[ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '.schema_version == 1 and .scope == "env-only" and .warn_count == 1 and .checks[0].id == "deps" and (.checks[0].detail | test("jq"))' >/dev/null 2>&1 \
+  && ok "T7.e2 jq 없음 --json → 유효 JSON + deps warn 1건" || nope "T7.e2" "rc=$_RC out=$_OUT"
+# T7.e3: pyyaml 설치 안내는 externally-managed(PEP 668) 환경의 길을 같이 적는다 — 맨 `pip3 install` 은 거기서 거부된다
+_nopy="$TMP/nopy-bin"; mkdir -p "$_nopy"
+for _b in bash sh git jq grep sed awk cat printf dirname basename date tr cut head tail sort uniq wc env mktemp rm ls find; do
+  _p=$(command -v "$_b" 2>/dev/null) && [ -n "$_p" ] && ln -sf "$_p" "$_nopy/$_b"
+done
+_OUT=$(cd "$R" && PATH="$_nopy" SPECOPS_ROOT=".specops" bash "$SH" 2>&1); _RC=$?
+_d7=$(printf '%s\n' "$_OUT" | grep '^| deps |')
+printf '%s' "$_d7" | grep -q 'python3/pyyaml' && printf '%s' "$_d7" | grep -q 'pip3 install pyyaml' && printf '%s' "$_d7" | grep -q 'externally-managed' \
+  && ok "T7.e3 pyyaml 부재 → 설치 안내 + externally-managed 대안" || nope "T7.e3" "행='$_d7'"
+# T7.f: jq 가 없으면 governance 는 ✅ 가 아니다 — 훅이 켜져 있어도 jq 없이는 전면 fail-open 이다.
+#   종전에는 한 표에 `governance ✅ 훅 4종 활성` 과 `deps ⚠️ … 거버넌스 비활성` 이 같이 나왔다(서로 반대 말).
+R7f="$TMP/r7f"; mkdir -p "$R7f/.specops"; git -C "$R7f" init -q 2>/dev/null
+_OUT=$(cd "$R7f" && PATH="$_nojq" SPECOPS_ROOT=".specops" bash "$SH" 2>&1); _RC=$?
+_g7=$(printf '%s\n' "$_OUT" | grep '^| governance |')
+if [ -z "$_g7" ]; then nope "T7.f" "governance 행 부재 — 단언 대상이 없다: $_OUT"
+elif printf '%s' "$_g7" | grep -q '⚠️' && printf '%s' "$_g7" | grep -q 'jq' && ! printf '%s' "$_g7" | grep -q '✅'; then
+  ok "T7.f jq 없음 → governance ⚠️ (켜져 있어도 동작하지 않는다고 말한다)"
+else nope "T7.f" "행='$_g7'"; fi
+# T7.h: memory 도 FID 도 없는 `.specops/` — 이전 버전 훅이 남긴 흔적일 수 있음을 알리고 빠져나가는 길을 말한다
+_b7=$(printf '%s\n' "$_OUT" | grep '^| bootstrap |')
+printf '%s' "$_b7" | grep -q '관할에서 빠진다' \
+  && ok "T7.h 빈 .specops → 흔적 가능성·제거 안내" || nope "T7.h" "행='$_b7'"
+# T7.i 대조: FID 디렉토리가 있으면 그 안내를 붙이지 않는다 (쓰는 저장소에 "지우라" 고 하지 않는다)
+mkdir -p "$R7f/.specops/20260101-real"
+_OUT=$(cd "$R7f" && PATH="$_nojq" SPECOPS_ROOT=".specops" bash "$SH" 2>&1)
+! printf '%s\n' "$_OUT" | grep '^| bootstrap |' | grep -q '관할에서 빠진다' \
+  && ok "T7.i FID 있음 → 제거 안내 없음" || nope "T7.i" "$(printf '%s\n' "$_OUT" | grep '^| bootstrap |')"
+# T7.g 대조: jq 가 있으면 같은 저장소에서 governance ✅ (T7.f 가 PATH 축소 자체에 반응한 것이 아님)
+_run "$R7f"
+printf '%s\n' "$_OUT" | grep '^| governance |' | grep -q '✅' \
+  && ok "T7.g 대조 — jq 있음 → governance ✅" || nope "T7.g" "out=$(printf '%s\n' "$_OUT" | grep governance)"
 
 # T8 (AC-8): --json 9항목 status  ← governance·deps 2항목 추가(FID 20260830 T3)
 R="$TMP/r8"; _mkrepo "$R"
