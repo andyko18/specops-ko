@@ -12,9 +12,10 @@
 #   n ≥ 7, 분할 계획행 없음                → FAIL (모드 무관)
 #   7 ≤ n ≤ 9, 계획행 있음                 → WARN (통과 + FID-SIZE 경고)
 #   n ≥ 10, 대화형                         → FAIL (계획행이 있어도 — FID 를 나눈 뒤 재진입)
-#   n ≥ 10, §auto·§batch·foundation + 계획행 → WARN (경고하고 진행)
-#     §auto·§batch 는 분할을 물을 사용자 채널이 없다. foundation 은 대화형이라 **나눌 수 있다** — 차단하지 않는 것은
-#     공통부가 한 덩어리로 필요한 경우가 있어서일 뿐이고, 경고에 나누는 길을 적는다(실기록 3건이 10·11·21 태스크였다).
+#   n ≥ 10, §auto·§batch + 계획행         → WARN (분할을 물을 사용자 채널이 없다 — 경고하고 진행)
+#   foundation 은 예외가 아니다(20261009) — `/start-foundation` 은 대화형이라 나눌 수 있다. 종전엔 §auto·§batch 와 같은
+#     예외였는데 실기록 foundation FID 3건이 10·11·21 태스크였고, 21건짜리는 32시간이 걸리고 plan 리뷰가 2회 FAIL 했다.
+#     manifest 가 행을 더하는 문서라 공통부는 층별 FID 로 나눌 수 있다. 무인 표지(§auto)가 함께 있으면 §auto 예외다.
 #
 # 예외 통과(≥10)는 FID 의 friction-log 에 `FID-SIZE-EXEMPT` 로 남긴다(자기발급 가능한 면제의 사용량 측정).
 # 분할 계획행 = tasks.md 의 줄 선두 `**분할 계획**: <내용>` — 내용이 비었거나 템플릿 placeholder(`<…>` 통째)이거나
@@ -81,9 +82,16 @@ exempt=""
 if [ -f "$SPEC" ]; then
   if grep -qE '^\*\*§batch\*\*:[[:space:]]*[^[:space:]]' "$SPEC" 2>/dev/null; then exempt="§batch"
   elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true[[:space:]]*$' "$SPEC" 2>/dev/null; then exempt="§auto"
-  elif grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' "$SPEC" 2>/dev/null; then exempt="foundation"
   fi
 fi
+# foundation 여부는 안내 문구에만 쓴다(예외가 아니다)
+is_fnd=""
+[ -f "$SPEC" ] && grep -qE '^\*\*§유형\*\*:[[:space:]]*foundation' "$SPEC" 2>/dev/null && is_fnd=y
+_fnd_hint() {
+  [ -n "$is_fnd" ] || return 0
+  echo "  공통부는 층별로 나눈다(예: 스캐폴딩·DB 베이스 → 인증 → 화면 셸). 층마다 /start-foundation 을 다시 돌리면"
+  echo "  manifest 는 다음 FID 가 행을 더한다(템플릿으로 덮지 않는다) · 공통부 FR 은 fr-set-fid.sh 로 FID 마다 기록한다."
+}
 
 _warn_line="⚠️ FID-SIZE: $n 태스크 (권장 ≤6) — 다중 세션에 걸칠 수 있음. 중간 이탈 시 재개는 /status (reconcile) 로."
 
@@ -91,6 +99,7 @@ if [ "$has_plan" = no ]; then
   echo "FID-SIZE: FAIL — $n 태스크(권장 ≤6)인데 tasks.md 에 분할 계획행이 없다."
   echo "  tasks.md 끝에 \`**분할 계획**: <어느 태스크까지 이번 FID, 나머지는 후속 FID 후보>\` 1행을 기재하세요(줄 선두)."
   [ "$n" -ge 10 ] && [ -z "$exempt" ] && echo "  $n 태스크(≥10)는 대화형에서 FID 분할 없이 구현에 진입할 수 없다 — 수직 슬라이스로 FID 를 나눈 뒤 decomposing 재진입."
+  [ "$n" -ge 10 ] && [ -z "$exempt" ] && _fnd_hint
   exit 1
 fi
 
@@ -98,6 +107,7 @@ if [ "$n" -ge 10 ]; then
   if [ -z "$exempt" ]; then
     echo "FID-SIZE: FAIL — $n 태스크(≥10)는 대화형에서 FID 분할 없이 구현에 진입할 수 없다."
     echo "  수직 슬라이스(각자 독립 shippable)로 FID 를 나눈 뒤 decomposing 재진입. 분할 계획행만으로는 열리지 않는다."
+    _fnd_hint
     exit 1
   fi
   # 예외 라벨은 모델이 쓰는 spec.md 표기라 자기발급이 가능하다 — 막지 못하는 대신 **사용을 기록**해 남용을 측정 가능하게 한다
@@ -106,15 +116,8 @@ if [ "$n" -ge 10 ]; then
     && . "$PLUGIN/hooks/governance-lib.sh" 2>/dev/null \
     && declare -F log_friction >/dev/null 2>&1 \
     && log_friction "$FID" "FID-SIZE-EXEMPT" 2 "$exempt 예외로 $n 태스크 통과 (분할 계획행 기재)" 0 ) >/dev/null 2>&1 || true
-  if [ "$exempt" = "foundation" ]; then
-    echo "FID-SIZE: WARN ($n tasks, foundation 예외 — 차단하지 않고 경고)"
-    echo "$_warn_line"
-    echo "  공통부는 층별로 나눠 만들 수 있다(예: 스캐폴딩·DB 베이스 → 인증 → 화면 셸). FID 마다 /start-foundation 을 다시 돌리면"
-    echo "  manifest 는 다음 FID 가 행을 더한다(템플릿으로 덮지 않는다). 한 덩어리로 가야 하면 분할 계획행에 이유를 적어 둔다."
-  else
-    echo "FID-SIZE: WARN ($n tasks, $exempt 예외 — 분할을 물을 사용자 채널이 없어 차단 대신 경고)"
-    echo "$_warn_line"
-  fi
+  echo "FID-SIZE: WARN ($n tasks, $exempt 예외 — 분할을 물을 사용자 채널이 없어 차단 대신 경고)"
+  echo "$_warn_line"
   exit 0
 fi
 
