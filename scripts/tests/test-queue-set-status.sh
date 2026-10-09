@@ -208,4 +208,24 @@ out=$(bash "$SCRIPT" "$TMP/t18b.md" FR-9 PLAN_DONE 20261009-z 2>&1); code=$?
 [ "$code" -ne 0 ] && [ "$h1" = "$(cksum < "$TMP/t18b.md")" ] \
   && ok "T18b FID 칸이 없는 표(3칸)에 FID 인자 → 거부(파일 무변경)" || nope "T18b" "code=$code out=$out"
 
+# ── T19: 인자가 5개 이상이면 사용법 오류 — 남는 인자를 조용히 버리지 않는다 ──
+mk_queue "$TMP/t19.md"; h19=$(cksum < "$TMP/t19.md")
+out=$(bash "$SCRIPT" "$TMP/t19.md" FR-1 PLAN_DONE 20260101-a extra 2>&1); code=$?
+[ "$code" -ne 0 ] && printf '%s' "$out" | grep -q 'usage:' && [ "$h19" = "$(cksum < "$TMP/t19.md")" ] \
+  && ok "T19 인자 5개 → usage · 파일 무변경" || nope "T19" "code=$code out=$out"
+# ── T20: FID 칸 경고는 FID 가 아닐 때만 낸다 ──
+#   PLAN_DONE 으로 바꾸는데 FID 칸이 이미 FID 면 경고가 없어야 한다(조건을 꺼도 통과하던 변이 — 20261009 실측).
+mk_queue "$TMP/t20.md"
+out=$(bash "$SCRIPT" "$TMP/t20.md" FR-1 PLAN_DONE 2>&1); code=$?
+[ "$code" -eq 0 ] && ! printf '%s' "$out" | grep -q '경고' \
+  && ok "T20a FID 칸이 FID 인 행 → PLAN_DONE 에 경고 없음" || nope "T20a" "code=$code out=$out"
+cat > "$TMP/t20b.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-1 | TBD | 아직 FID 없음 | PENDING |
+EOF
+out=$(bash "$SCRIPT" "$TMP/t20b.md" FR-1 PLAN_DONE 2>&1); code=$?
+[ "$code" -eq 0 ] && printf '%s' "$out" | grep -q '경고' && printf '%s' "$out" | grep -q "TBD" \
+  && ok "T20b FID 칸이 TBD 인 행 → PLAN_DONE 은 되고 경고가 그 값을 보인다" || nope "T20b" "code=$code out=$out"
+
 finish

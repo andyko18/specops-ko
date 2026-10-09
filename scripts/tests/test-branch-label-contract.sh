@@ -17,8 +17,9 @@ AUTO_C=$(collect '\*\*§auto\*\*')
 # AC-3: 공허 방지 — 수집 0개면 FAIL (전수 삭제 등 비정상 탐지)
 [ -n "$BATCH_C" ] && [ -n "$AUTO_C" ] && ok "AC-3 역방향 수집 비어있지 않음" || nope "AC-3" "수집 0개(공허)"
 
-# AC-1: §batch 소비처 자동 수집 — 정의상 전건 패턴 보유. 핵심 기대치(AC-4)로 정합 보강.
-ok "AC-1 §batch 역방향 수집 ($(echo $BATCH_C | wc -w | tr -d ' ')건)"
+# AC-1: §batch 소비처 자동 수집 — 핵심 소비처 3곳(AC-4) 이상이어야 한다(무조건 통과가 아니다).
+_bn=$(echo $BATCH_C | wc -w | tr -d ' ')
+[ "$_bn" -ge 3 ] && ok "AC-1 §batch 역방향 수집 (${_bn}건)" || nope "AC-1" "소비처 ${_bn}건 — 핵심 3곳 미만"
 # AC-2: §auto 수집에 using-git-worktrees-ko 포함 (기존 하드코딩 누락 해소)
 echo "$AUTO_C" | grep -q '^using-git-worktrees-ko$' && ok "AC-2 §auto 수집에 using-git-worktrees-ko 포함" || nope "AC-2" "worktree 누락"
 
@@ -31,8 +32,25 @@ for k in decomposing-ko verifying-evidence-ko; do
 done
 echo "$BATCH_C" | grep -q '^decomposing-ko$' && echo "$AUTO_C" | grep -q '^verifying-evidence-ko$' && ok "AC-4 핵심 기대치 포함" || true
 
-# 3-way 분기 로직 (소비처 동일 패턴 재현)
-classify() { if grep -qE '^\*\*§batch\*\*:' "$1"; then echo BATCH; elif grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$1"; then echo AUTO; else echo SINGLE; fi; }
+# 3-way 분기 로직 — **소비처 문서에 실린 코드 그대로** 실행한다 (20261009).
+#   종전에는 같은 패턴을 테스트 안에 다시 적은 classify() 를 검사했다 — 문서의 분기 코드를 고치거나 지워도 통과했다.
+#   소비처(decomposing-ko·performance-test-ko)의 ```bash 블록 가운데 BATCH·AUTO·SINGLE 을 모두 내는 블록을 뽑아,
+#   `.specops/<FID>/spec.md` 자리를 픽스처 경로로 바꿔 돌린다. 두 문서의 답이 다르면 그것도 실패다.
+_extract_3way() {  # $1=SKILL.md → 3-way 분기 코드블록 본문(없으면 빈 출력)
+  awk '
+    /^```bash[[:space:]]*$/ { inb = 1; buf = ""; next }
+    inb && /^```[[:space:]]*$/ { inb = 0; if (buf ~ /echo "BATCH"/ && buf ~ /echo "AUTO"/ && buf ~ /echo "SINGLE"/) { printf "%s", buf; exit } next }
+    inb { buf = buf $0 "\n" }
+  ' "$1"
+}
+_C3_DEC=$(_extract_3way "$SK/decomposing-ko/SKILL.md"); _C3_PERF=$(_extract_3way "$SK/performance-test-ko/SKILL.md")
+[ -n "$_C3_DEC" ] && [ -n "$_C3_PERF" ] && ok "AC-3w 소비처 2곳에서 3-way 분기 코드 추출" || nope "AC-3w" "분기 코드블록을 찾지 못함 (dec=${#_C3_DEC} perf=${#_C3_PERF})"
+classify() {  # $1=spec 픽스처 → 두 소비처 코드의 답(같으면 그 값, 다르면 DIFF:<a>/<b>)
+  local a b
+  a=$(printf '%s' "$_C3_DEC"  | sed "s|\\.specops/<FID>/spec\\.md|$1|g" | bash 2>/dev/null)
+  b=$(printf '%s' "$_C3_PERF" | sed "s|\\.specops/<FID>/spec\\.md|$1|g" | bash 2>/dev/null)
+  if [ "$a" = "$b" ]; then printf '%s' "$a"; else printf 'DIFF:%s/%s' "$a" "$b"; fi
+}
 
 # AC-3: §batch fixture → BATCH
 T=$(mktemp); printf '# spec\n**§batch**: batch-20260619\n' > "$T"

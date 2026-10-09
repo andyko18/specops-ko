@@ -434,4 +434,38 @@ EOF
 [ "$okh" = ok ] && ok "T15.f 채운 문서의 한글 꺾쇠 표기 8종 → PASS" || nope "T15.f" "$okh"
 rm -rf "$TD"
 
+# ── T16: 모듈명 추출과 경로 토큰 규칙 — 규칙 하나를 꺼도 통과하던 것들 (변이 실측 20261009) ──
+LIBC="$PLUGIN/scripts/_internal/foundation-manifest-content.sh"
+# shellcheck source=/dev/null
+. "$LIBC"
+# T16.a 모듈명 — 머리행(구분행 앞 행)·구분행(`---`·`:---:`)·한 글자 칸은 이름이 아니다
+names=$(printf '%s\n' '| 모듈 | 경로 |' '|:---:|---|' '| 라우팅 | `src/router.ts` |' '| A | `src/a.ts` |' '| 인증 | `src/auth.ts` |' | fmc_module_names -)
+[ "$(printf '%s\n' "$names" | LC_ALL=C sort | tr '\n' ',')" = "$(printf '%s\n' 라우팅 인증 | LC_ALL=C sort | tr '\n' ',')" ] \
+  && ok "T16.a 모듈명 — 머리행·구분행·한 글자 칸 제외" || nope "T16.a" "names=$(printf '%s' "$names" | tr '\n' ',')"
+# T16.b URL 은 경로가 아니다 — 없는 경로로 세지 않는다
+TD=$(mktemp -d); _mk "$TD" 20260806-fnd foundation; mkdir -p "$TD/src"; : > "$TD/src/router.ts"
+printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n| 문서 | `https://example.com/docs/api` |\n' > "$TD/.specops/memory/foundation-manifest.md"
+fmc_scan "$TD/.specops/memory/foundation-manifest.md" "$TD"
+[ "$FMC_TOTAL" -eq 1 ] && [ -z "$FMC_MISSING" ] \
+  && ok "T16.b URL 은 경로 토큰이 아니다 (TOTAL=1 · 누락 없음)" || nope "T16.b" "TOTAL=$FMC_TOTAL MISSING=$FMC_MISSING"
+# T16.c 괄호·대괄호가 든 경로 표기는 없다고 누락으로 세지 않는다 (호출·라우트 표기와 모양이 같다)
+printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n| 화면 | `src/app/(main)/layout.tsx` |\n| 상세 | `src/app/[id]/page.tsx` |\n' > "$TD/.specops/memory/foundation-manifest.md"
+fmc_scan "$TD/.specops/memory/foundation-manifest.md" "$TD"
+[ "$FMC_TOTAL" -eq 1 ] && [ -z "$FMC_MISSING" ] \
+  && ok "T16.c 괄호·대괄호 경로는 누락으로 세지 않는다" || nope "T16.c" "TOTAL=$FMC_TOTAL MISSING=$FMC_MISSING"
+rm -rf "$TD"
+# T16.d 저장소 밖을 가리키는 표기(`..`)는 실재 근거가 아니다 — 밖에 그 파일이 있어도 "실재 경로 없음" 이다
+TD=$(mktemp -d); mkdir -p "$TD/repo"; _mk "$TD/repo" 20260806-fnd foundation; : > "$TD/outside.md"
+printf '# 공통부\n\n- `../outside.md` 를 참고한다\n' > "$TD/repo/.specops/memory/foundation-manifest.md"
+fmc_scan "$TD/repo/.specops/memory/foundation-manifest.md" "$TD/repo"
+[ "$FMC_REAL" -eq 0 ] \
+  && ok "T16.d 저장소 밖(..) 표기는 실재로 세지 않는다" || nope "T16.d" "REAL=$FMC_REAL"
+# 대조 — 같은 문서가 저장소 안의 파일을 가리키면 센다
+: > "$TD/repo/inside.md"
+printf '# 공통부\n\n- `inside.md` 를 참고한다\n' > "$TD/repo/.specops/memory/foundation-manifest.md"
+fmc_scan "$TD/repo/.specops/memory/foundation-manifest.md" "$TD/repo"
+[ "$FMC_REAL" -ge 1 ] \
+  && ok "T16.e 대조 — 저장소 안의 파일은 센다" || nope "T16.e" "REAL=$FMC_REAL"
+rm -rf "$TD"
+
 finish

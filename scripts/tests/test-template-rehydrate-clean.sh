@@ -100,6 +100,24 @@ else
   fail "T7 첫 append 후 추출 = FID 섹션만 — out=${T7_out//$'\n'/ · }"
 fi
 
+# ── T8: 실제 훅으로 같은 불변식을 본다 (20261009) ─────────────────────────
+#   위 T1·T6 은 훅의 추출 로직을 **복제한** awk 를 검사한다 — 훅 쪽이 바뀌어도 통과한다. 훅 자체를 돌려 잠근다.
+_rh_ctx() {  # $1=session-progress.md 본문 파일 → SessionStart 가 주입하는 문맥 전문
+  local d; d=$(mktemp -d); mkdir -p "$d/.specops"; cp "$1" "$d/.specops/session-progress.md"
+  (cd "$d" && printf '{}' | CLAUDE_PROJECT_DIR="$d" bash "$PLUGIN/hooks/session-start.sh" 2>/dev/null) \
+    | jq -r '.hookSpecificOutput.additionalContext // .additionalContext // ""'
+  rm -rf "$d"
+}
+T8a=$(_rh_ctx "$TPL")
+[ -n "$T8a" ] && ! printf '%s\n' "$T8a" | grep -qx '<session-progress-rehydrate>' \
+  && ok "T8.a 실제 훅 — 템플릿 원본이면 rehydrate 블록을 주입하지 않는다" || fail "T8.a 템플릿 원본에서 rehydrate 블록 주입(또는 훅 무출력)"
+_rh_fix=$(mktemp) || exit 1
+printf '%s\n' '# Session Progress' '' '---' '' '## 20260709-real-feature · 실 기능' '' '- 2026-07-09 10:00 /specify 완료 (spec.md)' '' '## 활용 방법' '' '- 안내문' > "$_rh_fix"
+T8b=$(_rh_ctx "$_rh_fix"); rm -f "$_rh_fix"
+_blk=$(printf '%s\n' "$T8b" | awk '/^<session-progress-rehydrate>$/{f=1} f{print} /^<\/session-progress-rehydrate>$/{f=0}')   # 줄 전체가 태그인 것만 — 메타 스킬 본문도 이 태그 이름을 언급한다
+printf '%s' "$_blk" | grep -q '20260709-real-feature' && ! printf '%s' "$_blk" | grep -q '활용 방법' \
+  && ok "T8.b 실제 훅 — 실 FID 섹션은 주입하고 가이드 헤딩은 넣지 않는다" || fail "T8.b 실제 훅 경계 (블록: $(printf '%s' "$_blk" | tr '\n' ' ' | cut -c1-160))"
+
 # ── 결과 ──────────────────────────────────────────────────────
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -21,6 +21,16 @@
 - **게이트의 해법 안내가 하류 저장소에 없는 경로를 가리켰다** — `batch-state.sh`(FID 칸 미기재) · `check-foundation-manifest.sh`(공통부 FR 기록) · `check-stack-decided.sh`(원장 확인) · R-6 안내. `bash scripts/_internal/…` 를 플러그인 절대경로로 바꿨고, `check-plugin-paths.sh` 가 스크립트·훅의 안내문도 검사한다(종전에는 프롬프트만).
 - `/doctor` 의 pyyaml 설치 안내에 externally-managed(PEP 668) 환경의 길을 같이 적는다.
 
+### Tests/CI — 변이 실험이 찾은 테스트 구멍 (제품 코드 불변)
+
+- **가드를 꺼도 어떤 테스트도 실패하지 않던 것들에 테스트를 붙였다** (제품 코드 불변 — 10회차 평가의 변이 실험 200건). 가장 큰 것: **must AC 커버리지 검사**(`emit-context.sh` — 필수 AC 가 어느 태스크에도 매핑되지 않으면 구현에 들어가지 못한다)를 지운 채 전체 191 스위트가 통과했다. 그 검사를 잠근다던 T3.a 는 출력에서 `AC-R-1` 만 찾았는데, 픽스처가 유지보수 FID 라 앞 단계 게이트의 문안에도 그 글자가 있었다.
+  - `dag/test-emit-context` T3.a 를 검사 자신의 문안으로 · T3.c~j(필드 검증 · FID 형식 · 라벨·기준선·회귀 AC 게이트가 emit 을 실제로 멈추는지 — 종전엔 소스에 호출 문자열이 있는지만 봤다).
+  - `test-risk-profile` T60a~m(신호 낱말 · 부정어 · `.rst` · symlink 가드 · 환경변수 하한) · `test-queue-set-status` T19·T20 · `test-batch-state` T3.c·d(중복 FR-ID 만 있는 픽스처) · `test-foundation-manifest` T16.a~e · `test-verifying-automation` T2.h2·T2.i.
+  - 제품을 보지 않던 테스트 둘: `test-branch-label-contract` 는 3-way 분기를 **테스트 안에 다시 적은 함수**로 검사했다 — 이제 소비처 문서의 코드블록을 뽑아 그대로 실행한다. `test-template-rehydrate-clean` 은 훅의 추출 로직을 복제한 awk 를 검사했다 — 실제 `session-start.sh` 를 돌리는 T8.a·b 를 더했다.
+  - `test-readme-entry-tree` AC-3·5·6 을 진입로 절 안으로 좁혔다(README 전체에 grep 해 다른 절의 같은 낱말로 통과했다).
+  - 고정 `/tmp` 경로를 쓰던 두 스위트(`test-emit-context`·`test-parse-dag`)를 스위트별 임시 디렉토리로 — 동시에 도는 run-all 끼리 덮어썼다.
+  - 되돌려-관찰 35종 전부 격추. 평가 때 "테스트 없음" 으로 적었던 heredoc 위장 차단(`governance-lib.sh`)은 정정한다 — `test-exec-evidence` T35 가 잠그고 있고 그 줄은 뒤에 추가된 화이트리스트와 겹치는 중복 방어다(등가 변이).
+
 ## [2.17.0] — 2026-10-09
 
 ### Changed

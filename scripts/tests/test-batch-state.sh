@@ -864,6 +864,34 @@ out=$(bash "$SCRIPT" "$TMP/fidc/.specops/batch-f" "$TMP/fidc/req.md" 2>&1); code
 [ "$code" -eq 1 ] && printf '%s' "$out" | sed -n '/\[드리프트\]/,/^\[/p' | grep -q 'FR-3' \
   && ok "T-fid.c requirements 의 굵은 ID FR 도 드리프트 대조에 든다" || nope "T-fid.c" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200)"
 
+# ── T3.c: FR-ID 중복 **만** 있어도 기본 모드는 exit 1 ──
+#   T3.a 의 픽스처는 FID 칸이 FID 가 아니라(x·y) [FID 미기재] 로도 exit 1 이 된다 — 중복 판정의 종료 코드를 꺼도 통과했다(변이 실측 20261009).
+#   여기서는 다른 결함이 하나도 없게 만든다: 유효 FID · 산출물 3종 · 진행 기록.
+mkdir -p "$TMP/c2/.specops/batch-z" "$TMP/c2/.specops/20260101-dup"
+cat > "$TMP/c2/.specops/batch-z/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-3 | 20260101-dup | dup1 | IMPL_DONE |
+| FR-3 | 20260101-dup | dup2 | IMPL_DONE |
+EOF
+: > "$TMP/c2/.specops/20260101-dup/review-base.sha"; : > "$TMP/c2/.specops/20260101-dup/evidence.md"; : > "$TMP/c2/.specops/20260101-dup/review-request.md"
+printf '## 20260101-dup\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > "$TMP/c2/.specops/session-progress.md"
+printf '| FR-3 | a | M1 | must | s |\n' > "$TMP/c2/req.md"
+out=$(bash "$SCRIPT" "$TMP/c2/.specops/batch-z" "$TMP/c2/req.md" 2>&1); code=$?
+if [ "$code" -eq 1 ] && echo "$out" | grep -q '\[중복\]' && ! echo "$out" | grep -qE '\[(FID 미기재|미완|드리프트|산출물)'; then
+  ok "T3.c 중복만 있는 queue → exit 1 (다른 결함 표지 없음)"
+else
+  nope "T3.c 중복 단독" "exit=$code out=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-260)"
+fi
+# 대조 — 같은 픽스처에서 중복 행을 지우면 exit 0
+cat > "$TMP/c2/.specops/batch-z/queue.md" <<'EOF'
+| FR-ID | FID | FR 설명(1줄) | Status |
+|---|---|---|---|
+| FR-3 | 20260101-dup | dup1 | IMPL_DONE |
+EOF
+bash "$SCRIPT" "$TMP/c2/.specops/batch-z" "$TMP/c2/req.md" >/dev/null 2>&1; code=$?
+[ "$code" -eq 0 ] && ok "T3.d 대조 — 중복을 없애면 exit 0" || nope "T3.d" "exit=$code"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
