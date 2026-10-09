@@ -597,6 +597,80 @@ else
 fi
 rm -rf "$tmp"
 
+# ── 변이 측정에서 살아남던 가드 (20261010-govlib-mutation-survivors) ──────────
+#   R-3·R-4·R-5 는 규칙 id 만 단언해 왔다. 그래서 위반 위치(offset)를 상수 0 으로 바꿔도,
+#   대상 파일 판정·"해당 없음" 우선 조건을 뒤집어도 어떤 테스트도 실패하지 않았다.
+
+# T7.o R-3 위반 위치 — 대상 Skill 호출이 든 줄의 다음 번호(이 픽스처는 2번째 줄 → 2)
+#   ※ R-3 만 "줄 + 1" 이고 R-1·R-4·R-5 는 0-based 다(아래 T9.g·T10.q). 이 단언은 그 차이를 옳다고 정한 것이 아니라
+#     지금 값을 잠근 것이다 — 규약을 맞추기로 하면 이 숫자를 함께 바꾼다.
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-ko:planning-ko")
+if [ "$(echo "$out" | jq -r '.offset' 2>/dev/null)" = "2" ]; then
+  PASS=$((PASS+1)); echo "PASS T7.o R-3 offset=2 (Skill 호출 줄 기준)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T7.o (out=$out, expect offset 2)"
+fi
+
+# T9.g R-4 위반 위치 — 성공 주장이 든 **마지막** assistant 줄(0-based). 주장 2건(줄 1·3) → 3
+r4off=$(mktemp)
+printf '%s\n' \
+  '{"type":"user","message":{"role":"user","content":"기능 추가해줘"}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"구현 완료. 테스트 통과 확인."}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]}}' \
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"다시 봐도 테스트 통과 상태입니다."}]}}' > "$r4off"
+out=$(apply_assertion_without_test_rule "$rule_r4" "$r4off")
+if [ "$(echo "$out" | jq -r '.offset' 2>/dev/null)" = "3" ]; then
+  PASS=$((PASS+1)); echo "PASS T9.g R-4 offset=3 (마지막 주장 줄)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.g (out=$out, expect offset 3)"
+fi
+rm -f "$r4off"
+
+# T10.o R-5 는 대상 파일(spec·plan·impact-analysis)만 본다 — 그 밖의 문서를 고쳤다고 협의 기록을 요구하지 않는다
+tmp=$(mktemp -d); cp "$FIXTURES/r5-no-section.md" "$tmp/notes.md"
+make_r5_transcript "$tmp/notes.md" "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.o 대상 아닌 문서(notes.md) + 섹션 부재 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.o 대상 아닌 파일에 R-5 발화 (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.p "해당 없음" 은 표의 행 안에 적혀도 정직 선언이다 — 행이 있다는 이유로 실호출 증거를 요구하지 않는다
+tmp=$(mktemp -d)
+cat > "$tmp/spec.md" <<'EOF'
+# Spec
+
+## 9. Advisor 협의 기록
+
+| 일시 | 질의 요지 | advisor 권고 | 채택 여부 | 반영 위치 |
+|---|---|---|---|---|
+| 2026-10-10 | 설계 검증 | 해당 없음 — advisor 미연결 | - | - |
+
+## 10. 참조
+EOF
+_r5_transcript "$tmp/spec.md" "$tmp/transcript.jsonl" none
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ -z "$out" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.p 행 안의 '해당 없음' + 실호출 없음 → 미매칭"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.p 정직 선언에 실호출 증거 요구 (out=$out)"
+fi
+rm -rf "$tmp"
+
+# T10.q R-5 위반 위치 — 그 파일을 처음 고친 줄(0-based). 앞에 user 줄 하나 → 1
+tmp=$(mktemp -d); cp "$FIXTURES/r5-empty-section.md" "$tmp/spec.md"
+printf '{"type":"user","message":{"role":"user","content":"spec 고쳐줘"}}\n' > "$tmp/transcript.jsonl"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"%s","old_string":"x","new_string":"y"}}]}}\n' "$tmp/spec.md" >> "$tmp/transcript.jsonl"
+out=$(apply_advisor_section_rule "$rule_r5" "$tmp/transcript.jsonl")
+if [ "$(echo "$out" | jq -r '.offset' 2>/dev/null)" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T10.q R-5 offset=1 (첫 수정 줄)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.q (out=$out, expect offset 1)"
+fi
+rm -rf "$tmp"
+
 # T11.a log_friction dedup — 같은 rule_id + snippet 두 번 호출 시 1건만 기록
 tmp=$(mktemp -d)
 (cd "$tmp" &&

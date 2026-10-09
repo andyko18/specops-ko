@@ -75,7 +75,7 @@ jobs:
             timeout: 20       # 사이트 8건 x 스위트 ~2s — 수 분 미만
           - name: governance-lib
             target: hooks/governance-lib.sh
-            timeout: 360      # 20261010 로컬 실측: 스위트 6종 1회 92s x 실행 사이트 155 = 최악 약 238분. hosted 상한(360)에 가깝다 — 넘으면 사이트를 나눠 돌려야 한다
+            timeout: 360      # 20261010 실측: CI 첫 완주 68분(실행 사이트 155 · 생존 62) → 생존 분류 뒤 로컬 61분(실행 사이트 108 · 생존 0). 최악은 스위트 6종 1회 92s x 실행 사이트 수다(생존이 늘수록 길어진다) — hosted 상한(360)을 넘으면 사이트를 나눠 돌려야 한다
           - name: pretool-governance
             target: hooks/pretool-governance.sh
             timeout: 90       # 20261010 로컬 실측: 스위트 1회 81s x 실행 사이트 30 = 최악 약 40분 (종전 205s 는 test-pretool 이 커지기 전 값)
