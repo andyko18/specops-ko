@@ -59,11 +59,51 @@ if [ -f "$LEDGER_SH" ] \
 fi
 
 # ② clarifications.md 의 스택 RESOLVED — upsert 누락 구제(경고)
+#   형식은 clarifying-ko `## clarifications.md 포맷` 을 따른다(20261009 — 종전엔 테스트 픽스처에만 있는 형식을 읽어
+#   실파일과 구조적으로 만나지 못했다):
+#     파일 머리 `**status**: RESOLVED`(전체 상태) + `## Q1 · <주제> · BLOCKING` 블록 + `**답변**: …`
+#   블록 안에 자체 `status:` 가 있으면 그것이 우선한다(구 형식 · §auto 의 Q 블록 `status: ASSUMED`).
+#   인정 조건(스택을 다룬 Q 블록 하나 이상): 답이 적혀 있고 · 가정(ASSUMED — 제목 표기 또는 블록 status)이 아니며 ·
+#     유효 상태가 정확히 RESOLVED. 채우지 않은 머리줄(`RESOLVED | BLOCKED | ASSUMED`)은 확정이 아니다.
 if [ -f "$CLARIF" ] && awk '
-    /^##/ { blk = $0; st = "" }
-    /^[[:space:]]*status:/ { st = $0 }
-    { if (blk ~ /스택|프레임워크|framework|아키텍처/ && st ~ /RESOLVED/) { found = 1 } }
-    END { exit(found ? 0 : 1) }
+    function val(s) { gsub(/\*/, "", s); sub(/^[ \t]*status[ \t]*:[ \t]*/, "", s); gsub(/[ \t\r]+$/, "", s); return s }
+    function flush() {
+      if (inblk && kw && ans && !assumed && (bst == "RESOLVED" || (bst == "" && fst == "RESOLVED"))) found = 1
+    }
+    # 무정보 답(미정·TBD 등 — 결정 원장 판정기와 같은 목록)은 답이 아니다
+    function real(a) {
+      gsub(/^[ \t]+|[ \t]+$/, "", a)
+      if (a == "" || a ~ /^</) return 0
+      if (a ~ /^(TBD|tbd|N\/A|n\/a|-|—|\(미정\)|미정|미확정|해당없음|해당 없음|\?\?\?)$/) return 0
+      return 1
+    }
+    { sub(/\r$/, "") }
+    # Q 블록 경계는 **2단 제목만** — 블록 안의 3단 소제목(### 옵션 …)이 블록을 끊지 않는다
+    /^##[ \t]/ {
+      flush()
+      inblk = 1; bst = ""; ans = 0; pend = 0
+      kw = ($0 ~ /스택|프레임워크|[Ff]ramework|아키텍처/)
+      assumed = ($0 ~ /ASSUMED/)
+      next
+    }
+    {
+      t = $0; gsub(/\*/, "", t)
+      if (t ~ /^[ \t]*status[ \t]*:/) {
+        v = val($0)
+        if (inblk) { bst = v; if (v ~ /ASSUMED/) assumed = 1 }
+        else if (fst == "") fst = v
+      }
+      if (inblk && t ~ /^[ \t]*답변[^:]*:/) {
+        a = t; sub(/^[ \t]*답변[^:]*:/, "", a)
+        if (a ~ /^[ \t]*$/) pend = 1      # 답을 다음 줄에 적은 형태
+        else { pend = 0; if (real(a)) ans = 1 }
+      } else if (inblk && pend && t !~ /^[ \t]*$/) {
+        pend = 0
+        # 다음 필드(**영향**: …)·제목이 바로 오면 답이 비어 있는 것이다
+        if ($0 !~ /^[ \t]*\*\*[^*]+\*\*[ \t]*:/ && $0 !~ /^#/ && real(t)) ans = 1
+      }
+    }
+    END { flush(); exit(found ? 0 : 1) }
   ' "$CLARIF"; then
   echo "STACK-DECIDED: PASS (clarifications.md RESOLVED)"
   echo "  WARN: decisions.md 원장 upsert 누락 — clarifying-ko HARD 규약상 RESOLVED 결정은" >&2
