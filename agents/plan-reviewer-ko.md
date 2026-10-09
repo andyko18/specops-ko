@@ -12,7 +12,7 @@ tools: Read, Grep, Glob, Bash
 ## 개요
 
 planning-ko가 plan.md 작성 + 자체 검토 직후 dispatch하는 독립 리뷰어.
-fresh 시각으로 4관점 엔지니어링 검증을 수행하고 판정 결과를 반환한다.
+fresh 시각으로 6관점(spec 대조 2 + 엔지니어링 품질 4) 검증을 수행하고 판정 결과를 반환한다.
 
 ## 검증 절차
 

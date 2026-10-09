@@ -309,6 +309,34 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T13 (rc=$rc)"; echo "$out" | grep -E 'version_sync|readme_counts|changelog_body|xref_resolve' | sed 's/^/    /'
 fi
 
+# T-ct contract_consistency — 보류 신호(BATCH-…-HELD)도 방출↔감시 대조 대상이다 (20261009)
+#   종전 정규식은 `-DONE` 만 봐서, 받는 쪽 없는 보류 신호를 skill 이 내도 검사가 초록이었다.
+sb=$(mktemp -d); make_sandbox "$sb"
+printf '\n보류 시 `BATCH-FR-HELD: <FID>` 를 출력하고 halt 한다.\n' >> "$sb/skills/context-resets-ko/SKILL.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'contract_consistency: FAIL' && echo "$err" | grep -q 'BATCH-FR-HELD: skill 방출하나 오케스트레이터 감시 없음'; then
+  PASS=$((PASS+1)); echo "PASS T-ct.a 받는 쪽 없는 보류 신호 → contract_consistency FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-ct.a (rc=$rc, out=$(echo "$err" | grep contract_consistency))"
+fi
+_ctc=$(ls "$sb"/commands/*.md | head -1)
+printf '\n`BATCH-FR-HELD: <BATCH_ID>` 를 받으면 HELD 로 적는다.\n' >> "$_ctc"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'BATCH-FR-HELD: suffix 불일치'; then
+  PASS=$((PASS+1)); echo "PASS T-ct.b 보류 신호의 인자 이름 불일치 → FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-ct.b (rc=$rc, out=$(echo "$err" | grep contract_consistency))"
+fi
+printf '\n`BATCH-FR-HELD: <FID>` 를 받으면 HELD 로 적는다.\n' > "$_ctc.tail"
+sed -i.bak '$d' "$_ctc"; cat "$_ctc.tail" >> "$_ctc"; rm -f "$_ctc.tail" "$_ctc.bak"
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if echo "$out" | grep -q '✅ contract_consistency: OK'; then
+  PASS=$((PASS+1)); echo "PASS T-ct.c 방출·감시가 맞물리면 OK"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-ct.c (out=$(echo "$out" | grep contract_consistency))"
+fi
+rm -rf "$sb"
+
 # ── ISO 자가점검 (AC-5): 이 스위트가 실 트리를 변이하지 않음을 스스로 단언한다 ──
 #   trap 은 **중단** 안전을, 이 어서션은 **정상 실행 중** 무변이를 담당한다.
 if [ "$_iso_before" = "$(iso::fingerprint $_iso_paths)" ]; then

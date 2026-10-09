@@ -7,7 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - specops-ko commands/tasks.md
   - specops-ko templates/tasks.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
-specops_version: 2.17.0
+specops_version: 2.18.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 ---
 
@@ -93,7 +93,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
       - tasks.md YAML 의 모든 task 에 대해 `.specops/<FID>/dispatch/<task-id>-context.md` 5섹션 자동 산출
       - fail-fast atomic — 1건이라도 검증 실패 (test_command 미기재 / ac 배열 빈 값 / AC.md 매칭 AC-id 부재 / inputs·outputs 키 부재) 시 exit 1 + stderr 출력 + 부분 잔류 0
       - 성공 시 stdout `EMIT: N files`
-      - 실패 시 본 스킬 재진입 의무 (HARD GATE — tasks.md 정합성 확보 후 재호출)
+      - 실패 시 본 스킬 재진입 의무 (HARD GATE — stderr 사유 해소 후 재호출. tasks.md 외에 intent·AC 형식·스택·기준선·회귀 AC·FID 크기·task id 도 막는다)
       - implementing-ko 는 본 산출물의 `.specops/<FID>/dispatch/<task-id>-context.md` 를 leaf dispatch 직전에 §5 worktree 라인만 sed 갱신 (컨텍스트 수동 작성 단계 단순화)
 10c. **위험 프로파일 limited-live 기록 (P1)** — tasks.md 확정 후:
     ```bash

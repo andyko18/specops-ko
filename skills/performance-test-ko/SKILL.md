@@ -3,7 +3,7 @@ name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 2.14.0
+specops_version: 2.18.0
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
 ---
 
@@ -38,7 +38,7 @@ PERFORMANCE: SKIP — <근거: spec.md §NFR Lxx-yy, 표현 예: "§NFR L8-12 �
 ```
 위 문자열을 `.specops/<FID>/evidence.md`에 append 후 **즉시 `## PR 생성 게이트`로 진행** (나머지 절차 스킵).
 
-> **§유형≠trivial SKIP 근거 의무** (V3): spec.md §유형이 `trivial` 이 아니면 SKIP 근거에 spec.md **§NFR 섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-3 L54`). 근거 없는 SKIP 은 형식화 — 거부.
+> **SKIP 근거 의무** (V3): SKIP 근거에 spec.md **§NFR 섹션명 + 라인 번호**를 반드시 인용한다 (예: `§NFR-3 L54`) — `§유형` 과 무관하다(`release-ready.sh` 가 인용 없는 SKIP 을 NOT_READY 로 본다). 근거 없는 SKIP 은 형식화 — 거부.
 > **관측**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/skip-tracker.sh` 로 게이트별 누적 SKIP 비율(참고)과 **근거 없는(라인인용 없는) SKIP 건수**를 확인할 수 있다 (advisory — bare SKIP 이 형식화 신호). 판정 무기록 FID 는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gate-coverage.sh ~/repoA ~/repoB` (scripts/README).
 
 > 한계 고백: spec.md §NFR 섹션이 없거나 모호한 경우 → 사용자에게 "spec.md §NFR에서 성능 임계값을 찾을 수 없습니다. [임계값 명시 / skip]" 1줄 질문.
@@ -137,7 +137,7 @@ PERFORMANCE: FAIL — thresholds 초과:
 
 systematic-debugging-ko가 성능 문제 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
-수정 완료 → verifying-evidence-ko 재호출 → requesting-code-review-ko → receiving-code-review-ko → integration-test-ko → performance-test-ko (재진입)
+수정 완료 → verifying-evidence-ko 재호출 → requesting-code-review-ko → receiving-code-review-ko → (chain 대로 security-review-ko →) integration-test-ko → performance-test-ko (재진입)
 ```
 
 > 5원칙 2 문지기: 임계값 초과를 "큰 문제 아님"으로 격하해 PR을 생성하는 것은 금지. spec.md §NFR이 계약이다.

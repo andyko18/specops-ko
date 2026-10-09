@@ -81,4 +81,41 @@ d=$(_sfx scripts/b.sh 'echo "# 해법: bash scripts/_internal/y.sh"'); bash "$CH
 [ "$rc" -eq 1 ] && ok "P11 문자열 안의 # 는 주석 아님 → FAIL" || nope "P11" "rc=$rc"
 rm -rf "$d"
 
+# ── 셋째 표면: 플러그인 스크립트에 넘기는 **인자**의 상대 경로 ──────────────
+# P12: 실행 경로는 플러그인 루트인데 인자가 plugin 상대 경로 → 위반 (하류에는 templates/ 가 없다)
+d=$(_fx skills/x-ko/SKILL.md 'run: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`'); : > "$d/templates/critic-prompt-plan.md"; out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'x-ko/SKILL.md' && ok "P12 플러그인 스크립트의 인자가 상대 경로 → FAIL" || nope "P12" "rc=$rc out=$out"
+rm -rf "$d"
+# P13: 인자에도 플러그인 루트를 붙이면 통과 · 프로젝트 쪽 경로(.specops/…)는 인자로 그대로 둔다
+d=$(_fx skills/x-ko/SKILL.md 'run: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-plan.md --files .specops/<FID>/plan.md`'); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "P13 인자에 플러그인 루트 접두 → OK" || nope "P13" "rc=$rc"
+rm -rf "$d"
+# P14: 하류 테스트 명령 예시를 인자로 넘기는 표기는 대상 아님
+d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-task-receipt.sh <FID> scripts/tests/test-x.sh`'); mkdir -p "$d/scripts/tests"; : > "$d/scripts/tests/test-x.sh"; bash "$CHK" "$d" >/dev/null 2>&1; rc=$?   # 같은 이름의 파일이 플러그인에 있어도 예시 표기는 통과
+[ "$rc" -eq 0 ] && ok "P14 인자가 하류 테스트 경로 예시 → 통과" || nope "P14" "rc=$rc"
+rm -rf "$d"
+# P15: 플러그인에 없는 경로는 하류 프로젝트의 것이다 — 낱말 모양(scripts/·templates/)만으로 막지 않는다
+d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh src scripts/deploy`
+`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-diff.md --files templates/email.md`'); : > "$d/templates/critic-prompt-diff.md"; out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P15 하류 프로젝트 경로(플러그인에 없는 파일)를 인자로 → 통과" || nope "P15" "rc=$rc out=$out"
+rm -rf "$d"
+# P16: 줄 끝 주석·닫는 백틱 뒤의 낱말은 인자가 아니다
+d=$(_fx skills/x-ko/SKILL.md 'bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh <FID>   # templates/y.md 에서 읽음
+`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh <FID>` 는 templates/y.md 를 읽는다'); : > "$d/templates/y.md"; out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P16 주석·백틱 밖의 낱말 → 통과" || nope "P16" "rc=$rc out=$out"
+rm -rf "$d"
+# P17: 표기가 달라도 같은 위반이다 — 작은따옴표 · ./ · --opt= · 중괄호 없는 변수
+for _v in "'templates/y.md'" './templates/y.md' '--prompt=templates/y.md' '"templates/y.md"'; do
+  d=$(_fx skills/x-ko/SKILL.md "\`bash \"\${CLAUDE_PLUGIN_ROOT}\"/scripts/x.sh $_v\`"); : > "$d/templates/y.md"; bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 1 ] && ok "P17 인자 표기 $_v → FAIL" || nope "P17 $_v" "rc=$rc"
+  rm -rf "$d"
+done
+d=$(_fx skills/x-ko/SKILL.md '`bash $CLAUDE_PLUGIN_ROOT/scripts/x.sh templates/y.md`'); : > "$d/templates/y.md"; bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "P17b 중괄호 없는 변수로 부른 스크립트의 인자 → FAIL" || nope "P17b" "rc=$rc"
+# P18: 한 줄에 하류 테스트 경로 예시가 있어도 **다른 인자**의 위반은 잡는다 (종전 예외는 줄 전체를 면제했다)
+rm -rf "$d"
+d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/y.md --files scripts/tests/test-a.sh`'); : > "$d/templates/y.md"; bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "P18 테스트 경로 예시가 같은 줄에 있어도 다른 인자 위반 → FAIL" || nope "P18" "rc=$rc"
+rm -rf "$d"
+
 finish

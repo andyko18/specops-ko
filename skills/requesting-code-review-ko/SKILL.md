@@ -3,7 +3,7 @@ name: requesting-code-review-ko
 description: 태스크 완료, 주요 기능 구현, 머지 전 사용 — 결과물이 요구를 충족하는지 외부 리뷰어에게 검증 요청
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
-specops_version: 2.9.0
+specops_version: 2.18.0
 used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain 출구)
 ---
 
@@ -74,7 +74,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 1. `git diff <BASE_SHA>..<HEAD_SHA> > .specops/<FID>/reviews/review.diff`
    - diff 에 비밀 (자격증명·.env·키) 포함 의심 시 위탁 생략 — `외부 critic: SKIP (비밀 보호)` 기재 (외부 모델 전송 = 외부 송신)
-2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh templates/critic-prompt-diff.md --files .specops/<FID>/reviews/review.diff`
+2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-diff.md --files .specops/<FID>/reviews/review.diff`
 3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (file-based-communication)
 4. `CRITIC: SKIP/FAIL` → 미첨부 + review-request.md 에 `외부 critic: SKIP (<사유>)` 1줄 (한계 고백)
 5. **advisory**: 외부 의견은 **판정 권한 없음** — Claude 리뷰어가 비판적으로 평가할 입력 (receiving-code-review 규약 적용)

@@ -5,7 +5,7 @@ description: "[전체·무인] specops-ko 한국어 자율 Lifecycle — require
 triggers:
   - "/start-all-auto"
 mode: ask
-specops_version: 2.6.0
+specops_version: 2.18.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 ---
@@ -38,6 +38,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    - 결과: 각 spec.md §1 = `**§유형**` + `**§batch**: <id>` + `**§auto**: true` → 다운스트림 6개 skill 무변경으로 §auto 자동통과 전파
 4. **Phase 1 무인** — 각 FR clarify BLOCKING 모호점은 spec.md `**§auto**: true` 라벨 기반으로 best-guess 자동응답 + `status: ASSUMED` 기록(clarifying-ko §auto 분기). **단** `.specops/memory/decisions.md` 확정 주제는 ASSUMED 재질문도 금지(원장 우선). 사용자 정지 없음.
 5. **Phase 2** — 전 PLAN_DONE 후 **batch plan-reviewer 1회** → `batch-plan-digest.sh` → 일괄 리뷰 게이트 자동 통과 → Phase 2.5 (Critical plan-review cap은 정지).
+5b. **Phase 3 의 FR 보류** — implementing-ko 가 `BATCH-FR-HELD: <FID>` 를 내면(비가역 작업의 승인 요청·리뷰어의 판단 요청) 그 FR 만 `HELD` 로 두고 나머지를 계속한다. 무인이라도 대신 승인하지 않는다 — Phase 3 완료의 batch-state 스캔이 미완으로 세어 그 자리에서 정지하고 사용자 답을 기다린다(`commands/start-all.md` Phase 3 스텝 1b). 위 표의 "파괴적/덮어쓰기 task" 정지와 같은 종류의 멈춤이다: batch 에서는 그 자리에서 물을 수 없어 FR 단위로 미뤄 두었다가 여기서 한꺼번에 묻는다.
 6. **batch PR 게이트 = 가정 다이제스트** — batch PR 직전 **집계기로** 수집·제시한다:
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/$BATCH_ID"
@@ -87,4 +88,4 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 
 ---
 
-*specops-ko v2.6.0 · 2026-06-22 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지)*
+*specops-ko v2.18.0 · 2026-10-09 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지 · FR 보류는 대신 승인하지 않는다)*

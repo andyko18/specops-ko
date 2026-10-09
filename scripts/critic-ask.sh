@@ -8,6 +8,21 @@
 set -uo pipefail
 
 PROMPT_FILE="${1:?prompt-file required}"
+# 플러그인이 싣고 온 프롬프트(`templates/critic-prompt-*.md`)를 상대경로로 부른 경우 — cwd 에 없으면 플러그인 루트에서 찾는다.
+#   하류 저장소에는 templates/ 가 없어, 문서가 적어 둔 상대경로 그대로는 "prompt-file 부재" 로 끝났다(20261009).
+#   폴백은 그 이름 형태에만 건다 — 아무 상대경로나 플러그인 루트에서 찾으면 오타 난 경로가 우연히 맞는 파일(README.md 등)을
+#   조용히 외부 모델에 보내고, `..` 로 플러그인 밖을 읽는다. 폴백이 일어나면 무엇을 집었는지 stderr 로 알린다.
+if [ ! -f "$PROMPT_FILE" ]; then
+  case "$PROMPT_FILE" in
+    *..*) ;;
+    templates/critic-prompt-*.md)
+       _ca_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+       if [ -f "$_ca_root/$PROMPT_FILE" ] && [ ! -L "$_ca_root/$PROMPT_FILE" ]; then
+         PROMPT_FILE="$_ca_root/$PROMPT_FILE"
+         echo "CRITIC: prompt-file 을 플러그인에서 찾음: $PROMPT_FILE" >&2
+       fi ;;
+  esac
+fi
 if [ ! -f "$PROMPT_FILE" ]; then
   echo "ERROR: prompt-file 부재: $PROMPT_FILE" >&2
   exit 1

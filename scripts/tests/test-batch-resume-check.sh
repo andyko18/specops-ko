@@ -251,4 +251,16 @@ else
   nope "T17 완료형 바이트 예산" "exit=$code 훅상세=$h17 hook=$(printf '%s' "$hook17" | cut -c1-60 | tr '\n' ' ') full_n=$(printf '%s\n' "$full17" | grep -c '미완 batch — batch-')"
 fi
 
+# ── T18 보류(HELD) FR 이 있으면 재개 안내에 그 사실이 나온다 — Phase 3 는 PLAN_DONE 만 순회해 HELD 는 저절로 되살아나지 않는다 ──
+rm -rf "$TMP/t18"; mk_batch "$TMP/t18" yes 1 1
+printf '| FR-h1 | 20260101-h1 | held1 | HELD |\n| FR-h2 | 20260101-h2 | held2 | HELD |\n' >> "$TMP/t18/.specops/batch-20260828-0900/queue.md"
+out18=$(cd "$TMP/t18" && bash "$SCRIPT" 2>&1)
+rm -rf "$TMP/t18b"; mk_batch "$TMP/t18b" yes 1 1
+out18b=$(cd "$TMP/t18b" && bash "$SCRIPT" 2>&1)
+if printf '%s' "$out18" | grep -q '보류(HELD) 2건은 자동으로 다시 돌지 않는다' && ! printf '%s' "$out18b" | grep -q '보류(HELD)'; then
+  ok "T18 HELD 2건 → 재개 안내에 보류 줄 · HELD 없으면 줄 없음"
+else
+  nope "T18 보류 안내" "held=$(printf '%s' "$out18" | tr '\n' ' ') none=$(printf '%s' "$out18b" | tr '\n' ' ')"
+fi
+
 finish

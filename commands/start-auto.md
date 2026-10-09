@@ -5,7 +5,7 @@ description: "[단일·무인] specops-ko 완전자동 Lifecycle 단일 기능 �
 triggers:
   - "/start-auto"
 mode: ask
-specops_version: 2.6.0
+specops_version: 2.18.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md § auto variant)
 ---
@@ -14,9 +14,9 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md § auto variant)
 
 ## 목적
 
-specops-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 진입하면 **spec 승인·plan 리뷰·구현 리뷰·검증 루프를 자동 통과**하고 PR 생성 직전 가정 다이제스트와 함께 1회만 확인.
+specops-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 진입하면 **spec 승인·plan 리뷰·구현 리뷰·검증 루프를 자동 통과**하고 PR 생성 직전 가정 다이제스트와 함께 1회만 확인(plan 리뷰가 한도를 넘기고도 Critical 이 남으면 그 자리에서 정지한다 — 아래 표).
 
-**가역 게이트는 자동 통과, 비가역 행동(PR 생성, 파괴적/덮어쓰기 task)에서만 정지.**
+**가역 게이트는 자동 통과, 비가역 행동(PR 생성, 파괴적/덮어쓰기 task)과 아래 표의 ❌·⚠️ 행에서 정지.**
 
 ## Process
 
@@ -36,7 +36,7 @@ specops-ko 자율 Lifecycle의 **완전자동 진입 슬래시**. 한 번 진입
 | specifying-ko spec 승인 게이트 | 자동 통과 → clarifying-ko 직행 | ❌ |
 | specifying-ko Step 5.5 화면 루프 | 자동 생성·수락 (수정 루프 없음) | ❌ |
 | clarifying-ko BLOCKING 모호점 | best-guess 자동 답변 + `status: ASSUMED` 기록 | ❌ |
-| planning-ko plan-reviewer cap 초과 | 자동 통과 (plan은 verify/review가 검증) | ❌ |
+| planning-ko plan-reviewer cap 초과 | Important 만 남으면 자동 통과 (plan은 verify/review가 검증) · **Critical 이 남으면 정지** | ⚠️ |
 | implementing-ko Phase B/C cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | implementing-ko 파괴적/덮어쓰기 task | mini HARD GATE — 발생 위치에서 정지 | 🛑 |
 | verifying-evidence-ko fix_loop cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
@@ -63,7 +63,7 @@ PR 생성 직전 자동 수집·제시:
 → specops-ko:specifying-ko 호출 (§auto 라벨 spec.md에 기록)
 → spec 승인 자동 통과 → clarifying-ko 자동 진행
 → BLOCKING 모호점 best-guess 자동 답변 → planning-ko 자동 진행
-→ plan-reviewer 자동 통과 → decomposing-ko 자동 진행
+→ plan-reviewer 통과(한도 초과 시 Critical 이 없으면 자동 통과) → decomposing-ko 자동 진행
 → 각 task 구현·검증 자동 진행
 → PR 게이트 → 가정 다이제스트 제시 → [y/n] 단일 확인
 ```
@@ -85,4 +85,4 @@ PR 생성 직전 자동 수집·제시:
 
 ---
 
-*specops-ko v2.6.0 · 2026-06-08 · 완전자동 Lifecycle 진입 (가역 게이트 자동통과, 비가역 정지)*
+*specops-ko v2.18.0 · 2026-10-09 · 완전자동 Lifecycle 진입 (가역 게이트 자동통과, 비가역·plan 리뷰 Critical 정지)*

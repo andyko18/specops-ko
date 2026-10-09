@@ -6,6 +6,6 @@
 1. 구현자 보고의 작업 내용·영향 범위·되돌림 방법을 **원문 그대로** 사용자에게 제시하고 승인을 묻는다: `NEEDS-APPROVAL: <task-id> <작업 요약> — 진행하시겠습니까? [y/n]` (§auto 도 예외 없음 — 위 AUTO-HARD-GATE 형식과 같다).
 2. `y` → 승인 사실을 `.specops/<FID>/dispatch/<task-id>-approval.md` 에 1줄(`<ts> 사용자 승인: <작업 요약>`)로 적고, 재dispatch 프롬프트에 그 **경로만** 추가한다(context.md 는 emit-context 가 재생성하므로 직접 편집하지 않는다). 승인 범위 밖 작업은 다시 NEEDS_APPROVAL 이다.
 3. `n` → 해당 태스크를 건너뛰지 말고 멈춘다: 대안(범위 축소·분해)을 사용자와 정한 뒤 재dispatch, 합의가 없으면 Lifecycle 정지.
-4. `§batch` 는 사용자와 직접 대화할 수 없다 — 해당 FR 을 **halt** 하고 `dispatch-log.md` 에 `NEEDS_APPROVAL <task-id> <사유>` 행을 남겨 오케스트레이터(start-all)가 최종 게이트로 올리게 한다. 승인 없이 진행·우회 금지.
+4. `§batch` 는 사용자와 직접 대화할 수 없다 — `dispatch-log.md` 에 `NEEDS_APPROVAL <task-id> <사유>` 행을 남기고 `BATCH-FR-HELD: <FID>` 를 출력한 뒤 그 FR 을 **halt** 한다. 오케스트레이터(`commands/start-all.md` Phase 3 스텝 1b)가 그 신호를 받아 FR 을 `HELD` 로 두고 batch PR 직전 게이트에 올린다. 승인 없이 진행·우회 금지.
 5. 어느 경로든 `dispatch-log.md` 에 `NEEDS_APPROVAL` 행(요청·결정)을 남긴다(투명성).
 

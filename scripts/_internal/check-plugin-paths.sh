@@ -17,6 +17,36 @@ hits=$(command grep -rnE '(bash|source) +"?(\./)?(scripts|hooks|skills)/' skills
   | command grep -vE '(bash|source) +"?(\./)?scripts/tests/(test-|run-all)' \
   | command grep -vE '(bash|source) +"?(\./)?scripts/\*' \
   | command grep -v 'CLAUDE_PLUGIN_ROOT')
+# 실행 경로는 플러그인 루트인데 **인자**가 플러그인 상대경로인 경우 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh templates/y.md`.
+#   위 검사는 bash|source 바로 뒤 경로만 봐서 이 형태가 통과했다(외부 critic 이 하류에서 "prompt-file 부재" 로 끝났다).
+#   인자 토큰마다 본다: 따옴표·`./`·`--opt=` 를 벗긴 값이 `templates/|scripts/|hooks/|skills/` 로 시작하고 **이 플러그인에 실제로 있는
+#   파일**일 때만 위반이다. 낱말 모양만 보면 하류 프로젝트의 경로를 넘기는 정상 호출(`security-scan.sh src scripts/deploy` ·
+#   `--files templates/email.md`)과 줄 끝 주석의 낱말이 걸린다. `#` 뒤와 닫는 백틱 뒤는 인자가 아니다.
+ahits=""
+set -f
+while IFS= read -r _hit; do
+  [ -n "$_hit" ] || continue
+  _rest=${_hit#*CLAUDE_PLUGIN_ROOT}; _rest=${_rest#*[[:space:]]}
+  for _tok in $_rest; do
+    case "$_tok" in '#'*|'|'*|'&&'|';'|'||') break ;; esac
+    _t=${_tok#--*=}; _t=${_t#[\"\']}; _t=${_t%\`*}; _t=${_t%[\"\']}; _t=${_t#./}
+    case "$_t" in
+      scripts/tests/test-*|scripts/tests/run-all*) ;;
+      templates/*|scripts/*|hooks/*|skills/*) [ -f "$_t" ] && { ahits="${ahits}${_hit}"$'\n'; break; } ;;
+    esac
+    case "$_tok" in *\`*) break ;; esac
+  done
+done <<EOF_AH
+$(command grep -rnE '(bash|source|sh) +"?\$\{?CLAUDE_PLUGIN_ROOT\}?"?/' skills agents commands templates 2>/dev/null \
+  | command grep -vE '^(skills/release-ko/|commands/release\.md:|skills/e2e-test-ko/)')
+EOF_AH
+set +f
+if [ -n "$ahits" ]; then
+  echo "PLUGIN-PATHS: FAIL — 플러그인 스크립트에 넘기는 인자가 plugin 상대 경로(하류 repo 에는 그 파일이 없다):"
+  printf '%s' "$ahits" | cut -c1-220 | sed 's/^/  /'
+  echo "  → 인자에도 \"\${CLAUDE_PLUGIN_ROOT}\"/<경로> 를 붙이세요."
+  exit 1
+fi
 if [ -n "$hits" ]; then
   echo "PLUGIN-PATHS: FAIL — 하류 repo 에서 깨지는 plugin 상대 경로 실행 지시:"
   printf '%s\n' "$hits" | cut -c1-200 | sed 's/^/  /'

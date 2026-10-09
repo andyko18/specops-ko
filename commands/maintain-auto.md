@@ -5,7 +5,7 @@ description: "[유지보수·무인] 기존 코드 수정 Lifecycle 무인 진�
 triggers:
   - "/maintain-auto"
 mode: ask
-specops_version: 2.14.0
+specops_version: 2.18.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/maintain.md § auto variant)
 ---
@@ -37,7 +37,7 @@ reference_upstream: specops-ko 독자 추가 (commands/maintain.md § auto varia
 | analyzing-ko 분석 검토 게이트 | 자동 통과 — 분석 요약을 PR 게이트 다이제스트에 싣는다 | ❌ |
 | specifying-ko intent·설계·스펙 승인 | 자동 통과 (추정 항목은 `(ASSUMED)`) | ❌ |
 | clarifying-ko BLOCKING 모호점 | best-guess 자동 답변 + `status: ASSUMED` | ❌ |
-| planning-ko plan-reviewer cap 초과 | 자동 통과 | ❌ |
+| planning-ko plan-reviewer cap 초과 | Important 만 남으면 자동 통과 · **Critical 이 남으면 정지** | ⚠️ |
 | implementing-ko 비가역·repo 밖 흔적 task | 발생 위치에서 정지 (`AUTO-HARD-GATE` · `NEEDS-APPROVAL`) | 🛑 |
 | implementing-ko Phase B/C cap 초과 | systematic-debugging → 전역 재시도 1회 → 재실패 시 정지 | ⚠️ |
 | verifying-evidence-ko fix_loop cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
@@ -72,4 +72,4 @@ reference_upstream: specops-ko 독자 추가 (commands/maintain.md § auto varia
 
 ---
 
-*specops-ko v2.14.0 · 2026-10-08 · 무인 유지보수 Lifecycle 진입 (분석 검토·설계 승인 자동 통과, 회귀 AC 유지)*
+*specops-ko v2.18.0 · 2026-10-09 · 무인 유지보수 Lifecycle 진입 (분석 검토·설계 승인 자동 통과, 회귀 AC 유지, plan 리뷰 Critical 정지)*

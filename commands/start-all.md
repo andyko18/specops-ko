@@ -5,7 +5,7 @@ description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requ
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.17.0
+specops_version: 2.18.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -284,8 +284,15 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    ```bash
    git rev-parse HEAD > ".specops/<FID>/review-base.sha"   # 이 FR 구현 시작점 — review.diff 격리 base
    ```
-   (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지)
+   (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지. **파일이 이미 있으면 다시 쓰지 않는다** — 보류(`HELD`)에서 돌아온 FR 이 그 경우다: 다시 쓰면 보류 전에 끝낸 태스크 커밋이 리뷰 diff 밖으로 밀린다. 그 사이 다른 FR 의 커밋이 diff 에 섞이는 것은 감수한다 — 빠지는 것보다 낫다)
 1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
+1b. **FR 보류 신호** — implementing-ko 가 `BATCH-FR-HELD: <FID>` 를 내고 멈추면 그 FR 은 여기서 끝낸다. 구현자의 `NEEDS_APPROVAL`(비가역·repo 밖 흔적) 또는 Phase C 의 `NEEDS_DISCUSSION` 이다 — batch 는 사용자와 직접 대화할 수 없어 그 자리에서 묻지 못한다.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> HELD <FID>
+   ```
+   - 스텝 2~5 는 하지 않는다 — verify·리뷰·`IMPL_DONE` 금지. 사유는 그 FID 의 `dispatch-log.md` 에 있다(`NEEDS_APPROVAL <task-id> …` 또는 `HOLD` 행).
+   - 다음 `PLAN_DONE` FR 로 넘어간다(무중단).
+   - 보류된 FR 은 "Phase 3 완료" 의 batch-state 스캔에서 미완으로 잡혀 사용자 확인 게이트에 오른다. 그때 FR 별 사유와 선택지를 `dispatch-log.md` 원문 그대로 보인다. 승인·결정을 받으면 그 FR 을 `PLAN_DONE` 으로 되돌려(같은 스크립트) 스텝 1a 부터 다시 돈다(`NEEDS_APPROVAL` 은 승인 기록 `dispatch/<task-id>-approval.md` 를 남긴다 — `skills/implementing-ko/needs-approval.md`).
 2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
 3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
    - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 아래 중 하나면 requesting/receiving **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄)를 둔다.
@@ -311,7 +318,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 ```
 - exit 0 → Step A 진행
 - `SKIP` 행(시드·공통부)과 requirements 의 placeholder FR 은 batch 대상이 아니다 — 미완·드리프트로 세지 않고 `[제외]` 로 출력된다. 적격 FR 이 전부 `IMPL_DONE` 이면 SKIP 이 있어도 exit 0 이다(`HELD`·`BLOCKED` 는 멈춘 것이라 여전히 미완). **적격 FR 을 SKIP 으로 바꿔 넘기지 않는다** — 분류기(`check-fr-table.sh --classify`)가 batch 대상이라는 FR 의 SKIP 은 미완으로 판정된다. 이번 batch 에서 못 끝내는 FR 은 `HELD` 로 두고 queue 헤더에 사유를 적는다.
-- exit 1 (미완·드리프트·중복 목록 출력) → 사용자 확인 게이트: **"미완/드리프트 N건 — 그래도 batch PR 진행? [y/n]"**. `y`=의도적 부분 진행 허용(주권 — queue 헤더에 사유 기록 권장), `n`=중단. **§auto 무인은 여기서 정지**(목록 출력 + 사용자 입력 대기 — silent 부분 PR 금지)
+- exit 1 (미완·드리프트·중복 목록 출력) → 사용자 확인 게이트: **"미완/드리프트 N건 — 그래도 batch PR 진행? [y/n]"**. `y`=의도적 부분 진행 허용(주권 — queue 헤더에 사유 기록 권장), `n`=중단. `HELD` FR 이 있으면 FR 별 사유·선택지(`dispatch-log.md` 원문)를 함께 보이고 **세 번째 답**을 받는다 — 승인·결정을 주면 그 FR 을 `PLAN_DONE` 으로 되돌려 스텝 1a 부터 다시 돈 뒤 이 스캔으로 돌아온다(스텝 1b). **§auto 무인은 여기서 정지**(목록 출력 + 사용자 입력 대기 — silent 부분 PR 금지)
 
 > **이 스캔은 산문 지시일 뿐 아니라 훅으로도 강제된다** (20260721-batch-pr-teeth). `gh pr create` 시
 > `hooks/pretool-governance.sh` 가 최신 `.specops/batch-*/queue.md` 에 `batch-state.sh --gate` 를 자동 실행한다.
@@ -323,13 +330,15 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 > **batch-level 호출 규약**: Step A/B/C 의 skill 은 §batch 감지를 `grep .specops/<FID>/spec.md` 로 **FID-scoped** 수행한다. 오케스트레이터는 batch 의 **대표 FID**(queue.md 의 임의 IMPL_DONE FID — 전 FR spec 이 `**§batch**` 라벨 보유)의 spec.md 를 참조해 호출해야 batch 모드가 발동한다(§batch 부재 스코프로 호출 시 SINGLE 모드 falling back → 단일-batch-PR 불변식 위협). 따라서 아래 `-DONE` signal 의 suffix 는 그 대표 `<FID>` 다(스캔 범위는 batch 전체지만 라벨 판정 기준은 대표 FID).
 
+> **게이트 FAIL 뒤의 복귀 (Step A·B·C 공통)**: 수정은 새 코드다 — 실패한 게이트를 곧장 다시 돌리지 않는다(수정 커밋이 verify·리뷰를 건너뛴다). `specops-ko:systematic-debugging-ko` 로 고친 뒤 ① 수정이 속한 FR(FID)마다 Phase 3 스텝 2(verify)·스텝 3(리뷰)을 다시 돌려 `BATCH-REVIEW-DONE: <FID>` 를 받고 — `review-base.sha` 는 다시 쓰지 않는다(리뷰 diff 가 수정분을 포함해야 한다) ② **Step A(보안)부터** 다시 실행한다 — 어느 Step 이 실패했든 그렇다. 앞서 통과한 Step 의 결과는 수정 전 코드의 것이라, 실패한 Step 부터 이으면 수정분이 보안 스캔을 건너뛴다. 단일 모드의 복귀 경로(각 게이트 SKILL 의 FAIL 분기 — verify → 리뷰 → security → integration → performance)와 같은 순서이고, batch 에서는 리뷰가 끝나면 skill 이 halt 하므로 오케스트레이터가 재진입시킨다.
+
 **Step A: batch 레벨 보안 리뷰 (SAST)**
 
 1. `specops-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 코드 변경 표면 신호 부재 시 graceful skip
    - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
-   - Critical/High 검출 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행 (§auto여도 자동 통과 금지)
+   - Critical/High 검출 시 → 위 **게이트 FAIL 뒤의 복귀** (§auto여도 자동 통과 금지)
    - **PASS/SKIP 후 전 FID 전파 (필수)** — skill 은 대표 FID 1곳의 evidence.md 에만 기록하는데, `gh pr create` 의 RELEASE_READY 는 **전 IMPL_DONE FID** 각각에 이 게이트를 요구한다(MISSING → hard deny). **SKIP 근거는 spec.md 섹션명+줄 번호를 인용한다**(예: `"§범위 L12-15 — 통합 표면 없음"`) — 인용이 없으면 스크립트가 기록을 거부한다(RELEASE_READY 가 인용 없는 SKIP 을 차단하므로 여기서 먼저 막는다):
      ```bash
      bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" security <PASS|SKIP> ["§섹션 L줄 — 사유"]
@@ -343,7 +352,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
      - **UI 표면**(화면 렌더·사용자 흐름·클릭/폼/라우팅) → **E2E 위임**: 브라우저 E2E 를 downstream 프로젝트 스택(**Playwright/Cypress 등**)으로 작성·실행(플러그인은 브라우저 인프라 미보유 — execution 은 downstream). `e2e-runner` 에이전트 있으면 선택 활용(없어도 downstream 스택 직접 지시로 graceful — 하드 의존 금지).
    - **두 표면 모두 부재**(순수 데이터 batch·CLI) 시에만 graceful skip. **UI batch 인데 E2E 를 건너뛰면 안 된다** — 화면 있는 batch 는 E2E 가 통합 검증의 본체다(dogfood 20260716: batch 가 API 통합만 보고 UI E2E 를 흐름 밖으로 흘려 사후 수동 보충됨).
    - `BATCH-INTEGRATION-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt — performance 자동 chain 차단)
-   - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
+   - FAIL 시 → 위 **게이트 FAIL 뒤의 복귀**
    - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
      ```bash
      bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$BATCH_ID" integration <PASS|SKIP> ["§섹션 L줄 — 사유"]
@@ -354,7 +363,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 3. `specops-ko:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
    - `.specops/memory/requirements.md` `## 3. 비기능 요구사항 (NFR)` + 각 FR spec.md `§NFR` 스캔
    - 성능 임계값 신호 부재 시 graceful skip
-   - FAIL 시 → `specops-ko:systematic-debugging-ko` → 수정 후 재실행
+   - FAIL 시 → 위 **게이트 FAIL 뒤의 복귀**
    - **본 skill의 PR 게이트 skip** (`**§batch**` 라벨 감지 → `BATCH-PERF-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환)
    - **PASS/SKIP 후 전 FID 전파 (필수 — Step A 와 동일 이유)**:
      ```bash
@@ -444,4 +453,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.17.0 · 2026-10-09 · 조용히 통과하던 검사 정비(FID 칸 · 굵은·접미 ID FR 행)*
+*specops-ko v2.18.0 · 2026-10-09 · FR 보류 신호 수신(`BATCH-FR-HELD`) · 게이트 FAIL 뒤의 복귀 경로*

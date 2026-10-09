@@ -423,7 +423,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 else
   ct_out=$(python3 - <<'PYEOF' 2>&1
 import glob, re, sys
-sig_re = re.compile(r'(BATCH-[A-Z0-9]+-DONE): <([A-Z_]+)>')
+sig_re = re.compile(r'(BATCH-[A-Z0-9]+-(?:DONE|HELD)): <([A-Z_]+)>')   # -HELD: FR 보류 신호(20261009) — 받는 쪽이 없던 halt 를 신호로 만들었다
 emit_, watch = {}, {}   # token -> set(suffix)
 for path in glob.glob('skills/*/SKILL.md'):
     for line in open(path, encoding='utf-8'):

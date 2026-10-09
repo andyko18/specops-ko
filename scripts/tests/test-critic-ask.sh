@@ -246,6 +246,65 @@ rd=$(awk '/^## critic-ask.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/sc
 kw() { if printf '%s\n' "$rd" | grep -qF -- "$1"; then printf y; else printf n; fi; }
 t4 "T4.f 주석·README 에 실측 사실(버전)과 gemini 미실측 한계가 있고 '실측 미확인' 문구는 없다" "$(grep -c '실측 미확인' "$SCRIPT")|$(grep -c '2.1.287' "$SCRIPT")|$(grep -c '0.153.2' "$SCRIPT")|$(grep -c 'gemini 는 미설치라 실측하지 못했다' "$SCRIPT")|$(kw '--tools')$(kw 'read-only')$(kw 'fail closed')$(kw 'gemini')" "0|1|1|1|yyyy"
 
+# T9 하류 저장소(cwd 에 templates/ 없음)에서 플러그인 프롬프트를 상대 경로로 불러도 찾는다
+#   문서가 `critic-ask.sh templates/critic-prompt-plan.md` 로 적어 두어, 하류에서는 "prompt-file 부재"·rc=1 로 끝났다.
+TD9=$(mktemp -d); printf '플랜\n' > "$TD9/plan.md"
+cat > "$TD9/stub.sh" <<'STUB'
+#!/usr/bin/env bash
+cat > /dev/null
+echo "의견 없음"
+STUB
+chmod +x "$TD9/stub.sh"
+out=$(cd "$TD9" && CRITIC_BIN="$TD9/stub.sh" bash "$SCRIPT" templates/critic-prompt-plan.md --files plan.md 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^CRITIC\[custom\]:' && ! echo "$out" | grep -q 'prompt-file 부재'; then
+  PASS=$((PASS+1)); echo "PASS T9.a 하류 cwd + 플러그인 상대 경로 프롬프트 → 플러그인 루트에서 찾음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.a (rc=$rc out=$out)"
+fi
+# T9.b 어디에도 없는 프롬프트는 종전대로 rc=1 (사용 오류)
+out=$(cd "$TD9" && CRITIC_BIN="$TD9/stub.sh" bash "$SCRIPT" templates/no-such-prompt.md 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q 'prompt-file 부재'; then
+  PASS=$((PASS+1)); echo "PASS T9.b 없는 프롬프트 → rc=1 유지"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.b (rc=$rc out=$out)"
+fi
+# T9.c cwd 에 같은 상대 경로의 파일이 있으면 그것이 우선이다 (사용자가 준 파일을 플러그인 것으로 바꿔치지 않는다)
+mkdir -p "$TD9/templates"; printf 'LOCAL-PROMPT-MARK\n' > "$TD9/templates/critic-prompt-plan.md"
+cat > "$TD9/stub2.sh" <<'STUB'
+#!/usr/bin/env bash
+cat
+STUB
+chmod +x "$TD9/stub2.sh"
+out=$(cd "$TD9" && CRITIC_BIN="$TD9/stub2.sh" bash "$SCRIPT" templates/critic-prompt-plan.md 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q 'LOCAL-PROMPT-MARK'; then
+  PASS=$((PASS+1)); echo "PASS T9.c cwd 의 파일이 우선"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.c (rc=$rc out=$(echo "$out" | head -3))"
+fi
+# T9.d 폴백은 플러그인이 싣고 온 프롬프트 이름(templates/critic-prompt-*.md)에만 — 플러그인 루트의 다른 파일을 조용히 집지 않는다
+TD9b=$(mktemp -d)
+out=$(cd "$TD9b" && CRITIC_BIN="$TD9/stub2.sh" bash "$SCRIPT" README.md 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q 'prompt-file 부재'; then
+  PASS=$((PASS+1)); echo "PASS T9.d 플러그인 루트의 다른 파일(README.md)은 폴백 대상 아님 → rc=1"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.d (rc=$rc out=$(echo "$out" | head -2))"
+fi
+# T9.e 상위 경로(..)가 든 이름은 폴백하지 않는다
+out=$(cd "$TD9b" && CRITIC_BIN="$TD9/stub2.sh" bash "$SCRIPT" 'templates/critic-prompt-../../README.md' 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$out" | grep -q 'prompt-file 부재'; then
+  PASS=$((PASS+1)); echo "PASS T9.e .. 가 든 이름은 폴백 없음 → rc=1"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.e (rc=$rc out=$(echo "$out" | head -2))"
+fi
+# T9.f 폴백이 일어나면 무엇을 집었는지 알린다 (외부로 나가는 입력이다)
+out=$(cd "$TD9b" && CRITIC_BIN="$TD9/stub.sh" bash "$SCRIPT" templates/critic-prompt-plan.md 2>&1 >/dev/null); rc=$?
+if echo "$out" | grep -q 'CRITIC: prompt-file 을 플러그인에서 찾음: .*/templates/critic-prompt-plan.md'; then
+  PASS=$((PASS+1)); echo "PASS T9.f 폴백 사실을 stderr 로 알림"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T9.f (out=$out)"
+fi
+rm -rf "$TD9" "$TD9b"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

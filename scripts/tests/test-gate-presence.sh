@@ -389,4 +389,70 @@ else
   nope "implementing-ko 충돌 문장 재등장" "설계 계약 이탈·cap 초과·irreversible Step 0"
 fi
 
+# ── 20261009 — 문서끼리 어긋나 모델 재량으로 넘어가던 지점 ──
+# FR 보류 신호: 내는 쪽(implementing-ko·needs-approval)과 받는 쪽(start-all Phase 3)이 같은 토큰을 쓴다.
+#   종전엔 "FR halt" 라는 산문뿐이라 받는 절차가 없었다 — 보류된 FR 을 어떻게 할지가 모델 재량이었다.
+if has skills/implementing-ko/SKILL.md 'NEEDS_DISCUSSION.*BATCH-FR-HELD: <FID>' 'NEEDS_APPROVAL.*BATCH-FR-HELD: <FID>|BATCH-FR-HELD: <FID>.*halt' \
+   && has skills/implementing-ko/needs-approval.md 'BATCH-FR-HELD: <FID>' \
+   && has commands/start-all.md '^1b\. \*\*FR 보류 신호\*\*.*BATCH-FR-HELD: <FID>' 'queue-set-status\.sh .* HELD <FID>' \
+   && has commands/start-all-auto.md 'BATCH-FR-HELD: <FID>.*HELD' '대신 승인하지 않는다'; then
+  ok "FR 보류 신호 — 방출(implementing·needs-approval) ↔ 수신(start-all 1b · start-all-auto)"
+else
+  nope "FR 보류 신호" "방출·수신 중 한쪽에 BATCH-FR-HELD 가 없다"
+fi
+# 보류에서 돌아온 FR 의 리뷰 기준점은 다시 쓰지 않는다 · 보류 FR 은 Phase 3 완료 게이트에서 세 번째 답으로 되살린다
+if has commands/start-all.md '파일이 이미 있으면 다시 쓰지 않는다' '`HELD` FR 이 있으면 FR 별 사유·선택지.*세 번째 답' \
+   && ! grep -q '보류된 FR 에 의존하는 FR 이 구현 중 막히면' commands/start-all.md \
+   && grep -q '보류(HELD) ${held}건은 자동으로 다시 돌지 않는다' scripts/_internal/batch-resume-check.sh \
+   && has skills/implementing-ko/dev-autonomy.md 'BATCH-FR-HELD: <FID>'; then
+  ok "FR 보류의 재개 — 리뷰 기준점 보존 · 완료 게이트의 세 번째 답 · 재개 안내"
+else
+  nope "FR 보류의 재개" "start-all 1a·완료 게이트 · batch-resume-check · dev-autonomy 중 빠진 곳이 있다"
+fi
+# batch 게이트 FAIL 뒤의 복귀: 곧장 재실행이 아니라 verify → 리뷰 → 실패한 Step
+if has commands/start-all.md '게이트 FAIL 뒤의 복귀 \(Step A·B·C 공통\)' 'BATCH-REVIEW-DONE: <FID>.*받고' 'Step A\(보안\)부터' \
+   && ! grep -qE 'systematic-debugging-ko`? → 수정 후 재실행' commands/start-all.md; then
+  ok "batch 게이트 FAIL 복귀 — verify·리뷰를 거쳐 Step A(보안)부터 (곧장 재실행 문구 없음)"
+else
+  nope "batch 게이트 FAIL 복귀" "복귀 절이 없거나 '수정 후 재실행' 문구가 남았다"
+fi
+# 무인 모드의 plan 리뷰 한도 초과: 진입 경로와 무관하게 Critical 이 남으면 정지
+if has skills/planning-ko/SKILL.md 'Critical≥1 이면 무인이라도 `HARD-GATE: plan-reviewer Critical cap' 'Critical=0\(Important 만 남음\)' \
+   && grep -qF "grep -qE '^Critical:[[:space:]]*0([^0-9]|\$)' .specops/<FID>/plan-review.md" skills/planning-ko/SKILL.md \
+   && has commands/start-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
+   && has commands/maintain-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
+   && has commands/start-all.md 'Critical≥1.*§auto 모두'; then
+  ok "무인 plan 리뷰 한도 초과 — 단일(/start-auto·/maintain-auto)·batch 모두 Critical 이면 정지"
+else
+  nope "무인 plan 리뷰 한도 초과" "진입 경로마다 답이 다르다"
+fi
+if grep -qE 'plan-reviewer cap 초과 \| 자동 통과( \(plan은 verify/review가 검증\))? \| ❌' commands/*.md; then
+  nope "무인 plan 리뷰 — 낡은 행" "무조건 자동 통과 행이 남았다"
+else
+  ok "무인 plan 리뷰 — 무조건 자동 통과 행 없음"
+fi
+# SKIP 근거 인용: 게이트 문서 3종이 판정기(release-ready)와 같은 기준 — §유형 과 무관
+_sk=0
+for s in security-review-ko integration-test-ko performance-test-ko; do
+  has "skills/$s/SKILL.md" '\*\*SKIP 근거 의무\*\* \(V3\).*`§유형` 과 무관' || _sk=1
+  grep -q '§유형≠trivial SKIP 근거 의무' "skills/$s/SKILL.md" && _sk=1
+done
+[ "$_sk" -eq 0 ] && ok "SKIP 근거 인용 — 게이트 문서 3종이 §유형 과 무관하게 요구" || nope "SKIP 근거 인용" "trivial 면제 문구가 남았다(판정기는 면제하지 않는다)"
+# 보안 단계 문서가 스크립트와 같은 말을 한다 — 스캐너가 없어도 SKIP 이 아니라 self-check only 접미다
+if has skills/security-review-ko/SKILL.md 'self-check only — semgrep·gitleaks 미설치' '접미까지 그대로' \
+   && ! grep -qE 'SECURITY: SKIP.*스캐너 미설치|스캐너 미설치 또는 jq 부재' skills/security-review-ko/SKILL.md \
+   && grep -q 'self-check only — semgrep·gitleaks 미설치' scripts/security-scan.sh; then
+  ok "보안 단계 — 스캐너 부재는 SKIP 이 아니라 self-check only (스크립트 출력과 일치)"
+else
+  nope "보안 단계 스캐너 부재 서술" "문서가 스크립트가 내지 않는 SECURITY: SKIP 을 안내한다"
+fi
+# 낡은 문구: foundation 크기 예외 · 메타 스킬의 Phase A 잔재 · plan 리뷰어 관점 수
+if ! grep -q '`§auto`·`§batch`·`foundation` 만 경고 후 진행' templates/tasks.md \
+   && ! grep -q 'Phase A 단독' skills/using-specops-ko/SKILL.md \
+   && ! grep -q '4관점 엔지니어링 검증' agents/plan-reviewer-ko.md; then
+  ok "낡은 문구 3건 없음 (foundation 크기 예외 · Phase A 단독 · 4관점)"
+else
+  nope "낡은 문구" "templates/tasks.md · using-specops-ko · plan-reviewer-ko 중 남은 것이 있다"
+fi
+
 finish

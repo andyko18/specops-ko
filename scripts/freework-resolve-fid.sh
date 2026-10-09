@@ -23,7 +23,8 @@ latest=$(awk -v f="## $fid" '
 # 3) 종결 마커 검사 — 종결이면 NEW, 아니면 ATTACH
 #    AC-12 의 'PR #<n>' 는 false-positive(진행중 줄 "PR #999 참조") 차단 위해 '생성' 인접 필수로 협소 적용.
 #    command 슬래시 앵커(/lifecycle·/finish)로 본문 우연 매칭 배제.
-if printf '%s' "$latest" | grep -qE '/(lifecycle|finish)[[:space:]]+DONE|PR[[:space:]]*#[0-9]+[[:space:]]+생성'; then
+#    `/finishing 완료` 도 종결이다 — 메타 스킬의 재개 통보(using-specops-ko)가 종결로 치는 목록과 같아야 한다.
+if printf '%s' "$latest" | grep -qE '/(lifecycle|finish)[[:space:]]+DONE|/finishing[[:space:]]+완료|DONE[[:space:]]*\(PR|PR[[:space:]]*#[0-9]+[[:space:]]+생성'; then
   echo "NEW"
 else
   echo "ATTACH:$fid"
