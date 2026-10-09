@@ -12,6 +12,13 @@ CHK="$PLUGIN/scripts/_internal/check-foundation-present.sh"
 
 _mk_mem() { mkdir -p "$1/.specops/memory"; }
 
+_mk_paths() {  # $1=저장소 루트 $2=manifest — 표에 백틱으로 적힌 경로를 실제 파일로 만든다(최소 내용 게이트: 실재 경로 ≥1)
+  local p
+  grep -E '^\|' "$2" | grep -oE '`[^` ]+/[^` ]+`' | tr -d '`' | while IFS= read -r p; do
+    case "$p" in *[\(\)\{\}\<\>=\;,\*]*|@*|/*|http*) continue ;; esac
+    mkdir -p "$1/$(dirname "$p")" && : > "$1/$p"
+  done
+}
 _filled_manifest() {
   cat > "$1" <<'EOF'
 <!-- OWNER_COMMAND: /start-foundation (planning-ko 산출) -->
@@ -36,6 +43,7 @@ _filled_manifest() {
 
 *산출: specops-ko · planning-ko · FID: test · 경로: `.specops/memory/foundation-manifest.md`*
 EOF
+  _mk_paths "$(dirname "$(dirname "$(dirname "$1")")")" "$1"
 }
 
 # T1: FE arch 있음 + manifest 없음 → FAIL
@@ -178,6 +186,34 @@ TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" "<!-- specops:project-kind: 3 -->"
 sed -i.bak 's#| UI 유무 | `<있음 \\| 없음>` |#| UI 유무 | 있음 |#' "$TD/.specops/memory/project-context.md"
 out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
 [ "$rc" -eq 1 ] && ok "T15 기록=CLI + UI 유무=있음 → 필수" || nope "T15" "rc=$rc out=$out ctx=$(grep 'UI 유무' "$TD/.specops/memory/project-context.md")"
+rm -rf "$TD"
+
+# ── T16: 최소 내용 (20261009 /start-foundation 점검 묶음 C) — /start-all 입구에서도 같은 기준 ──
+# 결함: 내용이 `x` 한 줄인 manifest 로 입구 게이트가 PASS 였다(필수 KIND 포함).
+TD=$(mktemp -d); _mk_mem "$TD"; echo '# FE' > "$TD/.specops/memory/frontend-architecture.md"
+printf 'x\n' > "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '실재하는 모듈 경로가 하나도 없다' \
+  && ok "T16.a 한 줄짜리 manifest → FAIL" || nope "T16.a" "rc=$rc out=$out"
+# 공통 모듈이 옮겨졌거나 지워진 뒤 — 남은 실재 경로가 있으면 통과하되 없는 경로를 알린다
+mkdir -p "$TD/src"; : > "$TD/src/router.ts"
+printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n| 인증 | `src/moved-away.ts` |\n' > "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'WARN' && printf '%s' "$out" | grep -q 'src/moved-away.ts' \
+  && printf '%s' "$out" | tail -1 | grep -q 'FOUNDATION-PRESENT: PASS' \
+  && ok "T16.b 없는 경로는 경고 · 판정은 PASS" || nope "T16.b" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T16.c: 사용 예(JSX·제네릭)를 적은 다 채운 manifest 가 입구에서 막히지 않는다 (실 프로젝트 재생에서 나온 거짓 차단)
+TD=$(mktemp -d); _mk_mem "$TD"; echo '# FE' > "$TD/.specops/memory/frontend-architecture.md"
+mkdir -p "$TD/frontend/lib"; : > "$TD/frontend/lib/api-client.ts"
+printf '| 모듈 | 역할 | 재사용 방법 |\n|---|---|---|\n| `frontend/lib/api-client.ts` | fetch 래퍼 | `apiFetch<T>(path)` · `<AppShell n={1}>` · 내부 `<input>` |\n' > "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T16.c JSX·제네릭을 적은 manifest → PASS" || nope "T16.c" "rc=$rc out=$out"
+# 템플릿 자리표시자가 남으면 여전히 FAIL
+printf '\n- **DB**: <확정된 DB>\n' >> "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'placeholder 잔존' && ok "T16.d 템플릿 자리표시자 잔존 → FAIL" || nope "T16.d" "rc=$rc out=$out"
 rm -rf "$TD"
 
 finish

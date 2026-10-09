@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.10.0
+specops_version: 2.17.0
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -295,6 +295,8 @@ spec.md §유형=`foundation` 인 플랜은 **반드시** 태스크 목록 마�
 > **[foundation 전용 마지막 태스크]** 공통부 구현 완료 후 `templates/foundation-manifest.md` 를 기반으로 실제 모듈 경로·역할을 채워 `.specops/memory/foundation-manifest.md` 에 저장한다.
 >
 > 템플릿의 모듈 5행(라우팅·인증·레이아웃·공통 컴포넌트·DB 스키마)과 기술 스택 3항목은 **웹/풀스택 기준 예시**다. **프로젝트 유형에 맞게 교체하고 해당 없는 행·항목은 삭제**한다 — CLI/라이브러리 foundation 이면 인자 파싱·로깅·설정 로더 등 실제 제공 모듈로 바꾼다. placeholder(`<경로>`·`<확정된 프레임워크>`)를 그대로 남기면 `check-foundation-manifest.sh` 가 미채움으로 판정해 `VERIFY: FAIL` 이 난다(실측 20260806: 무관 행 방치가 모델의 자연스러운 선택이라 이 안내가 없으면 CLI foundation 이 반복 실패한다).
+
+> **manifest 가 이미 있으면 덮어쓰지 않는다** — 기존 표에 행을 더하거나 고친다(verify 가 사라진 모듈명을 경고한다). 표의 경로는 저장소에 **실재**해야 한다 — 하나도 없으면 `VERIFY: FAIL`.
 
 이 태스크가 없으면 후속 `/start <기능>` 시 decomposing-ko HARD GATE 가 `foundation-manifest.md` 를 발견하지 못해 재사용 게이트가 동작하지 않는다.
 
