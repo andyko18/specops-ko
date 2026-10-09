@@ -127,6 +127,7 @@ tools: Read, Grep, Glob, Bash
 
 규칙:
 - **등급은 Suggestion 이 기본**이다. `reuse:` 가 경로 증거(`grep -n` 결과)로 같은 기능의 중복을 입증하면 **Important** 까지 올린다. 과잉 설계를 Critical 로 올리지 않는다.
+- **공통부 manifest**: dispatch 컨텍스트 §6 에 `.specops/memory/foundation-manifest.md` 가 있으면 그 표를 `reuse:` 대조 기준에 넣는다. 변경이 표의 모듈과 **같은 일을 하는 코드를 새로 만들었으면** `reuse:` — 표의 경로와 새 코드의 위치를 함께 대면 Important 까지. 컨텍스트의 선언(`재사용 foundation`)과 달리 그 모듈을 쓰지 않았을 뿐이면 Suggestion 으로 선언 정정을 권한다(쓰지 않은 것 자체는 결함이 아니다).
 - **절감 대상이 아닌 것**: 검증·에러 처리·보안·접근성, AC 가 요구하는 테스트, 사용자가 명시 요청한 것. 이런 줄을 지우라고 하지 않는다 — 한 번의 실행 가능한 자체 검사(smoke·assert)는 과잉이 아니다.
 - **`shortcut:` 주석**(`# shortcut: <상한> → <업그레이드 조건>`)은 의도적 단순화의 표식이다 — 그 자체를 지적하지 않는다. 단 업그레이드 조건(`→`)이 없는 것은 `no-trigger` 로 Suggestion 을 낸다(조용히 영구화되는 부채). 장부는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/scan-shortcuts.sh` 로 뽑는다.
 - 끝에 `net: -<N> lines possible` 한 줄. 자를 것이 없으면 `(none)` — 단 `git diff --stat <range>` 가 비어 있지 않은지 먼저 확인한다(「빈 출력 규칙」).

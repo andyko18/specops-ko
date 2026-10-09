@@ -58,6 +58,7 @@ bash scripts/tests/test-<feature>.sh
 - `.specops/memory/api-spec.md` (인터페이스 계약 — 있을 때)
 - `.specops/memory/data-model.md` (스키마 계약 — 있을 때)
 - `screens/` (화면 계약 — 있을 때)
+- `.specops/memory/foundation-manifest.md` (공통부 모듈 — manifest 가 있고 §유형≠foundation 일 때. 이 task 의 `재사용 foundation`·`미재사용 근거` 선언이 함께 실린다)
 
 ## 7. 실행 모드 (emit-context.sh 자동 산출)
 

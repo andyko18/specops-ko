@@ -77,6 +77,8 @@ if [ -f "$_REUSE_SH" ]; then
     echo "emit-context: foundation 재사용 선언 누락 — tasks.md 보완 후 재실행" >&2
     exit 1
   fi
+  # 통과 출력은 삼키지만 경고는 중계한다 — 모듈명 없는 재사용 선언이 조용히 지나가지 않게.
+  case "$reuse_out" in *"FOUNDATION-REUSE: WARN"*) printf '%s\n' "$reuse_out" | grep -v '^FOUNDATION-REUSE: PASS' >&2 ;; esac
 fi
 
 # 유지보수 baseline 게이트 — analyzing 산출물(current-state·impact-analysis) 존재·채움.
@@ -223,9 +225,15 @@ if [ -n "$_wl_pat" ]; then
   fi
 fi
 
+# 공통부 재사용 선언 (20261009) — 게이트는 선언이 **적혔는지**만 본다. 구현자·리뷰어가 받는 건 이 컨텍스트뿐이라,
+#   manifest 경로와 그 태스크의 선언을 여기 싣지 않으면 선언은 tasks.md 안의 한 줄로 끝난다.
+#   판독은 게이트 스크립트에 맡긴다(절 규칙을 두 군데에 두지 않는다). 발동하지 않는 FID 면 빈 출력.
+_fnd_decls=""
+[ -f "$_REUSE_SH" ] && _fnd_decls=$(bash "$_REUSE_SH" --declarations "$FID" 2>/dev/null || true)
+
 # 2단계 실제 작성
 mkdir -p "$DISPATCH"
-YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" python3 - << 'PYEOF'
+YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" FND_DECLS="$_fnd_decls" python3 - << 'PYEOF'
 import os, re, sys
 sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import yaml
@@ -291,6 +299,21 @@ mode_section = (
     "비가역 삭제·요청 범위 변경·repo 밖에 흔적을 남기는 실행(실 DB 쓰기·과금 API·배포)은 모드와 무관하게 먼저 NEEDS_APPROVAL 로 묻는다(승인 기록 경로를 받았으면 그 범위 안은 진행).\n"
 )
 
+# 공통부 재사용 — `MANIFEST|<경로>` + `<태스크 번호>|<필드>|<값>` (check-foundation-reuse.sh --declarations)
+fnd_manifest = ""
+fnd_decl = {}
+fnd_nomap = ""
+for _ln in os.environ.get("FND_DECLS", "").splitlines():
+    if _ln.startswith("MANIFEST|"):
+        fnd_manifest = _ln.split("|", 1)[1].strip()
+        continue
+    if _ln.startswith("NOMAP|"):
+        fnd_nomap = _ln.split("|", 1)[1].strip()
+        continue
+    _p = _ln.split("|", 2)
+    if len(_p) == 3 and _p[0].isdigit():
+        fnd_decl.setdefault(_p[0].lstrip("0") or "0", []).append(f"**{_p[1]}**: {_p[2]}")
+
 count = 0
 for t in tasks:
     tid = t["id"]
@@ -316,6 +339,20 @@ for t in tasks:
             "> 이 task 가 인터페이스/스키마/화면을 건드리면 아래 설계 계약을 **준수**한다. "
             "어긋나야 하면 사용자 확인 필요 (verifying-evidence-ko memory 동기화 점검이 사후 검증).\n\n"
             f"{cp_lines}\n"
+        )
+    if fnd_manifest:
+        _num = re.sub(r"\D", "", str(tid)).lstrip("0") or "0"
+        _dl = fnd_decl.get(_num) or ["(tasks.md 의 이 태스크 절에서 선언을 찾지 못했다 — 절 번호와 task id 를 확인)"]
+        if fnd_nomap:
+            # 번호가 어긋나면 대응시키지 않는다 — 다른 태스크의 선언을 이 태스크 것으로 싣는 것보다 비워 두는 편이 낫다
+            _dl = [f"(대응시키지 못했다 — {fnd_nomap}. tasks.md 의 해당 절을 직접 읽는다)"]
+        if not contract_section:
+            contract_section = "\n## 6. 설계 계약 (design-first — 준수)\n"
+        contract_section += (
+            "\n> **공통부 재사용** — 아래 manifest 의 모듈이 이미 하는 일을 새로 만들지 않는다(경로·사용법은 그 표에 있다). "
+            "선언과 다르게 구현해야 하면 사유를 보고한다.\n\n"
+            f"- `{fnd_manifest}`\n"
+            + "".join(f"  - 이 task 의 선언 — {d}\n" for d in _dl)
         )
     body = f"""<!-- specops-ko Wave 2 U2 — emit-context.sh 자동 산출 -->
 <!-- FID: {fid} · task: {tid} -->
