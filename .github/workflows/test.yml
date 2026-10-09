@@ -33,7 +33,10 @@ jobs:
 
   shellcheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 20261010: 5 → 10. 두 단계가 각각 약 2분 30초라(스크립트·테스트가 늘며 길어졌다) 평소에도 4분 30초였고,
+    #   테스트 100줄을 더한 PR 에서 비차단 리포트 단계 도중 상한에 걸려 job 이 취소됐다(차단 단계는 이미 통과한 뒤였다).
+    #   취소는 필수 검사를 막는다 — 스크립트를 더할 때 이 값도 다시 본다.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install shellcheck

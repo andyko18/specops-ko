@@ -725,6 +725,116 @@ _bcat_case "urgent" "T-bcat.i 명시 태그가 키워드(receipt)보다 우선" 
 _bcat_case "tool-limit" "T-bcat.j 명시 태그가 키워드(session)보다 우선" "[tool-limit] jq 없음 (session 중)"
 _bcat_case "stale-reverify" "T-bcat.k 명시 태그가 키워드(session)보다 우선 2" "[stale-reverify] session 재개 후 stale"
 
+# ══════════════════════════════════════════════════════════════════════════
+# T-mut: 변이 측정에서 살아남던 가드 (20261010-govlib-mutation-survivors)
+#   주간 변이 게이트가 처음 끝까지 돈 결과(60%), 아래 가드들은 꺼도 어떤 테스트도 실패하지 않았다.
+#   케이스 하나가 가드 하나를 겨눈다. 대조 케이스는 그 픽스처가 공허하지 않음을 보인다.
+# ══════════════════════════════════════════════════════════════════════════
+_mut_ok() {  # $1 label  $2 조건 결과(0=참)  [$3 실패 시 덧붙일 말]
+  if [ "$2" -eq 0 ]; then PASS=$((PASS+1)); echo "PASS $1"
+  else FAIL=$((FAIL+1)); echo "FAIL $1${3:+ ($3)}"; fi
+}
+
+# T-mut.a 안전 prelude 줄 판정 — 붙여 쓴 `&&` 는 한 토큰이라 `이름=값` 가지의 나머지 검사를 비껴간다.
+#   그 줄을 안전 줄로 소비하면 `X=1&&<임의 명령>` 뒤의 커밋이 staged 범위로 좁혀진다(임의 명령은 커밋 전에 돈다).
+_clsf_case 1 "T-mut.a ★ prelude 줄의 붙여 쓴 && (X=1&&cmd) → 보수" "X=1&&ga
+$_G $_C -m 'x'"
+_clsf_case 0 "T-mut.a0 대조 — 같은 자리의 X=1 단독 줄 → 축소" "X=1
+$_G $_C -m 'x'"
+
+# T-mut.b 커밋 줄의 compound 판정 — 메시지 값에 붙여 쓴 `&&` 는 값 소비(skip)·`--message=` 가지가 삼킨다.
+_clsf_case 1 "T-mut.b ★ -m 값에 붙여 쓴 && (-m x&&cmd) → 보수"            "$_G $_C -m docs&&ga"
+_clsf_case 1 "T-mut.b2 ★ --message= 값에 붙여 쓴 && → 보수"                "$_G $_C --message=docs&&ga"
+
+# T-mut.c log_friction 중복 판정 — 파일이 이미 있다는 이유만으로 건너뛰면 둘째 위반부터 기록이 사라진다.
+_md=$(mktemp -d)
+( cd "$_md" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && log_friction "20260101-two" "R-1" 5 "snip-one" 1 \
+  && log_friction "20260101-two" "R-1" 5 "snip-two" 2 \
+  && log_friction "20260101-two" "R-1" 5 "snip-one" 3 ) >/dev/null 2>&1
+_mn=$(grep -c . "$_md/.specops/20260101-two/friction-log.jsonl" 2>/dev/null || true)
+[ "$_mn" = "2" ]; _mut_ok "T-mut.c ★ 서로 다른 위반 2건 + 중복 1건 → 2줄" $? "줄 수=$_mn"
+rm -rf "$_md"
+
+# T-mut.d _tasks_has_id — id 가 비면 "이 id 가 없다"(1)가 아니라 판정 불가(2)다.
+_mt=$(mktemp); printf 'tasks:\n  - id: T1\n  - id: T2\n' > "$_mt"
+( source "$PLUGIN/hooks/governance-lib.sh"; _tasks_has_id "$_mt" "" ); _mrc=$?
+[ "$_mrc" -eq 2 ]; _mut_ok "T-mut.d ★ 빈 id → 판정 불가(rc 2)" $? "rc=$_mrc"
+( source "$PLUGIN/hooks/governance-lib.sh"; _tasks_has_id "$_mt" "T1" ); _mrc=$?
+[ "$_mrc" -eq 0 ]; _mut_ok "T-mut.d0 대조 — 있는 id → rc 0" $? "rc=$_mrc"
+( source "$PLUGIN/hooks/governance-lib.sh"; _tasks_has_id "$_mt" "T9" ); _mrc=$?
+[ "$_mrc" -eq 1 ]; _mut_ok "T-mut.d1 대조 — 없는 id → rc 1" $? "rc=$_mrc"
+rm -f "$_mt"
+
+# T-mut.e·f 인용 제거기의 fail-safe 반환 — awk 가 죽거나 빈 출력을 내면 원문을 돌려주고 **rc 0** 이어야 한다.
+#   이 rc 는 버려지지 않는다: 트리거 판정은 `_trigger_scan_text … | grep` 을 pipefail 아래에서 돌리므로,
+#   앞단이 0 이 아니면 grep 이 커밋을 찾아도 파이프 전체가 실패해 훅이 "커밋 아님" 으로 통과시킨다.
+_mq_cmd="$_G \\
+$_C -m 'x'"
+_mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { return 1; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
+[ "$_mrc" -eq 0 ] && printf '%s' "$_mq_out" | grep -Fq -- "-m 'x'"
+_mut_ok "T-mut.e ★ awk 실패 → 원문 반환 + rc 0 (트리거 판정 유지)" $? "rc=$_mrc"
+_mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { cat >/dev/null; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
+[ "$_mrc" -eq 0 ] && printf '%s' "$_mq_out" | grep -Fq -- "-m 'x'"
+_mut_ok "T-mut.f ★ awk 빈 출력 → 원문 반환 + rc 0 (트리거 판정 유지)" $? "rc=$_mrc"
+
+# T-mut.g·h 꺼진 차단 훅의 흔적(_note_governance_disabled)
+_mk_in() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
+#   g: CLAUDE_PROJECT_DIR 이 없는 경로를 가리켜도(낡은 환경변수) 지금 자리의 저장소에 기록한다.
+_mg=$(mktemp -d); mkdir -p "$_mg/.specops"
+( cd "$_mg" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && _mk_in "$_G $_C -m x" | CLAUDE_PROJECT_DIR="$_mg/no-such-dir" _note_governance_disabled "$PLUGIN" ) >/dev/null 2>&1
+grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_mg/.specops/friction-log.jsonl"
+_mut_ok "T-mut.g ★ CLAUDE_PROJECT_DIR 이 없는 경로 → 현재 저장소에 기록" $?
+rm -rf "$_mg"
+#   h: 규칙 파일을 못 읽으면 커밋인지 알 수 없다 — 아무 명령에나 기록하지 않는다.
+_mh=$(mktemp -d); mkdir -p "$_mh/.specops" "$_mh/emptyroot"
+( cd "$_mh" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && _mk_in "ls -la" | CLAUDE_PROJECT_DIR="$_mh" _note_governance_disabled "$_mh/emptyroot" ) >/dev/null 2>&1
+[ ! -e "$_mh/.specops/friction-log.jsonl" ]
+_mut_ok "T-mut.h ★ 규칙 파일 부재 → 기록 없음 (무관한 명령에 흔적 금지)" $?
+( cd "$_mh" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && _mk_in "$_G $_C -m x" | CLAUDE_PROJECT_DIR="$_mh" _note_governance_disabled "$PLUGIN" ) >/dev/null 2>&1
+grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_mh/.specops/friction-log.jsonl"
+_mut_ok "T-mut.h0 대조 — 규칙 파일이 있고 커밋이면 기록" $?
+rm -rf "$_mh"
+
+# T-mut.i STALE 예외 ① — 통과 마커가 없으면 신선도 판정기의 답을 쓰지 않는다.
+#   판정기를 "항상 신선"(exit 0)이라 답하는 대역으로 바꿔 두고, 마커 유무만 바꿔 본다.
+_ms=$(mktemp -d)
+( cd "$_ms" && git init -q && mkdir -p .specops spy \
+  && printf '#!/usr/bin/env bash\nexit 0\n' > spy/full-suite-fresh.sh ) >/dev/null 2>&1
+_ms_call() {
+  ( cd "$_ms" && source "$PLUGIN/hooks/governance-lib.sh"
+    _VERIFICATION_STATE_SH="$_ms/spy/verification-state.sh"
+    _vs_stale_blocks "20260101-x" "$_G add -A && $_G $_C -m 'x'" ) >/dev/null 2>&1
+}
+_ms_call; _mrc=$?
+[ "$_mrc" -eq 0 ]; _mut_ok "T-mut.i ★ 통과 마커 없음 → 판정기가 신선이라 해도 막는다(rc 0)" $? "rc=$_mrc"
+: > "$_ms/.specops/.full-suite-pass"
+_ms_call; _mrc=$?
+[ "$_mrc" -eq 1 ]; _mut_ok "T-mut.i0 대조 — 마커가 있으면 판정기의 답을 쓴다(rc 1)" $? "rc=$_mrc"
+rm -rf "$_ms"
+
+# T-mut.j 거부 사유의 receipt 축 — PR(R-2)에는 receipt 경로가 없다. FID·tasks.md 가 있고 verify 가 PASS 여도 n/a 다.
+#   R-1 이면 같은 상태가 closed-verified 다(대조) — R-2 에 그 값이 새면 "verify 가 이미 유효 PASS" 라는 엉뚱한 안내가 붙는다.
+_mr=$(mktemp -d); mkdir -p "$_mr/.specops/20260101-rc"
+printf '# Session Progress\n\n## 20260101-rc\n\n' > "$_mr/.specops/session-progress.md"
+printf 'tasks:\n  - id: T1\n' > "$_mr/.specops/20260101-rc/tasks.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$_mr/.specops/20260101-rc/evidence.md"
+_mr_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
+_mr_r2=$(jq -c 'select(.id == "R-2")' "$PLUGIN/hooks/rules.jsonl")
+_mr_tr="$FIXTURES/transcripts/r1-commit-without-verify.jsonl"
+_mr_o2=$( cd "$_mr" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_mr_r2" "$_mr_tr" "Bash" 'gh pr create --title "x"' 2>/dev/null )
+_mr_o1=$( cd "$_mr" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_mr_r1" "$_mr_tr" "Bash" "$_G $_C -m 'feat: x'" 2>/dev/null )
+[ "$(printf '%s' "$_mr_o2" | jq -r '.cause.receipt' 2>/dev/null)" = "n/a" ]
+_mut_ok "T-mut.j ★ R-2 + FID·tasks.md·verify PASS → receipt=n/a" $? "$(printf '%s' "$_mr_o2" | jq -c '.cause' 2>/dev/null)"
+[ "$(printf '%s' "$_mr_o1" | jq -r '.cause.receipt' 2>/dev/null)" = "closed-verified" ]
+_mut_ok "T-mut.j0 대조 — 같은 상태의 R-1 → receipt=closed-verified" $? "$(printf '%s' "$_mr_o1" | jq -c '.cause' 2>/dev/null)"
+rm -rf "$_mr"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
