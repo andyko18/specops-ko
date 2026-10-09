@@ -10,8 +10,15 @@
 #   게이트 자체가 침묵 무발동**이었다(실측 20260806). 산문을 실행 가능한 판정으로 옮긴다.
 #
 # 채움 판정: 구 산문은 `grep -q '<경로>'` **단일 토큰**이라 경로만 채우고 `<설명>`·
-#   `<import 예시>`·`<확정된 프레임워크>` 가 전부 남아도 통과했다. placeholder 판정의 SoT 인
-#   scan-enrich-placeholders.sh 로 통일한다(HTML 주석 헤더 제외 규칙도 함께 상속).
+#   `<import 예시>`·`<확정된 프레임워크>` 가 전부 남아도 통과했다. 템플릿이 가진 자리표시자 **전부**를
+#   대조한다(foundation-manifest-content.sh `fmc_template_leftovers`).
+#
+# 최소 내용 (20261009): 자리표시자만 없으면 통과하던 것 — 내용이 `x` 한 줄이어도, 모듈 행이 0개여도,
+#   저장소에 없는 경로만 적어도 PASS 였다. 표에 적힌 경로 가운데 **실재하는 것이 하나는** 있어야 한다
+#   (foundation-manifest-content.sh). 없는 경로는 경고로 나열한다(차단 아님 — 표기 오독 가능).
+# 덮어쓰기 경고: base 브랜치의 manifest 에 있던 모듈명이 사라졌으면 알린다 — 두 번째 `/start-foundation` 이
+#   템플릿으로 다시 써서 앞선 공통부 행을 지우는 경우(차단 아님 — 모듈을 실제로 없앤 것일 수 있다).
+# 공통 FR 안내: 요구사항 표의 공통부 FR 가운데 `관련 spec` 칸이 빈 것이 있으면 적는 명령을 알린다.
 #
 # fail-open: spec.md 부재·§유형 판독 불가 → 0 (무관 FID·초기 상태에 월권 금지).
 set -u
@@ -39,18 +46,79 @@ if [ ! -f "$MANIFEST" ]; then
   exit 1
 fi
 
-# 채움 판정 — placeholder SoT 재사용
-if [ -f "$SCAN" ]; then
-  if ! scan_out=$(bash "$SCAN" "$MANIFEST" 2>/dev/null); then
-    echo "FOUNDATION-MANIFEST: FAIL — 템플릿 placeholder 잔존(미채움)"
-    printf '%s\n' "$scan_out" | sed 's/^/  /'
-    exit 1
-  fi
-else
-  # 스캐너 부재 시 최소 판정 (구 동작 보존 — fail-open 하지 않는다: 파일 존재는 이미 확인됨)
-  if grep -q '<경로>' "$MANIFEST" 2>/dev/null; then
+# 채움 판정 — **이 템플릿의 자리표시자**가 남았는가 (20261009: 범용 스캐너 → 템플릿 토큰 대조)
+#   범용 스캐너는 manifest 의 사용 예(`<AppShell …>`·`apiFetch<T>`)까지 세어 다 채운 문서를 막았다.
+#   템플릿을 읽을 수 없을 때만 종전 스캐너·단일 토큰 판정으로 물러난다(fail-open 하지 않는다).
+CONTENT="$PLUGIN/scripts/_internal/foundation-manifest-content.sh"
+TPL="$PLUGIN/templates/foundation-manifest.md"
+_left_rc=2; _left=""
+if [ -f "$CONTENT" ]; then
+  # shellcheck source=/dev/null
+  . "$CONTENT"
+  _left=$(fmc_template_leftovers "$MANIFEST" "$TPL"); _left_rc=$?
+fi
+if [ "$_left_rc" -eq 1 ]; then
+  echo "FOUNDATION-MANIFEST: FAIL — 템플릿 placeholder 잔존(미채움)"
+  printf '%s\n' "$_left" | sed 's/^/  /'
+  exit 1
+elif [ "$_left_rc" -eq 2 ]; then
+  if [ -f "$SCAN" ]; then
+    if ! scan_out=$(bash "$SCAN" "$MANIFEST" 2>/dev/null); then
+      echo "FOUNDATION-MANIFEST: FAIL — 템플릿 placeholder 잔존(미채움)"
+      printf '%s\n' "$scan_out" | sed 's/^/  /'
+      exit 1
+    fi
+  elif grep -q '<경로>' "$MANIFEST" 2>/dev/null; then
     echo "FOUNDATION-MANIFEST: FAIL — 템플릿 placeholder 잔존(<경로>)"
     exit 1
+  fi
+fi
+
+# ── 최소 내용 ────────────────────────────────────────────────────────────────
+case "${SPECOPS%/}" in   # 끝 슬래시가 붙어 와도 같은 루트로 읽는다
+  .specops|*/.specops) ROOT=$(dirname "${SPECOPS%/}") ;;
+  *) ROOT=. ;;
+esac
+if [ -f "$CONTENT" ]; then
+  fmc_scan "$MANIFEST" "$ROOT"
+  if [ "$FMC_REAL" -eq 0 ]; then
+    echo "FOUNDATION-MANIFEST: FAIL — 실재하는 모듈 경로가 하나도 없다 (표에 적힌 경로 ${FMC_TOTAL}개)"
+    [ -n "$FMC_MISSING" ] && printf '%s\n' "$FMC_MISSING" | sed 's/^/  - 없음: /'
+    echo "  manifest 는 공통부 모듈의 **실제 경로**를 표에 백틱으로 적어야 한다(저장소 루트 기준 또는 추적 파일의 끝부분)."
+    echo "  예: | 라우팅 | \`src/router/index.ts\` | 앱 라우트 정의 | … |"
+    exit 1
+  fi
+  if [ -n "$FMC_MISSING" ]; then
+    echo "FOUNDATION-MANIFEST: WARN — 표의 경로 가운데 저장소에 없는 것 (차단 아님)"
+    printf '%s\n' "$FMC_MISSING" | sed 's/^/  - /'
+  fi
+
+  # 덮어쓰기 경고 — base 의 manifest 에 있던 모듈명이 사라졌는가
+  _base=""
+  for _b in main master; do
+    if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$_b" 2>/dev/null; then
+      _base=$(git -C "$ROOT" merge-base HEAD "$_b" 2>/dev/null || true); break
+    fi
+  done
+  _rel=${MANIFEST#"$ROOT"/}
+  if [ -n "$_base" ] && _old=$(git -C "$ROOT" show "$_base:$_rel" 2>/dev/null) && [ -n "$_old" ]; then
+    _lost=$(printf '%s\n' "$_old" | fmc_module_names - | LC_ALL=C sort -u \
+      | LC_ALL=C grep -vxF -f <(fmc_module_names "$MANIFEST" | LC_ALL=C sort -u; echo "") 2>/dev/null || true)
+    if [ -n "$_lost" ]; then
+      echo "FOUNDATION-MANIFEST: WARN — 이전 manifest 에 있던 모듈이 사라졌다 (차단 아님)"
+      printf '%s\n' "$_lost" | sed 's/^/  - /'
+      echo "  manifest 는 템플릿으로 다시 쓰지 않고 행을 더하거나 고친다 — 지운 것이 의도가 아니면 되살리세요."
+    fi
+  fi
+fi
+
+# 공통 FR 안내 — 이 FID 가 만든 공통부 FR 을 요구사항 표에 남긴다(queue 에는 공통 FR 의 FID 칸이 없다)
+FRSET="$PLUGIN/scripts/_internal/fr-set-fid.sh"
+if [ -f "$FRSET" ]; then
+  _pend=$(SPECOPS_ROOT="$SPECOPS" bash "$FRSET" --pending-foundation 2>/dev/null | tr '\n' ' ')
+  if [ -n "${_pend% }" ]; then
+    echo "FOUNDATION-MANIFEST: NOTE — 공통부 FR 의 \`관련 spec\` 칸이 비어 있다: ${_pend% }"
+    echo "  이 FID 가 만든 것을 적는다: bash scripts/_internal/fr-set-fid.sh $FID <FR-ID>…"
   fi
 fi
 

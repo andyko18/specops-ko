@@ -10,7 +10,7 @@
 #   프로젝트 입구 검사에 쓸 수 없다.
 #
 # 필수 KIND: foundation-kind.sh (FE/BE arch · decisions · project-context).
-# 채움: 파일이 있으면 scan-enrich-placeholders 통과 필수(비필수 KIND 도 raw 템플릿 FAIL).
+# 채움: 파일이 있으면 템플릿의 자리표시자가 남아 있지 않아야 한다(비필수 KIND 도 raw 템플릿 FAIL).
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -18,6 +18,7 @@ MEM="$SPECOPS/memory"
 MANIFEST="$MEM/foundation-manifest.md"
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 SCAN="$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh"
+CONTENT="$PLUGIN/scripts/_internal/foundation-manifest-content.sh"
 # shellcheck source=/dev/null
 . "$PLUGIN/scripts/_internal/foundation-kind.sh"
 
@@ -38,6 +39,16 @@ _fail_unfilled() {
 }
 
 _check_filled() {
+  # 이 템플릿의 자리표시자가 남았는가(20261009) — 범용 스캐너는 manifest 의 사용 예(`<AppShell …>`·`apiFetch<T>`)까지
+  #   세어 다 채운 문서를 막았다(실 프로젝트 재생). 템플릿을 읽을 수 없을 때만 종전 판정으로 물러난다.
+  local left rc=2
+  if [ -f "$CONTENT" ]; then
+    # shellcheck source=/dev/null
+    . "$CONTENT"
+    left=$(fmc_template_leftovers "$MANIFEST" "$PLUGIN/templates/foundation-manifest.md"); rc=$?
+  fi
+  [ "$rc" -eq 0 ] && return 0
+  [ "$rc" -eq 1 ] && _fail_unfilled "$left"
   if [ -f "$SCAN" ]; then
     if ! scan_out=$(bash "$SCAN" "$MANIFEST" 2>/dev/null); then
       _fail_unfilled "$scan_out"
@@ -63,6 +74,28 @@ fi
 
 # 파일 있으면 채움 항상 요구 (비필수 KIND 의 raw 템플릿도 FAIL)
 _check_filled
+
+# 최소 내용 (20261009) — 자리표시자만 없으면 통과하던 것: 내용이 `x` 한 줄이어도 PASS 였다.
+#   표에 적힌 경로 가운데 실재하는 것이 하나는 있어야 한다. 없는 경로는 경고(공통 모듈이 옮겨졌거나 지워졌다는 신호).
+case "${SPECOPS%/}" in   # 끝 슬래시가 붙어 와도 같은 루트로 읽는다
+  .specops|*/.specops) ROOT=$(dirname "${SPECOPS%/}") ;;
+  *) ROOT=. ;;
+esac
+if [ -f "$CONTENT" ]; then
+  # shellcheck source=/dev/null
+  . "$CONTENT"
+  fmc_scan "$MANIFEST" "$ROOT"
+  if [ "$FMC_REAL" -eq 0 ]; then
+    echo "FOUNDATION-PRESENT: FAIL — manifest 에 실재하는 모듈 경로가 하나도 없다 (표에 적힌 경로 ${FMC_TOTAL}개)"
+    [ -n "$FMC_MISSING" ] && printf '%s\n' "$FMC_MISSING" | sed 's/^/  - 없음: /'
+    echo "  공통부가 실제로 있어야 재사용 선언이 의미를 갖습니다 — /start-foundation 완주 후(또는 manifest 의 경로를 현재 위치로 고친 뒤) 재실행하세요."
+    exit 1
+  fi
+  if [ -n "$FMC_MISSING" ]; then
+    echo "FOUNDATION-PRESENT: WARN — manifest 의 경로 가운데 저장소에 없는 것 (차단 아님 — 옮겼거나 지운 모듈이면 manifest 를 고치세요)"
+    printf '%s\n' "$FMC_MISSING" | sed 's/^/  - /'
+  fi
+fi
 
 echo "FOUNDATION-PRESENT: PASS"
 exit 0

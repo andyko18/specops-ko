@@ -1,6 +1,6 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /start-foundation (planning-ko 산출) -->
-<!-- MUTABLE_BY: planning-ko (foundation 구현 후 갱신) -->
+<!-- MUTABLE_BY: /start-foundation(행 추가·갱신) · 공통 모듈을 바꾸는 기능 FID(같은 커밋에서 표 갱신) -->
 <!-- layer: Lifecycle-Artifact -->
 
 # Foundation Manifest — <프로젝트명>
@@ -46,6 +46,12 @@
 ```
 
 누락 task 는 decomposing-ko HARD GATE 에서 차단된다.
+
+## 갱신 규약
+
+- 공통 모듈의 경로·공개 이름·사용법을 바꾸거나 새 공통 모듈을 더하는 커밋은 **같은 커밋에서 위 표를 고친다**.
+- 다시 `/start-foundation` 을 돌릴 때는 이 파일을 템플릿으로 덮지 않고 행을 더하거나 고친다.
+- 표의 경로는 저장소에 실재해야 한다 — 하나도 없으면 verify 와 `/start-all` 입구가 막고, 일부가 없으면 경고한다.
 
 ---
 

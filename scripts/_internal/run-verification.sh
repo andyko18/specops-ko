@@ -329,6 +329,9 @@ if [ -f "$FND_SH" ]; then
     _mat_reason foundation-manifest "$fnd_out"
     echo "VERIFY: FAIL foundation-manifest 미산출 (exit=$fnd_ec)" >&2
     echo "$fnd_out" >&2
+  else
+    # 통과해도 경고·안내(없는 경로 · 사라진 모듈 · 빈 공통 FR 칸)는 보이게 한다 — evidence.md 에만 남으면 지나친다.
+    printf '%s\n' "$fnd_out" | grep -E '^FOUNDATION-MANIFEST: (WARN|NOTE)|^  ' >&2 || true
   fi
 fi
 
