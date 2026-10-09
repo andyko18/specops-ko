@@ -60,7 +60,8 @@ jobs:
   # 20261008: 대상별 matrix 로 분할. 종전엔 전 대상을 job 1개(timeout 20분)에 직렬로 돌려 6주 연속
   #   `cancelled` 였다 — 대상 합계가 20분을 넘고(check-screen-quality 단독 1064~1368s), 취소는 아무도 모른 채
   #   게이트가 6주간 꺼져 있었다. 이제 대상 1건 = job 1개이고, 각 timeout 은 mutation-targets.conf 주석의
-  #   실측 소요의 2배 이상(최소 20분)이다. 실패·취소는 아래 mutation-notify job 이 issue 로 알린다.
+  #   실측 소요의 2배 이상(최소 20분)이다. 소요는 **스위트 1회 소요 x 실행 사이트 수**로 는다(실패한 스위트도 끝까지 돈다) —
+  #   대상 스위트에 테스트를 많이 더했으면 여기 timeout 도 다시 잰다(20261010: #167 이 스위트를 키워 두 대상이 한도를 넘게 됐다). 실패·취소는 아래 mutation-notify job 이 issue 로 알린다.
   #   ※ 새 대상을 mutation-targets.conf 에 추가하면 여기 matrix 에도 추가한다(누락 시 그 대상은 CI 에서 측정되지 않는다).
   mutation:
     runs-on: ubuntu-latest
@@ -74,19 +75,19 @@ jobs:
             timeout: 20       # 사이트 8건 x 스위트 ~2s — 수 분 미만
           - name: governance-lib
             target: hooks/governance-lib.sh
-            timeout: 360      # 소요 미실측: 스위트 6종 1회 ~96s(로컬) x 사이트 ~113건. 첫 실행 실측으로 줄일 것 (hosted 상한 360)
+            timeout: 360      # 20261010 로컬 실측: 스위트 6종 1회 92s x 실행 사이트 155 = 최악 약 238분. hosted 상한(360)에 가깝다 — 넘으면 사이트를 나눠 돌려야 한다
           - name: pretool-governance
             target: hooks/pretool-governance.sh
-            timeout: 20       # 실측 205s
+            timeout: 90       # 20261010 로컬 실측: 스위트 1회 81s x 실행 사이트 30 = 최악 약 40분 (종전 205s 는 test-pretool 이 커지기 전 값)
           - name: run-bounded
             target: scripts/_internal/run-bounded.sh
             timeout: 20       # 실측 17s
           - name: verification-state
             target: scripts/_internal/verification-state.sh
-            timeout: 20       # 실측 364s (2배 = 12분 → 최소값 20)
+            timeout: 60       # 20261010 로컬 실측: 스위트 1회 118s x 실행 사이트 15 = 최악 약 30분 (종전 364s 는 S20 추가 전 값)
           - name: check-screen-quality
             target: scripts/_internal/check-screen-quality.sh
-            timeout: 50       # 실측 1064~1368s (2배 = 46분)
+            timeout: 50       # 실측 1064~1368s (2배 = 46분) · 20261010: 스위트 1회 32s x 실행 사이트 45 = 최악 약 24분
     name: mutation (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4
