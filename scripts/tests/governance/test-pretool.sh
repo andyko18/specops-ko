@@ -872,9 +872,12 @@ for b in bash sh cat grep sed awk date mkdir rm git dirname basename tr head tai
   bp=$(command -v "$b" 2>/dev/null) && ln -sf "$bp" "$jqdir/$b"
 done
 
+# 도입 저장소에서 잰다 — posttool·stop 은 `.specops/` 가 없으면 jq 를 보기 전에 빠진다(관할 한정).
+#   cwd 의 `.specops` 에 기대면 이 저장소의 로컬 작업본에서만 통과하고 CI(깨끗한 체크아웃)에서는 실패한다.
+jqsb=$(mktemp -d) || exit 1; mkdir -p "$jqsb/.specops"
 for hk in pretool-governance posttool-governance stop-governance; do
   jout=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' \
-    | PATH="$jqdir" bash "$PLUGIN/hooks/$hk.sh" 2>"$jqdir/err.$hk"); jrc=$?
+    | PATH="$jqdir" CLAUDE_PROJECT_DIR="$jqsb" bash "$PLUGIN/hooks/$hk.sh" 2>"$jqdir/err.$hk"); jrc=$?
   jerr=$(cat "$jqdir/err.$hk")
 
   check "P-jq.a.$hk jq 부재 원인 명시" "jq" "$jerr"
