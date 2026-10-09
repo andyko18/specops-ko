@@ -25,6 +25,10 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR:-}" ]; then
   cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || true
 fi
 
+# 관할 한정 — `.specops/` 가 없는 저장소에서는 판정도 기록도 하지 않는다(pretool 의 `.specops/` 부재 면제와 같은 경계).
+#   기록(log_friction)이 `.specops/` 를 만들면 그 저장소가 관할로 편입돼 다음 커밋부터 R-1 이 막는다.
+[ -d ".specops" ] || { echo '{"continue":true}'; exit 0; }
+
 input=$(cat 2>/dev/null || echo "")
 # jq 부재를 오진하지 않는다 (pretool 과 동일 계약 — 20260830-silent-failure-surfacing)
 command -v jq >/dev/null 2>&1 || safe_exit "jq 미설치 — 거버넌스 비활성 (설치: brew install jq)"

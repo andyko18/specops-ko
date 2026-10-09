@@ -281,6 +281,8 @@ _arch_case T26b '스택이 아닌 줄(호스팅)의 미확정은 이 게이트�
 - 테스트: <Vitest + Testing Library / Jest + RTL>
 EOF
 _arch_case T26c '손대지 않은 템플릿 그대로 → 미확정 → FAIL' 1 'STACK-DECIDED: FAIL' < "$PLUGIN/templates/frontend-architecture.md"
+# T26c2: FAIL 안내의 확인 명령은 절대경로다 — 하류 저장소에는 scripts/ 가 없다
+_arch_case T26c2 'FAIL 안내의 확인 명령이 플러그인 절대경로' 1 "확인: bash \"$PLUGIN/scripts/_internal/check-decisions-ledger.sh\" --list" < "$PLUGIN/templates/frontend-architecture.md"
 # 템플릿과 글자가 다른 자리표시자도 스택 줄의 **값 자리**에 있으면 미확정이다 (독립 리뷰: 템플릿 토큰만 대조하면 놓친다)
 okv=ok
 for v in '<Express / Fastify>' '<React>' '<확정 필요>' '`<TypeScript>`' '**<Next.js 또는 Remix>**'; do

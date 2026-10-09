@@ -24,7 +24,7 @@ setup_temp_plugin() {
 }
 
 # ── T1.a 멱등성 ──────────────────────────────────────────────────────────
-tmp=$(mktemp -d)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
 (cd "$tmp" && bash "$HOOK" >/dev/null 2>&1)   # 첫 호출 — 생성
 T1a_out=$(cd "$tmp" && bash "$HOOK" 2>&1)
 T1a_rc=$?
@@ -61,7 +61,7 @@ tmp=$(mktemp -d)
 tmp_plugin="$tmp/plugin"
 setup_temp_plugin "$tmp_plugin" "false"   # templates/ 미생성
 tmp_work="$tmp/work"
-mkdir -p "$tmp_work"
+mkdir -p "$tmp_work/.specops"   # 도입 저장소 — 부재면 템플릿을 보기 전에 noop 이다(T1.e)
 T1c_out=$(cd "$tmp_work" && bash "$tmp_plugin/hooks/ensure-session-progress.sh" 2>&1)
 T1c_rc=$?
 [ "$T1c_rc" -eq 1 ] && echo "$T1c_out" | grep -q "template not found" \
@@ -73,7 +73,7 @@ rm -rf "$tmp"
 # ── T1.d project 인자 치환 ─────────────────────────────────────────────
 # 주: tasks.md 원본의 `|| echo 0` 패턴은 BSD grep -c 와 비호환 (매칭 0 시
 # stdout "0" + exit 1 → 두 번 echo). ${var:-0} 패턴으로 정정.
-tmp=$(mktemp -d)
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
 T1d_out=$(cd "$tmp" && bash "$HOOK" "my-proj" 2>&1)
 T1d_rc=$?
 match_count=$(grep -c "my-proj" "$tmp/.specops/session-progress.md" 2>/dev/null)
@@ -85,14 +85,64 @@ placeholder_count=${placeholder_count:-0}
   || fail "T1.d project 인자 치환 (rc=$T1d_rc, my-proj=$match_count, placeholder=$placeholder_count)"
 rm -rf "$tmp"
 
-# ── T1.e mkdir -p .specops 자동 생성 ──────────────────────────────────
+# ── T1.e 관할 한정 — .specops 없는 저장소에는 아무것도 만들지 않는다 ─────
+# 왜: Stop 훅은 모든 저장소에서 발화한다. 여기서 .specops/ 를 만들면 그 저장소가 관할로 편입돼
+#   이후 커밋이 R-1 차단 대상이 된다(실측 20261009: 플러그인을 쓰지 않는 저장소 4곳에 흔적).
 tmp=$(mktemp -d)
 [ ! -d "$tmp/.specops" ] || { echo "FATAL: 사전 조건 위배 — .specops 이미 존재"; exit 99; }
-(cd "$tmp" && bash "$HOOK" >/dev/null 2>&1)
+T1e_out=$(cd "$tmp" && bash "$HOOK" 2>&1)
 T1e_rc=$?
-[ "$T1e_rc" -eq 0 ] && [ -d "$tmp/.specops" ] && [ -f "$tmp/.specops/session-progress.md" ] \
-  && ok "T1.e mkdir -p .specops → 디렉토리 + 파일 자동 생성" \
-  || fail "T1.e mkdir -p .specops (rc=$T1e_rc, dir 존재=$([ -d $tmp/.specops ] && echo yes || echo no), file 존재=$([ -f $tmp/.specops/session-progress.md ] && echo yes || echo no))"
+[ "$T1e_rc" -eq 0 ] && [ ! -e "$tmp/.specops" ] && [ -z "$T1e_out" ] \
+  && ok "T1.e .specops 부재 → 아무것도 만들지 않음 (rc=0, 무출력)" \
+  || fail "T1.e 비도입 저장소 침범 (rc=$T1e_rc, .specops 존재=$([ -e "$tmp/.specops" ] && echo yes || echo no), out='$T1e_out')"
+rm -rf "$tmp"
+
+# ── T1.e2 project 인자를 줘도 .specops 부재면 저장소에 파일을 하나도 만들지 않는다 ──
+tmp=$(mktemp -d)
+(cd "$tmp" && bash "$HOOK" "proj" >/dev/null 2>&1)
+[ -z "$(ls -A "$tmp")" ] \
+  && ok "T1.e2 .specops 부재 + project 인자 → 저장소에 파일 0개" \
+  || fail "T1.e2 저장소에 흔적: $(ls -A "$tmp" | tr '\n' ' ')"
+rm -rf "$tmp"
+
+# ── T1.e3 .specops 가 있으면 종전대로 만든다 (가드가 도입 저장소를 막지 않는다) ──
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
+(cd "$tmp" && bash "$HOOK" >/dev/null 2>&1)
+T1e3_rc=$?
+[ "$T1e3_rc" -eq 0 ] && [ -f "$tmp/.specops/session-progress.md" ] \
+  && ok "T1.e3 .specops 존재 → session-progress.md 생성" \
+  || fail "T1.e3 도입 저장소에서 미생성 (rc=$T1e3_rc)"
+rm -rf "$tmp"
+
+# ── T1.e4 하위 디렉토리에서 발화해도 그 자리에 .specops 를 만들지 않는다 (실측: .specops/.specops 흔적) ──
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops" "$tmp/src"
+(cd "$tmp/.specops" && bash "$HOOK" >/dev/null 2>&1)
+(cd "$tmp/src" && bash "$HOOK" >/dev/null 2>&1)
+[ ! -e "$tmp/.specops/.specops" ] && [ ! -e "$tmp/src/.specops" ] \
+  && ok "T1.e4 하위 디렉토리 cwd → 중첩 .specops 미생성" \
+  || fail "T1.e4 중첩 생성: $(cd "$tmp" && find . -name .specops | tr '\n' ' ')"
+rm -rf "$tmp"
+
+# ── T1.e5 하위 디렉토리 cwd + 프로젝트 루트에 .specops → 루트에 만든다 (posttool·stop 과 같은 앵커) ──
+tmp=$(mktemp -d); mkdir -p "$tmp/.specops" "$tmp/src/sub"
+(cd "$tmp/src/sub" && CLAUDE_PROJECT_DIR="$tmp" bash "$HOOK" >/dev/null 2>&1)
+[ -f "$tmp/.specops/session-progress.md" ] && [ ! -e "$tmp/src/sub/.specops" ] \
+  && ok "T1.e5 하위 cwd → 프로젝트 루트의 .specops 에 생성" \
+  || fail "T1.e5 (루트 파일=$([ -f "$tmp/.specops/session-progress.md" ] && echo yes || echo no), 중첩=$([ -e "$tmp/src/sub/.specops" ] && echo yes || echo no))"
+rm -rf "$tmp"
+# ── T1.e6 프로젝트 루트에도 .specops 가 없으면 앵커해도 만들지 않는다 ──
+tmp=$(mktemp -d); mkdir -p "$tmp/src"
+(cd "$tmp/src" && CLAUDE_PROJECT_DIR="$tmp" bash "$HOOK" >/dev/null 2>&1)
+[ ! -e "$tmp/.specops" ] && [ ! -e "$tmp/src/.specops" ] \
+  && ok "T1.e6 루트에도 부재 → 미생성" || fail "T1.e6 생성됨: $(cd "$tmp" && find . -name .specops | tr '\n' ' ')"
+rm -rf "$tmp"
+
+# ── T1.e7 cwd 에 .specops 가 있으면 cwd 가 우선이다 — session-progress-append 가 cwd 기준으로 이 스크립트를 부른다 ──
+tmp=$(mktemp -d); mkdir -p "$tmp/proj/.specops" "$tmp/other/.specops"
+(cd "$tmp/proj" && CLAUDE_PROJECT_DIR="$tmp/other" bash "$HOOK" >/dev/null 2>&1)
+[ -f "$tmp/proj/.specops/session-progress.md" ] && [ ! -f "$tmp/other/.specops/session-progress.md" ] \
+  && ok "T1.e7 cwd 의 .specops 우선 (CLAUDE_PROJECT_DIR 로 옮겨 가지 않는다)" \
+  || fail "T1.e7 (cwd=$([ -f "$tmp/proj/.specops/session-progress.md" ] && echo yes || echo no), other=$([ -f "$tmp/other/.specops/session-progress.md" ] && echo yes || echo no))"
 rm -rf "$tmp"
 
 # ── T1.f .specops 디렉토리 symlink → 외부 write-through 차단 (#144 대칭) ──

@@ -109,8 +109,11 @@ fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
 # T13.f Stop stdin JSON 파싱 실패
+#   도입 저장소에서 잰다 — `.specops/` 가 없으면 입력을 보기 전에 빠진다(관할 한정). cwd 에 기대면 CI 에서만 실패한다.
+tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
 stderr_out=$(echo 'garbage' | bash "$STOP" 2>&1 >/dev/null); rc_exit=$?
 out=$(echo 'garbage' | bash "$STOP" 2>/dev/null); rc=$?
+cd "$PLUGIN"; rm -rf "$tmp"
 has_error_log=$(echo "$stderr_out" | grep -c "governance-capture.*ERROR" || true)
 if [ "$rc" -eq 0 ] && echo "$out" | jq -e '.continue == true' >/dev/null && [ "$has_error_log" -ge 1 ]; then
   PASS=$((PASS+1)); echo "PASS T13.f Stop stdin 파싱 실패 → continue + stderr"

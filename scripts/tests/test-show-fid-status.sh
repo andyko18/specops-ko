@@ -332,6 +332,47 @@ _tsc_bad=$(_tsc_run UTC 'not-a-ts')
 if printf '%s' "$_tsc_bad" | grep 'fid-start' | grep -q '측정 불가.*파싱 실패: not-a-ts'; then
   PASS=$((PASS+1)); echo "PASS T-ts.o fid-start ts 파싱 실패 → 측정 불가(파싱 실패)"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.o 파싱 실패 처리: $(printf '%s' "$_tsc_bad" | grep fid-start)"; fi
+# ── T-na: 인자 없는 조회 — 스크립트가 FID 를 정한다 ──────────────────────────
+# 왜: 부트스트랩 직후 진행 기록의 최상단은 `<날짜>-init-project` 인데 그 디렉토리는 없다(init 은 FID 가 아니다).
+#   종전에는 명령 문서가 "최상단 헤더를 뽑아 넘겨라" 고 했고, 그 값으로 부르면 Error·rc=1 이었다 —
+#   플러그인을 처음 쓰는 사람이 /status 를 치면 오류부터 봤다.
+_na="$TMPDIR_TEST/na"; mkdir -p "$_na/.specops"
+# T-na.a: 진행 기록에 init-project 뿐 → 안내 + rc 0
+printf '# Session Progress\n\n## 20261009-init-project\n\n- 2026-10-09 10:00 /init-project 완료 (부트스트랩)\n' > "$_na/.specops/session-progress.md"
+out=$(SPECOPS_ROOT="$_na/.specops" "$SCRIPT" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '진행 중인 FID 가 없습니다' && printf '%s' "$out" | grep -q '/start'; then
+  PASS=$((PASS+1)); echo "PASS T-na.a 인자 없음 + FID 없음 → 안내·rc 0"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.a (rc=$rc out='$out')"; fi
+# T-na.b: 디렉토리가 있는 첫 FID 를 고른다 (디렉토리 없는 앞선 헤더는 건너뛴다)
+mkdir -p "$_na/.specops/20261008-real-one"
+printf '# Session Progress\n\n## 20261009-init-project\n\n- 2026-10-09 10:00 /init-project 완료 (x)\n\n## 20261008-real-one\n\n- 2026-10-08 09:00 /specify 완료 (spec.md)\n' > "$_na/.specops/session-progress.md"
+out=$(SPECOPS_ROOT="$_na/.specops" "$SCRIPT" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '=== FID: 20261008-real-one ==='; then
+  PASS=$((PASS+1)); echo "PASS T-na.b 인자 없음 → 디렉토리가 있는 첫 FID"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.b (rc=$rc out='$out')"; fi
+# T-na.c: active-fid 표지가 있고 그 디렉토리가 있으면 표지가 우선
+mkdir -p "$_na/.specops/20261007-marked"
+printf '<!-- active-fid: 20261007-marked -->\n\n# Session Progress\n\n## 20261008-real-one\n\n- 2026-10-08 09:00 /specify 완료 (x)\n\n## 20261007-marked\n\n- 2026-10-07 09:00 /plan 완료 (x)\n' > "$_na/.specops/session-progress.md"
+out=$(SPECOPS_ROOT="$_na/.specops" "$SCRIPT" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '=== FID: 20261007-marked ==='; then
+  PASS=$((PASS+1)); echo "PASS T-na.c 인자 없음 → active-fid 표지 우선"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.c (rc=$rc out='$out')"; fi
+# T-na.c2: 진행 기록이 없어도 FID 디렉토리가 있으면 이름이 가장 늦은 것을 고른다 ("없다" 고 하지 않는다)
+_nb="$TMPDIR_TEST/nb"; mkdir -p "$_nb/.specops/20261001-older" "$_nb/.specops/20261009-newer" "$_nb/.specops/memory"
+out=$(SPECOPS_ROOT="$_nb/.specops" "$SCRIPT" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '=== FID: 20261009-newer ==='; then
+  PASS=$((PASS+1)); echo "PASS T-na.c2 진행 기록 없음 + FID 디렉토리 → 가장 늦은 FID"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.c2 (rc=$rc out='$out')"; fi
+# T-na.d: .specops 자체가 없음 → 안내 + rc 0
+out=$(SPECOPS_ROOT="$TMPDIR_TEST/none/.specops" "$SCRIPT" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'specops 미사용'; then
+  PASS=$((PASS+1)); echo "PASS T-na.d .specops 부재 → 안내·rc 0"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.d (rc=$rc out='$out')"; fi
+# T-na.e: 인자를 준 경우의 계약은 그대로 — 형식 오류·디렉토리 부재는 rc 1 (T1·T2 가 잠근 것과 같은 계약)
+"$SCRIPT" "20261009-init-project" >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then
+  PASS=$((PASS+1)); echo "PASS T-na.e 인자 명시 + 디렉토리 부재 → rc 1 유지"
+else FAIL=$((FAIL+1)); echo "FAIL T-na.e (rc=$rc)"; fi
 echo ""
 echo "결과: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

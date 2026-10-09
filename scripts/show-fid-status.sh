@@ -10,6 +10,35 @@ FID="${1:-}"
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 PROGRESS="$SPECOPS/session-progress.md"
 
+# 인자 없는 조회 — FID 를 스크립트가 정한다 (active-fid 표지 → 진행 기록의 헤더 순, **디렉토리가 있는 첫 FID**).
+#   왜: 부트스트랩 직후 진행 기록의 최상단은 `<날짜>-init-project` 인데 그 디렉토리는 없다(init 은 FID 가 아니다).
+#   종전에는 호출자가 "최상단 헤더" 를 뽑아 넘겼고, 처음 쓰는 사람이 /status 를 치면 Error·rc=1 부터 봤다.
+#   인자를 준 경우의 계약(형식 오류·디렉토리 부재 → rc 1)은 그대로다.
+if [ "$#" -eq 0 ]; then
+  if [ ! -d "$SPECOPS" ]; then
+    printf 'specops 미사용 프로젝트입니다 (%s 부재) — 조회할 FID 가 없습니다. 도입은 `/init-project`, 바로 시작은 `/start <기능 설명>`.\n' "$SPECOPS"
+    exit 0
+  fi
+  _cands=""
+  if [ -f "$PROGRESS" ]; then
+    _cands=$( { grep -m1 -oE '<!--[[:space:]]*active-fid:[[:space:]]*[0-9]{8}-[a-z0-9-]+' "$PROGRESS" | grep -oE '[0-9]{8}-[a-z0-9-]+$'
+                grep -oE '^## [0-9]{8}-[a-z0-9-]+' "$PROGRESS" | sed 's/^## //'; } 2>/dev/null )
+  fi
+  for _c in $_cands; do
+    [ -d "$SPECOPS/$_c" ] && { FID="$_c"; break; }
+  done
+  # 진행 기록에 없지만 디렉토리는 있는 FID — 이름(날짜 접두)이 가장 늦은 것. 기록이 유실됐거나 아직 한 줄도 안 쓴 FID 다.
+  if [ -z "$FID" ]; then
+    FID=$(ls -d "$SPECOPS"/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-* 2>/dev/null | LC_ALL=C sort | tail -1)
+    FID=${FID##*/}
+    printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || FID=""
+  fi
+  if [ -z "$FID" ]; then
+    printf '진행 중인 FID 가 없습니다 — `/start <기능 설명>` 으로 시작하세요. (기존 코드 수정은 `/maintain <대상>`)\n'
+    exit 0
+  fi
+fi
+
 # FR-1: FID 형식 검증 (^\d{8}-[a-z0-9-]+$)
 if ! printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'; then
   printf 'Error: FID 형식 오류 — 올바른 형식: YYYYMMDD-kebab-slug (got: %s)\n' "${FID:-<비어있음>}" >&2

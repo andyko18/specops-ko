@@ -107,6 +107,9 @@ _upsert_active_fid() {
 if [ ! -f "$TARGET" ]; then
   script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   plugin_root=$(dirname "$script_dir")
+  # 진행 기록 쓰기는 lifecycle 의 명시적 행위라 관할을 여는 쪽이다 — 디렉토리는 여기서 만든다.
+  #   (ensure-session-progress 는 Stop 훅으로도 돌아 `.specops/` 부재 시 아무것도 만들지 않는다.)
+  [ -L ".specops" ] || mkdir -p ".specops" 2>/dev/null || true
   bash "$plugin_root/hooks/ensure-session-progress.sh" >/dev/null 2>&1
   if [ ! -f "$TARGET" ]; then
     echo "error: failed to create $TARGET" >&2

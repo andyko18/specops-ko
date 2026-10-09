@@ -398,10 +398,10 @@ cnt=$(printf '%s' "$j" | jq -r '.checks|length' 2>/dev/null)
 
 # F7 — session-progress 제목이 그 프로젝트 이름 (하드코딩 인자 제거)
 ENS="$PLUGIN/hooks/ensure-session-progress.sh"
-R="$TMP/f7-외부"; mkdir -p "$R"; cd "$R" || exit 1
+R="$TMP/f7-외부"; mkdir -p "$R/.specops"; cd "$R" || exit 1
 bash "$ENS" >/dev/null 2>&1
 t1=$(awk 'FNR==6' .specops/session-progress.md 2>/dev/null)
-R="$TMP/specops-ko"; mkdir -p "$R"; cd "$R" || exit 1
+R="$TMP/specops-ko"; mkdir -p "$R/.specops"; cd "$R" || exit 1
 bash "$ENS" >/dev/null 2>&1
 t2=$(awk 'FNR==6' .specops/session-progress.md 2>/dev/null)
 # ★ 패턴 실측 필수: hooks.json 은 JSON 이스케이프라 리터럴이 `...progress.sh\" specops-ko` 다.

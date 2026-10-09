@@ -289,6 +289,27 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T13 관할 한정 — .specops 없는 저장소에는 감사 기록을 만들지 않는다 (pretool 의 `.specops/` 부재 면제와 같은 경계).
+#   왜: 감사 기록이 .specops/friction-log.jsonl 을 만들면 그 저장소가 관할로 편입돼 다음 커밋부터 R-1 이 막는다.
+tmp=$(mktemp -d); cd "$tmp"
+cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
+out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && [ ! -e ".specops" ] && echo "$out" | jq -e '.continue == true and (has("additionalContext") | not)' >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS T13.a .specops 부재 → 감사 기록·디렉토리 미생성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T13.a (rc=$rc out=$out .specops=$([ -e .specops ] && echo yes || echo no))"
+fi
+# T13.b CLAUDE_PROJECT_DIR 로 앵커된 뒤에도 같은 판정 — 프로젝트 루트에 .specops 가 없으면 만들지 않는다
+mkdir -p sub
+out=$(cd sub && echo "$stdin_json" | CLAUDE_PROJECT_DIR="$tmp" bash "$HOOK" 2>/dev/null); rc=$?
+if [ "$rc" -eq 0 ] && [ ! -e ".specops" ] && [ ! -e "sub/.specops" ]; then
+  PASS=$((PASS+1)); echo "PASS T13.b 앵커 뒤에도 미생성"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T13.b (rc=$rc $(find . -name .specops | tr '\n' ' '))"
+fi
+cd "$PLUGIN"; rm -rf "$tmp"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

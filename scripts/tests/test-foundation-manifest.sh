@@ -300,8 +300,8 @@ printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n' > "$T
 printf '| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |\n|---|---|---|---|---|\n| FR-4 | [공통] 스캐폴딩 | M1 | must | (TBD) |\n| FR-5 | [공통] 인증 | M1 | must | 20260806-fnd |\n| FR-6 | 주문 | M1 | must | (TBD) |\n' > "$TD/.specops/memory/requirements.md"
 out=$(cd "$TD" && bash "$CHK" 20260806-fnd 2>&1); rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'NOTE — 공통부 FR' && printf '%s' "$out" | grep -q 'FR-4' \
-  && ! printf '%s' "$out" | grep -qE 'FR-5|FR-6' && printf '%s' "$out" | grep -q 'fr-set-fid.sh 20260806-fnd' \
-  && ok "T14.k 빈 공통 FR(FR-4)만 안내 + 명령 제시" || nope "T14.k" "rc=$rc out=$out"
+  && ! printf '%s' "$out" | grep -qE 'FR-5|FR-6' && printf '%s' "$out" | grep -qE 'bash "/[^"]*/scripts/_internal/fr-set-fid\.sh" 20260806-fnd' \
+  && ok "T14.k 빈 공통 FR(FR-4)만 안내 + 명령 제시(절대경로 — 하류 저장소에는 scripts/ 가 없다)" || nope "T14.k" "rc=$rc out=$out"
 sed -i.bak 's/| FR-4 | \[공통\] 스캐폴딩 | M1 | must | (TBD) |/| FR-4 | [공통] 스캐폴딩 | M1 | must | 20260806-fnd |/' "$TD/.specops/memory/requirements.md"
 out=$(cd "$TD" && bash "$CHK" 20260806-fnd 2>&1)
 ! printf '%s' "$out" | grep -q 'NOTE' && ok "T14.l 공통 FR 이 다 적혀 있으면 안내 없음" || nope "T14.l" "out=$out"

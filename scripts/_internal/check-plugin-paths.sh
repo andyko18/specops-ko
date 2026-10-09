@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-plugin-paths.sh — 프롬프트(skill·agent·command·template) 속 "실행 지시"의 plugin 상대 경로 적발 (20261008)
+# check-plugin-paths.sh — 프롬프트(skill·agent·command·template) 속 "실행 지시"와 스크립트 안내문의 plugin 상대 경로 적발 (20261008)
 # Usage: check-plugin-paths.sh [ROOT]   (기본 플러그인 루트)  ·  Exit: 0 = 깨끗 · 1 = 위반 있음
 #
 # 왜 필요한가: `bash scripts/...`·`source hooks/...` 는 cwd 가 플러그인 repo 일 때만 동작한다. 하류 repo 에서는 파일이 없어
@@ -21,6 +21,37 @@ if [ -n "$hits" ]; then
   echo "PLUGIN-PATHS: FAIL — 하류 repo 에서 깨지는 plugin 상대 경로 실행 지시:"
   printf '%s\n' "$hits" | cut -c1-200 | sed 's/^/  /'
   echo "  → bash \"\${CLAUDE_PLUGIN_ROOT}\"/<경로> 로 바꾸세요."
+  exit 1
+fi
+
+# 둘째 표면 — 스크립트·훅이 사용자에게 **출력하는** 안내문 (20261009).
+#   게이트가 "해법: bash scripts/_internal/x.sh …" 를 찍으면 하류 저장소에는 그 파일이 없다. 프롬프트만 보던 위 검사는
+#   이 표면을 보지 못했다(실측: 3개 스크립트의 FAIL·NOTE 안내가 하류에서 `No such file`).
+#   주석 줄은 대상이 아니다. 맞는 표기는 그 스크립트가 아는 플러그인 루트 변수를 앞에 붙이는 것이다(`bash "$PLUGIN/scripts/…"`).
+# 허용: plugin repo 에서만 도는 도구(release.sh·install-git-hooks.sh) · doctor 의 git_hooks 조치(그 줄은 `.githooks/` 가 있는
+#   저장소에서만 도달한다) · 하류 테스트 명령의 "예시" 표기(`bash scripts/tests/…`).
+shits=""
+#   하위 디렉토리까지 본다(`scripts/_internal/init-project/` 가 하류 사용자에게 안내문을 가장 많이 낸다). 테스트 트리는 제외.
+for _d in scripts hooks; do
+  [ -d "$_d" ] || continue
+  while IFS= read -r _f; do
+    [ -f "$_f" ] || continue
+    case "$_f" in scripts/tests/*|scripts/release.sh|scripts/_internal/install-git-hooks.sh|scripts/_internal/check-plugin-paths.sh) continue ;; esac
+    _h=$(command grep -nE '(bash|source) +"?(\./)?(scripts|hooks|skills)/' "$_f" 2>/dev/null \
+      | command grep -vE '^[0-9]+:[[:space:]]*#' \
+      | command grep -vE '(bash|source) +"?(\./)?scripts/tests/' \
+      | command grep -vE '(bash|source) +"?(\./)?scripts/\*' \
+      | command grep -vE 'git_hooks .*install-git-hooks\.sh' \
+      | sed "s|^|$_f:|")
+    [ -n "$_h" ] && shits="${shits}${_h}"$'\n'
+  done <<EOF
+$(find "$_d" -type f -name '*.sh' 2>/dev/null | LC_ALL=C sort)
+EOF
+done
+if [ -n "$shits" ]; then
+  echo "PLUGIN-PATHS: FAIL — 스크립트 안내문의 plugin 상대 경로(하류 repo 에는 그 파일이 없다):"
+  printf '%s' "$shits" | cut -c1-200 | sed 's/^/  /'
+  echo "  → 그 스크립트의 플러그인 루트 변수를 앞에 붙이세요 (예: bash \"\$PLUGIN/scripts/_internal/<이름>.sh\")."
   exit 1
 fi
 echo "PLUGIN-PATHS: OK"

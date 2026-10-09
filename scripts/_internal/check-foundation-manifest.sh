@@ -118,7 +118,7 @@ if [ -f "$FRSET" ]; then
   _pend=$(SPECOPS_ROOT="$SPECOPS" bash "$FRSET" --pending-foundation 2>/dev/null | tr '\n' ' ')
   if [ -n "${_pend% }" ]; then
     echo "FOUNDATION-MANIFEST: NOTE — 공통부 FR 의 \`관련 spec\` 칸이 비어 있다: ${_pend% }"
-    echo "  이 FID 가 만든 것을 적는다: bash scripts/_internal/fr-set-fid.sh $FID <FR-ID>…"
+    echo "  이 FID 가 만든 것을 적는다: bash \"$FRSET\" $FID <FR-ID>…"
   fi
 fi
 

@@ -19,7 +19,8 @@ set -u
 #   게이트가 보는 것은 **뭉개짐 신호**뿐이다: 산출물 부재 · 진행기록 부재 · 라벨 오염.
 #   운영 신호는 gate 모드에서도 참고 출력하되 exit code 에 반영하지 않는다.
 # Status 라벨 정규화 단일 출처 (20260828-queue-label-drift) — 모델 손편집의 표기 장식 흡수
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/queue-lib.sh"
+_BS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # 안내문에 싣는 경로의 기준 — 하류 저장소에는 scripts/ 가 없다
+. "$_BS_DIR/_internal/queue-lib.sh"
 
 GATE=0
 if [ "${1:-}" = "--gate" ]; then GATE=1; shift; fi
@@ -271,7 +272,7 @@ fi
 if [ -n "$nofid" ]; then
   echo "[FID 미기재] IMPL_DONE 인데 queue 의 FID 칸이 FID 가 아니다 — 그 FR 의 산출물·진행기록을 찾을 수 없다(검사 불가):"
   printf '%s' "$nofid"
-  echo "  해법: bash scripts/_internal/queue-set-status.sh <queue.md> <FR-ID> IMPL_DONE <FID> 로 FID 칸을 채운다."
+  echo "  해법: bash \"$_BS_DIR/_internal/queue-set-status.sh\" <queue.md> <FR-ID> IMPL_DONE <FID> 로 FID 칸을 채운다."
   fail=1; fail_gate=1
 fi
 if [ -n "$missing_artifacts" ]; then

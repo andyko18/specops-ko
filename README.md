@@ -57,7 +57,7 @@ claude plugin install specops-ko@specops-ko
 | `gh` | 선택 | `gh pr create` 단계만 수동 |
 | `bash` 3.2+ | 필수 | macOS 기본 bash(3.2)에서 동작하도록 작성돼 있다 |
 
-설치 직후 `/doctor` 를 한 번 돌려 `deps`·`governance` 항목이 ✅ 인지 본다.
+설치 직후 `/doctor` 를 한 번 돌려 `deps` 항목이 ✅ 인지 본다 — `.specops/` 가 아직 없는 저장소에서는 환경 항목(`deps`·`effort_env`)만 나온다. `/init-project` 뒤에 다시 돌리면 `governance` 를 포함한 전체 항목이 나온다.
 
 ### 한 건에 걸리는 시간
 
@@ -68,7 +68,7 @@ claude plugin install specops-ko@specops-ko
 
 ### 적용 범위
 
-- 훅 **차단**은 cwd 에 `.specops/` 가 있는 repo 에서만 동작한다(없으면 면제).
+- 훅의 **차단·감사·기록**은 cwd 에 `.specops/` 가 있는 repo 에서만 동작한다(없으면 면제). 훅은 `.specops/` 를 스스로 만들지 않는다 — 만드는 것은 훅이 아닌 명시적 호출(`/init-project`·`/start`·`/maintain` 계열 진입, `/gbrain`·`/design-*` 같은 기록 명령)뿐이다. `.specops/` 를 `.gitignore` 한 저장소에서 새 git worktree 를 만들면 그 worktree 는 `.specops/` 없이 시작하므로, lifecycle 에 진입하기 전까지는 면제 상태다. (v2.17.0 이하에서는 Stop 훅이 `.specops/` 없는 repo 에도 `session-progress.md` 를 만들어 그 repo 를 관할로 편입시켰다. 플러그인을 쓰지 않는 repo 에 `session-progress.md` 만 든 `.specops/` 가 남아 있으면 지우면 된다 — `/doctor` 의 `bootstrap` 항목이 알려 준다.)
 - 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install specops-ko@specops-ko --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable specops-ko` 후 필요한 repo 에서만 켠다.
 - 기존 프로젝트에 도입할 때는 `/init-project` 를 먼저 돌리고(표준 문서 부트스트랩), 이후 수정은 `/maintain` 으로 시작한다.
 
