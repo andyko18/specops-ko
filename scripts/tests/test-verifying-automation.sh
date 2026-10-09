@@ -597,6 +597,74 @@ _wl_chk 'echo pytest'                                            BLOCK T-wl.q
 _wl_chk 'rm -rf /'                                               BLOCK T-wl.r
 _wl_chk 'pnpm vitest'                                            BLOCK T-wl.s
 
+# ── T2.h2 run: 비테스트 디렉토리(lib/) bash 는 **그것만으로** SKIP(PARTIAL) ──
+#   T2.h 는 절대경로 명령과 한 픽스처라, 절대경로가 이미 PARTIAL 을 만들어 lib/ 를 허용해도 통과했다(변이 실측 20261009).
+#   lib/helper.sh 는 실재하고 exit 0 이다 — whitelist 가 막지 않으면 실행돼 PASS 가 된다.
+TMPDIR=$(mktemp -d)
+mkdir -p "$TMPDIR/.specops/fid-test" "$TMPDIR/lib"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPDIR/lib/helper.sh"
+cat > "$TMPDIR/.specops/fid-test/tasks.md" <<'EOF'
+## 의존 그래프
+
+```yaml
+tasks:
+  - id: T1
+    depends_on: []
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash lib/helper.sh
+```
+EOF
+(cd "$TMPDIR" && out=$(bash "$RUN" fid-test 2>&1); ec=$?
+ if [ "$ec" -eq 1 ] && echo "$out" | grep -qE "VERIFY: (PARTIAL|NOT_RUN)" && ! echo "$out" | grep -q "VERIFY: PASS"; then echo "OK"; else echo "FAIL ec=$ec out='$out'"; fi) > "$TMPDIR/result"
+if grep -q "^OK$" "$TMPDIR/result"; then
+  ok "T2.h2 run → lib/ bash 단독도 SKIP (PASS 아님)"
+else
+  nope "T2.h2" "$(cat "$TMPDIR/result")"
+fi
+rm -rf "$TMPDIR"
+
+# ── T2.i run: 실패한 명령 수가 판정 기록에 남는다 (verification-state.json 의 failed) ──
+#   실패 집계를 0 으로 고정해도 어떤 테스트도 실패하지 않았다(변이 실측 20261009) — FAIL 판정 자체는 다른 변수가 만든다.
+TMPDIR=$(mktemp -d); _FIDF=20261009-failcount
+mkdir -p "$TMPDIR/.specops/$_FIDF" "$TMPDIR/tests"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$TMPDIR/tests/a.sh"; printf '#!/usr/bin/env bash\nexit 3\n' > "$TMPDIR/tests/b.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPDIR/tests/c.sh"
+cat > "$TMPDIR/.specops/$_FIDF/tasks.md" <<'EOF'
+## 의존 그래프
+
+```yaml
+tasks:
+  - id: T1
+    depends_on: []
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash tests/a.sh
+  - id: T2
+    depends_on: []
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash tests/b.sh
+  - id: T3
+    depends_on: []
+    inputs: []
+    outputs: []
+    ac: [AC-1]
+    test_command: bash tests/c.sh
+```
+EOF
+(cd "$TMPDIR" && git init -q && bash "$RUN" "$_FIDF" >/dev/null 2>&1)
+_st="$TMPDIR/.specops/$_FIDF/verification-state.json"
+if [ -f "$_st" ] && [ "$(jq -r '.verdict' "$_st")" = "FAIL" ] && [ "$(jq -r '.failed' "$_st")" = "2" ] && [ "$(jq -r '.executed' "$_st")" = "3" ]; then
+  ok "T2.i run → 3건 실행·2건 실패가 판정 기록에 남는다"
+else
+  nope "T2.i" "state=$(cat "$_st" 2>/dev/null | tr -d '\n' | cut -c1-200)"
+fi
+rm -rf "$TMPDIR"
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

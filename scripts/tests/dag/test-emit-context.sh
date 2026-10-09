@@ -13,9 +13,9 @@ run_emit() {
   local tmp; tmp=$(mktemp -d)
   mkdir -p "$tmp/.specops/$fid"
   cp "$fixture_dir"/*.md "$tmp/.specops/$fid/"
-  (cd "$tmp" && bash "$EMIT" "$fid" 2>/tmp/emit.err; echo "exit=$?")
+  (cd "$tmp" && bash "$EMIT" "$fid" 2>"$tmp/emit.err"; echo "exit=$?")   # 고정 /tmp 경로는 동시에 도는 run-all 끼리 덮어쓴다
   echo "[STDERR]"
-  cat /tmp/emit.err
+  cat "$tmp/emit.err"
   echo "[DISPATCH_DIR]"
   ls "$tmp/.specops/$fid/dispatch/" 2>/dev/null || echo "(empty)"
   rm -rf "$tmp"
@@ -221,9 +221,9 @@ rm -rf "$tmp"
 tmp=$(mktemp -d)
 mkdir -p "$tmp/.specops/ac-no-header"
 cp "$FIXTURES/ac-no-header"/*.md "$tmp/.specops/ac-no-header/"
-rc=$(cd "$tmp" && bash "$EMIT" ac-no-header 2>/tmp/emit-drift.err >/dev/null; echo $?)
+rc=$(cd "$tmp" && bash "$EMIT" ac-no-header 2>"$tmp/emit-drift.err" >/dev/null; echo $?)
 empty=$([ -z "$(ls "$tmp/.specops/ac-no-header/dispatch/" 2>/dev/null)" ] && echo yes || echo no)
-if [ "$rc" = "1" ] && [ "$empty" = "yes" ] && grep -q "요약 추출 실패" /tmp/emit-drift.err; then
+if [ "$rc" = "1" ] && [ "$empty" = "yes" ] && grep -q "요약 추출 실패" "$tmp/emit-drift.err"; then
   PASS=$((PASS+1)); echo "PASS T2.b 추출 실패 drift → exit 1 + 부분잔류 0 (fail-closed)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T2.b fail-closed 미작동 (rc=$rc empty=$empty)"
@@ -235,7 +235,10 @@ rm -rf "$tmp"
 # 역방향(모든 must AC 가 ≥1 task 에 매핑)은 decomposing 산문뿐 — AC-R-1 을 채워도
 # 어느 태스크에도 안 매핑하면 회귀 테스트가 영영 구현되지 않는 구멍.
 out=$(run_emit "$FIXTURES/must-uncovered")
-if echo "$out" | grep -q "exit=1" && echo "$out" | grep -q "AC-R-1" \
+# ★ 커버리지 검사 **자신의 문안**을 본다 ("must AC 미커버 — AC-R-1"). "AC-R-1" 만 찾으면 앞 단계 게이트의 문안에도
+#   그 글자가 있어, 커버리지 검사를 지워도 통과한다(20261009 변이 실측 — 전체 스위트 통과). 픽스처는 기준선 문서를 갖춰
+#   앞 단계(MAINTAIN-BASELINE)를 지나게 했다.
+if echo "$out" | grep -q "exit=1" && echo "$out" | grep -q "must AC 미커버 — AC-R-1" \
    && echo "$out" | grep -q "(empty)"; then
   PASS=$((PASS+1)); echo "PASS T3.a must AC 미커버 → exit 1 + 미커버 id 지목 + 부분잔류 0"
 else
@@ -247,6 +250,41 @@ if ! echo "$out" | grep -E "커버.*AC-2|AC-2.*커버" >/dev/null; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T3.b should 과잉 차단"
 fi
+
+# T3.c 대조 — 같은 픽스처에서 AC-R-1 을 태스크에 매핑하면 통과한다 (T3.a 가 픽스처의 다른 결함에 반응한 것이 아님)
+_t3=$(mktemp -d); mkdir -p "$_t3/.specops/must-uncovered"; cp "$FIXTURES/must-uncovered"/*.md "$_t3/.specops/must-uncovered/"
+sed -i.bak 's/ac: \[AC-1\]/ac: [AC-1, AC-R-1]/' "$_t3/.specops/must-uncovered/tasks.md"
+if (cd "$_t3" && bash "$EMIT" must-uncovered >/dev/null 2>&1); then
+  PASS=$((PASS+1)); echo "PASS T3.c 대조 — must AC 를 매핑하면 통과"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.c 매핑했는데도 실패 — T3.a 의 원인이 커버리지가 아니다"
+fi
+rm -rf "$_t3"
+
+# ── T3.d~i: 태스크 필드 검증과 앞 단계 게이트의 **배선** (20261009 변이 실측 — 아래 6건은 검사를 꺼도 어떤 스위트도 실패하지 않았다) ──
+#   판정기 단독 스위트는 판정기를 잠근다. 여기서는 emit-context 가 그 판정기를 **실제로 부르고 그 결과로 멈추는지**를 잠근다 —
+#   소스에 호출 문자열이 있는지만 보는 테스트는 `if false` 로 감싸도 통과한다.
+_emit_case() {  # $1=id $2=픽스처 $3=기대 문안(ERE)
+  local o; o=$(run_emit "$FIXTURES/$2")
+  if echo "$o" | grep -q "exit=1" && echo "$o" | grep -Eq "$3" && echo "$o" | grep -q "(empty)"; then
+    PASS=$((PASS+1)); echo "PASS $1"
+  else FAIL=$((FAIL+1)); echo "FAIL $1"; echo "out=$o"; fi
+}
+_emit_case "T3.d ac 배열이 빈 태스크 → exit 1 + 그 태스크 지목"            empty-ac                  'T2: ac 배열 빈 값'
+_emit_case "T3.e outputs 키가 없는 태스크 → exit 1"                        no-outputs                'T1: inputs/outputs 키 부재'
+# T3.f 의 픽스처에는 must AC 가 없다 — 있으면 "must AC 미커버" 가 대신 멈춰 줘서, 빈 배열 검사를 꺼도 통과한다.
+_emit_case "T3.f tasks 배열이 빈 문서 → exit 1 (0 파일 성공이 아니다)"      no-tasks                  'tasks 배열 비어있음'
+if run_emit "$FIXTURES/no-tasks" | grep -q 'must AC 미커버'; then
+  FAIL=$((FAIL+1)); echo "FAIL T3.f2 no-tasks 픽스처에 must AC 가 있다 — T3.f 가 다른 검사에 기대게 된다"
+else PASS=$((PASS+1)); echo "PASS T3.f2 no-tasks 픽스처는 빈 배열 검사만으로 멈춘다"; fi
+_emit_case "T3.g foundation+batch 동시 라벨 → emit 이 멈춘다"              hybrid-label              'hybrid 라벨'
+_emit_case "T3.h 기준선 문서 없는 유지보수 FID → emit 이 멈춘다"           maintain-no-baseline      'MAINTAIN-BASELINE: FAIL'
+_emit_case "T3.i 회귀 AC 없는 유지보수 FID → emit 이 멈춘다"               maintain-no-regression-ac 'REGRESSION-AC'
+# T3.j FID 에 경로 구분자 — 형식 검사에서 멈춘다 (".specops/a/b/tasks.md not found" 로 흘러가지 않는다)
+_o=$(cd "$(mktemp -d)" && bash "$EMIT" 'a/b' 2>&1; echo "exit=$?")
+if echo "$_o" | grep -q "exit=1" && echo "$_o" | grep -q "invalid FID"; then
+  PASS=$((PASS+1)); echo "PASS T3.j FID 의 '/' → invalid FID"
+else FAIL=$((FAIL+1)); echo "FAIL T3.j"; echo "out=$_o"; fi
 
 # ── 20261001-task-id-guard — check-task-ids.sh (판정기 단독) ──
 CHK="$PLUGIN/scripts/_internal/check-task-ids.sh"

@@ -225,9 +225,10 @@ yaml='tasks:
 '
 
 # T5.a — T1 test_command 추출 (기재된 경우) + stderr 0줄
-dag::get_task_test_command "$yaml" "T1" >/tmp/b1_stdout 2>/tmp/b1_stderr
-out=$(cat /tmp/b1_stdout)
-err_lines=$(grep -c . /tmp/b1_stderr || true)
+_b1=$(mktemp -d)   # 고정 /tmp 경로는 동시에 도는 run-all 끼리 덮어쓴다
+dag::get_task_test_command "$yaml" "T1" >"$_b1/stdout" 2>"$_b1/stderr"
+out=$(cat "$_b1/stdout")
+err_lines=$(grep -c . "$_b1/stderr" || true)
 if [ "$out" = "bash scripts/tests/test-foo.sh" ] && [ "$err_lines" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T5.a get_task_test_command T1 → stdout 정상 + stderr 0줄"
 else
@@ -235,9 +236,9 @@ else
 fi
 
 # T5.b — test_command 미기재 task → stdout 빈 + stderr warn 1줄 + exit 0
-out=$(dag::get_task_test_command "$yaml" "T2" 2>/tmp/b1_stderr)
+out=$(dag::get_task_test_command "$yaml" "T2" 2>"$_b1/stderr")
 exit_code=$?
-err_lines=$(grep -c . /tmp/b1_stderr || true)
+err_lines=$(grep -c . "$_b1/stderr" || true)
 if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T5.b get_task_test_command T2 → stdout 빈 + stderr 1줄 + exit 0"
 else
@@ -245,9 +246,9 @@ else
 fi
 
 # T5.c — 존재하지 않는 task → stdout 빈 + stderr warn 1줄 + exit 0 (graceful)
-out=$(dag::get_task_test_command "$yaml" "Tnoexist" 2>/tmp/b1_stderr)
+out=$(dag::get_task_test_command "$yaml" "Tnoexist" 2>"$_b1/stderr")
 exit_code=$?
-err_lines=$(grep -c . /tmp/b1_stderr || true)
+err_lines=$(grep -c . "$_b1/stderr" || true)
 if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T5.c get_task_test_command Tnoexist → stdout 빈 + stderr 1줄 + exit 0"
 else
@@ -255,16 +256,16 @@ else
 fi
 
 # --- T5.d: get_task_outputs (P0-2 task receipt) ---
-out=$(dag::get_task_outputs "$yaml" "T1" 2>/tmp/b1_stderr)
-err_lines=$(grep -c . /tmp/b1_stderr || true)
+out=$(dag::get_task_outputs "$yaml" "T1" 2>"$_b1/stderr")
+err_lines=$(grep -c . "$_b1/stderr" || true)
 if [ "$out" = "src/foo.sh" ] && [ "$err_lines" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T5.d get_task_outputs T1 → stdout 1줄"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.d (out='$out' err_lines=$err_lines)"
 fi
-out=$(dag::get_task_outputs "$yaml" "Tnoexist" 2>/tmp/b1_stderr)
+out=$(dag::get_task_outputs "$yaml" "Tnoexist" 2>"$_b1/stderr")
 exit_code=$?
-err_lines=$(grep -c . /tmp/b1_stderr || true)
+err_lines=$(grep -c . "$_b1/stderr" || true)
 if [ -z "$out" ] && [ "$err_lines" -eq 1 ] && [ "$exit_code" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T5.e get_task_outputs 미존재 → warn+exit0"
 else
@@ -362,7 +363,7 @@ fi
 rm -rf "$_sh"
 
 # cleanup
-rm -f /tmp/b1_stdout /tmp/b1_stderr
+rm -rf "$_b1"
 
 echo ""
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="

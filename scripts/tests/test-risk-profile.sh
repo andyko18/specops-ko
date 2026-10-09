@@ -724,4 +724,80 @@ r=$(_rp_case 20261008-rp-sb-heading "$(printf '%s\n' '    T=$(mktemp -d)' '## �
 [ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
   && ok "T58o 펜스 밖에서는 제목이 구간 경계다 → destructive_fs 유지" || nope "T58o" "$r"
 
+# ── T60: 신호별 키워드와 가드 — 변이 실측(20261009)에서 지워도 아무 테스트도 실패하지 않던 것들 ──
+#   신호 정규식은 대안(|)이 여럿이라 하나를 지워도 다른 대안으로 잡히는 테스트뿐이었다. 대안마다 그 낱말만으로 판정한다.
+r=$(_rp_case 20261009-rp-api-path '`src/app/api/users/route.ts` 의 응답 필드를 정리한다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" public_api \
+  && ok "T60a 경로의 /api/ → public_api" || nope "T60a" "$r"
+r=$(_rp_case 20261009-rp-deploy 'deploy 스크립트의 대상 리전을 바꾼다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" infra \
+  && ok "T60b deploy → infra" || nope "T60b" "$r"
+r=$(_rp_case 20261009-rp-subproc 'subprocess 로 외부 변환기를 부른다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" external_exec \
+  && ok "T60c subprocess → external_exec" || nope "T60c" "$r"
+r=$(_rp_case 20261009-rp-kafka 'kafka 토픽에 이벤트를 발행한다')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" cross_service \
+  && ok "T60d kafka → cross_service" || nope "T60d" "$r"
+# 영어 부정어 no — "no <신호>" 는 부재 선언이다 (none·not 과 같은 취급)
+r=$(_rp_case 20261009-rp-neg-no 'This change has no migration and touches no payment code')
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" db_migration && ! _has "$r" payment_pii \
+  && ok "T60e 'no migration' → strict 아님" || nope "T60e" "$r"
+r=$(_rp_case 20261009-rp-pos-no 'Add a migration for the notes table')
+[ "$(_eff "$r")" = "strict" ] && _has "$r" db_migration \
+  && ok "T60f 대조 — 부정어 없는 migration → strict" || nope "T60f" "$r"
+
+# 문서 확장자 .rst — 문서만 바꾼 FID 는 lite 다 (.md·.txt 와 같은 취급)
+TD=$(mktemp -d); FID=20261009-rp-rst
+_setup "$TD" "$FID"
+printf 'Title\n=====\n' > "$TD/docs/guide.rst"; (cd "$TD" && git add docs/guide.rst)
+printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
+out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" = "lite" ] && jq -e '.signals.docs_only == true and .signals.impl_files == 0' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T60g .rst 만 변경 → lite · docs_only" || nope "T60g" "out=$out $(jq -c .signals "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
+rm -rf "$TD"
+
+# impl_files 는 구현 파일만 센다 — 테스트 파일은 세지 않는다
+TD=$(mktemp -d); FID=20261009-rp-impl
+_setup "$TD" "$FID"
+mkdir -p "$TD/tests"; printf 'x\n' > "$TD/src/a.sh"; printf 'y\n' > "$TD/tests/test_a.sh"; (cd "$TD" && git add src tests)
+printf '**§유형**: 신규\n일반 기능\n' > "$TD/.specops/$FID/spec.md"
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1)
+[ "$(jq -r '.signals.impl_files' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)" = "1" ] \
+  && ok "T60h 구현 1 + 테스트 1 → impl_files=1" || nope "T60h" "$(jq -c .signals "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
+rm -rf "$TD"
+
+# 기록 필드 — lite_eligible 은 계산값이 lite 일 때만 true, irreversible 은 그 선언이 있을 때 true
+TD=$(mktemp -d); FID=20261009-rp-fields
+_setup "$TD" "$FID"
+printf '# n\n' > "$TD/docs/n.md"; (cd "$TD" && git add docs/n.md)
+printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1)
+jq -e '.signals.lite_eligible == true and .signals.irreversible == false' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T60i lite → lite_eligible=true · irreversible=false" || nope "T60i" "$(jq -c '.signals' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
+printf 'tasks:\n  - id: T1\n    irreversible: true\n    depends_on: []\n' > "$TD/.specops/$FID/tasks.md"
+(cd "$TD" && bash "$RP" compute "$FID" >/dev/null 2>&1)
+jq -e '.signals.lite_eligible == false and .signals.irreversible == true' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T60j irreversible 선언 → irreversible=true · lite_eligible=false" || nope "T60j" "$(jq -c '.signals' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
+rm -rf "$TD"
+
+# 환경변수 하한 strict — standard 뿐 아니라 strict 도 올린다 (내리지는 못한다)
+TD=$(mktemp -d); FID=20261009-rp-envfloor
+_setup "$TD" "$FID"
+printf 'x\n' > "$TD/src/a.sh"; printf 'y\n' > "$TD/src/b.sh"; (cd "$TD" && git add src)
+printf '**§유형**: 신규\n일반 기능\n' > "$TD/.specops/$FID/spec.md"
+out=$(cd "$TD" && SPECOPS_RISK_PROFILE_FLOOR=strict bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" = "strict" ] && ok "T60k SPECOPS_RISK_PROFILE_FLOOR=strict → strict" || nope "T60k" "out=$out"
+out=$(cd "$TD" && SPECOPS_RISK_PROFILE_FLOOR=lite bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" = "standard" ] && ok "T60l 하한 lite 는 무시 — 내리지 못한다" || nope "T60l" "out=$out"
+rm -rf "$TD"
+
+# FID 디렉토리가 symlink 면 거부한다 (기록이 저장소 밖으로 나가지 않는다)
+TD=$(mktemp -d); OUTSIDE=$(mktemp -d); FID=20261009-rp-symlink
+_setup "$TD" "$FID"; rmdir "$TD/.specops/$FID"; ln -s "$OUTSIDE" "$TD/.specops/$FID"
+printf '**§유형**: 신규\n' > "$OUTSIDE/spec.md"
+e=$(cd "$TD" && bash "$RP" compute "$FID" 2>&1 >/dev/null); rc=$?
+[ "$rc" -ne 0 ] && printf '%s' "$e" | grep -q 'symlink' && [ ! -f "$OUTSIDE/risk-profile.json" ] \
+  && ok "T60m FID 디렉토리 symlink → 거부 · 밖에 기록 없음" || nope "T60m" "rc=$rc e=$e outside=$(ls "$OUTSIDE" | tr '\n' ' ')"
+rm -rf "$TD" "$OUTSIDE"
+
 finish
