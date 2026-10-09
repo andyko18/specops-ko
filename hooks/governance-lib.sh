@@ -315,10 +315,17 @@ _verify_exec_evidence() {
   fi
   local out uses hits
   out=$(jq -rn --slurpfile a "$transcript" --argjson decl "$decl" --arg anchor "$_RUNNER_ANCHOR_PAT" \
+    --arg fid "${fiddir##*/}" \
     --arg doc_re "$FC_DOC_RE" --arg runtime_re "$FC_RUNTIME_RE" \
     --arg root_phys "$(git rev-parse --show-toplevel 2>/dev/null)" \
     --arg root_log "$(_fc_root_log)" \
     --argjson plugin_repo "$(fc::is_plugin_repo && echo true || echo false)" "$_FC_JQ_DEF"'
+    # 이 러너 실행이 **이 FID** 의 것인가 (20261009). run-verification.sh 뒤에 FID 가 글자로 적혀 있는데 그 안에 이 FID 가
+    #   없으면 다른 FID 를 검증한 것이다. 한 세션에서 FID 여럿을 다루면(batch) 앞 FID 의 PASS 가 뒤 FID 의 커밋을 열었다.
+    #   FID 가 글자로 적히지 않은 명령(변수 `"$FID"` · run-all.sh)은 판단하지 않는다(거짓 차단 금지). 1-인자 호출($fid 빈 값)은 종전대로다.
+    def fid_ok(c): ($fid == "")
+      or ([ c | scan("run-verification\\.sh[\"\u0027]?[ \t]+[\"\u0027]?([0-9]{8}-[a-z0-9-]+)") | .[0] ] as $f
+          | ($f | length) == 0 or ($f | index($fid)) != null);
     # 이 편집이 "코드 편집" 인가 — 판정·진단·안내 세 경로가 위 _FC_JQ_DEF 한 문자열을 공유한다(20260912).
     #   root 를 물리·논리 **양형**으로 받는다: macOS 는 /var → /private/var 심링크라
     #   show-toplevel(물리)과 셸 논리 경로가 갈리고, 물리만 쓰면 저장소 **안** 편집이
@@ -351,6 +358,7 @@ _verify_exec_evidence() {
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
          | select(.cmd | test($anchor))
+         | select(fid_ok(.cmd))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("VERIFY: PASS") and (test("VERIFY: (PARTIAL|FAIL)") | not))
@@ -369,6 +377,7 @@ _verify_exec_evidence() {
          | select(.name=="Bash")
          | {id: .id, cmd: (.input.command // "")}
          | select(.cmd | test($anchor))
+         | select(fid_ok(.cmd))
          | . as $u
          | ($res | map(select(.id == $u.id)) | .[0].out // "")
          | select(test("Output is being written to: "))
@@ -473,10 +482,13 @@ _verify_exec_evidence() {
     # "Bash 띄움 → 코드 수정 → Read" 를 stale 로 올바르게 판정한다(T20).
     | ([$lasthit, $bghit, $declhit] | max) as $besthit
     | (if $besthit >= 0 and $besthit > $lastedit then 1 else 0 end) as $h
-    | "\($all) \($h)"
+    # 진단 전용 — 이 세션에 **다른 FID 를 글자로 적은** 러너 실행이 있었는가. 판정($h)에는 쓰지 않는다.
+    | ([ $tus[] | select(.name=="Bash") | (.input.command // "") | select(test($anchor)) | select(fid_ok(.) | not) ] | length) as $other
+    | "\($all) \($h) \(if $other > 0 then 1 else 0 end)"
   ' 2>/dev/null) || return 2
   [ -z "$out" ] && return 2
-  uses=${out%% *}; hits=${out##* }
+  uses=${out%% *}; hits=${out#* }; hits=${hits%% *}
+  _EXEC_OTHER_FID=${out##* }   # apply_lookback_rule 이 같은 셸에서 읽는다(_exec_cause)
   [ "$uses" -eq 0 ] 2>/dev/null && return 2   # tool_use 이벤트 0건 → 판정 불가 (증거 없음이 아님)
   [ "$hits" -gt 0 ] 2>/dev/null && return 0
   return 1
@@ -608,7 +620,7 @@ _detect_base_branch() {
 _cmd_is_pr_create_only() {
   local c="${1:-}"
   [ -n "$c" ] || return 1
-  printf '%s' "$c" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create' || return 1
+  printf '%s' "$c" | grep -Eq "$_PR_CREATE_RE" || return 1
   printf '%s' "$c" | grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(commit|add|stage)([[:space:]]|$)' && return 1
   return 0
 }
@@ -842,6 +854,10 @@ EOF
   s=${s%%<<*}        # heredoc 리다이렉션 토큰 절단 (`-F - <<'EOF'` 의 뒷부분)
   # C1: compound — 파싱 시점 staged ≠ 커밋 시점 staged (`git add -A && git commit`)
   case "$s" in *'&&'*|*'||'*|*';'*|*'|'*) return 1 ;; esac
+  # 경로로 부른 git(`/usr/bin/git commit`)은 맨 `git commit` 과 같은 형태다 (20261009) — 트리거가 이 표기를 인식하게 된 뒤
+  #   여기서만 못 읽으면 문서만 staged 한 커밋이 표기 때문에 보수 판정(작업트리 전체)으로 막힌다. 경로 문자는 화이트리스트.
+  tok=${s%%[[:space:]]*}
+  case "$tok" in */git) case "$tok" in *[!A-Za-z0-9_./~-]*) ;; *) s="git${s#"$tok"}" ;; esac ;; esac
   # C2+C5: 반드시 `git commit` 으로 시작. env 접두·`git -c ... commit`·다중 명령이 한 번에 배제된다.
   case "$s" in
     'git commit') rest="" ;;
@@ -1173,8 +1189,7 @@ apply_lookback_rule() {
   # heredoc 본문 제거 후 검사 (AC-7) — 정규식은 무변경, **입력만** 전처리한다.
   #   $tool_cmd 원본은 보존한다: 아래 evidence_snippet 은 모델이 실제로 낸 명령 전문을 남겨야 감사 가치가 있다.
   local _scan_cmd
-  _scan_cmd=$(_strip_heredoc_bodies "$tool_cmd")
-  _scan_cmd=$(_strip_quoted_strings "$_scan_cmd")
+  _scan_cmd=$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")
   printf '%s' "$_scan_cmd" | grep -Eq "$trigger_pattern" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
@@ -1217,8 +1232,23 @@ apply_lookback_rule() {
       _cr=$(_receipt_cause "$_rrc" "$tool_cmd" "$_rtask" "$_rfid" 2>/dev/null) || _cr="open-missing"
       _emit_violation "$rule_id" "$tool_cmd" \
         "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
-        "$([ "$_exec_rc" -eq 1 ] && printf 'missing' || printf 'ok')" \
+        "$(_exec_cause "$_exec_rc")" \
         "$(_cause_anchor "$_rfid")" "$_cr"
+      return 0
+    fi
+  fi
+
+  # ★ 검증 이후 코드 변경 (20261009): 판정 SoT(verification-state)가 STALE 이면 자기보고로 열지 않는다.
+  #   무효화는 transcript 의 Edit/Write 이벤트로만 봤다($lastedit) — `sed -i`·`echo >`·포매터·코드 생성기·
+  #   서브에이전트의 수정은 그 이벤트가 없어, SoT 가 STALE 이라 답하는데도 진행 기록 한 줄로 커밋이 열렸다.
+  #   R-1 한정: R-2 는 커밋 범위를 보고, 그 커밋들은 이 줄을 지나야 만들어진다. 상태 기록이 없는 FID 는 종전대로다.
+  if [ "$rule_id" = "R-1" ] && [ -n "$_efid" ]; then
+    _vs_verdict_cached "$_efid" >/dev/null 2>&1 || true
+    if [ "${_VS_VERDICT_CACHE_FID:-}" = "$_efid" ] && [ "${_VS_VERDICT_CACHE:-}" = "STALE" ] \
+       && _vs_stale_blocks "$_efid" "$tool_cmd"; then
+      _emit_violation "$rule_id" "$tool_cmd" \
+        "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
+        "vstale" "$(_cause_anchor "$_efid")" "closed-verified"
       return 0
     fi
   fi
@@ -1258,7 +1288,7 @@ apply_lookback_rule() {
     fi
     _emit_violation "$rule_id" "$tool_cmd" \
       "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
-      "$([ "$_exec_rc" -eq 1 ] && printf 'missing' || printf 'ok')" \
+      "$(_exec_cause "$_exec_rc")" \
       "$(_cause_anchor "$_efid")" "$_cr2"
   fi
 }
@@ -1776,5 +1806,87 @@ _log_degraded() {  # <rule_id> <snippet> → 0 항상(기록 실패해도 호출
   [ -d ".specops" ] || return 0
   declare -F log_friction >/dev/null 2>&1 || return 0
   log_friction "" "$rid" 1 "$snip" 0 2>/dev/null || true
+  return 0
+}
+
+# ── "이 명령은 PR 생성인가" 의 단일 표기 (20261009) ───────────────────────────
+# R-2 트리거가 `gh pr -R o/r create`·`gh -R o/r pr create` 를 인식하게 된 뒤에도, 그 뒤에 서는 세 판정
+#   (PR 범위로 볼 것인가 `_cmd_is_pr_create_only` · batch 게이트 · release-ready 게이트)은 저마다 `gh pr create` 를
+#   글자 그대로 찾았다 — 인식은 되는데 PR 범위가 아니라 작업트리로 판정돼, 문서 하나만 dirty 면 커밋된 미검증 코드의
+#   PR 이 면제됐다. 세 곳이 이 한 정규식을 쓴다(명령 위치 앵커 없음 — 트리거가 이미 걸러 준 입력을 받는다).
+_PR_CREATE_FLAG='((-R|--repo)[[:space:]]+[^[:space:]]+[[:space:]]+|--repo=[^[:space:]]+[[:space:]]+)*'
+_PR_CREATE_RE="gh[[:space:]]+${_PR_CREATE_FLAG}pr[[:space:]]+${_PR_CREATE_FLAG}create"
+
+# ── 줄 연속 잇기 (20261009) ───────────────────────────────────────────────────
+# `git \` + 개행 + `commit` 은 한 명령인데 트리거 grep 은 줄 단위라 둘로 보고 놓쳤다. 역슬래시-개행을 공백으로 바꾼다.
+#   인용 문자열 안의 역슬래시-개행도 함께 바뀌지만 그 본문은 뒤이은 _strip_quoted_strings 가 지운다.
+#   빠른 경로 — 해당 표기가 없으면 바이트 동일 반환.
+_join_line_continuations() {
+  local nl=$'\n'
+  case "$1" in *\\"$nl"*) printf '%s' "${1//\\$nl/ }" ;; *) printf '%s' "$1" ;; esac
+}
+
+# ── 꺼진 차단 훅의 흔적 (20261009) ────────────────────────────────────────────
+# 인라인 우회는 사유를 요구하고 기록되는데, `.specops/config.yaml` 한 줄로 끄는 길은 아무 기록도 남기지 않았다.
+#   그 파일은 모델도 쓸 수 있고 문서 면제 클래스다. 끄는 것은 막지 않는다(사용자 주권) — 꺼진 채 커밋·PR 이
+#   나갔다는 사실만 repo 레벨 friction-log 에 남긴다. 커밋·PR 이 아닌 명령과 `.specops/` 없는 저장소에는 남기지 않는다.
+#   stdin: PreToolUse JSON · $1 = 플러그인 루트. 모든 실패는 무음(호출자는 어차피 allow 한다).
+_note_governance_disabled() {
+  local root="${1:-}" input cmd re
+  command -v jq >/dev/null 2>&1 || return 0
+  input=$(cat 2>/dev/null) || return 0
+  if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR:-}" ]; then cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || return 0; fi
+  [ "$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)" = "Bash" ] || return 0
+  cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
+  re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|select(.!=null)]|join("|")' "$root/hooks/rules.jsonl" 2>/dev/null)
+  [ -n "$cmd" ] && [ -n "$re" ] || return 0
+  _trigger_scan_text "$(_strip_heredoc_bodies "$cmd")" | grep -Eq "$re" || return 0
+  # `.specops/` 없는 저장소에는 남기지 않는다 — 그 판정은 _log_degraded 가 한다(관할 한정).
+  #   차단 훅은 설정 파일로만 꺼진다 — 프로파일 환경변수(strict·standard·minimal)는 셋 다 이 훅을 켠 채 둔다.
+  _log_degraded "GOVERNANCE-DISABLED" "pretool-governance 가 꺼진 상태에서 실행(.specops/config.yaml 의 hooks 설정): ${cmd:0:100}"
+}
+
+# ── 트리거 판정용 문자열 (20261009) ───────────────────────────────────────────
+# 줄 연속을 이은 문자열과 **잇지 않은 원문**을 둘 다 낸다 — grep 은 어느 쪽에 걸려도 트리거다.
+#   이은 것만 보면 종전에 막히던 실커밋이 열린다: 주석 줄 끝의 `\` 와 `\\`(이스케이프된 역슬래시)는 줄을 잇지 않아
+#   다음 줄의 `git commit` 이 실제로 실행되는데, 이으면 앞 줄 뒤에 붙어 명령 자리를 잃는다. 셸 문법(주석·이스케이프·인용)을
+#   흉내내 구분하지 않고 양쪽을 본다 — 새 전처리는 인식을 넓히기만 한다(차단 우세).
+#   $1 = heredoc 본문을 벗긴 명령. 줄 연속이 없으면 한 번만 낸다.
+_trigger_scan_text() {
+  local j; j=$(_join_line_continuations "$1")
+  _strip_quoted_strings "$j"
+  [ "$j" = "$1" ] || { printf '\n'; _strip_quoted_strings "$1"; }
+}
+
+# ── 실행 증거 축의 진단값 (20261009) ──────────────────────────────────────────
+# ok | missing | otherfid — **진단 전용**이라 allow/deny 를 바꾸지 않는다. otherfid 는 "러너가 돌긴 했는데 다른 FID 를
+#   검증했다" 다: 그때 "이 세션에 러너 실행 기록이 없습니다" 라고 말하면 거짓 원인이다(방금 돌린 러너를 또 돌리게 한다).
+_exec_cause() {
+  [ "${1:-1}" -eq 1 ] 2>/dev/null || { printf 'ok'; return 0; }
+  [ "${_EXEC_OTHER_FID:-0}" = "1" ] && printf 'otherfid' || printf 'missing'
+}
+
+# ── STALE 인데도 R-1 을 막지 않는 두 경우 (20261009) ──────────────────────────
+# rc 0 = 막는다 · rc 1 = 막지 않는다(종전 판정 경로로 흘려보낸다 — 실행 증거·앵커는 그대로 요구된다).
+#   ① 전체 스위트가 **지금 이 트리**에서 통과했다. run-all.sh 는 `VERIFY: PASS` 를 내는 정식 러너인데 판정 상태를
+#      갱신하지 않는다 — 통과 마커(.full-suite-pass)의 지문이 현재 비문서 트리와 같으면 그 변경은 검증된 것이다.
+#      마커가 있을 때만 잰다: 지문 계산이 한 번 더 든다(추적 파일이 수천 개면 초 단위 — 마커 없는 하류 저장소에서 헛돈다).
+#   ② 달라진 것이 **이 커밋에 실리지 않는 파일**뿐이다 — 추적하지 않는 파일(로그·캐시·.DS_Store)이 생기거나 바뀌었다.
+#      **커밋만 실행하는 명령일 때만** 적용한다. 훅이 보는 것은 명령 실행 전의 인덱스라, 같은 명령이 커밋 전에 다른 일을
+#      하면(`git add`·`xargs git add`·`find -exec`·`sh -c`·`git config core.hooksPath`·`git diff --output=` …) 그 사이
+#      인덱스·작업트리가 바뀔 수 있다. 무엇이 안전한지 명령 글자로 가려내려 하지 않는다 — 두 번 시도했고 두 번 다
+#      새는 표기가 나왔다(낱말 찾기 → 메시지의 `add` 에 걸림 · 하위명령 목록 → 감싼 git 과 쓰기 옵션을 놓침).
+#      문서 전용 커밋의 범위 판정이 쓰는 `_commit_scope_is_staged`(안전 prelude 뒤의 `git commit [-m|-F|-q]` 한 줄 —
+#      compound·경로 인자·명령 치환·모르는 옵션은 전부 거부)를 그대로 쓴다. `-a` 만 더 받는다: 추적 파일의 작업트리
+#      내용은 추적 지문이 이미 본다.
+#   어느 쪽도 확인되지 않으면 막는다.
+_vs_stale_blocks() {
+  local fid="$1" cmd="${2:-}" dir="${_VERIFICATION_STATE_SH%/*}" top
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || top=""
+  [ -n "$top" ] && [ -f "$top/.specops/.full-suite-pass" ] && bash "$dir/full-suite-fresh.sh" >/dev/null 2>&1 && return 1
+  # `-a`·`--all`·`-am` 을 벗긴 뒤 묻는다(인용 안의 글자도 함께 바뀌지만 판정기는 인용 내용을 보지 않는다).
+  cmd=$(printf '%s' "$cmd" | sed -E 's/(^|[[:space:]])(-a|--all)([[:space:]]|$)/\1\3/g; s/(^|[[:space:]])-am([[:space:]])/\1-m\2/g')
+  _commit_scope_is_staged "$cmd" || return 0
+  [ "$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" stale-scope "$fid" 2>/dev/null)" = "untracked-only" ] && return 1
   return 0
 }

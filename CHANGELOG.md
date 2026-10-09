@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **커밋·PR 차단이 표기에 따라 빠지지 않는다** (`hooks/rules.jsonl` R-1·R-2). 트리거가 `git` 글자 앞을 줄머리·구분자·env·래퍼 4종으로만 인정해 `/usr/bin/git commit`, `if …; then git commit`, `for …; do git commit`, `exec`·`nohup`·`timeout N` 뒤, 줄 연속, `git -ckey=val commit`, 래퍼 옵션(`time -p`·`sudo -E`·`env -i`), `case` 가지, `gh pr -R o/r create` 가 **차단도 사후 감사도** 거치지 않았다(이 저장소 커밋 80건 중 17건 — 전부 출력 필터를 피하려던 절대경로 표기). 실기록 명령 2,503건 재생: 새로 인식 34건(전부 실제 커밋) · 놓치는 것 0 · 커밋이 아닌 명령을 잡는 것 0. 줄 연속은 이은 문자열과 잇기 전 원문을 둘 다 본다(종전에 막히던 명령이 새 전처리로 열리지 않는다). `sh -c`·`eval`·`xargs`·alias·변수에 든 명령은 여전히 범위 밖이고 `docs/architecture.md` §6-1 에 표로 적었다.
+- **검증 뒤 코드를 바꾼 커밋은 통과하지 않는다 — 어떤 경로로 바꿨든.** 검증 무효화는 transcript 의 Edit/Write 이벤트로만 판정했다. `sed -i`·`echo >`·포매터·코드 생성기·서브에이전트의 수정은 그 이벤트가 없어, 판정 SoT(`verification-state.sh`)가 `STALE` 이라고 답하는데도 진행 기록 한 줄로 커밋이 열렸다. 이제 R-1 은 `STALE` 이면 열리지 않고, 거부 문안이 "검증 이후 코드가 바뀌었습니다" 라고 말한다. 문서만 바꾼 경우와 상태 기록이 없는 FID 는 종전대로다. 막지 않는 경우 둘 — 전체 스위트(`run-all.sh`)가 지금 이 트리에서 통과했을 때, 달라진 것이 추적하지 않는 파일(로그·캐시·`.DS_Store` 가 생기거나 바뀐 것)뿐일 때(`verification-state.sh stale-scope` 신설 — 판정 기록에 추적 파일 지문 `tracked_nondoc_hash` 를 함께 남긴다. 예전 기록에는 적용되지 않는다. 커밋만 실행하는 명령 `git commit [-a] -m …` 일 때만 — 다른 명령과 한 번에 실행하면 그 사이 인덱스가 바뀔 수 있어 적용하지 않는다).
+- **다른 FID 의 검증 출력은 실행 증거가 아니다.** 실행 증거는 "러너가 돌았다" 만 보고 어느 FID 를 검증했는지 보지 않았다. `run-verification.sh` 뒤에 FID 가 글자로 적혀 있고 그것이 활성 FID 가 아니면 증거로 치지 않는다(실기록 커밋 919건 중 12건이 여기에 해당). FID 가 변수이거나 `run-all.sh` 면 판단하지 않는다. 그때의 거부 문안은 "러너 실행 기록이 없다" 가 아니라 "다른 FID 를 검증했다" 고 말한다.
+- **설정으로 차단 훅을 끈 채 커밋·PR 이 나가면 기록이 남는다** (`GOVERNANCE-DISABLED`, repo 레벨 friction-log). 인라인 우회는 사유를 요구하고 기록되는데 `.specops/config.yaml` 한 줄로 끄는 길은 아무 기록도 남기지 않았다. 끄는 것 자체는 막지 않는다.
+- 뭉개진 batch PR 게이트가 `gh pr -R … create` 표기에서도 발화한다(R-2 와 같은 인식을 쓴다). 경로로 부른 git 의 문서 전용 커밋은 맨 `git commit` 과 같은 범위(staged)로 판정한다.
+
 ### Fixed
 
 - **훅이 플러그인을 쓰지 않는 저장소에 `.specops/` 를 만들어 그 저장소를 관할로 편입시켰다.** Stop 훅(`ensure-session-progress.sh`)은 `.specops/` 가 없어도 `session-progress.md` 를 만들었고, 자유작업 캡처(`freecomment-capture.sh`)·Stop 거버넌스(R-4)·사후 감사(R-1)도 기록을 남기려고 디렉토리를 만들었다. 그 뒤로는 그 저장소의 코드 커밋이 R-1 로 막혔다 — README 의 "`.specops/` 없으면 면제" 가 성립하지 않았다(실측: 플러그인을 쓰지 않는 저장소 4곳에 `session-progress.md` 만 든 `.specops/`, 하위 디렉토리에서 발화한 `.specops/.specops` 1곳). 이제 훅 4종 모두 `.specops/` 가 없으면 판정·기록·생성을 하지 않는다. 디렉토리는 관할을 여는 쪽(`/init-project` · FID 생성 · `session-progress-append.sh`)만 만든다. **이미 생긴 흔적은 지우지 않는다** — `/doctor` 의 `bootstrap` 항목이 "memory 도 FID 도 없는 `.specops/`" 를 알려 주므로 직접 지운다.

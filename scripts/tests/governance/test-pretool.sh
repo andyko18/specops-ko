@@ -15,6 +15,9 @@ checkf() {  # $1=label $2=pattern $3=file
   else echo "FAIL $1 — expected '$2' in file: $3"; fail=$((fail+1)); fi
 }
 mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{command:$c}, transcript_path:$t}'; }
+# 실행 증거 픽스처를 샌드박스의 FID 에 맞추는 도우미(_tr_for) — 다른 FID 의 PASS 는 실행 증거가 아니다(T-fidbind)
+# shellcheck source=/dev/null
+source "$PLUGIN/scripts/tests/lib/exec-transcript.sh"
 
 # deny 테스트 격리용 공유 sandbox — 코드(.sh) staged 로 is_docs_only_change 면제 미발동 유도
 # (실 repo working tree 의 .md dirty 오염과 분리 — pretool-governance L19 CLAUDE_PROJECT_DIR cd)
@@ -45,7 +48,7 @@ allowsandbox=$(mktemp -d) || exit 1
   && printf '# Session Progress\n\n## 20260101-t2allow\n\n- 2026-01-01 10:00 /verify PASS\n' \
      > .specops/session-progress.md )
 trap 'rm -rf "$codesandbox" "$allowsandbox"' EXIT
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$allowsandbox" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git commit -m x" "$(_tr_for "$allowsandbox" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$allowsandbox" bash "$HOOK" 2>/dev/null)
 check "T2 commit with-verify(+exec) → allow" '"continue":true' "$out"
 # T2b ★ 조임 — Skill 호출만(실행증거 없음) → deny (구 T2 가 allow 하던 것)
 out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
@@ -102,7 +105,7 @@ printf '# spec\n**§auto**: true\n' > "$tmproot/.specops/20260101-auto-fixture/s
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$tmproot" bash "$HOOK" 2>/dev/null)
 check "T7 ★ §auto + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
 # T7b §auto + 실행증거 있음 → allow (정직한 무인 흐름 무손상 — AC-12)
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$tmproot" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git commit -m x" "$(_tr_for "$tmproot" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$tmproot" bash "$HOOK" 2>/dev/null)
 check "T7b §auto + 실행증거 → allow" '"continue":true' "$out"
 rm -rf "$tmproot"
 
@@ -154,7 +157,7 @@ check "T15d echo 안 래퍼 문자열 → allow" '"continue":true' "$out"
 _r1=$(jq -rs '.[]|select(.id=="R-1")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
 _r2=$(jq -rs '.[]|select(.id=="R-2")|.trigger_pattern' "$PLUGIN/hooks/rules.jsonl")
 _pre="${_r1%%git\[\[:space:\]\]+*}"
-_grp='(rtk[[:space:]]+(proxy[[:space:]]+)?|(sudo|nice|time|command)[[:space:]]+)?'
+_grp='(env|rtk|proxy|sudo|nice|time|command|exec|nohup|builtin)|then|do|else|elif|if|while|until|!)[[:space:]]+'
 case "$_pre" in
   *"$_grp"*)
     case "$_r2" in
@@ -322,7 +325,7 @@ printf '## 20260101-forge\n\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' > 
 out=$(mkstdin "git commit -m x" "$FIX/pretool-progress-forged.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
 check "T-exec.a ★ session-progress 위조 + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
 # T-exec.b (AC-6): 같은 session-progress + 실행증거 있음 → allow (정직한 경로 무손상)
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git commit -m x" "$(_tr_for "$execroot" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
 check "T-exec.b session-progress + 실행증거 → allow" '"continue":true' "$out"
 # T-exec.c (AC-5): evidence stamp 위조 + 실행증거 없음 → deny
 printf '## 20260101-forge\n' > "$execroot/.specops/session-progress.md"
@@ -330,7 +333,7 @@ printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$execroot/.specops/20260101-forge/ev
 out=$(mkstdin "git commit -m x" "$FIX/pretool-progress-forged.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
 check "T-exec.c evidence stamp 위조 + 실행증거 없음 → deny" '"permissionDecision":"deny"' "$out"
 # T-exec.d (AC-6 stamp-positive): 같은 stamp + 실행증거 있음 → allow
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git commit -m x" "$(_tr_for "$execroot" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$execroot" bash "$HOOK" 2>/dev/null)
 check "T-exec.d evidence stamp + 실행증거 → allow" '"continue":true' "$out"
 rm -rf "$execroot"
 
@@ -484,14 +487,14 @@ EOF
 
 # ── T-batch.a ★ test1 실물: 라벨 DONE + 산출물 부재 batch → PR deny ──
 bs_bad=$(_mk_batch_sandbox "DONE" 0)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_bad" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
 check "T-batch.a ★ 뭉개진 batch PR → deny" '"permissionDecision":"deny"' "$out"
 check "T-batch.a2 deny 사유에 batch 게이트 명시" 'BATCH-GATE' "$out"
 
 # ── T-batch.b ★ 정직한 batch(per-FR 산출물·진행기록 완비) → allow (false-block 금지) ──
 #   이 케이스가 열리지 않으면 게이트는 BYPASS 를 강요하는 함정이 된다 — test1 이 겪은 바로 그것.
 bs_ok=$(_mk_batch_sandbox "IMPL_DONE" 1)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_ok" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_ok" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_ok" bash "$HOOK" 2>/dev/null)
 check "T-batch.b ★ 정직한 batch PR → allow" '"continue":true' "$out"
 
 # ── T-mut.a~c: mutation 생존분 봉쇄 (FID 20260829-pretool-mutation-triage) ──
@@ -529,7 +532,7 @@ for ev in glob.glob(os.path.join(root, '.specops', '*', 'evidence.md')):
     s=s.replace('§NFR L8-12 — 성능 임계값 없음', '성능 임계값 없음')
     open(ev,'w',encoding='utf-8').write(s)
 PYEOF
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_rr" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_rr" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_rr" bash "$HOOK" 2>/dev/null)
 check "T-mut.c ★ NOT_READY + hard 분기 → deny (차단 판정 본체)" '"permissionDecision":"deny"' "$out"
 check "T-mut.c2 사유가 RELEASE_READY 경로임을 명시 (batch 게이트 오통과 아님)" 'RELEASE_READY' "$out"
 rm -rf "$_rr"
@@ -537,11 +540,11 @@ rm -rf "$_rr"
 # ── T-batch.c ★ 인라인 BYPASS 로는 못 뚫는다 (비가역 불변식) ──
 #   security Critical/High 와 동급 — start-all-auto.md L56 선례. 없으면 test1 이 한 그대로 우회된다.
 out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='배치 PR 승인' gh pr create --fill" \
-  "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+  "$(_tr_for "$bs_bad" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
 check "T-batch.c ★ 인라인 BYPASS + 뭉개진 batch → deny (불인정)" '"permissionDecision":"deny"' "$out"
 
 # ── T-batch.d 세션 env BYPASS 는 인정 (사용자 주권 — 5원칙 4) ──
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_bad" "$FIX/pretool-with-verify-exec.jsonl")" | SPECOPS_GOVERNANCE_BYPASS=1 CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
 check "T-batch.d 세션 env BYPASS → allow (주권 보존)" '"continue":true' "$out"
 
 # ── T-batch.e batch 컨텍스트 아님 → 기존 동작 불변 (회귀) ──
@@ -554,7 +557,7 @@ else
 fi
 
 # ── T-batch.f commit 은 batch 게이트 대상 아님 (PR 전용 — 중간 커밋은 설계된 비용) ──
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "git commit -m x" "$(_tr_for "$bs_bad" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_bad" bash "$HOOK" 2>/dev/null)
 if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
   echo "FAIL T-batch.f — commit 에 batch 게이트 오발화(PR 전용이어야)"; fail=$((fail+1))
 else
@@ -568,7 +571,7 @@ fi
 #   false-block 의 유일한 출구가 보호 장치 무력화라는 최악의 형태다.
 #   따라서 게이트는 **진행 중(ACTIVE 마커) batch 만** 판정한다.
 bs_stale=$(_mk_batch_sandbox "DONE" 0 0)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_stale" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_stale" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_stale" bash "$HOOK" 2>/dev/null)
 if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
   echo "FAIL T-batch.g ★★ ghost-block — 진행 중 아닌 과거 batch 가 무관한 PR 차단"; fail=$((fail+1))
 else
@@ -583,7 +586,7 @@ fi
 #   불일치는 skip(fail-open) — false-block 회피가 옳은 오류 방향이다.
 bs_other=$(_mk_batch_sandbox "DONE" 0)
 ( cd "$bs_other" && git checkout -q -b "feat/20260721-unrelated" )
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$bs_other" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_other" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_other" bash "$HOOK" 2>/dev/null)
 if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
   echo "FAIL T-batch.h ★★ 마커 있으나 무관한 브랜치 PR 차단 (중단 batch 영구 ghost-block)"; fail=$((fail+1))
 else
@@ -1031,7 +1034,7 @@ printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 10:00 /impl
 #   (부모 로컬 실측에서 T-cause.e-1 이 이 이유로 FAIL 했다 — 판정이 아니라 픽스처가 틀렸었다).
 ( cd "$_PTC" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
     && git -c user.name=t -c user.email=t@e.com commit -qm init >/dev/null )
-_in=$(mkstdin 'git commit -m "feat: x"' "$FIX/exec-evidence-pass.jsonl")
+_in=$(mkstdin 'git commit -m "feat: x"' "$(_tr_for "$_PTC" "$FIX/exec-evidence-pass.jsonl")")
 msg=$(_deny_msg "$_PTC" "$HOOK" "$_in")
 check "T-cause.pre deny 발생" 'verify 면제 조건' "$msg"
 
@@ -1158,7 +1161,7 @@ printf '<!-- active-fid: 20260910-z -->\n## 20260910-z\n- 2026-09-10 10:00 /impl
     && bash "$PLUGIN/scripts/_internal/record-task-receipt.sh" 20260910-z T1 ) >/dev/null 2>&1
 # receipt 는 유효하게 기록됐다. 이제 outputs **밖** 파일을 staged 해 무효화한다.
 ( cd "$_PTI" && printf 'w\n' >> other.sh && git add other.sh ) >/dev/null 2>&1
-_in_i=$(mkstdin 'git commit -m "fix: x (Task: T1)"' "$FIX/exec-evidence-pass.jsonl")
+_in_i=$(mkstdin 'git commit -m "fix: x (Task: T1)"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg5=$(_deny_msg "$_PTI" "$HOOK" "$_in_i")
 check "T-cause.h-1 receipt 무효 → 무효 문안" '기록된 receipt 가 유효하지 않습니다' "$msg5"
 # 대조군: receipt 자체가 없으면 무효 문안이 아니라 기록 안내가 나와야 한다.
@@ -1169,16 +1172,16 @@ check "T-cause.h-3 receipt 부재 → 기록 안내" 'record-task-receipt.sh' "$
 # ── 20261001-task-id-guard — open-id-mismatch 문안 (원인별 분기: 거짓 원인 방지) ──
 # ★ 이 시점 _PTI 는 receipts/T1.json 이 제거된 상태다(위 h-2) — 유효 receipt 가 있으면
 #   `Task: T1a`→T1 이 허용되어 아래 deny 단언이 성립하지 않는다.
-_in_a=$(mkstdin $'git commit -m "feat: x\n\nTask: T1a"' "$FIX/exec-evidence-pass.jsonl")
+_in_a=$(mkstdin $'git commit -m "feat: x\n\nTask: T1a"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_a=$(_deny_msg "$_PTI" "$HOOK" "$_in_a")
 check "T5.a (AC-4) 선언≠해석 → 원인 표시" '원인: 커밋 메시지의 task id' "$msg_a"
 check "T5.a2 선언값 표시" 'Task: T1a' "$msg_a"
 check "T5.a3 절단 안내(숫자 전용)" '접미사는 T1 로 잘려' "$msg_a"
-_in_d=$(mkstdin $'git commit -m "feat: x\n\nTask: T9"' "$FIX/exec-evidence-pass.jsonl")
+_in_d=$(mkstdin $'git commit -m "feat: x\n\nTask: T9"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_d=$(_deny_msg "$_PTI" "$HOOK" "$_in_d")
 check "T5.d 선언=해석인데 tasks.md 에 없음 → id 없음 원인" '해당 task id(T9)가 없습니다' "$msg_d"
 _nocheck "T5.d2 절단이 일어나지 않았으면 절단 문구를 말하지 않는다(거짓 원인 방지)" '접미사는 T1 로 잘려' "$msg_d"
-_in_f=$(mkstdin $'git commit -m "feat: x\n\nTask: task-3"' "$FIX/exec-evidence-pass.jsonl")
+_in_f=$(mkstdin $'git commit -m "feat: x\n\nTask: task-3"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_f=$(_deny_msg "$_PTI" "$HOOK" "$_in_f")
 check "T5.f 선언은 있는데 해석 빈값 → 미해석 원인" '해석되지 않았습니다' "$msg_f"
 _nocheck "T5.f2 미해석에는 절단 문구를 말하지 않는다" '접미사는 T1 로 잘려' "$msg_f"
@@ -1186,19 +1189,19 @@ _nocheck "T5.f2 미해석에는 절단 문구를 말하지 않는다" '접미사
 _nocheck "T5.b (AC-R-2) 정상 선언 + receipt 부재 → 새 원인 문구 없음" '원인: 커밋 메시지의 task id' "$msg6"
 check "T5.b2 (AC-R-2) 기록 안내 유지" 'record-task-receipt.sh' "$msg6"
 # 거짓 원인 방지 (a1): 선언이 T숫자 형식이 아니고 해석 id 는 산문 fallback 에서 왔다 — 절단이 아니다.
-_in_g=$(mkstdin $'git commit -m "feat: x (T1)\n\nTask: fix the parser"' "$FIX/exec-evidence-pass.jsonl")
+_in_g=$(mkstdin $'git commit -m "feat: x (T1)\n\nTask: fix the parser"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_g=$(_deny_msg "$_PTI" "$HOOK" "$_in_g")
 check "T5.g0 (a1) deny 유지" 'verify 면제 조건' "$msg_g"
 _nocheck "T5.g 선언 fix + 산문 (T1) → 절단 문구 미출력(거짓 원인 방지)" '접미사는 T1 로 잘려' "$msg_g"
 check "T5.g2 (a1) 사실 진술 — 형식 아님 + 다른 id 로 해석" 'task id 형식(T숫자)이 아니며, 훅은 본문의 다른 id(T1)로 해석' "$msg_g"
 # 선언 없음 (b'): 산문 (T7) 만 있고 tasks.md 에 T7 없음 — 존재하지 않는 Task: 줄을 언급하지 않는다.
-_in_h=$(mkstdin 'git commit -m "fix: y (T7)"' "$FIX/exec-evidence-pass.jsonl")
+_in_h=$(mkstdin 'git commit -m "fix: y (T7)"' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_h=$(_deny_msg "$_PTI" "$HOOK" "$_in_h")
 check "T5.h 산문 (T7) 만 → id 없음 원인" '해당 task id(T7)가 없습니다' "$msg_h"
 _nocheck "T5.h2 선언 없음 → 'Task: 값이' 미출력" 'Task: 값이' "$msg_h"
 check "T5.h3 선언 없음을 사실대로 진술" 'Task: 선언이 없어' "$msg_h"
 # R-2(PR, receipt=n/a) 는 `*)` 로 같은 헬퍼를 지나간다 — open-id-mismatch 가 아니면 원인 문안을 내지 않는다.
-_in_i2=$(mkstdin 'gh pr create --title "fix: y (T7)" --body x' "$FIX/exec-evidence-pass.jsonl")
+_in_i2=$(mkstdin 'gh pr create --title "fix: y (T7)" --body x' "$(_tr_for "$_PTI" "$FIX/exec-evidence-pass.jsonl")")
 msg_i2=$(_deny_msg "$_PTI" "$HOOK" "$_in_i2")
 check "T5.i0 R-2 deny 유지(대조군)" 'verify 면제 조건' "$msg_i2"
 _nocheck "T5.i R-2(n/a) 에는 receipt 원인 문안 미출력" 'receipt 경로가 열리지 않는 원인' "$msg_i2"
@@ -1335,7 +1338,7 @@ _prs_batch() {  # $1=dir — feat/batch-p 브랜치에 코드 커밋 + 뭉개진
     && : > .specops/batch-p/ACTIVE && echo "dirty" >> README.md ) >/dev/null 2>&1
 }
 _prs_b=$(mktemp -d); _prs_batch "$_prs_b"
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_prs_b" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_prs_b" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_prs_b" bash "$HOOK" 2>/dev/null)
 check "T-prscope.e ★ 뭉개진 batch + 커밋된 코드 + 작업트리 docs dirty → BATCH-GATE deny" 'BATCH-GATE' "$out"
 # 대조: 범위가 문서뿐이면(코드 커밋 없음) batch 게이트는 면제 유지
 _prs_d=$(mktemp -d)
@@ -1345,7 +1348,7 @@ _prs_d=$(mktemp -d)
   && echo notes > notes.md && git add notes.md && git -c user.email=e@t -c user.name=t commit -q -m "docs: n" \
   && printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-4 | 20260721-login | 로그인 | DONE |\n' > .specops/batch-p/queue.md \
   && printf '| FR-4 | a | M1 | must | s | f |\n' > .specops/memory/requirements.md && : > .specops/batch-p/ACTIVE ) >/dev/null 2>&1
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" | CLAUDE_PROJECT_DIR="$_prs_d" bash "$HOOK" 2>/dev/null)
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_prs_d" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_prs_d" bash "$HOOK" 2>/dev/null)
 check "T-prscope.f 범위가 문서뿐인 batch PR → 게이트 면제(allow)" '"continue":true' "$out"
 rm -rf "$_prs_b" "$_prs_d"
 # c: 대조군 — PR 범위가 진짜 all-docs 면 작업트리 dirty 와 무관하게 면제 유지(과잉 차단 방지)
@@ -1387,6 +1390,386 @@ _unt2=$(mktemp -d); _unt_mk "$_unt2" x.md
 out=$(mkstdin "git add -A && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_unt2" bash "$HOOK" 2>/dev/null)
 check "T-untracked.d untracked 가 문서뿐 → 면제 유지" '"continue":true' "$out"
 rm -rf "$_unt2"
+
+# ══════════════════════════════════════════════════════════════════════════
+# T-form: 커밋·PR 인식이 **표기에 따라** 빠지지 않는다 (20261009 — 10회차 평가)
+#   왜: 트리거가 `git` 글자 앞을 줄머리·구분자·env·래퍼 4종으로만 인정해, 아래 형태가 차단도 감사도 거치지 않았다.
+#   전부 정직한 사용에서 나오는 형태다 — 출력 필터를 피하려는 절대경로, 조건문·반복문 안의 커밋, 줄 연속.
+#   실측: 이 저장소의 커밋 80건 중 17건이 절대경로 표기라 게이트를 한 번도 거치지 않았다.
+#   범위 밖(종전 그대로 — pretool 머리의 F-3): sh -c·eval·xargs·alias·변수에 든 명령.
+# ══════════════════════════════════════════════════════════════════════════
+_form_deny() {  # $1=id $2=명령
+  local o; o=$(mkstdin "$2" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+  check "$1 → deny" '"permissionDecision":"deny"' "$o"
+}
+_form_allow() {  # $1=id $2=명령 — 커밋이 아닌 명령은 그대로 통과한다(거짓 차단 금지)
+  local o; o=$(mkstdin "$2" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+  if printf '%s' "$o" | grep -q '"permissionDecision":"deny"'; then echo "FAIL $1 — 커밋이 아닌 명령이 막힘: $2"; fail=$((fail+1));
+  else check "$1 → allow" '"continue":true' "$o"; fi
+}
+_form_deny "T-form.a 절대경로 /usr/bin/git commit" '/usr/bin/git commit -m x'
+_form_deny "T-form.a2 상대경로 ./bin/git commit" './bin/git commit -m x'
+_form_deny "T-form.a3 역슬래시 \\git commit" '\git commit -m x'
+_form_deny "T-form.a4 절대경로 + heredoc 메시지" "/usr/bin/git commit -q -F - <<'EOF'
+feat: x
+EOF"
+_form_deny "T-form.b if…then 안의 커밋" 'if true; then git commit -m x; fi'
+_form_deny "T-form.b2 else 안의 커밋" 'if false; then :; else git commit -m x; fi'
+_form_deny "T-form.b3 if 조건 자리의 커밋" 'if git commit -m x; then echo ok; fi'
+_form_deny "T-form.c for…do 안의 커밋" 'for f in a b; do git commit -m x; done'
+_form_deny "T-form.c2 while…do 안의 커밋" 'while read -r l; do git commit -m x; done < list'
+_form_deny "T-form.d 부정 ! git commit" 'cd sub && ! git commit -m x'
+_form_deny "T-form.e exec git commit" 'exec git commit -m x'
+_form_deny "T-form.e2 nohup git commit" 'nohup git commit -m x'
+_form_deny "T-form.e3 timeout 10 git commit" 'timeout 10 git commit -m x'
+_form_deny "T-form.e4 sudo -u u git commit" 'sudo -u u git commit -m x'
+_form_deny "T-form.e5 래퍼 겹침 time nice git commit" 'time nice git commit -m x'
+_form_deny "T-form.f 붙여 쓴 -c 옵션" 'git -ccore.x=1 commit -m x'
+_form_deny "T-form.g 줄 연속 git \\⏎ commit" 'git \
+  commit -m x'
+_form_deny "T-form.g2 줄 연속 + -C" 'git -C . \
+  commit -m x'
+_form_deny "T-form.h then + 절대경로 + env 겹침" 'if x; then FOO=1 /usr/bin/git commit -m x; fi'
+_form_deny "T-form.e6 time -p git commit" 'time -p git commit -m x'
+_form_deny "T-form.e7 sudo -E git commit" 'sudo -E git commit -m x'
+_form_deny "T-form.e8 env -i git commit" 'env -i git commit -m x'
+_form_deny "T-form.e9 env -u FOO git commit" 'env -u FOO git commit -m x'
+_form_deny "T-form.e10 sudo -u u -g g git commit" 'sudo -u u -g g git commit -m x'
+_form_deny "T-form.i case 가지의 커밋" 'case x in x) git commit -m x;; esac'
+_form_deny "T-form.e11 경로로 부른 래퍼 /usr/bin/env git commit" '/usr/bin/env git commit -m x'
+_form_deny "T-form.e12 timeout -k 5 30s git commit" 'timeout -k 5 30s git commit -m x'
+_form_deny "T-form.e13 timeout -s KILL 10 git commit" 'timeout -s KILL 10 git commit -m x'
+_form_deny "T-form.e14 /usr/bin/sudo -E /usr/bin/git commit" '/usr/bin/sudo -E /usr/bin/git commit -m x'
+# 줄 연속을 **이은 문자열만** 보면 놓치는 실커밋 — 주석 끝의 `\` 와 `\\` 는 줄을 잇지 않는다(다음 줄은 실제로 실행된다).
+#   잇기 전 원문도 함께 본다: 종전에 막히던 명령이 새 전처리 때문에 열리면 안 된다.
+_form_deny "T-form.g3 ★ 주석 줄 끝 \\ 다음 줄의 커밋" '# note \
+git commit -m x'
+_form_deny "T-form.g4 ★ \\\\ 로 끝난 줄 다음의 커밋" 'echo foo\\
+git commit -m x'
+_form_deny "T-form.g5 ★ 주석 줄 끝 \\ 다음 줄의 PR 생성" '# note \
+gh pr create --fill'
+_form_deny "T-form.r gh pr -R o/r create" 'gh pr -R o/r create --fill'
+_form_deny "T-form.r2 gh -R o/r pr create" 'gh -R o/r pr create --fill'
+_form_deny "T-form.r3 gh --repo=o/r pr create" 'gh --repo=o/r pr create --fill'
+_form_deny "T-form.r4 절대경로 gh pr create" '/opt/homebrew/bin/gh pr create --fill'
+_form_deny "T-form.r5 then gh pr create" 'if x; then gh pr create --fill; fi'
+# 음성 — 커밋·PR 생성이 아닌 명령
+_form_allow "T-form.n1 경로 인자에 든 git" 'ls /usr/bin/git commit'
+_form_allow "T-form.n2 echo 인자의 then" 'echo then git commit'
+_form_allow "T-form.n11 time -p 뒤 다른 명령의 인자" 'time -p ls git commit'
+_form_allow "T-form.n12 env -i 뒤 다른 명령의 인자" 'env -i ls git commit'
+_form_allow "T-form.n13 timeout 뒤 다른 명령의 인자" 'timeout -k 5 30s ls git commit'
+_form_allow "T-form.n14 경로로 부른 env 뒤 다른 명령의 인자" '/usr/bin/env ls git commit'
+_form_allow "T-form.n3 인용 문자열 안의 제어문" 'printf "%s\n" "if x; then git commit; fi"'
+_form_allow "T-form.n4 grep 패턴" "grep -rn 'do git commit' ."
+_form_allow "T-form.n5 commit-graph" '/usr/bin/git commit-graph write'
+_form_allow "T-form.n6 래퍼 + 다른 하위명령" 'timeout 10 git status'
+_form_allow "T-form.n7 heredoc 데이터 안의 절대경로 커밋" "cat > notes.md <<'EOF'
+/usr/bin/git commit -m x
+if x; then git commit; fi
+EOF"
+_form_allow "T-form.n8 gh pr view" 'gh pr -R o/r view 3'
+_form_allow "T-form.n9 gh pr created 접두 단어" 'gh pr created-list'
+_form_allow "T-form.n10 줄 연속 뒤가 commit 이 아님" 'git \
+  status'
+# 사후 감사도 같은 패턴을 쓴다 — 절대경로 커밋이 감사 기록에 남는다 (종전 0건)
+_pa=$(mktemp -d) || exit 1
+( cd "$_pa" && git init -q -b main && git config user.email a@b && git config user.name a && mkdir .specops \
+  && echo base > README.md && git add README.md && git commit -qm base && echo 'echo x' > a.sh && git add a.sh && git commit -qm "feat: code" ) >/dev/null 2>&1
+jq -nc --arg t "$FIX/pretool-no-verify.jsonl" '{tool_name:"Bash",tool_input:{command:"/usr/bin/git commit -m \"feat: code\""},tool_response:{},transcript_path:$t}' \
+  | CLAUDE_PROJECT_DIR="$_pa" bash "$PLUGIN/hooks/posttool-governance.sh" >/dev/null 2>&1
+if grep -qs '"rule_id":"R-1"' "$_pa/.specops/friction-log.jsonl"; then
+  echo "PASS T-form.p 절대경로 커밋 → 사후 감사 R-1 기록"; pass=$((pass+1))
+else echo "FAIL T-form.p 절대경로 커밋이 사후 감사에 남지 않음"; fail=$((fail+1)); fi
+# 사후 감사도 잇기 전 원문을 함께 본다 — 주석 줄 끝 `\` 다음 줄의 커밋
+rm -f "$_pa/.specops/friction-log.jsonl"
+jq -nc --arg t "$FIX/pretool-no-verify.jsonl" --arg c '# note \
+git commit -m "feat: code"' '{tool_name:"Bash",tool_input:{command:$c},tool_response:{},transcript_path:$t}' \
+  | CLAUDE_PROJECT_DIR="$_pa" bash "$PLUGIN/hooks/posttool-governance.sh" >/dev/null 2>&1
+if grep -qs '"rule_id":"R-1"' "$_pa/.specops/friction-log.jsonl"; then
+  echo "PASS T-form.p2 ★ 주석 줄 끝 \\ 다음 줄의 커밋 → 사후 감사 R-1 기록"; pass=$((pass+1))
+else echo "FAIL T-form.p2 주석 줄 끝 \\ 다음 줄의 커밋이 사후 감사에 남지 않음"; fail=$((fail+1)); fi
+rm -rf "$_pa"
+# docs-only 면제는 표기와 무관하다 — 절대경로로 문서만 staged 해 커밋하면 작업트리의 코드 변경에 막히지 않는다
+_fd=$(mktemp -d) || exit 1
+( cd "$_fd" && git init -q && git config user.email a@b && git config user.name a && mkdir .specops && echo 'echo v1' > a.sh && git add a.sh \
+  && git commit -qm base && echo 'echo v2' > a.sh && echo doc > NOTES.md && git add NOTES.md ) >/dev/null 2>&1
+out=$(mkstdin '/usr/bin/git commit -m "docs: notes"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_fd" bash "$HOOK" 2>/dev/null)
+check "T-form.s 절대경로 + 문서만 staged(코드는 작업트리에만) → allow" '"continue":true' "$out"
+out=$(mkstdin 'git commit -m "docs: notes"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_fd" bash "$HOOK" 2>/dev/null)
+check "T-form.s2 대조 — 같은 상태의 맨 git commit → allow" '"continue":true' "$out"
+( cd "$_fd" && git add a.sh ) >/dev/null 2>&1
+out=$(mkstdin '/usr/bin/git commit -m "docs: notes"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_fd" bash "$HOOK" 2>/dev/null)
+check "T-form.s3 절대경로 + 코드까지 staged → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_fd"
+# batch PR 게이트도 같은 인식을 쓴다 — `gh pr -R … create` 로 뭉개진 batch PR 이 빠져나가지 않는다
+_bsf=$(_mk_batch_sandbox "DONE" 0)   # 새 샌드박스 — 앞선 batch 테스트들이 bs_bad 를 정리했다
+out=$(mkstdin "gh pr -R o/r create --fill" "$(_tr_for "$_bsf" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_bsf" bash "$HOOK" 2>/dev/null)
+check "T-form.t 뭉개진 batch + gh pr -R … create → BATCH-GATE deny" 'BATCH-GATE' "$out"
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_bsf" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_bsf" bash "$HOOK" 2>/dev/null)
+check "T-form.t2 대조 — 같은 샌드박스의 gh pr create → BATCH-GATE deny" 'BATCH-GATE' "$out"
+rm -rf "$_bsf"
+
+# PR 생성으로 인식된 뒤의 세 판정(PR 범위·batch 게이트·release-ready)도 같은 표기를 읽는다 —
+#   인식만 되고 범위는 작업트리로 판정되면, 문서 하나만 dirty 해도 커밋된 미검증 코드의 PR 이 면제된다.
+_pg=$(mktemp -d); _prs_mk "$_pg" a.sh
+out=$(mkstdin "gh pr -R o/r create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.u ★ gh pr -R … create + 커밋된 코드 + 작업트리 docs dirty → deny (PR 범위로 판정)" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "gh -R o/r pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.u2 gh -R … pr create 도 같다" '"permissionDecision":"deny"' "$out"
+rm -rf "$_pg"
+_pg=$(mktemp -d); _prs_mk "$_pg" notes.md
+out=$(mkstdin "gh pr -R o/r create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.u3 대조 — PR 범위가 문서뿐이면 같은 표기로도 면제" '"continue":true' "$out"
+# 커밋을 함께 하는 compound 는 PR 범위가 아니라 종전 경로(작업트리)로 본다 — 범위가 아직 확정 전이다.
+#   PR 범위는 문서뿐이지만 staged 에 코드가 있다. PR 범위로 보면 면제되고(틀림), 작업트리로 보면 막힌다(맞음).
+( cd "$_pg" && echo "echo y" > b.sh && git add b.sh ) >/dev/null 2>&1
+out=$(mkstdin "git commit -m x && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w ★ commit && pr create (PR 범위는 문서뿐 · staged 에 코드) → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git stage b.sh && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w2 git stage 를 함께 하는 compound 도 종전 경로 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_pg"
+# `git stage` 는 `git add` 와 같다 — untracked 신규 코드가 커밋에 실린다
+_ug=$(mktemp -d); _unt_mk "$_ug" new.sh
+out=$(mkstdin "git stage -A && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_ug" bash "$HOOK" 2>/dev/null)
+check "T-form.x ★ git stage -A && commit + untracked 코드 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_ug"
+# release-ready 게이트도 같은 표기를 읽는다 (T-mut.c 와 같은 픽스처 — batch 게이트는 통과하고 release-ready 축 하나만 깨뜨린다)
+_rg=$(_mk_batch_sandbox "IMPL_DONE" 1 1)
+sed -i.bak 's/§NFR L8-12 — 성능 임계값 없음/성능 임계값 없음/' "$_rg"/.specops/*/evidence.md
+out=$(mkstdin "gh pr -R o/r create --fill" "$(_tr_for "$_rg" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_rg" bash "$HOOK" 2>/dev/null)
+check "T-form.v ★ gh pr -R … create + NOT_READY batch → RELEASE_READY deny" 'RELEASE_READY' "$out"
+rm -rf "$_rg"
+# batch 의 IMPL_DONE FID **전부**를 본다 — 활성 FID 하나로 대신하지 않는다.
+#   둘째 FID 만 게이트 기록이 없다. 활성 FID(첫 헤더)는 완비라, 목록을 못 읽고 활성 FID 로 떨어지면 통과해 버린다.
+_rb=$(_mk_batch_sandbox "IMPL_DONE" 1 1)
+printf '| FR-5 | 20260722-second | 둘째 | IMPL_DONE |\n' >> "$_rb/.specops/batch-p/queue.md"
+printf '| FR-5 | b | M1 | must | s | f |\n' >> "$_rb/.specops/memory/requirements.md"
+mkdir -p "$_rb/.specops/20260722-second"
+: > "$_rb/.specops/20260722-second/review-base.sha"; : > "$_rb/.specops/20260722-second/review-request.md"
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$_rb/.specops/20260722-second/evidence.md"
+printf '\n## 20260722-second\n\n- 2026-07-22 13:53 /verify PASS (evidence.md)\n- 2026-07-22 14:00 /request-review DONE\n' >> "$_rb/.specops/session-progress.md"
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_rb" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_rb" bash "$HOOK" 2>/dev/null)
+check "T-form.y ★ batch 의 둘째 FID 만 미완 → deny" '"permissionDecision":"deny"' "$out"
+check "T-form.y2 사유가 그 FID 를 지목한다" 'FID 20260722-second' "$out"
+rm -rf "$_rb"
+
+# ══════════════════════════════════════════════════════════════════════════
+# T-vstale: 검증 PASS 뒤 **셸로** 코드를 고친 커밋은 통과하지 않는다 (20261009)
+#   왜: 검증 무효화는 transcript 의 Edit/Write 이벤트로만 판정했다. `sed -i`·`echo >`·포매터·코드 생성기·
+#   서브에이전트의 수정은 그 이벤트가 없어, 판정 SoT(verification-state)가 STALE 이라고 답하는데도 커밋이 열렸다.
+# ══════════════════════════════════════════════════════════════════════════
+_VS=$(mktemp -d) || exit 1
+mkdir -p "$_VS/.specops/20260101-x"
+( cd "$_VS" && git init -q && printf 'echo v1\n' > a.sh && git add a.sh && git -c user.name=t -c user.email=t@e.com commit -qm init ) >/dev/null 2>&1
+( cd "$_VS" && printf 'echo v2\n' > a.sh && git add a.sh \
+  && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260101-x PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+printf '<!-- active-fid: 20260101-x -->\n## 20260101-x\n- 2099-01-01 10:00 /verify PASS (evidence.md)\n' > "$_VS/.specops/session-progress.md"
+_vin=$(mkstdin 'git commit -m "feat: v2"' "$FIX/exec-evidence-pass.jsonl")
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.a 대조 — 검증한 그대로 커밋 → allow" '"continue":true' "$out"
+( cd "$_VS" && printf 'echo UNVERIFIED\n' > a.sh && git add a.sh )   # 셸로 수정 — transcript 에 Edit 이벤트 없음
+_vv=$(cd "$_VS" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260101-x)
+[ "$_vv" = "STALE" ] && { echo "PASS T-vstale.b-0 픽스처 STALE 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-vstale.b-0 픽스처 verdict=$_vv (STALE 아님)"; fail=$((fail+1)); }
+msg=$(_deny_msg "$_VS" "$HOOK" "$_vin")
+check "T-vstale.b ★ 검증 뒤 셸 수정 → deny" 'verify 면제 조건' "$msg"
+check "T-vstale.b2 사유가 '검증 이후 코드가 바뀌었다' 고 말한다" '검증 이후 코드가 바뀌었습니다' "$msg"
+_nocheck "T-vstale.b3 '러너 실행 기록이 없다' 는 거짓 원인을 말하지 않는다" '이 세션에 러너 실행 기록이 없습니다' "$msg"
+# PR 생성(R-2)은 이 검사의 대상이 아니다 — R-2 는 커밋 범위를 보고, 작업트리의 미커밋 변경은 PR 에 실리지 않는다
+out=$(mkstdin 'gh pr create --fill' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$out" | grep -q '검증 이후 코드가 바뀌었습니다'; then
+  echo "FAIL T-vstale.b4 작업트리 STALE 이 PR 생성을 막음 — R-1 한정이어야 한다"; fail=$((fail+1))
+else echo "PASS T-vstale.b4 STALE 검사는 R-1 한정 (PR 생성에는 적용하지 않는다)"; pass=$((pass+1)); fi
+# 전체 스위트가 **지금 이 트리**에서 통과했으면 STALE 이어도 막지 않는다.
+#   run-all.sh 는 `VERIFY: PASS` 를 내는 정식 러너인데 판정 상태(verification-state)를 갱신하지 않는다 —
+#   리뷰 지적을 고치고 전체 스위트를 다시 통과시킨 정직한 흐름이 "검증 이후 코드가 바뀌었다" 로 막혔다.
+_fp=$( cd "$_VS" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint )
+printf '%s\n' "$_fp" > "$_VS/.specops/.full-suite-pass"
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.e ★ STALE 이지만 전체 스위트가 이 트리에서 통과 → allow" '"continue":true' "$out"
+printf 'deadbeef\n' > "$_VS/.specops/.full-suite-pass"
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.e2 통과 마커가 다른 트리의 것 → deny" '"permissionDecision":"deny"' "$out"
+rm -f "$_VS/.specops/.full-suite-pass"
+# 문서만 고친 것은 STALE 이 아니다 — 그대로 통과한다 (거짓 차단 금지)
+( cd "$_VS" && printf 'echo v2\n' > a.sh && git add a.sh && printf '# notes\n' > NOTES.md )
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.c 검증 뒤 문서만 추가 → allow" '"continue":true' "$out"
+# 검증 뒤 생긴 **추적하지 않는 파일**(로그·캐시·.DS_Store)은 이 커밋에 실리지 않는다 — 막지 않는다.
+#   판정 SoT 는 그대로 STALE 이다(작업트리 전체를 본다). R-1 이 묻는 것은 "커밋되는 내용이 검증됐는가" 다.
+( cd "$_VS" && printf 'log\n' > build.log )
+_vv=$(cd "$_VS" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260101-x)
+[ "$_vv" = "STALE" ] && { echo "PASS T-vstale.f-0 픽스처 STALE 성립(untracked 파일)"; pass=$((pass+1)); } \
+  || { echo "FAIL T-vstale.f-0 픽스처 verdict=$_vv (STALE 아님)"; fail=$((fail+1)); }
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f ★ 검증 뒤 untracked 파일만 생김 → allow" '"continue":true' "$out"
+# 커밋 메시지에 든 낱말(add·stage)은 git add 가 아니다 — 영문 저장소의 기본형(`feat: add …`)이 면제를 끄면 안 된다
+out=$(mkstdin 'git commit -m "feat: add login"' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1 ★ 메시지에 add 가 든 커밋 → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -m 'stage 2 of the add flow' -m \"git add later\"" "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1b 메시지에 stage·git add 글자 → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -F - <<'EOF'
+feat: x
+
+git add was the wrong call here
+EOF" "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1e heredoc 메시지 줄머리의 git add → allow" '"continue":true' "$out"
+# 이미 있던 untracked 파일이 **바뀐** 경우도 같다 (검증 때부터 있던 로그에 덧붙음 — 가장 흔한 형태)
+( cd "$_VS" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260101-x PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+( cd "$_VS" && printf 'more\n' >> build.log )
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1d ★ 검증 때부터 있던 untracked 파일이 바뀜 → allow" '"continue":true' "$out"
+# `-a` 는 받는다 — 추적 파일의 작업트리 내용은 추적 지문이 이미 본다. 안전 prelude(cd 한 줄) 뒤의 커밋도 같다.
+out=$(mkstdin 'git commit -am "feat: v2"' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1g git commit -am → allow" '"continue":true' "$out"
+out=$(mkstdin 'cd .
+/usr/bin/git commit -q -m x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1h cd 한 줄 뒤 경로로 부른 git commit → allow" '"continue":true' "$out"
+# 커밋을 다른 명령과 한 번에 실행하면 적용하지 않는다 — 무엇이 안전한지 명령 글자로 가려내지 않는다(조회용 명령이어도 같다)
+out=$(mkstdin 'git status --short && git commit -m x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f1f ★ 조회용 명령과 함께여도 compound → deny" '"permissionDecision":"deny"' "$out"
+# 같은 명령에서 git add 를 하면 그 파일이 커밋에 실린다 — 막는다
+out=$(mkstdin 'git add -A && git commit -m x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f2 ★ 같은 명령에서 git add → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin '/usr/bin/git -C . stage build.log; git commit -m x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f2b 경로로 부른 git stage 도 같다 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin 'if true; then git -C . add -N build.log; fi
+git commit -am x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f2c then 안의 git -C . add → deny" '"permissionDecision":"deny"' "$out"
+# add·stage 말고도 인덱스에 올리는 길이 있다 — 조회용이 아닌 하위명령은 전부 같은 취급이다
+out=$(mkstdin 'git update-index --add build.log && git commit -m x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f2d ★ git update-index --add 를 함께 → deny" '"permissionDecision":"deny"' "$out"
+# 감싼 git·설정 변경·출력 옵션 — 명령 글자를 해석하는 방식이 놓치던 표기들(독립 리뷰가 재현했다)
+for _c in 'git ls-files -o --exclude-standard | xargs git add && git commit -m x' \
+          'find . -name build.log -exec git add {} \; && git commit -m x' \
+          'sh -c "git add -A" && git commit -m x' \
+          'git config core.hooksPath hk && git commit -m x' \
+          'git diff --output=a.sh; git commit -am x' \
+          'git --no-lazy-fetch add -A && git commit -m x' \
+          'git commit -m x build.log' \
+          'git commit -m "$(git add -A)"'; do
+  out=$(mkstdin "$_c" "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+  check "T-vstale.f2e ★ 커밋만 하는 명령이 아님 → deny ($_c)" '"permissionDecision":"deny"' "$out"
+done
+msg=$(_deny_msg "$_VS" "$HOOK" "$(mkstdin 'git add -A && git commit -m x' "$FIX/exec-evidence-pass.jsonl")")
+check "T-vstale.f2f 사유가 '커밋만 따로 실행' 을 안내한다" '만 따로 실행하세요' "$msg"
+( cd "$_VS" && git add build.log )
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f3 ★ 그 파일을 인덱스에 올림(staged 신규) → deny" '"permissionDecision":"deny"' "$out"
+( cd "$_VS" && git reset -q build.log && git add -N build.log )
+out=$(mkstdin 'git commit -am x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f4 ★ intent-to-add(git add -N) + commit -a → deny" '"permissionDecision":"deny"' "$out"
+( cd "$_VS" && git reset -q build.log && printf 'echo CHANGED\n' > a.sh )
+out=$(mkstdin 'git commit -am x' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.f5 ★ untracked 파일 + 추적 파일 수정 → deny" '"permissionDecision":"deny"' "$out"
+( cd "$_VS" && rm -f build.log && printf 'echo v2\n' > a.sh && git add a.sh )
+# 검증 상태 기록이 없는 FID(진행 기록 앵커만 쓰는 흐름)는 종전대로다
+rm -f "$_VS/.specops/20260101-x/verification-state.json"
+( cd "$_VS" && printf 'echo other\n' > a.sh && git add a.sh )
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.d 상태 기록 없는 FID → 종전 판정(allow)" '"continue":true' "$out"
+rm -rf "$_VS"
+
+# ══════════════════════════════════════════════════════════════════════════
+# T-fidbind: 다른 FID 의 run-verification 출력은 이 FID 의 실행 증거가 아니다 (20261009)
+#   왜: 실행 증거는 "러너가 돌았다" 만 보고 **어느 FID 를** 검증했는지 보지 않았다. 한 세션에서 FID 여럿을 다루면
+#   (batch) 앞 FID 의 PASS 가 뒤 FID 의 커밋을 열었다 — 뒤 FID 의 진행 기록 한 줄만 쓰면 된다.
+#   FID 가 글자로 적힌 경우만 대조한다 — 변수(`"$FID"`)·run-all.sh 는 판단하지 않는다(거짓 차단 금지).
+# ══════════════════════════════════════════════════════════════════════════
+_FB=$(mktemp -d) || exit 1
+mkdir -p "$_FB/.specops/20260202-mine"
+( cd "$_FB" && git init -q && printf 'echo x\n' > a.sh && git add a.sh ) >/dev/null 2>&1
+printf '<!-- active-fid: 20260202-mine -->\n## 20260202-mine\n- 2099-01-01 10:00 /verify PASS (evidence.md)\n' > "$_FB/.specops/session-progress.md"
+_fb_tr() {  # $1=러너 명령 → transcript 경로
+  local f; f=$(mktemp)
+  jq -nc --arg c "$1" '{type:"assistant",message:{role:"assistant",content:[{type:"tool_use",id:"toolu_A",name:"Bash",input:{command:$c}}]}}' > "$f"
+  jq -nc '{type:"user",message:{role:"user",content:[{type:"tool_result",tool_use_id:"toolu_A",is_error:false,content:"VERIFY: PASS"}]}}' >> "$f"
+  printf '%s' "$f"
+}
+_t=$(_fb_tr 'bash /p/scripts/_internal/run-verification.sh 20260101-other')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.a ★ 다른 FID 의 러너 PASS → deny" '"permissionDecision":"deny"' "$out"
+msg=$(_deny_msg "$_FB" "$HOOK" "$(mkstdin 'git commit -m x' "$_t")")
+check "T-fidbind.a2 사유가 '다른 FID' 라고 말한다" '다른 FID' "$msg"
+_nocheck "T-fidbind.a3 '러너 실행 기록이 없다' 는 거짓 원인을 말하지 않는다" '이 세션에 러너 실행 기록이 없습니다' "$msg"; rm -f "$_t"
+_t=$(_fb_tr 'bash /p/scripts/_internal/run-verification.sh 20260202-mine')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.b 대조 — 이 FID 의 러너 PASS → allow" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_tr 'bash "/p/scripts/_internal/run-verification.sh" "20260202-mine"')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.b2 인용된 FID → allow" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_tr 'FID=20260202-mine
+bash /p/scripts/_internal/run-verification.sh "$FID"')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.c FID 가 변수 → 판단하지 않는다(allow)" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_tr 'bash scripts/tests/run-all.sh')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.d run-all.sh(FID 인자 없음) → allow" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_tr 'bash /p/scripts/_internal/run-verification.sh 20260101-other
+bash /p/scripts/_internal/run-verification.sh 20260202-mine')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.e 여러 FID 를 한 명령에서 — 이 FID 가 들어 있으면 allow" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_tr 'bash /p/scripts/_internal/run-verification.sh 20260202-mine-two')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.f 접두만 같은 다른 FID → deny" '"permissionDecision":"deny"' "$out"; rm -f "$_t"
+# 백그라운드로 띄우고 출력 파일을 Read 로 회수한 경로에도 같은 대조가 걸린다
+_fb_bg() {  # $1=러너 명령 → transcript 경로 (bg 스텁 → 그 경로를 Read → VERIFY: PASS)
+  local f; f=$(mktemp)
+  jq -nc --arg c "$1" '{type:"assistant",message:{role:"assistant",content:[{type:"tool_use",id:"toolu_B",name:"Bash",input:{command:$c,run_in_background:true}}]}}' > "$f"
+  jq -nc '{type:"user",message:{role:"user",content:[{type:"tool_result",tool_use_id:"toolu_B",is_error:false,content:"Command running in background with ID: b1. Output is being written to: /tmp/bg-out.txt. You will be notified."}]}}' >> "$f"
+  jq -nc '{type:"assistant",message:{role:"assistant",content:[{type:"tool_use",id:"toolu_R",name:"Read",input:{file_path:"/tmp/bg-out.txt"}}]}}' >> "$f"
+  jq -nc '{type:"user",message:{role:"user",content:[{type:"tool_result",tool_use_id:"toolu_R",is_error:false,content:"VERIFY: PASS"}]}}' >> "$f"
+  printf '%s' "$f"
+}
+_t=$(_fb_bg 'bash /p/scripts/_internal/run-verification.sh 20260202-mine')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.g 대조 — 이 FID 의 백그라운드 러너 + Read 회수 → allow" '"continue":true' "$out"; rm -f "$_t"
+_t=$(_fb_bg 'bash /p/scripts/_internal/run-verification.sh 20260101-other')
+out=$(mkstdin 'git commit -m x' "$_t" | CLAUDE_PROJECT_DIR="$_FB" bash "$HOOK" 2>/dev/null)
+check "T-fidbind.h ★ 다른 FID 의 백그라운드 러너 + Read 회수 → deny" '"permissionDecision":"deny"' "$out"; rm -f "$_t"
+rm -rf "$_FB"
+
+# ══════════════════════════════════════════════════════════════════════════
+# T-off: 설정 파일로 차단 훅을 끄면 그 사실이 기록에 남는다 (20261009)
+#   왜: 인라인 우회는 사유를 요구하고 기록되는데, `.specops/config.yaml` 한 줄로 끄는 길은 아무 기록도 남기지 않았다.
+#   그 파일은 모델도 쓸 수 있고 문서 면제 클래스다. 끄는 것은 막지 않는다(사용자 주권) — 꺼져 있었다는 사실만 남긴다.
+# ══════════════════════════════════════════════════════════════════════════
+if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  _OF=$(mktemp -d) || exit 1
+  ( cd "$_OF" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir .specops \
+    && printf 'hooks:\n  pretool-governance:\n    enabled: false\n' > .specops/config.yaml ) >/dev/null 2>&1
+  # 킬스위치 판정(is-hook-enabled)은 훅의 cwd 기준이다 — CLAUDE_PROJECT_DIR 앵커보다 앞에서 돈다. 그래서 cd 한다.
+  out=$(cd "$_OF" && mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_OF" bash "$HOOK" 2>/dev/null)
+  check "T-off.a 꺼진 훅 → allow (끄는 것은 막지 않는다)" '"continue":true' "$out"
+  if grep -q '"rule_id":"GOVERNANCE-DISABLED"' "$_OF/.specops/friction-log.jsonl" 2>/dev/null; then
+    echo "PASS T-off.b ★ 꺼진 채 커밋 → GOVERNANCE-DISABLED 기록"; pass=$((pass+1))
+  else echo "FAIL T-off.b 꺼진 훅이 기록을 남기지 않음"; fail=$((fail+1)); fi
+  if grep -q 'SPECOPS_GOVERNANCE_PROFILE' "$_OF/.specops/friction-log.jsonl" 2>/dev/null; then
+    echo "FAIL T-off.b2 기록이 프로파일 환경변수를 원인으로 든다 — 그 변수로는 차단 훅이 꺼지지 않는다"; fail=$((fail+1))
+  else echo "PASS T-off.b2 기록 문안이 실제 원인(설정 파일)만 말한다"; pass=$((pass+1)); fi
+  # 꺼진 훅의 기록도 잇기 전 원문을 함께 본다 — 주석 줄 끝 `\` 다음 줄의 커밋
+  rm -f "$_OF/.specops/friction-log.jsonl"
+  ( cd "$_OF" && mkstdin '# note \
+git commit -m x' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_OF" bash "$HOOK" >/dev/null 2>&1 )
+  grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_OF/.specops/friction-log.jsonl" \
+    && { echo "PASS T-off.b3 주석 줄 끝 \\ 다음 줄의 커밋도 기록"; pass=$((pass+1)); } \
+    || { echo "FAIL T-off.b3 주석 줄 끝 \\ 다음 줄의 커밋이 기록되지 않음"; fail=$((fail+1)); }
+  # 커밋·PR 이 아닌 명령에는 남기지 않는다 (기록 폭주 방지)
+  rm -f "$_OF/.specops/friction-log.jsonl"
+  ( cd "$_OF" && mkstdin "ls -la" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_OF" bash "$HOOK" >/dev/null 2>&1 )
+  [ ! -f "$_OF/.specops/friction-log.jsonl" ] && { echo "PASS T-off.c 커밋이 아닌 명령 → 기록 없음"; pass=$((pass+1)); } \
+    || { echo "FAIL T-off.c 무관한 명령에도 기록"; fail=$((fail+1)); }
+  # .specops 가 없는 저장소에는 남기지 않는다 (관할 한정)
+  _OF2=$(mktemp -d) || exit 1
+  ( cd "$_OF2" && git init -q && echo "echo x" > a.sh && git add a.sh ) >/dev/null 2>&1
+  ( cd "$_OF2" && mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | SPECOPS_CONFIG="$_OF/.specops/config.yaml" CLAUDE_PROJECT_DIR="$_OF2" bash "$HOOK" >/dev/null 2>&1 )
+  [ ! -e "$_OF2/.specops" ] && { echo "PASS T-off.d .specops 부재 → 기록·디렉토리 없음"; pass=$((pass+1)); } \
+    || { echo "FAIL T-off.d 비도입 저장소에 흔적"; fail=$((fail+1)); }
+  rm -rf "$_OF" "$_OF2"
+else
+  echo "SKIP T-off (python3+pyyaml 부재 — 설정 파일 킬스위치 시뮬레이션 불가)"
+fi
 
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

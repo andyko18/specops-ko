@@ -23,7 +23,7 @@ cd "$PLUGIN"; rm -rf "$tmp"
 # T8.b 매칭 없음 → {continue:true} 만
 tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
 cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
-cp "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" transcript.jsonl
+sed 's/20260101-x/20260424-newest-feature/g' "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" > transcript.jsonl   # 러너가 **이 샌드박스의 FID** 를 검증한 것으로 — 다른 FID 의 PASS 는 증거가 아니다
 stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
 out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
 has_context=$(echo "$out" | jq -e 'has("additionalContext")' >/dev/null 2>&1 && echo 1 || echo 0)

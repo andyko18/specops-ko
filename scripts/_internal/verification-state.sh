@@ -2,6 +2,7 @@
 # 검증 판정 단일 SoT.
 # Usage:
 #   verification-state.sh current <FID>
+#   verification-state.sh stale-scope <FID>     (STALE 의 범위 — untracked-only | changed)
 #   verification-state.sh record <FID> <NOT_RUN|PASS|PARTIAL|FAIL|WAIVED> [options]
 # 신규 FID는 verification-state.json을 우선하며, 기존 evidence stamp는 읽기 호환만 제공한다.
 set -u
@@ -71,12 +72,13 @@ vs::workspace_fingerprint() {
 #   원하는지 호출부에서 드러나게 한다.
 #   왜 과거 트리를 조회하지 않는가: write-tree 산출 트리는 어떤 ref 에서도 도달 불가라 git gc 대상이다
 #   (실측: 이 저장소 기록 55건 중 3건이 이미 소실). 기록 시점에 지문을 남겨야 대조가 성립한다.
+#   $1 = tracked 면 **추적 중이거나 인덱스에 오른 경로만** 본다(vs::stale_scope 전용 — 아래 주석). 무인자는 종전 그대로다.
 vs::nondoc_fingerprint() {
   if ! command -v git >/dev/null 2>&1 || ! git rev-parse --git-dir >/dev/null 2>&1; then
     printf 'NO_GIT'
     return 0
   fi
-  local idx plugin_rc=1 line f out="" top add_rc unborn=""
+  local idx plugin_rc=1 line f out="" top add_rc unborn="" mode="${1:-all}" ridx
   idx=$(mktemp "${TMPDIR:-/tmp}/vs-nidx.XXXXXX") || { printf 'NO_GIT'; return 0; }
   # ★ 저장소 루트에 앵커한다 — pathspec `.` 과 `:(exclude).specops` 는 **cwd 상대**라
   #   서브디렉터리에서 부르면 그 아래만 열거된다. workspace_fingerprint 는 같은 트리면 cwd 와
@@ -98,7 +100,21 @@ vs::nondoc_fingerprint() {
   GIT_INDEX_FILE="$idx" git -C "$top" read-tree HEAD >/dev/null 2>&1 || true
   git -C "$top" rev-parse --verify -q HEAD >/dev/null 2>&1 || unborn=1   # unborn HEAD 취급은 vs::workspace_fingerprint 의 주석 참조
   add_rc=0
-  GIT_INDEX_FILE="$idx" git -C "$top" -c add.ignoreErrors=false add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || add_rc=$?
+  if [ "$mode" = "tracked" ]; then
+    # **실 인덱스를 복사**해 그 경로들만 작업트리 내용으로 갱신한다(add -u). 임시 인덱스의 경로 집합이 실 인덱스와 같아야 한다:
+    #   staged 신규·intent-to-add 는 들어가고, 인덱스에서 뺀 파일(`git rm`·`git rm --cached` — 커밋이 그 파일을 지운다)은 빠지고,
+    #   아무 데도 오르지 않은 untracked 파일은 처음부터 없다. HEAD 에서 시작하면 인덱스에서 뺀 파일이 임시 인덱스에 남아
+    #   "달라지지 않았다" 고 답한다. 복사·갱신이 조금이라도 실패하면 add_rc 가 2 로 남아 아래에서 UNHASHABLE 이 된다.
+    add_rc=2; unborn=""   # 이 모드에는 unborn 예외가 없다 — 실 인덱스는 첫 커밋 전에도 유효하고, 실패는 언제나 UNHASHABLE 이다
+    ridx=$(git -C "$top" rev-parse --git-path index 2>/dev/null) || ridx=""
+    case "$ridx" in ""|/*) ;; *) ridx="$top/$ridx" ;; esac
+    # 사본의 mtime 을 원본에 맞춘다 — git 은 "항목 mtime ≥ 인덱스 파일 mtime" 이면 내용을 다시 비교하는데(racy-clean),
+    #   방금 만든 사본은 mtime 이 지금이라 그 보호가 꺼진다: 인덱스에 오른 것과 같은 초에 같은 크기로 고친 파일을 놓친다.
+    if [ -n "$ridx" ] && [ -f "$ridx" ] && cp "$ridx" "$idx" 2>/dev/null && touch -r "$ridx" "$idx" 2>/dev/null; then
+      GIT_INDEX_FILE="$idx" git -C "$top" -c add.ignoreErrors=false add -u -- ':/' >/dev/null 2>&1 && add_rc=0
+    fi
+  fi
+  [ "$mode" = "tracked" ] || GIT_INDEX_FILE="$idx" git -C "$top" -c add.ignoreErrors=false add -A -- ':/' ':(exclude,glob,top).specops/**' >/dev/null 2>&1 || add_rc=$?
   # add rc 해석(0·1 정상 / 2 이상 UNHASHABLE)은 vs::workspace_fingerprint 의 주석 참조
   [ "$add_rc" -le 1 ] || [ -n "$unborn" ] || { rm -f "$idx"; printf 'UNHASHABLE'; return 0; }
   fc::is_plugin_repo && plugin_rc=0   # 루프 **밖에서 1회만** — 파일마다 부르면 프로세스를 스폰한다
@@ -182,6 +198,18 @@ vs::current() {
   printf '%s' "$verdict"
 }
 
+# STALE 의 범위 (20261009) — `untracked-only` | `changed`.
+#   untracked-only: 기록된 PASS 와 지금의 차이가 **추적하지 않는 파일**(로그·캐시·.DS_Store — 생겼거나 바뀌었거나)뿐이다.
+#   판정: 지금의 추적 파일 지문이 기록된 추적 파일 지문(`tracked_nondoc_hash`)과 같다. 그 필드가 없는 기록(구버전)과
+#   비교 근거가 없는 값(NO_GIT·UNHASHABLE)은 `changed` 다(막는 쪽). EMPTY 는 "추적 중인 비문서 파일이 없다" 는 실제 값이다.
+#   소비자: R-1 훅(_vs_stale_blocks). `current` 의 답(STALE)은 바꾸지 않는다 — 작업트리 전체를 보는 다른 소비자가 있다.
+vs::stale_scope() {
+  local state="$SPECOPS/$1/verification-state.json" rec="" now=""
+  [ -f "$state" ] && [ "$(jq -r '.verdict // ""' "$state" 2>/dev/null)" = "PASS" ] && rec=$(jq -r '.tracked_nondoc_hash // ""' "$state" 2>/dev/null)
+  case "$rec" in NO_GIT|UNHASHABLE) ;; *) now=$(vs::nondoc_fingerprint tracked) ;; esac   # 빈 값(필드 없는 기록)은 아래 비교에서 어긋난다
+  if [ -n "$now" ] && [ "$now" = "$rec" ]; then printf 'untracked-only'; else printf 'changed'; fi
+}
+
 vs::record() {
   local fid="$1" verdict="$2"; shift 2
   vs::valid_fid "$fid" || { echo "verification-state: invalid FID" >&2; return 1; }
@@ -229,21 +257,24 @@ vs::record() {
   tree=$(vs::workspace_fingerprint)
   # 비문서 지문을 함께 남긴다 — 조회 시점에 과거 트리를 못 찾는 문제(gc)를 구조적으로 피한다.
   #   schema_version 은 올리지 않는다: 필드 부재가 곧 구버전이고 소비측이 종전 경로로 떨어진다.
-  local nondoc
+  local nondoc tracked
   nondoc=$(vs::nondoc_fingerprint)
+  # 추적 파일만의 지문 — stale-scope 가 "달라진 것이 추적하지 않는 파일뿐인가" 를 답하는 근거다(20261009).
+  #   nondoc_hash 와 따로 남긴다: 검증 때 이미 untracked 파일(로그·.DS_Store)이 있던 트리에서는 둘이 다르다.
+  tracked=$(vs::nondoc_fingerprint tracked)
   if [ "$tree" = "UNHASHABLE" ] || [ "$nondoc" = "UNHASHABLE" ]; then
     echo "verification-state: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등으로 git add 가 실패해 이 기록은 조회 시 STALE 로 읽힌다. git add -A -n 으로 원인(permission 오류 등)을 찾아 고치세요" >&2
   fi
   jq -n \
     --argjson schema_version 1 --arg fid "$fid" --arg verdict "$verdict" \
     --arg recorded_at "$ts" --arg head_sha "$head_sha" --arg tree_hash "$tree" \
-    --arg nondoc_hash "$nondoc" \
+    --arg nondoc_hash "$nondoc" --arg tracked_nondoc_hash "$tracked" \
     --argjson executed "$executed" --argjson skipped "$skipped" \
     --argjson failed "$failed" --argjson duration_ms "$duration_ms" \
     --arg waiver_reason "$waiver_reason" --arg waiver_approved_by "$waiver_approved_by" \
     --arg waiver_expires_at "$waiver_expires_at" \
     '{schema_version:$schema_version,fid:$fid,verdict:$verdict,recorded_at:$recorded_at,
-      head_sha:$head_sha,tree_hash:$tree_hash,nondoc_hash:$nondoc_hash,
+      head_sha:$head_sha,tree_hash:$tree_hash,nondoc_hash:$nondoc_hash,tracked_nondoc_hash:$tracked_nondoc_hash,
       executed:$executed,skipped:$skipped,
       failed:$failed,duration_ms:$duration_ms,
       waiver:(if $verdict=="WAIVED" then
@@ -264,8 +295,12 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
       shift 2
       vs::record "$fid" "$@"
       ;;
+    stale-scope)
+      vs::valid_fid "$fid" || { echo "verification-state: invalid FID" >&2; exit 1; }
+      vs::stale_scope "$fid"; printf '\n'
+      ;;
     *)
-      echo "usage: $0 {current <FID>|record <FID> <verdict> [options]}" >&2
+      echo "usage: $0 {current <FID>|stale-scope <FID>|record <FID> <verdict> [options]}" >&2
       exit 1
       ;;
   esac

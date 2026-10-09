@@ -89,6 +89,10 @@ R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된�
 
 **실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
 
+> **실행 증거는 그 FID 의 것이어야 하고, 검증 뒤 코드가 바뀌면 닫힌다** (20261009): 러너 명령에 FID 가 글자로 적혀 있는데(`run-verification.sh <FID>`) 그것이 활성 FID 가 아니면 실행 증거로 치지 않는다 — 한 세션에서 FID 여럿을 다루면 앞 FID 의 PASS 가 뒤 FID 의 커밋을 열었다(실기록 커밋 919건 중 12건). FID 가 변수거나 `run-all.sh` 면 판단하지 않는다. 그리고 판정 SoT(`verification-state.sh current`)가 `STALE` 이면 진행 기록·스탬프가 있어도 R-1 은 열리지 않는다 — 종전에는 transcript 의 Edit/Write 이벤트로만 무효화를 봐서, 셸 명령·포매터·코드 생성기·서브에이전트가 고친 코드는 검증 없이 커밋됐다. `STALE` 이어도 막지 않는 경우는 둘이다(`_vs_stale_blocks`) — 전체 스위트가 **지금 이 트리**에서 통과했거나(`full-suite-fresh.sh` rc 0 — `run-all.sh` 는 판정 상태를 갱신하지 않는다), 달라진 것이 추적하지 않는 파일뿐일 때(`verification-state.sh stale-scope` = `untracked-only` — 기록의 `tracked_nondoc_hash` 와 대조 · 커밋만 실행하는 명령(`git commit [-a] -m …` 한 줄 — `_commit_scope_is_staged`)일 때만 · compound·파이프·경로 인자는 조회용 명령과 함께여도 제외). 거부 문안은 다른 FID 의 러너였으면 그렇다고 말한다(`cause.exec = otherfid`).
+
+> **커밋·PR 인식 표기** (20261009): 트리거(`hooks/rules.jsonl` R-1·R-2 `trigger_pattern`)는 명령 위치의 `git commit`·`gh pr create` 를 env 접두·래퍼(`rtk`·`time`·`nice`·`sudo`·`env` 와 그 옵션 · `exec`·`nohup`·`timeout N`)·제어 키워드(`then`·`do`·`else`·`if`·`while`·`!`)·`case` 가지 뒤, 경로로 부른 형태(`/usr/bin/git`), 줄 연속, `gh pr -R … create` 까지 인식한다. 트리거 판정은 줄 연속을 이은 문자열과 **잇기 전 원문을 둘 다** 본다(`_trigger_scan_text` — 이은 것만 보면 주석 줄 끝 `\` 다음 줄의 실커밋을 놓친다). 종전에는 이 표기들이 차단도 사후 감사도 거치지 않았다(이 저장소 커밋 80건 중 17건). `sh -c`·`eval`·`xargs`·alias·변수에 든 명령은 여전히 범위 밖이다(`docs/architecture.md` §6-1 표). pretool 을 설정으로 끈 채 커밋·PR 이 나가면 repo 레벨 friction-log 에 `GOVERNANCE-DISABLED` 가 남는다(끄는 것 자체는 막지 않는다).
+
 > **①만으로는 열리지 않는다** — 실행 증거(`_exec_rc ≠ 1` — `0`=러너 실행 확인 · `2`=판정 불가 fail-open)는 자기보고 3경로를 **여는 전제조건**이지 단독 면제가 아니다. 앵커가 하나도 없으면 러너를 몇 번 돌려도 통과하지 않는다. R-1 의 implement 창은 FID 에 `tasks.md` 가 있고 **verify 가 아직 유효 PASS 가 아닐 때**(`verification-state` 가 `NOT_RUN`·`PARTIAL`·`FAIL`) 열리며 receipt 로 면제된다 — 종전의 `evidence.md 부재` 조건은 구현 중 태스크가 그 파일을 쓰면 남은 태스크의 탈출구를 닫았다. `STALE`·`WAIVED` 는 창이 닫힌다. deny 메시지는 세 조건(①·②·receipt)의 **실제 상태**를 표시한다(`cause` 진단이 없거나 파싱 실패면 종전 무조건 3블록 문안으로 떨어지고 deny 는 유지된다).
 
 ### 서브에이전트 리뷰 패턴 (Generator ↔ Evaluator 분리)
@@ -169,7 +173,7 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 
-`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1780줄 · 함수 46개) 한 파일에 한해 적용하지 않는다** — 46개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록 · 우회 분류 · degraded 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
+`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1892줄 · 함수 51개) 한 파일에 한해 적용하지 않는다** — 51개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록 · 우회 분류 · degraded 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. (규칙의 예시 코드가 JS/TS 라 "앱 코드 상정" 으로 읽을 여지가 있으나, **그건 원문 진술이 아니라 해석**이다 — 여기서는 규칙의 적용 범위를 재정의하지 않고 이 파일 하나에 예외를 둔다.)
 
 **분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다 — 그 릴리즈는 "강제층 자신이 조용히 사라지는 경로가 셋 있었다"를 다뤘다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다.
 
