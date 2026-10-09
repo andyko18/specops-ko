@@ -268,4 +268,139 @@ _raw_case T12.q '한 줄 인라인 코드가 있어도 전부 선언이면 PASS'
 # 물결 펜스는 백틱으로 닫히지 않는다
 _raw_case T12.r '물결 펜스 안의 제목은 절이 아니다 → PASS(절 1개)' 0 < <(printf '## 태스크 1: a\n**재사용 foundation**: 라우팅\n~~~\n```\n## 태스크 2: 예시\n~~~\n')
 
+# ── T13: 선언이 뒤 단계로 이어지게 (20261009 /start-foundation 점검 묶음 B) ─────────
+# 결함: 게이트는 선언이 **적혔는지**만 봤고, 그 뒤 구현자 컨텍스트·리뷰어·verify 어디도 선언·manifest 를 보지 않았다.
+#   ① 선언값이 manifest 의 모듈명을 담지 않으면 **경고**한다(차단 아님 — 실기록 227줄 중 14줄(6%)이
+#      경로·규약 이름으로 적은 정상 선언이라 차단하면 거짓 차단이 된다).
+#   ② 문장부호뿐인 미재사용 근거(`-`)는 근거가 아니다.
+#   ③ `--declarations` 로 태스크별 선언을 내어 emit-context 가 구현자 컨텍스트에 싣는다.
+_mf_table() {  # $1=dir — 머리·구분선이 있는 실제 꼴의 manifest
+  cat > "$1/.specops/memory/foundation-manifest.md" <<'EOF'
+# Foundation Manifest — demo
+
+## 제공 모듈
+
+| 모듈 | 경로 | 역할 (1줄) | 재사용 방법 |
+|---|---|---|---|
+| 라우팅 | `src/router.ts` | 경로 표 | `import { router }` |
+| `AuthGuard` | `src/auth.ts` | 세션 확인 | `import { AuthGuard }` |
+EOF
+}
+_decl_case() {  # $1=id $2=설명 $3=T1 선언 $4=기대 rc $5=WARN 기대(y|n)
+  local td out rc w
+  td=$(mktemp -d); _mk "$td" 20260806-f 신규 y; _mf_table "$td"
+  { printf '# 태스크\n\n## Task 1: 첫 작업\n\n%s\n\n## Task 2: 둘째\n\n**미재사용 근거**: 문서만 고친다\n' "$3"; _yaml2; } \
+    > "$td/.specops/20260806-f/tasks.md"
+  out=$(cd "$td" && bash "$CHK" 20260806-f 2>&1); rc=$?
+  w=n; printf '%s' "$out" | grep -q '^FOUNDATION-REUSE: WARN' && w=y
+  [ "$rc" -eq "$4" ] && [ "$w" = "$5" ] && ok "$1 $2" || nope "$1" "rc=$rc(기대 $4) warn=$w(기대 $5) out=$out"
+  LAST_OUT="$out"
+  rm -rf "$td"
+}
+_decl_case T13.a '모듈명을 담은 선언 → PASS · 경고 없음' '**재사용 foundation**: 라우팅' 0 n
+_decl_case T13.b '여러 모듈·부연이 붙어도 모듈명이 있으면 경고 없음' '**재사용 foundation**: 라우팅 (경로 표에 행 추가), 테스트' 0 n
+_decl_case T13.c '백틱으로 감싼 모듈명도 같은 이름으로 읽는다' '**재사용 foundation**: `AuthGuard` 로 보호' 0 n
+_decl_case T13.d 'manifest 에 없는 이름 → 통과하되 경고' '**재사용 foundation**: 존재하지않는모듈XYZ' 0 y
+printf '%s' "$LAST_OUT" | grep -q 'Task 1' && printf '%s' "$LAST_OUT" | grep -q '존재하지않는모듈XYZ' \
+  && ok "T13.e 경고가 태스크와 선언값을 지목" || nope "T13.e" "out=$LAST_OUT"
+printf '%s' "$LAST_OUT" | tail -1 | grep -q '^FOUNDATION-REUSE: PASS' \
+  && ok "T13.f 경고가 있어도 마지막 줄은 PASS (차단 아님)" || nope "T13.f" "out=$LAST_OUT"
+_decl_case T13.g '문장부호뿐인 미재사용 근거(-) → FAIL' '**미재사용 근거**: -' 1 n
+_decl_case T13.h '문장부호뿐인 미재사용 근거(—) → FAIL' '**미재사용 근거**: —' 1 n
+_decl_case T13.i '문장부호뿐인 재사용 선언(...) → FAIL' '**재사용 foundation**: ...' 1 n
+_decl_case T13.j '한 글자라도 내용이 있는 근거는 인정' '**미재사용 근거**: 문서' 0 n
+
+# T13.k: 모듈명을 읽을 표가 없는 manifest(산문형)에서는 경고하지 않는다 — 판정할 근거가 없다
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+printf '# 공통부\n\n라우팅은 src/router.ts 에 있다.\n' > "$TD/.specops/memory/foundation-manifest.md"
+{ printf '# 태스크\n\n## Task 1: a\n\n**재사용 foundation**: 아무이름\n\n## Task 2: b\n\n**미재사용 근거**: 문서\n'; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'WARN' \
+  && ok "T13.k 표 없는 manifest → 경고 없음" || nope "T13.k" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T13.l: --declarations — 태스크 번호별 선언을 기계가 읽을 꼴로 낸다 (emit-context 가 소비)
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y; _mf_table "$TD"
+{ printf '# 태스크\n\n### Task 1: a\n\n**재사용 foundation**: 라우팅, `AuthGuard`\n\n### Task 2: b\n\n**미재사용 근거**: 문서만 | 고친다\n'; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+out=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1); rc=$?
+[ "$rc" -eq 0 ] \
+  && printf '%s\n' "$out" | grep -qxF 'MANIFEST|.specops/memory/foundation-manifest.md' \
+  && printf '%s\n' "$out" | grep -qxF '1|재사용 foundation|라우팅, `AuthGuard`' \
+  && printf '%s\n' "$out" | grep -qxF '2|미재사용 근거|문서만 | 고친다' \
+  && ok "T13.l --declarations 가 manifest 경로와 태스크별 선언을 낸다" || nope "T13.l" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T13.m: --declarations 는 게이트가 발동하지 않는 FID(생산자·manifest 부재)에서 아무것도 내지 않는다
+TD=$(mktemp -d); _mk "$TD" 20260806-f foundation y
+_tasks "$TD/.specops/20260806-f/tasks.md" '**재사용 foundation**: 라우팅' ''
+o1=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1); r1=$?
+rm -rf "$TD"; TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 n
+_tasks "$TD/.specops/20260806-f/tasks.md" '**재사용 foundation**: 라우팅' ''
+o2=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1); r2=$?
+[ "$r1" -eq 0 ] && [ -z "$o1" ] && [ "$r2" -eq 0 ] && [ -z "$o2" ] \
+  && ok "T13.m --declarations: 생산자·manifest 부재 → 무출력 rc=0" || nope "T13.m" "r1=$r1 o1=$o1 r2=$r2 o2=$o2"
+rm -rf "$TD"
+
+# T13.o: 한글 모듈명이 여럿이어도 전부 이름으로 남는다 — 로케일 정렬의 -u 가 서로 다른 한글 문자열을 같다고 보아
+#   이름을 지웠다(macOS 실측: 실 manifest 에서 `로컬 러너` 가 사라져 정상 선언에 경고가 났다).
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | a |\n| 인증 | b |\n| 레이아웃 | c |\n| 로컬 러너 | d |\n| 응답 파서 | e |\n' > "$TD/.specops/memory/foundation-manifest.md"
+okl=ok
+for name in 라우팅 인증 레이아웃 '로컬 러너' '응답 파서'; do
+  { printf '# 태스크\n\n## Task 1: a\n\n**재사용 foundation**: %s\n\n## Task 2: b\n\n**미재사용 근거**: 문서\n' "$name"; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+  for loc in en_US.UTF-8 ko_KR.UTF-8 C; do   # en_US.UTF-8 에서 재현됐다(5개 → 4개) — 없는 로케일이면 C 로 떨어져 무해하다
+    out=$(cd "$TD" && LC_ALL=$loc LANG=$loc bash "$CHK" 20260806-f 2>&1)
+    printf '%s' "$out" | grep -q 'WARN' && okl="no($name @$loc)"
+  done
+done
+[ "$okl" = ok ] && ok "T13.o 한글 모듈명 5종 전부 인식(로케일 정렬 무관)" || nope "T13.o" "$okl"
+rm -rf "$TD"
+
+# T13.p: 표 밖이라도 manifest 가 백틱으로 적은 경로·심볼을 담은 선언은 근거 있는 선언이다 · manifest 자신의 경로만 적은 선언은 아니다
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+printf '# 공통부\n\n| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n\n세션은 `session_scope` 로 연다.\n\n*경로: `.specops/memory/foundation-manifest.md`*\n' > "$TD/.specops/memory/foundation-manifest.md"
+okp=ok
+for case in 'n|`session_scope` 로 트랜잭션' 'n|src/router.ts 에 행 추가' 'y|`.specops/memory/foundation-manifest.md`' 'y|마이그레이션 규약'; do
+  { printf '# 태스크\n\n## Task 1: a\n\n**재사용 foundation**: %s\n\n## Task 2: b\n\n**미재사용 근거**: 문서\n' "${case#*|}"; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+  out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); w=n; printf '%s' "$out" | grep -q 'WARN' && w=y
+  [ "$w" = "${case%%|*}" ] || okp="no(${case#*|} → warn=$w)"
+done
+[ "$okp" = ok ] && ok "T13.p 경로·심볼 근거 인정 · manifest 자기 경로·무근거 선언은 경고" || nope "T13.p" "$okp"
+rm -rf "$TD"
+
+# T13.q~r: 독립 리뷰 반영 — 짧은 백틱 표기는 근거가 아니고, 파일 이름·호출 이름·대소문자 차이는 근거로 읽는다
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y
+printf '# 공통부\n\n| 모듈 | 경로 | 재사용 방법 |\n|---|---|---|\n| Auth Guard | `src/router.ts` | `withAuth(handler)` |\n\n`app` · `src` · `npm`\n' > "$TD/.specops/memory/foundation-manifest.md"
+okq=ok
+for case in 'y|이 app 의 src 폴더에 import 만 한다' 'n|router.ts 의 함수' 'n|withAuth 로 감싼다' 'n|auth guard 사용' 'n|AUTH GUARD'; do
+  { printf '# 태스크\n\n## Task 1: a\n\n**재사용 foundation**: %s\n\n## Task 2: b\n\n**미재사용 근거**: 문서\n' "${case#*|}"; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+  out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); w=n; printf '%s' "$out" | grep -q 'WARN' && w=y
+  [ "$w" = "${case%%|*}" ] || okq="no(${case#*|} → warn=$w)"
+done
+[ "$okq" = ok ] && ok "T13.q 짧은 표기는 근거 아님 · 파일 이름·호출 이름·대소문자 차이는 근거" || nope "T13.q" "$okq"
+rm -rf "$TD"
+
+# T13.r: 절 번호와 task id 번호가 어긋나면(id T1·T2 · 절 2·3) 통과시키되 알리고, --declarations 는 선언을 대응시키지 않는다
+TD=$(mktemp -d); _mk "$TD" 20260806-f 신규 y; _mf_table "$TD"
+{ printf '# 태스크\n\n## Task 2: a\n\n**재사용 foundation**: 라우팅\n\n## Task 3: b\n\n**미재사용 근거**: 문서\n'; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); rc=$?
+dec=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1)
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'WARN — 태스크 절 번호와 task id 번호가 어긋' \
+  && printf '%s\n' "$dec" | grep -q '^NOMAP|' && ! printf '%s\n' "$dec" | grep -q '재사용 foundation' \
+  && ok "T13.r 번호 불일치 → 경고 + 선언 미대응(NOMAP)" || nope "T13.r" "rc=$rc out=$out dec=$dec"
+# 같은 번호의 절이 둘이어도 어긋난 것이다
+{ printf '# 태스크\n\n## Task 1: a\n\n**재사용 foundation**: 라우팅\n\n## Task 1: b\n\n**미재사용 근거**: 문서\n'; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+dec=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1)
+printf '%s\n' "$dec" | grep -q '^NOMAP|' && ok "T13.s 같은 번호의 절 둘 → NOMAP" || nope "T13.s" "dec=$dec"
+# 번호가 맞으면(선행 0 포함) 경고 없음
+{ printf '# 태스크\n\n## Task 01: a\n\n**재사용 foundation**: 라우팅\n\n## Task 2: b\n\n**미재사용 근거**: 문서\n'; _yaml2; } > "$TD/.specops/20260806-f/tasks.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-f 2>&1); dec=$(cd "$TD" && bash "$CHK" --declarations 20260806-f 2>&1)
+! printf '%s' "$out" | grep -q 'WARN' && printf '%s\n' "$dec" | grep -qxF '1|재사용 foundation|라우팅' \
+  && ok "T13.t 번호 일치(선행 0) → 경고 없음 · 선언 대응" || nope "T13.t" "out=$out dec=$dec"
+rm -rf "$TD"
+
+# T13.n: 리뷰어·구현자 계약에 연결 — 코드 리뷰어의 재사용 대조 기준에 manifest 가 들어 있고, 구현자는 §6 의 manifest 를 따른다
+grep -q 'foundation-manifest' "$PLUGIN/agents/code-reviewer-ko.md" && grep -q 'foundation-manifest\|공통부 manifest' "$PLUGIN/agents/implementer-ko.md" \
+  && ok "T13.n code-reviewer-ko·implementer-ko 가 공통부 manifest 를 지목" || nope "T13.n" "에이전트 계약 미연결"
+
 finish

@@ -638,5 +638,65 @@ sed -i.bak "s#<repo-root>#$tmp#" "$f"; rm -f "$f.bak"
 _pf "T10.c §7 포함 context 가 validate-context 통과" "$([ "$rcv" -eq 0 ] && echo ok || echo no)" "rc=$rcv"
 rm -rf "$tmp"
 
+# ── 20261009 /start-foundation 점검 묶음 B — 공통부 재사용 선언을 구현자 컨텍스트에 싣는다 ──
+# 결함: 재사용 게이트는 tasks.md 에 선언이 적혔는지만 봤고, dispatch 컨텍스트(§6)에는 api-spec·data-model·screens 뿐이라
+#   구현자·리뷰어는 manifest(경로·사용법)를 받지 못했다 — 선언은 강제하는데 실제 사용으로는 이어지지 않았다.
+fnd_mk() {  # $1=tmp $2=fid $3=§유형 $4=manifest(y|n) $5=T1 선언 줄
+  mkdir -p "$1/.specops/$2" "$1/.specops/memory"; cp "$FIXTURES/ok-fid"/*.md "$1/.specops/$2/"
+  printf '\n**§유형**: %s\n' "$3" >> "$1/.specops/$2/spec.md"
+  [ "$4" = y ] && printf '# Foundation Manifest\n\n| 모듈 | 경로 | 역할 | 재사용 방법 |\n|---|---|---|---|\n| 라우팅 | `src/router.ts` | 경로 표 | `import { router }` |\n' \
+    > "$1/.specops/memory/foundation-manifest.md"
+  python3 -I - "$1/.specops/$2/tasks.md" "$5" <<'PYEOF'
+import sys
+p, decl = sys.argv[1], sys.argv[2]
+s = open(p, encoding="utf-8").read()
+head = "## Task 1: parser\n\n" + (decl + "\n\n" if decl else "") + "## Task 2: writer\n\n**미재사용 근거**: 출력 전용 — 공통부 범위 밖\n\n"
+open(p, "w", encoding="utf-8").write(s.replace("## 의존 그래프", head + "## 의존 그래프", 1))
+PYEOF
+}
+# T11.a manifest 가 있고 비-foundation FID → 각 태스크 컨텍스트에 manifest 경로와 **그 태스크의** 선언
+tmp=$(mktemp -d); fnd_mk "$tmp" 20260902-fnd 신규 y '**재사용 foundation**: 라우팅'
+out=$(cd "$tmp" && bash "$EMIT" 20260902-fnd 2>&1); rc=$?
+c1="$tmp/.specops/20260902-fnd/dispatch/T1-context.md"; c2="$tmp/.specops/20260902-fnd/dispatch/T2-context.md"
+_pf "T11.a manifest 경로 + 태스크별 선언이 컨텍스트에 실린다" \
+  "$([ "$rc" -eq 0 ] && grep -qF '.specops/memory/foundation-manifest.md' "$c1" && grep -qF '**재사용 foundation**: 라우팅' "$c1" \
+     && grep -qF '**미재사용 근거**: 출력 전용 — 공통부 범위 밖' "$c2" && ! grep -qF '라우팅' "$c2" && echo ok || echo no)" "rc=$rc out=$out"
+# T11.b 설계 계약 문서가 하나도 없어도(§6 이 원래 생략되는 프로젝트) manifest 가 있으면 §6 이 나온다
+_pf "T11.b api-spec·data-model·screens 없이도 §6 emit" "$(grep -q '^## 6\. ' "$c1" 2>/dev/null && echo ok || echo no)"
+# T11.c validate-context 는 그대로 통과한다
+sed -i.bak "s#<repo-root>#$tmp#" "$c1"; rm -f "$c1.bak"
+(cd "$tmp" && bash "$PLUGIN/scripts/dag/validate-context.sh" ".specops/20260902-fnd/dispatch/T1-context.md" >/dev/null 2>&1); rcv=$?
+_pf "T11.c manifest 블록이 있어도 validate-context 통과" "$([ "$rcv" -eq 0 ] && echo ok || echo no)" "rc=$rcv"
+rm -rf "$tmp"
+# T11.d foundation FID(생산자)·manifest 부재 → 컨텍스트에 manifest 언급 없음
+okd=ok
+for case in 'foundation|y' '신규|n'; do
+  tmp=$(mktemp -d); fnd_mk "$tmp" 20260902-fnd "${case%%|*}" "${case#*|}" '**재사용 foundation**: 라우팅'
+  (cd "$tmp" && bash "$EMIT" 20260902-fnd >/dev/null 2>&1) || okd="no(emit 실패 $case)"
+  grep -qF 'foundation-manifest' "$tmp/.specops/20260902-fnd/dispatch/T1-context.md" 2>/dev/null && okd="no($case)"
+  rm -rf "$tmp"
+done
+_pf "T11.d 생산자·manifest 부재에는 싣지 않는다" "$okd"
+# T11.e 선언값에 모듈명이 없으면 emit 은 성공하되 경고가 stderr 로 중계된다 (게이트의 통과 출력은 원래 삼켜진다)
+tmp=$(mktemp -d); fnd_mk "$tmp" 20260902-fnd 신규 y '**재사용 foundation**: 존재하지않는모듈XYZ'
+out=$(cd "$tmp" && bash "$EMIT" 20260902-fnd 2>&1 >/dev/null); rc=$?
+_pf "T11.e 모듈명 없는 선언 → EMIT 성공 + WARN 중계" "$([ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'FOUNDATION-REUSE: WARN' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+# T11.f 선언이 없는 태스크는 재사용 게이트가 emit 전에 막는다 — 컨텍스트 0건(원자성 유지)
+tmp=$(mktemp -d); fnd_mk "$tmp" 20260902-fnd 신규 y ''
+(cd "$tmp" && bash "$EMIT" 20260902-fnd >/dev/null 2>&1); rc=$?
+_pf "T11.f 선언 누락 → emit 거부·dispatch 0건" "$([ "$rc" -ne 0 ] && [ ! -d "$tmp/.specops/20260902-fnd/dispatch" ] && echo ok || echo no)" "rc=$rc"
+rm -rf "$tmp"
+
+# T11.g 절 번호와 task id 가 어긋나면(절 2·3 · id T1·T2) 다른 태스크의 선언을 싣지 않는다 — manifest 경로와 사유만
+tmp=$(mktemp -d); fnd_mk "$tmp" 20260902-fnd 신규 y '**재사용 foundation**: 라우팅'
+sed -i.bak 's/^## Task 2: writer/## Task 3: writer/; s/^## Task 1: parser/## Task 2: parser/' "$tmp/.specops/20260902-fnd/tasks.md"; rm -f "$tmp/.specops/20260902-fnd/tasks.md.bak"
+out=$(cd "$tmp" && bash "$EMIT" 20260902-fnd 2>&1 >/dev/null); rc=$?
+c2="$tmp/.specops/20260902-fnd/dispatch/T2-context.md"
+_pf "T11.g 번호 불일치 → 선언 미대응(잘못된 선언을 싣지 않는다) + 경고 중계" \
+  "$([ "$rc" -eq 0 ] && grep -qF 'foundation-manifest.md' "$c2" && grep -qF '대응시키지 못했다' "$c2" && ! grep -qF '**재사용 foundation**: 라우팅' "$c2" \
+     && printf '%s' "$out" | grep -q '번호가 어긋' && echo ok || echo no)" "rc=$rc out=$out"
+rm -rf "$tmp"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
