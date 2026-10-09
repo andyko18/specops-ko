@@ -8,6 +8,11 @@ _phase_8a_requirements() {
   _should_skip "$target" && { echo "→ ${target} skip"; return; }
   cp "$PLUGIN/templates/requirements.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+  # 화면이 없는 종류(2 백엔드/API · 3 CLI/라이브러리)에는 화면 전용 NFR 예시(접근성·브라우저 호환성)를 넣지 않는다 —
+  #   CLI 프로젝트의 요구사항 문서에 WCAG·브라우저 버전 행이 채울 수 없는 자리표시자로 남았다.
+  case "$PROJECT_KIND" in
+    2|3) sed -i.bak -e '/^| NFR-4 | 접근성 |/d' -e '/^| NFR-5 | 호환성 |/d' "$target" && rm -f "$target.bak" ;;
+  esac
   # 전략 C: PRD 마일스톤(PRD_F4/F5/F6) → §5 이름 치환 + §2 FR 시드행
   _seed_fr_row() {  # $1=FR-N $2=텍스트 $3=마일스톤 $4=우선순위
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return

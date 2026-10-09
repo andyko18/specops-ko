@@ -168,6 +168,11 @@ _phase_4_collect() {
 _phase_4_render() {
   local target="PRD.md"
   cp "$PLUGIN/templates/PRD.md" "$target"
+  # 화면이 없는 종류(2·3)에는 접근성(WCAG) 줄을 두지 않는다 — 요구사항 문서의 NFR-4 와 같은 이유(채울 수 없는 자리표시자).
+  #   호환성 줄은 남긴다: OS·언어 런타임으로 채울 수 있다.
+  case "${PROJECT_KIND:-}" in
+    2|3) sed -i.bak -e '/^- 접근성: <TODO/d' "$target" && rm -f "$target.bak" ;;
+  esac
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
   _replace_line_prefix "$target" '**한 줄 설명**:' "**한 줄 설명**: ${PRD_F1:-<TODO>}"
   _replace_line_prefix "$target" '**주요 페르소나**:' "**주요 페르소나**: ${PRD_F2:-<TODO>}"

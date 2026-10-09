@@ -421,7 +421,8 @@ if has skills/planning-ko/SKILL.md 'Critical≥1 이면 무인이라도 `HARD-GA
    && grep -qF "grep -qE '^Critical:[[:space:]]*0([^0-9]|\$)' .specops/<FID>/plan-review.md" skills/planning-ko/SKILL.md \
    && has commands/start-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
    && has commands/maintain-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
-   && has commands/start-all.md 'Critical≥1.*§auto 모두'; then
+   && has commands/start-all.md 'Critical≥1.*§auto 모두' \
+   && [ "$(grep -cE '\^Critical:\[\[:space:\]\]\*0`? 줄이 (\*\*)?있을 때만' commands/start-all.md)" -ge 2 ]; then
   ok "무인 plan 리뷰 한도 초과 — 단일(/start-auto·/maintain-auto)·batch 모두 Critical 이면 정지"
 else
   nope "무인 plan 리뷰 한도 초과" "진입 경로마다 답이 다르다"

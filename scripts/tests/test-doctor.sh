@@ -954,4 +954,10 @@ grep -qE '^\|[[:space:]]*`git_hooks`[[:space:]]*\|' "$DOC" \
   && grep -q '플러그인 관할 밖' "$DOC" \
   && ok "T-ds.d 문서 SoT 가 하류 관할 판정을 기술" || nope "T-ds.d" "doc 미동기"
 
+# T-ds.e 문구가 단위·한계를 말한다 (20261009) — 미채움은 "문서 수" · 하류 git_hooks 경고는 조치할 것이 없다
+grep -q '미채움 문서 \${bad}개 (자리표시자가 남은 문서 수)' "$PLUGIN/scripts/doctor.sh" \
+  && grep -q "scan-enrich-placeholders.sh' <문서>" "$PLUGIN/scripts/doctor.sh" \
+  && grep -q '알려진 한계, 조치 없음' "$PLUGIN/scripts/doctor.sh" \
+  && ok "T-ds.e memory 경고의 단위·가리킴 · git_hooks 경고의 한계 고지" || nope "T-ds.e" "doctor.sh 문구 누락"
+
 finish

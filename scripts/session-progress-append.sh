@@ -110,7 +110,8 @@ if [ ! -f "$TARGET" ]; then
   # 진행 기록 쓰기는 lifecycle 의 명시적 행위라 관할을 여는 쪽이다 — 디렉토리는 여기서 만든다.
   #   (ensure-session-progress 는 Stop 훅으로도 돌아 `.specops/` 부재 시 아무것도 만들지 않는다.)
   [ -L ".specops" ] || mkdir -p ".specops" 2>/dev/null || true
-  bash "$plugin_root/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+  # 훅의 킬스위치(설정·프로파일)는 Stop 훅의 자동 생성을 끄는 것이다 — 여기는 명시적 기록이라 그와 무관하게 만든다.
+  SPECOPS_ENSURE_EXPLICIT=1 bash "$plugin_root/hooks/ensure-session-progress.sh" >/dev/null 2>&1
   if [ ! -f "$TARGET" ]; then
     echo "error: failed to create $TARGET" >&2
     exit 1

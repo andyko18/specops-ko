@@ -29,10 +29,15 @@ _tty_ok() {
 #   키는 줄 맨 앞에서 완전 일치로 찾는다 — 정규식이 아니라 문자열 비교다(키에 `.` 이 있다).
 _ans_get() {
   [ -n "$ANSWERS_FILE" ] && [ -f "$ANSWERS_FILE" ] || return 1
+  # `키 = 값` 처럼 `=` 앞뒤에 공백을 둔 줄도 같은 키다 — 손으로 쓴 설정 파일에서 흔한 표기다.
+  #   종전엔 이 줄이 "모르는 키: kind " 와 "빠짐: kind" 로 함께 나와 원인(공백)을 알 수 없었다.
   K="$1" awk '
-    BEGIN { k = ENVIRON["K"] "="; n = length(k) }
-    substr($0, 1, n) == k {
-      v = substr($0, n + 1)
+    BEGIN { k = ENVIRON["K"] }
+    {
+      i = index($0, "="); if (i == 0) next
+      key = substr($0, 1, i - 1); sub(/^[ \t]+/, "", key); sub(/[ \t]+$/, "", key)
+      if (key != k) next
+      v = substr($0, i + 1)
       sub(/\r$/, "", v); sub(/^[ \t]+/, "", v); sub(/[ \t]+$/, "", v)
       print v; found = 1; exit
     }
@@ -162,7 +167,7 @@ _pf_need() {  # $1=키 $2=설명 $3=허용 ERE(빈 문자열=자유 값) $4=허�
 }
 
 _answers_preflight() {
-  local line k kind="" policy="skip" rec n i f s
+  local line k kind="" policy="skip" rec n i f s seen=" "
   if [ ! -f "$ANSWERS_FILE" ] || [ ! -r "$ANSWERS_FILE" ]; then
     echo "[init] 답변 파일을 읽을 수 없습니다: $ANSWERS_FILE" >&2
     exit 2
@@ -176,17 +181,26 @@ _answers_preflight() {
   # ① 형식·모르는 키 (오타가 조용히 무시되지 않게)
   while IFS= read -r line || [ -n "$line" ]; do
     line=${line%$'\r'}
-    case "$line" in ''|'#'*) continue ;; esac
+    # 들여쓴 주석과 공백만 있는 줄도 건너뛴다 — _ans_get 이 그렇게 읽는다(둘이 다르면 값은 읽히는데 형식 오류가 난다).
+    k=${line#"${line%%[![:space:]]*}"}
+    case "$k" in ''|'#'*) continue ;; esac
     case "$line" in
       *=*) ;;
       *) PF_ERRS="${PF_ERRS}  - 형식 오류: '${line}' (키=값 이어야 합니다)
 "; continue ;;
     esac
     k=${line%%=*}
+    k=${k#"${k%%[![:space:]]*}"}; k=${k%"${k##*[![:space:]]}"}   # 키 앞뒤 공백은 키의 일부가 아니다(_ans_get 과 같은 규칙)
     case " $ANSWER_KEYS " in
       *" $k "*) ;;
-      *) PF_ERRS="${PF_ERRS}  - 모르는 키: ${k}
+      *) PF_ERRS="${PF_ERRS}  - 모르는 키: '${k}'
 " ;;
+    esac
+    # 같은 키가 두 번이면 첫 줄만 쓰이고 뒤 줄은 조용히 버려진다 — 고친 줄이 무시되는 사고를 막는다.
+    case "$seen" in
+      *" $k "*) PF_ERRS="${PF_ERRS}  - 중복된 키: '${k}' (한 번만 적으세요 — 첫 줄만 쓰입니다)
+" ;;
+      *) seen="${seen}${k} " ;;
     esac
   done < "$ANSWERS_FILE"
   # ② 재부트스트랩 — 가장 먼저 본다. `n` 이면 Phase 1 에서 취소로 끝나므로 나머지 키(종류 포함)는 쓰이지 않는다.
@@ -235,7 +249,17 @@ _answers_preflight() {
   if _pf_writes PRD.md "$policy"; then
     _pf_need prd.oneline "PRD 한 줄 설명" "" ""
     _pf_need prd.persona "PRD 주요 페르소나" "" ""
-    _pf_need prd.values "PRD 가치제안 (콤마로 3개)" "" ""
+    if _pf_need prd.values "PRD 가치제안 (콤마로 3개)" "" ""; then
+      # 정확히 3개 — 모자라면 PRD 에 자리표시자가 남고, 넘치면 넷째부터 조용히 버려진다(Phase 4 가 앞 3개만 쓴다).
+      n=$(_ans_get prd.values | awk -F',' '{ c = 0; for (i = 1; i <= NF; i++) { x = $i; gsub(/^[ \t]+|[ \t]+$/, "", x); if (x != "") c++ } printf "%d/%d", c, NF }')
+      if [ "${n%%/*}" != "${n##*/}" ]; then
+        PF_ERRS="${PF_ERRS}  - 잘못된 값: prd.values — 빈 항목이 있습니다(콤마가 겹치거나 끝에 붙었습니다). 콤마로 구분한 3개를 적으세요
+"
+      elif [ "$n" != "3/3" ]; then
+        PF_ERRS="${PF_ERRS}  - 잘못된 값: prd.values — 콤마로 구분한 3개가 필요합니다(지금 ${n%%/*}개)
+"
+      fi
+    fi
     _pf_need prd.m1 "PRD 마일스톤 M1" "" ""
     _pf_need prd.m2 "PRD 마일스톤 M2" "" ""
     _pf_need prd.m3 "PRD 마일스톤 M3" "" ""

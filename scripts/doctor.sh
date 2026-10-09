@@ -42,7 +42,7 @@ _chk_hooks() {
   #   그것을 `✅` 로 보고했다 — 처방이 거짓 ✅ 를 직접 만드는 경로였다.
   #   조치는 **비운다**: 하류용 도구 무관 게이트 본문은 아직 제공하지 않는다(별건).
   if [ ! -f "scripts/_internal/install-git-hooks.sh" ] || [ ! -d ".githooks" ]; then
-    _add git_hooks warn "specops 2단 게이트 미설치 — 이 repo 는 플러그인 관할 밖" ""
+    _add git_hooks warn "specops 2단 게이트 미설치 — 이 repo 는 플러그인 관할 밖 (Claude Code 밖의 도구로 한 커밋은 검증 게이트를 거치지 않는다 — 알려진 한계, 조치 없음)" ""
     return
   fi
   local hp missing=""
@@ -82,7 +82,8 @@ EOF_FILES
   if [ "$bad" -eq 0 ]; then
     _add memory ok "placeholder 잔존 0건" ""
   else
-    _add memory warn "미채움 ${bad}건" "해당 문서를 실제 값으로 채우세요"
+    # 단위는 **문서 수**다 — init-finalize 가 말하는 "미채움 N건" 은 자리표시자 수라 숫자가 다르다.
+    _add memory warn "미채움 문서 ${bad}개 (자리표시자가 남은 문서 수)" "해당 문서를 실제 값으로 채우세요 (보강: /init-project --enrich · 문서별 위치: bash '$PLUGIN/scripts/_internal/scan-enrich-placeholders.sh' <문서>)"
   fi
 }
 

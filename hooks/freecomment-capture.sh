@@ -21,6 +21,14 @@ fi
 #   pending 을 쓰려고 디렉토리를 만들면 그 저장소가 관할로 편입되고(R-1 차단 대상), 다음 세션 시작에
 #   "미기록 자유작업" 처리 지시가 주입된다. symlink 는 아래 가드가 거부한다.
 [ -d "$cwd/.specops" ] || [ -L "$cwd/.specops" ] || safe_exit
+# 킬스위치 (20261009) — `.specops/config.yaml` 의 `hooks.freecomment-capture.enabled: false` · 프로파일 standard/minimal.
+#   종전엔 이 훅만 is-hook-enabled 를 부르지 않아 설정으로 끌 수 없었다 — 사용자 입력을 저장하는 훅인데.
+#   설정 파일은 그 저장소 것을 읽는다(훅 프로세스의 cwd 가 아니라 입력의 cwd).
+#   판정 도우미가 없는 설치본은 종전대로 켜진 것으로 본다(꺼짐은 도우미가 "꺼짐" 이라고 답했을 때뿐이다).
+_fc_he="$plugin_root/scripts/_internal/is-hook-enabled.sh"
+if [ -f "$_fc_he" ]; then
+  ( cd "$cwd" && bash "$_fc_he" freecomment-capture ) 2>/dev/null || safe_exit
+fi
 transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 [ -n "$transcript" ] && [ -f "$transcript" ] || safe_exit
 
