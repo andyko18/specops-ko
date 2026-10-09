@@ -89,7 +89,7 @@ lifecycle 에 진입하면 저장소에 다음이 생긴다 — 진입 전에 �
 
 ### 끄는 법
 
-- **쓰지 않는 repo 에는 아무것도 하지 않아도 된다.** `.specops/` 가 없는 repo 에서 훅은 차단·감사·기록·캡처를 하지 않는다. 끄려고 `.specops/config.yaml` 을 만들지 않는다 — `.specops/` 가 생기는 순간 그 repo 가 관할이 된다.
+- **쓰지 않는 repo 에서 훅을 끌 필요는 없다.** `.specops/` 가 없는 repo 에서 훅은 차단·감사·기록·캡처를 하지 않는다. 끄려고 `.specops/config.yaml` 을 만들지 않는다 — `.specops/` 가 생기는 순간 그 repo 가 관할이 된다. 다만 메타 스킬은 그 repo 에서도 기능 요청을 받으면 lifecycle 로 들어가 `.specops/<FID>/` 와 브랜치를 만든다(위 "적용 범위") — 그것까지 막으려면 설치 범위를 좁히거나 `claude plugin disable` 한다.
 - **도입한 repo 에서 일부를 끈다**: 그 repo 의 `.specops/config.yaml` 에 끌 훅만 적는다.
   ```yaml
   hooks:
@@ -97,10 +97,10 @@ lifecycle 에 진입하면 저장소에 다음이 생긴다 — 진입 전에 �
     posttool-governance:     { enabled: false }   # 사후 감사 기록
     stop-governance:         { enabled: false }   # 성공 주장·계획 수정 점검
     freecomment-capture:     { enabled: false }   # 자유작업 캡처(사용자 입력 저장)
-    ensure-session-progress: { enabled: false }   # 진행 기록 파일 자동 생성
+    ensure-session-progress: { enabled: false }   # 진행 기록 파일의 자동 생성(Stop 훅) — lifecycle 이 직접 쓰는 기록은 그대로다
   ```
   차단 훅을 끈 채 커밋·PR 이 나가면 `.specops/friction-log.jsonl` 에 `GOVERNANCE-DISABLED` 가 남는다. 이 파일을 읽으려면 `python3` + `pyyaml` 이 있어야 한다(없으면 설정이 무시되고 훅은 켜진 채다 — `/doctor` 의 `deps` 가 알린다).
-- **세션 하나에서 줄인다**: `claude` 를 띄우기 **전에** 셸에서 `export SPECOPS_GOVERNANCE_PROFILE=<값>` (세션 안에서 export 하면 훅에 닿지 않는다) — `strict`(기본, 전부) · `standard`(차단·감사·Stop 점검·세션 시작 주입) · `minimal`(차단과 세션 시작 주입만). `standard`·`minimal` 에서는 자유작업 캡처·알림·진행 기록 자동 생성이 꺼진다.
+- **세션 하나에서 줄인다**: `claude` 를 띄우기 **전에** 셸에서 `export SPECOPS_GOVERNANCE_PROFILE=<값>` (세션 안에서 export 하면 훅에 닿지 않는다) — `strict`(기본, 전부) · `standard`(차단·감사·Stop 점검·세션 시작 주입) · `minimal`(차단과 세션 시작 주입만). 괄호 안에 없는 훅은 그 프로파일에서 전부 꺼진다 — `standard` 면 자유작업 캡처·알림·진행 기록 자동 생성·리뷰 보고서 자동 저장이 꺼진다(진행 기록은 lifecycle 이 직접 쓰므로 계속 남는다).
 - **커밋 한 건만 넘긴다**: 명령 앞에 붙인다 — `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>' git commit …` (사유가 기록된다).
 - **아예 쓰지 않는다**: `claude plugin disable specops-ko`.
 

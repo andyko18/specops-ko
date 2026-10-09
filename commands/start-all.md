@@ -157,7 +157,7 @@ reference_upstream: specops-ko 독자 추가
    - 각 FID `dispatch-log.md`에 deferred 해소 행: `| … | plan-reviewer | plan-reviewer-ko | PASS|FAIL | batch Phase 2 |`
    - **PASS** → 선택: 외부 critic 최대 1회(대표 plan 또는 전 경로) 또는 `CRITIC: SKIP (batch defer)` 기록 → 스텝 2
    - **FAIL** (1회차): 이슈 목록으로 관련 FID `plan.md` 수정 → 필요 시 해당 FID만 `decomposing-ko` 재실행 → plan-reviewer **재dispatch 1회**
-   - **FAIL** (재시도 후): 부모가 `.specops/<BATCH_ID>/plan-review.md` 에서 **`^Critical:[[:space:]]*[1-9]`** 를 본다(Phase 2.5-D 와 **동일 기계 판정** — plan-reviewer 도 `Critical: <N>건` 을 출력한다). **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: batch plan-reviewer cap — 사용자 개입` 후 **정지**(§auto 자동통과 금지). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE, **§auto**만 가역 자동통과 + queue/다이제스트 기록.
+   - **FAIL** (재시도 후): 부모가 `.specops/<BATCH_ID>/plan-review.md` 에서 **`^Critical:[[:space:]]*[1-9]`** 를 본다(Phase 2.5-D 와 **동일 기계 판정** — plan-reviewer 도 `Critical: <N>건` 을 출력한다). **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: batch plan-reviewer cap — 사용자 개입` 후 **정지**(§auto 자동통과 금지). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE, **§auto**만 가역 자동통과 + queue/다이제스트 기록 — 단 `^Critical:[[:space:]]*0` 줄이 **있을 때만** Critical=0 이다. `Critical:` 줄이 아예 없으면(리뷰어 출력 형식 이탈) 정지한다: 줄이 없다고 통과시키면 무인에서 Critical plan 이 지나간다(`planning-ko` 의 단일 모드 판정과 같은 방향).
      > 산문 판단 금지(20260806): 무인에서 Critical 을 눈으로 세면 오판 시 **Critical plan 이 자동통과**한다 — 사람이 없다. 두 리뷰 축이 같은 패턴을 쓰게 고정한다.
    - **금지**: Phase 2 plan-review 생략 · 부모 self-review 대체 · FR마다 plan-reviewer 재실행
 
@@ -256,7 +256,7 @@ reference_upstream: specops-ko 독자 추가
    |---|---|
    | `DESIGN-REVIEW-RESULT: PASS` | E로 진행 |
    | `DESIGN-REVIEW-RESULT: FAIL` (1회차) | 이슈 목록으로 A/B 수정 → **재dispatch 1회** |
-   | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) |
+   | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) — `^Critical:[[:space:]]*0` 줄이 있을 때만이다(줄이 없으면 정지) |
    | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 |
 4. **Evaluator 모델 불가 fallback**: `design-reviewer-ko` 의 지정 모델(별칭 sonnet) 불가(한도 소진·접근 불가) 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: <지정 모델> 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙). 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <대표-FID-또는-BATCH_ID가-FID형식이면그값> --phase evaluator-degradation --fallback true --model <override-model>` 실행(식별자만; BATCH_ID가 FID 형식이 아니면 PLAN_DONE 중 대표 FID 1개 사용).
 

@@ -137,6 +137,31 @@ T4_b() {
 }
 T4_b && ok "T4.b .specops 부재 → 기록기가 디렉토리·파일 생성" || fail "T4.b .specops 부재 시 기록 실패"
 
+# T4.c: 진행 기록 훅을 끈 프로파일(standard·minimal)에서도 **명시적 기록**은 된다.
+#   끄는 것은 Stop 훅의 자동 생성이다. 기록까지 막히면 `/verify PASS` 줄이 없어 R-1 이 모든 코드 커밋을 막는다
+#   (그 프로파일들은 차단 훅을 켠 채 둔다).
+T4_c() {
+  local tmp ret=0 p
+  for p in standard minimal; do
+    tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
+    (cd "$tmp" && SPECOPS_GOVERNANCE_PROFILE=$p bash "$PLUGIN/scripts/session-progress-append.sh" "20260101-prof" "/verify" "PASS" "x") >/dev/null 2>&1 || ret=1
+    grep -q '/verify PASS' "$tmp/.specops/session-progress.md" 2>/dev/null || ret=1
+    rm -rf "$tmp"
+  done
+  return $ret
+}
+T4_c && ok "T4.c 프로파일 standard·minimal → 명시적 기록은 파일을 만들고 줄을 쓴다" || fail "T4.c 진행 기록 훅이 꺼진 프로파일에서 기록 실패"
+# T4.d: 대조 — Stop 훅으로 도는 자동 생성(환경변수 없음)은 그 프로파일에서 여전히 꺼져 있다
+T4_d() {
+  local tmp ret=0
+  tmp=$(mktemp -d); mkdir -p "$tmp/.specops"
+  (cd "$tmp" && SPECOPS_GOVERNANCE_PROFILE=standard bash "$PLUGIN/hooks/ensure-session-progress.sh") >/dev/null 2>&1
+  [ ! -e "$tmp/.specops/session-progress.md" ] || ret=1
+  rm -rf "$tmp"
+  return $ret
+}
+T4_d && ok "T4.d 대조 — 자동 생성(Stop 훅)은 standard 에서 꺼진 채" || fail "T4.d 킬스위치가 자동 생성까지 풀렸다"
+
 # ── T5: 멱등성·빈섹션 회귀 ─────────────────────────────────────────────
 
 # T5.a AC-2/5: 신규섹션 동일 라인 재append → 1회 (멱등 섹션 전체 스캔)

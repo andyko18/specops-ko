@@ -8,7 +8,11 @@ set -u
 # v0.2 묶음 3: config guard — disabled 시 조용히 exit 0
 script_dir_guard=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root_guard=$(dirname "$script_dir_guard")
-bash "$plugin_root_guard/scripts/_internal/is-hook-enabled.sh" ensure-session-progress || exit 0
+#   명시적 호출(scripts/session-progress-append.sh)은 킬스위치와 무관하게 만든다 (20261009). 킬스위치가 끄는 것은
+#   Stop 훅의 **자동** 생성이다 — 그것까지 막으면 `/verify PASS` 줄을 쓸 파일이 없어 R-1 앵커가 영영 생기지 않는다:
+#   차단 훅은 켜져 있는데(프로파일 standard·minimal 이 그렇다) 모든 코드 커밋이 막혔다.
+[ "${SPECOPS_ENSURE_EXPLICIT:-}" = "1" ] \
+  || bash "$plugin_root_guard/scripts/_internal/is-hook-enabled.sh" ensure-session-progress || exit 0
 
 # 하위 디렉토리에서 발화한 세션 — cwd 에 `.specops/` 가 없고 프로젝트 루트에 있으면 루트 기준으로 본다
 #   (posttool·stop 과 같은 앵커). cwd 에 있으면 그대로 둔다 — session-progress-append 가 이 스크립트를 cwd 기준으로 부른다.
