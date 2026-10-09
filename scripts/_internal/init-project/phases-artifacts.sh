@@ -195,15 +195,15 @@ _count_active() {
   echo "$n"
 }
 
-phase_10_commit() {
-  echo ""
-  echo "[Phase 10] commit + .specops/.gitignore"
-  mkdir -p .specops
-  # .gitignore: memory/ · session-progress.md · FID 의 intent.md 는 commit, 그 밖의 FID 산출물은 ignore
-  #   intent.md 예외(20261008): 의도 문서는 PR 리뷰어·제품 오너가 볼 수 있어야 하고 git 이력이 곧 감사 추적이다
-  #   (Anthropic AI-native SDLC playbook 의 intent.md 규약 — 버전 관리되는 공유 위치).
-  #   git 은 **무시된 디렉토리 안의 파일을 다시 포함할 수 없다** — 그래서 디렉토리(`…-*/`)가 아니라 내용(`…-*/*`)을 무시한다.
-  cat > .specops/.gitignore <<'EOF'
+# `.specops/.gitignore` 규칙 본문 — 새 프로젝트는 이대로 쓰고, 기존 파일에는 빠진 규칙만 보충한다.
+#   정책: memory/ · session-progress.md · <FID>/intent.md 는 commit, 그 밖의 FID 산출물은 ignore.
+#   intent.md 예외(20261008): 의도 문서는 PR 리뷰어·제품 오너가 볼 수 있어야 하고 git 이력이 곧 감사 추적이다
+#   (Anthropic AI-native SDLC playbook 의 intent.md 규약 — 버전 관리되는 공유 위치).
+#   git 은 **무시된 디렉토리 안의 파일을 다시 포함할 수 없다** — 그래서 디렉토리(`…-*/`)가 아니라 내용(`…-*/*`)을 무시한다.
+#   로컬 상태 파일(20261009): 훅이 쓰는 pending-capture 는 프롬프트 캡처라 `git add -A` 한 번에 커밋되면 안 된다.
+#   freelog.md 는 넣지 않았다 — 자유작업 **기록물**이라 커밋 여부는 프로젝트가 정한다.
+_specops_gitignore_template() {
+  cat <<'EOF'
 # specops-ko 정책: memory/ · session-progress.md · <FID>/intent.md 는 commit, 그 밖의 FID 산출물은 ignore
 # FID 컨벤션: YYYYMMDD-slug (8자리 날짜 + dash). 일반 디렉토리 false positive 차단.
 # 디렉토리가 아니라 내용을 무시한다 — 무시된 디렉토리 안의 파일은 `!` 로 되살릴 수 없다.
@@ -211,7 +211,78 @@ phase_10_commit() {
 ![0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/intent.md
 # 설계 통합 뷰 — .md 에서 생성되는 읽기 전용 파일(/design-overview). 원본이 아니라 커밋하지 않는다.
 design-overview.html
+# 로컬 상태 — 훅·스크립트가 쓰는 파일(프롬프트 캡처·우회 기록·백업·init 중간 파일). 커밋하지 않는다.
+pending-capture.jsonl
+redact-failures.log
+friction-log.jsonl
+*.bak
+.init-*
 EOF
+}
+
+# `.specops/.gitignore` 를 만들거나 **병합**한다 — 통째로 다시 쓰지 않는다.
+#   종전엔 실행마다 `cat >` 로 덮어써, 하류가 직접 넣은 규칙(batch-*/ · *.bak 등 — 실물 4곳 중 2곳)이
+#   `--resume` 한 번에 사라졌다(20261009 재현). 기존 파일에는 두 가지만 한다:
+#   ① 구 규칙(FID 디렉토리 통째 무시)을 **제자리에서** 새 규칙으로 바꾼다 — 디렉토리가 무시되면 intent.md 예외가
+#      듣지 않는다. 제자리인 이유는 뒤에 오는 사용자 규칙과의 순서를 지키기 위해서다.
+#   ② 본문의 규칙 중 파일에 없는 줄만 보충한다(완전 일치 비교 — 재실행해도 늘지 않는다).
+_specops_gitignore_sync() {
+  local gi=".specops/.gitignore" fid='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*'
+  if [ ! -f "$gi" ]; then
+    _specops_gitignore_template > "$gi"
+    return
+  fi
+  local has_new=0 has_neg=0
+  grep -qxF -- "${fid}/*" "$gi" && has_new=1
+  grep -qxF -- "!${fid}/intent.md" "$gi" && has_neg=1
+  if grep -qxF -- "${fid}/" "$gi"; then
+    LEG="${fid}/" NEW="${fid}/*" NEG="!${fid}/intent.md" HAS_NEW="$has_new" HAS_NEG="$has_neg" \
+    LEGC="# specops-ko 정책: memory/ 와 session-progress.md 는 commit, FID 디렉토리는 ignore" \
+    NEWC="# specops-ko 정책: memory/ · session-progress.md · <FID>/intent.md 는 commit, 그 밖의 FID 산출물은 ignore" \
+    awk '
+      $0 == ENVIRON["LEGC"] { print ENVIRON["NEWC"]; next }
+      $0 == ENVIRON["LEG"] {
+        if (!done) {
+          if (ENVIRON["HAS_NEW"] != "1") print ENVIRON["NEW"]
+          if (ENVIRON["HAS_NEW"] != "1" && ENVIRON["HAS_NEG"] != "1") print ENVIRON["NEG"]
+          done = 1
+        }
+        next
+      }
+      { print }
+    ' "$gi" > "${gi}.tmp" && mv "${gi}.tmp" "$gi"
+  fi
+  # ② 빠진 규칙을 **파일 맨 위에** 보충한다 — 뒤에 오는 규칙이 이기므로 사용자 규칙이 항상 우선한다.
+  #    끝에 붙이면 보충한 `*.bak` 이 사용자의 `!keep.bak` 을 뒤집는다(독립 리뷰 재현).
+  #    예외는 intent.md 예외 줄이다: 내용 무시 규칙 **뒤**에 있어야 들으므로, 그 규칙이 이미 파일에 있으면 바로 뒤에 끼운다.
+  local line supp="" added=0 neg="!${fid}/intent.md"
+  if grep -qxF -- "${fid}/*" "$gi" && ! grep -qxF -- "$neg" "$gi"; then
+    NEW="${fid}/*" NEG="$neg" awk '
+      { print }
+      $0 == ENVIRON["NEW"] && !done { print ENVIRON["NEG"]; done = 1 }
+    ' "$gi" > "${gi}.tmp" && mv "${gi}.tmp" "$gi" && added=$((added + 1))
+  fi
+  while IFS= read -r line; do
+    case "$line" in ''|'#'*) continue ;; esac
+    grep -qxF -- "$line" "$gi" && continue
+    supp="${supp}${line}
+"
+    added=$((added + 1))
+  done <<EOF
+$(_specops_gitignore_template)
+EOF
+  if [ -n "$supp" ]; then
+    { printf '# specops-ko 가 보충한 규칙 (/init-project) — 아래에 오는 규칙이 우선한다\n%s\n' "$supp"; cat "$gi"; } \
+      > "${gi}.tmp" && mv "${gi}.tmp" "$gi"
+  fi
+  [ "$added" -eq 0 ] || echo "→ .specops/.gitignore 기존 규칙 보존 · 빠진 규칙 ${added}줄 보충"
+}
+
+phase_10_commit() {
+  echo ""
+  echo "[Phase 10] commit + .specops/.gitignore"
+  mkdir -p .specops
+  _specops_gitignore_sync
   # session-progress.md 골격
   if [ ! -f .specops/session-progress.md ]; then
     cp "$PLUGIN/templates/session-progress.md" .specops/session-progress.md
@@ -231,25 +302,32 @@ EOF
       echo "→ .specops/memory/${ledger} 골격 생성"
     fi
   done
-  # git add — 활성 산출물 + screens + .specops/.gitignore + session-progress.md
-  local f
-  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
-    [ -f "$f" ] && git add "$f"
-  done
-  # memory/ 전체 add — 조건부 산출물(api-spec-consumer.md 등 14종 배열 밖) 고아화 방지.
-  #   .specops/.gitignore 정책이 "memory/ 는 commit" 이므로 디렉토리 단위 add 가 정합.
-  [ -d .specops/memory ] && git add .specops/memory
-  [ -d screens ] && git add screens
-  git add .specops/.gitignore .specops/session-progress.md
-  if git diff --cached --quiet; then
+  # stage — init 범위만(lib.sh `_init_stage_own`). screens/ 를 디렉토리째 넣지 않는다:
+  #   이 시점엔 specops 화면 파일이 아직 없어, 넣으면 기존 앱의 screens/ 소스만 딸려 들어간다.
+  _init_stage_own
+  local own f
+  if ! own=$(_init_staged_own); then
+    echo "  ⚠️  staged 산출물을 판정하지 못했습니다 (git diff 실패) — 커밋·스테이징 요약을 건너뜁니다" >&2
+    return 1
+  fi
+  if [ -z "$own" ]; then
     echo "→ commit 대상 없음 (skip 정책으로 모두 보존된 듯)"
     return
   fi
   # 단일 커밋 계약: Phase 11 enrich 후 1회 커밋이 기본.
   # SPECOPS_INIT_COMMIT_NOW=1 이면 bash 단계에서 즉시 커밋 (테스트·enrich 생략 경로).
   if [ "${SPECOPS_INIT_COMMIT_NOW:-0}" = "1" ]; then
-    git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 14종 중 ${active}종)"
-    echo "→ git commit 완료 (${label} · ${active}/13) [SPECOPS_INIT_COMMIT_NOW=1]"
+    # 경로를 지정해 커밋한다 — 미리 stage 돼 있던 무관한 파일은 인덱스에 그대로 남는다.
+    local -a cpaths=()
+    while IFS= read -r f; do [ -n "$f" ] && cpaths+=("$f"); done <<EOF
+$own
+EOF
+    if git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 14종 중 ${active}종)" -- "${cpaths[@]}"; then
+      rm -f "$INIT_HOLD_FILE" "$INIT_WRITTEN_FILE" 2>/dev/null
+      echo "→ git commit 완료 (${label} · ${active}/13) [SPECOPS_INIT_COMMIT_NOW=1]"
+    else
+      echo "  ⚠️  git commit 실패 — 산출물은 staged 로 남아 있습니다" >&2
+    fi
   else
     echo "→ 스테이징 완료 (${label} · ${active}/13). Phase 11 enrich 후 단일 커밋하세요."
     echo "  (즉시 커밋: SPECOPS_INIT_COMMIT_NOW=1)"

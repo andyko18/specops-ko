@@ -190,6 +190,25 @@ printf '%s' "$out" | grep -qE '이미 등록|기존 행 유지|중복' \
   && ok  "T11 중복 이름 → 정직 보고(갱신 아님 명시)" \
   || nope "T11 거짓 보고" "행 미추가인데 '갱신됨' 만 출력: $out"
 
+# T12: 새 화면 추가가 기존 행을 건드리지 않는다 (20261009 init 점검)
+#   종전엔 표를 이름 목록으로 통째 재구성해, 손으로 채운 제목·목적(보강 표기 포함)이 전부 `TODO` 가 됐다.
+_ov=.specops/memory/screens-overview.md
+sed -i.bak 's#^| solo | solo | TODO |#| solo | 단독 화면 | init 보강 (미확정 2) |#' "$_ov"; rm -f "$_ov.bak"
+bash "$SCRIPT" billing >/dev/null 2>&1
+{ grep -qF '| solo | 단독 화면 | init 보강 (미확정 2) |' "$_ov" && [ "$(grep -cE '^\| billing \|' "$_ov")" = "1" ] \
+  && [ "$(grep -cE '^\| solo \|' "$_ov")" = "1" ]; } \
+  && ok  "T12.a 새 화면 추가 → 기존 행(제목·목적) 무변경 · 새 행 1건" \
+  || nope "T12.a 기존 행 훼손" "solo=[$(grep -E '^\| solo \|' "$_ov" | tr '\n' ' ')]"
+# T12.b 새 행은 표 끝(끝 fence 바로 앞)에 들어간다
+last=$(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|/' "$_ov" | tail -1)
+case "$last" in '| billing |'*) ok "T12.b 새 행은 표 끝에 추가" ;; *) nope "T12.b" "마지막 행=[$last]" ;; esac
+# T12.c fence 가 없는 표에는 쓰지 않고, 갱신했다고 말하지 않는다
+grep -v 'screens-table:' "$_ov" > "$_ov.nf" && mv "$_ov.nf" "$_ov"
+_b=$(cat "$_ov"); out=$(bash "$SCRIPT" nofence 2>&1)
+{ [ "$_b" = "$(cat "$_ov")" ] && ! printf '%s' "$out" | grep -q 'screens-overview.md 갱신됨'; } \
+  && ok  "T12.c fence 없는 표 → 무변경 · '갱신됨' 거짓 보고 없음" \
+  || nope "T12.c" "out=$out"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

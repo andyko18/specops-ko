@@ -162,10 +162,21 @@ phase_7_screens() {
   local input=""
   read -r input || true
   mkdir -p .specops/memory
-  cp "$PLUGIN/templates/screens-overview.md" .specops/memory/screens-overview.md
-  _replace_token .specops/memory/screens-overview.md "<PROJECT_NAME>" "$PROJECT_NAME"
+  # 기존 표는 보존한다 — 재실행·`--resume` 이 템플릿으로 덮어 보강 표기와 손으로 쓴 줄을 지웠다(20261009 재현).
+  #   이름 입력은 보존할 때도 **읽는다**: 질문을 건너뛰면 뒤 Phase 의 답 순서가 밀린다.
+  local ov=".specops/memory/screens-overview.md" keep=0
+  if _should_skip "$ov"; then
+    keep=1
+  else
+    cp "$PLUGIN/templates/screens-overview.md" "$ov"
+    _replace_token "$ov" "<PROJECT_NAME>" "$PROJECT_NAME"
+  fi
   if [ -z "${input// }" ]; then
-    echo "→ 화면 입력 비움. screens-overview.md placeholder 유지."
+    if [ "$keep" = "1" ]; then
+      echo "→ 화면 입력 비움. 기존 screens-overview.md 보존."
+    else
+      echo "→ 화면 입력 비움. screens-overview.md placeholder 유지."
+    fi
     return
   fi
   local IFS=', '
@@ -185,6 +196,23 @@ phase_7_screens() {
     echo "→ 유효한 화면명 0개. screens-overview.md placeholder 유지."
     return
   fi
-  _rebuild_screens_table .specops/memory/screens-overview.md "${names[@]}"
+  if [ "$keep" = "1" ]; then
+    # 보존 경로: 표에 없는 이름만 끝에 덧붙인다
+    local have
+    local -a fresh=()
+    have=$(_screens_table_names "$ov")
+    for n in "${names[@]}"; do
+      printf '%s\n' "$have" | grep -qxF -- "$n" || fresh+=("$n")
+    done
+    if [ ${#fresh[@]} -eq 0 ]; then
+      echo "→ 기존 screens-overview.md 보존 (입력한 이름은 이미 표에 있음)"
+    elif _append_screen_rows "$ov" "예정 — /start-all Phase 2.5" "${fresh[@]}"; then
+      echo "→ 기존 screens-overview.md 보존 · 새 화면 ${#fresh[@]}개만 표 끝에 추가"
+    else
+      echo "  ⚠️  기존 screens-overview.md 에 표 fence 가 없어 화면 이름을 추가하지 못했습니다 (파일은 그대로)" >&2
+    fi
+    return
+  fi
+  _rebuild_screens_table "$ov" "${names[@]}"
   echo "→ .specops/memory/screens-overview.md 목록 ${#names[@]}개 기록 (screens/ 파일 미생성 — Phase 2.5 예정)"
 }

@@ -43,7 +43,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
    - **넷 다 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
 1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
-   - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용)
+   - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용). 화면 목록 표와 `.specops/.gitignore` 도 보존 대상이다 — 표에는 새 이름만 덧붙고, `.gitignore` 는 빠진 규칙만 파일 위쪽에 보충한다(사용자 규칙이 뒤에 있어 우선한다 · 구 규칙 `…-*/` 은 `…-*/*` + `intent.md` 예외로 이관).
 2. **10 Phase 진행**:
    - Phase 1: 사전검사 (git/.specops/memory 검사 + 14종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)
@@ -51,12 +51,12 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
    - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
-   - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**
+   - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**. 표가 이미 있으면 **보존**하고 표에 없는 이름만 끝에 덧붙인다(기존 행·손으로 쓴 줄 무변경)
      - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
    - Phase 8: 종류별 산출물 매트릭스 (8a~8i: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy/process-design)
      - `api-spec-consumer.md`(8g)는 **14종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
-   - Phase 10: `.specops/.gitignore` + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
+   - Phase 10: `.specops/.gitignore`(없으면 생성 · 있으면 **병합** — 사용자 규칙 보존) + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일 · 범위는 init 산출물뿐 — 미리 stage 돼 있던 다른 파일·기존 앱의 `screens/` 는 건드리지 않는다). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
 4. **설계 통합 뷰 생성** (커밋 뒤 — 생성물이라 커밋 대상이 아니다): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 실행하고 출력된 경로를 사용자에게 알린다("전체 설계를 한 화면에서 보려면 `<경로>` 를 브라우저로 여세요"). 실패(rc≠0 — python3 부재 등)는 1줄 고지만 하고 부트스트랩을 실패로 만들지 않는다. `--enrich` 뒤에도 같다.
 5. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
@@ -134,7 +134,14 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 ```
 
-이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다. 커밋 실패 시 rc=1 과 사유·재시도 안내가 출력되며 산출물은 staged 로 보존된다. bash 만 단독 실행할 때의 즉시커밋은 `SPECOPS_INIT_COMMIT_NOW=1` 이다.
+이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다.
+
+**커밋 범위는 init 산출물뿐이다** — 루트 4종 · `.specops/memory/` · 화면 목록에 있는 `screens/<name>.{md,html}` · `.specops/.gitignore` · `session-progress.md`. 그 밖은 커밋하지 않고 **출력으로 알린다**(사용자에게 그대로 전달할 것):
+- 미리 stage 돼 있던 무관한 파일 → 인덱스에 그대로 남는다.
+- init 이 보존한 기존 파일 중 **미커밋 내용이 있는 것**(미추적·staged·수정 — init 이 쓴 파일이 아닌 것) → 건드리지 않는다. bash 가 Phase 1 에서 `.specops/.init-hold` 에 적고, init 이 쓴 파일은 `.specops/.init-written` 에 따로 적어 둘을 가른다(둘 다 종결 뒤 삭제). 사용자가 확인하고 직접 커밋한다. 종결 전에 다시 실행해도(`--resume` 이든 아니든) 이전 실행의 골격은 보류되지 않는다.
+- 화면 목록(`screens-overview.md`)에 없는 `screens/*.md`·`*.html` → 목록에 먼저 등록한다(`/design-screen`).
+
+ 커밋 실패 시 rc=1 과 사유·재시도 안내가 출력되며 산출물은 staged 로 보존된다. bash 만 단독 실행할 때의 즉시커밋은 `SPECOPS_INIT_COMMIT_NOW=1` 이다.
 
 **무인 계약**: e2e-test-ko·§auto 무인 진입 시 승인 게이트를 **자동수락** 하고 Phase 11.5 인터뷰·가정 **건별 승인을 생략**한다 (HARD GATE 없이 완주 설계 정합). 단 가정 다이제스트·원장 기록은 **무인에서도 수행** — 사후 감사 경로.
 

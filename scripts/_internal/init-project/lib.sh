@@ -149,8 +149,189 @@ _replace_line_prefix() {
 
 # 충돌 시 보존 정책: 대상 파일 존재 + overwrite 가 아니면 true (보존)
 # 방어 깊이: 새 정책 추가 시에도 안전 디폴트 (overwrite 만 명시 통과)
+#   보존하지 않는다(=쓴다)로 판정하면 그 경로를 init 이 쓴 파일로 기록한다(`_init_mark_written`) —
+#   종결 커밋이 "init 이 쓴 것"과 "사용자가 두고 있던 것"을 가르는 근거다.
 _should_skip() {
-  [ -e "$1" ] && [ "$CONFLICT_POLICY" != "overwrite" ]
+  if [ -e "$1" ] && [ "$CONFLICT_POLICY" != "overwrite" ]; then
+    return 0
+  fi
+  _init_mark_written "$1"
+  return 1
+}
+
+# ── 화면 목록 표(screens-overview.md §1 fence) ─────────────────────
+# fence 안 name 컬럼만 낸다 — fence 밖 예시 행·헤더를 실데이터로 세면 유령 화면이 된다.
+#   start·end 가 **둘 다** 있어야 표로 본다(check-screens-overview.sh `_fence_ok` 와 같은 규칙).
+_screens_table_names() {
+  local file="$1"
+  [ -f "$file" ] || return 0
+  grep -q '^<!-- screens-table:start -->' "$file" 2>/dev/null || return 0
+  grep -q '^<!-- screens-table:end -->'   "$file" 2>/dev/null || return 0
+  awk '
+    /^<!-- screens-table:start -->/ { inside=1; next }
+    /^<!-- screens-table:end -->/   { inside=0; next }
+    inside && /^\|/ {
+      split($0, f, "|"); gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[2])
+      if (f[2] != "name" && f[2] != "") print f[2]
+    }
+  ' "$file"
+}
+
+# 표 끝(끝 fence 바로 앞)에 행을 **덧붙인다** — 기존 행은 한 글자도 건드리지 않는다.
+#   $1=파일 $2=목적 셀 문구 $3..=화면 이름. rc 1 = fence 가 없어 쓰지 않았다(호출부가 알린다).
+#   왜 덧붙이기인가: 종전엔 표를 이름 목록으로 통째 재구성해, 손으로 채운 제목·목적(보강 표기 포함)이
+#   화면 하나를 추가할 때마다 전부 초기값으로 돌아갔다(20261009 재현).
+#   행은 ENVIRON 으로 넘긴다 — awk -v 는 여러 줄 값을 받지 못한다(BSD awk "newline in string").
+_append_screen_rows() {
+  local file="$1" cell="$2" rows="" n
+  shift 2
+  grep -q '^<!-- screens-table:start -->' "$file" 2>/dev/null || return 1
+  grep -q '^<!-- screens-table:end -->'   "$file" 2>/dev/null || return 1
+  for n in "$@"; do
+    rows="${rows}| ${n} | ${n} | ${cell} | [screens/${n}.md](../../screens/${n}.md) | [screens/${n}.html](../../screens/${n}.html) |
+"
+  done
+  ROWS="$rows" awk '
+    /^<!-- screens-table:end -->/ && !done { printf "%s", ENVIRON["ROWS"]; done = 1 }
+    { print }
+  ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+# ── init 이 커밋에 담는 범위 (Phase 10 스테이징 · init-finalize.sh 종결 커밋 공용) ──
+# 왜 범위를 따로 두나: 종전엔 `git commit` 에 경로가 없어 **인덱스 전체**가 `chore(init)` 커밋에 들어갔다 —
+#   미리 stage 해 둔 무관 파일(API 키가 든 notes.env) · 사용자가 고치던 README · 기존 앱의 screens/ 파일
+#   (20261009 설치본 재현). 범위는 init 이 만들거나 보강하는 경로뿐이다:
+#   루트 4종 · .specops/memory/ · 화면 목록에 있는 screens/<name>.{md,html} · .specops/.gitignore · session-progress.md.
+INIT_HOLD_FILE=".specops/.init-hold"
+INIT_WRITTEN_FILE=".specops/.init-written"
+
+# init 이 **이번 부트스트랩에서 쓴** 파일의 기록 — `_should_skip` 이 "쓴다" 로 판정할 때 남긴다.
+#   왜 필요한가: git 상태만으로는 "이전 실행이 만든 골격"과 "사용자가 만든 미커밋 파일"이 구분되지 않는다
+#   (둘 다 미추적이거나 staged-new 다). 이 기록이 있으면 중단된 부트스트랩을 이어받을 때(`--resume` 이든
+#   재실행이든) 이전 실행의 골격은 커밋하고, 사용자의 파일은 보류할 수 있다.
+#   실행을 넘어 누적되고, 종결 커밋이 성공하면 지운다.
+_init_mark_written() {
+  mkdir -p .specops 2>/dev/null || return 0
+  _init_written "$1" || printf '%s\n' "$1" >> "$INIT_WRITTEN_FILE" 2>/dev/null
+  return 0
+}
+_init_written() {
+  [ -f "$INIT_WRITTEN_FILE" ] && grep -qxF -- "$1" "$INIT_WRITTEN_FILE"
+}
+# 기록이 **아직 유효한가** — HEAD 에 이미 있는 경로의 기록은 믿지 않는다.
+#   skip 정책에서 init 은 없던 경로만 쓰므로, 기록된 경로가 HEAD 에 있다면 그 뒤에 커밋이 있었다는 뜻이다
+#   (사용자가 종결 스크립트 대신 손으로 커밋한 경우 — 기록은 남는다). 그 뒤의 수정분은 사용자의 것이다.
+_init_written_fresh() {
+  _init_written "$1" || return 1
+  git cat-file -e "HEAD:$1" 2>/dev/null && return 1
+  return 0
+}
+
+# 보존하는 기존 파일 중 **미커밋 내용이 있는 사용자 파일**을 기록한다 — 커밋에 쓸어 담지 않기 위해서다.
+#   ① 정본 산출물 자리에 이미 있는 파일(skip 정책으로 보존)이고, init 이 쓴 기록이 없고, git 상태가 깨끗하지
+#      않으면(미추적·staged·수정) 보류한다. 깨끗한 추적 파일은 커밋할 것이 없으니 대상이 아니다.
+#   ② memory/ 의 그 밖의 파일과 화면 파일은 HEAD 대비 수정분(--diff-filter=M)만 보류한다 — 진행 중 FID 의
+#      미커밋 설계 수정이 여기 해당한다. 미추적 파일(브레인스토밍 메모·원장)은 memory 정책대로 커밋한다.
+#   overwrite 정책이면 기록하지 않는다 — 덮어쓴 파일은 init 의 산출물이다(사용자가 고른 결과).
+#   session-progress.md 는 범위 밖 — 훅이 세션마다 덧붙이는 specops 기록이고 종결 커밋이 한 줄을 더한다.
+#   기록은 실행마다 새로 쓰고, 종결 커밋이 성공하면 지운다.
+_init_hold_scan() {
+  rm -f "$INIT_HOLD_FILE" 2>/dev/null
+  [ "$CONFLICT_POLICY" != "overwrite" ] || return 0
+  local held="" f m
+  for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}" .specops/memory/api-spec-consumer.md; do
+    [ -e "$f" ] || continue
+    _init_written_fresh "$f" && continue
+    [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ] && held="${held}${f}
+"
+  done
+  if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    while IFS= read -r m; do
+      [ -n "$m" ] || continue
+      _init_written_fresh "$m" || held="${held}${m}
+"
+    done <<EOF
+$(git diff -z --name-only --diff-filter=M HEAD -- .specops/memory 'screens/*.md' 'screens/*.html' 2>/dev/null | tr '\0' '\n')
+EOF
+  fi
+  held=$(printf '%s' "$held" | grep . | sort -u || true)
+  [ -n "$held" ] || return 0
+  mkdir -p .specops
+  printf '%s\n' "$held" > "$INIT_HOLD_FILE"
+  # 앞줄이 줄바꿈 없는 프롬프트일 수 있어(충돌 정책 질문) 빈 줄로 끊는다
+  echo "" >&2
+  echo "→ 미커밋 내용이 있는 기존 파일은 init 커밋에 넣지 않습니다: $(printf '%s' "$held" | tr '\n' ' ')" >&2
+}
+
+_init_held() {
+  [ -f "$INIT_HOLD_FILE" ] && grep -qxF -- "$1" "$INIT_HOLD_FILE"
+}
+
+# 화면 목록의 이름 중 파일명으로 쓸 수 있는 것만 낸다(영숫자/-/_ 1~64 — Phase 7·design-screen 과 같은 규칙).
+#   손으로 고친 표에 `../x` 같은 이름이 있으면 git 이 경로 오류를 내고, 그 오류가 "커밋 대상 없음"으로
+#   둔갑한다(독립 리뷰 재현) — 범위에 넣기 전에 거른다.
+_init_screen_names() {
+  local n
+  while IFS= read -r n; do
+    [[ "$n" =~ ^[A-Za-z0-9_-]{1,64}$ ]] && printf '%s\n' "$n"
+  done <<EOF
+$(_screens_table_names .specops/memory/screens-overview.md)
+EOF
+  return 0
+}
+
+# 범위 안의 경로를 stage 한다. 경로마다 따로 add 한다 — 하나가 무시 규칙에 걸려 실패해도 나머지는 들어간다.
+#   screens/ 는 디렉토리째 넣지 않는다: 화면 목록에 있는 이름의 .md·.html 만이다.
+_init_stage_own() {
+  local f n
+  local -a excl=()
+  # memory/ 안의 보류 파일만 제외 인자로 만든다. 디렉토리 **밖** 경로를 `:(exclude)` 로 섞으면
+  #   git 은 rc=0 으로 **아무것도 stage 하지 않는다**(git 2.50 실측 — README 가 보류되자 memory/ 전체가 빠졌다).
+  if [ -f "$INIT_HOLD_FILE" ]; then
+    while IFS= read -r f; do
+      case "$f" in .specops/memory/?*) excl+=(":(exclude,literal)$f") ;; esac
+    done < "$INIT_HOLD_FILE"
+  fi
+  for f in "${ARTIFACTS_ROOT[@]}"; do
+    [ -f "$f" ] && ! _init_held "$f" && git add -- "$f" 2>/dev/null
+  done
+  # memory/ 는 디렉토리 단위 — 조건부 산출물(api-spec-consumer.md 등 정본 배열 밖)과 삭제·개명을 함께 담는다.
+  #   `${excl[@]+…}` — bash 3.2 는 set -u 에서 빈 배열 전개를 unbound 로 본다.
+  [ -d .specops/memory ] && git add -- .specops/memory ${excl[@]+"${excl[@]}"} 2>/dev/null
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    for f in "screens/${n}.md" "screens/${n}.html"; do
+      [ -f "$f" ] && ! _init_held "$f" && git add -- "$f" 2>/dev/null
+    done
+  done <<EOF
+$(_init_screen_names)
+EOF
+  for f in .specops/.gitignore .specops/session-progress.md; do
+    [ -f "$f" ] && git add -- "$f" 2>/dev/null
+  done
+  return 0
+}
+
+# 범위 안에서 staged 인 경로를 줄단위로 낸다(보류 기록 제외) — 종결 커밋의 경로 인자이자 건수의 출처다.
+#   rc 2 = git 이 판정하지 못했다. 호출부는 이것을 "대상 없음"으로 읽지 않는다.
+#   --no-renames: 개명을 새 이름 한 줄로 접으면 옛 경로의 삭제가 커밋에서 빠진다.
+#   -z: 따옴표·제어문자가 든 이름을 git 이 "…" 로 감싸면 그 문자열은 경로 인자로 다시 쓸 수 없다.
+_init_staged_own() {
+  local f n out
+  local -a scope=("${ARTIFACTS_ROOT[@]}" .specops/memory .specops/.gitignore .specops/session-progress.md)
+  while IFS= read -r n; do
+    [ -n "$n" ] && scope+=("screens/${n}.md" "screens/${n}.html")
+  done <<EOF
+$(_init_screen_names)
+EOF
+  out=$(git diff -z --cached --name-only --no-renames -- "${scope[@]}" 2>/dev/null | tr '\0' '\n'
+        exit "${PIPESTATUS[0]}") || return 2
+  while IFS= read -r f; do
+    [ -n "$f" ] && ! _init_held "$f" && printf '%s\n' "$f"
+  done <<EOF
+$out
+EOF
+  return 0
 }
 
 # numbered list 의 N 번 항목 추출
