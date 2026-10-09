@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.16.0] — 2026-10-09
+
 ### Fixed
 
 - **`/start-all` 에서 검사가 조용히 통과하던 2건** — v2.15.0 점검에서 확인하고 남겨 둔 것.
@@ -3047,7 +3049,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.15.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/andyko18/specops-ko/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/andyko18/specops-ko/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/andyko18/specops-ko/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/andyko18/specops-ko/compare/v2.12.0...v2.13.0
