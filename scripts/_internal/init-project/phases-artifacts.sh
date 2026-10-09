@@ -11,7 +11,10 @@ _phase_8a_requirements() {
   # 전략 C: PRD 마일스톤(PRD_F4/F5/F6) → §5 이름 치환 + §2 FR 시드행
   _seed_fr_row() {  # $1=FR-N $2=텍스트 $3=마일스톤 $4=우선순위
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
-    _replace_line_prefix "$target" "| $1 |" "| $1 | $2 | $3 | $4 | (TBD) |"
+    # 표 구분자와 겹치는 `|` 는 `/` 로 바꿔 넣는다 — 그대로 두면 칸이 밀려 FR 판독기가 마일스톤을 틀리게 읽는다.
+    #   `\|` 로 이스케이프하지 않는 이유: 판독기들이 `|` 로 나누므로 이스케이프도 칸을 가른다. PRD.md 원문은 그대로다.
+    local text="${2//|//}"
+    _replace_line_prefix "$target" "| $1 |" "| $1 | ${text} | $3 | $4 | (TBD) |"
   }
   _seed_ms_name() { # $1=마일스톤헤더 prefix $2=텍스트
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
@@ -326,7 +329,7 @@ phase_10_commit() {
     while IFS= read -r f; do [ -n "$f" ] && cpaths+=("$f"); done <<EOF
 $own
 EOF
-    if git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 14종 중 ${active}종)" -- "${cpaths[@]}"; then
+    if git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · ${total}종 중 ${active}종)" -- "${cpaths[@]}"; then
       rm -f "$INIT_HOLD_FILE" "$INIT_WRITTEN_FILE" 2>/dev/null
       echo "→ git commit 완료 (${label} · ${active}/${total}) [SPECOPS_INIT_COMMIT_NOW=1]"
     else

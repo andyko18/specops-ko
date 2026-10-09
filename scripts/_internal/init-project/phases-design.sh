@@ -18,9 +18,11 @@ phase_5_claude() {
   for i in 1 2 3 4 5; do
     name=$(grep -m1 "^### 원칙 ${i}:" .specops/memory/constitution.md 2>/dev/null \
       | sed "s/^### 원칙 ${i}: *//" || echo "원칙${i}")
-    [ -z "$name" ] && name="원칙${i}"
-    # constitution 'skip' 시 raw placeholder(<PRINCIPLE_N_NAME>) 가 CLAUDE.md 로 누출되는 것 차단
-    case "$name" in '<'*'>') name="원칙${i}" ;; esac
+    # 원칙이 아직 없으면(헌법 skip · 파일 부재) **미확정 마커**를 쓴다 — 종전의 "원칙N" 은 채워진 값처럼 보여
+    #   미채움 스캔에도 안 걸렸다(실기록: "원칙 1: 원칙1" 인 채 FID 60개). raw placeholder(<PRINCIPLE_N_NAME>)를
+    #   그대로 옮기지 않는 것은 종전과 같다.
+    [ -z "$name" ] && name="<미확정 — 근거 필요>"
+    case "$name" in '<'*'>') name="<미확정 — 근거 필요>" ;; esac
     _replace_line_prefix "$target" "- 원칙 ${i}:" "- 원칙 ${i}: ${name}"
   done
   echo "→ ${target} 작성 완료"

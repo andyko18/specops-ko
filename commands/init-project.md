@@ -4,7 +4,7 @@ description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 1
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 2.10.0
+specops_version: 2.17.0
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
@@ -15,7 +15,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 14종 산출물**(풀스택 기준 — 종류·선택별 7~14종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
 
-**축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. 화면 껍데기는 만들지 않음(본설계는 `/start-all` Phase 2.5).
+**축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. bash 단계는 화면 파일을 만들지 않는다(이름 목록만) — 화면 본문은 Phase 11 보강(UI 종류 · 미확정 마커 허용)이 초안을 만들고 `/start-all` Phase 2.5 가 FR 확정 뒤 메운다.
 
 ## Process
 
@@ -35,7 +35,8 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      ```
      - 발견 시 **사용자 확인 필수**(주권 — 자동 소비 금지): "기존 문서 `<경로>` 를 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시.
      - 복수 발견 시 목록 제시 → 사용자 선택 (전체·일부·없음).
-     - **대소문자만 다른 이름 주의** — 발견한 문서가 `prd.md`·`readme.md`·`claude.md`·`design.md` 이면, 대소문자를 구분하지 않는 파일시스템(macOS 기본)에서는 산출물 `PRD.md` 등과 **같은 파일**이다. bash 가 쓰기 전에 rc=2 로 멈추고 이유를 알려 준다 — 사용자에게 물어 원문을 다른 이름으로 옮기거나(`git mv prd.md docs/prd-source.md`) 산출물 이름으로 맞춘 뒤(`git mv prd.md PRD.md`) 다시 실행한다. 임의로 옮기지 않는다.
+     - **루트의 `prd.md` 주의** — 대소문자를 구분하지 않는 파일시스템(macOS 기본)에서는 산출물 `PRD.md` 와 **같은 파일**이다. bash 가 쓰기 전에 rc=2 로 멈추고 두 선택지를 알려 준다 — 사용자에게 물어 고른다(임의로 옮기지 않는다): ① 기획 원문으로 남긴다 → 다른 이름으로 옮긴다(`git mv prd.md docs/prd-source.md`) → init 이 `PRD.md` 를 새로 쓴다 ② 그 파일을 그대로 PRD 로 쓴다 → `git mv prd.md PRD.md` → `PRD.md` 는 보존되고 확정한 6필드는 `CLAUDE.md`·`README.md` 의 한 줄 설명과 FR 시드에만 쓰인다.
+     - **`PRD.md` 가 이미 있어 보존될 때도 `prd.*` 6키를 적는다** — 필수는 아니지만, 적어야 `CLAUDE.md`·`README.md` 의 한 줄 설명과 FR 시드가 채워진다(`PRD.md` 자체는 고치지 않는다).
      - `requirements*.md` 가 이미 **FR 표를 포함**하면 Phase 8a 에서 해당 파일 보존(`_should_skip` 정책)되도록 안내 — 초안 근거와 산출물 보존은 별개.
    - 위 어느 경로든 문서 확보 시: 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → **확정값을 답변 파일의 `prd.*` 키로 적는다**(아래 1번).
    - 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
@@ -89,11 +90,12 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 **얕게/스킵** (골격·placeholder 유지 허용):
 - `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
-- `screens-overview.md` — 골격 유지. **예외: 화면을 보강한 행의 상태 셀만** 갱신(아래 §화면 보강 규약). 표 본문(이름·제목·링크)은 Phase 7 bash 소유라 건드리지 않는다
+- `screens-overview.md` — 골격 유지. **예외: 화면을 보강한 행의 목적 칸만** 갱신(아래 §화면 보강 규약). 표의 나머지(이름·제목·링크)는 Phase 7 bash 소유라 건드리지 않는다
+- **헌법이 skip 으로 남았으면**(`constitution.md` 의 원칙 이름이 자리표시자 · `CLAUDE.md` 의 원칙 줄이 미확정 마커) 승인 게이트 요약에 "헌법 원칙 미작성" 을 한 줄로 알린다 — 사용자가 원칙 5개를 주면 `constitution.md` 와 `CLAUDE.md` 원칙 줄을 함께 채운다. 원칙을 지어내지 않는다
 
 **Phase 11.5 — 단일 라운드 사전 인터뷰** (보강 전 — 대화형 전용):
 - 보강 **직전**, 근거 부족으로 `가정:`·미확정 마커가 될 **결정급**만 질문으로 변환한다.
-- **상한**: **총 최대 5문항** (단일 라운드 — 그룹별 5×3 폐지). 후보 초과 시 **결정급 우선** 선정(스택·인증·배포·데이터 경계·UI 유무).
+- **상한**: **총 최대 5문항** (단일 라운드 — 그룹별 5×3 폐지). 후보 초과 시 **결정급 우선** 선정(스택·인증·배포·데이터 경계·UI 유무) — 6번째부터는 묻지 않고 미확정 마커로 남긴다(실기록: 7문항).
 - 객관식 우선. **모든 질문에 "모름/나중에" 선택지 필수** — 해당 답변은 미확정 마커로 남긴다.
 - 답변은 근거 ④(인터뷰 응답)로 편입 — 마커/가정 대신 실값 기재.
 - **질문 스킵 주권**: 사용자가 "질문 스킵" 응답 시 인터뷰 없이 아래 현행 흐름(가정:/마커)으로 진행.
@@ -105,13 +107,13 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - **산출**: `templates/screen.md` 기반으로 `screens/<name>.md` 를, `templates/screen.html` 기반으로 `screens/<name>.html` 을 **함께** 생성한다. 양쪽의 `<!-- specops:screen-placeholder ... -->` 줄을 **삭제**한다 — `.html` 은 `design-screen.sh` 가 **마커만** 보므로 이 삭제가 곧 채움 선언이다.
 - **채움**: 필수 8섹션(목적·Layout·Components·States·Interactions·필드 정의표·데이터 소스·에러 메시지)을 **모두** 둔다. PRD 로 도출되지 않는 항목은 `<미확정 — 근거 필요>` 로 채운다 — 이 마커는 `design-screen.sh` 의 "헤더+본문 존재" 판정을 통과하고 `scan-enrich-placeholders.sh` 제외 ①에도 걸리므로 **두 게이트가 함께 통과**한다. 조건부 4섹션(RBAC·반응형·접근성·진입/이탈)은 해당할 때만 넣는다.
 - **DESIGN.md 준수**: `DESIGN.md` §6.1 화면 원형 · §7 상태 표현을 읽고 따른다(부재 시 skip). `/design-screen(s)` 와 동일 의무다.
-- **표 상태 셀 갱신**: 보강한 화면의 `screens-overview.md` 행에서 상태 셀 `예정 — /start-all Phase 2.5` 를 `init 보강 (미확정 <N>)` 으로 바꾼다(`<N>` = 그 화면에 남은 미확정 마커 수). **마커 수 상한은 두지 않는다** — 상한은 근거 없는 숫자이고, 남은 미확정은 `/start-all` Phase 2.5 가 FR 확정 후 메운다.
+- **표 목적 칸 갱신**: 보강한 화면의 `screens-overview.md` 행에서 목적 칸(셋째 칸)의 `예정 — /start-all Phase 2.5` 를 `init 보강 (미확정 <N>)` 으로 바꾼다(`<N>` = 그 화면에 남은 미확정 마커 수). **마커 수 상한은 두지 않는다** — 상한은 근거 없는 숫자이고, 남은 미확정은 `/start-all` Phase 2.5 가 FR 확정 후 메운다.
 - **비UI KIND**: 화면 보강 전체를 graceful skip 한다(FAIL 아님).
 
 **사실성 계약 (Karpathy 원칙 — karpathy-ko)**:
 - 서술 근거는 **근거 4원**만: ① 사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서) ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.
 - **일반론 boilerplate 금지** — 어느 프로젝트에나 맞는 문장 대신 프로젝트 특화 구체값(이름·수치·결정)으로 작성.
-- 불확실 항목은 `<미확정 — 근거 필요>` 마커로 남긴다 (원시 placeholder `<...>` 잔존 금지 — 미확정 마커만 허용).
+- 불확실 항목은 `<미확정 — 근거 필요>` 마커로 남긴다. **깊게 대상 문서**에는 원시 placeholder `<...>` 를 남기지 않는다(미확정 마커만 허용) — 얕게/스킵 문서의 골격 placeholder 는 위 깊이 규칙대로 남을 수 있고, 종결 커밋이 남은 건수를 알린다.
 - **규약 표기는 채움 대상 아님·잔존 허용** — `.specops/<FID>`·`screens/<name>` 류 문서 본문 서술은 placeholder 가 아니다 (allowlist SoT: `scripts/_internal/scan-enrich-placeholders.sh`). 스캔 통과 목적으로 규약 표기를 지우는 과보강 금지.
 - 추론 항목은 `가정:` 접두 명시.
 - 사용자가 이미 작성한 본문은 덮어쓰기 금지 (보강 대상 = placeholder·미확정 마커뿐).
@@ -129,6 +131,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 1. 깊게 대상 전부 보강 → **1회** 요약 제시 → 게이트 `[y/번호 수정]`
    - `가정:` 전건 번호 목록 + 결정급 ★ 표시
    - `y` = 전체 승인, 번호 = 해당 가정만 수정 후 재제시 (루프 cap 없음 — 사용자 주권)
+   - **수정 요청을 반영한 뒤에는 다시 게이트를 받는다** — 반영 직후 곧바로 종결 커밋하지 않는다(실기록: 수정 요청 뒤 재승인 없이 커밋). `y` 를 받은 내용과 커밋하는 내용이 같아야 한다
 2. (구 그룹①②③ 3게이트 폐지)
 3. DESIGN.md 보강 후 `screens/*.html` 이 **이미 존재**하면(구 부트스트랩·수동 생성): `bash` 로 각 html 에 `scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**스캐폴딩 원본·사용자 미편집 상태에서만** — 편집본 덮어쓰기 금지)
 
@@ -144,7 +147,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다.
 
-**제목과 출력이 남은 미채움을 말한다** — 커밋한 문서에 자리표시자·예시 블록이 없으면 제목이 `부트스트랩+enrich (N종)`, 남아 있으면 `부트스트랩 (N종 · 미채움 M건)` 이고 출력에 문서별 건수가 나온다(막지는 않는다). 이 출력을 사용자에게 그대로 전한다 — 예시 블록이 남았다는 고지는 보강이 빠졌다는 신호다.
+**제목과 출력이 남은 미채움을 말한다** — 커밋한 문서에 자리표시자·예시 블록이 없으면 제목이 `부트스트랩+enrich (N종)`, 남아 있으면 `부트스트랩 (N종 · 미채움 M건 · 예시 블록 E건)`(해당하는 것만) 이고 출력에 문서별 건수가 나온다(막지는 않는다). 스캔하지 못했으면 제목은 `부트스트랩 (N종)` 이다. 이 출력을 사용자에게 그대로 전한다 — 예시 블록이 남았다는 고지는 보강이 빠졌다는 신호다.
 
 **커밋 범위는 init 산출물뿐이다** — 루트 4종 · `.specops/memory/` · 화면 목록에 있는 `screens/<name>.{md,html}` · `.specops/.gitignore` · `session-progress.md`. 그 밖은 커밋하지 않고 **출력으로 알린다**(사용자에게 그대로 전달할 것):
 - 미리 stage 돼 있던 무관한 파일 → 인덱스에 그대로 남는다.
@@ -194,7 +197,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 - **lifecycle chain 자동 진입 금지** — 본 슬래시는 부트스트랩 **단독**. spec/clarify/plan 등은 `/start` 가 진입.
 - **자동 chain 강제 시도 금지** — 5원칙 4 (사용자 주권) 위반.
 - **재실행으로 덮어쓰기 금지** — `.specops/memory/` 존재 시 명시 안내 후 [y/N] 확인 (Phase 1).
-- **Phase 7에서 screens 껍데기 생성 금지** — 본설계는 start-all 2.5.
+- **Phase 7(bash)에서 screens 파일 생성 금지** — 화면 초안은 Phase 11 보강, 본설계는 start-all 2.5.
 - **stdin 으로 답을 순서대로 밀어 넣기 금지** — 답변 파일(`--answers`)을 쓴다. 스크립트가 rc=2 로 멈추면 출력이 알려 준 키를 채운다(기본값으로 넘어가도록 우회하지 않는다).
 
 ## 참조
@@ -206,4 +209,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 ---
 
-*specops-ko v2.10.0 · 2026-08-03 · Light enrich · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v2.17.0 · 2026-10-09 · 답변 파일 · Light enrich · 원장 · Phase7 목록만 · 커밋1*

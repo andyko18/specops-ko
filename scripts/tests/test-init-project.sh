@@ -1319,12 +1319,92 @@ else
 fi
 teardown_fixture
 
+# T35.e 대소문자 검사는 PRD 만 본다 — readme.md 같은 흔한 이름으로 정상 저장소를 막지 않는다 (독립 리뷰)
+#   README·CLAUDE·DESIGN 은 대소문자가 달라도 보존 정책으로 그대로 두면 되고 잃는 것이 없다.
+setup_fixture
+printf '# 내 프로젝트\n' > readme.md
+_ci=0; [ -e README.md ] && _ci=1
+if [ "$_ci" = "1" ]; then
+  out=$({ printf "skip\n"; cli_stdin; } | bash "$SCRIPT" demo 2>&1); rc=$?     # skip = 충돌 정책(README 가 이미 있다)
+else
+  out=$(cli_stdin | bash "$SCRIPT" demo 2>&1); rc=$?
+fi
+{ [ "$rc" -eq 0 ] && [ -f PRD.md ] && grep -q '내 프로젝트' readme.md; } \
+  && ok "T35.e readme.md 가 있는 저장소 → 멈추지 않고 진행 · 내용 보존" || nope "T35.e" "rc=$rc out=$(printf '%s' "$out" | tail -2 | tr '\n' ' ' | cut -c1-160)"
+teardown_fixture
+
+# T35.f PRD.md 를 보존해도 확정한 6필드는 다른 산출물에 쓴다 (PRD.md 자체는 고치지 않는다)
+#   "prd.md 를 PRD.md 로 맞춘다" 는 안내를 따르면 PRD 가 보존되는데, 종전엔 그때 6필드가 통째로 버려져
+#   CLAUDE.md 는 `<TODO>` · FR 시드는 자리표시자였다 — 고쳤다던 증상이 그 경로로 그대로 났다(독립 리뷰 재현).
+for _how in answers fields; do
+  setup_fixture
+  printf '# 기획 원문\n\n자유 형식의 PRD.\n' > PRD.md; _prd=$(cat PRD.md)
+  if [ "$_how" = "answers" ]; then
+    printf 'kind=3\nconflict=skip\nprinciples=skip\nprd.oneline=하루 글 초안 자동화\nprd.persona=운영자\nprd.values=a, b, c\nprd.m1=초안 생성\nprd.m2=검토\nprd.m3=통계\ndb=n\n' > "$TMPDIR/../a-$$.txt"
+    bash "$SCRIPT" --answers "$TMPDIR/../a-$$.txt" demo >/dev/null 2>&1 </dev/null; rc=$?; rm -f "$TMPDIR/../a-$$.txt"
+  else
+    mkdir -p .specops; printf '하루 글 초안 자동화\n운영자\na, b, c\n초안 생성\n검토\n통계\n' > .specops/.init-prd-fields
+    printf 'skip\n3\nskip\nn\n' | bash "$SCRIPT" demo >/dev/null 2>&1; rc=$?
+  fi
+  if [ "$rc" -eq 0 ] && [ "$(cat PRD.md)" = "$_prd" ] && grep -q '하루 글 초안 자동화' CLAUDE.md \
+     && ! grep -q '^<TODO>$' CLAUDE.md && grep -qE '^\| FR-1 \| 초안 생성 \| M1 \|' .specops/memory/requirements.md \
+     && [ ! -e .specops/.init-prd-fields ]; then
+    ok "T35.f($_how) PRD.md 보존 + 6필드 → CLAUDE.md 한 줄 설명·FR 시드 반영 · PRD.md 무변경 · 필드 파일 회수"
+  else
+    nope "T35.f($_how)" "rc=$rc claude=[$(sed -n '5,8p' CLAUDE.md 2>/dev/null | tr '\n' '|' | cut -c1-80)] fr=[$(grep -E '^\| FR-1 ' .specops/memory/requirements.md 2>/dev/null | cut -c1-50)]"
+  fi
+  teardown_fixture
+done
+
 # T35.d 활성 산출물 표기의 분모는 정본 개수(14)다 — 풀스택이 "14/13" 으로 찍혔다
 setup_fixture
 out=$(fullstack_stdin | bash "$SCRIPT" demo 2>&1)
 { printf '%s' "$out" | grep -q '14/14' && ! printf '%s' "$out" | grep -q '/13'; } \
   && ok "T35.d 활성 산출물 표기 14/14" || nope "T35.d" "$(printf '%s' "$out" | grep '스테이징 완료' | cut -c1-80)"
 teardown_fixture
+
+# ── T36: 뒤 단계가 읽는 값의 정직성 (20261009 init 점검) ──
+# T36.a 헌법을 skip 해도 결정이 아닌 토큰(프로젝트명·날짜)은 채우고, CLAUDE.md 에 가짜 원칙 이름을 쓰지 않는다
+#   종전엔 skip 이면 템플릿을 토큰째 복사했고(`# <PROJECT_NAME> 헌법`), CLAUDE.md 에는 "원칙 1: 원칙1" 이 들어갔다 —
+#   채워진 것처럼 보이는 값이라 미채움 스캔에도 안 걸렸다(실기록: 그 상태로 FID 60개 진행).
+setup_fixture
+cli_stdin | bash "$SCRIPT" demo >/dev/null 2>&1
+_c=.specops/memory/constitution.md
+if grep -q '^# demo 헌법' "$_c" && ! grep -q '<PROJECT_NAME>\|<YYYY-MM-DD>' "$_c" \
+   && grep -q '<PRINCIPLE_1_NAME>' "$_c" \
+   && grep -qF -- '- 원칙 1: <미확정 — 근거 필요>' CLAUDE.md && ! grep -qE '^- 원칙 [1-5]: 원칙[1-5]$' CLAUDE.md; then
+  ok "T36.a 헌법 skip → 프로젝트명·날짜는 채움 · 원칙 이름은 자리표시자 유지 · CLAUDE.md 는 미확정 마커"
+else
+  nope "T36.a" "head=[$(sed -n '5p' "$_c")] claude=[$(grep -E '^- 원칙 1:' CLAUDE.md)]"
+fi
+teardown_fixture
+
+# T36.b 마일스톤 문구의 `|` 가 FR 표의 칸을 깨지 않는다
+#   종전엔 "주문 등록 | 조회" 가 그대로 들어가 칸이 하나 밀렸고, FR 판독기가 마일스톤을 "조회" 로 읽었다.
+setup_fixture
+{
+  printf "3\nskip\n"
+  printf "1. 한 줄: x\n2. 페르소나: y\n3. 가치: a, b, c\n4. M1: 주문 등록 | 조회\n5. M2: m2\n6. M3: m3\n\n"
+  printf "n\n"
+} | bash "$SCRIPT" demo >/dev/null 2>&1
+_row=$(grep -E '^\| FR-1 \|' .specops/memory/requirements.md | head -1)
+_bars=$(printf '%s' "$_row" | tr -cd '|' | wc -c | tr -d ' ')
+if [ "$_bars" = "6" ] && printf '%s' "$_row" | grep -q '| M1 | must |' && printf '%s' "$_row" | grep -q '주문 등록' \
+   && grep -qF -- '- **M1**: 주문 등록 | 조회' PRD.md; then
+  ok "T36.b 마일스톤의 | → FR 시드 행은 칸 5개 유지(구분자 치환) · PRD 원문은 그대로"
+else
+  nope "T36.b" "bars=$_bars row=[$_row]"
+fi
+teardown_fixture
+
+# T36.c 문서가 실제 동작을 말한다 (낡은 문구 잠금)
+_d=0
+grep -q '후속 릴리즈' "$PLUGIN/skills/using-specops-ko/SKILL.md" && { _d=1; echo "  using-specops-ko: --resume 을 '후속 릴리즈'라 적음"; }
+grep -q 'sync` 로 상태 셀' "$PLUGIN/commands/start-all.md" && { _d=1; echo "  start-all: sync 가 칸을 고친다고 적음(sync 는 행만 추가한다)"; }
+grep -q '상태 셀' "$PLUGIN/commands/init-project.md" && { _d=1; echo "  init-project: 표에 없는 '상태 셀'을 가리킴(실제는 목적 칸)"; }
+grep -q '다시 게이트' "$PLUGIN/commands/init-project.md" || { _d=1; echo "  init-project: 수정 뒤 재승인 지시 없음"; }
+grep -q '미확정 — 근거 필요.*채운다\|채운다.*미확정 — 근거 필요' "$PLUGIN/skills/specifying-ko/SKILL.md" || { _d=1; echo "  specifying-ko: 재사용 화면의 미확정 항목을 메우라는 지시 없음"; }
+[ "$_d" = "0" ] && ok "T36.c 문서의 낡은 문구 0 · 재승인·미확정 메움 지시 존재" || nope "T36.c" "위 항목 참고"
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

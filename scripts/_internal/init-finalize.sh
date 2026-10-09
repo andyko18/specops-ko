@@ -89,17 +89,30 @@ for _p in "${cpaths[@]}"; do
     *.md) [ -f "$_p" ] && _md+=("$_p") ;;
   esac
 done
-_scan=""
+# 스캔 결과는 셋 중 하나다: clean(0건) · found(건수 있음) · unknown(스캔하지 못함 — 문서 없음·스캐너 부재·오류).
+#   unknown 을 0건으로 읽으면 고치려던 거짓 제목("+enrich")이 그대로 나온다(독립 리뷰 재현) — 주장하지 않는다.
+_scan=""; _scan_state="unknown"
 if [ ${#_md[@]} -gt 0 ] && [ -f "$_DIR/scan-enrich-placeholders.sh" ]; then
-  _scan=$(bash "$_DIR/scan-enrich-placeholders.sh" "${_md[@]}" 2>/dev/null || true)
+  _scan=$(bash "$_DIR/scan-enrich-placeholders.sh" "${_md[@]}" 2>/dev/null); _scan_rc=$?
+  case "$_scan_rc" in
+    0) _scan_state="clean" ;;
+    1) _scan_state="found" ;;
+  esac
 fi
-_n_ex=$(printf '%s\n' "$_scan" | grep -c '\[example-block\]' || true)
-_n_ph=$(printf '%s\n' "$_scan" | grep -v '\[example-block\]' | grep -c . || true)
-if [ "${_n_ph:-0}" -eq 0 ] && [ "${_n_ex:-0}" -eq 0 ]; then
-  _title="chore(init): /init-project 부트스트랩+enrich (${n}종)"
-else
-  _title="chore(init): /init-project 부트스트랩 (${n}종 · 미채움 ${_n_ph}건)"
+_n_ex=0; _n_ph=0
+if [ "$_scan_state" = "found" ]; then
+  _n_ex=$(printf '%s\n' "$_scan" | grep -c '\[example-block\]' || true)
+  _n_ph=$(printf '%s\n' "$_scan" | grep -v '\[example-block\]' | grep -c . || true)
 fi
+case "$_scan_state" in
+  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종)" ;;
+  found)
+    _left=""
+    [ "${_n_ph:-0}" -gt 0 ] && _left="미채움 ${_n_ph}건"
+    [ "${_n_ex:-0}" -gt 0 ] && _left="${_left}${_left:+ · }예시 블록 ${_n_ex}건"
+    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음})" ;;
+  *) _title="chore(init): /init-project 부트스트랩 (${n}종)" ;;
+esac
 if ! out=$(git commit -q -m "$_title" -- "${cpaths[@]}" 2>&1); then
   # 기록 되돌리기 — FR-5/AC-5 는 기록을 **커밋 성공**에 조건부로 둔다(spec.md:62 "성공 시",
   #   acceptance-criteria.md:71 Given). 실패했는데 "완료" 가 남으면 검출형 근거 자체가
@@ -155,6 +168,10 @@ if [ "${_n_ph:-0}" -gt 0 ]; then
 fi
 if [ "${_n_ex:-0}" -gt 0 ]; then
   echo "init-finalize: 예시 블록 ${_n_ex}건이 남아 있습니다(api-spec·data-model 의 샘플) — Phase 11 보강이 수행되지 않았을 수 있습니다"
+fi
+
+if [ "$_scan_state" = "unknown" ] && [ ${#_md[@]} -gt 0 ]; then
+  echo "init-finalize: 미채움 스캔을 하지 못했습니다(스캐너 부재·오류) — 보강 여부를 제목에 적지 않았습니다"
 fi
 
 # 커밋에 넣지 않은 것을 알린다 — 조용히 빼면 "왜 안 들어갔나"를 사용자가 뒤늦게 찾는다.

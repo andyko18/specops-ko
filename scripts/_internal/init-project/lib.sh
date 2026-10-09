@@ -43,26 +43,30 @@ _check_git() {
   fi
 }
 
-# 산출물과 **대소문자만 다른** 파일이 있으면 쓰기 전에 멈춘다(대소문자를 구분하지 않는 파일시스템 — macOS 기본).
+# `PRD.md` 와 **대소문자만 다른** 파일(prd.md 등)이 있으면 쓰기 전에 멈춘다 — 대소문자를 구분하지 않는
+#   파일시스템(macOS 기본)에서만 걸린다.
 #   종전엔 `prd.md` 가 있으면 `[ -e PRD.md ]` 가 참이라 "PRD.md 보존" 으로 빠졌고, 확정한 PRD 6필드가 버려져
 #   CLAUDE.md 는 `<TODO>` · FR 시드는 자리표시자였다(20261009 재현 — 명령 문서의 사용 예 그대로).
-#   그 파일시스템에서는 둘을 함께 둘 수 없다: 보존하면 산출물을 못 쓰고, 쓰면 원문을 덮는다. 사용자가 정해야 한다.
-#   구분하는 파일시스템에서는 정확한 이름이 없으므로 `[ -e ]` 가 거짓이라 여기 걸리지 않는다.
+#   PRD 만 보는 이유: README·CLAUDE·DESIGN 은 대소문자가 달라도 보존 정책으로 그대로 두면 되고 잃는 것이 없다
+#   (`readme.md` 는 흔한 이름이다 — 막으면 정상 저장소가 멈춘다. 독립 리뷰 지적). PRD 는 사정이 다르다:
+#   기획 원문(prd.md)과 specops 형식의 산출물(PRD.md)이 서로 다른 문서인데 한 파일을 놓고 겹친다.
+#   이름은 글롭으로 읽는다 — `ls` 출력은 색 설정에 따라 이스케이프가 섞인다.
 _check_case_collision() {
-  local f actual hit=""
-  for f in "${ARTIFACTS_ROOT[@]}"; do
-    [ -e "$f" ] || continue
-    ls -A 2>/dev/null | grep -qxF -- "$f" && continue          # 정확히 그 이름으로 있다
-    actual=$(ls -A 2>/dev/null | grep -ixF -- "$f" | head -1)
-    hit="${hit}  - ${actual:-(이름 확인 실패)} ↔ ${f}
-"
+  local e other="" exact=0
+  for e in [Pp][Rr][Dd].[Mm][Dd]; do
+    [ -e "$e" ] || continue
+    if [ "$e" = "PRD.md" ]; then exact=1; else other="$e"; fi
   done
-  [ -n "$hit" ] || return 0
-  echo "[init] 산출물과 대소문자만 다른 파일이 있습니다 — 이 파일시스템에서는 같은 파일입니다:" >&2
-  printf '%s' "$hit" >&2
+  [ -n "$other" ] || return 0
+  # 정확한 이름(PRD.md)도 따로 있으면 구분하는 파일시스템이다 — 둘은 다른 파일이고 충돌이 아니다.
+  #   구분하지 않는 파일시스템에서는 디렉토리에 이름이 하나뿐이라 exact 와 other 가 함께 서지 않는다.
+  [ "$exact" = "0" ] && [ -e "PRD.md" ] || return 0
+  echo "[init] ${other} 가 있습니다 — 이 파일시스템은 대소문자를 구분하지 않아 산출물 PRD.md 와 같은 파일입니다." >&2
   echo "       아무것도 쓰지 않았습니다. 둘 중 하나를 고른 뒤 다시 실행하세요:" >&2
-  echo "       · 기획 원문으로 남길 파일이면 다른 이름으로 옮긴다  (예: git mv prd.md docs/prd-source.md)" >&2
-  echo "       · 그대로 산출물로 쓸 파일이면 이름을 맞춘다        (예: git mv prd.md PRD.md)" >&2
+  echo "       · 기획 원문으로 남길 파일이면 다른 이름으로 옮긴다  (예: git mv ${other} docs/prd-source.md)" >&2
+  echo "         → init 이 PRD.md 를 새로 쓴다." >&2
+  echo "       · 그 파일을 그대로 PRD 로 쓸 거면 이름을 맞춘다      (예: git mv ${other} PRD.md)" >&2
+  echo "         → PRD.md 는 보존되고(내용을 고치지 않는다) 확정한 PRD 6필드는 CLAUDE.md·README.md·FR 시드에만 쓰인다." >&2
   exit 2
 }
 
@@ -85,7 +89,7 @@ _check_memory() {
 
 _print_artifacts_table() {
   echo ""
-  echo "산출물 현황 (14종):"
+  echo "산출물 현황 ($(( ${#ARTIFACTS_ROOT[@]} + ${#ARTIFACTS_MEMORY[@]} ))종):"
   local f
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}"; do
     if [ -e "$f" ]; then

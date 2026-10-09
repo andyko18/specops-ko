@@ -53,7 +53,11 @@ phase_3_constitution() {
   if [ "${p1}" = "skip" ]; then
     mkdir -p .specops/memory
     cp "$PLUGIN/templates/constitution.md" "$target"
-    echo "→ ${target} (placeholder 유지)"
+    # skip 은 **원칙을 나중에 정한다**는 뜻이다 — 결정이 아닌 토큰(프로젝트명·날짜)까지 남길 이유는 없다.
+    #   원칙 이름 자리표시자는 그대로 둔다(미채움 스캔에 잡혀야 한다).
+    _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
+    _replace_token "$target" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
+    echo "→ ${target} (원칙은 placeholder 유지 — 나중에 채운다)"
     return
   fi
   printf "원칙 2 이름: "; _ask principle.2 "헌법 원칙 2"; p2="$REPLY"
@@ -193,6 +197,26 @@ phase_4_prd() {
   if _should_skip "PRD.md"; then
     echo "→ PRD.md 보존 (skip 정책)"
     PRD_ONELINE=$(grep -m1 '^\*\*한 줄 설명\*\*:' PRD.md 2>/dev/null | sed 's/^\*\*한 줄 설명\*\*: *//' || echo "")
+    # 보존하더라도 **확정한 6필드가 있으면** 다른 산출물에는 쓴다 — CLAUDE.md·README.md 의 한 줄 설명과 FR 시드.
+    #   종전엔 PRD.md 가 이미 있으면 6필드를 통째로 버려, 기존 PRD 가 specops 형식이 아닐 때 CLAUDE.md 는
+    #   `<TODO>` · FR 시드는 자리표시자로 남았다(필드 파일은 지워지지도 않았다). PRD.md 자체는 고치지 않는다.
+    PRD_F1=""; PRD_F2=""; PRD_F3=""; PRD_F4=""; PRD_F5=""; PRD_F6=""
+    if [ -n "$ANSWERS_FILE" ]; then
+      PRD_F1=$(_ans_get prd.oneline 2>/dev/null || true)
+      PRD_F4=$(_ans_get prd.m1 2>/dev/null || true)
+      PRD_F5=$(_ans_get prd.m2 2>/dev/null || true)
+      PRD_F6=$(_ans_get prd.m3 2>/dev/null || true)
+    elif [ -f .specops/.init-prd-fields ]; then
+      PRD_F1=$(sed -n '1p' .specops/.init-prd-fields)
+      PRD_F4=$(sed -n '4p' .specops/.init-prd-fields)
+      PRD_F5=$(sed -n '5p' .specops/.init-prd-fields)
+      PRD_F6=$(sed -n '6p' .specops/.init-prd-fields)
+      rm -f .specops/.init-prd-fields
+    fi
+    if [ -n "${PRD_F1}${PRD_F4}${PRD_F5}${PRD_F6}" ]; then
+      [ -n "$PRD_F1" ] && PRD_ONELINE="$PRD_F1"
+      echo "  (확정한 PRD 필드는 PRD.md 에 쓰지 않고 CLAUDE.md·README.md 의 한 줄 설명과 FR 시드에만 반영합니다)"
+    fi
     return
   fi
   if [ "$BM_REF" = "y" ]; then
