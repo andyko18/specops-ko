@@ -1271,6 +1271,61 @@ for _head in multi front; do
   teardown_fixture
 done
 
+# ── T35: 실패를 성공처럼 보고하지 않는다 (20261009 init 점검 — 거짓 성공) ──
+# T35.a API 정의 방식 절 정리는 python3 에 기대지 않는다
+#   종전엔 python3 가 없으면 방식 절 4개가 전부 남는데 "→ api-spec.md (8f 방식=2 …)" 라고 출력했다.
+setup_fixture
+mkdir -p "$TMPDIR/nopy"; printf '#!/bin/sh\nexit 127\n' > "$TMPDIR/nopy/python3"; chmod +x "$TMPDIR/nopy/python3"
+{
+  printf "2\np1\np2\np3\np4\np5\n"
+  printf "1. api\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n2\n"
+} | PATH="$TMPDIR/nopy:$PATH" bash "$SCRIPT" demo >/dev/null 2>&1
+_secs=$(grep -cE '^## §[1-4]\.' .specops/memory/api-spec.md 2>/dev/null || true)
+if [ "${_secs:-0}" = "1" ] && grep -q '^## §2\. OpenAPI' .specops/memory/api-spec.md \
+   && grep -q '^## §5\.' .specops/memory/api-spec.md && grep -q '^## §0\.' .specops/memory/api-spec.md; then
+  ok "T35.a python3 없이도 고른 방식 절만 남는다 (§2 · 공통 절 §0·§5 유지)"
+else
+  nope "T35.a" "방식 절 ${_secs}개 (기대 1)"
+fi
+teardown_fixture
+
+# T35.b 대소문자만 다른 파일(prd.md)을 산출물(PRD.md)의 "기존 파일"로 착각하지 않는다
+#   대소문자를 구분하지 않는 파일시스템(macOS 기본)에서 prd.md 가 있으면 `[ -e PRD.md ]` 가 참이라 "PRD.md 보존"
+#   으로 빠졌고, 확정한 PRD 6필드가 버려져 CLAUDE.md 는 `<TODO>` · FR 시드는 자리표시자였다(문서의 사용 예 그대로).
+#   그 파일시스템에서는 둘을 함께 둘 수 없으므로 쓰기 전에 멈추고 이유를 말한다. 구분하는 파일시스템에서는 공존한다.
+setup_fixture
+printf '# 기획 원문\n\n하루 글 초안을 만든다.\n' > prd.md
+_ci=0; [ -e PRD.md ] && _ci=1
+out=$(cli_stdin | bash "$SCRIPT" demo 2>&1); rc=$?
+if [ "$_ci" = "1" ]; then
+  if [ "$rc" -eq 2 ] && [ ! -e CLAUDE.md ] && [ ! -d .specops/memory ] && grep -q '기획 원문' prd.md \
+     && printf '%s' "$out" | grep -q 'prd.md'; then
+    ok "T35.b (대소문자 무시 FS) prd.md 가 있으면 쓰기 전에 멈춤 · 원문 보존 · 이유 출력"
+  else
+    nope "T35.b" "rc=$rc out=$(printf '%s' "$out" | tail -3 | tr '\n' ' ' | cut -c1-200)"
+  fi
+  printf 'kind=3\nprinciples=skip\nprd.oneline=a\nprd.persona=b\nprd.values=c, d, e\nprd.m1=f\nprd.m2=g\nprd.m3=h\ndb=n\n' > "$TMPDIR/../ans-$$.txt"
+  out=$(bash "$SCRIPT" --answers "$TMPDIR/../ans-$$.txt" demo 2>&1 </dev/null); rc=$?; rm -f "$TMPDIR/../ans-$$.txt"
+  { [ "$rc" -eq 2 ] && [ ! -e CLAUDE.md ] && printf '%s' "$out" | grep -q 'prd.md'; } \
+    && ok "T35.c (대소문자 무시 FS) 답변 파일 모드도 같은 이유로 멈춤" || nope "T35.c" "rc=$rc"
+else
+  if [ "$rc" -eq 0 ] && grep -q '기획 원문' prd.md && grep -q 'CLI 데모' PRD.md; then
+    ok "T35.b (대소문자 구분 FS) prd.md 와 PRD.md 공존 · 6필드 반영"
+  else
+    nope "T35.b" "rc=$rc"
+  fi
+  ok "T35.c (대소문자 구분 FS) 해당 없음"
+fi
+teardown_fixture
+
+# T35.d 활성 산출물 표기의 분모는 정본 개수(14)다 — 풀스택이 "14/13" 으로 찍혔다
+setup_fixture
+out=$(fullstack_stdin | bash "$SCRIPT" demo 2>&1)
+{ printf '%s' "$out" | grep -q '14/14' && ! printf '%s' "$out" | grep -q '/13'; } \
+  && ok "T35.d 활성 산출물 표기 14/14" || nope "T35.d" "$(printf '%s' "$out" | grep '스테이징 완료' | cut -c1-80)"
+teardown_fixture
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

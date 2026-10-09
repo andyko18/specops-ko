@@ -35,6 +35,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      ```
      - 발견 시 **사용자 확인 필수**(주권 — 자동 소비 금지): "기존 문서 `<경로>` 를 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시.
      - 복수 발견 시 목록 제시 → 사용자 선택 (전체·일부·없음).
+     - **대소문자만 다른 이름 주의** — 발견한 문서가 `prd.md`·`readme.md`·`claude.md`·`design.md` 이면, 대소문자를 구분하지 않는 파일시스템(macOS 기본)에서는 산출물 `PRD.md` 등과 **같은 파일**이다. bash 가 쓰기 전에 rc=2 로 멈추고 이유를 알려 준다 — 사용자에게 물어 원문을 다른 이름으로 옮기거나(`git mv prd.md docs/prd-source.md`) 산출물 이름으로 맞춘 뒤(`git mv prd.md PRD.md`) 다시 실행한다. 임의로 옮기지 않는다.
      - `requirements*.md` 가 이미 **FR 표를 포함**하면 Phase 8a 에서 해당 파일 보존(`_should_skip` 정책)되도록 안내 — 초안 근거와 산출물 보존은 별개.
    - 위 어느 경로든 문서 확보 시: 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → **확정값을 답변 파일의 `prd.*` 키로 적는다**(아래 1번).
    - 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
@@ -143,6 +144,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다.
 
+**제목과 출력이 남은 미채움을 말한다** — 커밋한 문서에 자리표시자·예시 블록이 없으면 제목이 `부트스트랩+enrich (N종)`, 남아 있으면 `부트스트랩 (N종 · 미채움 M건)` 이고 출력에 문서별 건수가 나온다(막지는 않는다). 이 출력을 사용자에게 그대로 전한다 — 예시 블록이 남았다는 고지는 보강이 빠졌다는 신호다.
+
 **커밋 범위는 init 산출물뿐이다** — 루트 4종 · `.specops/memory/` · 화면 목록에 있는 `screens/<name>.{md,html}` · `.specops/.gitignore` · `session-progress.md`. 그 밖은 커밋하지 않고 **출력으로 알린다**(사용자에게 그대로 전달할 것):
 - 미리 stage 돼 있던 무관한 파일 → 인덱스에 그대로 남는다.
 - init 이 보존한 기존 파일 중 **미커밋 내용이 있는 것**(미추적·staged·수정 — init 이 쓴 파일이 아닌 것) → 건드리지 않는다. bash 가 Phase 1 에서 `.specops/.init-hold` 에 적고, init 이 쓴 파일은 `.specops/.init-written` 에 따로 적어 둘을 가른다(둘 다 종결 뒤 삭제). 사용자가 확인하고 직접 커밋한다. 종결 전에 다시 실행해도(`--resume` 이든 아니든) 이전 실행의 골격은 보류되지 않는다.
@@ -166,7 +169,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 ```
 /init-project mychat
 # 기존 기획서가 있으면: /init-project mychat docs/기획서.md (0-a)
-# 또는 repo 에 prd.md 만 두면 0-c 가 자동 발견 → 사용 확인 [y/n]
+# 또는 repo 에 기획 문서(docs/기획서.md · requirements.md 등)를 두면 0-c 가 자동 발견 → 사용 확인 [y/n]
+#   (루트의 prd.md 는 macOS 에서 산출물 PRD.md 와 같은 파일이다 — 0-c 의 주의 참고)
 → Phase 0 6필드 확정
 → 종류·헌법 원칙·디자인 방향·화면 이름·DB·API 방식을 사용자와 정한다
 → .specops/.init-answers 작성:

@@ -316,6 +316,34 @@ else
   nope "F20" "rc=$rc out=$out"
 fi
 
+# ── F21~F22 — 종결 커밋은 보강 여부를 지어내지 않는다 (20261009 init 점검) ──
+#   종전엔 보강(Phase 11)을 건너뛰고 종결해도 제목이 "부트스트랩+enrich" 였다(재현: 미채움 152건 · 예시 블록 2건이
+#   그대로 커밋). 제목은 남은 미채움 건수를 적고, 출력으로 문서별 건수를 알린다. 막지는 않는다 — 얕게 두는
+#   문서(헌법·테스트 전략 등)의 자리표시자는 계약상 남을 수 있다.
+R="$TMP/f21"; _mkstaged "$R"
+cp "$PLUGIN/templates/PRD.md" PRD.md                                   # 골격 그대로(자리표시자 다수)
+cp "$PLUGIN/templates/api-spec.md" .specops/memory/api-spec.md         # 예시 블록 포함
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+_m=$(printf '%s' "$subj" | sed -n 's/.*미채움 \([0-9][0-9]*\)건.*/\1/p')
+if [ "$rc" -eq 0 ] && ! printf '%s' "$subj" | grep -q '+enrich' && [ "${_m:-0}" -gt 0 ] \
+   && printf '%s' "$subj" | grep -q '^chore(init): ' \
+   && printf '%s' "$out" | grep -q '미채움' && printf '%s' "$out" | grep -q 'PRD.md' \
+   && printf '%s' "$out" | grep -q '예시 블록'; then
+  ok "F21 보강 없이 종결 → 제목에 '+enrich' 없음 · 미채움 ${_m}건 표기 · 문서별 건수·예시 블록 고지"
+else
+  nope "F21" "rc=$rc subj=[$subj] out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+fi
+R="$TMP/f22"; _mkstaged "$R"
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '부트스트랩+enrich' && ! printf '%s' "$subj" | grep -q '미채움' \
+   && ! printf '%s' "$out" | grep -q '미채움'; then
+  ok "F22 미채움 0 → 제목 '부트스트랩+enrich' · 미채움 고지 없음"
+else
+  nope "F22" "rc=$rc subj=[$subj] out=$out"
+fi
+
 DOC="$PLUGIN/scripts/doctor.sh"
 
 # F6 — 미커밋 부트스트랩 → bootstrap warn · exit 0 / 커밋 후 → ok

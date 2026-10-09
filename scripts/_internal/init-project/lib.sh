@@ -43,6 +43,29 @@ _check_git() {
   fi
 }
 
+# 산출물과 **대소문자만 다른** 파일이 있으면 쓰기 전에 멈춘다(대소문자를 구분하지 않는 파일시스템 — macOS 기본).
+#   종전엔 `prd.md` 가 있으면 `[ -e PRD.md ]` 가 참이라 "PRD.md 보존" 으로 빠졌고, 확정한 PRD 6필드가 버려져
+#   CLAUDE.md 는 `<TODO>` · FR 시드는 자리표시자였다(20261009 재현 — 명령 문서의 사용 예 그대로).
+#   그 파일시스템에서는 둘을 함께 둘 수 없다: 보존하면 산출물을 못 쓰고, 쓰면 원문을 덮는다. 사용자가 정해야 한다.
+#   구분하는 파일시스템에서는 정확한 이름이 없으므로 `[ -e ]` 가 거짓이라 여기 걸리지 않는다.
+_check_case_collision() {
+  local f actual hit=""
+  for f in "${ARTIFACTS_ROOT[@]}"; do
+    [ -e "$f" ] || continue
+    ls -A 2>/dev/null | grep -qxF -- "$f" && continue          # 정확히 그 이름으로 있다
+    actual=$(ls -A 2>/dev/null | grep -ixF -- "$f" | head -1)
+    hit="${hit}  - ${actual:-(이름 확인 실패)} ↔ ${f}
+"
+  done
+  [ -n "$hit" ] || return 0
+  echo "[init] 산출물과 대소문자만 다른 파일이 있습니다 — 이 파일시스템에서는 같은 파일입니다:" >&2
+  printf '%s' "$hit" >&2
+  echo "       아무것도 쓰지 않았습니다. 둘 중 하나를 고른 뒤 다시 실행하세요:" >&2
+  echo "       · 기획 원문으로 남길 파일이면 다른 이름으로 옮긴다  (예: git mv prd.md docs/prd-source.md)" >&2
+  echo "       · 그대로 산출물로 쓸 파일이면 이름을 맞춘다        (예: git mv prd.md PRD.md)" >&2
+  exit 2
+}
+
 _check_memory() {
   # 메모·학습 기록만 있는 디렉토리는 부트스트랩이 아니다(input.sh `_memory_is_bootstrap`) — 묻지 않고 진행한다.
   if _memory_is_bootstrap; then

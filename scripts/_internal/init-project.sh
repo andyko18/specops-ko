@@ -103,6 +103,7 @@ main() {
     case "$ANSWERS_FILE" in /*) ;; *) ANSWERS_FILE="$PWD/$ANSWERS_FILE" ;; esac
   fi
   _cd_repo_root
+  _check_case_collision
   if [ -n "$ANSWERS_FILE" ]; then
     _check_git
     _answers_preflight
