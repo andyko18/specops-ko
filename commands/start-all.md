@@ -5,7 +5,7 @@ description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requ
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.16.0
+specops_version: 2.17.0
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -215,7 +215,7 @@ reference_upstream: specops-ko 독자 추가
      ```
      - `sync` 는 fence **안에만** 추가하고 멱등이다(2회 실행해도 중복 없음).
      - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
-   - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 `check-screens-overview.sh sync` 로 상태 셀을 갱신한다
+   - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 그 화면의 `screens-overview.md` 행 **목적 칸**에 적힌 `init 보강 (미확정 N)` 의 N 을 남은 마커 수로 고친다(0 이면 한 줄 목적으로 바꾼다) — `sync` 는 행을 추가할 뿐 칸을 고치지 않는다
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
@@ -444,4 +444,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.16.0 · 2026-10-09 · 조용히 통과하던 검사 정비(FID 칸 · 굵은·접미 ID FR 행)*
+*specops-ko v2.17.0 · 2026-10-09 · 조용히 통과하던 검사 정비(FID 칸 · 굵은·접미 ID FR 행)*

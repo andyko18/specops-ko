@@ -316,6 +316,62 @@ else
   nope "F20" "rc=$rc out=$out"
 fi
 
+# ── F21~F22 — 종결 커밋은 보강 여부를 지어내지 않는다 (20261009 init 점검) ──
+#   종전엔 보강(Phase 11)을 건너뛰고 종결해도 제목이 "부트스트랩+enrich" 였다(재현: 미채움 152건 · 예시 블록 2건이
+#   그대로 커밋). 제목은 남은 미채움 건수를 적고, 출력으로 문서별 건수를 알린다. 막지는 않는다 — 얕게 두는
+#   문서(헌법·테스트 전략 등)의 자리표시자는 계약상 남을 수 있다.
+R="$TMP/f21"; _mkstaged "$R"
+cp "$PLUGIN/templates/PRD.md" PRD.md                                   # 골격 그대로(자리표시자 다수)
+cp "$PLUGIN/templates/api-spec.md" .specops/memory/api-spec.md         # 예시 블록 포함
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+_m=$(printf '%s' "$subj" | sed -n 's/.*미채움 \([0-9][0-9]*\)건.*/\1/p')
+if [ "$rc" -eq 0 ] && ! printf '%s' "$subj" | grep -q '+enrich' && [ "${_m:-0}" -gt 0 ] \
+   && printf '%s' "$subj" | grep -q '^chore(init): ' \
+   && printf '%s' "$out" | grep -q '미채움' && printf '%s' "$out" | grep -q 'PRD.md' \
+   && printf '%s' "$out" | grep -q '예시 블록'; then
+  ok "F21 보강 없이 종결 → 제목에 '+enrich' 없음 · 미채움 ${_m}건 표기 · 문서별 건수·예시 블록 고지"
+else
+  nope "F21" "rc=$rc subj=[$subj] out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+fi
+R="$TMP/f22"; _mkstaged "$R"
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '부트스트랩+enrich' && ! printf '%s' "$subj" | grep -q '미채움' \
+   && ! printf '%s' "$out" | grep -q '미채움'; then
+  ok "F22 미채움 0 → 제목 '부트스트랩+enrich' · 미채움 고지 없음"
+else
+  nope "F22" "rc=$rc subj=[$subj] out=$out"
+fi
+
+# F23 — 예시 블록만 남은 경우도 제목이 말한다 ("미채움 0건" 이라 쓰고 출력은 "예시 블록 1건" 이던 어긋남 — 독립 리뷰)
+R="$TMP/f23"; _mkstaged "$R"
+printf '# api\n\n<!-- specops:example:start -->\n| GET | /v1/users |\n<!-- specops:example:end -->\n' > .specops/memory/api-spec.md
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '예시 블록 1건' && ! printf '%s' "$subj" | grep -q '+enrich\|미채움 0건'; then
+  ok "F23 예시 블록만 잔존 → 제목 '예시 블록 1건' · '+enrich' 아님"
+else
+  nope "F23" "rc=$rc subj=[$subj]"
+fi
+
+# F24 — 스캔하지 못했으면 보강을 주장하지 않는다 (스캐너 부재를 0건으로 읽으면 같은 거짓 제목이 된다 — 독립 리뷰)
+mkdir -p "$TMP/plug/scripts"
+cp -R "$PLUGIN/scripts/_internal" "$TMP/plug/scripts/_internal"
+cp "$PLUGIN/scripts/session-progress-append.sh" "$TMP/plug/scripts/" 2>/dev/null
+cp -R "$PLUGIN/templates" "$TMP/plug/templates"
+rm -f "$TMP/plug/scripts/_internal/scan-enrich-placeholders.sh"
+R="$TMP/f24"; _mkstaged "$R"
+cp "$PLUGIN/templates/PRD.md" PRD.md
+out=$(bash "$TMP/plug/scripts/_internal/init-finalize.sh" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '^chore(init): /init-project 부트스트랩 (' \
+   && ! printf '%s' "$subj" | grep -q '+enrich' && printf '%s' "$out" | grep -q '스캔을 하지 못했습니다'; then
+  ok "F24 스캐너 부재 → 제목에 '+enrich' 없음 · 스캔 불가 고지"
+else
+  nope "F24" "rc=$rc subj=[$subj] out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+fi
+
 DOC="$PLUGIN/scripts/doctor.sh"
 
 # F6 — 미커밋 부트스트랩 → bootstrap warn · exit 0 / 커밋 후 → ok

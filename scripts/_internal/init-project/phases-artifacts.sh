@@ -11,7 +11,10 @@ _phase_8a_requirements() {
   # 전략 C: PRD 마일스톤(PRD_F4/F5/F6) → §5 이름 치환 + §2 FR 시드행
   _seed_fr_row() {  # $1=FR-N $2=텍스트 $3=마일스톤 $4=우선순위
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
-    _replace_line_prefix "$target" "| $1 |" "| $1 | $2 | $3 | $4 | (TBD) |"
+    # 표 구분자와 겹치는 `|` 는 `/` 로 바꿔 넣는다 — 그대로 두면 칸이 밀려 FR 판독기가 마일스톤을 틀리게 읽는다.
+    #   `\|` 로 이스케이프하지 않는 이유: 판독기들이 `|` 로 나누므로 이스케이프도 칸을 가른다. PRD.md 원문은 그대로다.
+    local text="${2//|//}"
+    _replace_line_prefix "$target" "| $1 |" "| $1 | ${text} | $3 | $4 | (TBD) |"
   }
   _seed_ms_name() { # $1=마일스톤헤더 prefix $2=텍스트
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
@@ -100,21 +103,19 @@ _phase_8f_api_spec() {
   esac
   sed -i.bak "s/\[ \] ${fmt_sec} /[x] ${fmt_sec} /" "$target" && rm -f "${target}.bak"
   _replace_token "$target" "<\`/init-project\` 입력값>" "${fmt_label} (${fmt_sec})"
-  python3 - "$target" "$m" <<'PYEOF'
-import sys, re
-path, keep = sys.argv[1], sys.argv[2]
-lines = open(path).readlines()
-out, skip = [], False
-for line in lines:
-    m = re.match(r'^## §([1-4])\.', line)
-    if m:
-        skip = (m.group(1) != keep)
-    elif re.match(r'^## §[5-9]\.', line):
-        skip = False
-    if not skip:
-        out.append(line)
-open(path, 'w').writelines(out)
-PYEOF
+  # 고르지 않은 방식 절(§1~§4)을 지운다. awk 로 한다 — 종전의 python3 호출은 python3 가 없으면 절 4개가
+  #   전부 남는데도 아래 "→ api-spec.md (8f …)" 를 그대로 출력했다(20261009 재현).
+  #   절 번호는 match 로 찾는다: `§` 는 여러 바이트라 substr 위치가 awk 구현(바이트·문자 단위)마다 다르다.
+  if K="$m" awk '
+      /^## §[1-4]\./ { match($0, /[1-4]\./); skip = (substr($0, RSTART, 1) != ENVIRON["K"]) }
+      /^## §[5-9]\./ { skip = 0 }
+      !skip { print }
+    ' "$target" > "${target}.tmp" && [ -s "${target}.tmp" ]; then
+    mv "${target}.tmp" "$target"
+  else
+    rm -f "${target}.tmp"
+    echo "  ⚠️  api-spec.md 의 방식 절 정리에 실패했습니다 — 고르지 않은 절(§1~§4)이 남아 있습니다" >&2
+  fi
   echo "→ ${target} (8f 방식=${m} ${fmt_label})"
 }
 
@@ -293,7 +294,8 @@ phase_10_commit() {
     #   일관 처리(lib.sh 의 다른 호출처와 정합). self-input robustness.
     _replace_token .specops/session-progress.md "<project-name>" "$PROJECT_NAME"
   fi
-  local active label
+  # 분모는 정본 배열의 길이다 — 숫자를 따로 적어 두면 배열이 늘 때 어긋난다(풀스택이 "14/13" 으로 찍혔다).
+  local active label total=$(( ${#ARTIFACTS_ROOT[@]} + ${#ARTIFACTS_MEMORY[@]} ))
   active=$(_count_active)
   label=$(_kind_label "$PROJECT_KIND")
   # 결정 원장 골격 (enrich가 채움 — bash에서 존재만 보장)
@@ -327,14 +329,14 @@ phase_10_commit() {
     while IFS= read -r f; do [ -n "$f" ] && cpaths+=("$f"); done <<EOF
 $own
 EOF
-    if git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · 14종 중 ${active}종)" -- "${cpaths[@]}"; then
+    if git commit -q -m "chore(init): /init-project 부트스트랩 (${label} · ${total}종 중 ${active}종)" -- "${cpaths[@]}"; then
       rm -f "$INIT_HOLD_FILE" "$INIT_WRITTEN_FILE" 2>/dev/null
-      echo "→ git commit 완료 (${label} · ${active}/13) [SPECOPS_INIT_COMMIT_NOW=1]"
+      echo "→ git commit 완료 (${label} · ${active}/${total}) [SPECOPS_INIT_COMMIT_NOW=1]"
     else
       echo "  ⚠️  git commit 실패 — 산출물은 staged 로 남아 있습니다" >&2
     fi
   else
-    echo "→ 스테이징 완료 (${label} · ${active}/13). Phase 11 enrich 후 단일 커밋하세요."
+    echo "→ 스테이징 완료 (${label} · ${active}/${total}). Phase 11 enrich 후 단일 커밋하세요."
     echo "  (즉시 커밋: SPECOPS_INIT_COMMIT_NOW=1)"
   fi
   echo ""

@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.14.0
+specops_version: 2.17.0
 used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /maintain-auto, /maintain-lite-auto, /promote
 ---
 
@@ -181,7 +181,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용 · batch 제외 · foundation 셸에는 적용):
    - 화면 파일이 **이미 있으면** 먼저 판정한다:
      `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/{name}.md screens/{name}.html`
-     - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지).
+     - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지). 단 `<미확정 — 근거 필요>` 중 이번 기능이 확정하는 것은 **그 마커만** 채운다(init 보강분).
      - exit 0(껍데기) → 재사용 금지. 아래 생성 루프를 그대로 진행해 덮어쓴다.
    - **`.md` 채움 요건**: `screens/{name}.md` 는 **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지)을 실제 내용으로 완성한다. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 **해당할 때만** 넣는다 — 미해당 섹션을 `—` 로 채우지 않는다. (`/design-screen(s)` 와 동일 요건 — lifecycle 안/밖 비대칭 해소)
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).

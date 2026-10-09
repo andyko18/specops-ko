@@ -3,7 +3,7 @@ name: using-specops-ko
 description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
-specops_version: 1.99.0
+specops_version: 2.17.0
 used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 ---
 
@@ -118,7 +118,7 @@ specops-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 - **강제 X — 1 회 1 줄 안내**. 5원칙 4 (사용자 주권) 준수.
 - `y` 응답 시: `/init-project` 호출 → 부트스트랩 완료 → 사용자에게 "이제 `/start \"<기능>\"` 재실행" 안내.
 - `N` 또는 무응답 시: 그대로 specifying-ko 진입 (사용자가 부트스트랩 없이 진행 의지).
-- `--resume` 플래그는 후속 릴리즈 (현재 안내 메시지로만 제시. 사용자가 입력하면 `/init-project` 가 Phase 1 의 충돌 정책으로 처리).
+- `--resume` 은 기존 파일을 보존하고 누락분만 만든다 (`commands/init-project.md`).
 
 ## 미완 lifecycle 재개 통보 (v1.26.3 신규)
 
