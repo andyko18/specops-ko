@@ -27,6 +27,10 @@
 - 게이트 문서 3종(보안·통합·성능)의 SKIP 근거 인용 의무를 판정기(`release-ready.sh`)와 맞췄다 — 문서는 `§유형≠trivial` 일 때만 요구한다고 적었지만 판정기는 유형과 무관하게 인용 없는 SKIP 을 막는다.
 - 보안 단계 문서가 스캐너 미설치를 `SECURITY: SKIP` 으로 안내했다 — 스크립트는 그 출력을 내지 않는다(self-check 가 항상 돌고 `self-check only` 접미가 붙는다). 문서를 스크립트에 맞췄다.
 - 낡은 문구: `templates/tasks.md` 의 foundation 크기 예외(v2.17.0 에서 없어졌다) · 메타 스킬의 "Phase A 단독" 잔재 · `plan-reviewer-ko` 의 관점 수(6관점) · `decomposing-ko` 의 분할 안내. 자유작업 귀속(`freework-resolve-fid.sh`)이 `/finishing 완료`·`DONE (PR …)` 를 종결로 본다(메타 스킬의 재개 통보와 같은 목록). 본문이 바뀐 skill 8개의 `specops_version` 을 올렸다.
+- **자유작업 캡처를 설정으로 끌 수 있다.** Stop 훅 `freecomment-capture.sh` 는 사용자 입력을 저장하는 훅인데 이 훅만 킬스위치(`is-hook-enabled`)를 보지 않았다. `.specops/config.yaml` 의 `hooks.freecomment-capture.enabled: false` 와 프로파일 `standard`·`minimal` 에서 꺼진다(기본은 종전과 같다). README 의 "끄는 법" 이 훅별 설정을 적는다 — 쓰지 않는 repo 에는 설정 파일을 만들지 않는다(`.specops/` 가 생기면 그 repo 가 관할이 된다).
+- **`/init-project --answers` 의 답변 파일이 `키 = 값`(등호 앞뒤 공백)을 읽지 못했다** — 같은 줄이 "모르는 키" 와 "빠짐" 으로 함께 나와 원인을 알 수 없었다. 키 앞뒤 공백을 키의 일부로 보지 않고, 모르는 키는 따옴표로 감싸 보여 준다. 같은 키가 두 번이면 알린다(첫 줄만 쓰이고 고친 줄이 조용히 버려졌다). 들여쓴 주석·공백만 있는 줄은 건너뛴다. `prd.values` 는 콤마로 구분한 **정확히 3개**여야 한다(모자라면 PRD 에 자리표시자가 남고, 넘치면 넷째부터 조용히 버려졌다) — 빈 항목(끝 콤마)은 따로 말한다.
+- 화면이 없는 종류(백엔드/API · CLI/라이브러리)의 요구사항 문서·PRD 에 접근성(WCAG)·브라우저 호환성 예시를 넣지 않는다 — 채울 수 없는 자리표시자로 남았다.
+- `/doctor` 의 `memory` 경고가 세는 단위와 문서별 위치를 내주는 명령을 밝힌다(`미채움 문서 N개` — `init-finalize` 의 "미채움 N건" 은 자리표시자 수라 숫자가 다르다). 하류 저장소의 `git_hooks` 경고는 그대로 두되 "알려진 한계, 조치 없음" 이라고 적는다.
 
 ### Tests/CI — 변이 실험이 찾은 테스트 구멍 (제품 코드 불변)
 
@@ -37,6 +41,12 @@
   - `test-readme-entry-tree` AC-3·5·6 을 진입로 절 안으로 좁혔다(README 전체에 grep 해 다른 절의 같은 낱말로 통과했다).
   - 고정 `/tmp` 경로를 쓰던 두 스위트(`test-emit-context`·`test-parse-dag`)를 스위트별 임시 디렉토리로 — 동시에 도는 run-all 끼리 덮어썼다.
   - 되돌려-관찰 35종 전부 격추. 평가 때 "테스트 없음" 으로 적었던 heredoc 위장 차단(`governance-lib.sh`)은 정정한다 — `test-exec-evidence` T35 가 잠그고 있고 그 줄은 뒤에 추가된 화이트리스트와 겹치는 중복 방어다(등가 변이).
+
+### Docs
+
+- **README 가 진입 전에 알아야 할 것을 적는다**: 선택 도구(semgrep·gitleaks)와 검증한 OS, `/init-project` 의 질문 수, 경량 경로의 실제 무게(줄어드는 것은 clarify·plan 뿐 — 비용은 고정비에 가깝다), 주입된 메타 스킬이 하는 일, lifecycle 이 저장소에 만드는 것(브랜치·커밋·파일), **끄는 법**(repo 하나 · 세션 하나 · 커밋 한 건 · 전부). 유지자용 슬래시(`/e2e-test`·`/release`)를 따로 표시했다.
+- `docs/architecture.md` §5 규모 표를 v2.17.0 실측으로 갱신했다(v2.2.0 수치 그대로였다 — 슬래시 24→28 · 스위트 184→191 · 릴리즈 129→144). README·설계 문서의 슬래시 명령 수를 `validate-structure` `readme_counts` 가 실측과 대조한다(종전엔 세지 않아 README 25 · 설계 문서 24 · 실제 28 로 갈라져 있었다).
+- 10회차 종합 평가를 `docs/audit/` 에 추가했다(5.8/10 — 독립 감사 5건, 감사 보고의 정정 5건, 평가 뒤의 수정 목록 포함).
 
 ## [2.17.0] — 2026-10-09
 

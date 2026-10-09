@@ -384,5 +384,29 @@ out=$(echo "{\"transcript_path\":\"$TMP/tr9c.jsonl\",\"cwd\":\"$w9c/src\"}" | CL
 [ -s "$w9c/.specops/pending-capture.jsonl" ] && [ ! -e "$w9c/src/.specops" ] \
   && [ "$(jq -r '.files[0]' "$w9c/.specops/pending-capture.jsonl" 2>/dev/null)" = "src/foo.sh" ] \
   && pass "T9.c 하위 cwd → 루트에 캡처(경로는 루트 기준)" || fail "T9.c" "out=$out pend=$(cat "$w9c/.specops/pending-capture.jsonl" 2>/dev/null) nested=$([ -e "$w9c/src/.specops" ] && echo yes || echo no)"
+# T10 캡처를 끌 수 있다 — 설정 파일 · 프로파일 (종전엔 이 훅만 킬스위치를 보지 않았다: 사용자 입력을 저장하는 훅인데)
+w10="$TMP/w10"; mkdir -p "$w10/.specops"
+(cd "$w10" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
+echo "x" > "$w10/foo.sh"; (cd "$w10" && git add foo.sh)
+_in10="{\"transcript_path\":\"$TMP/tr9.jsonl\",\"cwd\":\"$w10\"}"
+out=$(echo "$_in10" | SPECOPS_GOVERNANCE_PROFILE=minimal bash "$HOOK" 2>/dev/null)
+echo "$out" | grep -q '"continue":true' && [ ! -e "$w10/.specops/pending-capture.jsonl" ] \
+  && pass "T10.a 프로파일 minimal → 캡처 없음" || fail "T10.a" "out=$out"
+out=$(echo "$_in10" | SPECOPS_GOVERNANCE_PROFILE=standard bash "$HOOK" 2>/dev/null)
+[ ! -e "$w10/.specops/pending-capture.jsonl" ] && pass "T10.b 프로파일 standard → 캡처 없음" || fail "T10.b" "out=$out"
+if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  printf 'hooks:\n  freecomment-capture: { enabled: false }\n' > "$w10/.specops/config.yaml"
+  # 훅 프로세스의 cwd 는 그 저장소가 아니다 — 설정은 입력의 cwd 에서 읽어야 한다
+  out=$(cd "$TMP" && echo "$_in10" | bash "$HOOK" 2>/dev/null)
+  [ ! -e "$w10/.specops/pending-capture.jsonl" ] && pass "T10.c 설정 파일로 끔(훅 cwd 가 달라도) → 캡처 없음" || fail "T10.c" "out=$out"
+  printf 'hooks:\n  pretool-governance: { enabled: false }\n' > "$w10/.specops/config.yaml"
+  out=$(cd "$TMP" && echo "$_in10" | bash "$HOOK" 2>/dev/null)
+  [ -s "$w10/.specops/pending-capture.jsonl" ] && pass "T10.d 다른 훅만 끈 설정 → 캡처는 그대로" || fail "T10.d" "out=$out"
+  rm -f "$w10/.specops/config.yaml" "$w10/.specops/pending-capture.jsonl"
+else
+  echo "SKIP T10.c·d (python3+pyyaml 부재)"
+fi
+out=$(echo "$_in10" | bash "$HOOK" 2>/dev/null)
+[ -s "$w10/.specops/pending-capture.jsonl" ] && pass "T10.e 대조 — 설정·프로파일 없음(기본) → 캡처" || fail "T10.e" "out=$out"
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

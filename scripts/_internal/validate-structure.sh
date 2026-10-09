@@ -246,7 +246,7 @@ else
   if [ ${#vs[@]} -eq 0 ]; then emit version_sync OK "v$pv2"; else emit version_sync FAIL "plugin.json=v$pv2 vs ${vs[*]}"; fi
 fi
 
-# 9) readme_counts — README 구조 트리 카운트 (SKILL.md × N / templates ← N건 / agents ← N건) vs 실측
+# 9) readme_counts — README 구조 트리 카운트 (SKILL.md × N / templates ← N건 / agents ← N건 / 슬래시 진입로 N건) vs 실측
 if [ ! -f README.md ]; then
   emit readme_counts SKIP "README.md 부재"
 else
@@ -260,6 +260,14 @@ else
   r_ag=$(grep -E 'agents/.*← [0-9]+건' README.md | head -1 | grep -oE '[0-9]+건' | tr -d '건' || true)
   a_ag=$(ls agents/*.md 2>/dev/null | wc -l | tr -d ' ')
   [ -n "$r_ag" ] && [ "$r_ag" != "$a_ag" ] && rc_i+=("agents: README=$r_ag actual=$a_ag")
+  # 슬래시 명령 수 — 종전엔 세지 않아 README 25 · 설계 문서 24 · 실제 28 로 갈라져 있었다(20261009)
+  r_cm=$(grep -E 'commands/.*슬래시 진입로 [0-9]+건' README.md | head -1 | grep -oE '[0-9]+건' | tr -d '건' || true)
+  a_cm=$(ls commands/*.md 2>/dev/null | wc -l | tr -d ' ')
+  [ -n "$r_cm" ] && [ "$r_cm" != "$a_cm" ] && rc_i+=("commands: README=$r_cm actual=$a_cm")
+  if [ -f docs/architecture.md ]; then
+    d_cm=$(grep -E '^\| 슬래시 커맨드 \| [0-9]+건' docs/architecture.md | head -1 | grep -oE '[0-9]+건' | tr -d '건' || true)
+    [ -n "$d_cm" ] && [ "$d_cm" != "$a_cm" ] && rc_i+=("commands: docs/architecture.md=$d_cm actual=$a_cm")
+  fi
   if [ ${#rc_i[@]} -eq 0 ]; then emit readme_counts OK; else emit readme_counts FAIL "${rc_i[*]}"; fi
 fi
 

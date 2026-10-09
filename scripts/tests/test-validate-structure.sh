@@ -237,6 +237,36 @@ else
 fi
 rm -rf "$sb"
 
+# T10.b README 의 슬래시 명령 수 불일치 → readme_counts FAIL (종전엔 세지 않아 README 25 · 설계 문서 24 · 실제 28 로 갈라져 있었다)
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+printf '├── commands/           슬래시 진입로 99건\n' >> "$sb/README.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'readme_counts: FAIL' && echo "$err" | grep -q 'commands: README=99 actual='; then
+  PASS=$((PASS+1)); echo "PASS T10.b 명령 수 drift(README) → readme_counts FAIL"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.b (rc=$rc, out=$(echo "$err" | grep readme_counts))"
+fi
+rm -rf "$sb"
+# T10.d 실 README·설계 문서에 검사가 읽는 줄이 있다 — 문구 형태가 바뀌면 검사는 조용히 꺼진다(줄을 못 찾으면 건너뛴다)
+if grep -qE 'commands/.*슬래시 진입로 [0-9]+건' "$PLUGIN/README.md" && grep -qE '^\| 슬래시 커맨드 \| [0-9]+건' "$PLUGIN/docs/architecture.md"; then
+  PASS=$((PASS+1)); echo "PASS T10.d 실 README·설계 문서에 명령 수 줄이 검사가 읽는 형태로 있다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.d 명령 수 줄을 찾지 못함 — readme_counts 의 명령 수 대조가 꺼져 있다"
+fi
+# T10.c 설계 문서의 슬래시 커맨드 행 불일치 → readme_counts FAIL · 맞으면 OK
+sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
+_ncmd=$(ls "$sb"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
+mkdir -p "$sb/docs"; printf '| 항목 | 값 |\n|---|---|\n| 슬래시 커맨드 | 99건 |\n' > "$sb/docs/architecture.md"
+err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
+printf '| 항목 | 값 |\n|---|---|\n| 슬래시 커맨드 | %s건 |\n' "$_ncmd" > "$sb/docs/architecture.md"
+out=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1)
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'commands: docs/architecture.md=99 actual=' && echo "$out" | grep -q '✅ readme_counts: OK'; then
+  PASS=$((PASS+1)); echo "PASS T10.c 명령 수 drift(설계 문서) → FAIL · 맞추면 OK"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T10.c (rc=$rc, err=$(echo "$err" | grep readme_counts) out=$(echo "$out" | grep readme_counts))"
+fi
+rm -rf "$sb"
+
 # T11.a CHANGELOG 최신 릴리즈 본문 공백 → changelog_body FAIL
 sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
 cat > "$sb/CHANGELOG.md" <<'EOF'

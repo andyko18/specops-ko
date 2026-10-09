@@ -1235,6 +1235,63 @@ printf '\357\273\277kind=3\n' > bom.txt
 out=$(bash "$SCRIPT" --answers bom.txt demo 2>&1 </dev/null); rc=$?
 { [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'BOM' && _no_artifacts; } \
   && ok "T33.l BOM 이 붙은 답변 파일 → rc=2 · 원인을 말한다" || nope "T33.l" "rc=$rc out=$(printf '%s' "$out" | head -2 | tr '\n' ' ')"
+# T33.m2 화면이 없는 종류(3 CLI)의 요구사항 문서에는 화면 전용 NFR 예시(접근성·브라우저 호환성)가 없다 · 다른 NFR 은 남는다
+printf 'kind=3\nprinciples=skip\nprd.oneline=CLI 데모\nprd.persona=dev\nprd.values=a, b, c\nprd.m1=등록\nprd.m2=승인\nprd.m3=통계\ndb=n\n' > cli.txt
+out=$(bash "$SCRIPT" --answers cli.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && ! grep -qE 'WCAG|Chrome 120' .specops/memory/requirements.md && grep -q '^| NFR-1 | 성능 |' .specops/memory/requirements.md && grep -q '^| NFR-3 | 보안 |' .specops/memory/requirements.md; } \
+  && ! grep -q '접근성' PRD.md && grep -q '^- 호환성:' PRD.md \
+  && ok "T33.m2 CLI(kind=3) 요구사항·PRD — 접근성·브라우저 호환성 예시 없음 · 성능·보안·PRD 호환성 줄은 유지" || nope "T33.m2" "rc=$rc nfr=$(grep '^| NFR-' .specops/memory/requirements.md 2>/dev/null | cut -c1-24 | tr '\n' ' ')"
+teardown_fixture
+setup_fixture
+# T33.m3 대조 — 화면이 있는 종류(1 Web/UI)에는 그 예시가 남는다
+printf 'kind=1\nprinciples=skip\nprd.oneline=웹 데모\nprd.persona=dev\nprd.values=a, b, c\nprd.m1=등록\nprd.m2=승인\nprd.m3=통계\ndesign=1\nscreens=home\ndb=n\napi.consumer=n\n' > web.txt
+out=$(bash "$SCRIPT" --answers web.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && grep -q '^| NFR-4 | 접근성 |' .specops/memory/requirements.md && grep -q '^| NFR-5 | 호환성 |' .specops/memory/requirements.md; } \
+  && grep -q '^- 접근성:' PRD.md \
+  && ok "T33.m3 대조 — Web/UI(kind=1) 요구사항·PRD 에는 접근성·호환성 예시 유지" || nope "T33.m3" "rc=$rc out=$(printf '%s' "$out" | head -5 | tr '\n' ' ' | cut -c1-240)"
+teardown_fixture
+setup_fixture
+# T33.n `키 = 값` 처럼 `=` 앞뒤에 공백을 둔 줄도 읽는다 — 종전엔 "모르는 키: kind " 와 "빠짐: kind" 가 함께 나와 원인을 알 수 없었다
+printf 'kind = 3\nprinciples = skip\nprd.oneline = CLI 데모\nprd.persona = dev\nprd.values = a, b, c\nprd.m1 = 등록\nprd.m2 = 승인\nprd.m3 = 통계\ndb = n\n' > spaced.txt
+out=$(bash "$SCRIPT" --answers spaced.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3' && grep -q 'CLI 데모' PRD.md; } \
+  && ok "T33.n 키 앞뒤 공백 → 그대로 읽어 완주" || nope "T33.n" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+teardown_fixture
+setup_fixture
+# T33.o 모르는 키는 여전히 알린다 — 공백을 허용한다고 오타까지 삼키지 않는다 (키 이름을 따옴표로 보여 공백이 보이게)
+printf 'kind = 3\nscreen = home\n' > spaced2.txt
+out=$(bash "$SCRIPT" --answers spaced2.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "모르는 키: 'screen'" && ! printf '%s' "$out" | grep -q '빠짐: kind' && _no_artifacts; } \
+  && ok "T33.o 공백 낀 모르는 키 → 이름을 따옴표로 고지 · kind 는 읽힘" || nope "T33.o" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+# T33.p 가치제안은 3개다 — 2개면 쓰기 전에 알린다 (종전엔 통과해 PRD 에 자리표시자가 남았다)
+printf 'kind=3\nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,b\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > two.txt
+out=$(bash "$SCRIPT" --answers two.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q '잘못된 값: prd.values' && printf '%s' "$out" | grep -q '2개' && _no_artifacts; } \
+  && ok "T33.p 가치제안 2개 → rc=2 · 개수를 말한다 · 산출물 0" || nope "T33.p" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+# T33.q 빈 항목이 섞인 3칸(`a,,c`)도 3개가 아니다 · 4개 이상은 앞 3개만 쓰이므로 알린다
+printf 'kind=3\nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,,c\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > hole.txt
+out=$(bash "$SCRIPT" --answers hole.txt demo 2>&1 </dev/null); rc=$?
+printf 'kind=3\nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,b,c,d\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > four.txt
+out2=$(bash "$SCRIPT" --answers four.txt demo 2>&1 </dev/null); rc2=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q '잘못된 값: prd.values' && [ "$rc2" -eq 2 ] && printf '%s' "$out2" | grep -q '4개' && _no_artifacts; } \
+  && ok "T33.q 빈 항목·4개 → rc=2" || nope "T33.q" "rc=$rc rc2=$rc2 out2=$(printf '%s' "$out2" | head -3 | tr '\n' ' ' | cut -c1-200)"
+# T33.q2 끝에 콤마가 붙은 3개(`a,b,c,`)는 "빈 항목" 으로 말한다 — "3개가 필요합니다(지금 3개)" 라는 자기모순 문안을 내지 않는다
+printf 'kind=3\nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,b,c,\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > tail.txt
+out=$(bash "$SCRIPT" --answers tail.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'prd.values — 빈 항목이 있습니다' && ! printf '%s' "$out" | grep -q '지금 3개' && _no_artifacts; } \
+  && ok "T33.q2 끝 콤마 → '빈 항목' 으로 고지" || nope "T33.q2" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+# T33.r 같은 키가 두 번이면 알린다 — 첫 줄만 쓰이고 뒤 줄(고친 값)은 조용히 버려졌다
+printf 'kind=3\nkind=1\nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,b,c\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > dup.txt
+out=$(bash "$SCRIPT" --answers dup.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "중복된 키: 'kind'" && _no_artifacts; } \
+  && ok "T33.r 같은 키 중복 → rc=2 · 산출물 0" || nope "T33.r" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+# T33.s 들여쓴 주석·공백만 있는 줄은 건너뛴다 — 값 읽기와 사전 점검이 같은 규칙이어야 한다(= 가 든 주석이 "모르는 키" 가 됐다)
+printf 'kind=3\n   # note: x=1\n\t\n   \nprinciples=skip\nprd.oneline=x\nprd.persona=p\nprd.values=a,b,c\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > cmt.txt
+out=$(bash "$SCRIPT" --answers cmt.txt demo 2>&1 </dev/null); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'PROJECT_KIND=3'; } \
+  && ok "T33.s 들여쓴 주석·공백 줄 → 건너뛰고 완주" || nope "T33.s" "rc=$rc out=$(printf '%s' "$out" | head -4 | tr '\n' ' ' | cut -c1-220)"
+teardown_fixture
+setup_fixture
 # 템플릿은 결정을 미리 채워 두지 않는다 — 빈칸만 채우는 호출자가 기본값을 사용자 선택으로 확정하지 않게
 out=$(bash "$SCRIPT" --answers-template 2>&1 </dev/null)
 _pre=$(printf '%s\n' "$out" | grep -E '^(kind|principles|design|db|api|api\.consumer|screens|prd\.[a-z0-9]+)=.' | tr '\n' ' ')
