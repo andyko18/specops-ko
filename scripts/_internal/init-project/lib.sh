@@ -2,6 +2,12 @@
 # library-only — sourced by init-project.sh
 # 공용 헬퍼 9개 (init-project.sh 에서 이동)
 
+# 입력 계층은 이 파일이 함께 올린다 — phase 함수는 lib.sh 만 source 한 호출자(테스트·design-screen.sh)에서도
+#   돌아야 한다. 따로 올리게 두면 `_ask` 가 없는 채로 질문이 **조용히 빈 답**이 된다(구현 중 실측:
+#   디자인 방향 2 를 고른 입력이 방향 1 로 만들어졌다 — test-design-contract P6.2).
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/input.sh"
+
 # ── 헬퍼 ─────────────────────────────────────
 # repo 루트로 이동 — 이동만 책임진다(판정·에러는 _check_git 소관).
 #   Phase 1~10 의 산출물 경로·git add 가 전부 cwd 상대라 루트가 아니면 엉뚱한 곳에 만들어진다.
@@ -38,19 +44,19 @@ _check_git() {
 }
 
 _check_memory() {
-  if [ -d .specops/memory ]; then
+  # 메모·학습 기록만 있는 디렉토리는 부트스트랩이 아니다(input.sh `_memory_is_bootstrap`) — 묻지 않고 진행한다.
+  if _memory_is_bootstrap; then
     if [ "${RESUME_MODE}" = "1" ]; then
       return 0
     fi
     # M2: 경고/안내·prompt·취소 결과 모두 stderr (자동화 일관성 — _check_git 와 동등)
     echo ".specops/memory/ 가 이미 존재합니다 (이미 부트스트랩됨)." >&2
     printf "재부트스트랩 진행? [y/N]: " >&2
-    local ans=""
-    read -r ans || true
-    if [ "${ans}" != "y" ] && [ "${ans}" != "Y" ]; then
-      echo "취소됨." >&2
-      exit 0
-    fi
+    _ask_choice rebootstrap "재부트스트랩 진행" "n" 'y|Y|n|N' "y · n"
+    case "$REPLY" in
+      y|Y) ;;
+      *) echo "취소됨." >&2; exit 0 ;;
+    esac
   fi
 }
 
@@ -80,7 +86,8 @@ _resolve_conflict_policy() {
     fi
     echo "충돌 파일 ${conflicts}개 감지."
     printf "기존 파일 처리 정책? (skip/overwrite/merge) [skip]: "
-    read -r p || true
+    _ask_choice conflict "기존 파일 처리 정책" "skip" 'skip|overwrite|merge' "skip · overwrite"
+    p="$REPLY"
     case "$p" in
       overwrite) CONFLICT_POLICY="overwrite" ;;
       merge)     CONFLICT_POLICY="skip"; echo "⚠️  merge 정책 미구현 — skip 으로 fallback. 기존 파일은 보존됩니다." >&2 ;;

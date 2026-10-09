@@ -69,7 +69,8 @@ _phase_8e_data_model() {
   _should_skip "$target" && { echo "→ data-model.md 보존 (skip 정책)"; return; }
   printf "[Phase 8e] DB 사용? — 서버 DB(Postgres/MySQL/MongoDB) 또는 클라이언트 영속(localStorage/IndexedDB)도 y [y/N/skip]: "
   local ans=""
-  read -r ans || true
+  _ask_choice db "DB 사용" "n" 'y|Y|n|N|skip' "y · n"
+  ans="$REPLY"
   case "$ans" in y|Y) ;; *) echo "→ data-model.md skip (8e ${ans:-N})"; return ;; esac
   cp "$PLUGIN/templates/data-model.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
@@ -84,7 +85,8 @@ _phase_8f_api_spec() {
   echo "[Phase 8f] API 정의 방식? (1)Markdown (2)OpenAPI (3)GraphQL (4)RPC (5)skip"
   printf "선택 [1]: "
   local m=""
-  read -r m || true
+  _ask_choice api "API 정의 방식" "1" '[1-5]' "1~5"
+  m="$REPLY"
   case "$m" in 5) echo "→ api-spec.md skip"; return ;; esac
   case "$m" in 1|2|3|4) ;; *) m="1" ;; esac
   cp "$PLUGIN/templates/api-spec.md" "$target"
@@ -122,7 +124,8 @@ _phase_8g_api_consumer() {
   _should_skip "$target" && { echo "→ api-spec-consumer.md 보존 (skip 정책)"; return; }
   printf "[Phase 8g] 외부 API 소비 계약 문서 작성? [y/N]: "
   local ans=""
-  read -r ans || true
+  _ask_choice api.consumer "외부 API 소비 계약" "n" 'y|Y|n|N' "y · n"
+  ans="$REPLY"
   case "$ans" in y|Y) ;; *) echo "→ api-spec-consumer.md skip (8g ${ans:-N})"; return ;; esac
   cp "$PLUGIN/templates/api-spec-consumer.md" "$target"
   _replace_token "$target" "<PROJECT_NAME>" "$PROJECT_NAME"
@@ -302,6 +305,8 @@ phase_10_commit() {
       echo "→ .specops/memory/${ledger} 골격 생성"
     fi
   done
+  # 종류를 적는다 — 뒤 단계(foundation 필수 판정)와 다음 `--resume` 이 추정 대신 이 값을 쓴다.
+  _record_kind
   # stage — init 범위만(lib.sh `_init_stage_own`). screens/ 를 디렉토리째 넣지 않는다:
   #   이 시점엔 specops 화면 파일이 아직 없어, 넣으면 기존 앱의 screens/ 소스만 딸려 들어간다.
   _init_stage_own

@@ -137,7 +137,7 @@ if [ -f "$INIT_HOLD_FILE" ]; then
   rm -f "$INIT_HOLD_FILE"
 fi
 # 이번 부트스트랩이 쓴 파일의 기록도 닫는다 — 종결됐으니 다음 실행은 새 부트스트랩이다.
-rm -f "$INIT_WRITTEN_FILE" 2>/dev/null
+rm -f "$INIT_WRITTEN_FILE" .specops/.init-answers 2>/dev/null
 _rest=$(git diff -z --cached --name-only 2>/dev/null | tr '\0' '\n' || true)
 [ -n "$_rest" ] && echo "init-finalize: init 과 무관한 staged 파일은 커밋하지 않고 그대로 두었습니다: $(_brief "$_rest")"
 # 화면 파일 형식(.md·.html)만 알린다 — 기존 앱의 screens/ 소스(.tsx 등)는 애초에 init 의 대상이 아니다.

@@ -135,4 +135,49 @@ out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
   || nope "T10" "rc=$rc out=$out"
 rm -rf "$TD"
 
+# ── T11~T13: 종류 판정이 자리표시자를 실값으로 읽지 않는다 · 기록된 종류를 쓴다 (20261009 init 점검) ──
+# 결함: project-context.md 골격의 칸은 백틱으로 감싼 미확정 마커다(`<미확정 — 근거 필요>`). 판정기가 백틱을
+#   벗기지 않아 그 칸을 "값 있음"으로 읽었고, `UI 유무` 칸의 선택지 표기(`<있음 | 없음>`)는 "있음"으로 읽었다 —
+#   CLI 로 init 한 직후 foundation 필수 판정이 FAIL 이었다(설치본 재현).
+_ctx() {  # $1=dir $2=머리 마커(없으면 빈 값) — /init-project 가 만드는 골격 그대로
+  { printf '<!-- OWNER_COMMAND: /init-project -->\n<!-- layer: Project-Memory -->\n'
+    [ -n "$2" ] && printf '%s\n' "$2"
+    printf '\n# t 프로젝트 컨텍스트\n\n## 2. 스택·제약\n\n| 영역 | 확정값 | 출처 |\n|---|---|---|\n'
+    printf '| 프론트 | `<미확정 — 근거 필요>` | |\n| 백엔드 | `<미확정 — 근거 필요>` | |\n| UI 유무 | `<있음 \\| 없음>` | |\n'
+  } > "$1/.specops/memory/project-context.md"
+}
+# T11: 골격 그대로(마커 없음 · 칸은 전부 자리표시자) → 필수 아님
+TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" ""
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'FAIL'; } \
+  && ok "T11 project-context 골격(자리표시자뿐) → 필수 판정 아님" || nope "T11" "rc=$rc out=$out"
+rm -rf "$TD"
+# T12: 기록된 종류 3(CLI) + 자유 서술 칸에 값이 있어도 → 필수 아님 (기록이 추정보다 먼저)
+TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" "<!-- specops:project-kind: 3 -->"
+sed -i.bak 's#| 백엔드 | `<미확정 — 근거 필요>` |#| 백엔드 | Python 3.11 CLI |#' "$TD/.specops/memory/project-context.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'FAIL'; } \
+  && ok "T12 기록된 종류=CLI → 자유 서술 칸으로 필수 판정하지 않음" || nope "T12" "rc=$rc out=$out"
+rm -rf "$TD"
+# T13: 기록된 종류 4(풀스택) + 칸은 자리표시자 → 필수(FAIL — manifest 부재)
+TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" "<!-- specops:project-kind: 4 -->"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'FOUNDATION-PRESENT: FAIL'; } \
+  && ok "T13 기록된 종류=풀스택 → 필수 (manifest 없으면 FAIL)" || nope "T13" "rc=$rc out=$out"
+rm -rf "$TD"
+# T14: 종류 3 이 기록돼 있어도 프론트 아키텍처 문서가 실제로 있으면 필수다 (나중에 UI 가 붙은 프로젝트)
+TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" "<!-- specops:project-kind: 3 -->"
+echo '# FE' > "$TD/.specops/memory/frontend-architecture.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "T14 기록=CLI 여도 FE 아키텍처 문서가 있으면 필수" || nope "T14" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T15: 종류 3 이 기록돼 있어도 **명시적 신호**(UI 유무=있음)는 그대로 본다 — 기록은 init 시점의 값이라 낡을 수 있다
+#   (독립 리뷰: 기록 3 이 추정을 전부 건너뛰면, CLI 로 시작해 UI 가 붙은 프로젝트가 문서를 만들기 전까지 조용히 빠진다)
+TD=$(mktemp -d); _mk_mem "$TD"; _ctx "$TD" "<!-- specops:project-kind: 3 -->"
+sed -i.bak 's#| UI 유무 | `<있음 \\| 없음>` |#| UI 유무 | 있음 |#' "$TD/.specops/memory/project-context.md"
+out=$(cd "$TD" && bash "$CHK" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "T15 기록=CLI + UI 유무=있음 → 필수" || nope "T15" "rc=$rc out=$out ctx=$(grep 'UI 유무' "$TD/.specops/memory/project-context.md")"
+rm -rf "$TD"
+
 finish

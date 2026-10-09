@@ -100,7 +100,8 @@ phase_6_design() {
   echo "[Phase 6] DESIGN.md — 디자인 방향 선택:"
   printf '%s\n' "$rows" | awk -F'\t' '{ printf "  (%s) %s — %s%s\n", $1, $2, $3, (NR == 1 ? " ← 기본" : "") }'
   printf "선택 [1]: "
-  read -r pick || true
+  _ask design "디자인 방향"
+  pick="$REPLY"
   # 숫자만 통과 → 선행 0 제거(02 → 2) → 자릿수 상한 → 범위 검사. 빈 입력·비숫자·범위 밖은 방향 1.
   #   `+2` 는 [ -ge ] 를 통과하지만 BSD sed -n "+2p" 가 오류라 빈 행이 됐다(Phase C 프로브 ⑤) — 부호도 비숫자로 본다.
   #   `$((10#$pick))` 는 2^64 를 넘는 입력을 무음 wrap 해(2^64+2 → 2) 방향 2 를 골랐다(Phase C 2회차) —
@@ -160,7 +161,8 @@ phase_7_screens() {
   echo "  ※ screens/*.{md,html} 껍데기는 만들지 않음 — 본설계는 /start-all Phase 2.5 또는 /design-screen"
   printf "예) home, login, dashboard: "
   local input=""
-  read -r input || true
+  _ask screens "초기 화면 이름"
+  input="$REPLY"
   mkdir -p .specops/memory
   # 기존 표는 보존한다 — 재실행·`--resume` 이 템플릿으로 덮어 보강 표기와 손으로 쓴 줄을 지웠다(20261009 재현).
   #   이름 입력은 보존할 때도 **읽는다**: 질문을 건너뛰면 뒤 Phase 의 답 순서가 밀린다.

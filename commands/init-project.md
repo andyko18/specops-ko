@@ -36,19 +36,26 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      - 발견 시 **사용자 확인 필수**(주권 — 자동 소비 금지): "기존 문서 `<경로>` 를 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시.
      - 복수 발견 시 목록 제시 → 사용자 선택 (전체·일부·없음).
      - `requirements*.md` 가 이미 **FR 표를 포함**하면 Phase 8a 에서 해당 파일 보존(`_should_skip` 정책)되도록 안내 — 초안 근거와 산출물 보존은 별개.
-   - 위 어느 경로든 문서 확보 시: 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → **확정값을 Phase 4에 강제 공급**:
-     1. `.specops/.init-prd-fields` 에 줄당 1필드(6줄) 기록 **AND/OR**
-     2. bash stdin numbered list 로 pipe
-     - pipe 실패해도 `.init-prd-fields` 가 있으면 Phase 4는 **재입력하지 않는다**.
+   - 위 어느 경로든 문서 확보 시: 읽고 **6필드 초안**(한 줄/페르소나/가치제안 3개/M1/M2/M3)을 합성해 사용자에게 제시 → 확인/수정 → **확정값을 답변 파일의 `prd.*` 키로 적는다**(아래 1번).
    - 문서에 없는 필드는 창작하지 말고 사용자에게 질문 (사실성 계약 — 근거 4원의 ① 이 "사전 문서"로 확장됨).
    - **넷 다 부재 시 현행 수동 입력** 그대로 (fallback — 초안 단계 skip).
-1. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh [--resume] "<프로젝트명>"` 호출 (인자 비우면 `basename $PWD` 디폴트)
+1. **답변 파일을 쓰고 bash 를 호출한다** — 질문의 답은 순서가 아니라 **키**로 준다:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh --answers-template   # 키 목록·설명 (아무것도 쓰지 않는다)
+   # → 사용자와 정한 값을 .specops/.init-answers 에 키=값 으로 적는다 (순서 무관)
+   bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh --answers .specops/.init-answers [--resume] "<프로젝트명>"
+   ```
+   - 인자를 비우면 프로젝트명은 `basename $PWD`.
+   - **빠진 키·잘못된 값·모르는 키가 있으면 rc=2 로 전부 알려 주고 아무것도 쓰지 않는다** — 알려 준 항목을 채워 같은 명령을 다시 실행한다. 어떤 키가 필요한지는 저장소 상태와 종류에 따라 다르므로(이미 있는 파일의 질문은 생략된다) 스크립트 원문을 읽어 추측하지 말고 이 출력에 따른다.
+   - **사용자가 정하지 않은 값을 지어 넣지 않는다** — 종류(`kind`)·헌법 원칙(`principles`)·DB 사용(`db`)·디자인 방향(`design`)·화면 이름(`screens`)·API 방식(`api`)은 사용자에게 묻거나 Phase 0 근거 문서에서 확인한 값만 적는다. (실기록: 묻지 않고 `skip`·`n` 을 넣어 헌법이 빈 채로 굳었다.)
+   - **답을 stdin 으로 순서대로 넣지 않는다.** stdin 모드는 터미널에서 사람이 직접 답할 때 쓴다. 질문 수가 종류·기존 파일·메모 유무로 달라져 한 줄만 밀려도 전부 어긋난다 — 그래서 터미널이 아닌데 입력이 모자라거나 선택지가 아닌 값이 들어오면 스크립트가 rc=2 로 멈춘다.
+   - `.specops/.init-answers` 는 `.specops/.gitignore` 의 `.init-*` 규칙으로 무시된다. 종결 뒤 지운다.
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용). 화면 목록 표와 `.specops/.gitignore` 도 보존 대상이다 — 표에는 새 이름만 덧붙고, `.gitignore` 는 빠진 규칙만 파일 위쪽에 보충한다(사용자 규칙이 뒤에 있어 우선한다 · 구 규칙 `…-*/` 은 `…-*/*` + `intent.md` 예외로 이관).
 2. **10 Phase 진행**:
    - Phase 1: 사전검사 (git/.specops/memory 검사 + 14종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
-   - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타)
+   - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타). 고른 종류는 Phase 10 이 `project-context.md` 머리에 `<!-- specops:project-kind: N -->` 로 적는다 — foundation 필수 판정과 다음 `--resume` 이 추정 대신 이 값을 쓴다(`--resume` 이고 종류가 기록돼 있으면 `kind` 를 비워 두거나 생략할 수 있다 — 기록이 없는 기존 프로젝트는 답해야 한다).
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
-   - Phase 4: PRD — Phase 0 `.init-prd-fields`/stdin 우선 · 부재 시에만 numbered list 수동
+   - Phase 4: PRD — 답변 파일의 `prd.*` 6키 (stdin 모드는 numbered list · 구 `.init-prd-fields` 도 읽는다)
    - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**. 표가 이미 있으면 **보존**하고 표에 없는 이름만 끝에 덧붙인다(기존 행·손으로 쓴 줄 무변경)
@@ -126,7 +133,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 
 **가정 다이제스트 + 결정 원장** (대화형·무인 공통):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.
-- **동시**: `.specops/memory/project-context.md` §1~2 채움 + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`). specifying·clarifying이 이 원장을 소비한다.
+- **동시**: `.specops/memory/project-context.md` §1~2 채움(머리의 `<!-- specops:project-kind: N -->` 줄은 **지우지 않는다** — 뒤 단계가 읽는 종류 기록이다) + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`). specifying·clarifying이 이 원장을 소비한다.
 
 **단일 커밋** (bash Phase 10 스테이징 + enrich 변경 통합) — **반드시 아래 1줄로 수행한다**:
 
@@ -147,7 +154,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 ## --enrich (소급 보강 단독 실행)
 
-`/init-project --enrich`: Phase 1~10 부트스트랩 **skip** (Process 항목 0 PRD 초안 합성도 skip — Phase 4 stdin 공급처 없음), Phase 11 만 단독 실행.
+`/init-project --enrich`: Phase 1~10 부트스트랩 **skip** (Process 항목 0 PRD 초안 합성도 skip), Phase 11 만 단독 실행. **bash 스크립트를 부르지 않는다** — `--enrich` 는 이 명령의 모드이지 `init-project.sh` 의 옵션이 아니다(넘기면 rc=2).
 
 - 대상 = 원시 placeholder(`<...>`) 또는 `<미확정 — 근거 필요>` 가 **잔존 문서만** (문서 자체가 상태 — 재실행 멱등 수렴). Light enrich 깊이 규칙 동일.
 - 사용자 기작성 본문 무변경 보존.
@@ -160,13 +167,18 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 /init-project mychat
 # 기존 기획서가 있으면: /init-project mychat docs/기획서.md (0-a)
 # 또는 repo 에 prd.md 만 두면 0-c 가 자동 발견 → 사용 확인 [y/n]
-→ Phase 0 6필드 확정 → .init-prd-fields 기록
-→ Phase 2 종류 선택 (4 = 풀스택)
-→ Phase 3 헌법 skip
-→ Phase 4 PRD (Phase 0 공급 — 재입력 없음)
-→ Phase 6 디자인 방향 (1 = 절제된 라이트 업무형)
-→ Phase 7 화면 이름 (home, login, dashboard) — overview만
-→ Phase 8e DB? (y) · 8f API? (2 = OpenAPI)
+→ Phase 0 6필드 확정
+→ 종류·헌법 원칙·디자인 방향·화면 이름·DB·API 방식을 사용자와 정한다
+→ .specops/.init-answers 작성:
+     kind=4
+     principles=skip
+     prd.oneline=…  prd.persona=…  prd.values=…  prd.m1=…  prd.m2=…  prd.m3=…
+     design=1
+     screens=home, login, dashboard
+     db=y
+     api=2
+→ bash … init-project.sh --answers .specops/.init-answers mychat
+   (빠진 키가 있으면 rc=2 로 목록을 알려 준다 → 채워서 재실행)
 → 14종 골격(해당 KIND 활성분) + 원장 골격 스테이징
 → Phase 11.5 인터뷰 ≤5 → Light enrich → 게이트 1회 [y]
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
@@ -179,6 +191,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 - **자동 chain 강제 시도 금지** — 5원칙 4 (사용자 주권) 위반.
 - **재실행으로 덮어쓰기 금지** — `.specops/memory/` 존재 시 명시 안내 후 [y/N] 확인 (Phase 1).
 - **Phase 7에서 screens 껍데기 생성 금지** — 본설계는 start-all 2.5.
+- **stdin 으로 답을 순서대로 밀어 넣기 금지** — 답변 파일(`--answers`)을 쓴다. 스크립트가 rc=2 로 멈추면 출력이 알려 준 키를 채운다(기본값으로 넘어가도록 우회하지 않는다).
 
 ## 참조
 

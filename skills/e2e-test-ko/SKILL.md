@@ -155,9 +155,8 @@ rm -rf "$TMP"
 ```
 
 **V13 — brainstorming → init-project 참조 흐름** (별도 격리 repo):
-메모를 `.specops/memory/` 에 선생성하면 `_check_memory`(`[y/N]`)·`_check_brainstorming`(`[Y/n]`)
-prompt 가 발동하므로 스트림 선두에 `y`(재부트) + `Y`(참조) prepend. PRD.md 에
-`## 브레인스토밍 컨텍스트` 주입되면 PASS.
+메모만 있으면 재부트스트랩·메모 참조를 묻지 않는다. stdin 은 [S0] 과 동일.
+`## 브레인스토밍 컨텍스트` 주입, 한 줄 설명 입력값, DESIGN.md 부재면 PASS.
 
 ```bash
 TMP="$(mktemp -d)"
@@ -167,11 +166,11 @@ TMP="$(mktemp -d)"
   mkdir -p .specops/memory
   printf '# 브레인스토밍 메모\n## 문제\n사용자 인사 자동화\n' \
     > .specops/memory/brainstorming-$(date +%Y%m%d)-greet.md
-  printf 'y\nY\n3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
+  printf '3\nskip\n1. 한 줄 설명: CLI greet fixture\n2. 페르소나: 개발자\n3. 가치제안: 간결, 자동화, 한국어\n4. M1: greet\n5. M2: usage\n6. M3: empty-arg\n\nN\n' \
     | RESUME_MODE=0 bash "$PLUGIN/scripts/_internal/init-project.sh" greet-fixture >/dev/null 2>&1
 ) >/dev/null 2>&1
 
-grep -q '## 브레인스토밍 컨텍스트' "$TMP/PRD.md" 2>/dev/null && r13=0 || r13=1
+{ grep -q '## 브레인스토밍 컨텍스트' "$TMP/PRD.md" && grep -q '\*\*: CLI greet' "$TMP/PRD.md" && [ ! -e "$TMP/DESIGN.md" ]; } && r13=0 || r13=1
 e2e_check V13 "brainstorming 메모 PRD 참조 주입" "$r13"
 
 rm -rf "$TMP"
