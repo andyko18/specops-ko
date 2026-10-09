@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.18.0] — 2026-10-10
+
 ### Changed
 
 - **커밋·PR 차단이 표기에 따라 빠지지 않는다** (`hooks/rules.jsonl` R-1·R-2). 트리거가 `git` 글자 앞을 줄머리·구분자·env·래퍼 4종으로만 인정해 `/usr/bin/git commit`, `if …; then git commit`, `for …; do git commit`, `exec`·`nohup`·`timeout N` 뒤, 줄 연속, `git -ckey=val commit`, 래퍼 옵션(`time -p`·`sudo -E`·`env -i`), `case` 가지, `gh pr -R o/r create` 가 **차단도 사후 감사도** 거치지 않았다(이 저장소 커밋 80건 중 17건 — 전부 출력 필터를 피하려던 절대경로 표기). 실기록 명령 2,503건 재생: 새로 인식 34건(전부 실제 커밋) · 놓치는 것 0 · 커밋이 아닌 명령을 잡는 것 0. 줄 연속은 이은 문자열과 잇기 전 원문을 둘 다 본다(종전에 막히던 명령이 새 전처리로 열리지 않는다). `sh -c`·`eval`·`xargs`·alias·변수에 든 명령은 여전히 범위 밖이고 `docs/architecture.md` §6-1 에 표로 적었다.
@@ -3179,7 +3181,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.17.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/andyko18/specops-ko/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/andyko18/specops-ko/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/andyko18/specops-ko/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/andyko18/specops-ko/compare/v2.14.0...v2.15.0
