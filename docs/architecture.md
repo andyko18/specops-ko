@@ -202,6 +202,20 @@ bash scripts/tests/run-all.sh   # 진짜처럼 실행
 
 이건 통과한다. **설계상 수용된 범위**다. 이 도구는 실수와 태만을 막지, 작정한 우회를 막지 않는다.
 
+같은 범위에 드는 것 — 커밋·PR 명령을 **다른 명령의 인자나 이름 뒤에 숨기는** 표기는 인식하지 않는다:
+
+| 인식한다 (정직한 사용에서 나오는 표기) | 인식하지 않는다 (감싸거나 이름을 바꾼 표기) |
+|---|---|
+| `git commit` · `/usr/bin/git commit` · `\git commit` | `bash -c "git commit …"` · `sh -c` · `eval "…"` |
+| `FOO=1 git commit` · `time`/`nice`/`sudo`/`env`(옵션 포함 — `time -p`·`sudo -E`·`sudo -u u`·`env -i`·`env -u X` · 경로로 부른 `/usr/bin/env`)·`exec`/`nohup`/`timeout [-k 5] N` 뒤 | `xargs git commit` · `find … -exec git commit` |
+| `if …; then git commit` · `for …; do git commit` · `! git commit` · `case` 가지(`x) git commit`) | `alias gc="git commit"; gc` · `g=git; $g commit` |
+| 줄 연속(`git \` + 개행 + `commit`) · `git -C dir commit` · `git -ckey=val commit` | `"git" commit` · `git "commit"` (명령어 자체를 인용) |
+| `gh pr create` · `gh pr -R o/r create` · `gh -R o/r pr create` | `gh api repos/…/pulls -f …` (API 로 직접 PR 생성) |
+
+오른쪽은 정규식으로 닫으려 하면 끝이 없고(`perl -e`·`python -c`·…) 정직한 흐름에서 나올 이유가 없는 형태다. 왼쪽도 목록이 전부다 — `command -p`·`exec -a name` 같은 `command`·`exec`·`nohup`·`builtin` 의 옵션 형태는 넣지 않았다(실기록 0건). 줄 연속은 이은 문자열과 **잇기 전 원문을 둘 다** 본다: 주석 줄 끝의 `\` 나 `\\` 는 줄을 잇지 않아 다음 줄이 실제로 실행되는데, 이은 것만 보면 그 커밋을 놓친다. 그 대가로 인자 연속 줄이 `git commit` 글자로 시작하면(`echo a \` + 개행 + `git commit …`) 커밋이 아닌데도 걸린다 — 종전과 같은 동작이다. 그리고 R-1 이 보는 것은 **커밋**이다 — `git merge`·`cherry-pick`·`revert`·`am`·`rebase` 로 생기는 커밋과 `git push` 는 대상이 아니다.
+
+**검증 뒤 변경(`STALE`)의 경계.** 판정 상태가 `STALE` 이면 R-1 은 열리지 않는다. 막지 않는 경우가 둘 있다 — ① 전체 스위트(`run-all.sh`)가 **지금 이 트리**에서 통과했다(통과 마커의 지문이 현재 비문서 트리와 같다 — `run-all.sh` 는 판정 상태를 갱신하지 않는 정식 러너다), ② 달라진 것이 **추적하지 않는 파일뿐**이다(로그·캐시·`.DS_Store` 가 생기거나 바뀐 것 — 커밋에 실리지 않는다. 판정 기록에 남긴 추적 파일 지문 `tracked_nondoc_hash` 와 지금을 대조한다 — 그 필드가 없는 예전 기록에는 적용되지 않고, 다시 검증하면 생긴다. **커밋만 실행하는 명령**(`git commit [-a] -m …` 한 줄 — 앞에 `cd`·변수 줄은 허용)일 때만 적용한다: 훅이 보는 것은 실행 전의 인덱스라, 같은 명령이 커밋 전에 다른 일을 하면 그 사이 인덱스가 바뀔 수 있다. 무엇이 안전한지 명령 글자로 가려내지 않는다 — `&&`·`;`·파이프·명령 치환·경로 인자가 있으면 조회용 명령과 함께여도 적용하지 않는다). 둘 다 `STALE` 차단만 건너뛸 뿐이고 실행 증거·앵커는 그대로 요구된다. 남는 한계: 첫 커밋 전(unborn HEAD)의 저장소는 지문이 퇴행값이라 `STALE` 이 되지 않는다(새 저장소의 첫 커밋을 막지 않으려는 종전 설계 — 그 구간의 셸 수정은 보이지 않는다). 판정 상태 기록이 없는 FID(진행 기록 앵커만 쓰는 흐름)도 종전대로다. FID 구속은 명령 **글자**를 본다 — 한 명령에 다른 FID 를 적은 `run-verification.sh` 글자가 함께 있으면(설명용 `echo` 포함) 그 실행은 증거로 치지 않는다(막는 쪽으로 틀린다).
+
 ### 6-2. 기록의 진실성은 검사하지 못한다
 
 리뷰 기록이 **존재하는지**는 기계가 대조한다(`check-review-audit.sh`). 그러나 그 기록의 **내용이 참인지**는 자기보고라 파일 대조로 잡을 수 없다.

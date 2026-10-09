@@ -155,6 +155,8 @@ rm -rf "$TD"
 # RR-10: pretool warn-only (비-strict·비-batch) — NOT_READY 여도 PR allow
 HOOK="$PLUGIN/hooks/pretool-governance.sh"
 FIX="$PLUGIN/scripts/tests/governance/fixtures/transcripts"
+# shellcheck source=/dev/null
+source "$PLUGIN/scripts/tests/lib/exec-transcript.sh"   # _tr_for — 실행 증거 픽스처를 샌드박스 FID 에 맞춘다
 TD=$(mktemp -d); FID=20260803-rr-warn
 _mk_base "$TD" "$FID"
 # verify PASS state but missing security → NOT_READY
@@ -165,7 +167,7 @@ printf '{"effective":"standard","computed":"standard","mode":"live","reductions_
 # staged code so docs-only 면제 안 됨
 (cd "$TD" && echo y > src/b.sh && git add src/b.sh)
 mkstdin() { jq -nc --arg c "$1" --arg t "$2" '{tool_name:"Bash", tool_input:{command:$c}, transcript_path:$t}'; }
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr")
 echo "$out" | grep -q '"continue":true' \
   && ! echo "$out" | grep -q '"permissionDecision":"deny"' \
@@ -173,7 +175,7 @@ echo "$out" | grep -q '"continue":true' \
   && ok "RR-10 warn-only allow + stderr" \
   || nope "RR-10" "out=$out stderr=$(cat "$TD/stderr")"
 # R-1 에는 RELEASE 미발화
-out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "git commit -m x" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr2")
 ! grep -q 'RELEASE_READY' "$TD/stderr2" \
   && ok "RR-10b R-1에 RELEASE 미발화" \
@@ -188,7 +190,7 @@ printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$TD/.specops/$FID/evidence.md"
 printf '{"effective":"strict","computed":"strict","mode":"live","reductions_allowed":[]}\n' \
   > "$TD/.specops/$FID/risk-profile.json"
 (cd "$TD" && echo y > src/b.sh && git add src/b.sh)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr")
 echo "$out" | grep -q '"permissionDecision":"deny"' \
   && echo "$out" | grep -q 'RELEASE_READY' \
@@ -217,7 +219,7 @@ printf '<!-- active-fid: %s -->\n' "$FID" >> "$TD/.specops/session-progress.md"
 (cd "$TD" && echo y > src/b.sh && git add src/b.sh)
 # requirements for batch-state --gate (optional path) — gate may fail-open on missing req
 printf '| FR-1 | one | M1 | must | s | f |\n' > "$TD/requirements.md"
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr")
 echo "$out" | grep -q '"permissionDecision":"deny"' \
   && echo "$out" | grep -qE 'RELEASE_READY|batch' \
@@ -233,13 +235,13 @@ rm -f "$TD/.specops/$FID/evidence.md"
 printf '{"effective":"strict","computed":"strict","mode":"live","reductions_allowed":[]}\n' \
   > "$TD/.specops/$FID/risk-profile.json"
 (cd "$TD" && echo y > src/b.sh && git add src/b.sh)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr")
 # R-2 lookback may still deny for missing verify — use BYPASS? Plan: UNKNOWN allow for RELEASE_READY.
 # If R-2 fires first, we need verify exec + session progress verify for R-2 pass, but no state for UNKNOWN.
 # Keep evidence absent so release-ready=UNKNOWN; R-2 needs verify in transcript — pretool-with-verify-exec
 # provides exec; session-progress has /verify PASS from _mk_base → R-2 allows; RELEASE_READY UNKNOWN → allow.
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$TD/stderr")
 echo "$out" | grep -q '"continue":true' \
   && ! echo "$out" | grep -q 'RELEASE_READY 차단' \
@@ -386,7 +388,7 @@ printf '{"effective":"strict","computed":"strict","mode":"live","reductions_allo
 (cd "$TD" && bash "$STATE" record "$FID" PASS --executed 1) >/dev/null
 # stderr 는 $TD 밖에 둔다 — 워크스페이스 지문(git add -A)에 잡혀 verify=STALE 로 오염된다
 ERR=$(mktemp)
-out=$(mkstdin "gh pr create --fill" "$FIX/pretool-with-verify-exec.jsonl" \
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$TD" "$FIX/pretool-with-verify-exec.jsonl")" \
   | CLAUDE_PROJECT_DIR="$TD" bash "$HOOK" 2>"$ERR")
 echo "$out" | grep -q '"continue":true' \
   && ! echo "$out" | grep -q '"permissionDecision":"deny"' \

@@ -59,8 +59,7 @@ rules_path="$plugin_root/hooks/rules.jsonl"
 if [ "$tool_name" = "Bash" ]; then
   bash_trigger_re=$(jq -rs '[.[] | select(.matcher == "posttool" and .trigger_tool == "Bash") | .trigger_pattern | select(. != null)] | join("|")' "$rules_path" 2>/dev/null)
   if [ -n "$bash_trigger_re" ]; then
-    scan_cmd=$(_strip_heredoc_bodies "$tool_cmd")
-    scan_cmd=$(_strip_quoted_strings "$scan_cmd")
+    scan_cmd=$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")
     printf '%s' "$scan_cmd" | grep -Eq "$bash_trigger_re"
     [ "$?" -eq 1 ] && { echo '{"continue":true}'; exit 0; }   # 1=불일치만. 2(정규식 오류)는 통과
   fi

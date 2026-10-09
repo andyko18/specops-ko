@@ -458,5 +458,140 @@ else
   skip "S18.i add.ignoreErrors — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
 fi
 
+# S20 STALE 의 범위 — 차이가 추적하지 않는 파일뿐인가 (20261009)
+#   R-1 훅이 묻는다: 검증 뒤 생긴 로그·캐시(.DS_Store·build.log)는 커밋에 실리지 않으므로 그것만으로 커밋을 막지 않는다.
+#   `current` 의 답(STALE)은 그대로다 — 범위만 따로 답한다. 조금이라도 불확실하면 changed(막는 쪽)다.
+_s20=$(mktemp -d)
+( cd "$_s20" && git init -q && printf 'echo a\n' > app.sh && printf 'echo b\n' > lib.sh && git add app.sh lib.sh \
+  && git -c user.name=t -c user.email=t@e.com commit -qm init && mkdir -p .specops sub ) >/dev/null 2>&1
+_s20_cur() { ( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" current 20260101-s20 ); }
+_s20_scope() { ( cd "$_s20/${1:-.}" && SPECOPS_ROOT="$_s20/.specops" bash "$STATE" stale-scope 20260101-s20 ); }
+[ "$(_s20_scope)" = "changed" ] && ok "S20.a 상태 기록 없음 → changed" || nope "S20.a 상태 기록 없음 → changed" "$(_s20_scope)"
+( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+printf 'log\n' > "$_s20/build.log"
+[ "$(_s20_cur)" = "STALE" ] && [ "$(_s20_scope)" = "untracked-only" ] \
+  && ok "S20.b 검증 뒤 untracked 파일만 생김 → current STALE · 범위 untracked-only" \
+  || nope "S20.b untracked 파일만" "current=$(_s20_cur) scope=$(_s20_scope)"
+[ "$(_s20_scope sub)" = "untracked-only" ] && ok "S20.b2 서브디렉터리에서 물어도 같은 답" || nope "S20.b2 서브디렉터리" "$(_s20_scope sub)"
+printf 'echo CHANGED\n' > "$_s20/app.sh"
+[ "$(_s20_scope)" = "changed" ] && ok "S20.c untracked + 추적 파일 수정 → changed" || nope "S20.c 추적 파일 수정" "$(_s20_scope)"
+git -C "$_s20" checkout -q -- app.sh
+git -C "$_s20" add build.log
+[ "$(_s20_scope)" = "changed" ] && ok "S20.d 그 파일을 인덱스에 올림(staged 신규) → changed" || nope "S20.d staged 신규" "$(_s20_scope)"
+git -C "$_s20" reset -q build.log; git -C "$_s20" add -N build.log
+[ "$(_s20_scope)" = "changed" ] && ok "S20.e intent-to-add → changed" || nope "S20.e intent-to-add" "$(_s20_scope)"
+git -C "$_s20" reset -q build.log
+rm -f "$_s20/lib.sh"
+[ "$(_s20_scope)" = "changed" ] && ok "S20.f 추적 파일 삭제(unstaged) → changed" || nope "S20.f 추적 파일 삭제" "$(_s20_scope)"
+git -C "$_s20" checkout -q -- lib.sh
+# 인덱스에 오른 것과 **같은 초에 같은 크기로** 고친 파일 — stat 만으로는 안 바뀐 것처럼 보인다. git 은 인덱스 파일의
+#   mtime 으로 이 경우를 가려 내용을 다시 비교하는데, 인덱스 사본의 mtime 이 "지금" 이면 그 보호가 꺼진다.
+#   세 동작(add·기록·수정)이 한 초 안에 끝난 회차만 판정한다(초 경계에 걸리면 다시 — 5회 안에 못 맞추면 SKIP).
+_s20r=""
+for _try in 1 2 3 4 5; do
+  _t0=$(date +%s)
+  printf 'echo v2\n' > "$_s20/app.sh"; git -C "$_s20" add app.sh
+  ( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+  printf 'echo v3\n' > "$_s20/app.sh"
+  [ "$(date +%s)" = "$_t0" ] && { _s20r=same; break; }
+done
+if [ "$_s20r" = same ]; then
+  sleep 1.2
+  [ "$(_s20_scope)" = "changed" ] && ok "S20.f1 같은 초·같은 크기 수정(인덱스 사본의 mtime 보존) → changed" || nope "S20.f1 racy 수정" "$(_s20_scope)"
+else
+  skip "S20.f1 — add·기록·수정을 한 초 안에 맞추지 못함(부하)"
+fi
+printf 'echo a\n' > "$_s20/app.sh"; git -C "$_s20" add app.sh
+( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+# 인덱스에서 뺀 파일 — 커밋이 그 파일을 저장소에서 지운다. 임시 인덱스를 HEAD 에서 시작하면 이걸 못 본다.
+git -C "$_s20" rm -q --cached lib.sh
+[ "$(_s20_scope)" = "changed" ] && ok "S20.f2 git rm --cached(파일은 남고 인덱스에서 빠짐) → changed" || nope "S20.f2 git rm --cached" "$(_s20_scope)"
+git -C "$_s20" reset -q HEAD -- lib.sh
+git -C "$_s20" rm -q lib.sh
+[ "$(_s20_scope)" = "changed" ] && ok "S20.f3 git rm(staged 삭제) → changed" || nope "S20.f3 git rm" "$(_s20_scope)"
+git -C "$_s20" reset -q HEAD -- lib.sh; git -C "$_s20" checkout -q -- lib.sh
+git -C "$_s20" mv lib.sh lib2.sh
+[ "$(_s20_scope)" = "changed" ] && ok "S20.f4 git mv → changed" || nope "S20.f4 git mv" "$(_s20_scope)"
+git -C "$_s20" mv lib2.sh lib.sh
+chmod +x "$_s20/app.sh"
+[ "$(_s20_scope)" = "changed" ] && ok "S20.f5 실행 권한만 바뀜 → changed" || nope "S20.f5 chmod +x" "$(_s20_scope)"
+chmod -x "$_s20/app.sh"
+[ "$(_s20_scope)" = "untracked-only" ] && ok "S20.g 되돌리면 다시 untracked-only (앞 단계가 상태를 남기지 않는다)" || nope "S20.g 복원" "$(_s20_scope)"
+# 판정이 PASS 가 아닌 기록은 범위를 따지지 않는다 — 지문은 지금과 **같게** 만들어 둔다(달라서 changed 가 되면 이 판정을 보지 못한다)
+rm -f "$_s20/build.log"
+( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 FAIL --executed 1 --failed 1 ) >/dev/null 2>&1
+[ "$(_s20_scope)" = "changed" ] && ok "S20.h 기록이 FAIL → changed" || nope "S20.h 기록이 FAIL" "$(_s20_scope)"
+# 기록 시점에 이미 untracked 파일이 있었어도 성립한다 — 그 파일이 바뀌거나 다른 untracked 가 생겨도 추적 파일은 그대로다
+#   (검증 때부터 있던 로그에 덧붙는 것이 가장 흔한 형태다. 전체 지문과 비교하면 이 경우가 전부 changed 가 된다)
+printf 'log\n' > "$_s20/build.log"
+( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+printf 'more\n' >> "$_s20/build.log"; printf 'more\n' > "$_s20/other.log"
+[ "$(_s20_cur)" = "STALE" ] && [ "$(_s20_scope)" = "untracked-only" ] \
+  && ok "S20.i 기록 때부터 있던 untracked 가 바뀜 + 새 untracked → untracked-only" || nope "S20.i 기존 untracked 변경" "current=$(_s20_cur) scope=$(_s20_scope)"
+printf 'echo CHANGED\n' > "$_s20/app.sh"
+[ "$(_s20_scope)" = "changed" ] && ok "S20.i2 그 상태에서 추적 파일 수정 → changed" || nope "S20.i2" "$(_s20_scope)"
+git -C "$_s20" checkout -q -- app.sh
+# 추적 지문 필드가 없는 기록(구버전)은 범위를 답할 근거가 없다
+jq 'del(.tracked_nondoc_hash)' "$_s20/.specops/20260101-s20/verification-state.json" > "$_s20/.specops/vs.tmp" \
+  && mv "$_s20/.specops/vs.tmp" "$_s20/.specops/20260101-s20/verification-state.json"
+[ "$(_s20_scope)" = "changed" ] && ok "S20.i3 추적 지문이 없는 기록(구버전) → changed" || nope "S20.i3 구버전 기록" "$(_s20_scope)"
+( cd "$_s20" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 'bad fid' ) >/dev/null 2>&1 \
+  && nope "S20.j 잘못된 FID → rc 1" "rc 0" || ok "S20.j 잘못된 FID → rc 1"
+# 비교 근거가 없는 기록(퇴행 지문)은 "같다" 로 읽지 않는다 — 양쪽이 같은 퇴행값이어도 changed 다
+_s20u=$(mktemp -d)   # unborn HEAD(첫 커밋 전): 실 인덱스 기반이라 여기서도 답이 성립한다(전체 지문은 이 구간에서 퇴행값이다)
+( cd "$_s20u" && git init -q && printf 'echo a\n' > app.sh && git add app.sh && mkdir -p .specops \
+  && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 && printf 'log\n' > build.log ) >/dev/null 2>&1
+_s20u_o=$( cd "$_s20u" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+printf 'echo CHANGED\n' > "$_s20u/app.sh"
+_s20u_o2=$( cd "$_s20u" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+[ "$_s20u_o" = "untracked-only" ] && [ "$_s20u_o2" = "changed" ] \
+  && ok "S20.k unborn HEAD — untracked 만 생김 → untracked-only · staged 파일 수정 → changed" || nope "S20.k unborn HEAD" "a=$_s20u_o b=$_s20u_o2"
+# 첫 커밋 전이라도 지문 산출 실패는 실패다 — 전체 지문의 unborn 예외(퇴행값 허용)를 이 모드에 물려주지 않는다
+if ! _chmod_inert; then
+  ( cd "$_s20u" && git add app.sh && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+  printf 'echo AGAIN\n' > "$_s20u/app.sh"; chmod 000 "$_s20u/app.sh"
+  _s20u_o3=$( cd "$_s20u" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+  chmod 644 "$_s20u/app.sh"
+  [ "$_s20u_o3" = "changed" ] && ok "S20.k3 unborn HEAD + 고쳐졌는데 읽을 수 없는 파일 → changed" || nope "S20.k3 unborn + 읽기 실패" "$_s20u_o3"
+else
+  skip "S20.k3 — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+fi
+# 추적 중인 비문서 파일이 하나도 없는 저장소(문서만 추적) — 지문 EMPTY 는 퇴행값이 아니라 실제 값이다
+_s20d=$(mktemp -d)
+( cd "$_s20d" && git init -q && printf '# doc\n' > README.md && git add README.md && git -c user.name=t -c user.email=t@e.com commit -qm init \
+  && mkdir -p .specops && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 && printf 'echo x\n' > new.sh ) >/dev/null 2>&1
+_s20d_o=$( cd "$_s20d" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+git -C "$_s20d" add new.sh
+_s20d_o2=$( cd "$_s20d" && SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+[ "$_s20d_o" = "untracked-only" ] && [ "$_s20d_o2" = "changed" ] \
+  && ok "S20.k2 문서만 추적하는 저장소 — untracked 코드 → untracked-only · 그 파일을 올리면 changed" || nope "S20.k2 문서만 추적" "a=$_s20d_o b=$_s20d_o2"
+_s20n=$(mktemp -d)   # git 저장소가 아님: 조회 지문이 NO_GIT
+mkdir -p "$_s20n/.specops/20260101-s20"
+printf '{"schema_version":1,"fid":"20260101-s20","verdict":"PASS","nondoc_hash":"NO_GIT","tracked_nondoc_hash":"NO_GIT"}\n' > "$_s20n/.specops/20260101-s20/verification-state.json"
+_s20n_o=$( cd "$_s20n" && GIT_CEILING_DIRECTORIES="$_s20n" SPECOPS_ROOT=.specops bash "$STATE" stale-scope 20260101-s20 )
+[ "$_s20n_o" = "changed" ] && ok "S20.l 기록 지문 NO_GIT → changed" || nope "S20.l 기록 지문 NO_GIT" "$_s20n_o"
+if ! _chmod_inert; then   # 고쳐졌는데 읽을 수 없는 추적 파일 — 지문을 낼 수 없다
+  ( cd "$_s20" && git checkout -q -- . && rm -f other.log build.log && printf 'k\n' > locked.dat && git add locked.dat \
+    && git -c user.name=t -c user.email=t@e.com commit -qm lock \
+    && SPECOPS_ROOT=.specops bash "$STATE" record 20260101-s20 PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+  printf 'log\n' > "$_s20/build.log"
+  _s20y_a=$(_s20_scope)
+  # 내용을 바꾼 뒤 읽기를 막는다(권한만 바꾸면 git 은 인덱스의 stat 으로 "안 바뀜" 을 알아 읽지 않는다 — 그건 실제로 안 바뀐 것이다).
+  #   지문을 못 내면 "달라지지 않았다" 가 아니라 changed 다 — 실패를 성공으로 치면 옛 내용이 임시 인덱스에 남아 기록과 같아진다.
+  printf 'k2\n' > "$_s20/locked.dat"; chmod 000 "$_s20/locked.dat"
+  _s20y_b=$(_s20_scope)
+  # 기록 쪽이 UNHASHABLE 이면 조회 쪽도 UNHASHABLE 이어도 "같다" 가 아니다
+  jq '.tracked_nondoc_hash = "UNHASHABLE"' "$_s20/.specops/20260101-s20/verification-state.json" > "$_s20/.specops/vs.tmp" \
+    && mv "$_s20/.specops/vs.tmp" "$_s20/.specops/20260101-s20/verification-state.json"
+  _s20x_o=$(_s20_scope)
+  chmod 644 "$_s20/locked.dat"
+  [ "$_s20y_a" = "untracked-only" ] && [ "$_s20y_b" = "changed" ] \
+    && ok "S20.n 고쳐졌는데 읽을 수 없는 추적 파일 → changed (그 전엔 untracked-only)" \
+    || nope "S20.n 조회 시 지문 산출 실패" "readable=$_s20y_a unreadable=$_s20y_b"
+  [ "$_s20x_o" = "changed" ] && ok "S20.m 기록 지문 UNHASHABLE(조회도 UNHASHABLE) → changed" || nope "S20.m 기록 지문 UNHASHABLE" "$_s20x_o"
+else
+  skip "S20.m·n UNHASHABLE — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+fi
+rm -rf "$_s20" "$_s20u" "$_s20n" "$_s20d"
 
 finish

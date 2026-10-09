@@ -8,7 +8,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 plugin_root=$(dirname "$script_dir")
 
 bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" pretool-governance >/dev/null 2>&1 \
-  || { echo '{"continue":true}'; exit 0; }
+  || { _off_in=$(cat 2>/dev/null || true); case "$_off_in" in *commit*|*create*) printf '%s' "$_off_in" | ( . "$script_dir/governance-lib.sh" && _note_governance_disabled "$plugin_root" ) >/dev/null 2>&1 || true ;; esac; echo '{"continue":true}'; exit 0; }
 
 allow() { echo '{"continue":true}'; exit 0; }
 # degraded 기록은 lib 로드 후에만 동작한다 — 로드 전 호출(declare -F 실패·.specops 부재) 시 무음 스킵.
@@ -35,7 +35,7 @@ tool_cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 
 [ "$tool_name" = "Bash" ] || allow
-# 의도적 범위 경계(F-3, WON'T-FIX): 선행자는 쉘 메타문자([;&|({`])·줄시작·VAR=val/env 접두만 인식.
+# 의도적 범위 경계(F-3, WON'T-FIX): 선행자는 쉘 메타문자([;&|({`])·줄시작 뒤의 env 접두·래퍼·제어 키워드, 그리고 경로로 부른 git·gh 까지 인식(20261009 확대 — 정직한 사용에서 나오는 형태).
 #   wrapper-class(sh -c·bash -c·eval·perl -e·python -c·xargs·find -exec…)는 미차단 — 정규식으로 무한확장 닫기 불가(두더지잡기).
 #   본 게이트는 적대적 경계가 아닌 Claude 자기정직 스캐폴드(공식 우회 SPECOPS_GOVERNANCE_BYPASS=1 제공). honest Claude 가
 #   자기 commit 을 wrapper 난독화할 동기 0 = honest-mistake 경로 부재. 보안 1차방어는 is_docs_only_change(git-authoritative, wrapper-agnostic).
@@ -45,7 +45,7 @@ transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 #   `bash <<EOF`(셸 실행자) 본문은 제외하지 않는다(실제 실행됨 → F-3 표면 불변). 실패 시 원본 = 차단 우세.
 #   $tool_cmd 원본은 아래 apply_lookback_rule·deny 메시지에서 그대로 쓴다 — 덮어쓰기 금지.
 tool_cmd_scan=$(_strip_heredoc_bodies "$tool_cmd")
-tool_cmd_scan=$(_strip_quoted_strings "$tool_cmd_scan")
+tool_cmd_scan=$(_strip_quoted_strings "$(_join_line_continuations "$tool_cmd_scan")")
 # prefilter 정규식은 rules.jsonl R-1/R-2 trigger_pattern 동적 로드 (T-H1 single-source — 구버전은 literal
 #   복제 + 정합 테스트였으나, VAR=val 인용값 클래스 도입(20260716-batch-dogfood widening: `FOO='a b' git commit`
 #   이 prefix 체인을 끊어 트리거를 통째로 비껴감 — 인식 확대 = deny-superset = 차단 우세라 evasion 방어
@@ -55,7 +55,8 @@ rules_path="$plugin_root/hooks/rules.jsonl"
 [ -f "$rules_path" ] || safe_exit "rules.jsonl 부재 — trigger 로드 불가"
 trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|select(.!=null)]|join("|")' "$rules_path" 2>/dev/null)
 [ -n "$trigger_re" ] || safe_exit "trigger_pattern 로드 실패"
-printf '%s' "$tool_cmd_scan" | grep -Eq "$trigger_re" || allow
+# 트리거 판정은 잇기 전 원문도 함께 본다(_trigger_scan_text) — 아래 범위 판정들은 이은 문자열(tool_cmd_scan)을 쓴다.
+_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")" | grep -Eq "$trigger_re" || allow
 
 # 세션-env 우회 = 사용자 주권(막지 않음). 단 무기록 우회는 감사 공백(상한 3호) → 기록 후 allow.
 #   .specops 有일 때만 기록 — 부재(비-specops repo)면 log_friction 이 .specops 를 생성해 월권(M2 관할 가드 철학).
@@ -84,7 +85,7 @@ fi
 # 대상은 PR 뿐이다. **중간 커밋은 검사하지 않는다** — chain 상 verify 보다 앞서는 것이 정상이고
 #   (아래 L97-101 참조) 여기서 막으면 정직한 태스크별 커밋이 전부 걸린다.
 _batch_pr_gate() {
-  printf '%s' "$tool_cmd_scan" | grep -Eq "gh[[:space:]]+pr[[:space:]]+create" || return 0
+  printf '%s' "$tool_cmd_scan" | grep -Eq "$_PR_CREATE_RE" || return 0
   # ★ 진행 중(ACTIVE 마커) batch 만 판정한다. glob-latest 는 쓰지 않는다.
   #   `.specops/*` 는 gitignore 라 뭉개진 batch 디렉토리가 디스크에 무기한 남는다. 아무 batch 나
   #   집으면 그것과 **무관한** 단일 FID 작업의 PR 이 과거 라벨 오염으로 차단된다 (실측 재현:
@@ -421,6 +422,22 @@ if [ -n "$violation" ]; then
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
    bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "vstale" ]; then
+    # 검증 판정이 STALE — transcript 의 편집 이벤트로는 보이지 않는 변경이다(셸 명령·포매터·코드 생성·서브에이전트).
+    _evidence_hint="✘ ① 검증 이후 코드가 바뀌었습니다 — 이 FID 의 검증 판정이 **STALE** 입니다.
+   검증 PASS 를 기록한 뒤 문서가 아닌 파일이 달라졌습니다(편집 도구가 아닌 경로의 변경 포함 — 셸 명령·포매터·코드 생성·서브에이전트).
+   지금 코드로 다시 검증하세요: bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
+   현재 verdict 확인: bash '${plugin_root}'/scripts/_internal/verification-state.sh current ${fid:-<FID>}
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트를 **지금 이 트리에서** 통과시켜도 인정됩니다.
+    달라진 것이 아직 추적하지 않는 파일뿐이면 막지 않습니다 — 단 커밋을 다른 명령과 한 번에 실행하면(\`&&\`·\`;\`·파이프·명령 치환·경로 인자)
+    그 사이 인덱스가 바뀔 수 있어 막습니다. 그 경우 \`git commit -m …\` 만 따로 실행하세요.
+    검증 때 추적하지 않던 파일을 그 뒤에 인덱스에 올린 것도 달라진 것으로 봅니다 — 다시 검증하면 풀립니다.)"
+  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "otherfid" ]; then
+    # 러너는 돌았는데 **다른 FID** 를 검증했다 — "실행 기록이 없다" 고 말하면 거짓 원인이다.
+    _evidence_hint="✘ ① 실행 증거: 이 세션에서 돌린 러너는 **다른 FID** 를 검증했습니다 — ${fid:-<FID>} 의 통과한 실행 기록이 없습니다.
+   run-verification.sh 뒤에 적힌 FID 가 이 FID 가 아닙니다(한 세션에서 FID 여럿을 다루면 앞 FID 의 PASS 는 뒤 FID 의 증거가 아닙니다).
+   이 FID 로 실행하세요: bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
     _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다(이 세션 transcript 기준 실행 증거 있음, 또는 판정 불가로 fail-open). 차단 사유는 아래 ②·receipt 입니다."
   else
@@ -485,7 +502,7 @@ fi
 # strict FID 또는 ACTIVE batch(브랜치 일치) PR: NOT_READY → hard deny.
 # 그 외: warn-only. UNKNOWN(rc=2)은 fail-open. R-1·docs-only·BYPASS·batch-state·verify lookback 은 위에서 처리됨.
 _release_ready_gate() {
-  printf '%s' "$tool_cmd_scan" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create' || return 0
+  printf '%s' "$tool_cmd_scan" | grep -Eq "$_PR_CREATE_RE" || return 0
   [ -f "$plugin_root/scripts/_internal/release-ready.sh" ] || return 0
 
   local hard=0 hard_why="" fids="" f branch m d qdir qfile eff line

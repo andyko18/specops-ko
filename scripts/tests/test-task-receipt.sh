@@ -11,6 +11,8 @@ source "$PLUGIN/hooks/governance-lib.sh"
 rule_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
 rule_r2=$(jq -c 'select(.id == "R-2")' "$PLUGIN/hooks/rules.jsonl")
 FIX="$PLUGIN/scripts/tests/governance/fixtures/transcripts"
+# shellcheck source=/dev/null
+source "$PLUGIN/scripts/tests/lib/exec-transcript.sh"   # _tr_for — 실행 증거 픽스처를 샌드박스 FID 에 맞춘다
 
 _setup_fid() {  # $1=dir $2=fid
   local d="$1" fid="$2"
@@ -143,7 +145,7 @@ LGD=$(mktemp -d)
 mkdir -p "$LGD/.specops/20260101-legacy"
 printf '<!-- active-fid: 20260101-legacy -->\n## 20260101-legacy\n' > "$LGD/.specops/session-progress.md"
 echo tasks > "$LGD/.specops/20260101-legacy/tasks.md"
-out=$(cd "$LGD" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" \
+out=$(cd "$LGD" && apply_lookback_rule "$rule_r1" "$(_tr_for "$LGD" "$FIX/exec-evidence-pass.jsonl")" \
   "Bash" 'git commit -m "feat: T1"')
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id=="R-1"' >/dev/null; then
   ok "TR-9 legacy exec 면제 폐지 → deny"
@@ -183,7 +185,7 @@ printf 'updated\n' > "$_RWC/src/foo.sh"          # 커밋 가능한 변경 (clea
 #   (verification-state.json 부재 + RUN-VERIFICATION-RESULT 스탬프 없음 → vs::current = NOT_RUN)
 printf '# 실험 관찰 기록\n변이 M1 격추\n' > "$_RWC/.specops/$_rwc_fid/evidence.md"
 (cd "$_RWC" && git add src && bash "$REC" "$_rwc_fid" T1) >/dev/null 2>&1
-out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$(_tr_for "$_RWC" "$FIX/exec-evidence-pass.jsonl")" "Bash" 'git commit -m "fix: x (Task: T1)"')
 if [ -z "$out" ]; then ok "T-rwc.a evidence.md 존재 + verify 미실행 → receipt 면제"
 else nope "T-rwc.a" "창이 닫혔다: $out"; fi
 
@@ -197,7 +199,7 @@ printf 'stale-inducing edit\n' >> "$_RWC/src/foo.sh"      # ← 기록 이후 �
 _rwc_v=$(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current "$_rwc_fid")
 [ "$_rwc_v" = "STALE" ] || nope "T-rwc.b-pre" "픽스처가 STALE 이 아니다: $_rwc_v"
 (cd "$_RWC" && git add src && bash "$REC" "$_rwc_fid" T1) >/dev/null 2>&1   # receipt 는 유효하게 갱신
-out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$(_tr_for "$_RWC" "$FIX/exec-evidence-pass.jsonl")" "Bash" 'git commit -m "fix: x (Task: T1)"')
 if [ -n "$out" ]; then ok "T-rwc.b STALE → 유효 receipt 여도 차단(17f8617 계약 보존)"
 else nope "T-rwc.b" "STALE 인데 면제됨 — 계약 약화"; fi
 
@@ -207,7 +209,7 @@ else nope "T-rwc.b" "STALE 인데 면제됨 — 계약 약화"; fi
    record "$_rwc_fid" PASS --executed 1 --failed 0) >/dev/null 2>&1
 _rwc_v=$(cd "$_RWC" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current "$_rwc_fid")
 [ "$_rwc_v" = "PASS" ] || nope "T-rwc.c-pre" "픽스처가 신선 PASS 가 아니다: $_rwc_v"
-out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$FIX/exec-evidence-pass.jsonl" "Bash" 'git commit -m "fix: x (Task: T1)"')
+out=$(cd "$_RWC" && apply_lookback_rule "$rule_r1" "$(_tr_for "$_RWC" "$FIX/exec-evidence-pass.jsonl")" "Bash" 'git commit -m "fix: x (Task: T1)"')
 if [ -z "$out" ]; then ok "T-rwc.c verify PASS 신선 → 자기보고 경로로 면제(창 닫힘)"
 else nope "T-rwc.c" "PASS 신선인데 차단: $out"; fi
 rm -rf "$_RWC"
