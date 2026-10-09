@@ -218,6 +218,14 @@ _init_mark_written() {
 _init_written() {
   [ -f "$INIT_WRITTEN_FILE" ] && grep -qxF -- "$1" "$INIT_WRITTEN_FILE"
 }
+# 기록이 **아직 유효한가** — HEAD 에 이미 있는 경로의 기록은 믿지 않는다.
+#   skip 정책에서 init 은 없던 경로만 쓰므로, 기록된 경로가 HEAD 에 있다면 그 뒤에 커밋이 있었다는 뜻이다
+#   (사용자가 종결 스크립트 대신 손으로 커밋한 경우 — 기록은 남는다). 그 뒤의 수정분은 사용자의 것이다.
+_init_written_fresh() {
+  _init_written "$1" || return 1
+  git cat-file -e "HEAD:$1" 2>/dev/null && return 1
+  return 0
+}
 
 # 보존하는 기존 파일 중 **미커밋 내용이 있는 사용자 파일**을 기록한다 — 커밋에 쓸어 담지 않기 위해서다.
 #   ① 정본 산출물 자리에 이미 있는 파일(skip 정책으로 보존)이고, init 이 쓴 기록이 없고, git 상태가 깨끗하지
@@ -233,14 +241,14 @@ _init_hold_scan() {
   local held="" f m
   for f in "${ARTIFACTS_ROOT[@]}" "${ARTIFACTS_MEMORY[@]}" .specops/memory/api-spec-consumer.md; do
     [ -e "$f" ] || continue
-    _init_written "$f" && continue
+    _init_written_fresh "$f" && continue
     [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ] && held="${held}${f}
 "
   done
   if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
     while IFS= read -r m; do
       [ -n "$m" ] || continue
-      _init_written "$m" || held="${held}${m}
+      _init_written_fresh "$m" || held="${held}${m}
 "
     done <<EOF
 $(git diff -z --name-only --diff-filter=M HEAD -- .specops/memory 'screens/*.md' 'screens/*.html' 2>/dev/null | tr '\0' '\n')

@@ -956,6 +956,32 @@ for _mode in rerun resume; do
   teardown_fixture
 done
 
+# T31.g 손으로 커밋한 뒤에는 쓴 파일 기록을 믿지 않는다 — 그 뒤의 수정분은 사용자의 것이다
+#   종결 스크립트 대신 `git add -A && git commit` 으로 닫으면 .init-written 이 남는다. 그 상태에서 README 를
+#   고치고 `--resume`(예: .gitignore 이관)하면, 기록만 믿는 판정은 README 를 init 의 파일로 보고 쓸어 담는다.
+setup_fixture
+fullstack_stdin | bash "$SCRIPT" demo >/dev/null 2>&1
+git add -A; git commit -q -m "수동 커밋"
+printf '\n작성 중인 문단\n' >> README.md
+_o=$(printf '4\n\n' | bash "$SCRIPT" --resume demo 2>&1)
+printf '\n- 보강 흉내\n' >> .specops/memory/requirements.md
+bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+_cf=$(git show --name-only --format= HEAD 2>/dev/null)
+if printf '%s' "$_o" | grep -q 'init 커밋에 넣지 않습니다.*README\.md' \
+   && printf '%s\n' "$_cf" | grep -qx '.specops/memory/requirements.md' \
+   && ! printf '%s\n' "$_cf" | grep -qx 'README.md' \
+   && [ "$(git status --short README.md | cut -c1-2)" = " M" ]; then
+  ok "T31.g 수동 커밋 뒤의 README 수정분 → 보류(고지) · 종결 커밋 제외 · 보강분은 커밋"
+else
+  nope "T31.g" "commit=[$(printf '%s' "$_cf" | tr '\n' ' ')] st=[$(git status --short | tr '\n' '|')] out=$(printf '%s' "$_o" | grep '넣지' | cut -c1-80)"
+fi
+# T31.h 커밋할 것이 없는 종결 호출은 쓴 파일 기록을 닫는다 (수동 커밋 뒤 doctor 안내대로 종결을 부른 경우)
+git checkout -q -- README.md; git add -A; git commit -q -m "보강분 수동 커밋" 2>/dev/null
+printf 'README.md\n' > .specops/.init-written
+bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+[ ! -e .specops/.init-written ] && ok "T31.h 커밋 대상 없는 종결 → 쓴 파일 기록 회수" || nope "T31.h" ".init-written 잔존"
+teardown_fixture
+
 # T30.f .gitignore 보충은 사용자 규칙을 뒤집지 않는다 — 보충 규칙은 위에, 사용자 규칙은 아래(뒤가 이긴다)
 setup_fixture
 mkdir -p .specops

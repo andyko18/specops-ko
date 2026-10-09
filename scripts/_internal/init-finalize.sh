@@ -38,6 +38,10 @@ if ! _own=$(_init_staged_own); then
   exit 1
 fi
 if [ -z "$_own" ]; then
+  # 쓴 파일의 기록은 여기서도 닫는다 — 커밋할 것이 없으면 이번 부트스트랩의 산출물은 이미 커밋돼 있다
+  #   (손으로 커밋한 경우 포함). 남겨 두면 다음 실행이 그 경로의 사용자 수정분을 init 의 것으로 본다.
+  #   보류 기록(.init-hold)은 남긴다 — 보류된 파일이 아직 미커밋이면 다음 호출이 쓸어 담지 않아야 한다.
+  rm -f "$INIT_WRITTEN_FILE" 2>/dev/null
   echo "init-finalize: 커밋 대상 없음 — 이미 종결됐거나 변경이 없습니다 (no-op)"
   exit 0
 fi
