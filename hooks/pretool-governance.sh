@@ -148,10 +148,10 @@ _batch_pr_gate
 #   20260910 SPECOPS_DRYRUN 초안이 무앵커 glob 으로 들어와 `echo SPECOPS_DRYRUN=1 && git commit`
 #   을 조회로 오인했다 — false-deny 는 이 repo 가 두 번 겪은 BYPASS 관성 경로다).
 #   선행자 클래스([;&|({`] + 줄시작)와 후행 공백 요구는 아래 인라인 BYPASS 주석의 근거를 승계한다.
-# ★ 정의 위치가 파일 상단(allow/safe_exit 옆)이 아닌 이유: scripts/tests/mutation-equivalent.conf 가
-#   이 파일의 equivalent mutant 를 **절대 줄번호**로 고정한다(:85·:108·:109 = _batch_pr_gate 내부).
-#   위쪽에 줄을 끼우면 그 고정이 통째로 stale 이 되고 mutation score 가 거짓 하락한다
-#   (test-mutation-conf-fresh.sh T2.a 실측). 첫 소비자 바로 앞이 co-location 측면에서도 낫다.
+# ★ 정의 위치가 파일 상단(allow/safe_exit 옆)이 아닌 이유: 정의 당시 scripts/tests/mutation-equivalent.conf 가
+#   이 파일의 equivalent mutant 를 **절대 줄번호**로 고정했다 — 위쪽에 줄을 끼우면 그 고정이 통째로 stale 이 됐다
+#   (test-mutation-conf-fresh.sh T2.a 실측). 20261010 부터 키가 함수+줄 원문이라 그 제약은 없다.
+#   위치는 그대로 뒀다 — 첫 소비자 바로 앞이 co-location 측면에서도 낫다.
 _is_cmd_pos_env() {
   printf '%s' "$1" | grep -Eq "(^|[;&|({\`])[[:space:]]*${3:-}$2[[:space:]]"
 }

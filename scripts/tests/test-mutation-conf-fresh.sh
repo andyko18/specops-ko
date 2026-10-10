@@ -9,6 +9,9 @@
 #   run-all 명명 규칙(test-*.sh) 밖이라 아무도 안 돌렸고, 이번 세션의 governance-lib 편집
 #   3건으로 **16/18 이 stale** 이 됐다 — 그동안 아무 게이트도 울지 않았다.
 #   무거운 mutation 실행은 그대로 수동으로 두고, **1초짜리 정합만** 상시 게이트에 넣는다.
+# 20261010: conf 의 키가 줄번호에서 **함수 + 줄 원문**으로 바뀌었다(mutation-score.sh 머리말). 다른 곳에 줄을
+#   넣고 빼는 편집으로는 더 이상 stale 이 되지 않는다 — T6 이 실제 conf 로 그것을 잠근다. 등재한 줄 자체를 고치거나
+#   같은 원문의 줄을 함수 안에 늘리고 줄이면 stale 이고, 그때는 그 행의 근거를 다시 읽는다.
 set -u
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
@@ -28,7 +31,7 @@ out=$(cd "$PLUGIN" && bash "$MS" --check-conf 2>&1); rc=$?
 if [ "$rc" -eq 0 ]; then
   ok "T2.a equivalent conf 신선 ($(printf '%s' "$out" | grep -o '[0-9]*/[0-9]* 매칭' | head -1))"
 else
-  nope "T2.a conf stale" "$(printf '%s' "$out" | grep STALE | head -3 | tr '\n' ' ') — 줄번호 재정렬 필요"
+  nope "T2.a conf stale" "$(printf '%s' "$out" | grep STALE | head -3 | tr '\n' ' ') — 그 줄이 바뀌었다. 행의 근거를 다시 보고 --anchor 로 키를 다시 만든다"
 fi
 
 # ── T3: targets conf 의 대상 스크립트·테스트 명령이 실재한다 ──
@@ -72,6 +75,26 @@ if [ -f "$WF" ]; then
 else
   nope "T5.a" "llm-smoke.yml 부재"
 fi
+
+# ── T6: 실제 conf 는 대상 파일의 줄이 밀려도 같은 사이트를 가리킨다 (20261010-mutation-equiv-anchors) ──
+# 왜: 종전 키(절대 줄번호)는 대상에 줄 하나만 끼워도 뒤 항목이 전부 밀렸고, 밀린 자리에 같은 패턴의 다른 줄이
+#   있으면 --check-conf 가 통과한 채 엉뚱한 가드가 등가로 빠졌다. 등재 대상 4종의 사본 머리에 7줄을 끼우고,
+#   풀린 사이트가 **전부 정확히 +7** 인지 본다(개수만 보면 다른 줄로 옮겨 붙은 것을 못 잡는다).
+# shellcheck disable=SC1090
+source "$MS"
+t6=$(mktemp -d); t6n=0; t6bad=""
+for tgt in $(grep -v '^#' "$ECONF" | cut -f1 | grep . | sort -u); do
+  [ -f "$PLUGIN/$tgt" ] || { t6bad="$t6bad $tgt(부재)"; continue; }
+  { printf '# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n'; cat "$PLUGIN/$tgt"; } > "$t6/shifted.sh"
+  a=$(cd "$PLUGIN" && mut::equiv_sites "$tgt" | awk -F'\t' '{ print $1 + 7 "\t" $2 }' | sort)
+  b=$(cd "$PLUGIN" && mut::equiv_sites "$tgt" "$t6/shifted.sh" | sort)
+  n=$(printf '%s\n' "$a" | grep -c .)
+  t6n=$((t6n + n))
+  [ "$n" -ge 1 ] && [ "$a" = "$b" ] || t6bad="$t6bad $tgt"
+done
+rm -rf "$t6"
+[ "$t6n" -ge 1 ] && [ -z "$t6bad" ] && ok "T6.a 줄이 7줄 밀려도 등가 ${t6n}건이 같은 사이트를 가리킨다" \
+  || nope "T6.a" "줄 이동 뒤 어긋난 대상:${t6bad:- (등재 0건)}"
 
 echo ""
 finish
