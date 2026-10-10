@@ -322,6 +322,15 @@ printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 커밋 �
 v=$(_hook "$sb" "$MSG_P")
 printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 커밋 범위' \
   && ok "R2.c ★ git commit -- <경로> → 차단" || nope "R2.c" "$(printf '%s' "$v" | tail -4)"
+# 여러 줄 메시지 — 명령 치환(`-m "$(cat <<EOF …)"`)은 스테이징 전용인지 확인할 수 없어 막히고, 문안이 그 형태와 대안을 말한다
+MSG_S=$(printf 'git commit -m "$(cat <<%sEOF%s\nfix: a (Task: T1)\nEOF\n)"' "'" "'")
+MSG_F=$(printf 'git commit -q -F - <<%sEOF%s\nfix: a\n\nTask: T1\nEOF' "'" "'")
+v=$(_hook "$sb" "$MSG_S")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 커밋 범위' && printf '%s' "$v" | grep -q '명령 치환' \
+  && printf '%s' "$v" | grep -qF 'git commit -F - <<' \
+  && ok "R2.e 명령 치환으로 메시지를 넣은 커밋 → 차단, 문안이 그 형태와 대안(-F - heredoc)을 말한다" || nope "R2.e" "$(printf '%s' "$v" | tail -5)"
+v=$(_hook "$sb" "$MSG_F"); [ "$v" = "ALLOW" ] \
+  && ok "R2.f 대조 — heredoc 으로 메시지를 넣은 커밋(-F -)은 통과" || nope "R2.f" "$(printf '%s' "$v" | tail -4)"
 printf '# spec\n' > "$sb/.specops/$F/spec.md"                                  # 명세가 생기면 정식 FID 다
 v=$(_hook "$sb" "$MSG_A"); [ "$v" = "ALLOW" ] \
   && ok "R2.d 정식 FID(명세 있음)의 commit -a 는 종전 그대로다(영수증 경로 불변 · AC-R-1)" || nope "R2.d" "$(printf '%s' "$v" | tail -4)"

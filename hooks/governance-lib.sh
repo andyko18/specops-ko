@@ -1750,9 +1750,10 @@ _receipt_hint_extra() {
   case "$cause" in
     quick-unstaged)
       printf '%s' "
-▶ quick 커밋 범위 — 이 명령이 스테이징된 것만 커밋하는지 확인할 수 없습니다(\`-a\`·\`--all\`·경로 인자·다른 명령과 묶음).
+▶ quick 커밋 범위 — 이 명령이 스테이징된 것만 커밋하는지 확인할 수 없습니다(\`-a\`·\`--all\`·경로 인자·다른 명령과 묶음·명령 치환).
    quick 경로의 범위·리뷰 판정은 스테이징된 변경을 봅니다. 커밋할 파일만 git add 한 뒤(별도 호출)
-   \`git commit -m …\` 만 따로 실행하세요."
+   \`git commit -m …\` 만 따로 실행하세요. 여러 줄 메시지는 \`git commit -F - <<'EOF'\` 형태로 씁니다
+   (메시지를 명령 치환으로 넣는 \`-m \"\$(cat <<'EOF' …)\"\` 형태는 막힙니다)."
       return 0 ;;
     quick-over|quick-noreview)
       infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)
