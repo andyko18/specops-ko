@@ -274,6 +274,19 @@ grep -qF '경로도 병렬 표시도 없으면 SKIP 반환' "$CR" \
 grep -qF '`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**' "$META" \
   && ok "D3.a 메타 스킬 — 자연어로 /quick-fix 를 추론하지 않는다(lite 와 같은 줄)" || nope "D3.a" "메타 스킬에 문구 없음"
 
+# ── D1 진입 커맨드 — 슬래시 전용 · 절차 · 상한 표 (AC-5) ────────────────────
+CMD="$PLUGIN/commands/quick-fix.md"
+[ -f "$CMD" ] && grep -q '^disable-model-invocation: true$' "$CMD" \
+  && ok "D1.a /quick-fix 커맨드는 모델 호출 금지(슬래시 전용)" || nope "D1.a" "커맨드 부재 또는 표지 없음"
+grep -qF 'quick-fix.sh start' "$CMD" 2>/dev/null && grep -qF 'quick-fix.sh seal' "$CMD" && grep -qF 'quick-fix.sh done' "$CMD" \
+  && grep -qF 'Task: T1' "$CMD" && grep -qF 'quick 경로: yes' "$CMD" && grep -qF '/maintain-lite' "$CMD" \
+  && ok "D1.b 커맨드 본문 — start·seal·done · Task: T1 · 리뷰어 quick 표시 · 초과 시 /maintain-lite" || nope "D1.b" "본문에 빠진 절차가 있다"
+# 상한 수치는 판정기의 상수가 유일한 정의다 — 커맨드 문서의 표가 그 값과 같아야 한다(상수를 바꾸고 문서를 안 고치면 여기서 걸린다)
+_mf=$(sed -n 's/^QUICK_MAX_IMPL_FILES=//p' "$QS"); _ml=$(sed -n 's/^QUICK_MAX_LINES=//p' "$QS")
+[ -n "$_mf" ] && [ -n "$_ml" ] && grep -qF "| ${_mf}개 |" "$CMD" 2>/dev/null && grep -qF "| ${_ml}줄 |" "$CMD" \
+  && ok "D1.d 커맨드 문서의 상한(${_mf}개 · ${_ml}줄) = 판정기 상수" || nope "D1.d" "상수 files=$_mf lines=$_ml 가 커맨드 문서의 표와 다르다"
+[ ! -f "$PLUGIN/commands/quick-fix-auto.md" ] && ok "D1.c 무인 변형을 두지 않는다" || nope "D1.c" "quick-fix-auto.md 가 있다"
+
 # shellcheck disable=SC2086
 rm -rf $_SBS
 echo ""

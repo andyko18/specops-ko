@@ -142,6 +142,7 @@ claude plugin uninstall specops-ko           # 제거
 | `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 |
 | `/maintain` · `/maintain-lite` | 기존 코드 수정 — 영향 분석 선행 + 회귀 AC 강제 |
 | `/maintain-auto` · `/maintain-lite-auto` | 기존 코드 수정 무인 — 분석 검토·설계 승인 자동 통과(분석·회귀 AC·리뷰는 그대로), PR만 확인 |
+| `/quick-fix` | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain-lite` 로 간다 |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
@@ -151,7 +152,7 @@ claude plugin uninstall specops-ko           # 제거
 새 프로젝트?  → /init-project → (필요 시) /start-foundation → /start-all 또는 기능마다 /start
 기존 코드를 고치나?
   ├─ 아니오 (새 산출물) → /start        (무인: /start-auto · 경량: /start-lite · 경량 무인: /start-lite-auto)
-  └─ 예   (수정·제거)   → /maintain     (무인: /maintain-auto · 경량: /maintain-lite · 경량 무인: /maintain-lite-auto)
+  └─ 예   (수정·제거)   → /maintain     (무인: /maintain-auto · 경량: /maintain-lite · 경량 무인: /maintain-lite-auto · 몇 줄짜리: /quick-fix)
 ```
 
 > `-lite`·`-auto` 는 슬래시로만 진입한다. 자연어 "가볍게 해줘"·"알아서 다 해줘"를 lite·무인으로 추론하지 않는다.
@@ -298,7 +299,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 specops-ko/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 28건
+├── commands/           슬래시 진입로 29건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30
