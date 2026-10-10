@@ -124,6 +124,83 @@ out=$(cd "$nog" && GIT_CEILING_DIRECTORIES="$(dirname "$nog")" bash "$QS" "$F" T
 [ "$rc" = 3 ] && printf '%s' "$out" | grep -q 'OVER 판정 불가 — git 저장소가 아니다' \
   && ok "Q5.b git 저장소 밖 → 판정 불가 → 3" || nope "Q5.b" "rc=$rc out=$out"
 
+# ── 훅 종단용 헬퍼 (B 절 이후가 쓴다) ────────────────────────────────────────
+HOOK="$PLUGIN/hooks/pretool-governance.sh"
+TR="$PLUGIN/scripts/tests/governance/fixtures/transcripts/pretool-no-verify.jsonl"   # 러너 실행 기록이 없는 transcript
+[ -f "$TR" ] || { echo "FATAL: transcript 픽스처 부재 $TR" >&2; exit 1; }
+MSG='git commit -m "fix: a (Task: T1)"'
+_hook() {  # <sb> <커밋 명령> → ALLOW | DENY: <사유 전문>
+  jq -nc --arg c "$2" --arg t "$TR" '{tool_name:"Bash", tool_input:{command:$c}, transcript_path:$t}' \
+    | CLAUDE_PROJECT_DIR="$1" bash "$HOOK" 2>/dev/null \
+    | jq -r 'if .hookSpecificOutput.permissionDecision == "deny" then "DENY: " + .hookSpecificOutput.permissionDecisionReason else "ALLOW" end'
+}
+_open_fid() {  # <sb> — FID 폴더와 진행 기록을 손으로 연다(훅이 활성 FID 를 찾는다)
+  mkdir -p "$1/.specops/$F"
+  printf '<!-- active-fid: %s -->\n## %s\n- 2026-10-10 10:00 /quick-fix 시작\n' "$F" "$F" > "$1/.specops/session-progress.md"
+}
+# 손으로 만든 영수증 — 봉인 스크립트를 거치지 않아도 커밋에서 걸리는지 보려고 태스크 문서를 직접 쓴다
+_hand_receipt() {  # <sb> <outputs — 쉼표 구분>
+  printf '# tasks\n\n## 의존 그래프\n\n```yaml\nreview_mode: end-loaded\ntasks:\n  - id: T1\n    depends_on: []\n    inputs: []\n    outputs: [%s]\n    ac: []\n    test_command: "bash tests/t.sh"\n```\n' \
+    "$2" > "$1/.specops/$F/tasks.md"
+  ( cd "$1" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/record-task-receipt.sh" "$F" T1 ) >/dev/null 2>&1
+}
+
+# ── H1 범위 초과 — 영수증이 유효해도 커밋 차단, 사유가 걸린 기준을 말한다 (AC-2) ──
+_h_over() {  # <라벨> <기대 사유 조각> <outputs> <준비 명령>
+  local s v; s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
+  ( cd "$s" && eval "$4" ) >/dev/null 2>&1; _review "$s" PASS; _hand_receipt "$s" "$3"
+  [ -f "$s/.specops/$F/receipts/T1.json" ] || { nope "$1" "픽스처 — 영수증이 만들어지지 않았다"; return; }
+  v=$(_hook "$s" "$MSG")
+  printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -qF "quick 범위 초과 — $2" && printf '%s' "$v" | grep -q '/maintain-lite' \
+    && ! printf '%s' "$v" | grep -q '기록된 receipt 가 유효하지 않습니다' \
+    && ok "$1" || nope "$1" "$(printf '%s' "$v" | tail -6)"
+}
+_h_over "H1.a ★ 구현 파일 3개 → 차단 · 사유에 기준과 /maintain-lite ('영수증 무효' 라고 말하지 않는다)" '구현 파일 3개 (상한 2개)' \
+  'src/a.sh, src/b.sh, src/c.sh' 'printf "echo v2\n" > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src'
+_h_over "H1.b 변경 31줄 → 차단" '변경 31줄 (상한 20줄' 'src/a.sh' '{ echo "echo v2"; _n 29; } > src/a.sh && git add src/a.sh'
+_h_over "H1.c 고위험 신호(스키마 파일) → 차단" '고위험 신호: schema' 'src/a.sh, db/001.sql' \
+  'printf "echo v2\n" > src/a.sh && mkdir -p db && printf "ADD COLUMN x int;\n" > db/001.sql && git add src db'
+
+# ── H2 리뷰 미충족 — 커밋 차단, 사유는 범위 초과와 다르다 (AC-3) ────────────
+sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && git add src/a.sh )
+_hand_receipt "$sb" "src/a.sh"; v=$(_hook "$sb" "$MSG")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 리뷰 미충족 — 리뷰 보고서가 없다' \
+  && ! printf '%s' "$v" | grep -q '범위 초과' \
+  && ok "H2.a ★ 리뷰 없이 영수증만 만든 커밋 → 차단, 사유는 리뷰(범위 초과가 아니다)" || nope "H2.a" "$(printf '%s' "$v" | tail -5)"
+_review "$sb" FAIL; v=$(_hook "$sb" "$MSG")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 리뷰 미충족 — 마지막 리뷰 판정이 통과가 아니다' \
+  && ok "H2.b 통과가 아닌 판정 → 차단" || nope "H2.b" "$(printf '%s' "$v" | tail -4)"
+touch -t 201901010000 "$sb/.specops/$F/reviews/T1-C-feedback.md"; _review "$sb" PASS; v=$(_hook "$sb" "$MSG")
+[ "$v" = "ALLOW" ] && ok "H2.c ★ 같은 영수증에 통과 리뷰가 오면 열린다 (범위 안 + 리뷰 + 영수증 = 통과 · AC-1)" || nope "H2.c" "$(printf '%s' "$v" | tail -4)"
+touch -t 202001010000 "$sb/.specops/$F/reviews/T1-C-report.md"; v=$(_hook "$sb" "$MSG")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 리뷰 미충족 — 리뷰 뒤에 src/a.sh 가 다시 수정됐다' \
+  && ok "H2.d 리뷰가 수정보다 오래됨 → 차단" || nope "H2.d" "$(printf '%s' "$v" | tail -4)"
+
+# ── H3 기존 흐름 불변 (AC-R-1) ──────────────────────────────────────────────
+# 명세가 있는 FID(정식 경로) — 범위가 크고 리뷰 보고서가 없어도 영수증만으로 종전처럼 열린다
+sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"; printf '# spec\n' > "$sb/.specops/$F/spec.md"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 30 > src/b.sh && _n 30 > src/c.sh && git add src )
+_hand_receipt "$sb" "src/a.sh, src/b.sh, src/c.sh"; v=$(_hook "$sb" "$MSG")
+[ "$v" = "ALLOW" ] && ok "H3.a ★ 명세가 있는 FID 는 범위·리뷰 판정을 받지 않는다(정식 영수증 경로 불변)" || nope "H3.a" "$(printf '%s' "$v" | tail -4)"
+# 태스크 문서가 없는 FID(자유작업) — quick 문안이 나오지 않는다
+sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 30 > src/b.sh && _n 30 > src/c.sh && git add src ); v=$(_hook "$sb" "$MSG")
+printf '%s' "$v" | grep -q '^DENY' && ! printf '%s' "$v" | grep -qE 'quick (범위 초과|리뷰 미충족|경로)' \
+  && ok "H3.b 태스크 문서가 없는 FID 는 종전 판정 그대로다(quick 문안 없음)" || nope "H3.b" "$(printf '%s' "$v" | head -2)"
+
+# ── H4 원인 매핑 — 영수증 검사기의 종료 코드가 사유 코드로 ──────────────────
+c3=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 3 "$MSG" T1 "$F")
+c4=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 4 "$MSG" T1 "$F")
+c1=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 1 "$MSG" T1 "$F")
+[ "$c3" = "quick-over" ] && [ "$c4" = "quick-noreview" ] && [ "$c1" = "open-invalid" ] \
+  && ok "H4.a 종료 코드 3 → quick-over · 4 → quick-noreview · 1 → open-invalid(종전)" || nope "H4.a" "c3=$c3 c4=$c4 c1=$c1"
+# 판정 불가(스테이징된 변경 없음)는 "범위 초과" 가 아니다 — 문안이 원인을 그대로 말하고 /maintain-lite 로 보내지 않는다
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+h=$(cd "$sb" && . "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_hint_extra quick-over "$MSG" "$F")
+printf '%s' "$h" | grep -q 'quick 판정 불가 — 스테이징된 변경이 없다' && ! printf '%s' "$h" | grep -qE '범위 초과|/maintain-lite' \
+  && ok "H4.b 판정 불가는 범위 초과로 말하지 않는다(원인 그대로 · /maintain-lite 안내 없음)" || nope "H4.b" "$(printf '%s' "$h" | head -3)"
+
 # shellcheck disable=SC2086
 rm -rf $_SBS
 echo ""
