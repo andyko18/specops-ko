@@ -287,6 +287,78 @@ _mf=$(sed -n 's/^QUICK_MAX_IMPL_FILES=//p' "$QS"); _ml=$(sed -n 's/^QUICK_MAX_LI
   && ok "D1.d 커맨드 문서의 상한(${_mf}개 · ${_ml}줄) = 판정기 상수" || nope "D1.d" "상수 files=$_mf lines=$_ml 가 커맨드 문서의 표와 다르다"
 [ ! -f "$PLUGIN/commands/quick-fix-auto.md" ] && ok "D1.c 무인 변형을 두지 않는다" || nope "D1.c" "quick-fix-auto.md 가 있다"
 
+# ── R 코드 리뷰 반영 (20261010) — 우회 경로 · 해석할 수 없는 경로 · 빠져 있던 단언 ─────
+# 왜: 1회차 코드 리뷰가 실측으로 보인 것 — (1) quick FID 도 검증 러너를 통과시키면 영수증 창이 닫혀 범위·리뷰 판정 없이
+#   자기보고 면제로 열렸다 (2) `git commit -a`·경로 인자는 스테이징 밖의 변경을 함께 커밋하는데 판정은 스테이징만 본다
+#   (3) 따옴표가 든 경로는 git 이 이스케이프해 내서 신선도·내용 신호가 조용히 빠졌다.
+# shellcheck source=/dev/null
+. "$PLUGIN/scripts/tests/lib/exec-transcript.sh"
+FIXT="$PLUGIN/scripts/tests/governance/fixtures/transcripts"
+_hook_tr() { local TR="$3"; _hook "$1" "$2"; }   # <sb> <커밋 명령> <transcript> — _hook 이 읽는 TR 만 바꾼다
+MSG_A='git commit -a -m "fix: a (Task: T1)"'
+MSG_P='git commit -m "fix: a (Task: T1)" -- src/c.sh'
+
+# R1 검증 러너를 통과시켜도 quick 판정은 그대로다
+sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"
+( cd "$sb" && { echo 'echo v2'; _n 40; } > src/a.sh && git add src/a.sh ); _hand_receipt "$sb" "src/a.sh"   # 42줄(추가 41 · 삭제 1) · 리뷰 없음 · 영수증 유효
+v=$(_hook "$sb" "$MSG")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 범위 초과 — 변경 42줄' \
+  && ! printf '%s' "$v" | grep -qE '실행 증거|진행 기록 앵커' && printf '%s' "$v" | grep -q '검증 러너.*통과로는 열리지 않습니다' \
+  && ok "R1.a quick 거부 문안은 검증 러너 안내(①②)를 붙이지 않는다 — 그 길은 quick FID 를 열지 않는다" || nope "R1.a" "$(printf '%s' "$v" | head -4)"
+vp=$(cd "$sb" && bash "$PLUGIN/scripts/_internal/run-verification.sh" "$F" </dev/null 2>&1 | grep -c '^VERIFY: PASS')
+v=$(_hook_tr "$sb" "$MSG" "$(_tr_for "$sb" "$FIXT/pretool-with-verify-exec.jsonl")")
+[ "$vp" = 1 ] && printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 범위 초과 — 변경 42줄' \
+  && ok "R1.b ★ 러너가 VERIFY: PASS 를 낸 뒤(실행 증거 있음)에도 범위 초과 커밋은 막힌다" || nope "R1.b" "vp=$vp $(printf '%s' "$v" | head -3)"
+
+# R2 스테이징된 것만 커밋하는 명령이어야 한다
+sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"
+( cd "$sb" && _n 3 > src/c.sh && git add src/c.sh && git -c user.name=t -c user.email=t@e.com commit -qm c \
+    && printf 'echo v2\n' > src/a.sh && git add src/a.sh && _n 40 > src/c.sh ) >/dev/null 2>&1   # 스테이징 = a.sh 2줄 · 비스테이징 = c.sh 40줄
+_review "$sb" PASS; _hand_receipt "$sb" "src/a.sh"
+v=$(_hook "$sb" "$MSG"); [ "$v" = "ALLOW" ] && ok "R2.a 대조 — 스테이징된 것만 커밋하는 명령은 통과" || nope "R2.a" "$(printf '%s' "$v" | tail -4)"
+v=$(_hook "$sb" "$MSG_A")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 커밋 범위' && ! printf '%s' "$v" | grep -q '범위 초과' \
+  && ok "R2.b ★ git commit -a → 차단(스테이징 밖의 변경까지 커밋한다)" || nope "R2.b" "$(printf '%s' "$v" | tail -4)"
+v=$(_hook "$sb" "$MSG_P")
+printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -q 'quick 커밋 범위' \
+  && ok "R2.c ★ git commit -- <경로> → 차단" || nope "R2.c" "$(printf '%s' "$v" | tail -4)"
+printf '# spec\n' > "$sb/.specops/$F/spec.md"                                  # 명세가 생기면 정식 FID 다
+v=$(_hook "$sb" "$MSG_A"); [ "$v" = "ALLOW" ] \
+  && ok "R2.d 정식 FID(명세 있음)의 commit -a 는 종전 그대로다(영수증 경로 불변 · AC-R-1)" || nope "R2.d" "$(printf '%s' "$v" | tail -4)"
+
+# R3 원인 매핑 · 사유 조회 실패
+c5=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 5 "$MSG_A" T1 "$F")
+[ "$c5" = "quick-unstaged" ] && ok "R3.a 종료 코드 5 → quick-unstaged" || nope "R3.a" "c5=$c5"
+h=$(cd "$sb" && . "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _QUICK_SCOPE_SH=/nonexistent/quick-scope.sh; _receipt_hint_extra quick-over "$MSG" "$F")
+printf '%s' "$h" | grep -q 'quick 범위 초과 — 사유 조회 실패' \
+  && ok "R3.b 판정기를 부를 수 없어 사유를 못 얻으면 그렇다고 말한다(빈 사유를 내지 않는다)" || nope "R3.b" "$(printf '%s' "$h" | head -3)"
+
+# R4 판정기 — 빠져 있던 신호 단언 · 테스트 파일 이름 · 해석할 수 없는 경로
+_sig "R4.a 변경 줄의 외부 API 경로 → 고위험(public_api)" 'public_api' 'printf "curl http://x/api/v1/list\n" > src/a.sh && git add src/a.sh'
+_sig "R4.b 인터페이스 설계 문서(api-spec.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' 'mkdir -p docs && printf "x\n" > docs/api-spec.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh'
+_sig "R4.c 테이블 설계 문서(data-model.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' 'mkdir -p docs && printf "x\n" > docs/data-model.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh'
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 30 > src/test-helper.sh && git add src ); _review "$sb" PASS
+out=$(_scope "$sb"); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'OK 구현 파일 1개 · 2줄' \
+  && ok "R4.d test-*.sh 는 폴더와 무관하게 테스트 파일이다(파일 수·줄 수에 넣지 않는다)" || nope "R4.d" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+( cd "$sb" && printf 'echo "ALTER TABLE t ADD c int"\n' > 'src/a"b.sh' && git add src ); _review "$sb" PASS
+touch -t 202001010000 "$sb/.specops/$F/reviews/T1-C-report.md"                 # 리뷰가 수정보다 오래됐고 변경 줄에 고위험 신호가 있다
+out=$(_scope "$sb"); rc=$?
+[ "$rc" = 3 ] && printf '%s' "$out" | grep -q 'OVER 판정 불가 — 경로를 해석할 수 없다' \
+  && ok "R4.e ★ 따옴표가 든 경로 → 판정 불가(막는다) — 신선도·내용 신호를 건너뛰고 통과하지 않는다" || nope "R4.e" "rc=$rc out=$out"
+
+# R5 봉인 스크립트의 입력 가드 — 가드만 재도록 다른 가드에 먼저 걸리지 않는 입력으로
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+out=$(cd "$sb" && bash "$QF" seal "$F" 'bash tests/t.sh "x"' 2>&1); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '따옴표' && ok "R5.a test_command 의 따옴표 → 그 사유로 거부" || nope "R5.a" "rc=$rc out=$out"
+out=$(cd "$sb" && bash "$QF" seal "$F" "$(printf 'bash tests/t.sh\necho x')" 2>&1); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '한 줄' && ok "R5.b 여러 줄 명령 → 거부" || nope "R5.b" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/real"; ln -s "$sb/real" "$sb/.specops/$F"
+out=$(cd "$sb" && bash "$QF" start "$F" "x" 2>&1); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'symlink' && ok "R5.c FID 폴더가 symlink → 거부" || nope "R5.c" "rc=$rc out=$out"
+
 # shellcheck disable=SC2086
 rm -rf $_SBS
 echo ""

@@ -1054,6 +1054,9 @@ _nocheck() {   # $1=id $2=없어야 할 문자열 $3=대상  — check 의 음�
 _PTC=$(mktemp -d) || exit 1
 mkdir -p "$_PTC/.specops/20260910-y"
 : > "$_PTC/.specops/20260910-y/tasks.md"
+# 정식 lifecycle 의 FID 다 — 명세가 있다. 명세 없이 태스크 문서만 있으면 quick 구조라 verify 상태와 무관하게
+#   영수증 가지를 탄다(20261010-quick-fix-path — 아래 '창 닫힘' 단언들은 정식 FID 의 것이다).
+printf '# spec\n' > "$_PTC/.specops/20260910-y/spec.md"
 printf '# ok\n' > "$_PTC/.specops/20260910-y/evidence.md"
 printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2026-09-10 10:00 /implement DONE (T1)\n' \
   > "$_PTC/.specops/session-progress.md"

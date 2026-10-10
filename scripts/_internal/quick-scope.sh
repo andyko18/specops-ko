@@ -58,6 +58,9 @@ plugin_rc=1; fc::is_plugin_repo && plugin_rc=0   # 루프 밖에서 1회 (file-c
 files=0; lines=0; impl=""; nondoc=""; all=""
 while IFS=$'\t' read -r add del path; do
   [ -n "$path" ] || continue
+  # git 은 따옴표·역슬래시·제어문자가 든 경로를 "…" 로 감싸 이스케이프해 낸다(core.quotePath 와 무관하다). 그 문자열은
+  #   파일 경로가 아니라서 아래의 신선도 비교와 내용 신호가 조용히 빠진다 — 해석할 수 없으면 막는다.
+  case "$path" in '"'*) _out 3 OVER "판정 불가 — 경로를 해석할 수 없다(따옴표·역슬래시·제어문자가 든 파일 이름: ${path})" ;; esac
   all="${all}${path}"$'\n'
   fc::is_doc "$path" "$plugin_rc" && continue
   nondoc="${nondoc}${path}"$'\n'

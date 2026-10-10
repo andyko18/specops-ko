@@ -494,6 +494,16 @@ $_receipt_hint
 
 ①은 필요조건입니다 — ② 만으로는 열리지 않습니다(모델 자기보고라 위조 가능). 둘 다 갖춰야 통과합니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
+  # quick 사유(범위 초과 · 리뷰 미충족 · 커밋 범위)면 위 ①② 안내를 쓰지 않는다 — quick 구조의 FID 는 검증 러너를
+  #   통과시켜도 열리지 않으므로, 그 안내는 닫힌 길을 가리킨다(거짓 안내 → BYPASS). 다른 사유의 문안은 그대로다.
+  case "$_cause_ok:${_c_receipt:-}" in
+    1:quick-*)
+      reason="$act 차단 — quick 경로의 커밋 조건이 충족되지 않았습니다.
+$_receipt_hint
+
+이 FID 는 명세 없이 태스크 문서만 있는 quick 경로입니다 — 검증 러너(run-verification.sh) 통과로는 열리지 않습니다.
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}" ;;
+  esac
   jq -nc --arg r "$reason" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0

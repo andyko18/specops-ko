@@ -1215,12 +1215,20 @@ apply_lookback_rule() {
   if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
     _rfid="$_efid"          # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
-    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && _receipt_window_open "$_rfid"; then
+    # ★ quick 구조(명세 없음 — 20261010-quick-fix-path)는 verify 상태와 무관하게 이 가지를 탄다. 창 조건만 보면
+    #   quick FID 도 러너가 PASS 를 내는 순간 창이 닫혀, 범위·리뷰 판정(check-task-receipt 의 quick 절)이 불리지 않은 채
+    #   아래 자기보고 면제로 열렸다(코드 리뷰 실측). 정식 FID(명세 있음)의 창 조건은 그대로다.
+    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && { _quick_structure "$_rfid" || _receipt_window_open "$_rfid"; }; then
       _rtask=$(_infer_commit_task "$tool_cmd")
       _rrc=2
       if [ -n "$_rtask" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
         bash "$_CHECK_TASK_RECEIPT_SH" "$_rfid" "$_rtask" >/dev/null 2>&1
         _rrc=$?
+      fi
+      # quick 구조의 커밋은 스테이징된 것만 커밋하는 명령이어야 한다 — 판정기는 스테이징을 보는데 `-a`·경로 인자는
+      #   그 밖의 변경을 함께 커밋한다(코드 리뷰 실측). 정식 FID 는 종전 그대로다(새 return 을 두지 않고 rc 로 흘린다).
+      if [ "$_rrc" -eq 0 ] && _quick_structure "$_rfid"; then
+        _commit_scope_is_staged "$tool_cmd" || _rrc=5
       fi
       if [ "$_rrc" -eq 0 ]; then
         return 0
@@ -1713,6 +1721,7 @@ _receipt_cause() {
   case "$rrc" in
     3) printf 'quick-over'; return 0 ;;
     4) printf 'quick-noreview'; return 0 ;;
+    5) printf 'quick-unstaged'; return 0 ;;
   esac
   if [ "$rrc" -eq 1 ] 2>/dev/null; then
     printf 'open-invalid'; return 0
@@ -1729,6 +1738,8 @@ _receipt_cause() {
   fi
   printf 'open-missing'
 }
+# quick 구조 — 명세(spec.md)가 없는 FID. tasks.md 존재를 이미 확인한 자리(R-1 영수증 가지)에서만 부른다.
+_quick_structure() { [ ! -f ".specops/${1:-}/spec.md" ]; }
 # pretool deny 안내의 receipt 원인 문안 — $1=cause 코드 $2=tool_cmd. 알 수 없는 cause(n/a 등)는 빈 출력.
 #   pretool 의 `*)` case 한 줄이 부른다 — 문안 본체를 여기(파일 끝)에 두어 pretool·lib 의 줄번호 핀을 보존한다.
 #   ★ 실제로 일어난 일만 말한다(거짓 원인 → 재시도 낭비·BYPASS): 절단은 선언이 해석 id 로 **시작**할 때만이다.
@@ -1737,6 +1748,12 @@ _receipt_hint_extra() {
   local cause="${1:-}" cmd="${2:-}" hfid="${3:-}" decl infer why
   # quick 경로 — 판정기에게 어느 기준에 걸렸는지 다시 묻는다(거부 경로에서만 1회 더 돈다). $3=FID.
   case "$cause" in
+    quick-unstaged)
+      printf '%s' "
+▶ quick 커밋 범위 — 이 명령이 스테이징된 것만 커밋하는지 확인할 수 없습니다(\`-a\`·\`--all\`·경로 인자·다른 명령과 묶음).
+   quick 경로의 범위·리뷰 판정은 스테이징된 변경을 봅니다. 커밋할 파일만 git add 한 뒤(별도 호출)
+   \`git commit -m …\` 만 따로 실행하세요."
+      return 0 ;;
     quick-over|quick-noreview)
       infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)
       why=$(bash "$_QUICK_SCOPE_SH" "$hfid" "${infer:-T1}" --explain 2>/dev/null | head -1)

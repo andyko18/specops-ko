@@ -821,6 +821,7 @@ rm -rf "$_ms"
 _mr=$(mktemp -d); mkdir -p "$_mr/.specops/20260101-rc"
 printf '# Session Progress\n\n## 20260101-rc\n\n' > "$_mr/.specops/session-progress.md"
 printf 'tasks:\n  - id: T1\n' > "$_mr/.specops/20260101-rc/tasks.md"
+printf '# spec\n' > "$_mr/.specops/20260101-rc/spec.md"   # 정식 FID — 명세가 없으면 quick 구조라 창이 닫히지 않는다(20261010-quick-fix-path)
 printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$_mr/.specops/20260101-rc/evidence.md"
 _mr_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
 _mr_r2=$(jq -c 'select(.id == "R-2")' "$PLUGIN/hooks/rules.jsonl")
