@@ -767,8 +767,9 @@ _mt=$(mktemp); printf 'tasks:\n  - id: T1\n  - id: T2\n' > "$_mt"
 rm -f "$_mt"
 
 # T-mut.e·f 인용 제거기의 fail-safe 반환 — awk 가 죽거나 빈 출력을 내면 원문을 돌려주고 **rc 0** 이어야 한다.
-#   이 rc 는 버려지지 않는다: 트리거 판정은 `_trigger_scan_text … | grep` 을 pipefail 아래에서 돌리므로,
-#   앞단이 0 이 아니면 grep 이 커밋을 찾아도 파이프 전체가 실패해 훅이 "커밋 아님" 으로 통과시킨다.
+#   20261010 전까지 이 rc 는 판정에 닿았다: 트리거 판정이 `_trigger_scan_text … | grep` 을 pipefail 아래에서 돌려,
+#   앞단이 0 이 아니면 grep 이 커밋을 찾아도 파이프 전체가 실패해 훅이 "커밋 아님" 으로 통과시켰다. 지금은 파이프 없이
+#   읽지만(here-string) rc 0 은 이 함수의 계약으로 남긴다 — 누가 다시 파이프 앞단에 세워도 같은 구멍이 나지 않게.
 _mq_cmd="$_G \\
 $_C -m 'x'"
 _mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { return 1; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
@@ -777,6 +778,9 @@ _mut_ok "T-mut.e ★ awk 실패 → 원문 반환 + rc 0 (트리거 판정 유�
 _mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { cat >/dev/null; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
 [ "$_mrc" -eq 0 ] && printf '%s' "$_mq_out" | grep -Fq -- "-m 'x'"
 _mut_ok "T-mut.f ★ awk 빈 출력 → 원문 반환 + rc 0 (트리거 판정 유지)" $? "rc=$_mrc"
+_mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; _strip_quoted_strings "$_G $_C -m x" ); _mrc=$?
+[ "$_mrc" -eq 0 ] && [ "$_mq_out" = "$_G $_C -m x" ]
+_mut_ok "T-mut.f0 인용이 없는 빠른 경로 → 원문 그대로 + rc 0 (인용 제거기를 직접 부른다)" $? "rc=$_mrc out=$_mq_out"
 
 # T-mut.g·h 꺼진 차단 훅의 흔적(_note_governance_disabled)
 _mk_in() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
@@ -835,6 +839,38 @@ _mut_ok "T-mut.j ★ R-2 + FID·tasks.md·verify PASS → receipt=n/a" $? "$(pri
 [ "$(printf '%s' "$_mr_o1" | jq -r '.cause.receipt' 2>/dev/null)" = "closed-verified" ]
 _mut_ok "T-mut.j0 대조 — 같은 상태의 R-1 → receipt=closed-verified" $? "$(printf '%s' "$_mr_o1" | jq -c '.cause' 2>/dev/null)"
 rm -rf "$_mr"
+
+# ── T-pipe (20261010-hook-sigpipe-test-eval): 일치 판정을 "파이프 뒤 grep -q" 로 읽지 않는다 ──────────
+# 왜: 훅은 `set -uo pipefail` 이다. `producer | grep -q` 는 grep 이 첫 일치에서 끝나는 순간 앞단이 아직 쓰는 중이면
+#   앞단이 SIGPIPE(141)로 죽고 파이프 전체가 실패가 된다 — "일치" 가 "불일치" 로 읽혔다(커밋 전 훅이 인용 메시지 +
+#   줄 연속 커밋과 큰 여러 줄 명령을 통째로 통과시켰다). 아래는 훅과 같은 셸 옵션(pipefail)에서 lib 함수를 직접 잰다.
+#   a: 꺼진 훅의 흔적 — 인용 메시지 + 줄 연속. 이은 문자열과 원문을 두 덩어리로 내는 자리라 경합으로 샜다(3회 전부 기록돼야 한다).
+_pa_ok=0; _pa_i=0
+while [ "$_pa_i" -lt 3 ]; do
+  _pa=$(mktemp -d); mkdir -p "$_pa/.specops"
+  ( set -uo pipefail; cd "$_pa" && source "$PLUGIN/hooks/governance-lib.sh" \
+    && jq -nc --arg c "$_G $_C -m \"x\" \\
+  --no-verify" '{tool_name:"Bash",tool_input:{command:$c}}' | CLAUDE_PROJECT_DIR="$_pa" _note_governance_disabled "$PLUGIN" ) >/dev/null 2>&1
+  grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_pa/.specops/friction-log.jsonl" && _pa_ok=$((_pa_ok+1))
+  rm -rf "$_pa"; _pa_i=$((_pa_i+1))
+done
+[ "$_pa_ok" -eq 3 ]
+_mut_ok "T-pipe.a ★ 인용 메시지 + 줄 연속 커밋도 꺼진 훅의 기록에 남는다 (3/3)" $? "기록된 횟수=$_pa_ok/3"
+#   b: 규칙 적용 — 커밋 뒤에 여러 줄이 파이프 버퍼보다 크게 붙은 명령(heredoc 아님). 사전 차단·사후 감사가 같이 쓰는 자리다.
+_pb_big=$(_pb_i=0; while [ "$_pb_i" -lt 4000 ]; do echo "echo line-$_pb_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _pb_i=$((_pb_i+1)); done)
+_pb=$(mktemp -d)
+_pb_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
+_pb_o=$( set -uo pipefail; cd "$_pb" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_pb_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "$_G $_C -m x
+$_pb_big" 2>/dev/null )
+[ "$(printf '%s' "$_pb_o" | jq -r '.rule_id' 2>/dev/null)" = "R-1" ]
+_mut_ok "T-pipe.b ★ 커밋 뒤에 큰 여러 줄(${#_pb_big}바이트)이 붙어도 규칙이 적용된다" $? "출력=$(printf '%s' "$_pb_o" | cut -c1-80)"
+_pb_o0=$( set -uo pipefail; cd "$_pb" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_pb_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "ls -la
+$_pb_big" 2>/dev/null )
+[ -z "$_pb_o0" ]
+_mut_ok "T-pipe.b0 대조 — 커밋이 없는 큰 명령은 위반이 아니다" $? "출력=$(printf '%s' "$_pb_o0" | cut -c1-80)"
+rm -rf "$_pb"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
