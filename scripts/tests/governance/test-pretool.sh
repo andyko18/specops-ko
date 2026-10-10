@@ -497,6 +497,34 @@ bs_ok=$(_mk_batch_sandbox "IMPL_DONE" 1)
 out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_ok" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_ok" bash "$HOOK" 2>/dev/null)
 check "T-batch.b ★ 정직한 batch PR → allow" '"continue":true' "$out"
 
+# ── T-batch.b2·deg (20261010-mutation-survivors-rest): batch-state 판정 불가(rc 2)는 통과시키되 **기록한다** ──
+#   `[ "$grc" -eq 2 ] && _log_degraded …` 의 -eq·&& 변이가 살아남았다 — 판정 불가일 때만 남아야 할 기록이
+#   정상 batch 에 남아도(거짓 경보), 판정 불가인데 안 남아도(무음 fail-open) 아무 테스트도 울지 않았다.
+if grep -rqs "batch-state 판정 불가" "$bs_ok/.specops"; then
+  echo "FAIL T-batch.b2 — 정상 batch(판정 0)에 degraded 기록이 남았다"; fail=$((fail+1))
+else
+  echo "PASS T-batch.b2 정상 batch(판정 0) → degraded 기록 없음"; pass=$((pass+1))
+fi
+bs_deg=$(_mk_batch_sandbox "IMPL_DONE" 1)
+rm -f "$bs_deg/.specops/memory/requirements.md"   # batch-state.sh 가 requirements 를 못 찾으면 rc 2(판정 불가)
+# ★ 샌드박스 안에서 부른다 — batch-state.sh 는 requirements 를 **cwd 기준**으로 찾는다(훅도 CLAUDE_PROJECT_DIR 로 cd 한 뒤 부른다).
+#   테스트 cwd 에서 부르면 "샌드박스에서 지웠다" 가 아니라 "테스트 cwd 에 마침 없다" 를 재게 된다.
+( cd "$bs_deg" && bash "$PLUGIN/scripts/batch-state.sh" --gate "$bs_deg/.specops/batch-p" ) >/dev/null 2>&1; _bdrc=$?
+[ "$_bdrc" = "2" ] && { echo "PASS T-batch.deg-0 픽스처 rc=2(판정 불가) 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-batch.deg-0 픽스처 batch-state --gate rc=$_bdrc (2 아님)"; fail=$((fail+1)); }
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$bs_deg" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$bs_deg" bash "$HOOK" 2>/dev/null)
+if [ -z "$out" ] || printf '%s' "$out" | grep -q 'BATCH-GATE'; then   # 빈 출력(훅이 죽음)을 "막지 않았다" 로 읽지 않는다
+  echo "FAIL T-batch.deg 판정 불가를 batch 게이트가 차단함(또는 훅 출력 없음) — fail-open 이어야 한다: $out"; fail=$((fail+1))
+else
+  echo "PASS T-batch.deg 판정 불가 → batch 게이트는 막지 않는다(fail-open)"; pass=$((pass+1))
+fi
+if grep -rqs "batch-state 판정 불가" "$bs_deg/.specops"; then
+  echo "PASS T-batch.deg2 ★ 판정 불가 fail-open 을 GOVERNANCE-DEGRADED 로 기록"; pass=$((pass+1))
+else
+  echo "FAIL T-batch.deg2 — 판정 불가인데 기록이 없다(무음 fail-open)"; fail=$((fail+1))
+fi
+rm -rf "$bs_deg"
+
 # ── T-mut.a~c: mutation 생존분 봉쇄 (FID 20260829-pretool-mutation-triage) ──
 # 왜: pretool 은 **차단 판정 본체**(R-1/R-2 deny)인데 mutation score 가 36% 였다(실측
 #   killed=9 survived=16). 생존 중 관찰 불가(호출부가 rc 를 안 쓰는 return 0 10건)는
@@ -1045,6 +1073,8 @@ _nocheck "T-cause.a ①충족 시 거짓 안내 미출력" '이 세션에 러너
 # ★ 금지문구 부재만으로는 부족하다 — stale 분기도 그 문구가 없다. 충족 표기를 **양성으로** 단언한다.
 check "T-cause.b ① 충족 표기 양성" '✔ ① 실행 증거' "$msg"
 check "T-cause.c ② 미충족 표기 양성" '✘ ② 진행 기록 앵커' "$msg"
+# ① 이 충족이면 러너 실행 방법 안내(포그라운드·백그라운드)는 소음이다 — 붙이지 않는다 (대조는 T-cause.k-4)
+_nocheck "T-cause.b2 ① 충족이면 포그라운드 실행 안내를 붙이지 않는다" '포그라운드' "$msg"
 # ② 앵커 누락 deny 는 복구 명령 2개(러너 선행 · session-progress-append /verify PASS)를 항상 줘야 한다 — 두 번째 이후 거부에서 명령이 없어 모델이 훅 소스를 읽었다
 check "T-cause.c2 ② 앵커 누락 deny 가 복구 명령 session-progress-append /verify PASS 를 안내" 'scripts/session-progress-append.sh 20260910-y /verify PASS' "$msg"
 check "T-cause.c3 ② 앵커 누락 deny 가 앵커 기록 전 러너 PASS 확인을 안내" 'run-verification.sh 20260910-y' "$msg"
@@ -1112,6 +1142,24 @@ check "T-cause.j-2 ① 축 표기 양성(대조군)" '✔ ① 실행 증거' "$m
 # 핵심 음성 단언: 판정 불가를 확인으로 단정하는 문구가 없다.
 _nocheck "T-cause.j-3 rc=2 를 실행 확인으로 단정 안 함" '러너 PASS 가 확인' "$msgj"
 
+# === 20261010-mutation-survivors-rest: ②=ok ①=missing — 앵커가 확인되면 확인된다고 말한다 ===
+# 왜: 지금까지의 픽스처는 전부 ② 가 missing·stale 이었다. "✔ ② 확인됩니다" 분기의 조건을 뒤집어도(-eq→-ne)
+#   아무 테스트도 울지 않았다 — 앵커를 남긴 사용자에게 "앵커가 필요합니다" 라고 거짓 원인을 말하게 된다.
+_PTA=$(mktemp -d) || exit 1
+mkdir -p "$_PTA/.specops/20260910-y"
+: > "$_PTA/.specops/20260910-y/tasks.md"
+printf '<!-- active-fid: 20260910-y -->\n## 20260910-y\n- 2099-01-01 10:00 /verify PASS (evidence.md)\n' \
+  > "$_PTA/.specops/session-progress.md"
+( cd "$_PTA" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init >/dev/null \
+    && printf 'echo y\n' >> a.sh && git add a.sh )
+msga=$(_deny_msg "$_PTA" "$HOOK" "$(mkstdin 'git commit -m "feat: x"' "$FIX/pretool-no-verify.jsonl")")
+check "T-cause.k-1 ②만 충족 → deny 유지 (①은 필요조건)" 'verify 면제 조건' "$msga"
+check "T-cause.k-2 ★ ② 충족 표기 양성" '✔ ② 진행 기록 앵커: 확인됩니다' "$msga"
+check "T-cause.k-3 ① 미충족 표기 양성" '✘ ① 실행 증거' "$msga"
+check "T-cause.k-4 ① 미충족이면 포그라운드 실행 안내를 붙인다 (T-cause.b2 의 대조)" '포그라운드' "$msga"
+rm -rf "$_PTA"
+
 # === AC-6: cause 부재 → 종전 문안 + deny 유지 (행동 검증 — 소스 grep 아님) ===
 # 왜 사본인가: 프로덕션에 테스트용 뒷문(env 로 cause 제거)을 내면 그 자체가 우회 표면이다.
 #   hooks 만 복사하고 scripts/templates 는 심볼릭으로 붙인다(governance-lib 이 ../scripts 를 참조).
@@ -1132,6 +1180,26 @@ check "T-cause.g-1 cause 부재에도 deny 유지" 'verify 면제 조건' "$msg4
 check "T-cause.g-2 cause 부재 → ① 종전 문안" '러너 실행 기록이 없습니다' "$msg4"
 check "T-cause.g-3 cause 부재 → receipt 종전 안내" 'record-task-receipt.sh' "$msg4"
 rm -rf "$_FB"
+
+# cause 가 **일부만** 온 경우도 종전 문안이다 (20261010-mutation-survivors-rest) — 세 축이 다 있어야 진단을 쓴다.
+#   `[ -n exec ] && [ -n anchor ] && [ -n receipt ] && _cause_ok=1` 의 결합을 풀어도 살아남았다: 한 축이 빈 채로
+#   나머지 축의 값을 믿으면 "✔ ② 확인됩니다" 같은 문장이 반쪽 근거로 나간다. 생산자(_emit_violation)는 지금 세 축을
+#   함께 싣지만, 이 가드는 그 계약이 깨졌을 때의 방어다 — 같은 사본 방식으로 깨진 emit 을 재현한다.
+_FB2=$(mktemp -d) || exit 1
+cp -R "$PLUGIN/hooks" "$_FB2/hooks"
+ln -sfn "$PLUGIN/scripts" "$_FB2/scripts"; ln -sfn "$PLUGIN/templates" "$_FB2/templates" 2>/dev/null || true
+cat >> "$_FB2/hooks/governance-lib.sh" <<'FBEOF'
+# 테스트 전용 재정의 — exec 축만 빈 cause 재현 (뒤 정의가 이긴다)
+_emit_violation() {
+  jq -nc --arg id "$1" --arg snippet "$2" --argjson offset "$3" \
+    '{ rule_id: $id, evidence_snippet: $snippet, offset: $offset, cause: { exec: "", anchor: "ok", receipt: "n/a" } }'
+}
+FBEOF
+msg4b=$(_deny_msg "$_PTC" "$_FB2/hooks/pretool-governance.sh" "$_in")
+check "T-cause.g-4 cause 일부 부재에도 deny 유지" 'verify 면제 조건' "$msg4b"
+check "T-cause.g-5 cause 일부 부재 → ① 종전 문안" '러너 실행 기록이 없습니다' "$msg4b"
+_nocheck "T-cause.g-6 ★ 반쪽 cause 의 anchor 값을 믿지 않는다" '✔ ② 진행 기록 앵커: 확인됩니다' "$msg4b"
+rm -rf "$_FB2"
 
 # === M5b 잠금: receipt 부재와 무효를 구별한다 (1회차 I2 수정분) ===
 # 왜: _cr 매핑을 뒤집는 변이가 세 스위트를 전부 통과했다(plan-reviewer 실측 M5b 생존).
@@ -1576,6 +1644,9 @@ msg=$(_deny_msg "$_VS" "$HOOK" "$_vin")
 check "T-vstale.b ★ 검증 뒤 셸 수정 → deny" 'verify 면제 조건' "$msg"
 check "T-vstale.b2 사유가 '검증 이후 코드가 바뀌었다' 고 말한다" '검증 이후 코드가 바뀌었습니다' "$msg"
 _nocheck "T-vstale.b3 '러너 실행 기록이 없다' 는 거짓 원인을 말하지 않는다" '이 세션에 러너 실행 기록이 없습니다' "$msg"
+# 안내가 "막히는 표기" 를 글자 그대로 적는다 — 이 줄의 `&&` 가 `||` 로 바뀌어도 살아남았다(문안 변이).
+#   거부 사유가 틀린 표기를 가리키면 사용자는 막히지 않는 명령을 고치느라 헤맨다.
+check "T-vstale.b5 사유가 한 번에 실행하는 표기(&&·;·파이프)를 그대로 적는다" '`&&`·`;`·파이프' "$msg"
 # PR 생성(R-2)은 이 검사의 대상이 아니다 — R-2 는 커밋 범위를 보고, 작업트리의 미커밋 변경은 PR 에 실리지 않는다
 out=$(mkstdin 'gh pr create --fill' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
 if printf '%s' "$out" | grep -q '검증 이후 코드가 바뀌었습니다'; then

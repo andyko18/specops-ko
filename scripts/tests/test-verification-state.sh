@@ -594,4 +594,39 @@ else
 fi
 rm -rf "$_s20" "$_s20u" "$_s20n" "$_s20d"
 
+# ── S21 변이 생존 2건 (20261010-mutation-survivors-rest) ─────────────────────
+# S21.a STALE 판정의 `[ -n recorded ]` 가드 — 지문 필드가 하나도 없는 PASS 기록은 비교할 것이 없어 PASS 로 읽는다.
+#   가드를 풀면(&&→||) 빈 값이 현재 지문과 "다르다" 가 되어 그런 기록이 전부 STALE 로 뒤집힌다.
+#   ※ **지금 값을 잠그는 단언이다 — 이 방향이 옳다는 뜻이 아니다.** record 는 첫 버전부터 tree_hash 를 항상 쓰므로
+#     이 상태는 손으로 쓴(또는 깨진) 기록에서만 나온다. 그리고 같은 입력을 stale-scope 는 `changed`(막는 쪽)로 읽는다(S20.i3) —
+#     `current` 만 느슨한 쪽이다. "지문 없는 PASS 는 STALE" 로 조이기로 하면 이 단언을 뒤집는다.
+_s21=$(mktemp -d) || exit 1
+( cd "$_s21" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
+    && git -c user.name=t -c user.email=t@e.com commit -qm init ) >/dev/null 2>&1
+mkdir -p "$_s21/.specops/20261010-nohash"
+printf '{"verdict":"PASS"}\n' > "$_s21/.specops/20261010-nohash/verification-state.json"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "PASS" ] && ok "S21.a 지문 필드 없는 PASS 기록 → PASS (STALE 아님)" || nope "S21.a" "out=$out"
+# 대조 — 지문이 있고 다르면 STALE (가드가 판정 전체를 끄지 않는다)
+printf '{"verdict":"PASS","tree_hash":"0000000000000000000000000000000000000000"}\n' \
+  > "$_s21/.specops/20261010-nohash/verification-state.json"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "STALE" ] && ok "S21.a0 대조 — 다른 지문이 적힌 기록 → STALE" || nope "S21.a0" "out=$out"
+
+# S21.b WAIVED 필수 3필드는 **하나만 빠져도** 거부한다 — S4 는 "전부 부재" 만 봤다.
+#   필수 3필드 결합(`[ -n reason ] && [ -n approved-by ] && …`)을 잠그는 것은 reason·approved-by 누락 두 조합이다.
+#   expires-at 누락은 그 결합이 풀려도 바로 뒤 형식 검사(invalid waiver expiry)가 거부한다 — 계약 확인용으로 함께 둔다.
+_s21f=$(date -u -v+1d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "+1 day" +%Y-%m-%dT%H:%M:%SZ)
+_s21bad=""
+( cd "$_s21" && bash "$STATE" record 20261010-w1 WAIVED --waiver-approved-by "o@e.com" --waiver-expires-at "$_s21f" ) >/dev/null 2>&1 && _s21bad="$_s21bad reason"
+( cd "$_s21" && bash "$STATE" record 20261010-w2 WAIVED --waiver-reason "점검" --waiver-expires-at "$_s21f" ) >/dev/null 2>&1 && _s21bad="$_s21bad approved-by"
+( cd "$_s21" && bash "$STATE" record 20261010-w3 WAIVED --waiver-reason "점검" --waiver-approved-by "o@e.com" ) >/dev/null 2>&1 && _s21bad="$_s21bad expires-at"
+_s21n=$(ls "$_s21/.specops"/20261010-w*/verification-state.json 2>/dev/null | wc -l | tr -d ' ')
+[ -z "$_s21bad" ] && [ "$_s21n" = "0" ] && ok "S21.b WAIVED 필드 하나만 빠져도 거부 (reason · approved-by · expires-at 각각) + 기록 없음" \
+  || nope "S21.b" "수락된 누락 조합:${_s21bad:- 없음} · 기록 파일 ${_s21n}개"
+# 대조 — 셋 다 있으면 수락한다 (거부가 인자 형식 탓이 아님)
+( cd "$_s21" && bash "$STATE" record 20261010-w4 WAIVED --waiver-reason "점검" --waiver-approved-by "o@e.com" --waiver-expires-at "$_s21f" ) >/dev/null 2>&1 \
+  && ok "S21.b0 대조 — 세 필드가 다 있으면 수락" || nope "S21.b0" "정상 WAIVED 가 거부됨"
+rm -rf "$_s21"
+
 finish
