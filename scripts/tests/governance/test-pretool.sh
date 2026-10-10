@@ -1740,6 +1740,18 @@ rm -f "$_VS/.specops/20260101-x/verification-state.json"
 ( cd "$_VS" && printf 'echo other\n' > a.sh && git add a.sh )
 out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
 check "T-vstale.d 상태 기록 없는 FID → 종전 판정(allow)" '"continue":true' "$out"
+# 지문 없는 PASS 기록(손으로 쓴 것)은 STALE 이다 — 진행 기록과 실행 증거가 있어도 커밋이 열리지 않는다 (20261010-hashless-pass-stale).
+#   바로 위(기록 파일 자체가 없음 → 종전 판정)와 다르다: 파일이 있으면 그 파일이 판정 SoT 이고, 비교할 지문이 없는 PASS 는 유효하지 않다.
+printf '{"schema_version":1,"fid":"20260101-x","verdict":"PASS","executed":2,"skipped":0,"failed":0}\n' \
+  > "$_VS/.specops/20260101-x/verification-state.json"
+msg=$(_deny_msg "$_VS" "$HOOK" "$_vin")
+check "T-vstale.g ★ 지문 없는 PASS 기록 + 커밋 → deny" 'verify 면제 조건' "$msg"
+check "T-vstale.g2 사유가 지문 없는 기록도 STALE 이라고 말한다" '검증 기록에 지문이 없어' "$msg"
+# 전체 스위트가 지금 이 트리에서 통과했으면 종전 STALE 과 같은 예외로 열린다 (정직한 흐름의 출구는 같다)
+_fp=$( cd "$_VS" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint )
+printf '%s\n' "$_fp" > "$_VS/.specops/.full-suite-pass"
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+check "T-vstale.g3 지문 없는 PASS 기록이어도 전체 스위트가 이 트리에서 통과 → allow" '"continue":true' "$out"
 rm -rf "$_VS"
 
 # ══════════════════════════════════════════════════════════════════════════

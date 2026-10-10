@@ -426,6 +426,7 @@ if [ -n "$violation" ]; then
     # 검증 판정이 STALE — transcript 의 편집 이벤트로는 보이지 않는 변경이다(셸 명령·포매터·코드 생성·서브에이전트).
     _evidence_hint="✘ ① 검증 이후 코드가 바뀌었습니다 — 이 FID 의 검증 판정이 **STALE** 입니다.
    검증 PASS 를 기록한 뒤 문서가 아닌 파일이 달라졌습니다(편집 도구가 아닌 경로의 변경 포함 — 셸 명령·포매터·코드 생성·서브에이전트).
+   검증 기록에 지문이 없어 지금 코드와 같은지 확인할 수 없는 경우도 STALE 입니다(러너가 아니라 손으로 쓴 기록 등).
    지금 코드로 다시 검증하세요: bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    현재 verdict 확인: bash '${plugin_root}'/scripts/_internal/verification-state.sh current ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트를 **지금 이 트리에서** 통과시켜도 인정됩니다.
