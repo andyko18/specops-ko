@@ -17,6 +17,9 @@ source "$PLUGIN/scripts/tests/lib/exec-transcript.sh"   # _tr_for — 실행 증
 _setup_fid() {  # $1=dir $2=fid
   local d="$1" fid="$2"
   mkdir -p "$d/.specops/$fid" "$d/scripts/tests" "$d/src"
+  # 정식 lifecycle 의 FID 다 — 명세가 있다. 명세 없이 태스크 문서만 있으면 quick 경로로 판정돼 범위·리뷰까지 요구된다
+  #   (20261010-quick-fix-path · 그쪽은 test-quick-fix.sh 가 잰다).
+  printf '# spec\n' > "$d/.specops/$fid/spec.md"
   printf 'echo ok\n' > "$d/scripts/tests/test-foo.sh"
   chmod +x "$d/scripts/tests/test-foo.sh"
   printf 'x\n' > "$d/src/foo.sh"
@@ -434,5 +437,34 @@ _rn_expect "TR-N9c 인자 전무" 2 "usage" --
 _rn_expect "TR-N9d TASK 인자 부재" 2 "usage" -- "$_rn_fid"
 _rn_expect "TR-N9e FID 빈 문자열" 2 "usage" -- "" T1
 rm -rf "$_RN" "$_RA"
+
+# ── TR-Q quick 경로 — 명세 없는 FID 는 영수증이 유효해도 범위·리뷰를 본다 (20261010-quick-fix-path) ──
+# 왜: "태스크 문서는 있고 명세는 없는 FID" 는 영수증만 유효하면 rc 0 이었다 — 문서도 리뷰도 크기 상한도 없는 통로다.
+#   그 구조가 곧 quick 경로다. 판정은 quick-scope.sh 가 하고(test-quick-fix.sh 가 잰다), 여기서는 검사기의 종료 코드 계약만 잠근다.
+_RQ=$(mktemp -d) || exit 1
+_rq_fid=20261010-quick
+_setup_fid "$_RQ" "$_rq_fid"; rm -f "$_RQ/.specops/$_rq_fid/spec.md"      # 명세 없음 = quick 구조
+_rq_rev() { mkdir -p "$_RQ/.specops/$_rq_fid/reviews"; printf '# 코드 품질 리뷰\n' > "$_RQ/.specops/$_rq_fid/reviews/T1-C-report.md"; }
+printf 'updated\n' > "$_RQ/src/foo.sh"
+(cd "$_RQ" && git add src && bash "$REC" "$_rq_fid" T1) >/dev/null 2>&1
+(cd "$_RQ" && bash "$CHK" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rc=$?
+[ "$_rq_rc" = 4 ] && ok "TR-Q1 quick FID · 유효 영수증 · 리뷰 보고서 없음 → rc 4" || nope "TR-Q1" "rc=$_rq_rc (4 여야 한다)"
+_rq_rev
+(cd "$_RQ" && bash "$CHK" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rc=$?
+[ "$_rq_rc" = 0 ] && ok "TR-Q2 quick FID · 범위 안 + 통과 리뷰 → rc 0" || nope "TR-Q2" "rc=$_rq_rc"
+# 판정기를 실행할 수 없으면 막는 쪽이다(NFR-3) — 판정기만 뺀 사본의 검사기로 방금 rc 0 이던 영수증을 다시 본다
+_RQP=$(mktemp -d) || exit 1
+mkdir -p "$_RQP/scripts" && cp -R "$PLUGIN/scripts/dag" "$PLUGIN/scripts/_internal" "$_RQP/scripts/" && rm -f "$_RQP/scripts/_internal/quick-scope.sh"
+(cd "$_RQ" && bash "$_RQP/scripts/_internal/check-task-receipt.sh" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rc=$?
+[ "$_rq_rc" = 3 ] && ok "TR-Q5 판정기를 실행할 수 없으면 rc 3 (판정 불가는 통과가 아니다)" || nope "TR-Q5" "rc=$_rq_rc (3 이어야 한다)"
+rm -rf "$_RQP"
+{ _i=0; while [ "$_i" -lt 25 ]; do echo "line $_i"; _i=$((_i + 1)); done; } > "$_RQ/src/foo.sh"
+(cd "$_RQ" && git add src && bash "$REC" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rev
+(cd "$_RQ" && bash "$CHK" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rc=$?
+[ "$_rq_rc" = 3 ] && ok "TR-Q3 quick FID · 유효 영수증 · 변경 26줄 → rc 3 (범위 초과)" || nope "TR-Q3" "rc=$_rq_rc (3 이어야 한다)"
+printf '# spec\n' > "$_RQ/.specops/$_rq_fid/spec.md"                        # 명세가 생기면 정식 FID 다
+(cd "$_RQ" && bash "$CHK" "$_rq_fid" T1) >/dev/null 2>&1; _rq_rc=$?
+[ "$_rq_rc" = 0 ] && ok "TR-Q4 같은 영수증 · 명세 있음(정식 FID) → rc 0 (범위·리뷰를 보지 않는다)" || nope "TR-Q4" "rc=$_rq_rc"
+rm -rf "$_RQ"
 
 finish

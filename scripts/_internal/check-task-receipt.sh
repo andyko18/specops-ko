@@ -2,6 +2,7 @@
 # 태스크 receipt 게이트 판정.
 # Usage: check-task-receipt.sh <FID> <task-id>
 # Exit: 0=면제 가능 · 1=receipt 있으나 무효(deny) · 2=부재/판정불가(legacy fallthrough)
+#       3=quick 범위 초과 · 4=quick 리뷰 미충족 (둘 다 deny — 명세 없는 FID 에서만 난다. 아래 quick 절)
 set -u
 
 FID="${1:-}"; TASK="${2:-}"
@@ -65,6 +66,21 @@ else
     || { echo "check-task-receipt: 지문 산출 불가(UNHASHABLE) — 읽을 수 없는 파일 등" >&2; exit 1; }
   [ -n "$rec_tree" ] && [ "$rec_tree" = "$cur_tree" ] \
     || { echo "check-task-receipt: tree stale" >&2; exit 1; }
+fi
+
+# ── quick 경로 (20261010-quick-fix-path) ─────────────────────────────────────
+# 태스크 문서는 있는데 명세가 없는 FID 는 quick 경로다. 영수증이 유효해도 범위 상한과 리뷰를 함께 요구한다 —
+#   이 조합은 문서·리뷰 없이 테스트만 통과하면 커밋이 열리는 통로였다(실사용 0건이라 드러나지 않았을 뿐이다).
+#   판정 기준이 구조인 이유: 모델이 쓰는 표지로 가르면 표지를 빼는 것으로 피한다. 구조로 가르면 피하는 길이
+#   명세 파일을 두는 것뿐이고, 그 경우는 종전의 정식 영수증 경로다(빈 명세 파일로도 피해진다 — 새로 생긴 구멍이
+#   아니라 종전 경로 그대로다). 정식 경로는 명세를 먼저 쓰므로 이 가지에 들어오지 않는다.
+if [ ! -f "$SPECOPS/$FID/spec.md" ]; then
+  bash "$PLUGIN/scripts/_internal/quick-scope.sh" "$FID" "$TASK" >&2
+  case $? in
+    0) ;;
+    4) exit 4 ;;
+    *) exit 3 ;;   # 범위 초과 · 판정기 실행 실패(판정 불가는 막는 쪽)
+  esac
 fi
 
 exit 0
