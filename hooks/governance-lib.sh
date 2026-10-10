@@ -102,7 +102,7 @@ _extract_bypass_reason() {
 _record_bypass_metric() {
   local fid="${1:-}"
   [ -n "$fid" ] || return 0
-  printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || return 0
+  grep -qE '^[0-9]{8}-[a-z0-9-]+$' <<< "$fid" || return 0
   [ -f "$_RECORD_METRIC_SH" ] || return 0
   bash "$_RECORD_METRIC_SH" --fid "$fid" --phase governance-bypass --fallback true >/dev/null 2>&1 || true
 }
@@ -621,8 +621,8 @@ _detect_base_branch() {
 _cmd_is_pr_create_only() {
   local c="${1:-}"
   [ -n "$c" ] || return 1
-  printf '%s' "$c" | grep -Eq "$_PR_CREATE_RE" || return 1
-  printf '%s' "$c" | grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(commit|add|stage)([[:space:]]|$)' && return 1
+  grep -Eq "$_PR_CREATE_RE" <<< "$c" || return 1
+  grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(commit|add|stage)([[:space:]]|$)' <<< "$c" && return 1
   return 0
 }
 
@@ -630,7 +630,7 @@ _cmd_is_pr_create_only() {
 _cmd_stages_untracked() {
   local c="${1:-}"
   [ -n "$c" ] || return 1
-  printf '%s' "$c" | grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(add|stage)([[:space:]]|$)'
+  grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?(add|stage)([[:space:]]|$)' <<< "$c"
 }
 
 # 신규 repo(HEAD 없음) → --cached fallback. working tree·staged 빈(=PR 맥락, 커밋 완료) → base...HEAD PR-범위 diff.
@@ -1091,7 +1091,7 @@ _specops_fid_dir_safe() { [ -z "${1:-}" ] || [ ! -L ".specops/$1" ]; }
 log_friction() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" scope_class="${6:-}"
   _specops_dir_safe || { echo "log_friction: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
-  if [ -n "$fid" ] && ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
+  if [ -n "$fid" ] && ! grep -Eq '^[0-9]{8}-[a-z0-9-]+$' <<< "$fid"; then
     echo "log_friction: invalid fid format" >&2
     return 1
   fi
@@ -1142,7 +1142,7 @@ log_friction_sev() {
   local fid="$1" rule_id="$2" principle="$3" snippet="$4" offset="$5" severity="${6:-warn}" scope_class="${7:-}"
   _specops_dir_safe || { echo "log_friction_sev: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2; return 1; }
   [ -n "$fid" ] || return 0
-  if ! printf '%s' "$fid" | grep -Eq '^[0-9]{8}-[a-z0-9-]+$'; then
+  if ! grep -Eq '^[0-9]{8}-[a-z0-9-]+$' <<< "$fid"; then
     echo "log_friction_sev: invalid fid format" >&2; return 1
   fi
   _specops_fid_dir_safe "$fid" || { echo "log_friction_sev: .specops/$fid 가 symlink — 거부" >&2; return 1; }
@@ -1191,7 +1191,7 @@ apply_lookback_rule() {
   #   $tool_cmd 원본은 보존한다: 아래 evidence_snippet 은 모델이 실제로 낸 명령 전문을 남겨야 감사 가치가 있다.
   local _scan_cmd
   _scan_cmd=$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")
-  printf '%s' "$_scan_cmd" | grep -Eq "$trigger_pattern" || return 0
+  grep -Eq "$trigger_pattern" <<< "$_scan_cmd" || return 0
   lookback=$(echo "$rule" | jq -r '.negative_lookback // 20')
   neg_pattern=$(echo "$rule" | jq -r '.negative_skill_pattern')
   # ★ 실행-근거 gate (20260713-verify-exec-gate): transcript 를 읽을 수 있으면, 어느 자기보고 신호가
@@ -1891,7 +1891,7 @@ _note_governance_disabled() {
   cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
   re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|select(.!=null)]|join("|")' "$root/hooks/rules.jsonl" 2>/dev/null)
   [ -n "$cmd" ] && [ -n "$re" ] || return 0
-  _trigger_scan_text "$(_strip_heredoc_bodies "$cmd")" | grep -Eq "$re" || return 0
+  grep -Eq "$re" <<< "$(_trigger_scan_text "$(_strip_heredoc_bodies "$cmd")")" || return 0
   # `.specops/` 없는 저장소에는 남기지 않는다 — 그 판정은 _log_degraded 가 한다(관할 한정).
   #   차단 훅은 설정 파일로만 꺼진다 — 프로파일 환경변수(strict·standard·minimal)는 셋 다 이 훅을 켠 채 둔다.
   _log_degraded "GOVERNANCE-DISABLED" "pretool-governance 가 꺼진 상태에서 실행(.specops/config.yaml 의 hooks 설정): ${cmd:0:100}"

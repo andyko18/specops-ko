@@ -127,33 +127,46 @@ if [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.d staged-docs+unsta
 rm -rf "$td"
 
 # T-docs.e~i: is_docs_only_change PR-범위 fallback (R-2 비대칭 해소) — sandbox 함수 단위
-_docs_case() {  # $1 expect_rc(0=allow/1=deny) $2 label $3 setup-eval
+_docs_case() {  # $1 expect_rc(0=allow/1=deny) $2 label $3 준비 함수 이름(명령 문자열을 받아 실행하지 않는다 · rc 97·98 = 준비 실패)
   local exp="$1" label="$2" setup="$3" rc
   ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
     export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
     sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
-    eval "$setup"
+    declare -F "$setup" >/dev/null || exit 97; "$setup" || exit 98
     is_docs_only_change; rc=$?
     cd /; rm -rf "$sb"; exit $rc )
   rc=$?
   if [ "$rc" -eq "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (rc=$rc exp=$exp)"; fi
 }
-_docs_case 0 "T-docs.e docs-only PR(커밋완료) 면제" 'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; git "$C" -q -m d'
-_docs_case 1 "T-docs.f 코드혼합 PR 차단" 'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; echo x>s.sh; git add s.sh; git "$C" -q -m m'
-_docs_case 1 "T-docs.g base없음 안전측 차단" 'git init -q; git checkout -q -b odd 2>/dev/null; echo d>d.md; git add d.md; git "$C" -q -m i; git checkout -q -b f2; echo e>e.md; git add e.md; git "$C" -q -m m'
-_docs_case 0 "T-docs.h R-1 staged docs 면제" 'git init -q; echo m>m.md; git add m.md'
-_docs_case 1 "T-docs.i R-1 코드혼합 차단" 'git init -q; echo m>m.md; git add m.md; echo y>c.sh; git add c.sh'
+_su_docs_e() { git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; git "$C" -q -m d; }
+_docs_case 0 "T-docs.e docs-only PR(커밋완료) 면제" _su_docs_e
+_su_docs_f() { git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>CHANGELOG.md; git add CHANGELOG.md; echo x>s.sh; git add s.sh; git "$C" -q -m m; }
+_docs_case 1 "T-docs.f 코드혼합 PR 차단" _su_docs_f
+_su_docs_g() { git init -q; git checkout -q -b odd 2>/dev/null; echo d>d.md; git add d.md; git "$C" -q -m i; git checkout -q -b f2; echo e>e.md; git add e.md; git "$C" -q -m m; }
+_docs_case 1 "T-docs.g base없음 안전측 차단" _su_docs_g
+_su_docs_h() { git init -q; echo m>m.md; git add m.md; }
+_docs_case 0 "T-docs.h R-1 staged docs 면제" _su_docs_h
+_su_docs_i() { git init -q; echo m>m.md; git add m.md; echo y>c.sh; git add c.sh; }
+_docs_case 1 "T-docs.i R-1 코드혼합 차단" _su_docs_i
 # T-docs.j~m: rename 우회 차단 (--no-renames — code→docs rename 을 docs-only 로 오인면제 차단)
-_docs_case 1 "T-docs.j code→docs rename 차단(불변식)" 'git init -q; echo x>a.sh; git add a.sh; git "$C" -q -m i; git mv a.sh a.md'
-_docs_case 0 "T-docs.k docs→docs rename 무회귀" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md b.md'
-_docs_case 1 "T-docs.l docs→code rename 유지" 'git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md a.sh'
-_docs_case 1 "T-docs.m PR범위 code→docs rename 차단" 'git init -q; git checkout -q -b main 2>/dev/null; echo x>a.sh; git add a.sh; git "$C" -q -m i; git checkout -q -b feat; git mv a.sh a.md; git "$C" -q -m r'
+_su_docs_j() { git init -q; echo x>a.sh; git add a.sh; git "$C" -q -m i; git mv a.sh a.md; }
+_docs_case 1 "T-docs.j code→docs rename 차단(불변식)" _su_docs_j
+_su_docs_k() { git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md b.md; }
+_docs_case 0 "T-docs.k docs→docs rename 무회귀" _su_docs_k
+_su_docs_l() { git init -q; echo x>a.md; git add a.md; git "$C" -q -m i; git mv a.md a.sh; }
+_docs_case 1 "T-docs.l docs→code rename 유지" _su_docs_l
+_su_docs_m() { git init -q; git checkout -q -b main 2>/dev/null; echo x>a.sh; git add a.sh; git "$C" -q -m i; git checkout -q -b feat; git mv a.sh a.md; git "$C" -q -m r; }
+_docs_case 1 "T-docs.m PR범위 code→docs rename 차단" _su_docs_m
 # T-docs.n~q: design/아티팩트 면제 확장 (dogfood 20260716 — Phase 2.5 design 커밋(screens/*.html)이
 #   .md 한정 whitelist 에 걸려 false-block → BYPASS 남발 유발. screens/ 미리보기·.specops/ 아티팩트는 실행 코드 아님)
-_docs_case 0 "T-docs.n screens/*.html 설계 미리보기 면제" 'git init -q; mkdir screens; echo x>screens/login.html; echo s>screens/login.md; git add screens'
-_docs_case 1 "T-docs.o screens/ 밖 .html 비면제(앱 코드 가능)" 'git init -q; mkdir src; echo x>src/index.html; git add src'
-_docs_case 1 "T-docs.p screens/*.html + 코드 혼합 차단(불변식)" 'git init -q; mkdir screens; echo x>screens/a.html; echo y>b.sh; git add screens b.sh'
-_docs_case 0 "T-docs.q .specops/ 아티팩트(비 .md 포함) 면제" 'git init -q; mkdir -p .specops/20260101-x; echo sha>.specops/20260101-x/review-base.sha; git add .specops'
+_su_docs_n() { git init -q; mkdir screens; echo x>screens/login.html; echo s>screens/login.md; git add screens; }
+_docs_case 0 "T-docs.n screens/*.html 설계 미리보기 면제" _su_docs_n
+_su_docs_o() { git init -q; mkdir src; echo x>src/index.html; git add src; }
+_docs_case 1 "T-docs.o screens/ 밖 .html 비면제(앱 코드 가능)" _su_docs_o
+_su_docs_p() { git init -q; mkdir screens; echo x>screens/a.html; echo y>b.sh; git add screens b.sh; }
+_docs_case 1 "T-docs.p screens/*.html + 코드 혼합 차단(불변식)" _su_docs_p
+_su_docs_q() { git init -q; mkdir -p .specops/20260101-x; echo sha>.specops/20260101-x/review-base.sha; git add .specops; }
+_docs_case 0 "T-docs.q .specops/ 아티팩트(비 .md 포함) 면제" _su_docs_q
 
 # T-docs.r~: _commit_scope_is_staged 분류 (20260813-r1-docs-only-scope)
 #   실행 명령에 git+commit 리터럴을 직접 쓰면 R-1 훅이 프로브 자체를 차단하므로 변수로 조립한다.
@@ -318,43 +331,48 @@ if [ "$_rc" -eq 1 ]; then PASS=$((PASS+1)); echo "PASS T-docs.al staged 코드�
 else FAIL=$((FAIL+1)); echo "FAIL T-docs.al 보안회귀! rc=$_rc"; fi
 
 # T-scope.a~d: is_docs_only_audit_scope — posttool 감사 스코프 (방금 액션 범위, 20260718-posttool-audit-silence)
-_scope_case() {  # $1 expect_rc $2 label $3 rule_id $4 setup-eval
+_scope_case() {  # $1 expect_rc $2 label $3 rule_id $4 준비 함수 이름(rc 97·98 = 준비 실패)
   local exp="$1" label="$2" rid="$3" setup="$4" rc
   ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
     export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
     sb=$(mktemp -d) || exit 3; cd "$sb" || exit 3
-    eval "$setup"
+    declare -F "$setup" >/dev/null || exit 97; "$setup" || exit 98
     is_docs_only_audit_scope "$rid"; rc=$?
     cd /; rm -rf "$sb"; exit $rc )
   rc=$?
   if [ "$rc" -eq "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (rc=$rc exp=$exp)"; fi
 }
-_scope_case 1 "T-scope.a R-1 코드 커밋 + .specops 잔여 dirty → 비면제(감사)" R-1 \
-  'git init -q; mkdir .specops; echo p>.specops/session-progress.md; echo x>a.sh; git add -A; git "$C" -q -m i; echo y>a.sh; git add a.sh; git "$C" -q -m c; echo d>>.specops/session-progress.md'
-_scope_case 0 "T-scope.b R-1 docs-only 커밋 + 코드 dirt → 면제(커밋 기준)" R-1 \
-  'git init -q; echo x>a.sh; git add -A; git "$C" -q -m i; echo d>R.md; git add R.md; git "$C" -q -m d; echo z>b.sh'
-_scope_case 1 "T-scope.c R-1 최초 커밋(HEAD~1 부재) → 비면제(fail-safe)" R-1 \
-  'git init -q; echo x>a.sh; git add -A; git "$C" -q -m i'
-_scope_case 1 "T-scope.d R-2 base...HEAD 코드 포함 → 비면제(감사)" R-2 \
-  'git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>c.sh; git add c.sh; git "$C" -q -m f; echo d>>b.md'
+_su_scope_a() { git init -q; mkdir .specops; echo p>.specops/session-progress.md; echo x>a.sh; git add -A; git "$C" -q -m i; echo y>a.sh; git add a.sh; git "$C" -q -m c; echo d>>.specops/session-progress.md; }
+_scope_case 1 "T-scope.a R-1 코드 커밋 + .specops 잔여 dirty → 비면제(감사)" R-1 _su_scope_a
+_su_scope_b() { git init -q; echo x>a.sh; git add -A; git "$C" -q -m i; echo d>R.md; git add R.md; git "$C" -q -m d; echo z>b.sh; }
+_scope_case 0 "T-scope.b R-1 docs-only 커밋 + 코드 dirt → 면제(커밋 기준)" R-1 _su_scope_b
+_su_scope_c() { git init -q; echo x>a.sh; git add -A; git "$C" -q -m i; }
+_scope_case 1 "T-scope.c R-1 최초 커밋(HEAD~1 부재) → 비면제(fail-safe)" R-1 _su_scope_c
+_su_scope_d() { git init -q; git checkout -q -b main 2>/dev/null; echo b>b.md; git add b.md; git "$C" -q -m i; git checkout -q -b feat; echo c>c.sh; git add c.sh; git "$C" -q -m f; echo d>>b.md; }
+_scope_case 1 "T-scope.d R-2 base...HEAD 코드 포함 → 비면제(감사)" R-2 _su_scope_d
 
 # T-base.a~c: _detect_base_branch 직접 단위 (main 우선 / master 차선 / 둘 다 부재 실패) [code-review Minor]
-_base_case() {  # $1 expect_out("" = 실패) $2 label $3 setup-eval
+_base_case() {  # $1 expect_out("" = 실패) $2 label $3 준비 함수 이름(준비가 실패하면 SETUP-FAILED 를 내서 기대값 "" 와 구분한다)
   local exp="$1" label="$2" setup="$3" out
   out=$( ( source "$PLUGIN/hooks/governance-lib.sh"; C=commit
     export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@e GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@e
     sb=$(mktemp -d) || exit 2; cd "$sb" || exit 2
-    eval "$setup"
+    declare -F "$setup" >/dev/null && "$setup" >/dev/null || { echo "SETUP-FAILED"; cd /; rm -rf "$sb"; exit 9; }
     _detect_base_branch 2>/dev/null
     cd /; rm -rf "$sb" ) )
   if [ "$out" = "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"; else FAIL=$((FAIL+1)); echo "FAIL $label (out='$out' exp='$exp')"; fi
 }
-_base_case "main"   "T-base.a main 우선"      'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
-_base_case "master" "T-base.b master 차선"    'git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
-_base_case ""       "T-base.c 둘 다 부재 실패" 'git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i'
+_su_base_a() { git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; }
+_base_case "main"   "T-base.a main 우선" _su_base_a
+_su_base_b() { git init -q; git checkout -q -b master 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; }
+_base_case "master" "T-base.b master 차선" _su_base_b
+_su_base_c() { git init -q; git checkout -q -b dev 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; }
+_base_case ""       "T-base.c 둘 다 부재 실패" _su_base_c
 # T-base.d~e: 로컬 main 이 낡고 origin/main 이 HEAD 에 더 가까우면 origin/main (20261008 — 낡은 기준이 PR 범위·위험도를 부풀렸다)
-_base_case "origin/main" "T-base.d 낡은 로컬 main → origin/main(HEAD 에 더 가까움)" 'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git checkout -q -b up; echo b>b.md; git add b.md; git "$C" -q -m u; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f'
-_base_case "main"        "T-base.e 로컬 main 과 origin/main 이 같으면 로컬 우선" 'git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f'
+_su_base_d() { git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git checkout -q -b up; echo b>b.md; git add b.md; git "$C" -q -m u; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f; }
+_base_case "origin/main" "T-base.d 낡은 로컬 main → origin/main(HEAD 에 더 가까움)" _su_base_d
+_su_base_e() { git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f; }
+_base_case "main"        "T-base.e 로컬 main 과 origin/main 이 같으면 로컬 우선" _su_base_e
 
 # T-symlink: log_friction — .specops 가 symlink 면 쓰기 거부 (path-escape 차단)
 tmp=$(mktemp -d); real=$(mktemp -d); cd "$tmp"; ln -s "$real" .specops
@@ -492,39 +510,52 @@ _cls_sandbox empty     "T-cls.i 무인자 staged=none" none
 #     boolean 이 아니라 분류를 낸다. _commit_scope_class(staged 기준)는 posttool 이 커밋 **후**
 #     발화하므로 쓸 수 없다 — --cached 가 비어 empty 로 오분류된다.
 #   ★ 기대값 "" 는 **무출력 = 판정불가**다. 'empty'(커밋 범위가 실제로 빔)와 다른 축이다.
-_acls_case() {  # $1 expect(""=무출력)  $2 label  $3 rule_id  $4 setup-eval
+_acls_case() {  # $1 expect(""=무출력)  $2 label  $3 rule_id  $4 준비 함수 이름
   local td got
   td=$(mktemp -d) || { FAIL=$((FAIL+1)); echo "FAIL $2 mktemp"; return; }
-  ( cd "$td" && eval "$4" ) >/dev/null 2>&1
+  ( cd "$td" && declare -F "$4" >/dev/null && "$4" ) >/dev/null 2>&1 \
+    || { FAIL=$((FAIL+1)); echo "FAIL $2 — 준비 실패($4)"; rm -rf "$td"; return; }
   got=$( cd "$td" && source "$PLUGIN/hooks/governance-lib.sh" && _audit_scope_class "$3" )
   rm -rf "$td"
   if [ "$got" = "$1" ]; then PASS=$((PASS+1)); echo "PASS $2 (${got:-<무출력>})"
   else FAIL=$((FAIL+1)); echo "FAIL $2 got=${got:-<무출력>} 기대=${1:-<무출력>}"; fi
 }
 _GC='-c user.email=e@t -c user.name=t'
-_acls_case code "T-acls.a R-1 코드 커밋" R-1 \
-  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
-   echo y > a.sh; git add a.sh; git $_GC commit -q -m code"
-_acls_case docs-only "T-acls.b R-1 docs-only 커밋" R-1 \
-  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
-   echo y > R.md; git add R.md; git $_GC commit -q -m docs"
-_acls_case code "T-acls.c R-1 working-tree dirt 무영향" R-1 \
-  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
-   echo y > a.sh; git add a.sh; git $_GC commit -q -m code; echo z > b.md"
-_acls_case "" "T-acls.d R-1 최초 커밋(HEAD~1 부재) → 판정불가" R-1 \
-  "git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init"
-_acls_case empty "T-acls.e R-1 빈 커밋 → empty(판정불가 아님)" R-1 \
-  "git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init; \
-   git $_GC commit -q --allow-empty -m nothing"
-_acls_case code "T-acls.f R-2 base...HEAD 코드" R-2 \
-  "git init -q; git checkout -q -b main 2>/dev/null; echo b > b.md; git add b.md; \
-   git $_GC commit -q -m init; git checkout -q -b feat; echo c > c.sh; git add c.sh; \
-   git $_GC commit -q -m feat"
-_acls_case "" "T-acls.g R-2 base 부재 → 판정불가" R-2 \
-  "git init -q; git checkout -q -b solo 2>/dev/null; echo b > b.md; git add b.md; \
-   git $_GC commit -q -m init"
-_acls_case "" "T-acls.h 미지원 rule_id(R-3) → 판정불가" R-3 \
-  "git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init"
+_su_acls_a() {
+  git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init;
+  echo y > a.sh; git add a.sh; git $_GC commit -q -m code
+}
+_acls_case code "T-acls.a R-1 코드 커밋" R-1 _su_acls_a
+_su_acls_b() {
+  git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init;
+  echo y > R.md; git add R.md; git $_GC commit -q -m docs
+}
+_acls_case docs-only "T-acls.b R-1 docs-only 커밋" R-1 _su_acls_b
+_su_acls_c() {
+  git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init;
+  echo y > a.sh; git add a.sh; git $_GC commit -q -m code; echo z > b.md
+}
+_acls_case code "T-acls.c R-1 working-tree dirt 무영향" R-1 _su_acls_c
+_su_acls_d() { git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init; }
+_acls_case "" "T-acls.d R-1 최초 커밋(HEAD~1 부재) → 판정불가" R-1 _su_acls_d
+_su_acls_e() {
+  git init -q; echo x > seed.md; git add seed.md; git $_GC commit -q -m init;
+  git $_GC commit -q --allow-empty -m nothing
+}
+_acls_case empty "T-acls.e R-1 빈 커밋 → empty(판정불가 아님)" R-1 _su_acls_e
+_su_acls_f() {
+  git init -q; git checkout -q -b main 2>/dev/null; echo b > b.md; git add b.md;
+  git $_GC commit -q -m init; git checkout -q -b feat; echo c > c.sh; git add c.sh;
+  git $_GC commit -q -m feat
+}
+_acls_case code "T-acls.f R-2 base...HEAD 코드" R-2 _su_acls_f
+_su_acls_g() {
+  git init -q; git checkout -q -b solo 2>/dev/null; echo b > b.md; git add b.md;
+  git $_GC commit -q -m init
+}
+_acls_case "" "T-acls.g R-2 base 부재 → 판정불가" R-2 _su_acls_g
+_su_acls_h() { git init -q; echo x > a.sh; git add a.sh; git $_GC commit -q -m init; }
+_acls_case "" "T-acls.h 미지원 rule_id(R-3) → 판정불가" R-3 _su_acls_h
 
 # T-cls.j~m: log_friction_sev scope_class 선택 인자 (AC-5·AC-6)
 _td=$(mktemp -d)
@@ -627,29 +658,29 @@ esac
 #   `.claude-plugin/plugin.json` 존재 = "이 repo 에서 .md 는 런타임" 의 기계 판정이다.
 # plugin.json 은 **먼저 커밋**한다 — staged 에 남기면 비-.md 파일이라 그것만으로 비면제가 되어
 #   아래 케이스가 무엇을 증명하는지 알 수 없게 된다(초안에서 실제로 그렇게 새 PASS 가 났다).
-_plug='mkdir -p .claude-plugin; echo "{}" > .claude-plugin/plugin.json; git add .claude-plugin; git "$C" -q -m plug;'
-_docs_case 1 "T-plug.a 플러그인 repo skills/*/SKILL.md 비면제" \
-  "git init -q; $_plug mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills"
-_docs_case 1 "T-plug.b 플러그인 repo commands/*.md 비면제" \
-  "git init -q; $_plug mkdir -p commands; echo x>commands/start.md; git add commands"
-_docs_case 1 "T-plug.c 플러그인 repo agents/*.md 비면제" \
-  "git init -q; $_plug mkdir -p agents; echo x>agents/r.md; git add agents"
-_docs_case 1 "T-plug.d 플러그인 repo templates/*.md 비면제(하류로 배포되는 산출물)" \
-  "git init -q; $_plug mkdir -p templates; echo x>templates/spec.md; git add templates"
-_docs_case 1 "T-plug.e 플러그인 repo .claude-plugin/* 비면제" \
-  "git init -q; mkdir -p .claude-plugin; echo '{}'>.claude-plugin/plugin.json; git add .claude-plugin"
+_plug() { mkdir -p .claude-plugin; echo "{}" > .claude-plugin/plugin.json; git add .claude-plugin; git "$C" -q -m plug; }
+_su_plug_a() { git init -q; _plug; mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills; }
+_docs_case 1 "T-plug.a 플러그인 repo skills/*/SKILL.md 비면제" _su_plug_a
+_su_plug_b() { git init -q; _plug; mkdir -p commands; echo x>commands/start.md; git add commands; }
+_docs_case 1 "T-plug.b 플러그인 repo commands/*.md 비면제" _su_plug_b
+_su_plug_c() { git init -q; _plug; mkdir -p agents; echo x>agents/r.md; git add agents; }
+_docs_case 1 "T-plug.c 플러그인 repo agents/*.md 비면제" _su_plug_c
+_su_plug_d() { git init -q; _plug; mkdir -p templates; echo x>templates/spec.md; git add templates; }
+_docs_case 1 "T-plug.d 플러그인 repo templates/*.md 비면제(하류로 배포되는 산출물)" _su_plug_d
+_su_plug_e() { git init -q; mkdir -p .claude-plugin; echo '{}'>.claude-plugin/plugin.json; git add .claude-plugin; }
+_docs_case 1 "T-plug.e 플러그인 repo .claude-plugin/* 비면제" _su_plug_e
 # 면제 유지 축 — 진짜 문서까지 막으면 BYPASS 관성이 생긴다
-_docs_case 0 "T-plug.f 플러그인 repo docs/*.md 면제 유지" \
-  "git init -q; $_plug mkdir -p docs; echo x>docs/a.md; git add docs"
-_docs_case 0 "T-plug.g 플러그인 repo 루트 README/CHANGELOG/CLAUDE 면제 유지" \
-  "git init -q; $_plug echo x>README.md; echo y>CHANGELOG.md; echo z>CLAUDE.md; git add README.md CHANGELOG.md CLAUDE.md"
-_docs_case 0 "T-plug.h 플러그인 repo skills/*/README.md 면제(SKILL.md 만 런타임)" \
-  "git init -q; $_plug mkdir -p skills/foo; echo x>skills/foo/README.md; git add skills"
+_su_plug_f() { git init -q; _plug; mkdir -p docs; echo x>docs/a.md; git add docs; }
+_docs_case 0 "T-plug.f 플러그인 repo docs/*.md 면제 유지" _su_plug_f
+_su_plug_g() { git init -q; _plug; echo x>README.md; echo y>CHANGELOG.md; echo z>CLAUDE.md; git add README.md CHANGELOG.md CLAUDE.md; }
+_docs_case 0 "T-plug.g 플러그인 repo 루트 README/CHANGELOG/CLAUDE 면제 유지" _su_plug_g
+_su_plug_h() { git init -q; _plug; mkdir -p skills/foo; echo x>skills/foo/README.md; git add skills; }
+_docs_case 0 "T-plug.h 플러그인 repo skills/*/README.md 면제(SKILL.md 만 런타임)" _su_plug_h
 # ★ 하류 오차단 방지 축 — plugin.json 없으면 종전과 동일하게 동작한다
-_docs_case 0 "T-plug.i 비플러그인 repo templates/*.md 면제(하류 오차단 방지)" \
-  "git init -q; mkdir -p templates; echo x>templates/email.md; git add templates"
-_docs_case 0 "T-plug.j 비플러그인 repo skills/*/SKILL.md 면제(경로 지식 미주입)" \
-  "git init -q; mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills"
+_su_plug_i() { git init -q; mkdir -p templates; echo x>templates/email.md; git add templates; }
+_docs_case 0 "T-plug.i 비플러그인 repo templates/*.md 면제(하류 오차단 방지)" _su_plug_i
+_su_plug_j() { git init -q; mkdir -p skills/foo; echo x>skills/foo/SKILL.md; git add skills; }
+_docs_case 0 "T-plug.j 비플러그인 repo skills/*/SKILL.md 면제(경로 지식 미주입)" _su_plug_j
 # ★ 면제 클래스 ≡ 분류 클래스 불변식 (governance-lib.sh:481) — posttool 계측 축도 함께 움직여야 한다
 _td=$(mktemp -d)
 _got=$( cd "$_td" && git init -q && mkdir -p .claude-plugin skills/foo \
@@ -671,9 +702,9 @@ else FAIL=$((FAIL+1)); echo "FAIL T-plug.k 분류=$_got 기대=code (계측이 �
 #   섹션 포맷 변화에 영향받지 않고, 후보당 test 1회라 hot path 비용이 없다.
 # ★ 1순위 active-fid 마커는 건드리지 않는다: 사용자가 fixture 를 **명시적으로** 지목했다면
 #   그건 의도다(주권). 제외는 "아무도 지목 안 했을 때의 추측"인 2순위에만 적용한다.
-_fid_case() {  # $1 expect $2 label $3 setup
+_fid_case() {  # $1 expect $2 label $3 준비 함수 이름(준비가 실패하면 SETUP-FAILED 를 내서 기대값 "" 와 구분한다)
   local exp="$1" label="$2" setup="$3" got
-  got=$( sb=$(mktemp -d) && cd "$sb" && eval "$setup" \
+  got=$( sb=$(mktemp -d) && cd "$sb" && { declare -F "$setup" >/dev/null && "$setup" || { echo "SETUP-FAILED"; false; }; } \
          && ( source "$PLUGIN/hooks/governance-lib.sh"; detect_fid ) ; cd /; rm -rf "$sb" )
   if [ "$got" = "$exp" ]; then PASS=$((PASS+1)); echo "PASS $label"
   else FAIL=$((FAIL+1)); echo "FAIL $label — got='$got' 기대='$exp'"; fi
@@ -687,20 +718,20 @@ _sp() {  # 섹션 헤더들을 순서대로 써 넣는다
   done
 }
 
-_fid_case 20260101-real "T-fx.a fixture 마커 없으면 종전대로 첫 헤더" \
-  '_sp 20260101-real 20260102-other; mkdir -p .specops/20260101-real'
+_su_fx_a() { _sp 20260101-real 20260102-other; mkdir -p .specops/20260101-real; }
+_fid_case 20260101-real "T-fx.a fixture 마커 없으면 종전대로 첫 헤더" _su_fx_a
 
-_fid_case 20260102-real "T-fx.b ★ 선두가 fixture 면 건너뛰고 다음 실작업 FID" \
-  '_sp 20260101-e2e 20260102-real; mkdir -p .specops/20260101-e2e .specops/20260102-real; : > .specops/20260101-e2e/.fixture'
+_su_fx_b() { _sp 20260101-e2e 20260102-real; mkdir -p .specops/20260101-e2e .specops/20260102-real; : > .specops/20260101-e2e/.fixture; }
+_fid_case 20260102-real "T-fx.b ★ 선두가 fixture 면 건너뛰고 다음 실작업 FID" _su_fx_b
 
-_fid_case "" "T-fx.c 전부 fixture 면 빈 값 (없는 FID 를 지어내지 않는다)" \
-  '_sp 20260101-e2e 20260102-e2e; mkdir -p .specops/20260101-e2e .specops/20260102-e2e; : > .specops/20260101-e2e/.fixture; : > .specops/20260102-e2e/.fixture'
+_su_fx_c() { _sp 20260101-e2e 20260102-e2e; mkdir -p .specops/20260101-e2e .specops/20260102-e2e; : > .specops/20260101-e2e/.fixture; : > .specops/20260102-e2e/.fixture; }
+_fid_case "" "T-fx.c 전부 fixture 면 빈 값 (없는 FID 를 지어내지 않는다)" _su_fx_c
 
-_fid_case 20260101-e2e "T-fx.d 명시 active-fid 마커는 fixture 라도 존중 (주권)" \
-  '_sp 20260102-real; mkdir -p .specops/20260101-e2e; : > .specops/20260101-e2e/.fixture; printf "<!-- active-fid: 20260101-e2e -->\n%s" "$(cat .specops/session-progress.md)" > .specops/session-progress.md'
+_su_fx_d() { _sp 20260102-real; mkdir -p .specops/20260101-e2e; : > .specops/20260101-e2e/.fixture; printf "<!-- active-fid: 20260101-e2e -->\n%s" "$(cat .specops/session-progress.md)" > .specops/session-progress.md; }
+_fid_case 20260101-e2e "T-fx.d 명시 active-fid 마커는 fixture 라도 존중 (주권)" _su_fx_d
 
-_fid_case 20260101-real "T-fx.e .specops/<FID> 디렉토리 부재는 fixture 아님 (오탐 차단)" \
-  '_sp 20260101-real 20260102-other'
+_su_fx_e() { _sp 20260101-real 20260102-other; }
+_fid_case 20260101-real "T-fx.e .specops/<FID> 디렉토리 부재는 fixture 아님 (오탐 차단)" _su_fx_e
 
 # ── T-bcat: _bypass_category 사유 분류 (면제 남용 축소 1 — 판정 불변, 기록 축만) ──
 _bcat_case() {  # <want> <label> <reason...>
@@ -767,8 +798,9 @@ _mt=$(mktemp); printf 'tasks:\n  - id: T1\n  - id: T2\n' > "$_mt"
 rm -f "$_mt"
 
 # T-mut.e·f 인용 제거기의 fail-safe 반환 — awk 가 죽거나 빈 출력을 내면 원문을 돌려주고 **rc 0** 이어야 한다.
-#   이 rc 는 버려지지 않는다: 트리거 판정은 `_trigger_scan_text … | grep` 을 pipefail 아래에서 돌리므로,
-#   앞단이 0 이 아니면 grep 이 커밋을 찾아도 파이프 전체가 실패해 훅이 "커밋 아님" 으로 통과시킨다.
+#   20261010 전까지 이 rc 는 판정에 닿았다: 트리거 판정이 `_trigger_scan_text … | grep` 을 pipefail 아래에서 돌려,
+#   앞단이 0 이 아니면 grep 이 커밋을 찾아도 파이프 전체가 실패해 훅이 "커밋 아님" 으로 통과시켰다. 지금은 파이프 없이
+#   읽지만(here-string) rc 0 은 이 함수의 계약으로 남긴다 — 누가 다시 파이프 앞단에 세워도 같은 구멍이 나지 않게.
 _mq_cmd="$_G \\
 $_C -m 'x'"
 _mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { return 1; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
@@ -777,6 +809,9 @@ _mut_ok "T-mut.e ★ awk 실패 → 원문 반환 + rc 0 (트리거 판정 유�
 _mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; awk() { cat >/dev/null; }; _trigger_scan_text "$_mq_cmd" ); _mrc=$?
 [ "$_mrc" -eq 0 ] && printf '%s' "$_mq_out" | grep -Fq -- "-m 'x'"
 _mut_ok "T-mut.f ★ awk 빈 출력 → 원문 반환 + rc 0 (트리거 판정 유지)" $? "rc=$_mrc"
+_mq_out=$( source "$PLUGIN/hooks/governance-lib.sh"; _strip_quoted_strings "$_G $_C -m x" ); _mrc=$?
+[ "$_mrc" -eq 0 ] && [ "$_mq_out" = "$_G $_C -m x" ]
+_mut_ok "T-mut.f0 인용이 없는 빠른 경로 → 원문 그대로 + rc 0 (인용 제거기를 직접 부른다)" $? "rc=$_mrc out=$_mq_out"
 
 # T-mut.g·h 꺼진 차단 훅의 흔적(_note_governance_disabled)
 _mk_in() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
@@ -835,6 +870,62 @@ _mut_ok "T-mut.j ★ R-2 + FID·tasks.md·verify PASS → receipt=n/a" $? "$(pri
 [ "$(printf '%s' "$_mr_o1" | jq -r '.cause.receipt' 2>/dev/null)" = "closed-verified" ]
 _mut_ok "T-mut.j0 대조 — 같은 상태의 R-1 → receipt=closed-verified" $? "$(printf '%s' "$_mr_o1" | jq -c '.cause' 2>/dev/null)"
 rm -rf "$_mr"
+
+# ── T-pipe (20261010-hook-sigpipe-test-eval): 일치 판정을 "파이프 뒤 grep -q" 로 읽지 않는다 ──────────
+# 왜: 훅은 `set -uo pipefail` 이다. `producer | grep -q` 는 grep 이 첫 일치에서 끝나는 순간 앞단이 아직 쓰는 중이면
+#   앞단이 SIGPIPE(141)로 죽고 파이프 전체가 실패가 된다 — "일치" 가 "불일치" 로 읽혔다(커밋 전 훅이 인용 메시지 +
+#   줄 연속 커밋과 큰 여러 줄 명령을 통째로 통과시켰다). 아래는 훅과 같은 셸 옵션(pipefail)에서 lib 함수를 직접 잰다.
+#   a: 꺼진 훅의 흔적 — 인용 메시지 + 줄 연속. 이은 문자열과 원문을 두 덩어리로 내는 자리라 경합으로 샜다(3회 전부 기록돼야 한다).
+_pa_ok=0; _pa_i=0
+while [ "$_pa_i" -lt 3 ]; do
+  _pa=$(mktemp -d); mkdir -p "$_pa/.specops"
+  ( set -uo pipefail; cd "$_pa" && source "$PLUGIN/hooks/governance-lib.sh" \
+    && jq -nc --arg c "$_G $_C -m \"x\" \\
+  --no-verify" '{tool_name:"Bash",tool_input:{command:$c}}' | CLAUDE_PROJECT_DIR="$_pa" _note_governance_disabled "$PLUGIN" ) >/dev/null 2>&1
+  grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_pa/.specops/friction-log.jsonl" && _pa_ok=$((_pa_ok+1))
+  rm -rf "$_pa"; _pa_i=$((_pa_i+1))
+done
+[ "$_pa_ok" -eq 3 ]
+_mut_ok "T-pipe.a ★ 인용 메시지 + 줄 연속 커밋도 꺼진 훅의 기록에 남는다 (3/3)" $? "기록된 횟수=$_pa_ok/3"
+#   b: 규칙 적용 — 커밋 뒤에 여러 줄이 파이프 버퍼보다 크게 붙은 명령(heredoc 아님). 사전 차단·사후 감사가 같이 쓰는 자리다.
+#   크기는 약 103KB 로 둔다: 파이프 버퍼(64KB)보다 커야 재현되고, Linux 가 exec 인자 1개에 두는 한도(131072바이트)보다는
+#   작아야 한다 — 이 문자열이 jq --arg 의 인자로 넘어간다(넘으면 입력이 만들어지지 않아 CI 의 ubuntu 에서만 거짓 결과가 난다).
+_pb_big=$(_pb_i=0; while [ "$_pb_i" -lt 2000 ]; do echo "echo line-$_pb_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _pb_i=$((_pb_i+1)); done)
+_pb=$(mktemp -d)
+_pb_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
+_pb_o=$( set -uo pipefail; cd "$_pb" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_pb_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "$_G $_C -m x
+$_pb_big" 2>/dev/null )
+[ "$(printf '%s' "$_pb_o" | jq -r '.rule_id' 2>/dev/null)" = "R-1" ]
+_mut_ok "T-pipe.b ★ 커밋 뒤에 큰 여러 줄(${#_pb_big}바이트)이 붙어도 규칙이 적용된다" $? "출력=$(printf '%s' "$_pb_o" | cut -c1-80)"
+_pb_o0=$( set -uo pipefail; cd "$_pb" && source "$PLUGIN/hooks/governance-lib.sh" \
+  && apply_lookback_rule "$_pb_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" "ls -la
+$_pb_big" 2>/dev/null )
+[ -z "$_pb_o0" ]
+_mut_ok "T-pipe.b0 대조 — 커밋이 없는 큰 명령은 위반이 아니다" $? "출력=$(printf '%s' "$_pb_o0" | cut -c1-80)"
+rm -rf "$_pb"
+
+# ── T-setup: 준비가 실패하면 그 단언이 실패한다 (20261010-hook-sigpipe-test-eval) ──
+#   왜: 헬퍼 5개는 준비(격리 저장소 만들기)를 한 뒤 판정 함수를 부른다. 준비가 조용히 실패하면 빈 디렉토리에서 판정하게 되고,
+#   기대값이 "거부" · "무출력" 인 단언은 그대로 통과한다 — 아무것도 재지 않으면서 초록이다.
+#   헬퍼를 서브셸에서 불러(이 스위트의 PASS/FAIL 을 건드리지 않는다) 출력 줄만 본다. 기대값은 양쪽을 다 준다.
+_sf_fail() { return 1; }
+_sf_bad=""
+_sf() {  # <라벨> <헬퍼 호출…> — 그 호출은 FAIL 줄을 내야 한다
+  local l="$1" o; shift
+  o=$( "$@" 2>/dev/null )
+  case "$o" in FAIL*) ;; *) _sf_bad="$_sf_bad [$l → $o]" ;; esac
+}
+_sf "docs 기대 0"  _docs_case 0 "x" _sf_fail
+_sf "docs 기대 1"  _docs_case 1 "x" _sf_fail
+_sf "scope 기대 0" _scope_case 0 "x" R-1 _sf_fail
+_sf "scope 기대 1" _scope_case 1 "x" R-1 _sf_fail
+_sf "base"         _base_case "" "x" _sf_fail
+_sf "acls"         _acls_case "" "x" R-1 _sf_fail
+_sf "fid"          _fid_case "" "x" _sf_fail
+_sf "없는 함수"    _docs_case 1 "x" _sf_no_such_fn
+[ -z "$_sf_bad" ]
+_mut_ok "T-setup.a ★ 준비가 실패하면(준비 함수가 없어도) 헬퍼 5개가 그 단언을 실패로 낸다" $? "통과로 낸 호출:$_sf_bad"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="

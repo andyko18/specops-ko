@@ -1857,5 +1857,58 @@ else
   echo "SKIP T-off (python3+pyyaml 부재 — 설정 파일 킬스위치 시뮬레이션 불가)"
 fi
 
+# ══════════════════════════════════════════════════════════════════════════
+# T-pipe: 첫 관문이 일치를 "파이프 뒤 grep -q" 로 읽지 않는다 (20261010-hook-sigpipe-test-eval)
+#   왜: 훅은 `set -uo pipefail` 이다. `producer | grep -q` 는 grep 이 첫 일치에서 끝나는 순간 앞단이 아직 쓰는 중이면
+#   앞단이 SIGPIPE(141)로 죽고 파이프 전체가 실패가 된다 — 커밋을 찾고도 "커밋이 아니다" 로 읽어 통째로 통과시켰다.
+#   실측(수정 전 main · 각 5회): 인용 메시지 + 줄 연속 커밋 5/5 통과 · gh pr create 5/5 통과 · 커밋 뒤 큰 여러 줄 5/5 통과.
+#   경합으로 새던 자리라 형태마다 5회 반복하고 전부 막혀야 통과다.
+# ══════════════════════════════════════════════════════════════════════════
+_form_deny5() {  # $1=id $2=명령
+  local i=0 n=0 o
+  while [ "$i" -lt 5 ]; do
+    o=$(mkstdin "$2" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+    case "$o" in *'"permissionDecision":"deny"'*) n=$((n+1)) ;; esac
+    i=$((i+1))
+  done
+  if [ "$n" -eq 5 ]; then echo "PASS $1 → deny 5/5"; pass=$((pass+1)); else echo "FAIL $1 — deny $n/5 (전부 막혀야 한다)"; fail=$((fail+1)); fi
+}
+#   크기는 약 103KB 로 둔다: 파이프 버퍼(64KB)보다 커야 재현되고, Linux 가 exec 인자 1개에 두는 한도(131072바이트)보다는
+#   작아야 한다 — 이 문자열이 jq --arg 의 인자로 넘어간다(넘으면 입력이 만들어지지 않아 CI 의 ubuntu 에서만 거짓 결과가 난다).
+_tp_big=$(_tp_i=0; while [ "$_tp_i" -lt 2000 ]; do echo "echo line-$_tp_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _tp_i=$((_tp_i+1)); done)
+_form_deny5 "T-pipe.a ★ 인용 메시지 + 줄 연속 커밋" 'git commit -m "x" \
+  --no-verify'
+_form_deny5 "T-pipe.b ★ gh pr create + 인용 + 줄 연속" 'gh pr create --title "x" \
+  --body "y"'
+_form_deny5 "T-pipe.c ★ 커밋 뒤에 큰 여러 줄(${#_tp_big}바이트 · heredoc 아님)" "git commit -m x
+$_tp_big"
+# 대조 — 같은 형태라도 검증 증거가 갖춰진 상태에서는 통과한다(새로 막히는 것은 검증 없이 나가던 커밋뿐이다)
+_tp_ok=$(mktemp -d) || exit 1
+( cd "$_tp_ok" && git init -q && echo "echo x" > a.sh && git add a.sh \
+  && mkdir -p .specops/20260101-tpipe \
+  && printf '# Session Progress\n\n## 20260101-tpipe\n\n- 2026-01-01 10:00 /verify PASS\n' > .specops/session-progress.md ) >/dev/null 2>&1
+_tp_tr=$(_tr_for "$_tp_ok" "$FIX/pretool-with-verify-exec.jsonl")
+out=$(mkstdin 'git commit -m "x" \
+  --no-verify' "$_tp_tr" | CLAUDE_PROJECT_DIR="$_tp_ok" bash "$HOOK" 2>/dev/null)
+check "T-pipe.d 대조 — 검증을 거친 상태의 인용 + 줄 연속 커밋 → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -m x
+$_tp_big" "$_tp_tr" | CLAUDE_PROJECT_DIR="$_tp_ok" bash "$HOOK" 2>/dev/null)
+check "T-pipe.d2 대조 — 검증을 거친 상태의 큰 여러 줄 커밋 → allow" '"continue":true' "$out"
+rm -rf "$_tp_ok"
+# 꺼진 훅의 기록 — 훅 종단에서도 인용 + 줄 연속 커밋이 기록된다(lib 의 T-pipe.a 가 함수 단위로 잰 것의 종단 확인)
+if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" 2>/dev/null; then
+  _tp_off=$(mktemp -d) || exit 1
+  ( cd "$_tp_off" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir .specops \
+    && printf 'hooks:\n  pretool-governance:\n    enabled: false\n' > .specops/config.yaml ) >/dev/null 2>&1
+  ( cd "$_tp_off" && mkstdin 'git commit -m "x" \
+  --no-verify' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_tp_off" bash "$HOOK" >/dev/null 2>&1 )
+  grep -qs '"rule_id":"GOVERNANCE-DISABLED"' "$_tp_off/.specops/friction-log.jsonl" \
+    && { echo "PASS T-pipe.e 꺼진 채 인용 + 줄 연속 커밋 → GOVERNANCE-DISABLED 기록"; pass=$((pass+1)); } \
+    || { echo "FAIL T-pipe.e 꺼진 채 인용 + 줄 연속 커밋이 기록되지 않음"; fail=$((fail+1)); }
+  rm -rf "$_tp_off"
+else
+  echo "SKIP T-pipe.e (python3+pyyaml 부재)"
+fi
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

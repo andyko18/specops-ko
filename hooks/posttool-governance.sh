@@ -60,7 +60,7 @@ if [ "$tool_name" = "Bash" ]; then
   bash_trigger_re=$(jq -rs '[.[] | select(.matcher == "posttool" and .trigger_tool == "Bash") | .trigger_pattern | select(. != null)] | join("|")' "$rules_path" 2>/dev/null)
   if [ -n "$bash_trigger_re" ]; then
     scan_cmd=$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")
-    printf '%s' "$scan_cmd" | grep -Eq "$bash_trigger_re"
+    grep -Eq "$bash_trigger_re" <<< "$scan_cmd"
     [ "$?" -eq 1 ] && { echo '{"continue":true}'; exit 0; }   # 1=불일치만. 2(정규식 오류)는 통과
   fi
 fi
@@ -86,7 +86,7 @@ while IFS= read -r rule; do
       # R8: trigger 패턴을 rules.jsonl R-3.trigger_skill_pattern 단일소스에서 읽음
       #   (하드코딩 drift 제거 — rules 만 바꿔도 동작 따라감). 값 부재 시 안전 fallback.
       skill_pat=$(echo "$rule" | jq -r '.trigger_skill_pattern // "^specops-ko:"')
-      if [ "$tool_name" = "Skill" ] && printf '%s' "$tool_cmd" | grep -Eq "$skill_pat"; then
+      if [ "$tool_name" = "Skill" ] && grep -Eq "$skill_pat" <<< "$tool_cmd"; then
         result=$(apply_skill_declaration_rule "$transcript" "$tool_cmd" 2>/dev/null || true)
       fi
       ;;

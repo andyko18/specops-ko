@@ -56,7 +56,7 @@ rules_path="$plugin_root/hooks/rules.jsonl"
 trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|select(.!=null)]|join("|")' "$rules_path" 2>/dev/null)
 [ -n "$trigger_re" ] || safe_exit "trigger_pattern 로드 실패"
 # 트리거 판정은 잇기 전 원문도 함께 본다(_trigger_scan_text) — 아래 범위 판정들은 이은 문자열(tool_cmd_scan)을 쓴다.
-_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")" | grep -Eq "$trigger_re" || allow
+grep -Eq "$trigger_re" <<< "$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")" || allow
 
 # 세션-env 우회 = 사용자 주권(막지 않음). 단 무기록 우회는 감사 공백(상한 3호) → 기록 후 allow.
 #   .specops 有일 때만 기록 — 부재(비-specops repo)면 log_friction 이 .specops 를 생성해 월권(M2 관할 가드 철학).
@@ -85,7 +85,7 @@ fi
 # 대상은 PR 뿐이다. **중간 커밋은 검사하지 않는다** — chain 상 verify 보다 앞서는 것이 정상이고
 #   (아래 L97-101 참조) 여기서 막으면 정직한 태스크별 커밋이 전부 걸린다.
 _batch_pr_gate() {
-  printf '%s' "$tool_cmd_scan" | grep -Eq "$_PR_CREATE_RE" || return 0
+  grep -Eq "$_PR_CREATE_RE" <<< "$tool_cmd_scan" || return 0
   # ★ 진행 중(ACTIVE 마커) batch 만 판정한다. glob-latest 는 쓰지 않는다.
   #   `.specops/*` 는 gitignore 라 뭉개진 batch 디렉토리가 디스크에 무기한 남는다. 아무 batch 나
   #   집으면 그것과 **무관한** 단일 FID 작업의 PR 이 과거 라벨 오염으로 차단된다 (실측 재현:
@@ -153,7 +153,7 @@ _batch_pr_gate
 #   (test-mutation-conf-fresh.sh T2.a 실측). 20261010 부터 키가 함수+줄 원문이라 그 제약은 없다.
 #   위치는 그대로 뒀다 — 첫 소비자 바로 앞이 co-location 측면에서도 낫다.
 _is_cmd_pos_env() {
-  printf '%s' "$1" | grep -Eq "(^|[;&|({\`])[[:space:]]*${3:-}$2[[:space:]]"
+  grep -Eq "(^|[;&|({\`])[[:space:]]*${3:-}$2[[:space:]]" <<< "$1"
 }
 
 # 인라인 BYPASS 는 사유(SPECOPS_BYPASS_REASON) 병기 필수 (20260716-batch-dogfood: 첫 deny 후 모델이
@@ -168,14 +168,14 @@ if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
      "(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?"; then
   # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
   #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
-  if printf '%s' "$tool_cmd" | grep -Eq -- "-m[[:space:]]+[\"']?BYPASS"; then
+  if grep -Eq -- "-m[[:space:]]+[\"']?BYPASS" <<< "$tool_cmd"; then
     reason="커밋 메시지에 BYPASS 표식을 넣지 마세요 — 우회 기록은 SPECOPS_BYPASS_REASON 과 friction-log 가 담당합니다.
 메시지는 conventional commit(fix:/feat:/test:/…)으로 정상 작성 후 재시도하세요."
     jq -nc --arg r "$reason" \
       '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
     exit 0
   fi
-  if printf '%s' "$tool_cmd" | grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]"; then
+  if grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" <<< "$tool_cmd"; then
     # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
     if [ -d ".specops" ]; then
       _bypass_fid=$(detect_fid 2>/dev/null || echo "")
@@ -405,7 +405,7 @@ if [ -n "$violation" ]; then
   # Wave C: compound `git add … && git commit` deny 시 add도 취소됨 → 분리 안내 (트리거/부분실행은 불변)
   _compound_hint=""
   if [ "$violation" = "R-1" ] \
-     && printf '%s' "$tool_cmd_scan" | grep -Eq '(^|[[:space:];&|({`])git[[:space:]]+add([[:space:]]|$)' ; then
+     && grep -Eq '(^|[[:space:];&|({`])git[[:space:]]+add([[:space:]]|$)' <<< "$tool_cmd_scan" ; then
     _compound_hint="
 
 ⚠️ compound 안내: 이 명령에 \`git add\` 와 \`git commit\` 이 함께 있습니다.
@@ -513,7 +513,7 @@ fi
 # strict FID 또는 ACTIVE batch(브랜치 일치) PR: NOT_READY → hard deny.
 # 그 외: warn-only. UNKNOWN(rc=2)은 fail-open. R-1·docs-only·BYPASS·batch-state·verify lookback 은 위에서 처리됨.
 _release_ready_gate() {
-  printf '%s' "$tool_cmd_scan" | grep -Eq "$_PR_CREATE_RE" || return 0
+  grep -Eq "$_PR_CREATE_RE" <<< "$tool_cmd_scan" || return 0
   [ -f "$plugin_root/scripts/_internal/release-ready.sh" ] || return 0
 
   local hard=0 hard_why="" fids="" f branch m d qdir qfile eff line
@@ -533,7 +533,7 @@ _release_ready_gate() {
       # IMPL_DONE FID 전부
       while IFS= read -r line; do
         f=$(printf '%s' "$line" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}')
-        printf '%s' "$f" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || continue
+        grep -qE '^[0-9]{8}-[a-z0-9-]+$' <<< "$f" || continue
         fids="${fids}${fids:+ }$f"
       done < <(grep -E '\|[[:space:]]*IMPL_DONE[[:space:]]*\|' "$qfile" 2>/dev/null || true)
       break
