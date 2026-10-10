@@ -362,6 +362,26 @@ else
 fi
 rm -rf "$_sh"
 
+# --- T-mut: extract_yaml 의 종료 코드 계약 (20261010-mutation-survivors-rest — 변이 생존 2건) ---
+# 왜: emit-context.sh 는 `set -euo pipefail` 아래에서 `yaml=$(dag::extract_yaml …)` 로 부르고, check-tdd-red.sh 는
+#   `… || yaml=""` 로 rc 를 본다. 성공과 "yaml 없음" 이 0 이 아니면 앞쪽은 그 자리에서 죽고 뒤쪽은 읽은 yaml 을 버린다.
+#   T1 은 출력만 단언해서 `return 0 → 1` 변이 2곳(1단 성공 · 2단 후보 없음)이 살아남았다.
+_my=$(dag::extract_yaml "$FIXTURES/01-two-leaves-disjoint.md" 2>/dev/null); _mrc=$?
+if [ "$_mrc" -eq 0 ] && [ -n "$_my" ]; then
+  PASS=$((PASS+1)); echo "PASS T-mut.a extract_yaml 1단 성공 → rc 0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-mut.a rc=$_mrc (0 이어야 한다 — set -e 호출부가 죽는다)"
+fi
+_mnf=$(mktemp); printf '# 제목\n\n본문만 있고 yaml 펜스가 없다.\n' > "$_mnf"
+_my=$(dag::extract_yaml "$_mnf" 2>/dev/null); _mrc=$?
+_my9=$(dag::extract_yaml "$FIXTURES/09-no-header-no-taskskey.md" 2>/dev/null); _mrc9=$?
+if [ "$_mrc" -eq 0 ] && [ -z "$_my" ] && [ "$_mrc9" -eq 0 ] && [ -z "$_my9" ]; then
+  PASS=$((PASS+1)); echo "PASS T-mut.b extract_yaml 후보 없음(펜스 없음 · tasks: 키 없음) → 빈 출력 + rc 0"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T-mut.b rc=$_mrc/$_mrc9 out='${_my}${_my9}' (빈 출력 + rc 0 이어야 한다)"
+fi
+rm -f "$_mnf"
+
 # cleanup
 rm -rf "$_b1"
 
