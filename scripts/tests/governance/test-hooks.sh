@@ -310,6 +310,67 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# T8.l ★ 사후 감사도 같은 형태를 커밋으로 알아본다 (20261010-hook-sigpipe-test-eval)
+#   왜: 규칙 적용 자리(lib 의 apply_lookback_rule)가 일치를 `printf … | grep -q` 로 읽어, 커밋 뒤에 큰 여러 줄이 붙으면
+#   grep 이 먼저 끝나 앞단이 SIGPIPE 로 죽고 "트리거 불일치" 가 됐다 — 감사 기록이 빠졌다(훅은 `set -uo pipefail`).
+_l_big=$(_l_i=0; while [ "$_l_i" -lt 4000 ]; do echo "echo line-$_l_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _l_i=$((_l_i+1)); done)
+_l_bad=""
+for _l_case in big cont; do
+  tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+  cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+  cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
+  if [ "$_l_case" = big ]; then _l_c="git commit -m x
+$_l_big"; else _l_c='git commit -m "x" \
+  --no-verify'; fi
+  _o=$(_post Bash "$_l_c")
+  _got=$(printf '%s' "$_o" | jq -r '.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  [ "$_got" = "R-1" ] || _l_bad="$_l_bad [$_l_case: got='$_got']"
+  cd "$PLUGIN"; rm -rf "$tmp"
+done
+if [ -z "$_l_bad" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.l ★ 커밋 뒤 큰 여러 줄(${#_l_big}바이트) · 인용 + 줄 연속 → 사후 감사가 R-1 을 기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.l 사후 감사가 커밋을 놓침:$_l_bad"
+fi
+
+# T8.m ★ 훅에 "파이프 뒤 grep -q" 가 없다 — 같은 병의 재발 잠금
+#   왜: `set -uo pipefail` 아래 `producer | grep -q` 는 grep 이 첫 일치에서 끝날 때 앞단이 SIGPIPE 로 죽으면 일치가 불일치로
+#   읽힌다. 이 저장소에서 세 번 나온 병이다(check-screen-quality · session-start · 커밋 전 훅). 일치 여부는 파이프 없이
+#   읽는다: `grep -Eq "$re" <<< "$text"`. 주석 줄과 `||` 뒤의 grep 은 보지 않는다. 옵션 묶음에 q 가 든 grep · egrep · fgrep 과
+#   --quiet · --silent 를 본다. 한 줄 안에서만 본다 — `|` 뒤에서 줄을 바꾼 grep -q 는 잡지 못한다.
+_pipe_grep_q_hits() {  # <파일…> → 걸린 줄마다 "  디렉토리/파일:줄: 원문"
+  awk '
+    /^[[:space:]]*#/ { next }
+    /(^|[^|])\|[[:space:]]*(e|f)?grep([[:space:]]+-[A-Za-z]+)*[[:space:]]+(-[A-Za-z]*q[A-Za-z]*|--quiet|--silent)([[:space:]]|$)/ {
+      n = split(FILENAME, p, "/"); printf "  %s:%d: %s\n", p[n-1] "/" p[n], FNR, $0
+    }' "$@" 2>/dev/null
+}
+_m_hits=$(_pipe_grep_q_hits "$PLUGIN/hooks/governance-lib.sh" "$PLUGIN/hooks/pretool-governance.sh" "$PLUGIN/hooks/posttool-governance.sh")
+if [ -z "$_m_hits" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.m ★ 훅에 파이프 뒤 grep -q 없음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.m 훅이 일치를 파이프 뒤 grep -q 로 읽는다 — grep -Eq \"\$re\" <<< \"\$text\" 형태로 바꿀 것:"; printf '%s\n' "$_m_hits" | cut -c1-200
+fi
+
+# T8.n 잠금(T8.m)의 판별식이 실제로 가려낸다 — 걸려야 할 줄만 걸린다
+#   왜: 판별식이 아무것도 못 잡게 되면(정규식 손상 · awk 구현 차이) T8.m 은 조용히 통과한다. 임시 파일로 양쪽을 다 잰다.
+_n_d=$(mktemp -d); mkdir -p "$_n_d/hooks"
+cat > "$_n_d/hooks/x.sh" <<'T8N'
+# printf '%s' "$a" | grep -q x
+printf '%s' "$a" | grep -Eq "$re" || exit 0
+[ -f "$f" ] || grep -q x "$f"
+grep -Eq "$re" <<< "$a"
+printf '%s' "$a" | grep -c x
+out=$(producer | egrep --quiet x)
+T8N
+_n_hits=$(_pipe_grep_q_hits "$_n_d/hooks/x.sh" | sed -E 's/^  hooks\/x\.sh:([0-9]+):.*/\1/' | tr '\n' ' ' | sed 's/ $//')
+rm -rf "$_n_d"
+if [ "$_n_hits" = "2 6" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.n 판별식 — 파이프 뒤 grep -q · egrep --quiet 는 걸리고, 주석 줄 · || 뒤 · here-string · grep -c 는 걸리지 않는다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.n 판별식이 가려내지 못한다 — 걸린 줄='$_n_hits' (기대 '2 6')"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]
