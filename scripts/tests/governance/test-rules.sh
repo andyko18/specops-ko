@@ -157,6 +157,7 @@ rm -rf "$_sb1"
 # T6.B1b: 유효 receipt + staged⊆outputs → 면제 (exec 불요)
 _sb1b=$(mktemp -d)
 mkdir -p "$_sb1b/.specops/$_bfid" "$_sb1b/scripts/tests" "$_sb1b/src"
+printf '# spec\n' > "$_sb1b/.specops/$_bfid/spec.md"   # 정식 FID(명세 있음) — 명세가 없으면 quick 경로 판정을 받는다(test-quick-fix.sh)
 printf '<!-- active-fid: %s -->\n## %s\n- 2026-01-01 10:00 /implement DONE (T1)\n' "$_bfid" "$_bfid" \
   > "$_sb1b/.specops/session-progress.md"
 printf 'echo ok\n' > "$_sb1b/scripts/tests/test-foo.sh"; chmod +x "$_sb1b/scripts/tests/test-foo.sh"

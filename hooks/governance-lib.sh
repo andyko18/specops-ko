@@ -8,6 +8,7 @@ _GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
+_QUICK_SCOPE_SH="$_GOV_LIB_DIR/../scripts/_internal/quick-scope.sh"
 # 파일 분류 단일 SoT (20260912-verify-stale-docs-scope) — 면제 판정과 무효화 판정이 같은 기준을 쓴다.
 #   부재 시 fail-safe: 전건 비문서(코드) 취급 = 면제 축소·지문 확대. 무음으로 두지 않고 stderr 로 알린다
 #   (v1.88.0 이 고친 "강제층이 조용히 사라지는 경로" 계열).
@@ -1214,12 +1215,20 @@ apply_lookback_rule() {
   if [ "$rule_id" = "R-1" ]; then
     local _rfid _rtask _rrc
     _rfid="$_efid"          # 위에서 1회 구한 값 재사용 (detect_fid 중복 호출 제거)
-    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && _receipt_window_open "$_rfid"; then
+    # ★ quick 구조(명세 없음 — 20261010-quick-fix-path)는 verify 상태와 무관하게 이 가지를 탄다. 창 조건만 보면
+    #   quick FID 도 러너가 PASS 를 내는 순간 창이 닫혀, 범위·리뷰 판정(check-task-receipt 의 quick 절)이 불리지 않은 채
+    #   아래 자기보고 면제로 열렸다(코드 리뷰 실측). 정식 FID(명세 있음)의 창 조건은 그대로다.
+    if [ -n "$_rfid" ] && [ -f ".specops/$_rfid/tasks.md" ] && { _quick_structure "$_rfid" || _receipt_window_open "$_rfid"; }; then
       _rtask=$(_infer_commit_task "$tool_cmd")
       _rrc=2
       if [ -n "$_rtask" ] && [ -f "$_CHECK_TASK_RECEIPT_SH" ]; then
         bash "$_CHECK_TASK_RECEIPT_SH" "$_rfid" "$_rtask" >/dev/null 2>&1
         _rrc=$?
+      fi
+      # quick 구조의 커밋은 스테이징된 것만 커밋하는 명령이어야 한다 — 판정기는 스테이징을 보는데 `-a`·경로 인자는
+      #   그 밖의 변경을 함께 커밋한다(코드 리뷰 실측). 정식 FID 는 종전 그대로다(새 return 을 두지 않고 rc 로 흘린다).
+      if [ "$_rrc" -eq 0 ] && _quick_structure "$_rfid"; then
+        _commit_scope_is_staged "$tool_cmd" || _rrc=5
       fi
       if [ "$_rrc" -eq 0 ]; then
         return 0
@@ -1707,6 +1716,13 @@ _tasks_has_id() {
 #   receipt rc=1(무효)은 open-invalid 우선. 그 밖의 실패·판정불가는 전부 종전 open-missing.
 _receipt_cause() {
   local rrc="${1:-2}" cmd="${2:-}" rtask="${3:-}" rfid="${4:-}" decl hid_rc=0
+  # quick 경로(명세 없는 FID)의 영수증 검사 결과 — 영수증 자체는 유효한데 범위·리뷰가 걸렸다 (20261010-quick-fix-path).
+  #   "무효" 로 뭉개면 "staged 를 확인하라" 는 거짓 안내가 나간다.
+  case "$rrc" in
+    3) printf 'quick-over'; return 0 ;;
+    4) printf 'quick-noreview'; return 0 ;;
+    5) printf 'quick-unstaged'; return 0 ;;
+  esac
   if [ "$rrc" -eq 1 ] 2>/dev/null; then
     printf 'open-invalid'; return 0
   fi
@@ -1722,12 +1738,47 @@ _receipt_cause() {
   fi
   printf 'open-missing'
 }
+# quick 구조 — 명세(spec.md)가 없는 FID. tasks.md 존재를 이미 확인한 자리(R-1 영수증 가지)에서만 부른다.
+_quick_structure() { [ ! -f ".specops/${1:-}/spec.md" ]; }
 # pretool deny 안내의 receipt 원인 문안 — $1=cause 코드 $2=tool_cmd. 알 수 없는 cause(n/a 등)는 빈 출력.
 #   pretool 의 `*)` case 한 줄이 부른다 — 문안 본체를 여기(파일 끝)에 두어 pretool·lib 의 줄번호 핀을 보존한다.
 #   ★ 실제로 일어난 일만 말한다(거짓 원인 → 재시도 낭비·BYPASS): 절단은 선언이 해석 id 로 **시작**할 때만이다.
 #     `Task: fix …` + 산문 `(T1)` 처럼 해석 id 가 산문 fallback 에서 왔으면 절단이 아니다.
 _receipt_hint_extra() {
-  local cause="${1:-}" cmd="${2:-}" decl infer
+  local cause="${1:-}" cmd="${2:-}" hfid="${3:-}" decl infer why
+  # quick 경로 — 판정기에게 어느 기준에 걸렸는지 다시 묻는다(거부 경로에서만 1회 더 돈다). $3=FID.
+  case "$cause" in
+    quick-unstaged)
+      printf '%s' "
+▶ quick 커밋 범위 — 이 명령이 스테이징된 것만 커밋하는지 확인할 수 없습니다(\`-a\`·\`--all\`·경로 인자·다른 명령과 묶음·명령 치환).
+   quick 경로의 범위·리뷰 판정은 스테이징된 변경을 봅니다. 커밋할 파일만 git add 한 뒤(별도 호출)
+   \`git commit -m …\` 만 따로 실행하세요. 여러 줄 메시지는 \`git commit -F - <<'EOF'\` 형태로 씁니다
+   (메시지를 명령 치환으로 넣는 \`-m \"\$(cat <<'EOF' …)\"\` 형태는 막힙니다)."
+      return 0 ;;
+    quick-over|quick-noreview)
+      infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)
+      why=$(bash "$_QUICK_SCOPE_SH" "$hfid" "${infer:-T1}" --explain 2>/dev/null | head -1)
+      case "$cause:$why" in
+        quick-over:"판정 불가"*)
+          # 판정기가 판정하지 못했다(막는 쪽) — 범위를 넘었다고 말하지 않고 /maintain-lite 로 보내지 않는다
+          printf '%s' "
+▶ quick 판정 불가 — ${why#판정 불가 — }.
+   범위를 넘은 것이 아니라 판정 자체를 하지 못했습니다 — 판정할 수 없으면 막습니다.
+   위 원인을 고친 뒤 영수증을 다시 남기고(quick-fix.sh seal) 커밋하세요." ;;
+        quick-over:*)
+          printf '%s' "
+▶ quick 범위 초과 — ${why:-사유 조회 실패}.
+   이 FID 는 명세 없이 태스크 문서만 있는 quick 경로입니다. quick 은 작고(구현 파일 수·변경 줄 수 상한 — 테스트·문서 제외)
+   고위험 신호(인증·마이그레이션·스키마·공개 API·화면/인터페이스 문서)가 없는 수정만 받습니다.
+   이 수정은 /maintain-lite <설명> 으로 진행하세요 — 고친 내용은 작업 트리에 그대로 남습니다." ;;
+        *)
+          printf '%s' "
+▶ quick 리뷰 미충족 — ${why:-사유 조회 실패}.
+   code-reviewer-ko 를 'quick 경로: yes' 로 1회 호출해 통과 판정을 받으세요(보고서: .specops/${hfid:-<FID>}/reviews/${infer:-T1}-C-report.md).
+   리뷰 뒤에 코드를 다시 고쳤으면 리뷰도 다시 받아야 합니다. 그다음 영수증을 다시 남기고(quick-fix.sh seal) 커밋하세요." ;;
+      esac
+      return 0 ;;
+  esac
   [ "$cause" = "open-id-mismatch" ] || return 0
   decl=$(_declared_task_token "$cmd" 2>/dev/null || true)
   infer=$(_infer_commit_task "$cmd" 2>/dev/null || true)

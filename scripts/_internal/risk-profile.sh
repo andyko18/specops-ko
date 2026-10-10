@@ -467,6 +467,9 @@ rp::show() {
   jq -r '"\(.effective) (computed=\(.computed), mode=\(.mode))"' "$state"
 }
 
+# source 해서 함수만 쓰는 호출자(quick-scope.sh — rp::detect_strict_signals)는 여기서 돌아간다. 직접 실행이면 그대로 진행한다.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
 action="${1:-}"; fid="${2:-}"
 case "$action" in
   compute)
