@@ -264,7 +264,7 @@ bash scripts/_internal/verification-state.sh current <FID>
 bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --failed 0
 ```
 
-`run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
+`run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 비교할 지문(`nondoc_hash`·`tree_hash`)이 하나도 없는 PASS 기록은 조회 시 `STALE`로 계산됩니다(러너가 쓴 기록에는 항상 지문이 있습니다 — 손으로 쓴 기록은 지금 코드와 같은지 확인할 수 없습니다. `NO_GIT`으로 적힌 기록은 종전대로입니다). 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
 
 ## risk-profile.sh — 위험 프로파일 limited-live 분류 (P1)
 

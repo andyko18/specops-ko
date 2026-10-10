@@ -177,6 +177,7 @@ vs::current() {
   # PASS 이후 변경 판정 — 문서 전용 변경은 무효화하지 않는다 (20260912-verify-stale-docs-scope).
   #   nondoc_hash 가 있으면 그것으로 비교하고, 없으면(구버전 기록) 종전 전체 지문 비교로 떨어진다.
   #   부재 시 방향은 **더 엄격한 쪽**이라 fail-safe 다 — 기존 기록이 갑자기 느슨해지지 않는다.
+  #   둘 다 없으면(20261010-hashless-pass-stale) 일치를 확인할 수단이 없으므로 STALE 이다 — 아래 비교가 빈 값을 "다르다" 로 본다.
   if [ "$verdict" = "PASS" ]; then
     recorded_hash=$(jq -r '.nondoc_hash // ""' "$state" 2>/dev/null)
     if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ]; then
@@ -190,7 +191,12 @@ vs::current() {
       printf 'STALE'
       return 0
     fi
-    if [ -n "$recorded_hash" ] && [ "$recorded_hash" != "NO_GIT" ] && [ "$recorded_hash" != "$current_hash" ]; then
+    # 기록에 비교할 지문이 없다 — 지금 트리와 같은지 확인할 수 없는 PASS 는 유효 PASS 가 아니다.
+    #   record 는 지문을 항상 쓰므로 이 상태는 손으로 쓴(또는 깨진) 기록에서만 나온다. 종전에는 빈 값이 "비교 생략" 으로 흘러
+    #   그런 기록이 영영 STALE 이 되지 않았고, 같은 기록을 stale-scope 는 `changed`(막는 쪽)로 읽어 두 조회의 방향이 갈렸다.
+    #   NO_GIT 은 다르다: git 이 없는 프로젝트는 비교할 수단 자체가 없어 종전대로 STALE 을 만들지 않는다.
+    #   그래서 이 비교에는 "기록이 비어 있지 않을 때만" 이라는 조건을 두지 않는다 — 빈 값은 어떤 지문과도 다르다.
+    if [ "$recorded_hash" != "NO_GIT" ] && [ "$recorded_hash" != "$current_hash" ]; then
       printf 'STALE'
       return 0
     fi

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **지문이 없는 검증 PASS 기록은 `STALE` 로 읽는다** (`scripts/_internal/verification-state.sh current`). 기록에 비교할 지문(`nondoc_hash`·`tree_hash`)이 하나도 없으면 지금 코드와 같은지 확인할 수단이 없는데, 종전에는 빈 값이 "비교 생략" 으로 흘러 그런 기록이 **영영 STALE 이 되지 않았다**. 같은 기록을 `stale-scope` 는 이미 막는 쪽(`changed`)으로 읽어 두 조회의 방향이 갈려 있었다. 러너(`run-verification.sh` → `record`)가 쓴 기록에는 항상 지문이 있으므로 정상 흐름은 달라지지 않는다 — 달라지는 것은 손으로 쓴(또는 깨진) 기록이다. 하류 9곳을 훑어 기록이 있는 3곳의 88건 중 1건이 해당했다(시각·소요가 딱 떨어지는 값의 기록). 그 FID 는 갱신 뒤 `STALE` 로 보이고, 러너를 다시 돌리면 풀린다. `NO_GIT` 으로 적힌 기록(git 없이 검증한 프로젝트)과 기록 파일이 아예 없는 FID 는 종전대로다. R-1 거부 문안은 이 경우를 한 줄 덧붙여 말한다. 우회를 막는 변경은 아니다 — `record` 를 다시 부르면 지금 지문으로 PASS 가 써지고, 커밋을 여는 조건은 여전히 transcript 의 러너 실행 증거다(transcript 를 읽을 수 있을 때 — 읽을 수 없으면 종전대로 fail-open).
+
 ## [2.18.0] — 2026-10-10
 
 ### Changed

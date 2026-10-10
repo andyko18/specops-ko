@@ -595,23 +595,56 @@ fi
 rm -rf "$_s20" "$_s20u" "$_s20n" "$_s20d"
 
 # ── S21 변이 생존 2건 (20261010-mutation-survivors-rest) ─────────────────────
-# S21.a STALE 판정의 `[ -n recorded ]` 가드 — 지문 필드가 하나도 없는 PASS 기록은 비교할 것이 없어 PASS 로 읽는다.
-#   가드를 풀면(&&→||) 빈 값이 현재 지문과 "다르다" 가 되어 그런 기록이 전부 STALE 로 뒤집힌다.
-#   ※ **지금 값을 잠그는 단언이다 — 이 방향이 옳다는 뜻이 아니다.** record 는 첫 버전부터 tree_hash 를 항상 쓰므로
-#     이 상태는 손으로 쓴(또는 깨진) 기록에서만 나온다. 그리고 같은 입력을 stale-scope 는 `changed`(막는 쪽)로 읽는다(S20.i3) —
-#     `current` 만 느슨한 쪽이다. "지문 없는 PASS 는 STALE" 로 조이기로 하면 이 단언을 뒤집는다.
+# S21.a 지문 필드가 하나도 없는 PASS 기록은 STALE 이다 (20261010-hashless-pass-stale).
+#   지금 트리와 같은지 확인할 수단이 없는 PASS 는 유효 PASS 가 아니다. record 는 지문을 항상 쓰므로 이 상태는 손으로 쓴
+#   (또는 깨진) 기록에서만 나온다 — 종전에는 빈 값이 "비교 생략" 으로 흘러 그런 기록이 영영 STALE 이 되지 않았다
+#   (하류 실측 88건 중 1건). 같은 기록을 stale-scope 는 이미 `changed` 로 읽었다(S20.i3) — 두 조회의 방향을 맞춘다.
 _s21=$(mktemp -d) || exit 1
 ( cd "$_s21" && git init -q && printf 'echo x\n' > a.sh && git add a.sh \
     && git -c user.name=t -c user.email=t@e.com commit -qm init ) >/dev/null 2>&1
 mkdir -p "$_s21/.specops/20261010-nohash"
-printf '{"verdict":"PASS"}\n' > "$_s21/.specops/20261010-nohash/verification-state.json"
+_s21j="$_s21/.specops/20261010-nohash/verification-state.json"
+printf '{"verdict":"PASS"}\n' > "$_s21j"
 out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
-[ "$out" = "PASS" ] && ok "S21.a 지문 필드 없는 PASS 기록 → PASS (STALE 아님)" || nope "S21.a" "out=$out"
-# 대조 — 지문이 있고 다르면 STALE (가드가 판정 전체를 끄지 않는다)
-printf '{"verdict":"PASS","tree_hash":"0000000000000000000000000000000000000000"}\n' \
-  > "$_s21/.specops/20261010-nohash/verification-state.json"
+[ "$out" = "STALE" ] && ok "S21.a ★ 지문 필드 없는 PASS 기록 → STALE" || nope "S21.a" "out=$out"
+# 빈 문자열로 적힌 지문도 같다 (필드는 있는데 값이 빈 경우)
+printf '{"verdict":"PASS","nondoc_hash":"","tree_hash":""}\n' > "$_s21j"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "STALE" ] && ok "S21.a1 빈 문자열 지문 → STALE" || nope "S21.a1" "out=$out"
+# 두 조회가 같은 방향이다 — current 는 STALE, stale-scope 는 changed (막는 쪽)
+out=$(cd "$_s21" && bash "$STATE" stale-scope 20261010-nohash)
+[ "$out" = "changed" ] && ok "S21.a2 같은 기록의 stale-scope → changed (current 와 같은 방향)" || nope "S21.a2" "out=$out"
+# PASS 가 아닌 판정은 지문이 없어도 그대로다 — 가드는 PASS 에만 걸린다
+printf '{"verdict":"FAIL"}\n' > "$_s21j"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "FAIL" ] && ok "S21.a3 지문 없는 FAIL 기록 → FAIL (PASS 한정)" || nope "S21.a3" "out=$out"
+# 대조 — 지문이 있고 다르면 STALE, 같으면 PASS (구버전 기록: nondoc 없이 tree_hash 만)
+printf '{"verdict":"PASS","tree_hash":"0000000000000000000000000000000000000000"}\n' > "$_s21j"
 out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
 [ "$out" = "STALE" ] && ok "S21.a0 대조 — 다른 지문이 적힌 기록 → STALE" || nope "S21.a0" "out=$out"
+_s21t=$( cd "$_s21" && . "$STATE" && vs::workspace_fingerprint )
+printf '{"verdict":"PASS","tree_hash":"%s"}\n' "$_s21t" > "$_s21j"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "PASS" ] && ok "S21.a4 대조 — tree_hash 만 있고 지금 트리와 같다 → PASS (구버전 기록은 그대로 읽힌다)" || nope "S21.a4" "out=$out tree=$_s21t"
+
+# S21.c NO_GIT 으로 적힌 기록은 git 저장소 안에서도 STALE 을 만들지 않는다 — "비교 수단 없음" 은 "지문 없음" 과 다르다.
+#   git 없이 검증한 프로젝트를 위한 면제다. 이 단언이 없으면 `[ != NO_GIT ] && [ != 현재 지문 ]` 의 결합을 풀어도 아무도 울지 않는다.
+printf '{"verdict":"PASS","nondoc_hash":"NO_GIT","tree_hash":"NO_GIT"}\n' > "$_s21j"
+out=$(cd "$_s21" && bash "$STATE" current 20261010-nohash)
+[ "$out" = "PASS" ] && ok "S21.c NO_GIT 기록 → PASS (git 저장소 안에서도)" || nope "S21.c" "out=$out"
+
+# S21.d git 이 없는 프로젝트 — 러너가 쓴 기록(NO_GIT)은 종전대로 PASS, 손으로 쓴 지문 없는 기록은 여기서도 STALE.
+#   ★ GIT_CEILING_DIRECTORIES: 임시 디렉토리의 상위에 저장소가 있으면 git 이 그것을 찾아 "git 없음" 픽스처가 성립하지 않는다.
+_s21n=$(mktemp -d) || exit 1
+mkdir -p "$_s21n/.specops/20261010-nogit"
+( cd "$_s21n" && GIT_CEILING_DIRECTORIES="$_s21n" bash "$STATE" record 20261010-nogit PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+_s21r=$(jq -r '.tree_hash' "$_s21n/.specops/20261010-nogit/verification-state.json" 2>/dev/null)
+out=$(cd "$_s21n" && GIT_CEILING_DIRECTORIES="$_s21n" bash "$STATE" current 20261010-nogit)
+[ "$_s21r" = "NO_GIT" ] && [ "$out" = "PASS" ] && ok "S21.d git 없는 프로젝트의 러너 기록(NO_GIT) → PASS" || nope "S21.d" "tree_hash=$_s21r out=$out"
+printf '{"verdict":"PASS"}\n' > "$_s21n/.specops/20261010-nogit/verification-state.json"
+out=$(cd "$_s21n" && GIT_CEILING_DIRECTORIES="$_s21n" bash "$STATE" current 20261010-nogit)
+[ "$out" = "STALE" ] && ok "S21.d2 git 없는 프로젝트에서도 지문 없는 PASS 기록 → STALE" || nope "S21.d2" "out=$out"
+rm -rf "$_s21n"
 
 # S21.b WAIVED 필수 3필드는 **하나만 빠져도** 거부한다 — S4 는 "전부 부재" 만 봤다.
 #   필수 3필드 결합(`[ -n reason ] && [ -n approved-by ] && …`)을 잠그는 것은 reason·approved-by 누락 두 조합이다.
