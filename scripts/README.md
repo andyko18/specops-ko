@@ -288,10 +288,21 @@ verify(`verification-state` PASS) · review-audit · security/integration/perfor
 
 ```bash
 bash scripts/_internal/record-task-receipt.sh <FID> <task-id>   # test_command PASS 시 receipt 기록
-bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=무효 · 2=부재
+bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=무효 · 2=부재 · 3=quick 범위 초과 · 4=quick 리뷰 미충족
 ```
 
 `.specops/<FID>/receipts/<task>.json`에 `tree_hash`·`outputs`·`test_command_hash`를 저장합니다. R-1은 receipt가 유효하고 staged ⊆ outputs이며 커밋 메시지에 `T#`가 있으면 FID 전체 verify 없이 커밋을 허용합니다. R-2(PR)는 receipt로 열리지 않습니다. receipt 부재 FID는 기존 implement/verify 면제 경로를 유지합니다.
+
+## quick-fix.sh / quick-scope.sh — `/quick-fix` 경로 (명세 없는 1-태스크 FID)
+
+```bash
+bash scripts/quick-fix.sh start <FID> "<한 줄 설명>"     # FID 폴더·진행 기록(기본 브랜치 위면 브랜치도)
+bash scripts/quick-fix.sh seal  <FID> "<test_command>"   # 태스크 문서 생성 + 범위·리뷰 판정 + 테스트 실행 + receipt (3=범위 초과 · 4=리뷰 미충족)
+bash scripts/quick-fix.sh done  <FID> "<한 줄 요약>"     # 커밋 뒤 종결 기록 + freelog 1줄
+bash scripts/_internal/quick-scope.sh <FID> [<task-id>] [--explain]   # 판정기 단독 실행 (0=통과 · 3=범위 초과 · 4=리뷰 미충족)
+```
+
+태스크 문서는 있고 명세(`spec.md`)가 없는 FID 가 quick 경로입니다. 위 receipt 게이트를 그대로 쓰되 `check-task-receipt.sh` 가 판정기를 불러 **스테이징된 변경의 범위**(구현 파일 수 · 변경 줄 수 · 고위험 신호 — 테스트·문서 제외)와 **코드 리뷰 보고서**(`reviews/<task>-C-report.md` 의 마지막 판정이 통과이고 마지막 수정보다 새것)를 함께 요구합니다. 상한 수치는 `quick-scope.sh` 머리의 상수 2개가 유일한 정의입니다. 강제는 훅이 합니다 — `seal` 의 판정은 이른 안내이고, 건너뛰어 receipt 를 직접 만들어도 커밋에서 걸립니다. 범위를 넘으면 `/maintain-lite` 로 갑니다.
 
 ## record-metric.sh — 비용·수율 메타데이터 기록
 

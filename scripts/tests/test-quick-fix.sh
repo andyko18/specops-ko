@@ -201,6 +201,69 @@ h=$(cd "$sb" && . "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_hi
 printf '%s' "$h" | grep -q 'quick 판정 불가 — 스테이징된 변경이 없다' && ! printf '%s' "$h" | grep -qE '범위 초과|/maintain-lite' \
   && ok "H4.b 판정 불가는 범위 초과로 말하지 않는다(원인 그대로 · /maintain-lite 안내 없음)" || nope "H4.b" "$(printf '%s' "$h" | head -3)"
 
+# ── S1 start 의 가드 ────────────────────────────────────────────────────────
+QF="$PLUGIN/scripts/quick-fix.sh"
+sb=$(mktemp -d); _SBS="$_SBS $sb"; ( cd "$sb" && git init -q ) >/dev/null 2>&1
+out=$(cd "$sb" && bash "$QF" start "$F" "x" 2>&1); rc=$?
+[ "$rc" = 1 ] && [ ! -e "$sb/.specops" ] && ok "S1.a .specops 가 없는 저장소 → 거부, .specops 를 만들지 않는다(관할 편입 금지)" || nope "S1.a" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"; printf '# spec\n' > "$sb/.specops/$F/spec.md"
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '명세(spec.md)가 있다' && ok "S1.b 명세가 있는 FID → 거부(정식 경로의 FID 를 덮어쓰지 않는다)" || nope "S1.b" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && git checkout -q -b main ) >/dev/null 2>&1
+( cd "$sb" && bash "$QF" start "$F" "기본 브랜치에서" ) >/dev/null 2>&1
+[ "$(cd "$sb" && git symbolic-ref --short HEAD)" = "feat/$F" ] && ok "S1.c 기본 브랜치(main) 위에서 start → 브랜치 feat/<FID> 생성" \
+  || nope "S1.c" "branch=$(cd "$sb" && git symbolic-ref --short HEAD)"
+out=$(cd "$sb" && bash "$QF" seal "$F" 'bash tests/t.sh "x"' 2>&1); rc=$?
+[ "$rc" = 1 ] && ok "S1.d test_command 의 따옴표 → 거부(태스크 문서의 YAML 을 깨뜨린다)" || nope "S1.d" "rc=$rc out=$out"
+
+# ── S2 종단 — start → 수정 → 리뷰 → seal → 커밋 → done (AC-1 · AC-6) ────────
+sb=$(_mk); _SBS="$_SBS $sb"
+out=$(cd "$sb" && bash "$QF" start "$F" "a.sh 값 수정" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -d "$sb/.specops/$F" ] && grep -q "## $F" "$sb/.specops/session-progress.md" \
+  && [ "$(cd "$sb" && git symbolic-ref --short HEAD)" = "work" ] \
+  && ok "S2.a start — FID 폴더·진행 기록 생성, 작업 브랜치 위면 브랜치를 바꾸지 않는다" || nope "S2.a" "rc=$rc out=$out"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && git add src/a.sh ); _review "$sb" PASS
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -f "$sb/.specops/$F/tasks.md" ] && [ -f "$sb/.specops/$F/receipts/T1.json" ] \
+  && printf '%s' "$out" | grep -q 'QUICK-FIX: SEALED' \
+  && ok "S2.b seal — 태스크 문서·영수증 생성(테스트 실제 실행)" || nope "S2.b" "rc=$rc out=$out"
+v=$(_hook "$sb" "$MSG")
+[ "$v" = "ALLOW" ] && ok "S2.c ★ 봉인 뒤 'Task: T1' 커밋 → 훅 통과" || nope "S2.c" "$(printf '%s' "$v" | head -3)"
+n=$(cd "$sb/.specops/$F" && find . -type f | wc -l | tr -d ' ')
+docs=$(cd "$sb/.specops/$F" && ls spec.md acceptance-criteria.md plan.md evidence.md intent.md 2>/dev/null | wc -l | tr -d ' ')
+[ "$n" -le 3 ] && [ "$docs" = 0 ] && ok "S2.d FID 폴더의 파일 ${n}개(태스크 문서·영수증·리뷰 보고서) — 명세·수용 기준·계획·증거 문서 없음" \
+  || nope "S2.d" "files=$n docs=$docs: $(cd "$sb/.specops/$F" && find . -type f | tr '\n' ' ')"
+( cd "$sb" && git -c user.name=t -c user.email=t@e.com commit -qm "fix: a (Task: T1)" ) >/dev/null 2>&1
+out=$(cd "$sb" && bash "$QF" done "$F" "a.sh 값 v2 로" 2>&1); rc=$?
+rec=$(cd "$sb" && SPECOPS_ROOT="$sb/.specops" bash "$PLUGIN/scripts/_internal/reconcile-check.sh" "$F" --hook 2>&1)
+[ "$rc" = 0 ] && grep -q '/lifecycle DONE' "$sb/.specops/session-progress.md" \
+  && grep -qE "^- [0-9]{2}:[0-9]{2} \[fix\] \($F\) src/a.sh — a.sh 값 v2 로$" "$sb/.specops/freelog.md" && [ -z "$rec" ] \
+  && ok "S2.e done — 종결 줄 + 자유작업 로그 1줄, 진행 대조에 DESYNC 없음 (AC-6)" || nope "S2.e" "rc=$rc out=$out rec=$rec"
+
+# 한글 파일명도 봉인 → 커밋이 열린다 (태스크 문서의 outputs 와 훅이 보는 스테이징 목록이 같은 표기여야 한다)
+sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "한글 파일" ) >/dev/null 2>&1
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && printf 'echo k\n' > src/한글.sh && git add src ); _review "$sb" PASS
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?; v=$(_hook "$sb" "$MSG")
+[ "$rc" = 0 ] && [ "$v" = "ALLOW" ] && ok "S2.f 한글 파일명 — 봉인 뒤 커밋 통과" || nope "S2.f" "rc=$rc out=$out v=$(printf '%s' "$v" | tail -3)"
+
+# ── S3 봉인 거부 — 범위 초과 · 리뷰 없음 · 테스트 실패 (AC-2 · AC-3 · AC-4) ──
+sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "큰 수정" ) >/dev/null 2>&1
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src ); _review "$sb" PASS
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+[ "$rc" = 3 ] && [ ! -f "$sb/.specops/$F/tasks.md" ] && [ ! -d "$sb/.specops/$F/receipts" ] \
+  && printf '%s' "$out" | grep -q '/maintain-lite' \
+  && ok "S3.a seal — 범위 초과면 rc 3, 아무것도 쓰지 않고 /maintain-lite 를 안내" || nope "S3.a" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "리뷰 없이" ) >/dev/null 2>&1
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && git add src/a.sh )
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+[ "$rc" = 4 ] && [ ! -f "$sb/.specops/$F/tasks.md" ] && ok "S3.b seal — 리뷰 없으면 rc 4, 아무것도 쓰지 않는다" || nope "S3.b" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "테스트 실패" ) >/dev/null 2>&1
+( cd "$sb" && printf 'echo v3\n' > src/a.sh && git add src/a.sh ); _review "$sb" PASS      # tests/t.sh 는 v2 를 찾는다 → 실패
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+v=$(_hook "$sb" "$MSG")
+[ "$rc" = 1 ] && [ ! -f "$sb/.specops/$F/receipts/T1.json" ] && printf '%s' "$v" | grep -q '^DENY' \
+  && ok "S3.c 테스트 실패 → 봉인 실패(rc 1), 영수증 없음, 커밋 차단 (AC-4)" || nope "S3.c" "rc=$rc out=$out v=$(printf '%s' "$v" | head -1)"
+
 # shellcheck disable=SC2086
 rm -rf $_SBS
 echo ""
