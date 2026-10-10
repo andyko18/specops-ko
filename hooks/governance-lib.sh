@@ -1302,8 +1302,8 @@ apply_lookback_rule() {
 # 반환: 0=열림(NOT_RUN|PARTIAL|FAIL) · 1=닫힘(PASS|STALE|WAIVED·판정불가 — 보수)
 # 부수효과: $_VS_VERDICT_CACHE(+_FID)를 채워 같은 호출의 _verify_evidence_stamp 가 재사용한다(FR-7).
 #   NFR-6: verdict/tree_hash 판정을 여기 복제하지 않는다 — verification-state.sh 가 SoT.
-# 배치 주의: 이 블록은 apply_lookback_rule **뒤**에 있어야 한다. 앞으로 옮기면
-#   mutation-equivalent.conf 의 절대 라인핀 1077·1084 가 밀려 등가변이 제외가 무음 사망한다.
+# 배치 메모: 이 블록이 apply_lookback_rule **뒤**에 있는 것은 mutation-equivalent.conf 가 절대 줄번호 키였던 때의
+#   제약이다. 20261010 부터 키가 함수+줄 원문이라 옮겨도 등가 제외가 어긋나지 않는다(위치는 그대로 뒀다).
 _receipt_window_open() {
   local fid="$1" verdict
   [ -n "$fid" ] || return 1
@@ -1682,9 +1682,9 @@ apply_gbrain_absence_rule() {
 }
 
 # ── R-1 receipt 원인 진단 (20261001-task-id-guard) — 진단 전용, deny/허용 판정 불변 ──
-# ★ 이 헬퍼들은 **파일 끝**에 둔다. mutation-equivalent.conf 가 이 파일을 절대 줄번호로 핀하므로
-#   앞쪽에 줄을 넣으면 핀이 밀려 등가변이 제외가 무음으로 엉뚱한 가드에 붙는다. 함수는 source 시
-#   정의만 되고 런타임에 호출되므로 정의 위치는 동작과 무관하다.
+# ★ 이 헬퍼들이 **파일 끝**에 있는 것은 mutation-equivalent.conf 가 이 파일을 절대 줄번호로 핀하던 때의 제약이다
+#   (앞쪽에 줄을 넣으면 핀이 밀려 등가변이 제외가 무음으로 엉뚱한 가드에 붙었다). 20261010 부터 키가 함수+줄 원문이라
+#   그 제약은 없다. 함수는 source 시 정의만 되고 런타임에 호출되므로 정의 위치는 동작과 무관하다.
 
 # 커밋 명령에서 `Task:` 뒤 선언 토큰 전체 — `_infer_commit_task` 는 T숫자 로 자르므로(T1a→T1)
 #   잘리기 전 원문을 본다. 마침표는 토큰에서 제외(`T12.`). 없으면 빈 문자열. 진단 전용.
