@@ -888,7 +888,9 @@ done
 [ "$_pa_ok" -eq 3 ]
 _mut_ok "T-pipe.a ★ 인용 메시지 + 줄 연속 커밋도 꺼진 훅의 기록에 남는다 (3/3)" $? "기록된 횟수=$_pa_ok/3"
 #   b: 규칙 적용 — 커밋 뒤에 여러 줄이 파이프 버퍼보다 크게 붙은 명령(heredoc 아님). 사전 차단·사후 감사가 같이 쓰는 자리다.
-_pb_big=$(_pb_i=0; while [ "$_pb_i" -lt 4000 ]; do echo "echo line-$_pb_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _pb_i=$((_pb_i+1)); done)
+#   크기는 약 103KB 로 둔다: 파이프 버퍼(64KB)보다 커야 재현되고, Linux 가 exec 인자 1개에 두는 한도(131072바이트)보다는
+#   작아야 한다 — 이 문자열이 jq --arg 의 인자로 넘어간다(넘으면 입력이 만들어지지 않아 CI 의 ubuntu 에서만 거짓 결과가 난다).
+_pb_big=$(_pb_i=0; while [ "$_pb_i" -lt 2000 ]; do echo "echo line-$_pb_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _pb_i=$((_pb_i+1)); done)
 _pb=$(mktemp -d)
 _pb_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
 _pb_o=$( set -uo pipefail; cd "$_pb" && source "$PLUGIN/hooks/governance-lib.sh" \
