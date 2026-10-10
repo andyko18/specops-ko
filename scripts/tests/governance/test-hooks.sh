@@ -313,7 +313,9 @@ cd "$PLUGIN"; rm -rf "$tmp"
 # T8.l ★ 사후 감사도 같은 형태를 커밋으로 알아본다 (20261010-hook-sigpipe-test-eval)
 #   왜: 규칙 적용 자리(lib 의 apply_lookback_rule)가 일치를 `printf … | grep -q` 로 읽어, 커밋 뒤에 큰 여러 줄이 붙으면
 #   grep 이 먼저 끝나 앞단이 SIGPIPE 로 죽고 "트리거 불일치" 가 됐다 — 감사 기록이 빠졌다(훅은 `set -uo pipefail`).
-_l_big=$(_l_i=0; while [ "$_l_i" -lt 4000 ]; do echo "echo line-$_l_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _l_i=$((_l_i+1)); done)
+#   크기는 약 103KB 로 둔다: 파이프 버퍼(64KB)보다 커야 재현되고, Linux 가 exec 인자 1개에 두는 한도(131072바이트)보다는
+#   작아야 한다 — 이 문자열이 jq --arg 의 인자로 넘어간다(넘으면 입력이 만들어지지 않아 CI 의 ubuntu 에서만 거짓 결과가 난다).
+_l_big=$(_l_i=0; while [ "$_l_i" -lt 2000 ]; do echo "echo line-$_l_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _l_i=$((_l_i+1)); done)
 _l_bad=""
 for _l_case in big cont; do
   tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
