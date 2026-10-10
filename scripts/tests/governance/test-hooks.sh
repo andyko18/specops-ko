@@ -345,7 +345,7 @@ _pipe_grep_q_hits() {  # <파일…> → 걸린 줄마다 "  디렉토리/파일
       n = split(FILENAME, p, "/"); printf "  %s:%d: %s\n", p[n-1] "/" p[n], FNR, $0
     }' "$@" 2>/dev/null
 }
-_m_hits=$(_pipe_grep_q_hits "$PLUGIN/hooks/governance-lib.sh" "$PLUGIN/hooks/pretool-governance.sh" "$PLUGIN/hooks/posttool-governance.sh")
+_m_hits=$(_pipe_grep_q_hits "$PLUGIN"/hooks/*.sh "$PLUGIN/scripts/_internal/file-class.sh")   # 훅 전부 + 훅이 source 하는 파일(같은 pipefail 아래서 돈다)
 if [ -z "$_m_hits" ]; then
   PASS=$((PASS+1)); echo "PASS T8.m ★ 훅에 파이프 뒤 grep -q 없음"
 else

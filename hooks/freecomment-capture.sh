@@ -44,7 +44,7 @@ real_files=()
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   rel="${f#"$cwd"/}"                       # 절대경로면 cwd 제거 → repo-상대
-  if printf '%s\n' "$changed" | grep -qxF "$rel"; then   # -x 전체줄 정확매칭
+  if grep -qxF "$rel" <<< "$changed"; then   # -x 전체줄 정확매칭
     real_files+=("$rel")
   fi
 done <<< "$edits"

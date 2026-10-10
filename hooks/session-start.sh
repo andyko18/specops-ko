@@ -100,7 +100,7 @@ if [ -n "$progress_block" ]; then
   #   pipefail+set -e 가 훅을 무출력 종료시킨다(plan-reviewer 실측: 병렬 24회 중 2회). T-bud.f 가 정적으로 잠근다.
   first_line=${progress_block%%$'\n'*}
   cur_fid=$(printf '%s' "$first_line" | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/')
-  if printf '%s' "$cur_fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'; then
+  if grep -qE '^[0-9]{8}-[a-z0-9-]+$' <<< "$cur_fid"; then
     recon_out=$(SPECOPS_ROOT="$(pwd)/.specops" bash "${PLUGIN_ROOT}/scripts/_internal/reconcile-check.sh" "$cur_fid" --hook 2>/dev/null || true)
     if [ -n "$recon_out" ]; then
       recon_escaped=$(escape_for_json "$recon_out")
@@ -108,7 +108,7 @@ if [ -n "$progress_block" ]; then
       # `--hook` 은 DESYNC 없이 **완결성 경고만** 반환할 수 있다(정합인데 산출물이 반쪽인 경우).
       # 종전처럼 무조건 "과소보고 중… 재개점부터 진행하라" 로 단언하면 과소보고도 재개점도
       # 미기록 단계도 없는 상태에서 거짓 지시가 매 세션 주입된다(5원칙 1 투명성 위반).
-      if printf '%s' "$recon_out" | grep -qF 'DESYNC'; then
+      if grep -qF 'DESYNC' <<< "$recon_out"; then
         recon_notice="[재개 정확성 힌트 — session-progress 가 실제 진행보다 과소보고 중이다. 아래 재개점부터 진행하고, 미기록 단계는 session-progress-append.sh 로 보정하라.]"
       else
         recon_notice="[산출물 완결성 힌트 — 아래 파일이 쓰다 만 상태일 수 있다(휴리스틱 판정이라 오탐 가능). 재개 전 해당 파일을 확인하라. 재개점 자체는 정상이다.]"
