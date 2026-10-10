@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.20.0] — 2026-10-11
+
 ### Added
 
 - **`/quick-fix` — `/maintain-lite` 보다 작은 수정 경로.** 몇 줄짜리 수정을 분석·명세·수용 기준·계획·증거 문서 없이 끝낸다: 고친다 → 코드 리뷰 1회 → 봉인(`scripts/quick-fix.sh seal` — 테스트를 실제로 돌려 영수증을 남긴다) → `Task: T1` 커밋. 사용자 승인 대기도 PR 게이트도 없다. 대신 **크기 상한이 있고 훅이 막는다** — 구현 파일 2개 · 변경 20줄(테스트·문서 제외) · 고위험 신호(인증 · 마이그레이션·스키마 · 공개 API · 화면/인터페이스 문서 · 플러그인 저장소의 훅·규칙·에이전트·스킬 본문·커맨드) 없음. 넘으면 커밋이 거부되고 사유가 걸린 기준을 말하며 `/maintain-lite` 를 안내한다. "작다" 는 모델이 진입 때 선언하지 않는다 — 커밋 시점에 스테이징된 변경을 판정기(`scripts/_internal/quick-scope.sh`)가 본다. 슬래시 전용이고 무인 변형은 없다.
@@ -3201,7 +3203,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.19.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.0...HEAD
+[2.20.0]: https://github.com/andyko18/specops-ko/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/andyko18/specops-ko/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/andyko18/specops-ko/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/andyko18/specops-ko/compare/v2.16.0...v2.17.0
