@@ -358,6 +358,23 @@ out=$(_scope "$sb"); rc=$?
 [ "$rc" = 3 ] && printf '%s' "$out" | grep -q 'OVER 판정 불가 — 경로를 해석할 수 없다' \
   && ok "R4.e ★ 따옴표가 든 경로 → 판정 불가(막는다) — 신선도·내용 신호를 건너뛰고 통과하지 않는다" || nope "R4.e" "rc=$rc out=$out"
 
+# 플러그인 런타임 신호는 플러그인 저장소에서만이다 — 앱 저장소의 hooks/ 는 그 프로젝트의 코드일 뿐이다(판정기 변이 측정에서 생존)
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+( cd "$sb" && mkdir -p hooks && printf 'echo h\n' > hooks/pre.sh && git add hooks ); _review "$sb" PASS
+out=$(_scope "$sb"); rc=$?
+[ "$rc" = 0 ] && ok "R4.f 플러그인이 아닌 저장소의 hooks/ 변경은 plugin_runtime 신호가 아니다" || nope "R4.f" "rc=$rc out=$out"
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+( cd "$sb" && mkdir -p .claude-plugin && printf '{}\n' > .claude-plugin/plugin.json && git add .claude-plugin \
+    && git -c user.name=t -c user.email=t@e.com commit -qm p && printf 'echo v2\n' > src/a.sh && git add src/a.sh ) >/dev/null 2>&1; _review "$sb" PASS
+out=$(_scope "$sb"); rc=$?
+[ "$rc" = 0 ] && ok "R4.g 플러그인 저장소라도 런타임 경로 밖의 변경은 신호가 아니다" || nope "R4.g" "rc=$rc out=$out"
+# 리뷰 신선도는 스테이징된 파일만 본다 — 저장소 최상위 폴더의 수정 시각(스테이징 밖의 파일 생성)은 무관하다(같은 측정에서 생존)
+sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && git add src/a.sh ); _review "$sb" PASS
+touch -t 202001010000 "$sb/src/a.sh"; touch -t 202101010000 "$sb/.specops/$F/reviews/T1-C-report.md"; : > "$sb/NOTE.tmp"
+out=$(_scope "$sb"); rc=$?
+[ "$rc" = 0 ] && ok "R4.h 스테이징 밖의 변화(최상위 폴더의 수정 시각)는 리뷰 신선도와 무관하다" || nope "R4.h" "rc=$rc out=$out"
+
 # R5 봉인 스크립트의 입력 가드 — 가드만 재도록 다른 가드에 먼저 걸리지 않는 입력으로
 sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
 out=$(cd "$sb" && bash "$QF" seal "$F" 'bash tests/t.sh "x"' 2>&1); rc=$?
