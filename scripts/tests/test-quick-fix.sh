@@ -61,19 +61,32 @@ out=$(_scope "$sb"); rc=$?
   && ok "Q2.e 테스트(tests/ · *_test.go)·문서는 파일 수·줄 수에 넣지 않는다" || nope "Q2.e" "rc=$rc out=$out"
 
 # ── Q3 고위험 신호 — 작아도 quick 이 아니다 (AC-2) ──────────────────────────
-_sig() {  # <라벨> <기대 신호> <준비 명령(샌드박스 안에서 실행)>
-  local s o r; s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
-  ( cd "$s" && eval "$3" ) >/dev/null 2>&1; _review "$s" PASS
+_sig() {  # <라벨> <기대 신호> <준비를 마친 샌드박스> — 준비는 호출부가 한다(명령 문자열을 받아 실행하지 않는다)
+  local s="$3" o r; _review "$s" PASS
   o=$(_scope "$s"); r=$?
   [ "$r" = 3 ] && printf '%s' "$o" | grep -q "OVER 고위험 신호:.*$2" && ok "$1" || nope "$1" "rc=$r out=$o"
 }
-_sig "Q3.a 경로에 auth → 고위험(auth)" 'auth' 'printf "echo x\n" > src/auth.sh && git add src/auth.sh'
-_sig "Q3.b 변경 줄에 ALTER TABLE → 고위험(db_migration)" 'db_migration' 'printf "echo \"ALTER TABLE t ADD c int\"\n" > src/a.sh && git add src/a.sh'
-_sig "Q3.c 화면 문서를 함께 고침 → 고위험(ui_if)" 'ui_if' 'mkdir -p screens && printf "<p>x</p>\n" > screens/list.html && printf "echo v2\n" > src/a.sh && git add screens src/a.sh'
-_sig "Q3.d 플러그인 저장소의 훅 수정 → 고위험(plugin_runtime)" 'plugin_runtime' 'mkdir -p .claude-plugin hooks && printf "{}\n" > .claude-plugin/plugin.json && git add .claude-plugin && git -c user.name=t -c user.email=t@e.com commit -qm p && printf "echo h\n" > hooks/x.sh && git add hooks/x.sh'
-_sig "Q3.g 스키마 정의 파일(schema.prisma)에 필드 한 줄 → 고위험(schema)" 'schema' 'mkdir -p prisma && printf "model U {\n  id Int\n}\n" > prisma/schema.prisma && git add prisma'
-_sig "Q3.h .sql 의 ADD COLUMN(TABLE 키워드 없음) → 고위험(schema)" 'schema' 'mkdir -p db && printf "ADD COLUMN email text;\n" > db/001.sql && git add db'
-_sig "Q3.i 한글 경로의 변경 줄에 ALTER TABLE → 고위험(db_migration) — 비ASCII 경로도 내용을 본다" 'db_migration' 'printf "echo \"ALTER TABLE t ADD c int\"\n" > src/한글.sh && git add src/한글.sh'
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "echo x\n" > src/auth.sh && git add src/auth.sh ) >/dev/null 2>&1
+_sig "Q3.a 경로에 auth → 고위험(auth)" 'auth' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "echo \"ALTER TABLE t ADD c int\"\n" > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_sig "Q3.b 변경 줄에 ALTER TABLE → 고위험(db_migration)" 'db_migration' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p screens && printf "<p>x</p>\n" > screens/list.html && printf "echo v2\n" > src/a.sh && git add screens src/a.sh ) >/dev/null 2>&1
+_sig "Q3.c 화면 문서를 함께 고침 → 고위험(ui_if)" 'ui_if' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p .claude-plugin hooks && printf "{}\n" > .claude-plugin/plugin.json && git add .claude-plugin && git -c user.name=t -c user.email=t@e.com commit -qm p && printf "echo h\n" > hooks/x.sh && git add hooks/x.sh ) >/dev/null 2>&1
+_sig "Q3.d 플러그인 저장소의 훅 수정 → 고위험(plugin_runtime)" 'plugin_runtime' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p prisma && printf "model U {\n  id Int\n}\n" > prisma/schema.prisma && git add prisma ) >/dev/null 2>&1
+_sig "Q3.g 스키마 정의 파일(schema.prisma)에 필드 한 줄 → 고위험(schema)" 'schema' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p db && printf "ADD COLUMN email text;\n" > db/001.sql && git add db ) >/dev/null 2>&1
+_sig "Q3.h .sql 의 ADD COLUMN(TABLE 키워드 없음) → 고위험(schema)" 'schema' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "echo \"ALTER TABLE t ADD c int\"\n" > src/한글.sh && git add src/한글.sh ) >/dev/null 2>&1
+_sig "Q3.i 한글 경로의 변경 줄에 ALTER TABLE → 고위험(db_migration) — 비ASCII 경로도 내용을 본다" 'db_migration' "$s"
 # 대조 — 변경하지 않은 줄(문맥)의 낱말은 신호가 아니다
 sb2=$(_mk); _SBS="$_SBS $sb2"; mkdir -p "$sb2/.specops/$F"
 ( cd "$sb2" && printf '# permission 검사는 다른 곳에서 한다\necho v1\n' > src/a.sh && git add src/a.sh \
@@ -146,20 +159,23 @@ _hand_receipt() {  # <sb> <outputs — 쉼표 구분>
 }
 
 # ── H1 범위 초과 — 영수증이 유효해도 커밋 차단, 사유가 걸린 기준을 말한다 (AC-2) ──
-_h_over() {  # <라벨> <기대 사유 조각> <outputs> <준비 명령>
-  local s v; s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
-  ( cd "$s" && eval "$4" ) >/dev/null 2>&1; _review "$s" PASS; _hand_receipt "$s" "$3"
+_h_over() {  # <라벨> <기대 사유 조각> <outputs> <준비를 마친 샌드박스>
+  local s="$4" v; _review "$s" PASS; _hand_receipt "$s" "$3"
   [ -f "$s/.specops/$F/receipts/T1.json" ] || { nope "$1" "픽스처 — 영수증이 만들어지지 않았다"; return; }
   v=$(_hook "$s" "$MSG")
   printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -qF "quick 범위 초과 — $2" && printf '%s' "$v" | grep -q '/maintain-lite' \
     && ! printf '%s' "$v" | grep -q '기록된 receipt 가 유효하지 않습니다' \
     && ok "$1" || nope "$1" "$(printf '%s' "$v" | tail -6)"
 }
-_h_over "H1.a ★ 구현 파일 3개 → 차단 · 사유에 기준과 /maintain-lite ('영수증 무효' 라고 말하지 않는다)" '구현 파일 3개 (상한 2개)' \
-  'src/a.sh, src/b.sh, src/c.sh' 'printf "echo v2\n" > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src'
-_h_over "H1.b 변경 31줄 → 차단" '변경 31줄 (상한 20줄' 'src/a.sh' '{ echo "echo v2"; _n 29; } > src/a.sh && git add src/a.sh'
-_h_over "H1.c 고위험 신호(스키마 파일) → 차단" '고위험 신호: schema' 'src/a.sh, db/001.sql' \
-  'printf "echo v2\n" > src/a.sh && mkdir -p db && printf "ADD COLUMN x int;\n" > db/001.sql && git add src db'
+s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
+( cd "$s" && printf "echo v2\n" > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src ) >/dev/null 2>&1
+_h_over "H1.a ★ 구현 파일 3개 → 차단 · 사유에 기준과 /maintain-lite ('영수증 무효' 라고 말하지 않는다)" '구현 파일 3개 (상한 2개)' 'src/a.sh, src/b.sh, src/c.sh' "$s"
+s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
+( cd "$s" && { echo "echo v2"; _n 29; } > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_h_over "H1.b 변경 31줄 → 차단" '변경 31줄 (상한 20줄' 'src/a.sh' "$s"
+s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
+( cd "$s" && printf "echo v2\n" > src/a.sh && mkdir -p db && printf "ADD COLUMN x int;\n" > db/001.sql && git add src db ) >/dev/null 2>&1
+_h_over "H1.c 고위험 신호(스키마 파일) → 차단" '고위험 신호: schema' 'src/a.sh, db/001.sql' "$s"
 
 # ── H2 리뷰 미충족 — 커밋 차단, 사유는 범위 초과와 다르다 (AC-3) ────────────
 sb=$(_mk); _SBS="$_SBS $sb"; _open_fid "$sb"
@@ -343,9 +359,15 @@ printf '%s' "$h" | grep -q 'quick 범위 초과 — 사유 조회 실패' \
   && ok "R3.b 판정기를 부를 수 없어 사유를 못 얻으면 그렇다고 말한다(빈 사유를 내지 않는다)" || nope "R3.b" "$(printf '%s' "$h" | head -3)"
 
 # R4 판정기 — 빠져 있던 신호 단언 · 테스트 파일 이름 · 해석할 수 없는 경로
-_sig "R4.a 변경 줄의 외부 API 경로 → 고위험(public_api)" 'public_api' 'printf "curl http://x/api/v1/list\n" > src/a.sh && git add src/a.sh'
-_sig "R4.b 인터페이스 설계 문서(api-spec.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' 'mkdir -p docs && printf "x\n" > docs/api-spec.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh'
-_sig "R4.c 테이블 설계 문서(data-model.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' 'mkdir -p docs && printf "x\n" > docs/data-model.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh'
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "curl http://x/api/v1/list\n" > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_sig "R4.a 변경 줄의 외부 API 경로 → 고위험(public_api)" 'public_api' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p docs && printf "x\n" > docs/api-spec.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh ) >/dev/null 2>&1
+_sig "R4.b 인터페이스 설계 문서(api-spec.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && mkdir -p docs && printf "x\n" > docs/data-model.md && printf "echo v2\n" > src/a.sh && git add docs src/a.sh ) >/dev/null 2>&1
+_sig "R4.c 테이블 설계 문서(data-model.md)를 함께 고침 → 고위험(ui_if)" 'ui_if' "$s"
 sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
 ( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 30 > src/test-helper.sh && git add src ); _review "$sb" PASS
 out=$(_scope "$sb"); rc=$?
@@ -385,7 +407,7 @@ sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/real"; ln -s "$sb/real" "$sb/.specops
 out=$(cd "$sb" && bash "$QF" start "$F" "x" 2>&1); rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'symlink' && ok "R5.c FID 폴더가 symlink → 거부" || nope "R5.c" "rc=$rc out=$out"
 
-# shellcheck disable=SC2086
-rm -rf $_SBS
+# 샌드박스 정리 — 경로를 하나씩 따옴표로 넘긴다(_SBS 는 mktemp 경로를 공백으로 이은 목록이다)
+for _d in $_SBS; do rm -rf "$_d"; done
 echo ""
 finish
