@@ -1873,7 +1873,9 @@ _form_deny5() {  # $1=id $2=명령
   done
   if [ "$n" -eq 5 ]; then echo "PASS $1 → deny 5/5"; pass=$((pass+1)); else echo "FAIL $1 — deny $n/5 (전부 막혀야 한다)"; fail=$((fail+1)); fi
 }
-_tp_big=$(_tp_i=0; while [ "$_tp_i" -lt 4000 ]; do echo "echo line-$_tp_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _tp_i=$((_tp_i+1)); done)
+#   크기는 약 103KB 로 둔다: 파이프 버퍼(64KB)보다 커야 재현되고, Linux 가 exec 인자 1개에 두는 한도(131072바이트)보다는
+#   작아야 한다 — 이 문자열이 jq --arg 의 인자로 넘어간다(넘으면 입력이 만들어지지 않아 CI 의 ubuntu 에서만 거짓 결과가 난다).
+_tp_big=$(_tp_i=0; while [ "$_tp_i" -lt 2000 ]; do echo "echo line-$_tp_i-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; _tp_i=$((_tp_i+1)); done)
 _form_deny5 "T-pipe.a ★ 인용 메시지 + 줄 연속 커밋" 'git commit -m "x" \
   --no-verify'
 _form_deny5 "T-pipe.b ★ gh pr create + 인용 + 줄 연속" 'gh pr create --title "x" \
