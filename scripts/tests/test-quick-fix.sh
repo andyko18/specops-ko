@@ -264,6 +264,16 @@ v=$(_hook "$sb" "$MSG")
 [ "$rc" = 1 ] && [ ! -f "$sb/.specops/$F/receipts/T1.json" ] && printf '%s' "$v" | grep -q '^DENY' \
   && ok "S3.c 테스트 실패 → 봉인 실패(rc 1), 영수증 없음, 커밋 차단 (AC-4)" || nope "S3.c" "rc=$rc out=$out v=$(printf '%s' "$v" | head -1)"
 
+# ── D 진입·계약 — 리뷰어의 quick 입력 · 자연어 추론 금지 (AC-5) ─────────────
+CR="$PLUGIN/agents/code-reviewer-ko.md"; META="$PLUGIN/skills/using-specops-ko/SKILL.md"
+grep -qF 'quick 경로: yes' "$CR" && grep -qF '`quick 경로: yes` 표시가 있으면 SKIP 하지 않는다' "$CR" \
+  && grep -qF 'N/A(quick 경로 — 명세 없음)' "$CR" \
+  && ok "D2.a code-reviewer-ko — quick 표시를 받는 컨텍스트로 받고 SKIP 하지 않는다" || nope "D2.a" "계약에 quick 입력이 없다"
+grep -qF '경로도 병렬 표시도 없으면 SKIP 반환' "$CR" \
+  && ok "D2.b 종전 자격 게이트(경로·병렬 표시 둘 다 없으면 SKIP)는 그대로다" || nope "D2.b" "SKIP 문구가 사라졌다"
+grep -qF '`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**' "$META" \
+  && ok "D3.a 메타 스킬 — 자연어로 /quick-fix 를 추론하지 않는다(lite 와 같은 줄)" || nope "D3.a" "메타 스킬에 문구 없음"
+
 # shellcheck disable=SC2086
 rm -rf $_SBS
 echo ""
