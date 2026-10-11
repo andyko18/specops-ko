@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.20.1] — 2026-10-11
+
 ### Fixed
 
 - **훅 밖 스크립트가 일치를 불일치로 읽던 줄을 고쳤다.** `set -…o pipefail` 아래의 `producer | grep -q` 는 grep 이 첫 일치에서 끝난 뒤에도 앞단이 쓰고 있으면 앞단이 SIGPIPE 로 죽어 일치가 불일치로 읽힌다. 실제로 틀리던 것이 둘이다: `gbrain-recall.sh` 는 UTF-8 이 아닌 로케일에서 `C.UTF-8` 이 있는데도 `en_US.UTF-8` 을 골랐고(macOS 실측 50회 중 50회 — 로케일 목록은 3KB 다. 입력이 작다고 안전하지 않다), `check-screen-quality.sh` 는 States 절이 파이프 버퍼(64KB)를 넘으면 `states=0/3` 을 냈다. 같은 형태 13줄(`check-screen-quality` 3 · `git-branch-create` 3 · `stage-timing` 3 · `release` 2 · `gbrain-append` 1 · `gbrain-recall` 1)을 파이프 없는 형태로 바꿨다 — 판정 내용은 그대로다. `test-hooks.sh` T8.o 가 pipefail 을 켜는 훅 밖 스크립트(`scripts/` · `skills/` · `evals/` — 테스트 제외) 전체에서 재발을 잠근다.
@@ -3207,7 +3209,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.1...HEAD
+[2.20.1]: https://github.com/andyko18/specops-ko/compare/v2.20.0...v2.20.1
 [2.20.0]: https://github.com/andyko18/specops-ko/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/andyko18/specops-ko/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/andyko18/specops-ko/compare/v2.17.0...v2.18.0
