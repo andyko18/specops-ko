@@ -13,7 +13,7 @@ _sed_i() {
 }
 
 # FR-1: semver X.Y.Z 검증
-if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+if ! grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' <<< "$VERSION"; then
   echo "Error: semver X.Y.Z 형식이 아닙니다: '${VERSION}'" >&2
   exit 1
 fi
@@ -34,7 +34,7 @@ if [ -n "$_untracked" ]; then
 fi
 
 # FR-11: 이미 태그된 버전 확인
-if git -C "$PLUGIN_ROOT" tag -l "v${VERSION}" 2>/dev/null | grep -q "^v${VERSION}$"; then
+if grep -q "^v${VERSION}$" <<< "$(git -C "$PLUGIN_ROOT" tag -l "v${VERSION}" 2>/dev/null)"; then
   echo "Error: v${VERSION} already tagged" >&2
   exit 1
 fi

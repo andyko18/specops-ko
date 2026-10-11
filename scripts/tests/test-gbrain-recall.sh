@@ -132,6 +132,46 @@ out=$(GBRAIN_FILE="$gf" bash "$PLUGIN/scripts/gbrain-recall.sh" "betagamma" --to
 [ -n "$out" ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: AC-R-2 탭 이후 토큰 스코어 누락(회귀)"; }
 rm -rf "$(dirname "$gf")"
 
+# === 로케일 고르기 (FID 20261011-script-pipe-grep) ===
+# UTF-8 이 아닌 로케일에서 스크립트는 `locale -a` 목록에 C.UTF-8(또는 C.utf8)이 있으면 그것을, 없으면 en_US.UTF-8 을 고른다.
+# 종전의 `locale -a | grep -q` 는 pipefail 아래에서, grep 이 첫 일치에서 끝난 뒤 locale 이 SIGPIPE 로 죽어 "있는데도 없다" 로
+#   읽었다(macOS 실측 50회 중 50회). 가짜 locale 을 PATH 앞에 두어 목록을 파이프 버퍼(64KB)보다 길게 만들고(환경과 무관하게
+#   그 경합을 만든다), 스크립트가 고른 값은 실행 흔적(bash -x)으로 본다.
+ld="$TD/fakebin"; mkdir -p "$ld"
+_fake_locale() {  # <앞줄…> → 그 줄들을 먼저 쓰고 이어서 약 120KB 를 쓰는 locale
+  {
+    printf '#!/bin/sh\n'
+    for _l in "$@"; do printf 'echo %s\n' "$_l"; done
+    printf '%s\n' "awk 'BEGIN { for (i = 0; i < 6000; i++) print \"xx_YY.ISO8859-\" i }'"
+  } > "$ld/locale"
+  chmod +x "$ld/locale"
+}
+_picked() {  # → 스크립트가 고른 LC_ALL 값 (고르지 않았으면 빈 문자열)
+  LC_ALL=C LANG=C PS4='+ ' PATH="$ld:$PATH" bash -x "$SCRIPT" "alpha" 2>&1 >/dev/null | sed -n 's/^+ export LC_ALL=//p'
+}
+_fake_locale C C.UTF-8 POSIX
+_lbad=""
+for _li in 1 2 3 4 5; do _lp=$(_picked); [ "$_lp" = "C.UTF-8" ] || _lbad="$_lbad [$_lp]"; done
+if [ -z "$_lbad" ]; then
+  PASS=$((PASS+1)); echo "PASS T3.a 로케일 목록에 C.UTF-8 이 있으면 그것을 고른다 (5회 반복 · 목록 약 120KB)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.a C.UTF-8 이 목록에 있는데 다른 값을 골랐다:$_lbad"
+fi
+_fake_locale C C.utf8 POSIX
+_lp=$(_picked)
+if [ "$_lp" = "C.UTF-8" ]; then
+  PASS=$((PASS+1)); echo "PASS T3.b glibc 표기(C.utf8)도 같은 것으로 읽는다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.b (고른 값='$_lp')"
+fi
+_fake_locale C POSIX
+_lp=$(_picked)
+if [ "$_lp" = "en_US.UTF-8" ]; then
+  PASS=$((PASS+1)); echo "PASS T3.c 목록에 C.UTF-8 이 없으면 en_US.UTF-8 로 떨어진다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T3.c (고른 값='$_lp')"
+fi
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

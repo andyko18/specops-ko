@@ -950,4 +950,25 @@ _qloc '<main><label for=A>A</label><input id=a></main>' "0/1"
 _qloc '<main><label for="">A</label><input id=""></main>' "0/1"
 [ -z "$_qbad" ] && ok "Q3 속성명 대소문자·따옴표 3종·공백·CRLF(값 뒤 줄바꿈 포함)·탭·여러 줄·자기 닫힘·한글 id 는 같은 짝(1/1), 값 대소문자 불일치·빈 값은 짝 아님(0/1) — LC_ALL=C·UTF-8 양쪽 동일" || nope "Q3" "$_qbad"
 
+# ── S: FID 20261011-script-pipe-grep — States 판정이 절 크기와 무관하다 ──
+#   왜: 계측기는 `set -uo pipefail` 이다. States 의 세 판정이 `printf "$sec" | grep -qiE` 였을 때, grep 이 첫 일치에서
+#   끝나면 printf 가 SIGPIPE 로 죽어 충족이 미충족으로 읽혔다 — 절이 파이프 버퍼(64KB)를 넘으면 매번 states=0/3.
+#   지금은 같은 파일의 _has(here-string)로 읽는다. 절은 파일로 읽히므로 exec 인자 한도와 무관하다.
+_sbig() {  # <줄 본문> → 그 줄을 3000번 되풀이한 States 절을 가진 화면 문서
+  printf '# L\n\n**원형**: 기타\n\n## States\n'
+  awk -v s="$1" 'BEGIN { for (i = 1; i <= 3000; i++) printf "- %s %04d\n", s, i }'
+}
+_sbig 'empty 데이터 없음 · loading 로딩 · error 오류' > "$TD/s1a.md"
+_ssz=$(wc -c < "$TD/s1a.md" | tr -d ' ')
+_sbad=""
+for _si in 1 2 3; do
+  o=$(_hq "$TD/s1a.md"); [ "$(_val "$o" states)" = "3/3" ] || _sbad="$_sbad $(_val "$o" states)"
+done
+if [ -z "$_sbad" ] && [ "$_ssz" -gt 65536 ]; then
+  ok "S1.a 큰 States 절(${_ssz}바이트) — 세 상태가 다 있으면 states=3/3 (3회 반복)"; else nope "S1.a" "크기=${_ssz} · 3/3 이 아닌 값:$_sbad"; fi
+_sbig 'loading 로딩 · error 오류' > "$TD/s1b.md"
+o=$(_hq "$TD/s1b.md")
+if [ "$(_val "$o" states)" = "2/3" ] && printf '%s' "$o" | grep -q '미정의: empty (2/3)'; then
+  ok "S1.b 큰 States 절에서 empty 만 없으면 empty 만 미정의(2/3) — 크기가 판정을 바꾸지 않는다"; else nope "S1.b" "states=$(_val "$o" states)"; fi
+
 finish

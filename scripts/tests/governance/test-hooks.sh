@@ -373,6 +373,47 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T8.n 판별식이 가려내지 못한다 — 걸린 줄='$_n_hits' (기대 '2 6')"
 fi
 
+# T8.o ★ 훅 밖 스크립트에도 "파이프 뒤 grep -q" 가 없다 — pipefail 을 켜는 파일 전부 (20261011-script-pipe-grep)
+#   왜: 같은 병이 훅 밖에도 있었다. `locale -a | grep -q` 는 입력 3KB 에서도 매번 틀렸다 — 앞단이 줄마다 나눠 쓰면
+#   grep 이 끝난 뒤의 쓰기에서 죽는다. 입력이 작다고 안전하지 않다. 대상은 scripts(tests 제외) · skills · evals 의 *.sh 가운데
+#   `set … pipefail` 줄이 어디든 있는 파일이다. 파일 단위다 — pipefail 이 함수 안에만 있어도 그 파일 전체를 본다.
+#   pipefail 을 켜지 않는 파일과, 그런 파일이 source 로 끌어오는 파일은 보지 못한다.
+_PIPEFAIL_RE='^[[:space:]]*set[[:space:]]+(-[A-Za-z]+[[:space:]]+)*-[A-Za-z]*o[[:space:]]+pipefail'
+_pipefail_sh_files() {  # <디렉토리…> → pipefail 을 켜는 *.sh (…/scripts/tests/ 아래 제외 · 없는 디렉토리는 건너뛴다)
+  find "$@" -name '*.sh' -not -path '*/scripts/tests/*' -exec grep -lE "$_PIPEFAIL_RE" {} + 2>/dev/null | sort
+}
+_pipefail_sh_hits() {  # <디렉토리…> → 그 파일들에서 걸린 줄
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] && _pipe_grep_q_hits "$f"
+  done <<< "$(_pipefail_sh_files "$@")"
+}
+_o_files=$(_pipefail_sh_files "$PLUGIN/scripts" "$PLUGIN/skills" "$PLUGIN/evals")
+_o_hits=$(_pipefail_sh_hits "$PLUGIN/scripts" "$PLUGIN/skills" "$PLUGIN/evals")
+_o_n=$(grep -c . <<< "$_o_files")
+if grep -qxF "$PLUGIN/scripts/release.sh" <<< "$_o_files" && [ -z "$_o_hits" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.o ★ pipefail 을 켜는 훅 밖 스크립트 ${_o_n}개에 파이프 뒤 grep -q 없음"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.o 훅 밖 스크립트가 pipefail 아래에서 일치를 파이프 뒤 grep -q 로 읽는다(대상 ${_o_n}개 — 0개면 대상 목록이 깨진 것이다) — grep -Eq \"\$re\" <<< \"\$text\" 형태로 바꿀 것:"; printf '%s\n' "$_o_hits" | cut -c1-200
+fi
+
+# T8.p 잠금(T8.o)의 대상 고르기가 실제로 가려낸다 — pipefail 을 켜는 파일만, 테스트 디렉토리는 빼고
+#   왜: 대상 목록이 비면 T8.o 는 걸린 줄 0 으로 통과한다. 임시 트리로 양쪽을 다 잰다.
+_p_d=$(mktemp -d); mkdir -p "$_p_d/scripts/tests" "$_p_d/skills/x/scripts"
+printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'printf "%s" "$a" | grep -q x' > "$_p_d/scripts/a.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'set -u' 'printf "%s" "$a" | grep -q x' > "$_p_d/scripts/b.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail' 'printf "%s" "$a" | grep -q x' > "$_p_d/scripts/tests/c.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'printf "%s" "$a" | grep -q x' 'f() (' '  set -o pipefail' ')' > "$_p_d/scripts/d.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'set -e -o pipefail' '# printf "%s" "$a" | grep -q x' 'grep -q x <<< "$a"' > "$_p_d/skills/x/scripts/e.sh"
+_p_files=$(_pipefail_sh_files "$_p_d/scripts" "$_p_d/skills" "$_p_d/evals" | sed "s|^$_p_d/||" | tr '\n' ' ' | sed 's/ $//')
+_p_hits=$(_pipefail_sh_hits "$_p_d/scripts" "$_p_d/skills" "$_p_d/evals" | sed -E 's/^  ([^:]+:[0-9]+):.*/\1/' | tr '\n' ' ' | sed 's/ $//')
+rm -rf "$_p_d"
+if [ "$_p_files" = "scripts/a.sh scripts/d.sh skills/x/scripts/e.sh" ] && [ "$_p_hits" = "scripts/a.sh:3 scripts/d.sh:2" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.p 대상 고르기 — pipefail 을 켜는 파일(함수 안 · 옵션을 나눠 쓴 형태 포함)만 대상이고, pipefail 없는 파일 · 테스트 디렉토리 · 없는 디렉토리는 빠진다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.p 대상 고르기가 가려내지 못한다 — 대상='$_p_files' (기대 'scripts/a.sh scripts/d.sh skills/x/scripts/e.sh') · 걸린 줄='$_p_hits' (기대 'scripts/a.sh:3 scripts/d.sh:2')"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

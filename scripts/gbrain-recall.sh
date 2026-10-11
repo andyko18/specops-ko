@@ -8,7 +8,7 @@ set -uo pipefail
 # 한글 토큰 매칭용 UTF-8 로케일 보장 (Linux C 로케일 대비 — A-1, glibc C.utf8 표기 포함)
 case "${LC_ALL:-${LANG:-}}" in
   *.UTF-8|*.utf8) ;;
-  *) if locale -a 2>/dev/null | grep -qiE '^C\.(UTF-8|utf8)$'; then export LC_ALL=C.UTF-8; else export LC_ALL=en_US.UTF-8; fi ;;
+  *) if grep -qiE '^C\.(UTF-8|utf8)$' <<< "$(locale -a 2>/dev/null)"; then export LC_ALL=C.UTF-8; else export LC_ALL=en_US.UTF-8; fi ;;
 esac
 
 Q="${1:?질의 텍스트 required}"
