@@ -52,6 +52,14 @@ for bad in "a b" "a..b" 'x~y'; do
   fi
 done
 
+# T5: 끝이 '-' 인 FID(빈 슬러그 `YYYYMMDD-`) 차단 — T4 의 입력 3종에 없던 가지 (20261011-script-pipe-grep)
+err=$(bash "$SCRIPT" "20261011-" 2>&1); rc=$?
+if [ $rc -eq 1 ] && echo "$err" | grep -q "invalid FID"; then
+  PASS=$((PASS+1)); echo "PASS T5 끝이 '-' 인 FID → exit 1"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T5 끝이 '-' 인 FID (rc=$rc err=$err)"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ $FAIL -eq 0 ]

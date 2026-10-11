@@ -3,9 +3,9 @@ set -euo pipefail
 FID="${1:?FID required}"
 # FID 가드 — git ref 금지문자(공백·~·^·: 등) + 연속 점(..) 차단. emit-context.sh 규칙 + .. 보강
 # 빈 슬러그(trailing dash = `YYYYMMDD-`) + 과길이(60자 초과)도 2차 차단 (LLM FID 생성 가드)
-if ! printf '%s' "$FID" | grep -Eq '^[A-Za-z0-9._-]+$' \
-   || printf '%s' "$FID" | grep -q '\.\.' \
-   || printf '%s' "$FID" | grep -qE -- '-$' \
+if ! grep -Eq '^[A-Za-z0-9._-]+$' <<< "$FID" \
+   || grep -q '\.\.' <<< "$FID" \
+   || grep -qE -- '-$' <<< "$FID" \
    || [ "${#FID}" -gt 60 ]; then
   echo "ERROR: invalid FID format: '$FID' (허용: A-Za-z0-9._- · '..'·trailing '-' 금지 · ≤60자)" >&2
   exit 1

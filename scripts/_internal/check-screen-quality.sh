@@ -382,9 +382,9 @@ _analyze() {  # $1=md $2=html
     # ★ 누락 '항목명' 을 남긴다 — 리뷰어 표는 심각도를 종류로 가른다
     #   (empty·error 미정의=Important / loading 만 누락=Minor). 비율만 내면 그 판정을
     #   계측 결과에서 도출할 수 없어 리뷰어가 md 를 재독하게 되고, 그건 추측 판정 금지 계약과 어긋난다.
-    if printf '%s' "$sec" | grep -qiE 'empty|빈 상태|빈상태|데이터 없음|결과 없음|no data|no results'; then st=$((st+1)); else miss="$miss,empty"; fi
-    if printf '%s' "$sec" | grep -qiE 'loading|로딩'; then st=$((st+1)); else miss="$miss,loading"; fi
-    if printf '%s' "$sec" | grep -qiE 'error|오류|에러'; then st=$((st+1)); else miss="$miss,error"; fi
+    if _has "$sec" 'empty|빈 상태|빈상태|데이터 없음|결과 없음|no data|no results'; then st=$((st+1)); else miss="$miss,empty"; fi
+    if _has "$sec" 'loading|로딩'; then st=$((st+1)); else miss="$miss,loading"; fi
+    if _has "$sec" 'error|오류|에러'; then st=$((st+1)); else miss="$miss,error"; fi
     miss="${miss#,}"
     states="$st/3"
   else

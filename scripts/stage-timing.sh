@@ -29,15 +29,15 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --since)
       need_val "$@"
-      printf '%s' "$2" | grep -qE '^[0-9]{8}$' || die "--since 는 YYYYMMDD 여야 합니다: $2"
+      grep -qE '^[0-9]{8}$' <<< "$2" || die "--since 는 YYYYMMDD 여야 합니다: $2"
       SINCE="$2"; shift 2 ;;
     --gap-cap-min)
       need_val "$@"
-      printf '%s' "$2" | grep -qE '^[1-9][0-9]*$' || die "--gap-cap-min 은 1 이상의 정수여야 합니다: $2"
+      grep -qE '^[1-9][0-9]*$' <<< "$2" || die "--gap-cap-min 은 1 이상의 정수여야 합니다: $2"
       CAP="$2"; shift 2 ;;
     --min-n)
       need_val "$@"
-      printf '%s' "$2" | grep -qE '^[1-9][0-9]*$' || die "--min-n 은 1 이상의 정수여야 합니다: $2"
+      grep -qE '^[1-9][0-9]*$' <<< "$2" || die "--min-n 은 1 이상의 정수여야 합니다: $2"
       MINN="$2"; shift 2 ;;
     --split) SPLIT=1; shift ;;
     --by-agent) BYAGENT=1; SPLIT=1; shift ;;
