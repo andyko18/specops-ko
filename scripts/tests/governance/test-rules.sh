@@ -238,9 +238,14 @@ _CHECK_TASK_RECEIPT_SH=$_old_cts; rm -f "$_stub"; rm -rf "$_sbt"
 # T4.d 판정 불가 → fail-open (AC-6): id 줄 0건(YAML 아님)·읽기 불가
 _sbd=$(mktemp -d); _b_setup "$_sbd" no
 _tcase "T4.d1 (AC-6) tasks.md 가 YAML 아님(id 줄 0건) → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T1"')"
-_tid_setup "$_sbd" T1; chmod 000 "$_sbd/.specops/$_bfid/tasks.md"
-_tcase "T4.d2 (AC-6) tasks.md 읽기 불가 → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T9"')"
-chmod 644 "$_sbd/.specops/$_bfid/tasks.md"; rm -rf "$_sbd"
+if [ "$(id -u)" -eq 0 ]; then  # root 는 chmod 000 을 읽어 버려 읽기 불가가 재현되지 않는다
+  echo "SKIP T4.d2 (AC-6) tasks.md 읽기 불가 — root 로 실행 중(권한 검사 무의미)"
+else
+  _tid_setup "$_sbd" T1; chmod 000 "$_sbd/.specops/$_bfid/tasks.md"
+  _tcase "T4.d2 (AC-6) tasks.md 읽기 불가 → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T9"')"
+  chmod 644 "$_sbd/.specops/$_bfid/tasks.md"
+fi
+rm -rf "$_sbd"
 # T4.e 따옴표·주석 변형은 있는 id 로 인정 (AC-9)
 _sbe=$(mktemp -d); _tid_setup "$_sbe" T1 '"T2"' "'T3'" 'T4 # 비고'
 for _n in 2 3 4; do _tcase "T4.e$_n (AC-9) Task: T$_n 변형 표기 → open-missing(오탐 아님)" open-missing "$(_tid_cause "$_sbe" "$(printf 'git commit -m "x\n\nTask: T%s"' "$_n")")"; done
