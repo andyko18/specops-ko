@@ -9,6 +9,12 @@ source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 PASS=0; FAIL=0
 FTW="$PLUGIN/scripts/tests/find-tree-writes.sh"
+# root 는 쓰기 금지 사본에도 쓴다 — 거부가 0건이라 "보고됨" 단언은 실패하고 "보고 안 됨" 단언은 공허하게 통과한다. 둘 다 SKIP
+_ROOT_SKIP=0; [ "$(id -u)" -eq 0 ] && _ROOT_SKIP=1
+_denial() {  # $1=케이스 id — root 면 SKIP 하고 rc 1(단언 생략), 아니면 rc 0
+  [ "$_ROOT_SKIP" -eq 1 ] || return 0
+  skip "$1 — root 로 실행 중(쓰기 거부가 일어나지 않아 탐지 검사 무의미)"; return 1
+}
 
 # fixture repo — iso::make_tree 는 git ls-files 와 validate-structure.sh 를 요구한다
 _fx() {  # $1=스위트 구성(writer|clean) → 경로
@@ -37,16 +43,26 @@ trap 'rm -rf "$FX" "$CL"' EXIT
 
 _st0=$(cd "$FX" && git status --porcelain)
 out=$(bash "$FTW" --root "$FX" -j 2 2>&1); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-writer.sh: .*written.txt: Permission denied'; } \
-  && ok "T1.a 루트에 쓰는 스위트 보고 · rc=1" || nope "T1.a writer" "rc=$rc out=[$out]"
-printf '%s\n' "$out" | grep -q '^REVIEW scripts/tests/test-relwriter.sh: .*rel.txt: Permission denied' \
-  && ok "T1.b 상대경로(cwd=루트) 쓰기는 검토(REVIEW)로 보고" || nope "T1.b relwriter" "out=[$out]"
-! printf '%s\n' "$out" | grep -q 'test-reader.sh' \
-  && ok "T1.c 읽기만 하는 스위트는 보고하지 않음" || nope "T1.c reader 오보" "out=[$out]"
-printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 1건 · 스위트 2/5' \
-  && ok "T1.d 요약 수치 (확정 1 · 검토 1 · 스위트 2/5 — validate-structure 포함)" || nope "T1.d 요약" "$(printf '%s\n' "$out" | tail -1)"
-! printf '%s\n' "$out" | grep -q 'test-nester.sh' \
-  && ok "T1.f 스위트 자신의 임시 사본 거부는 보고하지 않음 (오탐 억제)" || nope "T1.f nester 오보" "out=[$out]"
+if _denial T1.a; then
+  { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-writer.sh: .*written.txt: Permission denied'; } \
+    && ok "T1.a 루트에 쓰는 스위트 보고 · rc=1" || nope "T1.a writer" "rc=$rc out=[$out]"
+fi
+if _denial T1.b; then
+  printf '%s\n' "$out" | grep -q '^REVIEW scripts/tests/test-relwriter.sh: .*rel.txt: Permission denied' \
+    && ok "T1.b 상대경로(cwd=루트) 쓰기는 검토(REVIEW)로 보고" || nope "T1.b relwriter" "out=[$out]"
+fi
+if _denial T1.c; then
+  ! printf '%s\n' "$out" | grep -q 'test-reader.sh' \
+    && ok "T1.c 읽기만 하는 스위트는 보고하지 않음" || nope "T1.c reader 오보" "out=[$out]"
+fi
+if _denial T1.d; then
+  printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 1건 · 스위트 2/5' \
+    && ok "T1.d 요약 수치 (확정 1 · 검토 1 · 스위트 2/5 — validate-structure 포함)" || nope "T1.d 요약" "$(printf '%s\n' "$out" | tail -1)"
+fi
+if _denial T1.f; then
+  ! printf '%s\n' "$out" | grep -q 'test-nester.sh' \
+    && ok "T1.f 스위트 자신의 임시 사본 거부는 보고하지 않음 (오탐 억제)" || nope "T1.f nester 오보" "out=[$out]"
+fi
 { [ ! -e "$FX/written.txt" ] && [ ! -e "$FX/rel.txt" ] && [ "$(cd "$FX" && git status --porcelain)" = "$_st0" ]; } \
   && ok "T1.e 대상 repo 는 변경되지 않음 (사본에서만 실행)" || nope "T1.e 대상 repo 변경" "$(cd "$FX" && git status --porcelain)"
 
@@ -67,11 +83,13 @@ for n in "sp ace" "q'uote"; do
 done
 ( cd "$OD" && git add -A ) >/dev/null 2>&1
 out=$(bash "$FTW" --root "$OD" -j 2 2>&1); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-sp ace.sh: " \
-  && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-q'uote.sh: " \
-  && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 2건 · 검토 0건 · 스위트 2/4' \
-  && ! printf '%s\n' "$out" | grep -q '^xargs:'; } \
-  && ok "T5.a 공백·따옴표 이름 스위트도 검사 (확정 2 · 스위트 2/4)" || nope "T5.a 특수 이름" "rc=$rc out=[$out]"
+if _denial T5.a; then
+  { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-sp ace.sh: " \
+    && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-q'uote.sh: " \
+    && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 2건 · 검토 0건 · 스위트 2/4' \
+    && ! printf '%s\n' "$out" | grep -q '^xargs:'; } \
+    && ok "T5.a 공백·따옴표 이름 스위트도 검사 (확정 2 · 스위트 2/4)" || nope "T5.a 특수 이름" "rc=$rc out=[$out]"
+fi
 out=$(bash "$FTW" --root "$CL" scripts/tests/test-none.sh 2>&1); rc=$?
 { [ "$rc" -eq 2 ] && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
   && ok "T5.b 없는 스위트 경로 → rc=2 (0건으로 위장하지 않음)" || nope "T5.b 없는 경로" "rc=$rc out=[$out]"
@@ -84,15 +102,19 @@ out=$(bash "$FTW" --root "$CL" scripts/tests/test-untracked.sh 2>&1); rc=$?
   && ok "T5.d 미추적 스위트 → rc=2 (사본에 없어 0건으로 위장하지 않음)" || nope "T5.d 미추적" "rc=$rc out=[$out]"
 rm -f "$CL/scripts/tests/test-untracked.sh"
 out=$(bash "$FTW" --root "$FX" ./scripts/tests/test-writer.sh 2>&1); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT ./scripts/tests/test-writer.sh: ' \
-  && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 0건 · 스위트 1/1'; } \
-  && ok "T5.e ./ 접두 경로도 결과가 집계된다 (점파일 누락 없음)" || nope "T5.e ./ 접두" "rc=$rc out=[$out]"
+if _denial T5.e; then
+  { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT ./scripts/tests/test-writer.sh: ' \
+    && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 0건 · 스위트 1/1'; } \
+    && ok "T5.e ./ 접두 경로도 결과가 집계된다 (점파일 누락 없음)" || nope "T5.e ./ 접두" "rc=$rc out=[$out]"
+fi
 printf '%s\n' '#!/usr/bin/env bash' 'R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)' 'echo x > "$R/h.txt"; echo "PASS=1 FAIL=0"' > "$OD/scripts/tests/test-h#ash.sh"
 ( cd "$OD" && git add -A ) >/dev/null 2>&1
 out=$(bash "$FTW" --root "$OD" "scripts/tests/test-h#ash.sh" 2>&1); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-h#ash.sh: ' \
-  && ! printf '%s\n' "$out" | grep -q '^sed:'; } \
-  && ok "T5.f 이름에 # 가 있어도 보고된다 (sed 구분자 충돌 없음)" || nope "T5.f # 이름" "rc=$rc out=[$out]"
+if _denial T5.f; then
+  { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-h#ash.sh: ' \
+    && ! printf '%s\n' "$out" | grep -q '^sed:'; } \
+    && ok "T5.f 이름에 # 가 있어도 보고된다 (sed 구분자 충돌 없음)" || nope "T5.f # 이름" "rc=$rc out=[$out]"
+fi
 
 # run-all 비포함(clarify Q2) — run-all 은 test-*.sh 만 모은다. 이름이 그 패턴이면 매 run-all 마다 전 스위트를 한 번 더 돈다
 case "$(basename "$FTW")" in

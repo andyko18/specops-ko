@@ -13,6 +13,7 @@
 ### Changed
 
 - db-expert(postgres): 대량 INSERT 행 수 권고를 고정 `≈1000행` 에서 `상한 ÷ 컬럼 수 이하` 로 바꾸고 asyncpg 상한(32767) 출처를 단다 — 컬럼이 33개를 넘으면 고정 행 수가 상한을 넘는다(Argus 20260729-backend-common-core 와 같은 형태). 테스트 단언 보강: 규칙 본문 앵커 11개 · `now()` 를 휘발성 목록에 두는 오기 · 구체 값을 쓴 `DONE`/`IMPL` 기록 행 · test-plan-boundary B9a 의 절 제목 줄 앞 고정(PR #212 후속).
+- tests: 권한 거부(`chmod 000`·`444`·`555`·`a-w`)를 전제로 한 케이스는 root 로 실행하면 FAIL 대신 `SKIP` 으로 보고한다 — test-find-tree-writes T1.a·b·c·d·f·T5.a·e·f · test-rules T4.d2 · test-reconcile-check R21 · test-plan-boundary B12(디렉터리 절반) · test-init-finalize F12·F13 · test-session-progress-backup T2.d · test-guard-map T5.ro · test-meter-tokens T6.h · test-fr-foundation-scope T9.k(PASS 로 적던 건너뜀을 SKIP 으로). 근거: root 는 권한 비트를 무시해 클라우드 컨테이너의 run-all 이 main 에서도 2 스위트 FAIL 이었고, 나머지는 거부가 일어나지 않은 채 공허하게 PASS 였다. 비-root 판정은 그대로다.
 
 ## [2.26.0] — 2026-10-19
 
